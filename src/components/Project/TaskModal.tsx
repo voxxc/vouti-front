@@ -21,9 +21,43 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
   const [newComment, setNewComment] = useState("");
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
+  const [isEditingTask, setIsEditingTask] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const { toast } = useToast();
 
   if (!task) return null;
+
+  const handleEditTask = () => {
+    setIsEditingTask(true);
+    setEditTitle(task.title);
+    setEditDescription(task.description);
+  };
+
+  const handleSaveTask = () => {
+    if (!editTitle.trim()) return;
+
+    const updatedTask = {
+      ...task,
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      updatedAt: new Date()
+    };
+
+    onUpdateTask(updatedTask);
+    setIsEditingTask(false);
+    
+    toast({
+      title: "Tarefa atualizada",
+      description: "Título e descrição foram atualizados com sucesso.",
+    });
+  };
+
+  const handleCancelEditTask = () => {
+    setIsEditingTask(false);
+    setEditTitle("");
+    setEditDescription("");
+  };
 
   const handleAddComment = () => {
     if (!newComment.trim()) return;
@@ -105,18 +139,48 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>{task.title}</span>
-            <Badge 
-              variant="secondary" 
-              className={`${
-                task.status === 'waiting' ? 'bg-status-waiting text-yellow-800' :
-                task.status === 'todo' ? 'bg-status-todo text-blue-800' :
-                task.status === 'progress' ? 'bg-status-progress text-orange-800' :
-                'bg-status-done text-green-800'
-              }`}
-            >
-              {TASK_STATUSES[task.status]}
-            </Badge>
+            {isEditingTask ? (
+              <div className="flex-1 mr-4">
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="text-lg font-semibold"
+                  placeholder="Título da tarefa"
+                />
+              </div>
+            ) : (
+              <span>{task.title}</span>
+            )}
+            <div className="flex items-center gap-2">
+              {isEditingTask ? (
+                <>
+                  <Button onClick={handleSaveTask} size="sm" className="gap-1">
+                    <Save className="h-3 w-3" />
+                    Salvar
+                  </Button>
+                  <Button onClick={handleCancelEditTask} variant="outline" size="sm" className="gap-1">
+                    <X className="h-3 w-3" />
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleEditTask} variant="ghost" size="sm" className="gap-1">
+                  <Edit2 className="h-3 w-3" />
+                  Editar
+                </Button>
+              )}
+              <Badge 
+                variant="secondary" 
+                className={`${
+                  task.status === 'waiting' ? 'bg-status-waiting text-yellow-800' :
+                  task.status === 'todo' ? 'bg-status-todo text-blue-800' :
+                  task.status === 'progress' ? 'bg-status-progress text-orange-800' :
+                  'bg-status-done text-green-800'
+                }`}
+              >
+                {TASK_STATUSES[task.status]}
+              </Badge>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -124,7 +188,16 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
           {/* Task Description */}
           <div>
             <h3 className="text-sm font-medium mb-2">Descrição</h3>
-            <p className="text-sm text-muted-foreground">{task.description}</p>
+            {isEditingTask ? (
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Descrição da tarefa"
+                className="min-h-[80px]"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">{task.description}</p>
+            )}
           </div>
 
           {/* Comments Section */}

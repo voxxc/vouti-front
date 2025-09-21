@@ -3,9 +3,10 @@ import Login from "./Login";
 import Dashboard from "./Dashboard";
 import Projects from "./Projects";
 import ProjectView from "./ProjectView";
+import Agenda from "./Agenda";
 import { Project, Task } from "@/types/project";
 
-type AppState = 'login' | 'dashboard' | 'projects' | 'project-view';
+type AppState = 'login' | 'dashboard' | 'projects' | 'project-view' | 'agenda';
 
 const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('login');
@@ -93,6 +94,14 @@ const Index = () => {
     setCurrentState('projects');
   };
 
+  const handleNavigateToAgenda = () => {
+    setCurrentState('agenda');
+  };
+
+  const handleNavigate = (page: 'dashboard' | 'projects' | 'agenda') => {
+    setCurrentState(page);
+  };
+
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
     setCurrentState('project-view');
@@ -129,6 +138,7 @@ const Index = () => {
       <Dashboard
         onLogout={handleLogout}
         onNavigateToProjects={handleNavigateToProjects}
+        onNavigateToAgenda={handleNavigateToAgenda}
       />
     );
   }
@@ -141,6 +151,8 @@ const Index = () => {
         projects={projects}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
+        currentPage="projects"
+        onNavigate={handleNavigate}
       />
     );
   }
@@ -154,6 +166,10 @@ const Index = () => {
         onUpdateProject={handleUpdateProject}
       />
     );
+  }
+
+  if (currentState === 'agenda') {
+    return <Agenda onLogout={handleLogout} projects={projects} />;
   }
 
   return <Login onLogin={handleLogin} />;

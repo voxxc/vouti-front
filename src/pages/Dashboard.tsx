@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Plus, Search, Users } from "lucide-react";
+import { FolderOpen, Plus, Search, Users, Calendar } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 
 interface DashboardProps {
   onLogout: () => void;
   onNavigateToProjects: () => void;
+  onNavigateToAgenda: () => void;
 }
 
-const Dashboard = ({ onLogout, onNavigateToProjects }: DashboardProps) => {
+const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda }: DashboardProps) => {
   return (
     <DashboardLayout onLogout={onLogout}>
       <div className="space-y-8">
@@ -81,10 +82,16 @@ const Dashboard = ({ onLogout, onNavigateToProjects }: DashboardProps) => {
               </div>
             </CardHeader>
             <CardContent>
-              <Button variant="professional" className="w-full">
-                <Search className="mr-2 h-4 w-4" />
-                Acessar Projetos
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={onNavigateToProjects} className="gap-2" variant="professional">
+                  <FolderOpen size={16} />
+                  Acessar Projetos
+                </Button>
+                <Button onClick={onNavigateToAgenda} className="gap-2" variant="outline">
+                  <Calendar size={16} />
+                  Acessar Agenda
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

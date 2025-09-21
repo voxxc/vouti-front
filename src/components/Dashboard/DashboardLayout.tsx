@@ -1,14 +1,16 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
-import { LogOut, FolderOpen } from "lucide-react";
+import { LogOut, FolderOpen, Calendar } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
   onLogout: () => void;
+  currentPage?: 'dashboard' | 'projects' | 'agenda';
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
 }
 
-const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -17,6 +19,37 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
           <Logo size="sm" />
           
           <div className="flex items-center gap-4">
+            {onNavigate && (
+              <nav className="flex items-center gap-2">
+                <Button
+                  variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onNavigate('dashboard')}
+                  className="gap-2"
+                >
+                  <FolderOpen size={16} />
+                  Dashboard
+                </Button>
+                <Button
+                  variant={currentPage === 'projects' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onNavigate('projects')}
+                  className="gap-2"
+                >
+                  <FolderOpen size={16} />
+                  Projetos
+                </Button>
+                <Button
+                  variant={currentPage === 'agenda' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onNavigate('agenda')}
+                  className="gap-2"
+                >
+                  <Calendar size={16} />
+                  Agenda
+                </Button>
+              </nav>
+            )}
             <span className="text-sm text-muted-foreground">
               Bem-vindo ao sistema
             </span>

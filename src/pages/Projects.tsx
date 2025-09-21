@@ -15,9 +15,11 @@ interface ProjectsProps {
   projects: Project[];
   onSelectProject: (project: Project) => void;
   onCreateProject: () => void;
+  currentPage?: 'dashboard' | 'projects' | 'agenda';
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
 }
 
-const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject }: ProjectsProps) => {
+const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject, currentPage, onNavigate }: ProjectsProps) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredProjects = projects.filter(project =>
@@ -34,7 +36,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
   };
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout onLogout={onLogout} currentPage={currentPage} onNavigate={onNavigate}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
