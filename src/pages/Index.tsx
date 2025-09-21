@@ -24,6 +24,7 @@ const Index = () => {
           title: 'Análise inicial do contrato',
           description: 'Revisar cláusulas contratuais e identificar irregularidades',
           status: 'done',
+          comments: [],
           createdAt: new Date('2024-01-15'),
           updatedAt: new Date('2024-01-18')
         },
@@ -32,6 +33,7 @@ const Index = () => {
           title: 'Coleta de documentos',
           description: 'Reunir holerites, rescisão e documentos pessoais',
           status: 'progress',
+          comments: [],
           createdAt: new Date('2024-01-20'),
           updatedAt: new Date('2024-01-22')
         },
@@ -40,6 +42,7 @@ const Index = () => {
           title: 'Elaboração da petição inicial',
           description: 'Redigir petição com fundamentação legal adequada',
           status: 'todo',
+          comments: [],
           createdAt: new Date('2024-01-25'),
           updatedAt: new Date('2024-01-25')
         }
@@ -58,6 +61,7 @@ const Index = () => {
           title: 'Levantamento patrimonial',
           description: 'Identificar e avaliar todos os bens do casal',
           status: 'progress',
+          comments: [],
           createdAt: new Date('2024-02-01'),
           updatedAt: new Date('2024-02-05')
         },
@@ -66,6 +70,7 @@ const Index = () => {
           title: 'Acordo de guarda',
           description: 'Definir termos da guarda compartilhada dos filhos',
           status: 'waiting',
+          comments: [],
           createdAt: new Date('2024-02-03'),
           updatedAt: new Date('2024-02-03')
         }

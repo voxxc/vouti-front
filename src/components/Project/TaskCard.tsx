@@ -10,11 +10,18 @@ interface TaskCardProps {
   task: Task;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
+  onClick?: (task: Task) => void;
 }
 
-const TaskCard = ({ task, onEdit, onDelete }: TaskCardProps) => {
+const TaskCard = ({ task, onEdit, onDelete, onClick }: TaskCardProps) => {
   return (
-    <Card className="shadow-card border-0 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing">
+    <Card 
+      className="shadow-card border-0 hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing hover:cursor-pointer" 
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(task);
+      }}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <CardTitle className="text-sm font-medium leading-5">

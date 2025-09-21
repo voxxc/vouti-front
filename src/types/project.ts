@@ -1,8 +1,16 @@
+export interface Comment {
+  id: string;
+  text: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
   status: 'waiting' | 'todo' | 'progress' | 'done';
+  comments: Comment[];
   createdAt: Date;
   updatedAt: Date;
 }

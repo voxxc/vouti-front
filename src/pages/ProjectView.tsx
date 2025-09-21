@@ -6,6 +6,7 @@ import { ArrowLeft, Search, Plus } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
+import TaskModal from "@/components/Project/TaskModal";
 import { Project, Task, TASK_STATUSES } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,6 +19,8 @@ interface ProjectViewProps {
 
 const ProjectView = ({ onLogout, onBack, project, onUpdateProject }: ProjectViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
   const filteredTasks = project.tasks.filter(task =>
@@ -68,12 +71,32 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject }: ProjectView
     });
   };
 
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsModalOpen(true);
+  };
+
+  const handleUpdateTask = (updatedTask: Task) => {
+    const updatedTasks = project.tasks.map(t =>
+      t.id === updatedTask.id ? updatedTask : t
+    );
+
+    const updatedProject = {
+      ...project,
+      tasks: updatedTasks,
+      updatedAt: new Date()
+    };
+
+    onUpdateProject(updatedProject);
+  };
+
   const handleAddTask = (status: Task['status']) => {
     const newTask: Task = {
       id: `task-${Date.now()}`,
       title: "Nova Tarefa",
       description: "Clique para editar a descrição",
       status,
+      comments: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -148,7 +171,7 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject }: ProjectView
                           {...provided.dragHandleProps}
                           className={snapshot.isDragging ? 'opacity-50' : ''}
                         >
-                          <TaskCard task={task} />
+                          <TaskCard task={task} onClick={handleTaskClick} />
                         </div>
                       )}
                     </Draggable>
@@ -158,6 +181,13 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject }: ProjectView
             })}
           </div>
         </DragDropContext>
+
+        <TaskModal
+          task={selectedTask}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onUpdateTask={handleUpdateTask}
+        />
       </div>
     </DashboardLayout>
   );
