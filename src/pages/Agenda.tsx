@@ -18,12 +18,16 @@ import { useToast } from "@/hooks/use-toast";
 interface AgendaProps {
   onLogout: () => void;
   projects: Project[];
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
 }
 
-const Agenda = ({ onLogout, projects }: AgendaProps) => {
+const Agenda = ({ onLogout, projects, onNavigate }: AgendaProps) => {
   const handleBack = () => {
-    // Implementar navegação de volta - por enquanto apenas log
-    console.log('Voltar para dashboard');
+    if (onNavigate) {
+      onNavigate('dashboard');
+    } else {
+      window.history.back();
+    }
   };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState("");

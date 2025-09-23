@@ -1,0 +1,137 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { UserPlus, Edit, Trash2 } from "lucide-react";
+import { User } from "@/types/user";
+
+interface UserManagementProps {
+  users: User[];
+  onAddUser: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onEditUser: (userId: string, userData: Partial<User>) => void;
+  onDeleteUser: (userId: string) => void;
+}
+
+const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserManagementProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'user' as 'admin' | 'user'
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onAddUser({
+      ...formData,
+      personalInfo: {}
+    });
+    setFormData({ name: '', email: '', password: '', role: 'user' });
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Gerenciar Usuários</h2>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <UserPlus size={16} />
+              Adicionar Usuário
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Usuário</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="role">Perfil</Label>
+                <select
+                  id="role"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                  className="w-full p-2 border border-border rounded-md"
+                >
+                  <option value="user">Usuário</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <Button type="submit" className="w-full">
+                Criar Usuário
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {users.map((user) => (
+          <Card key={user.id}>
+            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+              <Avatar className="h-10 w-10 mr-3">
+                <AvatarImage src={user.avatar} />
+                <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <CardTitle className="text-sm">{user.name}</CardTitle>
+                <p className="text-xs text-muted-foreground">{user.email}</p>
+              </div>
+              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                {user.role}
+              </Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" className="flex-1 gap-2">
+                  <Edit size={14} />
+                  Editar
+                </Button>
+                <Button variant="ghost" size="sm" className="text-destructive">
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default UserManagement;
