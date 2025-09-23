@@ -37,7 +37,7 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: Dashbo
                   className="gap-2"
                 >
                   <FolderOpen size={16} />
-                  Projetos
+                  Contratos
                 </Button>
                 <Button
                   variant={currentPage === 'agenda' ? 'default' : 'ghost'}

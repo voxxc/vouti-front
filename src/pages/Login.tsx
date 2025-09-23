@@ -54,9 +54,6 @@ const Login = ({ onLogin }: LoginProps) => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <Logo size="lg" className="justify-center mb-6" />
-          <h2 className="text-lg text-muted-foreground">
-            Sistema de Gestão Jurídica
-          </h2>
         </div>
 
         <Card className="shadow-card border-0">

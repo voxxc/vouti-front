@@ -24,7 +24,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
         <Scale size={iconSizes[size]} className="text-white" />
       </div>
       <span className={`font-bold text-law-blue tracking-wide ${sizeClasses[size]}`}>
-        ESCRITÓRIO
+        PRUDENTIA
       </span>
     </div>
   );

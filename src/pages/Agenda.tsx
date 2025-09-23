@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Project } from "@/types/project";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
@@ -21,6 +21,10 @@ interface AgendaProps {
 }
 
 const Agenda = ({ onLogout, projects }: AgendaProps) => {
+  const handleBack = () => {
+    // Implementar navegação de volta - por enquanto apenas log
+    console.log('Voltar para dashboard');
+  };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState("");
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -108,9 +112,15 @@ const Agenda = ({ onLogout, projects }: AgendaProps) => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Agenda</h1>
-            <p className="text-muted-foreground">Gerencie prazos e compromissos</p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={handleBack} className="gap-2">
+              <ArrowLeft size={16} />
+              Voltar
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Agenda</h1>
+              <p className="text-muted-foreground">Gerencie prazos e compromissos</p>
+            </div>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
