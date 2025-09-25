@@ -7,9 +7,10 @@ interface DashboardProps {
   onLogout: () => void;
   onNavigateToProjects: () => void;
   onNavigateToAgenda: () => void;
+  onNavigateToCRM: () => void;
 }
 
-const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda }: DashboardProps) => {
+const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda, onNavigateToCRM }: DashboardProps) => {
   return (
     <DashboardLayout onLogout={onLogout}>
       <div className="space-y-8">
@@ -66,69 +67,46 @@ const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda }: Dashb
         </div>
 
         {/* Main Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="shadow-card border-0 hover:shadow-elegant transition-shadow cursor-pointer" onClick={onNavigateToProjects}>
-            <CardHeader>
-              <div className="flex items-center gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer" onClick={onNavigateToProjects}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Contratos</h3>
+                  <p className="text-sm text-muted-foreground">Gerencie todos os seus contratos e casos jurídicos</p>
+                </div>
                 <div className="p-3 bg-law-blue/10 rounded-lg">
                   <FolderOpen className="h-6 w-6 text-law-blue" />
                 </div>
-                <div>
-                  <CardTitle>Contratos</CardTitle>
-                  <CardDescription>
-                    Gerencie todos os seus contratos e casos jurídicos
-                  </CardDescription>
-                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={onNavigateToProjects} className="gap-2" variant="professional">
-                <FolderOpen size={16} />
-                Acessar Contratos
-              </Button>
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border-0 hover:shadow-elegant transition-shadow cursor-pointer" onClick={onNavigateToAgenda}>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-law-blue/10 rounded-lg">
-                  <Calendar className="h-6 w-6 text-law-blue" />
-                </div>
+          <Card className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer" onClick={onNavigateToAgenda}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Agenda</CardTitle>
-                  <CardDescription>
-                    Gerencie prazos e compromissos importantes
-                  </CardDescription>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Agenda</h3>
+                  <p className="text-sm text-muted-foreground">Próximos compromissos e reuniões</p>
+                </div>
+                <div className="p-3 bg-purple-500/10 rounded-lg">
+                  <Calendar className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={onNavigateToAgenda} className="gap-2" variant="professional">
-                <Calendar size={16} />
-                Acessar Agenda
-              </Button>
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border-0 opacity-60">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-muted rounded-lg">
-                  <Plus className="h-6 w-6 text-muted-foreground" />
-                </div>
+          <Card className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer" onClick={onNavigateToCRM}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-muted-foreground">Acordos</CardTitle>
-                  <CardDescription>
-                    Funcionalidade em desenvolvimento
-                  </CardDescription>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">CRM</h3>
+                  <p className="text-sm text-muted-foreground">Gestão de clientes e oportunidades</p>
+                </div>
+                <div className="p-3 bg-orange-500/10 rounded-lg">
+                  <Users className="h-6 w-6 text-orange-600" />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Button variant="minimal" className="w-full" disabled>
-                Em Breve
-              </Button>
             </CardContent>
           </Card>
         </div>

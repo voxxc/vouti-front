@@ -3,10 +3,12 @@ import Login from "./Login";
 import Dashboard from "./Dashboard";
 import Projects from "./Projects";
 import ProjectView from "./ProjectView";
+import AcordosView from "./AcordosView";
 import Agenda from "./Agenda";
+import CRM from "./CRM";
 import { Project, Task } from "@/types/project";
 
-type AppState = 'login' | 'dashboard' | 'projects' | 'project-view' | 'agenda';
+type AppState = 'login' | 'dashboard' | 'projects' | 'project-view' | 'acordos-view' | 'agenda' | 'crm';
 
 const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('login');
@@ -100,8 +102,16 @@ const Index = () => {
     setCurrentState('agenda');
   };
 
-  const handleNavigate = (page: 'dashboard' | 'projects' | 'agenda') => {
+  const handleNavigateToCRM = () => {
+    setCurrentState('crm');
+  };
+
+  const handleNavigate = (page: 'dashboard' | 'projects' | 'agenda' | 'crm') => {
     setCurrentState(page);
+  };
+
+  const handleNavigateToAcordos = () => {
+    setCurrentState('acordos-view');
   };
 
   const handleSelectProject = (project: Project) => {
@@ -141,6 +151,7 @@ const Index = () => {
         onLogout={handleLogout}
         onNavigateToProjects={handleNavigateToProjects}
         onNavigateToAgenda={handleNavigateToAgenda}
+        onNavigateToCRM={handleNavigateToCRM}
       />
     );
   }
@@ -166,12 +177,35 @@ const Index = () => {
         onBack={handleBackToProjects}
         project={selectedProject}
         onUpdateProject={handleUpdateProject}
+        onNavigateToAcordos={handleNavigateToAcordos}
+      />
+    );
+  }
+
+  if (currentState === 'acordos-view' && selectedProject) {
+    return (
+      <AcordosView
+        onLogout={handleLogout}
+        onBack={() => setCurrentState('project-view')}
+        project={selectedProject}
+        onUpdateProject={handleUpdateProject}
       />
     );
   }
 
   if (currentState === 'agenda') {
     return <Agenda onLogout={handleLogout} projects={projects} onNavigate={handleNavigate} />;
+  }
+
+  if (currentState === 'crm') {
+    return (
+      <CRM
+        onLogout={handleLogout}
+        onBack={handleBackToDashboard}
+        currentPage="crm"
+        onNavigate={handleNavigate}
+      />
+    );
   }
 
   return <Login onLogin={handleLogin} />;

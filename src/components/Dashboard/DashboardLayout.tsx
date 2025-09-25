@@ -1,13 +1,13 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
-import { LogOut, FolderOpen, Calendar } from "lucide-react";
+import { LogOut, FolderOpen, Calendar, Users, Home } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
   onLogout: () => void;
-  currentPage?: 'dashboard' | 'projects' | 'agenda';
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
+  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm';
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm') => void;
 }
 
 const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: DashboardLayoutProps) => {
@@ -27,7 +27,7 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: Dashbo
                   onClick={() => onNavigate('dashboard')}
                   className="gap-2"
                 >
-                  <FolderOpen size={16} />
+                  <Home size={16} />
                   Dashboard
                 </Button>
                 <Button
@@ -47,6 +47,15 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: Dashbo
                 >
                   <Calendar size={16} />
                   Agenda
+                </Button>
+                <Button
+                  variant={currentPage === 'crm' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onNavigate('crm')}
+                  className="gap-2"
+                >
+                  <Users size={16} />
+                  CRM
                 </Button>
               </nav>
             )}
