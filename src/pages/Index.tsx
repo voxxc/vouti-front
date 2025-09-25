@@ -28,6 +28,9 @@ const Index = () => {
           description: 'Revisar cláusulas contratuais e identificar irregularidades',
           status: 'done',
           comments: [],
+          files: [],
+          history: [],
+          type: 'regular',
           createdAt: new Date('2024-01-15'),
           updatedAt: new Date('2024-01-18')
         },
@@ -37,6 +40,9 @@ const Index = () => {
           description: 'Reunir holerites, rescisão e documentos pessoais',
           status: 'progress',
           comments: [],
+          files: [],
+          history: [],
+          type: 'regular',
           createdAt: new Date('2024-01-20'),
           updatedAt: new Date('2024-01-22')
         },
@@ -46,10 +52,14 @@ const Index = () => {
           description: 'Redigir petição com fundamentação legal adequada',
           status: 'todo',
           comments: [],
+          files: [],
+          history: [],
+          type: 'regular',
           createdAt: new Date('2024-01-25'),
           updatedAt: new Date('2024-01-25')
         }
       ],
+      acordoTasks: [],
       createdBy: 'Dr. Eduardo Silva',
       createdAt: new Date('2024-01-15'),
       updatedAt: new Date('2024-01-22')
@@ -66,6 +76,9 @@ const Index = () => {
           description: 'Identificar e avaliar todos os bens do casal',
           status: 'progress',
           comments: [],
+          files: [],
+          history: [],
+          type: 'regular',
           createdAt: new Date('2024-02-01'),
           updatedAt: new Date('2024-02-05')
         },
@@ -75,10 +88,14 @@ const Index = () => {
           description: 'Definir termos da guarda compartilhada dos filhos',
           status: 'waiting',
           comments: [],
+          files: [],
+          history: [],
+          type: 'regular',
           createdAt: new Date('2024-02-03'),
           updatedAt: new Date('2024-02-03')
         }
       ],
+      acordoTasks: [],
       createdBy: 'Dra. Ana Costa',
       createdAt: new Date('2024-02-01'),
       updatedAt: new Date('2024-02-05')

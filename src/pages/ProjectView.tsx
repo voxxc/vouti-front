@@ -25,10 +25,18 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
-  const filteredTasks = project.tasks.filter(task =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const regularTasks = project.tasks.filter(task => task.type !== 'acordo');
+  
+  const filteredTasks = regularTasks.filter(task => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      task.title.toLowerCase().includes(searchLower) ||
+      task.description.toLowerCase().includes(searchLower) ||
+      task.comments.some(comment => 
+        comment.text.toLowerCase().includes(searchLower)
+      )
+    );
+  });
 
   const getTasksByStatus = (status: string) => {
     return filteredTasks.filter(task => task.status === status);
@@ -92,6 +100,21 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
     onUpdateProject(updatedProject);
   };
 
+  const handleDeleteTask = (taskId: string) => {
+    const updatedTasks = project.tasks.filter(t => t.id !== taskId);
+    const updatedProject = {
+      ...project,
+      tasks: updatedTasks,
+      updatedAt: new Date()
+    };
+    onUpdateProject(updatedProject);
+    
+    toast({
+      title: "Tarefa excluída",
+      description: "Tarefa removida com sucesso!",
+    });
+  };
+
   const handleAddTask = (status: Task['status']) => {
     const newTask: Task = {
       id: `task-${Date.now()}`,
@@ -99,6 +122,15 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
       description: "Clique para editar a descrição",
       status,
       comments: [],
+      files: [],
+      history: [{
+        id: `history-${Date.now()}`,
+        action: 'created',
+        details: 'Tarefa criada',
+        user: project.createdBy,
+        timestamp: new Date()
+      }],
+      type: 'regular',
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -192,7 +224,11 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
                           {...provided.dragHandleProps}
                           className={snapshot.isDragging ? 'opacity-50' : ''}
                         >
-                          <TaskCard task={task} onClick={handleTaskClick} />
+                          <TaskCard 
+                            task={task} 
+                            onClick={handleTaskClick}
+                            onDelete={handleDeleteTask}
+                          />
                         </div>
                       )}
                     </Draggable>

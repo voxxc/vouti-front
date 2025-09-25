@@ -18,9 +18,7 @@ interface AcordosViewProps {
   onUpdateProject: (project: Project) => void;
 }
 
-interface AcordoTask extends Task {
-  type: 'processo' | 'divida';
-}
+// Removed interface AcordoTask - using Task directly
 
 const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,17 +26,19 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
-  // Filtrar apenas as tarefas relacionadas a acordos (você pode adicionar uma propriedade específica para isso)
-  const acordoTasks = project.tasks.filter(task => 
-    task.title.toLowerCase().includes('acordo') || 
-    task.title.toLowerCase().includes('processo') || 
-    task.title.toLowerCase().includes('dívida')
-  );
-
-  const filteredTasks = acordoTasks.filter(task =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrar apenas as tarefas de acordo usando o type
+  const acordoTasks = project.acordoTasks || [];
+  
+  const filteredTasks = acordoTasks.filter(task => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      task.title.toLowerCase().includes(searchLower) ||
+      task.description.toLowerCase().includes(searchLower) ||
+      task.comments.some(comment => 
+        comment.text.toLowerCase().includes(searchLower)
+      )
+    );
+  });
 
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -52,22 +52,32 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
       return;
     }
 
-    const task = project.tasks.find(t => t.id === draggableId);
+    const task = acordoTasks.find(t => t.id === draggableId);
     if (!task) return;
 
     const updatedTask = {
       ...task,
       status: destination.droppableId as Task['status'],
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      history: [
+        ...task.history,
+        {
+          id: `history-${Date.now()}`,
+          action: 'moved' as const,
+          details: `Tarefa movida para ${destination.droppableId}`,
+          user: project.createdBy,
+          timestamp: new Date()
+        }
+      ]
     };
 
-    const updatedTasks = project.tasks.map(t =>
+    const updatedAcordoTasks = acordoTasks.map(t =>
       t.id === draggableId ? updatedTask : t
     );
 
     const updatedProject = {
       ...project,
-      tasks: updatedTasks,
+      acordoTasks: updatedAcordoTasks,
       updatedAt: new Date()
     };
 
@@ -85,17 +95,32 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
-    const updatedTasks = project.tasks.map(t =>
+    const updatedAcordoTasks = acordoTasks.map(t =>
       t.id === updatedTask.id ? updatedTask : t
     );
 
     const updatedProject = {
       ...project,
-      tasks: updatedTasks,
+      acordoTasks: updatedAcordoTasks,
       updatedAt: new Date()
     };
 
     onUpdateProject(updatedProject);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    const updatedAcordoTasks = acordoTasks.filter(t => t.id !== taskId);
+    const updatedProject = {
+      ...project,
+      acordoTasks: updatedAcordoTasks,
+      updatedAt: new Date()
+    };
+    onUpdateProject(updatedProject);
+    
+    toast({
+      title: "Item excluído",
+      description: "Processo/Dívida removido com sucesso!",
+    });
   };
 
   const handleAddTask = () => {
@@ -105,13 +130,22 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
       description: "Clique para editar os detalhes",
       status: 'todo',
       comments: [],
+      files: [],
+      history: [{
+        id: `history-${Date.now()}`,
+        action: 'created',
+        details: 'Processo/Dívida criado',
+        user: project.createdBy,
+        timestamp: new Date()
+      }],
+      type: 'acordo',
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     const updatedProject = {
       ...project,
-      tasks: [...project.tasks, newTask],
+      acordoTasks: [...(project.acordoTasks || []), newTask],
       updatedAt: new Date()
     };
 
@@ -187,7 +221,11 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
                       {...provided.dragHandleProps}
                       className={snapshot.isDragging ? 'opacity-50' : ''}
                     >
-                      <TaskCard task={task} onClick={handleTaskClick} />
+                      <TaskCard 
+                        task={task} 
+                        onClick={handleTaskClick}
+                        onDelete={handleDeleteTask}
+                      />
                     </div>
                   )}
                 </Draggable>

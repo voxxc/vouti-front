@@ -1,14 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Task, Comment, TASK_STATUSES } from "@/types/project";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Edit, Save, X, Plus, Edit2, Trash2 } from "lucide-react";
+import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry } from "@/types/project";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageCircle, Edit2, Trash2, Plus, Save, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import TaskFilePanel from "./TaskFilePanel";
+import TaskHistoryPanel from "./TaskHistoryPanel";
 
 interface TaskModalProps {
   task: Task | null;
@@ -18,140 +34,245 @@ interface TaskModalProps {
 }
 
 const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
-  const [newComment, setNewComment] = useState("");
-  const [editingComment, setEditingComment] = useState<string | null>(null);
-  const [editCommentText, setEditCommentText] = useState("");
   const [isEditingTask, setIsEditingTask] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
+  const [editedTitle, setEditedTitle] = useState("");
+  const [editedDescription, setEditedDescription] = useState("");
+  const [newComment, setNewComment] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editedCommentText, setEditedCommentText] = useState("");
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (task) {
+      setEditedTitle(task.title);
+      setEditedDescription(task.description);
+    }
+  }, [task]);
 
   if (!task) return null;
 
   const handleEditTask = () => {
     setIsEditingTask(true);
-    setEditTitle(task.title);
-    setEditDescription(task.description);
+    setEditedTitle(task.title);
+    setEditedDescription(task.description);
   };
 
   const handleSaveTask = () => {
-    if (!editTitle.trim()) return;
+    if (editedTitle.trim()) {
+      const historyEntry: TaskHistoryEntry = {
+        id: `history-${Date.now()}`,
+        action: 'edited',
+        details: `Tarefa editada`,
+        user: "Usuário Atual",
+        timestamp: new Date()
+      };
 
-    const updatedTask = {
-      ...task,
-      title: editTitle.trim(),
-      description: editDescription.trim(),
-      updatedAt: new Date()
-    };
-
-    onUpdateTask(updatedTask);
-    setIsEditingTask(false);
-    
-    toast({
-      title: "Tarefa atualizada",
-      description: "Título e descrição foram atualizados com sucesso.",
-    });
+      const updatedTask = {
+        ...task,
+        title: editedTitle.trim(),
+        description: editedDescription.trim(),
+        history: [...task.history, historyEntry],
+        updatedAt: new Date()
+      };
+      
+      onUpdateTask(updatedTask);
+      setIsEditingTask(false);
+      
+      toast({
+        title: "Tarefa atualizada",
+        description: "As alterações foram salvas!",
+      });
+    }
   };
 
   const handleCancelEditTask = () => {
     setIsEditingTask(false);
-    setEditTitle("");
-    setEditDescription("");
+    setEditedTitle(task.title);
+    setEditedDescription(task.description);
   };
 
   const handleAddComment = () => {
-    if (!newComment.trim()) return;
+    if (newComment.trim()) {
+      const comment: Comment = {
+        id: `comment-${Date.now()}`,
+        text: newComment.trim(),
+        author: "Usuário Atual", // Replace with actual user
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      const historyEntry: TaskHistoryEntry = {
+        id: `history-${Date.now()}`,
+        action: 'comment_added',
+        details: `Comentário adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
+        user: "Usuário Atual",
+        timestamp: new Date()
+      };
+      
+      const updatedTask = {
+        ...task,
+        comments: [...task.comments, comment],
+        history: [...task.history, historyEntry],
+        updatedAt: new Date()
+      };
+      
+      onUpdateTask(updatedTask);
+      setNewComment("");
+      
+      toast({
+        title: "Comentário adicionado",
+        description: "Seu comentário foi salvo com sucesso!",
+      });
+    }
+  };
 
-    const comment: Comment = {
-      id: `comment-${Date.now()}`,
-      text: newComment,
-      createdAt: new Date(),
-      updatedAt: new Date()
+  const handleUploadFile = (file: File) => {
+    const taskFile: TaskFile = {
+      id: `file-${Date.now()}`,
+      name: file.name,
+      url: URL.createObjectURL(file), // In real app, upload to server
+      size: file.size,
+      type: file.type,
+      uploadedBy: "Usuário Atual",
+      uploadedAt: new Date()
+    };
+
+    const historyEntry: TaskHistoryEntry = {
+      id: `history-${Date.now()}`,
+      action: 'file_uploaded',
+      details: `Arquivo enviado: ${file.name}`,
+      user: "Usuário Atual",
+      timestamp: new Date()
     };
 
     const updatedTask = {
       ...task,
-      comments: [...task.comments, comment],
+      files: [...task.files, taskFile],
+      history: [...task.history, historyEntry],
       updatedAt: new Date()
     };
 
     onUpdateTask(updatedTask);
-    setNewComment("");
-    
+
     toast({
-      title: "Comentário adicionado",
-      description: "Novo comentário foi adicionado à tarefa.",
+      title: "Arquivo enviado",
+      description: `${file.name} foi adicionado com sucesso!`,
+    });
+  };
+
+  const handleDeleteFile = (fileId: string) => {
+    const file = task.files.find(f => f.id === fileId);
+    if (!file) return;
+
+    const historyEntry: TaskHistoryEntry = {
+      id: `history-${Date.now()}`,
+      action: 'file_deleted',
+      details: `Arquivo excluído: ${file.name}`,
+      user: "Usuário Atual",
+      timestamp: new Date()
+    };
+
+    const updatedTask = {
+      ...task,
+      files: task.files.filter(f => f.id !== fileId),
+      history: [...task.history, historyEntry],
+      updatedAt: new Date()
+    };
+
+    onUpdateTask(updatedTask);
+
+    toast({
+      title: "Arquivo excluído",
+      description: `${file.name} foi removido com sucesso!`,
     });
   };
 
   const handleEditComment = (commentId: string) => {
     const comment = task.comments.find(c => c.id === commentId);
     if (comment) {
-      setEditingComment(commentId);
-      setEditCommentText(comment.text);
+      setEditingCommentId(commentId);
+      setEditedCommentText(comment.text);
     }
   };
 
   const handleSaveComment = (commentId: string) => {
-    if (!editCommentText.trim()) return;
+    if (editedCommentText.trim()) {
+      const updatedComments = task.comments.map(comment =>
+        comment.id === commentId
+          ? { ...comment, text: editedCommentText.trim(), updatedAt: new Date() }
+          : comment
+      );
 
-    const updatedComments = task.comments.map(comment =>
-      comment.id === commentId
-        ? { ...comment, text: editCommentText, updatedAt: new Date() }
-        : comment
-    );
-
-    const updatedTask = {
-      ...task,
-      comments: updatedComments,
-      updatedAt: new Date()
-    };
-
-    onUpdateTask(updatedTask);
-    setEditingComment(null);
-    setEditCommentText("");
-    
-    toast({
-      title: "Comentário editado",
-      description: "Comentário foi atualizado com sucesso.",
-    });
+      const historyEntry: TaskHistoryEntry = {
+        id: `history-${Date.now()}`,
+        action: 'comment_edited',
+        details: `Comentário editado`,
+        user: "Usuário Atual",
+        timestamp: new Date()
+      };
+      
+      const updatedTask = {
+        ...task,
+        comments: updatedComments,
+        history: [...task.history, historyEntry],
+        updatedAt: new Date()
+      };
+      
+      onUpdateTask(updatedTask);
+      setEditingCommentId(null);
+      setEditedCommentText("");
+      
+      toast({
+        title: "Comentário atualizado",
+        description: "As alterações foram salvas!",
+      });
+    }
   };
 
   const handleDeleteComment = (commentId: string) => {
+    const historyEntry: TaskHistoryEntry = {
+      id: `history-${Date.now()}`,
+      action: 'comment_deleted',
+      details: `Comentário excluído`,
+      user: "Usuário Atual",
+      timestamp: new Date()
+    };
+
     const updatedComments = task.comments.filter(comment => comment.id !== commentId);
     
     const updatedTask = {
       ...task,
       comments: updatedComments,
+      history: [...task.history, historyEntry],
       updatedAt: new Date()
     };
-
+    
     onUpdateTask(updatedTask);
     
     toast({
-      title: "Comentário removido",
-      description: "Comentário foi removido da tarefa.",
+      title: "Comentário excluído",
+      description: "O comentário foi removido!",
     });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            {isEditingTask ? (
-              <div className="flex-1 mr-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              {isEditingTask ? (
                 <Input
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
                   className="text-lg font-semibold"
                   placeholder="Título da tarefa"
                 />
-              </div>
-            ) : (
-              <span>{task.title}</span>
-            )}
-            <div className="flex items-center gap-2">
+              ) : (
+                <DialogTitle className="text-lg">{task.title}</DialogTitle>
+              )}
+            </div>
+            <div className="flex items-center gap-2 ml-4">
               {isEditingTask ? (
                 <>
                   <Button onClick={handleSaveTask} size="sm" className="gap-1">
@@ -165,134 +286,163 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
                 </>
               ) : (
                 <Button onClick={handleEditTask} variant="ghost" size="sm" className="gap-1">
-                  <Edit2 className="h-3 w-3" />
+                  <Edit className="h-3 w-3" />
                   Editar
                 </Button>
               )}
-              <Badge 
-                variant="secondary" 
-                className={`${
-                  task.status === 'waiting' ? 'bg-status-waiting text-yellow-800' :
-                  task.status === 'todo' ? 'bg-status-todo text-blue-800' :
-                  task.status === 'progress' ? 'bg-status-progress text-orange-800' :
-                  'bg-status-done text-green-800'
-                }`}
-              >
-                {TASK_STATUSES[task.status]}
-              </Badge>
             </div>
-          </DialogTitle>
+          </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-6">
-          {/* Task Description */}
-          <div>
-            <h3 className="text-sm font-medium mb-2">Descrição</h3>
-            {isEditingTask ? (
-              <Textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Descrição da tarefa"
-                className="min-h-[80px]"
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">{task.description}</p>
-            )}
-          </div>
-
-          {/* Comments Section */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <MessageCircle className="h-4 w-4" />
-              <h3 className="text-sm font-medium">Comentários ({task.comments.length})</h3>
-            </div>
-
-            {/* Add New Comment */}
-            <div className="space-y-3 mb-4">
-              <Textarea
-                placeholder="Adicionar um comentário..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="min-h-[80px]"
-              />
-              <Button onClick={handleAddComment} className="gap-2" size="sm">
-                <Plus className="h-3 w-3" />
-                Adicionar Comentário
-              </Button>
-            </div>
-
-            {/* Comments List */}
-            <div className="space-y-3">
-              {task.comments.map((comment) => (
-                <div key={comment.id} className="border rounded-lg p-3 bg-card">
-                  {editingComment === comment.id ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={editCommentText}
-                        onChange={(e) => setEditCommentText(e.target.value)}
-                        className="min-h-[60px]"
-                      />
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => handleSaveComment(comment.id)} 
-                          size="sm" 
-                          className="gap-1"
-                        >
-                          <Save className="h-3 w-3" />
-                          Salvar
-                        </Button>
-                        <Button 
-                          onClick={() => setEditingComment(null)} 
-                          variant="outline" 
-                          size="sm"
-                          className="gap-1"
-                        >
-                          <X className="h-3 w-3" />
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm mb-2">{comment.text}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          {format(comment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                          {comment.updatedAt !== comment.createdAt && " (editado)"}
-                        </span>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditComment(comment.id)}
-                            className="h-6 w-6"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-              
-              {task.comments.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Nenhum comentário ainda</p>
-                </div>
+        <ScrollArea className="max-h-[70vh] pr-6">
+          <div className="space-y-6">
+            {/* Description */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">Descrição</h3>
+              {isEditingTask ? (
+                <Textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Descrição da tarefa"
+                  className="min-h-[80px]"
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {task.description || "Nenhuma descrição fornecida"}
+                </p>
               )}
             </div>
+
+            {/* Status and Actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Badge variant="outline">
+                  {TASK_STATUSES[task.status]}
+                </Badge>
+                <TaskFilePanel 
+                  files={task.files}
+                  onUploadFile={handleUploadFile}
+                  onDeleteFile={handleDeleteFile}
+                />
+                <TaskHistoryPanel history={task.history} />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Comments Section */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Comentários ({task.comments.length})</h3>
+              
+              {/* Add Comment */}
+              <div className="space-y-3 mb-6">
+                <Textarea
+                  placeholder="Adicionar um comentário..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="min-h-[80px]"
+                />
+                <Button onClick={handleAddComment} className="gap-2" size="sm">
+                  <Plus className="h-3 w-3" />
+                  Adicionar Comentário
+                </Button>
+              </div>
+
+              {/* Comments List */}
+              <div className="space-y-4">
+                {task.comments.map((comment) => (
+                  <Card key={comment.id}>
+                    <CardContent className="p-4">
+                      {editingCommentId === comment.id ? (
+                        <div className="space-y-3">
+                          <Textarea
+                            value={editedCommentText}
+                            onChange={(e) => setEditedCommentText(e.target.value)}
+                            className="min-h-[60px]"
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => handleSaveComment(comment.id)} 
+                              size="sm" 
+                              className="gap-1"
+                            >
+                              <Save className="h-3 w-3" />
+                              Salvar
+                            </Button>
+                            <Button 
+                              onClick={() => setEditingCommentId(null)} 
+                              variant="outline" 
+                              size="sm"
+                              className="gap-1"
+                            >
+                              <X className="h-3 w-3" />
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between mb-2">
+                            <p className="text-sm flex-1">{comment.text}</p>
+                            <div className="flex gap-1 ml-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditComment(comment.id)}
+                                className="h-6 w-6"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja excluir este comentário?
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Por {comment.author} em {format(new Date(comment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            {comment.updatedAt > comment.createdAt && " (editado)"}
+                          </p>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {task.comments.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">Nenhum comentário ainda</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
