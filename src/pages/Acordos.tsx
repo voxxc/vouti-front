@@ -47,7 +47,7 @@ const Acordos = ({ onLogout, onBack }: AcordosProps) => {
             <CardContent>
               <ul className="text-sm text-muted-foreground space-y-1 text-left">
                 <li>• Criação de acordos</li>
-                <li>• Templates de contratos</li>
+                <li>• Templates de documentos</li>
                 <li>• Assinaturas digitais</li>
                 <li>• Histórico de versões</li>
                 <li>• Status de aprovação</li>

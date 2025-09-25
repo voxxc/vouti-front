@@ -46,13 +46,13 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
               Voltar
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Contratos</h1>
-              <p className="text-muted-foreground">Gerencie todos os seus contratos jurídicos</p>
+              <h1 className="text-2xl font-bold text-foreground">CLIENTES</h1>
+              <p className="text-muted-foreground">Gerencie todos os seus clientes jurídicos</p>
             </div>
           </div>
           <Button variant="professional" onClick={onCreateProject} className="gap-2">
             <Plus size={16} />
-            Novo Contrato
+            Novo Cliente
           </Button>
         </div>
 
@@ -60,7 +60,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Buscar contratos, clientes..."
+            placeholder="Buscar clientes..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"

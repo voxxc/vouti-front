@@ -47,7 +47,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
           JUS OFFICE
         </span>
         <span className="text-xs text-law-neutral font-medium tracking-wide mt-0.5">
-          Advocacia & Consultoria
+          Gestão Jurídica
         </span>
       </div>
     </div>
