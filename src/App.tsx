@@ -132,6 +132,7 @@ function App() {
                       onUpdateProject={handleUpdateProject}
                       onLogout={handleLogout}
                       onBack={() => setCurrentPage('projects')}
+                      onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
                     />
                   )
                 ) : (
@@ -204,6 +205,7 @@ function App() {
             onUpdateProject={handleUpdateProject}
             onLogout={handleLogout}
             onBack={() => setCurrentPage('projects')}
+            onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
           />
         );
 
