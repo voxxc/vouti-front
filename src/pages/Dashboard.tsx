@@ -24,47 +24,6 @@ const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda, onNavig
           </p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="shadow-card border-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Contratos Ativos</CardTitle>
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">
-                Clientes com pagamento em dia
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-card border-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Contrato em Andamento</CardTitle>
-              <div className="h-4 w-4 bg-status-progress rounded-full" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">
-                Clientes em prospecção
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-card border-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">25</div>
-              <p className="text-xs text-muted-foreground">
-                Todos os clientes cadastrados
-              </p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Main Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
