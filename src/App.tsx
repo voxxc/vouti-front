@@ -157,6 +157,8 @@ function App() {
                 <CRM 
                   onLogout={handleLogout}
                   onBack={() => setCurrentPage('dashboard')}
+                  currentPage="crm"
+                  onNavigate={(page) => setCurrentPage(page)}
                 />
               } />
               <Route path="/financial" element={
@@ -222,6 +224,8 @@ function App() {
           <CRM 
             onLogout={handleLogout}
             onBack={() => setCurrentPage('dashboard')}
+            currentPage="crm"
+            onNavigate={(page) => setCurrentPage(page)}
           />
         );
 
