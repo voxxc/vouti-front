@@ -228,6 +228,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
                         task={task} 
                         onClick={handleTaskClick}
                         onDelete={handleDeleteTask}
+                        onUpdateTask={handleUpdateTask}
                       />
                     </div>
                   )}
@@ -256,6 +257,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
                         task={task} 
                         onClick={handleTaskClick}
                         onDelete={handleDeleteTask}
+                        onUpdateTask={handleUpdateTask}
                       />
                     </div>
                   )}

@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Calendar } from "lucide-react";
+import { Trash2, Calendar, MessageSquare } from "lucide-react";
 import { Task, TASK_STATUSES } from "@/types/project";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -22,9 +22,10 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onClick?: (task: Task) => void;
+  onUpdateTask?: (task: Task) => void;
 }
 
-const TaskCard = ({ task, onClick, onDelete }: TaskCardProps) => {
+const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClick?.(task);
@@ -32,6 +33,70 @@ const TaskCard = ({ task, onClick, onDelete }: TaskCardProps) => {
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+  };
+
+  const handleGenerateMessage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!task.acordoDetails || !onUpdateTask) return;
+    
+    const details = task.acordoDetails;
+    let message = `Falamos com o jurídico do ${details.banco || '[BANCO/COOPERATIVA]'}, e informo a título de conhecimento:\n\n`;
+    
+    message += `CLIENTE: ${task.title}\n\n`;
+    
+    if (details.contratoProcesso) {
+      message += `CONTRATO: ${details.contratoProcesso}\n\n`;
+    }
+    
+    if (details.valorOriginal !== undefined) {
+      message += `SALDO ORIGINAL: R$ ${details.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+    }
+    
+    if (details.valorAtualizado !== undefined) {
+      message += `SALDO DEVEDOR ATUALIZADO: R$ ${details.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+    }
+    
+    if (details.aVista !== undefined) {
+      message += `PARA PAGAMENTO À VISTA: R$ ${details.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+    }
+    
+    if (details.parcelado) {
+      const entrada = details.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      const parcelas = details.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      const quantidade = details.parcelado.quantidadeParcelas;
+      message += `PARA PAGAMENTO PARCELADO: Entrada + R$ ${entrada} + ${quantidade}x de R$ ${parcelas}\n\n`;
+    }
+    
+    if (details.honorarios !== undefined) {
+      message += `Honorários do Banco: R$ ${details.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    }
+    
+    const newComment = {
+      id: `comment-${Date.now()}`,
+      text: message,
+      author: 'Sistema',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const updatedTask = {
+      ...task,
+      comments: [...task.comments, newComment],
+      updatedAt: new Date(),
+      history: [
+        ...task.history,
+        {
+          id: `history-${Date.now()}`,
+          action: 'comment_added' as const,
+          details: 'Mensagem automática gerada pelo sistema',
+          user: 'Sistema',
+          timestamp: new Date()
+        }
+      ]
+    };
+    
+    onUpdateTask(updatedTask);
   };
 
   return (
@@ -148,6 +213,19 @@ const TaskCard = ({ task, onClick, onDelete }: TaskCardProps) => {
                 <span className="font-medium">R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
+            
+            {/* Botão Gerar Mensagem */}
+            <div className="pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateMessage}
+                className="w-full text-xs gap-1"
+              >
+                <MessageSquare className="h-3 w-3" />
+                GERAR MENSAGEM
+              </Button>
+            </div>
           </div>
         )}
 
