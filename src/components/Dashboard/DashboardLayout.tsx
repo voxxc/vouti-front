@@ -1,16 +1,21 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
-import { LogOut, FolderOpen, Calendar, Users, Home } from "lucide-react";
+import { ThemeToggle } from "@/components/Common/ThemeToggle";
+import { GlobalSearch } from "@/components/Search/GlobalSearch";
+import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
   onLogout: () => void;
-  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm';
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm') => void;
+  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial';
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial') => void;
+  projects?: any[];
+  onCreateUser?: () => void;
+  isAdmin?: boolean;
 }
 
-const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, onLogout, currentPage, onNavigate, projects = [], onCreateUser, isAdmin = false }: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -20,19 +25,17 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: Dashbo
           
           <div className="flex items-center gap-4">
             {onNavigate && (
-              <nav className="flex items-center gap-2">
+              <div className="flex items-center space-x-4">
                 <Button
                   variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
-                  size="sm"
                   onClick={() => onNavigate('dashboard')}
                   className="gap-2"
                 >
-                  <Home size={16} />
+                  <BarChart3 size={16} />
                   Dashboard
                 </Button>
                 <Button
                   variant={currentPage === 'projects' ? 'default' : 'ghost'}
-                  size="sm"
                   onClick={() => onNavigate('projects')}
                   className="gap-2"
                 >
@@ -41,7 +44,6 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: Dashbo
                 </Button>
                 <Button
                   variant={currentPage === 'agenda' ? 'default' : 'ghost'}
-                  size="sm"
                   onClick={() => onNavigate('agenda')}
                   className="gap-2"
                 >
@@ -50,27 +52,40 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate }: Dashbo
                 </Button>
                 <Button
                   variant={currentPage === 'crm' ? 'default' : 'ghost'}
-                  size="sm"
                   onClick={() => onNavigate('crm')}
                   className="gap-2"
                 >
                   <Users size={16} />
                   CRM
                 </Button>
-              </nav>
+                <Button
+                  variant={currentPage === 'financial' ? 'default' : 'ghost'}
+                  onClick={() => onNavigate('financial')}
+                  className="gap-2"
+                >
+                  <DollarSign size={16} />
+                  Financeiro
+                </Button>
+              </div>
             )}
-            <span className="text-sm text-muted-foreground">
-              Bem-vindo ao sistema
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLogout}
-              className="gap-2"
-            >
-              <LogOut size={16} />
-              Sair
-            </Button>
+            
+            <div className="flex items-center space-x-4">
+              <GlobalSearch projects={projects} />
+              <ThemeToggle />
+              {isAdmin && onCreateUser && (
+                <Button variant="outline" onClick={onCreateUser} className="gap-2">
+                  <Settings size={16} />
+                  Usuários
+                </Button>
+              )}
+              <span className="text-sm text-muted-foreground">
+                Bem-vindo ao JUS OFFICE
+              </span>
+              <Button variant="ghost" onClick={onLogout} className="gap-2">
+                <LogOut size={16} />
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </header>

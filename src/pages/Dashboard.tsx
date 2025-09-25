@@ -1,33 +1,146 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Plus, Search, Users, Calendar } from "lucide-react";
+import { useState } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { OverviewSection } from "@/components/Dashboard/OverviewSection";
+import UserManagement from "@/components/Admin/UserManagement";
+import { FolderOpen, Calendar, Users, DollarSign, BarChart3 } from "lucide-react";
+import { User } from "@/types/user";
 
 interface DashboardProps {
-  onLogout: () => void;
   onNavigateToProjects: () => void;
   onNavigateToAgenda: () => void;
   onNavigateToCRM: () => void;
+  onNavigateToFinancial: () => void;
+  onLogout: () => void;
+  projects?: any[];
+  users?: User[];
 }
 
-const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda, onNavigateToCRM }: DashboardProps) => {
+const Dashboard = ({ 
+  onNavigateToProjects, 
+  onNavigateToAgenda, 
+  onNavigateToCRM, 
+  onNavigateToFinancial,
+  onLogout,
+  projects = [],
+  users = []
+}: DashboardProps) => {
+  const [showOverview, setShowOverview] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
+  const [systemUsers, setSystemUsers] = useState<User[]>(users);
+
+  const handleAddUser = (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newUser: User = {
+      ...userData,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    setSystemUsers([...systemUsers, newUser]);
+  };
+
+  const handleEditUser = (userId: string, userData: Partial<User>) => {
+    setSystemUsers(systemUsers.map(user => 
+      user.id === userId 
+        ? { ...user, ...userData, updatedAt: new Date() }
+        : user
+    ));
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    setSystemUsers(systemUsers.filter(user => user.id !== userId));
+  };
+
+  if (showUserManagement) {
+    return (
+      <DashboardLayout 
+        currentPage="dashboard" 
+        onLogout={onLogout}
+        projects={projects}
+        isAdmin={true}
+      >
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setShowUserManagement(false)}>
+              ← Voltar ao Dashboard
+            </Button>
+          </div>
+          <UserManagement
+            users={systemUsers}
+            onAddUser={handleAddUser}
+            onEditUser={handleEditUser}
+            onDeleteUser={handleDeleteUser}
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (showOverview) {
+    return (
+      <DashboardLayout 
+        currentPage="dashboard" 
+        onLogout={onLogout}
+        projects={projects}
+        isAdmin={true}
+      >
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setShowOverview(false)}>
+              ← Voltar ao Dashboard
+            </Button>
+          </div>
+          <OverviewSection users={systemUsers} projects={projects} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout onLogout={onLogout}>
-      <div className="space-y-8">
-        {/* Welcome Section */}
+    <DashboardLayout 
+      currentPage="dashboard" 
+      onLogout={onLogout}
+      projects={projects}
+      onCreateUser={() => setShowUserManagement(true)}
+      isAdmin={true}
+    >
+      <div className="space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Painel de Controle
+            Bem-vindo ao JUS OFFICE
           </h1>
-          <p className="text-muted-foreground">
-            Gerencie seus casos e projetos jurídicos de forma eficiente
+          <p className="text-lg text-muted-foreground">
+            Sistema de Gestão Jurídica
           </p>
         </div>
 
+        {/* Visão Geral Section */}
+        <div className="bg-gradient-primary p-6 rounded-lg text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">VISÃO GERAL</h2>
+              <p className="text-white/90">Métricas e desempenho da equipe</p>
+            </div>
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowOverview(true)}
+              className="gap-2"
+            >
+              <BarChart3 size={16} />
+              Ver Detalhes
+            </Button>
+          </div>
+        </div>
 
-        {/* Main Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer" onClick={onNavigateToProjects}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToProjects}>
+            <CardHeader className="text-center">
+              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                <FolderOpen className="h-8 w-8 text-law-blue" />
+              </div>
+              <CardTitle className="text-xl">CLIENTES</CardTitle>
+            </CardHeader>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -41,29 +154,61 @@ const Dashboard = ({ onLogout, onNavigateToProjects, onNavigateToAgenda, onNavig
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer" onClick={onNavigateToAgenda}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToAgenda}>
+            <CardHeader className="text-center">
+              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                <Calendar className="h-8 w-8 text-law-blue" />
+              </div>
+              <CardTitle className="text-xl">Agenda</CardTitle>
+            </CardHeader>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">Agenda</h3>
-                  <p className="text-sm text-muted-foreground">Próximos compromissos e reuniões</p>
+                  <p className="text-sm text-muted-foreground">Organize compromissos e prazos importantes</p>
                 </div>
-                <div className="p-3 bg-purple-500/10 rounded-lg">
-                  <Calendar className="h-6 w-6 text-purple-600" />
+                <div className="p-3 bg-law-blue/10 rounded-lg">
+                  <Calendar className="h-6 w-6 text-law-blue" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer" onClick={onNavigateToCRM}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToCRM}>
+            <CardHeader className="text-center">
+              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                <Users className="h-8 w-8 text-law-blue" />
+              </div>
+              <CardTitle className="text-xl">CRM</CardTitle>
+            </CardHeader>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">CRM</h3>
-                  <p className="text-sm text-muted-foreground">Gestão de clientes e oportunidades</p>
+                  <p className="text-sm text-muted-foreground">Gestão de relacionamento com clientes</p>
                 </div>
-                <div className="p-3 bg-orange-500/10 rounded-lg">
-                  <Users className="h-6 w-6 text-orange-600" />
+                <div className="p-3 bg-law-blue/10 rounded-lg">
+                  <Users className="h-6 w-6 text-law-blue" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToFinancial}>
+            <CardHeader className="text-center">
+              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                <DollarSign className="h-8 w-8 text-law-blue" />
+              </div>
+              <CardTitle className="text-xl">Financeiro</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Financeiro</h3>
+                  <p className="text-sm text-muted-foreground">Controle financeiro e inadimplência</p>
+                </div>
+                <div className="p-3 bg-law-blue/10 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-law-blue" />
                 </div>
               </div>
             </CardContent>
