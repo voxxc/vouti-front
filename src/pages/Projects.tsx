@@ -14,12 +14,13 @@ interface ProjectsProps {
   onBack: () => void;
   projects: Project[];
   onSelectProject: (project: Project) => void;
-  onCreateProject: () => void;
+  onCreateProject: (projectData: Omit<Project, 'id' | 'tasks' | 'acordoTasks' | 'createdAt' | 'updatedAt'>) => void;
+  onDeleteProject?: (projectId: string) => void;
   currentPage?: 'dashboard' | 'projects' | 'agenda';
   onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
 }
 
-const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject, currentPage, onNavigate }: ProjectsProps) => {
+const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject, onDeleteProject, currentPage, onNavigate }: ProjectsProps) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredProjects = projects.filter(project =>
@@ -50,7 +51,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
               <p className="text-muted-foreground">Gerencie todos os seus clientes jurídicos</p>
             </div>
           </div>
-          <Button variant="professional" onClick={onCreateProject} className="gap-2">
+          <Button variant="professional" onClick={() => onCreateProject({ name: '', client: '', description: '', createdBy: 'Sistema' })} className="gap-2">
             <Plus size={16} />
             Novo Cliente
           </Button>
@@ -156,7 +157,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
               }
             </p>
             {!searchTerm && (
-              <Button variant="professional" onClick={onCreateProject} className="gap-2">
+              <Button variant="professional" onClick={() => onCreateProject({ name: '', client: '', description: '', createdBy: 'Sistema' })} className="gap-2">
                 <Plus size={16} />
                 Criar Primeiro Projeto
               </Button>

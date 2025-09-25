@@ -153,9 +153,13 @@ const Index = () => {
     setSelectedProject(updatedProject);
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = (projectData: Omit<Project, 'id' | 'tasks' | 'acordoTasks' | 'createdAt' | 'updatedAt'>) => {
     // Implementar criação de projeto
-    console.log('Criar novo projeto');
+    console.log('Criar novo projeto', projectData);
+  };
+
+  const handleNavigateToFinancial = () => {
+    setCurrentState('dashboard'); // For now, redirect to dashboard
   };
 
   if (currentState === 'login') {
@@ -169,6 +173,8 @@ const Index = () => {
         onNavigateToProjects={handleNavigateToProjects}
         onNavigateToAgenda={handleNavigateToAgenda}
         onNavigateToCRM={handleNavigateToCRM}
+        onNavigateToFinancial={handleNavigateToFinancial}
+        projects={projects}
       />
     );
   }

@@ -3,13 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { Project } from "@/types/project";
 
 interface AcordosProps {
   onLogout: () => void;
   onBack: () => void;
+  projects?: Project[];
+  onSelectProject?: (project: Project) => void;
 }
 
-const Acordos = ({ onLogout, onBack }: AcordosProps) => {
+const Acordos = ({ onLogout, onBack, projects, onSelectProject }: AcordosProps) => {
   return (
     <DashboardLayout onLogout={onLogout}>
       <div className="space-y-6">

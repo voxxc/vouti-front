@@ -7,7 +7,7 @@ import Logo from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (email: string, password: string) => void;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
@@ -37,7 +37,7 @@ const Login = ({ onLogin }: LoginProps) => {
           title: "Sucesso",
           description: "Login realizado com sucesso!",
         });
-        onLogin();
+        onLogin(email, password);
       } else {
         toast({
           title: "Erro",

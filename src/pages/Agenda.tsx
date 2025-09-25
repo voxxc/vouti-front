@@ -17,13 +17,16 @@ import { useToast } from "@/hooks/use-toast";
 
 interface AgendaProps {
   onLogout: () => void;
-  projects: Project[];
+  onBack?: () => void;
+  projects?: Project[];
   onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
 }
 
-const Agenda = ({ onLogout, projects, onNavigate }: AgendaProps) => {
+const Agenda = ({ onLogout, onBack, projects = [], onNavigate }: AgendaProps) => {
   const handleBack = () => {
-    if (onNavigate) {
+    if (onBack) {
+      onBack();
+    } else if (onNavigate) {
       onNavigate('dashboard');
     } else {
       // Fallback para navegar para a página anterior
