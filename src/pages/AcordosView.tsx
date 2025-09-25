@@ -139,6 +139,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
         timestamp: new Date()
       }],
       type: 'acordo',
+      acordoDetails: {},
       createdAt: new Date(),
       updatedAt: new Date()
     };

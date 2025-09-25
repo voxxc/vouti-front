@@ -19,7 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Edit, Save, X, Plus, Edit2, Trash2 } from "lucide-react";
-import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry } from "@/types/project";
+import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry, AcordoDetails } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,12 +40,14 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
   const [newComment, setNewComment] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editedCommentText, setEditedCommentText] = useState("");
+  const [editedAcordoDetails, setEditedAcordoDetails] = useState<AcordoDetails>({});
   const { toast } = useToast();
 
   useEffect(() => {
     if (task) {
       setEditedTitle(task.title);
       setEditedDescription(task.description);
+      setEditedAcordoDetails(task.acordoDetails || {});
     }
   }, [task]);
 
@@ -55,6 +57,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
     setIsEditingTask(true);
     setEditedTitle(task.title);
     setEditedDescription(task.description);
+    setEditedAcordoDetails(task.acordoDetails || {});
   };
 
   const handleSaveTask = () => {
@@ -71,6 +74,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
         ...task,
         title: editedTitle.trim(),
         description: editedDescription.trim(),
+        acordoDetails: task.type === 'acordo' ? editedAcordoDetails : task.acordoDetails,
         history: [...task.history, historyEntry],
         updatedAt: new Date()
       };
@@ -89,6 +93,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
     setIsEditingTask(false);
     setEditedTitle(task.title);
     setEditedDescription(task.description);
+    setEditedAcordoDetails(task.acordoDetails || {});
   };
 
   const handleAddComment = () => {
@@ -312,6 +317,191 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
                 </p>
               )}
             </div>
+
+            {/* Acordo Details */}
+            {task.type === 'acordo' && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Detalhes do Acordo</h3>
+                {isEditingTask ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium">Contrato/Processo:</label>
+                      <Input
+                        value={editedAcordoDetails.contratoProcesso || ""}
+                        onChange={(e) => setEditedAcordoDetails({
+                          ...editedAcordoDetails,
+                          contratoProcesso: e.target.value
+                        })}
+                        placeholder="Número do contrato/processo"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Banco:</label>
+                      <Input
+                        value={editedAcordoDetails.banco || ""}
+                        onChange={(e) => setEditedAcordoDetails({
+                          ...editedAcordoDetails,
+                          banco: e.target.value
+                        })}
+                        placeholder="Nome do banco"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Valor original:</label>
+                      <Input
+                        type="number"
+                        value={editedAcordoDetails.valorOriginal || ""}
+                        onChange={(e) => setEditedAcordoDetails({
+                          ...editedAcordoDetails,
+                          valorOriginal: e.target.value ? Number(e.target.value) : undefined
+                        })}
+                        placeholder="0,00"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Valor atualizado:</label>
+                      <Input
+                        type="number"
+                        value={editedAcordoDetails.valorAtualizado || ""}
+                        onChange={(e) => setEditedAcordoDetails({
+                          ...editedAcordoDetails,
+                          valorAtualizado: e.target.value ? Number(e.target.value) : undefined
+                        })}
+                        placeholder="0,00"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">À vista:</label>
+                      <Input
+                        type="number"
+                        value={editedAcordoDetails.aVista || ""}
+                        onChange={(e) => setEditedAcordoDetails({
+                          ...editedAcordoDetails,
+                          aVista: e.target.value ? Number(e.target.value) : undefined
+                        })}
+                        placeholder="0,00"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Honorários:</label>
+                      <Input
+                        type="number"
+                        value={editedAcordoDetails.honorarios || ""}
+                        onChange={(e) => setEditedAcordoDetails({
+                          ...editedAcordoDetails,
+                          honorarios: e.target.value ? Number(e.target.value) : undefined
+                        })}
+                        placeholder="0,00"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium">Parcelado:</label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <Input
+                          type="number"
+                          value={editedAcordoDetails.parcelado?.entrada || ""}
+                          onChange={(e) => setEditedAcordoDetails({
+                            ...editedAcordoDetails,
+                            parcelado: {
+                              ...editedAcordoDetails.parcelado,
+                              entrada: e.target.value ? Number(e.target.value) : 0,
+                              parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
+                              quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
+                            }
+                          })}
+                          placeholder="Entrada"
+                          className="text-sm"
+                        />
+                        <Input
+                          type="number"
+                          value={editedAcordoDetails.parcelado?.parcelas || ""}
+                          onChange={(e) => setEditedAcordoDetails({
+                            ...editedAcordoDetails,
+                            parcelado: {
+                              ...editedAcordoDetails.parcelado,
+                              entrada: editedAcordoDetails.parcelado?.entrada || 0,
+                              parcelas: e.target.value ? Number(e.target.value) : 0,
+                              quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
+                            }
+                          })}
+                          placeholder="Valor parcela"
+                          className="text-sm"
+                        />
+                        <Input
+                          type="number"
+                          value={editedAcordoDetails.parcelado?.quantidadeParcelas || ""}
+                          onChange={(e) => setEditedAcordoDetails({
+                            ...editedAcordoDetails,
+                            parcelado: {
+                              ...editedAcordoDetails.parcelado,
+                              entrada: editedAcordoDetails.parcelado?.entrada || 0,
+                              parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
+                              quantidadeParcelas: e.target.value ? Number(e.target.value) : 0
+                            }
+                          })}
+                          placeholder="Qtd parcelas"
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    {task.acordoDetails?.contratoProcesso && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Contrato/Processo:</span>
+                        <span className="font-medium">{task.acordoDetails.contratoProcesso}</span>
+                      </div>
+                    )}
+                    {task.acordoDetails?.valorOriginal !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Valor original:</span>
+                        <span className="font-medium">R$ {task.acordoDetails.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {task.acordoDetails?.valorAtualizado !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Valor atualizado:</span>
+                        <span className="font-medium">R$ {task.acordoDetails.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {task.acordoDetails?.banco && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Banco:</span>
+                        <span className="font-medium">{task.acordoDetails.banco}</span>
+                      </div>
+                    )}
+                    {task.acordoDetails?.aVista !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">À vista:</span>
+                        <span className="font-medium">R$ {task.acordoDetails.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {task.acordoDetails?.parcelado && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Parcelado:</span>
+                        <span className="font-medium">
+                          R$ {task.acordoDetails.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + 
+                          {task.acordoDetails.parcelado.quantidadeParcelas}x R$ {task.acordoDetails.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    {task.acordoDetails?.honorarios !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Honorários:</span>
+                        <span className="font-medium">R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Status and Actions */}
             <div className="flex items-center justify-between">
