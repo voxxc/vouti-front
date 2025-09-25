@@ -100,6 +100,57 @@ const TaskCard = ({ task, onClick, onDelete }: TaskCardProps) => {
           </Badge>
         </div>
 
+        {/* Acordo Details */}
+        {task.type === 'acordo' && task.acordoDetails && (
+          <div className="space-y-1 text-xs border-t pt-2 mt-2">
+            {task.acordoDetails.contratoProcesso && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Contrato/Processo:</span>
+                <span className="font-medium">{task.acordoDetails.contratoProcesso}</span>
+              </div>
+            )}
+            {task.acordoDetails.valorOriginal !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valor original:</span>
+                <span className="font-medium">R$ {task.acordoDetails.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {task.acordoDetails.valorAtualizado !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valor atualizado:</span>
+                <span className="font-medium">R$ {task.acordoDetails.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {task.acordoDetails.banco && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Banco:</span>
+                <span className="font-medium">{task.acordoDetails.banco}</span>
+              </div>
+            )}
+            {task.acordoDetails.aVista !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">À vista:</span>
+                <span className="font-medium">R$ {task.acordoDetails.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {task.acordoDetails.parcelado && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Parcelado:</span>
+                <span className="font-medium">
+                  R$ {task.acordoDetails.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + 
+                  {task.acordoDetails.parcelado.quantidadeParcelas}x R$ {task.acordoDetails.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            {task.acordoDetails.honorarios !== undefined && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Honorários:</span>
+                <span className="font-medium">R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* File and Comment Count */}
         {(task.files?.length > 0 || task.comments?.length > 0) && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

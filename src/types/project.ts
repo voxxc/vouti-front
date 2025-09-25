@@ -24,6 +24,20 @@ export interface TaskHistoryEntry {
   timestamp: Date;
 }
 
+export interface AcordoDetails {
+  contratoProcesso?: string;
+  valorOriginal?: number;
+  valorAtualizado?: number;
+  banco?: string;
+  aVista?: number;
+  parcelado?: {
+    entrada: number;
+    parcelas: number;
+    quantidadeParcelas: number;
+  };
+  honorarios?: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -33,6 +47,7 @@ export interface Task {
   files: TaskFile[];
   history: TaskHistoryEntry[];
   type?: 'regular' | 'acordo';
+  acordoDetails?: AcordoDetails;
   createdAt: Date;
   updatedAt: Date;
 }
