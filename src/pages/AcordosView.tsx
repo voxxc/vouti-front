@@ -203,16 +203,46 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           </Button>
         </div>
 
-        {/* Single Column for Processos/Dívidas */}
+        {/* Two Columns for Acordos */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="max-w-md">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <KanbanColumn
               id="processos-dividas"
               title="Processos/Dívidas"
-              taskCount={filteredTasks.length}
+              taskCount={filteredTasks.filter(task => task.status !== 'done').length}
               onAddTask={handleAddTask}
             >
-              {filteredTasks.map((task, index) => (
+              {filteredTasks
+                .filter(task => task.status !== 'done')
+                .map((task, index) => (
+                <Draggable key={task.id} draggableId={task.id} index={index}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      className={snapshot.isDragging ? 'opacity-50' : ''}
+                    >
+                      <TaskCard 
+                        task={task} 
+                        onClick={handleTaskClick}
+                        onDelete={handleDeleteTask}
+                      />
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+            </KanbanColumn>
+
+            <KanbanColumn
+              id="acordos-feitos"
+              title="Acordos Feitos"
+              taskCount={filteredTasks.filter(task => task.status === 'done').length}
+              onAddTask={() => {}}
+            >
+              {filteredTasks
+                .filter(task => task.status === 'done')
+                .map((task, index) => (
                 <Draggable key={task.id} draggableId={task.id} index={index}>
                   {(provided, snapshot) => (
                     <div
