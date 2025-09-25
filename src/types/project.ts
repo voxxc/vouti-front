@@ -21,6 +21,7 @@ export interface Project {
   client: string;
   description: string;
   tasks: Task[];
+  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -95,6 +95,14 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
                         </CardDescription>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Criado por: {project.createdBy || 'Sistema'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                      </div>
+                    </div>
                   </div>
                 </CardHeader>
                 

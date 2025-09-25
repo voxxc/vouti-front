@@ -48,6 +48,7 @@ const Index = () => {
           updatedAt: new Date('2024-01-25')
         }
       ],
+      createdBy: 'Dr. Eduardo Silva',
       createdAt: new Date('2024-01-15'),
       updatedAt: new Date('2024-01-22')
     },
@@ -76,6 +77,7 @@ const Index = () => {
           updatedAt: new Date('2024-02-03')
         }
       ],
+      createdBy: 'Dra. Ana Costa',
       createdAt: new Date('2024-02-01'),
       updatedAt: new Date('2024-02-05')
     }
@@ -169,7 +171,7 @@ const Index = () => {
   }
 
   if (currentState === 'agenda') {
-    return <Agenda onLogout={handleLogout} projects={projects} />;
+    return <Agenda onLogout={handleLogout} projects={projects} onNavigate={handleNavigate} />;
   }
 
   return <Login onLogin={handleLogin} />;

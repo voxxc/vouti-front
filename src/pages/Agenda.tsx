@@ -26,6 +26,7 @@ const Agenda = ({ onLogout, projects, onNavigate }: AgendaProps) => {
     if (onNavigate) {
       onNavigate('dashboard');
     } else {
+      // Fallback para navegar para a página anterior
       window.history.back();
     }
   };
