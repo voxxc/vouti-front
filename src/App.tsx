@@ -20,7 +20,6 @@ function App() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showBrandSplash, setShowBrandSplash] = useState(false);
   const [brandSplashFadingOut, setBrandSplashFadingOut] = useState(false);
-  const [currentPage, setCurrentPage] = useState('dashboard');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [viewingAcordos, setViewingAcordos] = useState(false);
@@ -54,7 +53,6 @@ function App() {
             setShowBrandSplash(false);
             setBrandSplashFadingOut(false);
             setIsAuthenticated(true);
-            setCurrentPage('dashboard');
             
             // Reset transition state
             setTimeout(() => {
@@ -68,7 +66,6 @@ function App() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setCurrentPage('dashboard');
     setSelectedProject(null);
     setViewingAcordos(false);
   };
@@ -95,213 +92,130 @@ function App() {
     setProjects(projects.filter(p => p.id !== projectId));
     if (selectedProject?.id === projectId) {
       setSelectedProject(null);
-      setCurrentPage('projects');
     }
   };
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
-    setCurrentPage('project-view');
     setViewingAcordos(false);
   };
 
   const handleSelectAcordos = (project: Project) => {
     setSelectedProject(project);
-    setCurrentPage('project-view');
     setViewingAcordos(true);
   };
 
-  // Navigation based on current page
-  const renderCurrentPage = () => {
-    // Show brand splash screen
-    if (showBrandSplash) {
-      return (
-        <div className={`min-h-screen bg-gradient-subtle flex items-center justify-center transition-opacity duration-500 ease-out ${
-          brandSplashFadingOut ? 'opacity-0' : 'opacity-100 animate-fade-in-simple'
-        }`}>
-          <div className="text-center">
-            <Logo size="lg" className="justify-center transform scale-110" />
-          </div>
+  // Show brand splash screen
+  if (showBrandSplash) {
+    return (
+      <div className={`min-h-screen bg-gradient-subtle flex items-center justify-center transition-opacity duration-500 ease-out ${
+        brandSplashFadingOut ? 'opacity-0' : 'opacity-100 animate-fade-in-simple'
+      }`}>
+        <div className="text-center">
+          <Logo size="lg" className="justify-center transform scale-110" />
         </div>
-      );
-    }
+      </div>
+    );
+  }
 
-    if (!isAuthenticated) {
-      return (
-        <div className={`transition-opacity duration-500 ease-out ${
-          isTransitioning ? 'opacity-0' : 'opacity-100'
-        }`}>
-          <Login onLogin={handleLogin} />
-        </div>
-      );
-    }
+  // Show login screen
+  if (!isAuthenticated) {
+    return (
+      <div className={`min-h-screen bg-background transition-opacity duration-500 ease-out ${
+        isTransitioning ? 'opacity-0' : 'opacity-100'
+      }`}>
+        <Login onLogin={handleLogin} />
+        <Toaster />
+      </div>
+    );
+  }
 
-    switch (currentPage) {
-      case 'dashboard':
-        return (
-          <div className="animate-fade-in-simple">
-            <Router>
-            <Routes>
-              <Route path="/" element={
-                <Dashboard
-                  onNavigateToProjects={() => setCurrentPage('projects')}
-                  onNavigateToAgenda={() => setCurrentPage('agenda')}
-                  onNavigateToCRM={() => setCurrentPage('crm')}
-                  onNavigateToFinancial={() => setCurrentPage('financial')}
-                  onLogout={handleLogout}
-                  projects={projects}
-                  users={users}
-                />
-              } />
-              <Route path="/projects" element={
-                <Projects
-                  projects={projects}
-                  onCreateProject={handleCreateProject}
-                  onSelectProject={handleSelectProject}
-                  onDeleteProject={handleDeleteProject}
-                  onLogout={handleLogout}
-                  onBack={() => setCurrentPage('dashboard')}
-                />
-              } />
-              <Route path="/project/:id" element={
-                selectedProject ? (
-                  viewingAcordos ? (
-                    <AcordosView
-                      project={selectedProject}
-                      onUpdateProject={handleUpdateProject}
-                      onLogout={handleLogout}
-                      onBack={() => setCurrentPage('projects')}
-                    />
-                  ) : (
-                    <ProjectView
-                      project={selectedProject}
-                      onUpdateProject={handleUpdateProject}
-                      onLogout={handleLogout}
-                      onBack={() => setCurrentPage('projects')}
-                      onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
-                    />
-                  )
-                ) : (
-                  <Navigate to="/projects" replace />
-                )
-              } />
-              <Route path="/acordos" element={
-                <Acordos 
-                  onLogout={handleLogout}
-                  onBack={() => setCurrentPage('dashboard')}
-                  projects={projects}
-                  onSelectProject={handleSelectAcordos}
-                />
-              } />
-              <Route path="/agenda" element={
-                <Agenda 
-                  onLogout={handleLogout}
-                  onBack={() => setCurrentPage('dashboard')}
-                />
-              } />
-              <Route path="/crm" element={
-                <CRM 
-                  onLogout={handleLogout}
-                  onBack={() => setCurrentPage('dashboard')}
-                  currentPage="crm"
-                  onNavigate={(page) => setCurrentPage(page)}
-                />
-              } />
-              <Route path="/financial" element={
-                <Financial 
-                  onLogout={handleLogout}
-                  onBack={() => setCurrentPage('dashboard')}
-                />
-              } />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Router>
-          </div>
-        );
-
-      case 'projects':
-        return (
-          <Projects
-            projects={projects}
-            onCreateProject={handleCreateProject}
-            onSelectProject={handleSelectProject}
-            onDeleteProject={handleDeleteProject}
-            onLogout={handleLogout}
-            onBack={() => setCurrentPage('dashboard')}
-          />
-        );
-
-      case 'project-view':
-        if (!selectedProject) {
-          setCurrentPage('projects');
-          return null;
-        }
-        
-        if (viewingAcordos) {
-          return (
-            <AcordosView
-              project={selectedProject}
-              onUpdateProject={handleUpdateProject}
-              onLogout={handleLogout}
-              onBack={() => setCurrentPage('projects')}
-            />
-          );
-        }
-        
-        return (
-          <ProjectView
-            project={selectedProject}
-            onUpdateProject={handleUpdateProject}
-            onLogout={handleLogout}
-            onBack={() => setCurrentPage('projects')}
-            onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
-          />
-        );
-
-      case 'agenda':
-        return (
-          <Agenda 
-            onLogout={handleLogout}
-            onBack={() => setCurrentPage('dashboard')}
-          />
-        );
-
-      case 'crm':
-        return (
-          <CRM 
-            onLogout={handleLogout}
-            onBack={() => setCurrentPage('dashboard')}
-            currentPage="crm"
-            onNavigate={(page) => setCurrentPage(page)}
-          />
-        );
-
-      case 'financial':
-        return (
-          <Financial 
-            onLogout={handleLogout}
-            onBack={() => setCurrentPage('dashboard')}
-          />
-        );
-
-      default:
-        return (
-          <Dashboard
-            onNavigateToProjects={() => setCurrentPage('projects')}
-            onNavigateToAgenda={() => setCurrentPage('agenda')}
-            onNavigateToCRM={() => setCurrentPage('crm')}
-            onNavigateToFinancial={() => setCurrentPage('financial')}
-            onLogout={handleLogout}
-            projects={projects}
-            users={users}
-          />
-        );
-    }
-  };
-
+  // Show authenticated app with router
   return (
-    <div className="min-h-screen bg-background">
-      {renderCurrentPage()}
+    <div className="min-h-screen bg-background animate-fade-in-simple">
+      <Router>
+        <Routes>
+          <Route path="/" element={
+            <Dashboard
+              onNavigateToProjects={() => {}}
+              onNavigateToAgenda={() => {}}
+              onNavigateToCRM={() => {}}
+              onNavigateToFinancial={() => {}}
+              onLogout={handleLogout}
+              projects={projects}
+              users={users}
+            />
+          } />
+          
+          <Route path="/projects" element={
+            <Projects
+              projects={projects}
+              onCreateProject={handleCreateProject}
+              onSelectProject={handleSelectProject}
+              onDeleteProject={handleDeleteProject}
+              onLogout={handleLogout}
+              onBack={() => {}}
+            />
+          } />
+          
+          <Route path="/project/:id" element={
+            selectedProject ? (
+              viewingAcordos ? (
+                <AcordosView
+                  project={selectedProject}
+                  onUpdateProject={handleUpdateProject}
+                  onLogout={handleLogout}
+                  onBack={() => {}}
+                />
+              ) : (
+                <ProjectView
+                  project={selectedProject}
+                  onUpdateProject={handleUpdateProject}
+                  onLogout={handleLogout}
+                  onBack={() => {}}
+                  onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
+                />
+              )
+            ) : (
+              <Navigate to="/projects" replace />
+            )
+          } />
+          
+          <Route path="/acordos" element={
+            <Acordos 
+              onLogout={handleLogout}
+              onBack={() => {}}
+              projects={projects}
+              onSelectProject={handleSelectAcordos}
+            />
+          } />
+          
+          <Route path="/agenda" element={
+            <Agenda 
+              onLogout={handleLogout}
+              onBack={() => {}}
+            />
+          } />
+          
+          <Route path="/crm" element={
+            <CRM 
+              onLogout={handleLogout}
+              onBack={() => {}}
+              currentPage="crm"
+              onNavigate={() => {}}
+            />
+          } />
+          
+          <Route path="/financial" element={
+            <Financial 
+              onLogout={handleLogout}
+              onBack={() => {}}
+            />
+          } />
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Router>
       <Toaster />
     </div>
   );
