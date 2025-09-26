@@ -14,13 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message_type: string | null
+          receiver_id: string
+          related_project_id: string | null
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_type?: string | null
+          receiver_id: string
+          related_project_id?: string | null
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_type?: string | null
+          receiver_id?: string
+          related_project_id?: string | null
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          related_project_id: string | null
+          related_task_id: string | null
+          title: string
+          triggered_by_user_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          related_project_id?: string | null
+          related_task_id?: string | null
+          title: string
+          triggered_by_user_id: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          related_project_id?: string | null
+          related_task_id?: string | null
+          title?: string
+          triggered_by_user_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      project_collaborators: {
+        Row: {
+          added_at: string
+          id: string
+          project_id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          project_id: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          project_id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_project_notification: {
+        Args: {
+          notification_content: string
+          notification_title: string
+          notification_type: string
+          project_id_param: string
+          task_id_param?: string
+          triggered_by?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

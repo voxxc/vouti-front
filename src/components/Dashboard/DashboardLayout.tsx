@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
+import NotificationCenter from "@/components/Communication/NotificationCenter";
+import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings } from "lucide-react";
+import { User } from "@/types/user";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -13,9 +16,23 @@ interface DashboardLayoutProps {
   projects?: any[];
   onCreateUser?: () => void;
   isAdmin?: boolean;
+  currentUser?: User;
+  users?: User[];
+  onProjectNavigation?: (projectId: string) => void;
 }
 
-const DashboardLayout = ({ children, onLogout, currentPage, onNavigate, projects = [], onCreateUser, isAdmin = false }: DashboardLayoutProps) => {
+const DashboardLayout = ({ 
+  children, 
+  onLogout, 
+  currentPage, 
+  onNavigate, 
+  projects = [], 
+  onCreateUser, 
+  isAdmin = false,
+  currentUser,
+  users = [],
+  onProjectNavigation
+}: DashboardLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -71,6 +88,21 @@ const DashboardLayout = ({ children, onLogout, currentPage, onNavigate, projects
             
             <div className="flex items-center space-x-4">
               <GlobalSearch projects={projects} />
+              
+              {/* Communication and Notifications */}
+              {currentUser && (
+                <>
+                  <InternalMessaging 
+                    currentUser={currentUser} 
+                    users={users}
+                  />
+                  <NotificationCenter 
+                    userId={currentUser.id}
+                    onProjectNavigation={onProjectNavigation}
+                  />
+                </>
+              )}
+              
               <ThemeToggle />
               {isAdmin && onCreateUser && (
                 <Button variant="outline" onClick={onCreateUser} className="gap-2">

@@ -21,6 +21,18 @@ function AppRoutes() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [viewingAcordos, setViewingAcordos] = useState(false);
+  
+  // Mock current user and users list
+  const [currentUser] = useState<User>({
+    id: '1',
+    name: 'Administrador',
+    email: 'admin@jusoffice.com',
+    role: 'admin',
+    personalInfo: {},
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+  
   const [users] = useState<User[]>([
     {
       id: '1',
@@ -30,8 +42,37 @@ function AppRoutes() {
       personalInfo: {},
       createdAt: new Date(),
       updatedAt: new Date()
+    },
+    {
+      id: '2',
+      name: 'João Silva',
+      email: 'joao@jusoffice.com',
+      role: 'user',
+      personalInfo: {
+        department: 'Jurídico'
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: '3',
+      name: 'Maria Santos',
+      email: 'maria@jusoffice.com',
+      role: 'user',
+      personalInfo: {
+        department: 'Secretaria'
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
   ]);
+
+  const handleProjectNavigation = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      handleSelectProject(project);
+    }
+  };
 
   const handleLogout = () => {
     navigate('/');
@@ -118,6 +159,9 @@ function AppRoutes() {
               onLogout={handleLogout}
               onBack={() => navigate('/projects')}
               onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
+              currentUser={currentUser}
+              users={users}
+              onProjectNavigation={handleProjectNavigation}
             />
           )
         ) : (

@@ -20,20 +20,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Edit, Save, X, Plus, Edit2, Trash2 } from "lucide-react";
 import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry, AcordoDetails } from "@/types/project";
+import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import TaskFilePanel from "./TaskFilePanel";
 import TaskHistoryPanel from "./TaskHistoryPanel";
+import { notifyCommentAdded } from "@/utils/notificationHelpers";
 
 interface TaskModalProps {
   task: Task | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdateTask: (task: Task) => void;
+  currentUser?: User;
+  projectId?: string;
 }
 
-const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
+const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId }: TaskModalProps) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
@@ -96,12 +100,12 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
     setEditedAcordoDetails(task.acordoDetails || {});
   };
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
+  const handleAddComment = async () => {
+    if (newComment.trim() && task) {
       const comment: Comment = {
         id: `comment-${Date.now()}`,
         text: newComment.trim(),
-        author: "Usuário Atual", // Replace with actual user
+        author: currentUser?.name || "Usuário Atual",
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -110,7 +114,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
         id: `history-${Date.now()}`,
         action: 'comment_added',
         details: `Comentário adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
-        user: "Usuário Atual",
+        user: currentUser?.name || "Usuário Atual",
         timestamp: new Date()
       };
       
@@ -123,6 +127,16 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask }: TaskModalProps) => {
       
       onUpdateTask(updatedTask);
       setNewComment("");
+
+      // Send notification about comment
+      if (currentUser && projectId) {
+        await notifyCommentAdded(
+          projectId,
+          task.title,
+          currentUser.name,
+          task.id
+        );
+      }
       
       toast({
         title: "Comentário adicionado",

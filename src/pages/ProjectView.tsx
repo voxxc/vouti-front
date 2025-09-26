@@ -9,7 +9,9 @@ import TaskCard from "@/components/Project/TaskCard";
 import TaskModal from "@/components/Project/TaskModal";
 import EditableProjectName from "@/components/Project/EditableProjectName";
 import { Project, Task, TASK_STATUSES } from "@/types/project";
+import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
+import { notifyTaskMovement, notifyTaskCreated, notifyCommentAdded } from "@/utils/notificationHelpers";
 
 interface ProjectViewProps {
   onLogout: () => void;
@@ -17,9 +19,21 @@ interface ProjectViewProps {
   project: Project;
   onUpdateProject: (project: Project) => void;
   onNavigateToAcordos?: () => void;
+  currentUser?: User;
+  users?: User[];
+  onProjectNavigation?: (projectId: string) => void;
 }
 
-const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToAcordos }: ProjectViewProps) => {
+const ProjectView = ({ 
+  onLogout, 
+  onBack, 
+  project, 
+  onUpdateProject, 
+  onNavigateToAcordos,
+  currentUser,
+  users = [],
+  onProjectNavigation
+}: ProjectViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,7 +56,7 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
     return filteredTasks.filter(task => task.status === status);
   };
 
-  const handleDragEnd = (result: DropResult) => {
+  const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
@@ -74,6 +88,17 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
     };
 
     onUpdateProject(updatedProject);
+
+    // Send notification about task movement
+    if (currentUser) {
+      await notifyTaskMovement(
+        project.id,
+        task.title,
+        source.droppableId,
+        destination.droppableId,
+        currentUser.name
+      );
+    }
 
     toast({
       title: "Tarefa movida",
@@ -115,7 +140,7 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
     });
   };
 
-  const handleAddTask = (status: Task['status']) => {
+  const handleAddTask = async (status: Task['status']) => {
     const newTask: Task = {
       id: `task-${Date.now()}`,
       title: "Nova Tarefa",
@@ -127,7 +152,7 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
         id: `history-${Date.now()}`,
         action: 'created',
         details: 'Tarefa criada',
-        user: project.createdBy,
+        user: currentUser?.name || project.createdBy,
         timestamp: new Date()
       }],
       type: 'regular',
@@ -142,6 +167,15 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
     };
 
     onUpdateProject(updatedProject);
+
+    // Send notification about task creation
+    if (currentUser) {
+      await notifyTaskCreated(
+        project.id,
+        newTask.title,
+        currentUser.name
+      );
+    }
 
     toast({
       title: "Tarefa criada",
@@ -159,7 +193,12 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
   };
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout 
+      onLogout={onLogout}
+      currentUser={currentUser}
+      users={users}
+      onProjectNavigation={onProjectNavigation}
+    >
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -224,10 +263,11 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
                           {...provided.dragHandleProps}
                           className={snapshot.isDragging ? 'opacity-50' : ''}
                         >
-                          <TaskCard 
+                           <TaskCard 
                             task={task} 
                             onClick={handleTaskClick}
                             onDelete={handleDeleteTask}
+                            onUpdateTask={handleUpdateTask}
                           />
                         </div>
                       )}
@@ -244,6 +284,8 @@ const ProjectView = ({ onLogout, onBack, project, onUpdateProject, onNavigateToA
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onUpdateTask={handleUpdateTask}
+          currentUser={currentUser}
+          projectId={project.id}
         />
       </div>
     </DashboardLayout>
