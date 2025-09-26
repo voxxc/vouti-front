@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,28 +8,11 @@ import UserManagement from "@/components/Admin/UserManagement";
 import { FolderOpen, Calendar, Users, DollarSign, BarChart3 } from "lucide-react";
 import { User } from "@/types/user";
 
-interface DashboardProps {
-  onNavigateToProjects: () => void;
-  onNavigateToAgenda: () => void;
-  onNavigateToCRM: () => void;
-  onNavigateToFinancial: () => void;
-  onLogout: () => void;
-  projects?: any[];
-  users?: User[];
-}
-
-const Dashboard = ({ 
-  onNavigateToProjects, 
-  onNavigateToAgenda, 
-  onNavigateToCRM, 
-  onNavigateToFinancial,
-  onLogout,
-  projects = [],
-  users = []
-}: DashboardProps) => {
+const Dashboard = () => {
+  const navigate = useNavigate();
   const [showOverview, setShowOverview] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
-  const [systemUsers, setSystemUsers] = useState<User[]>(users);
+  const [systemUsers, setSystemUsers] = useState<User[]>([]);
 
   const handleAddUser = (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newUser: User = {
@@ -54,12 +38,7 @@ const Dashboard = ({
 
   if (showUserManagement) {
     return (
-      <DashboardLayout 
-        currentPage="dashboard" 
-        onLogout={onLogout}
-        projects={projects}
-        isAdmin={true}
-      >
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => setShowUserManagement(false)}>
@@ -79,32 +58,21 @@ const Dashboard = ({
 
   if (showOverview) {
     return (
-      <DashboardLayout 
-        currentPage="dashboard" 
-        onLogout={onLogout}
-        projects={projects}
-        isAdmin={true}
-      >
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => setShowOverview(false)}>
               ← Voltar ao Dashboard
             </Button>
           </div>
-          <OverviewSection users={systemUsers} projects={projects} />
+          <OverviewSection users={systemUsers} projects={[]} />
         </div>
       </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout 
-      currentPage="dashboard" 
-      onLogout={onLogout}
-      projects={projects}
-      onCreateUser={() => setShowUserManagement(true)}
-      isAdmin={true}
-    >
+    <DashboardLayout>
       <div className="space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -134,7 +102,7 @@ const Dashboard = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToProjects}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/projects')}>
             <CardHeader className="text-center">
               <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
                 <FolderOpen className="h-8 w-8 text-law-blue" />
@@ -154,7 +122,7 @@ const Dashboard = ({
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToAgenda}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/agenda')}>
             <CardHeader className="text-center">
               <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
                 <Calendar className="h-8 w-8 text-law-blue" />
@@ -174,7 +142,7 @@ const Dashboard = ({
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToCRM}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/crm')}>
             <CardHeader className="text-center">
               <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
                 <Users className="h-8 w-8 text-law-blue" />
@@ -194,7 +162,7 @@ const Dashboard = ({
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={onNavigateToFinancial}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/financial')}>
             <CardHeader className="text-center">
               <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
                 <DollarSign className="h-8 w-8 text-law-blue" />

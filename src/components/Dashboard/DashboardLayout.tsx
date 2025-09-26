@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
@@ -6,33 +7,42 @@ import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings } from "lucide-react";
-import { User } from "@/types/user";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  onLogout: () => void;
   currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial';
   onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial') => void;
   projects?: any[];
   onCreateUser?: () => void;
   isAdmin?: boolean;
-  currentUser?: User;
-  users?: User[];
   onProjectNavigation?: (projectId: string) => void;
 }
 
 const DashboardLayout = ({ 
   children, 
-  onLogout, 
   currentPage, 
   onNavigate, 
   projects = [], 
   onCreateUser, 
   isAdmin = false,
-  currentUser,
-  users = [],
   onProjectNavigation
 }: DashboardLayoutProps) => {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+  };
+
+  const handleNavigation = (page: string) => {
+    if (onNavigate) {
+      onNavigate(page as any);
+    } else {
+      navigate(`/${page}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -41,67 +51,53 @@ const DashboardLayout = ({
           <Logo size="sm" />
           
           <div className="flex items-center gap-4">
-            {onNavigate && (
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
-                  onClick={() => onNavigate('dashboard')}
-                  className="gap-2"
-                >
-                  <BarChart3 size={16} />
-                  Dashboard
-                </Button>
-                <Button
-                  variant={currentPage === 'projects' ? 'default' : 'ghost'}
-                  onClick={() => onNavigate('projects')}
-                  className="gap-2"
-                >
-                  <FolderOpen size={16} />
-                  CLIENTES
-                </Button>
-                <Button
-                  variant={currentPage === 'agenda' ? 'default' : 'ghost'}
-                  onClick={() => onNavigate('agenda')}
-                  className="gap-2"
-                >
-                  <Calendar size={16} />
-                  Agenda
-                </Button>
-                <Button
-                  variant={currentPage === 'crm' ? 'default' : 'ghost'}
-                  onClick={() => onNavigate('crm')}
-                  className="gap-2"
-                >
-                  <Users size={16} />
-                  CRM
-                </Button>
-                <Button
-                  variant={currentPage === 'financial' ? 'default' : 'ghost'}
-                  onClick={() => onNavigate('financial')}
-                  className="gap-2"
-                >
-                  <DollarSign size={16} />
-                  Financeiro
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center space-x-4">
+              <Button
+                variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
+                onClick={() => handleNavigation('dashboard')}
+                className="gap-2"
+              >
+                <BarChart3 size={16} />
+                Dashboard
+              </Button>
+              <Button
+                variant={currentPage === 'projects' ? 'default' : 'ghost'}
+                onClick={() => handleNavigation('projects')}
+                className="gap-2"
+              >
+                <FolderOpen size={16} />
+                CLIENTES
+              </Button>
+              <Button
+                variant={currentPage === 'agenda' ? 'default' : 'ghost'}
+                onClick={() => handleNavigation('agenda')}
+                className="gap-2"
+              >
+                <Calendar size={16} />
+                Agenda
+              </Button>
+              <Button
+                variant={currentPage === 'crm' ? 'default' : 'ghost'}
+                onClick={() => handleNavigation('crm')}
+                className="gap-2"
+              >
+                <Users size={16} />
+                CRM
+              </Button>
+              <Button
+                variant={currentPage === 'financial' ? 'default' : 'ghost'}
+                onClick={() => handleNavigation('financial')}
+                className="gap-2"
+              >
+                <DollarSign size={16} />
+                Financeiro
+              </Button>
+            </div>
             
             <div className="flex items-center space-x-4">
               <GlobalSearch projects={projects} />
               
-              {/* Communication and Notifications */}
-              {currentUser && (
-                <>
-                  <InternalMessaging 
-                    currentUser={currentUser} 
-                    users={users}
-                  />
-                  <NotificationCenter 
-                    userId={currentUser.id}
-                    onProjectNavigation={onProjectNavigation}
-                  />
-                </>
-              )}
+              {/* Communication and Notifications - Temporariamente desabilitado */}
               
               <ThemeToggle />
               {isAdmin && onCreateUser && (
@@ -113,7 +109,7 @@ const DashboardLayout = ({
               <span className="text-sm text-muted-foreground">
                 Bem-vindo ao JUS OFFICE
               </span>
-              <Button variant="ghost" onClick={onLogout} className="gap-2">
+              <Button variant="ghost" onClick={handleLogout} className="gap-2">
                 <LogOut size={16} />
                 Sair
               </Button>

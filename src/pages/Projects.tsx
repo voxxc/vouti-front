@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,20 +9,112 @@ import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Project } from "@/types/project";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
-interface ProjectsProps {
-  onLogout: () => void;
-  onBack: () => void;
-  projects: Project[];
-  onSelectProject: (project: Project) => void;
-  onCreateProject: (projectData: Omit<Project, 'id' | 'tasks' | 'acordoTasks' | 'createdAt' | 'updatedAt'>) => void;
-  onDeleteProject?: (projectId: string) => void;
-  currentPage?: 'dashboard' | 'projects' | 'agenda';
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
-}
-
-const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject, onDeleteProject, currentPage, onNavigate }: ProjectsProps) => {
+const Projects = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    fetchProjects();
+  }, [user]);
+
+  const fetchProjects = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          tasks (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const projectsWithTasks: Project[] = (data || []).map(project => ({
+        id: project.id,
+        name: project.name,
+        client: project.client,
+        description: project.description || '',
+        createdBy: project.created_by,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at),
+        tasks: (project.tasks || []).map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description || '',
+          status: task.status,
+          type: task.task_type || 'regular',
+          comments: [],
+          files: [],
+          history: [],
+          createdAt: new Date(task.created_at),
+          updatedAt: new Date(task.updated_at)
+        })),
+        acordoTasks: []
+      }));
+
+      setProjects(projectsWithTasks);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar projetos.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateProject = async () => {
+    if (!user) return;
+
+    const projectName = prompt("Nome do projeto:");
+    const clientName = prompt("Nome do cliente:");
+    const description = prompt("Descrição:");
+
+    if (!projectName || !clientName) return;
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .insert({
+          name: projectName,
+          client: clientName,
+          description: description || '',
+          created_by: user.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Projeto criado com sucesso!",
+      });
+
+      fetchProjects();
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar projeto.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSelectProject = (project: Project) => {
+    navigate(`/project/${project.id}`);
+  };
 
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -36,13 +129,23 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
     return { total, done, progress };
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div>Carregando projetos...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout onLogout={onLogout} currentPage={currentPage} onNavigate={onNavigate}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={onBack} className="gap-2">
+            <Button variant="ghost" onClick={() => navigate('/dashboard')} className="gap-2">
               <ArrowLeft size={16} />
               Voltar
             </Button>
@@ -51,7 +154,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
               <p className="text-muted-foreground">Gerencie todos os seus clientes jurídicos</p>
             </div>
           </div>
-          <Button variant="professional" onClick={() => onCreateProject({ name: '', client: '', description: '', createdBy: 'Sistema' })} className="gap-2">
+          <Button variant="professional" onClick={handleCreateProject} className="gap-2">
             <Plus size={16} />
             Novo Cliente
           </Button>
@@ -78,7 +181,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
               <Card 
                 key={project.id} 
                 className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer"
-                onClick={() => onSelectProject(project)}
+                onClick={() => handleSelectProject(project)}
               >
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
@@ -97,9 +200,6 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-muted-foreground mb-1">
-                        Criado por: {project.createdBy || 'Sistema'}
-                      </div>
                       <div className="text-xs text-muted-foreground">
                         {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}
                       </div>
@@ -157,7 +257,7 @@ const Projects = ({ onLogout, onBack, projects, onSelectProject, onCreateProject
               }
             </p>
             {!searchTerm && (
-              <Button variant="professional" onClick={() => onCreateProject({ name: '', client: '', description: '', createdBy: 'Sistema' })} className="gap-2">
+              <Button variant="professional" onClick={handleCreateProject} className="gap-2">
                 <Plus size={16} />
                 Criar Primeiro Projeto
               </Button>

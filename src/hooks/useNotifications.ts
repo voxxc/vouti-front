@@ -20,7 +20,10 @@ export const useNotifications = (userId?: string) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     const fetchNotifications = async () => {
       try {
