@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import Logo from '@/components/Logo';
 import Login from './pages/Login';
@@ -15,11 +15,9 @@ import NotFound from './pages/NotFound';
 import { Project } from './types/project';
 import { User } from './types/user';
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showBrandSplash, setShowBrandSplash] = useState(false);
-  const [brandSplashFadingOut, setBrandSplashFadingOut] = useState(false);
+// Navigation component that uses useNavigate
+function AppRoutes() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [viewingAcordos, setViewingAcordos] = useState(false);
@@ -34,6 +32,141 @@ function App() {
       updatedAt: new Date()
     }
   ]);
+
+  const handleLogout = () => {
+    navigate('/');
+    setSelectedProject(null);
+    setViewingAcordos(false);
+  };
+
+  const handleCreateProject = (projectData: Omit<Project, 'id' | 'tasks' | 'acordoTasks' | 'createdAt' | 'updatedAt'>) => {
+    const newProject: Project = {
+      ...projectData,
+      id: Date.now().toString(),
+      tasks: [],
+      acordoTasks: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    setProjects([...projects, newProject]);
+  };
+
+  const handleUpdateProject = (updatedProject: Project) => {
+    setProjects(projects.map(p => p.id === updatedProject.id ? updatedProject : p));
+    setSelectedProject(updatedProject);
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setProjects(projects.filter(p => p.id !== projectId));
+    if (selectedProject?.id === projectId) {
+      setSelectedProject(null);
+      navigate('/projects');
+    }
+  };
+
+  const handleSelectProject = (project: Project) => {
+    setSelectedProject(project);
+    setViewingAcordos(false);
+    navigate(`/project/${project.id}`);
+  };
+
+  const handleSelectAcordos = (project: Project) => {
+    setSelectedProject(project);
+    setViewingAcordos(true);
+    navigate(`/project/${project.id}`);
+  };
+
+  return (
+    <Routes>
+      <Route path="/" element={
+        <Dashboard
+          onNavigateToProjects={() => navigate('/projects')}
+          onNavigateToAgenda={() => navigate('/agenda')}
+          onNavigateToCRM={() => navigate('/crm')}
+          onNavigateToFinancial={() => navigate('/financial')}
+          onLogout={handleLogout}
+          projects={projects}
+          users={users}
+        />
+      } />
+      
+      <Route path="/projects" element={
+        <Projects
+          projects={projects}
+          onCreateProject={handleCreateProject}
+          onSelectProject={handleSelectProject}
+          onDeleteProject={handleDeleteProject}
+          onLogout={handleLogout}
+          onBack={() => navigate('/')}
+        />
+      } />
+      
+      <Route path="/project/:id" element={
+        selectedProject ? (
+          viewingAcordos ? (
+            <AcordosView
+              project={selectedProject}
+              onUpdateProject={handleUpdateProject}
+              onLogout={handleLogout}
+              onBack={() => navigate('/projects')}
+            />
+          ) : (
+            <ProjectView
+              project={selectedProject}
+              onUpdateProject={handleUpdateProject}
+              onLogout={handleLogout}
+              onBack={() => navigate('/projects')}
+              onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
+            />
+          )
+        ) : (
+          <Navigate to="/projects" replace />
+        )
+      } />
+      
+      <Route path="/acordos" element={
+        <Acordos 
+          onLogout={handleLogout}
+          onBack={() => navigate('/')}
+          projects={projects}
+          onSelectProject={handleSelectAcordos}
+        />
+      } />
+      
+      <Route path="/agenda" element={
+        <Agenda 
+          onLogout={handleLogout}
+          onBack={() => navigate('/')}
+        />
+      } />
+      
+      <Route path="/crm" element={
+        <CRM 
+          onLogout={handleLogout}
+          onBack={() => navigate('/')}
+          currentPage="crm"
+          onNavigate={(page) => navigate(`/${page}`)}
+        />
+      } />
+      
+      <Route path="/financial" element={
+        <Financial 
+          onLogout={handleLogout}
+          onBack={() => navigate('/')}
+        />
+      } />
+      
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showBrandSplash, setShowBrandSplash] = useState(false);
+  const [brandSplashFadingOut, setBrandSplashFadingOut] = useState(false);
 
   const handleLogin = (email: string, password: string) => {
     // Simple authentication logic
@@ -62,47 +195,6 @@ function App() {
         }, 2000);
       }, 500);
     }
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setSelectedProject(null);
-    setViewingAcordos(false);
-  };
-
-  const handleCreateProject = (projectData: Omit<Project, 'id' | 'tasks' | 'acordoTasks' | 'createdAt' | 'updatedAt'>) => {
-    const newProject: Project = {
-      ...projectData,
-      id: Date.now().toString(),
-      tasks: [],
-      acordoTasks: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    setProjects([...projects, newProject]);
-  };
-
-  const handleUpdateProject = (updatedProject: Project) => {
-    setProjects(projects.map(p => p.id === updatedProject.id ? updatedProject : p));
-    setSelectedProject(updatedProject);
-  };
-
-  const handleDeleteProject = (projectId: string) => {
-    setProjects(projects.filter(p => p.id !== projectId));
-    if (selectedProject?.id === projectId) {
-      setSelectedProject(null);
-    }
-  };
-
-  const handleSelectProject = (project: Project) => {
-    setSelectedProject(project);
-    setViewingAcordos(false);
-  };
-
-  const handleSelectAcordos = (project: Project) => {
-    setSelectedProject(project);
-    setViewingAcordos(true);
   };
 
   // Show brand splash screen
@@ -134,87 +226,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background animate-fade-in-simple">
       <Router>
-        <Routes>
-          <Route path="/" element={
-            <Dashboard
-              onNavigateToProjects={() => {}}
-              onNavigateToAgenda={() => {}}
-              onNavigateToCRM={() => {}}
-              onNavigateToFinancial={() => {}}
-              onLogout={handleLogout}
-              projects={projects}
-              users={users}
-            />
-          } />
-          
-          <Route path="/projects" element={
-            <Projects
-              projects={projects}
-              onCreateProject={handleCreateProject}
-              onSelectProject={handleSelectProject}
-              onDeleteProject={handleDeleteProject}
-              onLogout={handleLogout}
-              onBack={() => {}}
-            />
-          } />
-          
-          <Route path="/project/:id" element={
-            selectedProject ? (
-              viewingAcordos ? (
-                <AcordosView
-                  project={selectedProject}
-                  onUpdateProject={handleUpdateProject}
-                  onLogout={handleLogout}
-                  onBack={() => {}}
-                />
-              ) : (
-                <ProjectView
-                  project={selectedProject}
-                  onUpdateProject={handleUpdateProject}
-                  onLogout={handleLogout}
-                  onBack={() => {}}
-                  onNavigateToAcordos={() => handleSelectAcordos(selectedProject)}
-                />
-              )
-            ) : (
-              <Navigate to="/projects" replace />
-            )
-          } />
-          
-          <Route path="/acordos" element={
-            <Acordos 
-              onLogout={handleLogout}
-              onBack={() => {}}
-              projects={projects}
-              onSelectProject={handleSelectAcordos}
-            />
-          } />
-          
-          <Route path="/agenda" element={
-            <Agenda 
-              onLogout={handleLogout}
-              onBack={() => {}}
-            />
-          } />
-          
-          <Route path="/crm" element={
-            <CRM 
-              onLogout={handleLogout}
-              onBack={() => {}}
-              currentPage="crm"
-              onNavigate={() => {}}
-            />
-          } />
-          
-          <Route path="/financial" element={
-            <Financial 
-              onLogout={handleLogout}
-              onBack={() => {}}
-            />
-          } />
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppRoutes />
       </Router>
       <Toaster />
     </div>
