@@ -100,8 +100,8 @@ function App() {
   const renderCurrentPage = () => {
     if (!isAuthenticated) {
       return (
-        <div className={`transition-all duration-600 ease-in-out ${
-          isTransitioning ? 'animate-spiral-out opacity-0' : 'animate-fade-in'
+        <div className={`transition-opacity duration-500 ease-out ${
+          isTransitioning ? 'opacity-0' : 'opacity-100'
         }`}>
           <Login onLogin={handleLogin} />
         </div>
@@ -111,7 +111,7 @@ function App() {
     switch (currentPage) {
       case 'dashboard':
         return (
-          <div className={`${isTransitioning ? 'animate-fade-in-delayed' : 'animate-fade-in'}`}>
+          <div className="animate-fade-in-simple">
             <Router>
             <Routes>
               <Route path="/" element={
