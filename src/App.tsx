@@ -81,23 +81,17 @@ function App() {
               } />
               <Route path="/agenda" element={
                 <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div>Agenda em Desenvolvimento</div>
-                  </div>
+                  <Agenda />
                 </ProtectedRoute>
               } />
               <Route path="/crm" element={
                 <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div>CRM em Desenvolvimento</div>
-                  </div>
+                  <CRM />
                 </ProtectedRoute>
               } />
               <Route path="/financial" element={
                 <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div>Financeiro em Desenvolvimento</div>
-                  </div>
+                  <Financial />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />

@@ -9,12 +9,6 @@ import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-interface CRMProps {
-  onLogout: () => void;
-  onBack: () => void;
-  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm';
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm') => void;
-}
 
 interface Cliente {
   id: string;
@@ -41,7 +35,7 @@ interface Oportunidade {
   responsavel: string;
 }
 
-const CRM = ({ onLogout, onBack, currentPage, onNavigate }: CRMProps) => {
+const CRM = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("clientes");
 
@@ -141,12 +135,12 @@ const CRM = ({ onLogout, onBack, currentPage, onNavigate }: CRMProps) => {
   const taxaConversao = totalClientes > 0 ? Math.round((clientesAtivos / totalClientes) * 100) : 0;
 
   return (
-    <DashboardLayout currentPage={currentPage}>
+    <DashboardLayout currentPage="crm">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={onBack} className="gap-2">
+            <Button variant="ghost" onClick={() => window.history.back()} className="gap-2">
               <ArrowLeft size={16} />
               Voltar
             </Button>

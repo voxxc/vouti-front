@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
@@ -8,6 +8,8 @@ import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { User as UserType } from "@/types/user";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -30,6 +32,45 @@ const DashboardLayout = ({
 }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+
+  const [users, setUsers] = useState<UserType[]>([]);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, email, full_name, avatar_url, role, created_at, updated_at');
+
+      if (!error && data) {
+        setUsers(
+          data.map((p: any) => ({
+            id: p.user_id,
+            email: p.email,
+            name: p.full_name || p.email,
+            avatar: p.avatar_url || undefined,
+            role: p.role === 'admin' ? 'admin' : 'user',
+            createdAt: new Date(p.created_at),
+            updatedAt: new Date(p.updated_at),
+          }))
+        );
+      }
+    };
+    loadUsers();
+  }, []);
+
+  const currentUser: UserType | undefined = user
+    ? {
+        id: user.id,
+        email: user.email ?? '',
+        name:
+          users.find((u) => u.id === user.id)?.name ||
+          (user.user_metadata?.full_name || user.email || 'Usuário'),
+        avatar: users.find((u) => u.id === user.id)?.avatar,
+        role: users.find((u) => u.id === user.id)?.role || 'user',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    : undefined;
 
   const handleLogout = async () => {
     await signOut();
@@ -96,8 +137,17 @@ const DashboardLayout = ({
             
             <div className="flex items-center space-x-4">
               <GlobalSearch projects={projects} />
-              
-              {/* Communication and Notifications - Temporariamente desabilitado */}
+
+              {user && (
+                <NotificationCenter 
+                  userId={user.id} 
+                  onProjectNavigation={(pid) => navigate(`/project/${pid}`)}
+                />
+              )}
+
+              {currentUser && users.length > 0 && (
+                <InternalMessaging currentUser={currentUser} users={users} />
+              )}
               
               <ThemeToggle />
               {isAdmin && onCreateUser && (

@@ -23,10 +23,6 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-interface FinancialProps {
-  onLogout: () => void;
-  onBack: () => void;
-}
 
 interface ClientFinancial {
   id: string;
@@ -47,7 +43,7 @@ interface FinancialHistoryEntry {
   amount?: number;
 }
 
-const Financial = ({ onLogout, onBack }: FinancialProps) => {
+const Financial = () => {
   const [clients] = useState<ClientFinancial[]>([
     {
       id: '1',

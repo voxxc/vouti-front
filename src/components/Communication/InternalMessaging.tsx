@@ -31,6 +31,7 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
   const [messageText, setMessageText] = useState('');
   
   const { messages, sendMessage, getUserMessages, getUnreadCount, markAsRead } = useMessages(currentUser.id);
+  const totalUnread = messages.filter(m => m.receiver_id === currentUser.id && !m.is_read).length;
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,9 +59,17 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2">
+        <Button variant="ghost" size="sm" className="relative gap-2">
           <MessageCircle className="h-4 w-4" />
           Mensagens
+          {totalUnread > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            >
+              {totalUnread > 99 ? '99+' : totalUnread}
+            </Badge>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl h-[600px] p-0">

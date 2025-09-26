@@ -15,23 +15,9 @@ import { format, isSameDay, isPast, isFuture } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
-interface AgendaProps {
-  onLogout: () => void;
-  onBack?: () => void;
-  projects?: Project[];
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda') => void;
-}
-
-const Agenda = ({ onLogout, onBack, projects = [], onNavigate }: AgendaProps) => {
+const Agenda = () => {
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else if (onNavigate) {
-      onNavigate('dashboard');
-    } else {
-      // Fallback para navegar para a página anterior
-      window.history.back();
-    }
+    window.history.back();
   };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,6 +29,7 @@ const Agenda = ({ onLogout, onBack, projects = [], onNavigate }: AgendaProps) =>
     date: new Date(),
     projectId: ""
   });
+  const projects: Project[] = [];
   const { toast } = useToast();
 
   const filteredDeadlines = deadlines.filter(deadline =>
@@ -116,7 +103,7 @@ const Agenda = ({ onLogout, onBack, projects = [], onNavigate }: AgendaProps) =>
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout currentPage="agenda">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
