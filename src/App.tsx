@@ -16,6 +16,7 @@ import { User } from './types/user';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -35,8 +36,18 @@ function App() {
   const handleLogin = (email: string, password: string) => {
     // Simple authentication logic
     if (email && password) {
-      setIsAuthenticated(true);
-      setCurrentPage('dashboard');
+      setIsTransitioning(true);
+      
+      // Start spiral animation and transition to dashboard
+      setTimeout(() => {
+        setIsAuthenticated(true);
+        setCurrentPage('dashboard');
+        
+        // Reset transition state after dashboard animation
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 800);
+      }, 600);
     }
   };
 
@@ -88,13 +99,20 @@ function App() {
   // Navigation based on current page
   const renderCurrentPage = () => {
     if (!isAuthenticated) {
-      return <Login onLogin={handleLogin} />;
+      return (
+        <div className={`transition-all duration-600 ease-in-out ${
+          isTransitioning ? 'animate-spiral-out opacity-0' : 'animate-fade-in'
+        }`}>
+          <Login onLogin={handleLogin} />
+        </div>
+      );
     }
 
     switch (currentPage) {
       case 'dashboard':
         return (
-          <Router>
+          <div className={`${isTransitioning ? 'animate-fade-in-delayed' : 'animate-fade-in'}`}>
+            <Router>
             <Routes>
               <Route path="/" element={
                 <Dashboard
@@ -170,6 +188,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Router>
+          </div>
         );
 
       case 'projects':
