@@ -54,7 +54,7 @@ function App() {
           setTimeout(() => {
             setIsTransitioning(false);
           }, 600);
-        }, 2000);
+        }, 4000);
       }, 500);
     }
   };
@@ -110,11 +110,8 @@ function App() {
     if (showBrandSplash) {
       return (
         <div className="min-h-screen bg-gradient-subtle flex items-center justify-center animate-fade-in-simple">
-          <div className="text-center space-y-4">
-            <Logo size="lg" className="justify-center" />
-            <p className="text-lg text-muted-foreground font-light">
-              Sistema de Gestão Jurídica
-            </p>
+          <div className="text-center">
+            <Logo size="lg" className="justify-center transform scale-110" />
           </div>
         </div>
       );
