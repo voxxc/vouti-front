@@ -45,7 +45,7 @@ function App() {
       setTimeout(() => {
         setShowBrandSplash(true);
         
-        // Show brand for 4 seconds, then start fade-out
+        // Show brand for 2 seconds, then start fade-out
         setTimeout(() => {
           setBrandSplashFadingOut(true);
           
@@ -61,7 +61,7 @@ function App() {
               setIsTransitioning(false);
             }, 600);
           }, 500);
-        }, 4000);
+        }, 2000);
       }, 500);
     }
   };
