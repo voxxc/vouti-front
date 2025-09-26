@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
+import Logo from '@/components/Logo';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
@@ -17,6 +18,7 @@ import { User } from './types/user';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showBrandSplash, setShowBrandSplash] = useState(false);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -38,16 +40,22 @@ function App() {
     if (email && password) {
       setIsTransitioning(true);
       
-      // Start spiral animation and transition to dashboard
+      // Sequence: fade-out login → show brand splash → fade to dashboard
       setTimeout(() => {
-        setIsAuthenticated(true);
-        setCurrentPage('dashboard');
+        setShowBrandSplash(true);
         
-        // Reset transition state after dashboard animation
+        // Show brand for 2 seconds, then transition to dashboard
         setTimeout(() => {
-          setIsTransitioning(false);
-        }, 800);
-      }, 600);
+          setShowBrandSplash(false);
+          setIsAuthenticated(true);
+          setCurrentPage('dashboard');
+          
+          // Reset transition state
+          setTimeout(() => {
+            setIsTransitioning(false);
+          }, 600);
+        }, 2000);
+      }, 500);
     }
   };
 
@@ -98,6 +106,20 @@ function App() {
 
   // Navigation based on current page
   const renderCurrentPage = () => {
+    // Show brand splash screen
+    if (showBrandSplash) {
+      return (
+        <div className="min-h-screen bg-gradient-subtle flex items-center justify-center animate-fade-in-simple">
+          <div className="text-center space-y-4">
+            <Logo size="lg" className="justify-center" />
+            <p className="text-lg text-muted-foreground font-light">
+              Sistema de Gestão Jurídica
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (!isAuthenticated) {
       return (
         <div className={`transition-opacity duration-500 ease-out ${
