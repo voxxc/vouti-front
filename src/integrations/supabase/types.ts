@@ -233,6 +233,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_project_member: {
+        Args: { project_id: string; uid?: string }
+        Returns: boolean
+      }
+      is_project_owner: {
+        Args: { project_id: string; uid?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
