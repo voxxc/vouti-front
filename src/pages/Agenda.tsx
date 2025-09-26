@@ -116,7 +116,7 @@ const Agenda = ({ onLogout, onBack, projects = [], onNavigate }: AgendaProps) =>
   };
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

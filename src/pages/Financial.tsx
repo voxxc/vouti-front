@@ -75,7 +75,7 @@ const Financial = ({ onLogout, onBack }: FinancialProps) => {
   const pendingRevenue = clients.reduce((sum, client) => sum + (client.status === 'defaulter' ? client.monthlyValue : 0), 0);
 
   return (
-    <DashboardLayout currentPage="financial" onLogout={onLogout} onNavigate={onBack}>
+    <DashboardLayout currentPage="financial">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

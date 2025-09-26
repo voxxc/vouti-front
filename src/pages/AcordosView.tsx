@@ -168,7 +168,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
   };
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

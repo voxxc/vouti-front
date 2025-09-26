@@ -141,7 +141,7 @@ const CRM = ({ onLogout, onBack, currentPage, onNavigate }: CRMProps) => {
   const taxaConversao = totalClientes > 0 ? Math.round((clientesAtivos / totalClientes) * 100) : 0;
 
   return (
-    <DashboardLayout onLogout={onLogout} currentPage={currentPage} onNavigate={onNavigate}>
+    <DashboardLayout currentPage={currentPage}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
