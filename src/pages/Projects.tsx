@@ -20,6 +20,12 @@ const Projects = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newProject, setNewProject] = useState({
+    name: "",
+    client: "",
+    description: ""
+  });
 
   useEffect(() => {
     fetchProjects();
@@ -76,21 +82,15 @@ const Projects = () => {
   };
 
   const handleCreateProject = async () => {
-    if (!user) return;
-
-    const projectName = prompt("Nome do projeto:");
-    const clientName = prompt("Nome do cliente:");
-    const description = prompt("Descrição:");
-
-    if (!projectName || !clientName) return;
+    if (!user || !newProject.name || !newProject.client) return;
 
     try {
       const { error } = await supabase
         .from('projects')
         .insert({
-          name: projectName,
-          client: clientName,
-          description: description || '',
+          name: newProject.name,
+          client: newProject.client,
+          description: newProject.description,
           created_by: user.id
         });
 
@@ -101,6 +101,8 @@ const Projects = () => {
         description: "Projeto criado com sucesso!",
       });
 
+      setNewProject({ name: "", client: "", description: "" });
+      setShowCreateForm(false);
       fetchProjects();
     } catch (error) {
       console.error('Error creating project:', error);
@@ -110,6 +112,11 @@ const Projects = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleCancelCreate = () => {
+    setNewProject({ name: "", client: "", description: "" });
+    setShowCreateForm(false);
   };
 
   const handleSelectProject = (project: Project) => {
@@ -154,11 +161,59 @@ const Projects = () => {
               <p className="text-muted-foreground">Gerencie todos os seus clientes jurídicos</p>
             </div>
           </div>
-          <Button variant="professional" onClick={handleCreateProject} className="gap-2">
+          <Button variant="professional" onClick={() => setShowCreateForm(true)} className="gap-2">
             <Plus size={16} />
             Novo Cliente
           </Button>
         </div>
+
+        {/* Create Project Form */}
+        {showCreateForm && (
+          <Card className="shadow-card border-0">
+            <CardHeader>
+              <CardTitle>Novo Cliente</CardTitle>
+              <CardDescription>Preencha os dados do novo cliente jurídico</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground">Nome do Cliente *</label>
+                <Input
+                  placeholder="Nome da empresa ou pessoa"
+                  value={newProject.client}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, client: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Nome do Projeto *</label>
+                <Input
+                  placeholder="Descrição do caso ou projeto"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Descrição</label>
+                <Input
+                  placeholder="Detalhes adicionais (opcional)"
+                  value={newProject.description}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  onClick={handleCreateProject}
+                  disabled={!newProject.name || !newProject.client}
+                  className="flex-1"
+                >
+                  Criar Cliente
+                </Button>
+                <Button variant="outline" onClick={handleCancelCreate}>
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Search */}
         <div className="relative max-w-md">
@@ -257,7 +312,7 @@ const Projects = () => {
               }
             </p>
             {!searchTerm && (
-              <Button variant="professional" onClick={handleCreateProject} className="gap-2">
+              <Button variant="professional" onClick={() => setShowCreateForm(true)} className="gap-2">
                 <Plus size={16} />
                 Criar Primeiro Projeto
               </Button>
