@@ -19,6 +19,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showBrandSplash, setShowBrandSplash] = useState(false);
+  const [brandSplashFadingOut, setBrandSplashFadingOut] = useState(false);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -44,16 +45,22 @@ function App() {
       setTimeout(() => {
         setShowBrandSplash(true);
         
-        // Show brand for 2 seconds, then transition to dashboard
+        // Show brand for 4 seconds, then start fade-out
         setTimeout(() => {
-          setShowBrandSplash(false);
-          setIsAuthenticated(true);
-          setCurrentPage('dashboard');
+          setBrandSplashFadingOut(true);
           
-          // Reset transition state
+          // After fade-out completes, show dashboard
           setTimeout(() => {
-            setIsTransitioning(false);
-          }, 600);
+            setShowBrandSplash(false);
+            setBrandSplashFadingOut(false);
+            setIsAuthenticated(true);
+            setCurrentPage('dashboard');
+            
+            // Reset transition state
+            setTimeout(() => {
+              setIsTransitioning(false);
+            }, 600);
+          }, 500);
         }, 4000);
       }, 500);
     }
@@ -109,7 +116,9 @@ function App() {
     // Show brand splash screen
     if (showBrandSplash) {
       return (
-        <div className="min-h-screen bg-gradient-subtle flex items-center justify-center animate-fade-in-simple">
+        <div className={`min-h-screen bg-gradient-subtle flex items-center justify-center transition-opacity duration-500 ease-out ${
+          brandSplashFadingOut ? 'opacity-0' : 'opacity-100 animate-fade-in-simple'
+        }`}>
           <div className="text-center">
             <Logo size="lg" className="justify-center transform scale-110" />
           </div>
