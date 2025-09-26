@@ -6,10 +6,10 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
-import ProjectView from "@/pages/ProjectView";
+import ProjectViewWrapper from "@/pages/ProjectViewWrapper";
 import Agenda from "@/pages/Agenda";
 import CRM from "@/pages/CRM";
-import AcordosView from "@/pages/AcordosView";
+import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import NotFound from "@/pages/NotFound";
 import "./App.css";
@@ -67,16 +67,12 @@ function App() {
               } />
               <Route path="/project/:id" element={
                 <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div>Visualização de Projeto em Desenvolvimento</div>
-                  </div>
+                  <ProjectViewWrapper />
                 </ProtectedRoute>
               } />
               <Route path="/project/:id/acordos" element={
                 <ProtectedRoute>
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div>Acordos em Desenvolvimento</div>
-                  </div>
+                  <AcordosViewWrapper />
                 </ProtectedRoute>
               } />
               <Route path="/agenda" element={
