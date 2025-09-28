@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SearchResult {
   id: string;
@@ -17,16 +19,43 @@ interface SearchResult {
 }
 
 interface GlobalSearchProps {
-  projects: any[];
+  projects?: any[];
   onSelectResult?: (result: SearchResult) => void;
 }
 
-export const GlobalSearch = ({ projects, onSelectResult }: GlobalSearchProps) => {
+export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
+  const [allTasks, setAllTasks] = useState<any[]>([]);
+  const { user } = useAuth();
 
-  const performSearch = (term: string) => {
+  // Load data from Supabase
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadData = async () => {
+      // Load projects
+      const { data: projectsData } = await supabase
+        .from('projects')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      
+      // Load tasks
+      const { data: tasksData } = await supabase
+        .from('tasks')
+        .select('*, projects(name)')
+        .order('updated_at', { ascending: false });
+
+      if (projectsData) setAllProjects(projectsData);
+      if (tasksData) setAllTasks(tasksData);
+    };
+
+    loadData();
+  }, [user]);
+
+  const performSearch = async (term: string) => {
     if (!term || term.length < 2) {
       setResults([]);
       return;
@@ -35,64 +64,76 @@ export const GlobalSearch = ({ projects, onSelectResult }: GlobalSearchProps) =>
     const searchResults: SearchResult[] = [];
     const lowercaseTerm = term.toLowerCase();
 
-    projects.forEach(project => {
-      // Search in project name
-      if (project.name.toLowerCase().includes(lowercaseTerm)) {
+    // Search in projects
+    allProjects.forEach(project => {
+      if (project.name.toLowerCase().includes(lowercaseTerm) || 
+          project.client?.toLowerCase().includes(lowercaseTerm) ||
+          project.description?.toLowerCase().includes(lowercaseTerm)) {
         searchResults.push({
           id: `project-${project.id}`,
           type: 'project',
           title: project.name,
-          content: project.description || '',
-          date: project.createdAt
+          content: `Cliente: ${project.client} - ${project.description || ''}`,
+          date: new Date(project.updated_at)
         });
       }
+    });
 
-      // Search in tasks
-      const allTasks = [...(project.tasks || []), ...(project.acordoTasks || [])];
-      allTasks.forEach(task => {
-        if (
-          task.title.toLowerCase().includes(lowercaseTerm) ||
-          task.description.toLowerCase().includes(lowercaseTerm)
-        ) {
-          searchResults.push({
-            id: `task-${task.id}`,
-            type: 'task',
-            title: task.title,
-            content: task.description,
-            projectName: project.name,
-            date: task.updatedAt
-          });
-        }
-
-        // Search in comments
-        task.comments?.forEach(comment => {
-          if (comment.text.toLowerCase().includes(lowercaseTerm)) {
-            searchResults.push({
-              id: `comment-${comment.id}`,
-              type: 'comment',
-              title: `Comentário em "${task.title}"`,
-              content: comment.text,
-              projectName: project.name,
-              date: comment.createdAt
-            });
-          }
+    // Search in tasks
+    allTasks.forEach(task => {
+      if (task.title.toLowerCase().includes(lowercaseTerm) ||
+          task.description?.toLowerCase().includes(lowercaseTerm)) {
+        searchResults.push({
+          id: `task-${task.id}`,
+          type: 'task',
+          title: task.title,
+          content: task.description || '',
+          projectName: task.projects?.name,
+          date: new Date(task.updated_at)
         });
+      }
+    });
 
-        // Search in files
-        task.files?.forEach(file => {
-          if (file.name.toLowerCase().includes(lowercaseTerm)) {
-            searchResults.push({
-              id: `file-${file.id}`,
-              type: 'file',
-              title: file.name,
-              content: `Arquivo anexado em "${task.title}"`,
-              projectName: project.name,
-              date: file.uploadedAt
-            });
-          }
+    // Search in deadlines
+    try {
+      const { data: deadlines } = await supabase
+        .from('deadlines')
+        .select('*, projects(name)')
+        .or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+
+      deadlines?.forEach(deadline => {
+        searchResults.push({
+          id: `deadline-${deadline.id}`,
+          type: 'task',
+          title: `Prazo: ${deadline.title}`,
+          content: deadline.description || '',
+          projectName: deadline.projects?.name,
+          date: new Date(deadline.updated_at)
         });
       });
-    });
+    } catch (error) {
+      console.error('Error searching deadlines:', error);
+    }
+
+    // Search in profiles
+    try {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
+
+      profiles?.forEach(profile => {
+        searchResults.push({
+          id: `profile-${profile.id}`,
+          type: 'file',
+          title: profile.full_name || profile.email,
+          content: `Usuário: ${profile.email}`,
+          date: new Date(profile.updated_at)
+        });
+      });
+    } catch (error) {
+      console.error('Error searching profiles:', error);
+    }
 
     // Sort by date (most recent first)
     searchResults.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -125,6 +166,19 @@ export const GlobalSearch = ({ projects, onSelectResult }: GlobalSearchProps) =>
   };
 
   const handleSelectResult = (result: SearchResult) => {
+    // Navigate based on result type
+    if (result.type === 'project') {
+      const projectId = result.id.replace('project-', '');
+      window.location.href = `/project/${projectId}`;
+    } else if (result.type === 'task') {
+      const taskId = result.id.replace('task-', '');
+      // Find the project for this task
+      const task = allTasks.find(t => t.id === taskId);
+      if (task) {
+        window.location.href = `/project/${task.project_id}`;
+      }
+    }
+    
     onSelectResult?.(result);
     setIsOpen(false);
     setSearchTerm('');
