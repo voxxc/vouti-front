@@ -11,61 +11,65 @@ serve(async (req) => {
   }
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
-    const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
+    const Z_API_URL = Deno.env.get('Z_API_URL');
+    const Z_API_INSTANCE_ID = Deno.env.get('Z_API_INSTANCE_ID');
+    const Z_API_TOKEN = Deno.env.get('Z_API_TOKEN');
 
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new Error('Evolution API credentials not configured');
+    if (!Z_API_URL || !Z_API_INSTANCE_ID || !Z_API_TOKEN) {
+      throw new Error('Z-API credentials not configured');
     }
 
     const { 
-      instanceName = 'whatsapp-bot', 
-      number, 
+      phone, 
       message, 
       messageType = 'text',
       mediaUrl 
     } = await req.json();
 
-    let messageData;
+    console.log('Sending message via Z-API:', { phone, messageType });
+
+    let endpoint = '';
+    let messageData: any = {};
 
     if (messageType === 'text') {
+      endpoint = `${Z_API_URL}/v1/send-text/${Z_API_INSTANCE_ID}`;
       messageData = {
-        number,
-        textMessage: {
-          text: message
-        }
+        phone: phone.replace(/\D/g, ''), // Remove non-digits
+        message: message
       };
     } else if (messageType === 'media' && mediaUrl) {
+      endpoint = `${Z_API_URL}/v1/send-image/${Z_API_INSTANCE_ID}`;
       messageData = {
-        number,
-        mediaMessage: {
-          mediatype: 'image', // ou 'video', 'audio', 'document'
-          media: mediaUrl,
-          caption: message || ''
-        }
+        phone: phone.replace(/\D/g, ''),
+        image: mediaUrl,
+        caption: message || ''
       };
     } else {
       throw new Error('Invalid message type or missing data');
     }
 
-    console.log('Sending message:', { instanceName, number, messageType });
+    console.log('Z-API Request:', { endpoint, messageData });
 
-    const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY,
+        'Client-Token': Z_API_TOKEN,
       },
       body: JSON.stringify(messageData),
     });
 
     const data = await response.json();
-    console.log('Message sent:', data);
+    console.log('Z-API Response:', data);
+
+    if (!response.ok) {
+      throw new Error(`Z-API Error: ${data.message || 'Failed to send message'}`);
+    }
 
     return new Response(JSON.stringify({
       success: true,
       data,
-      messageId: data.key?.id
+      messageId: data.messageId || data.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

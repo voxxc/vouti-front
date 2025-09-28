@@ -11,99 +11,130 @@ serve(async (req) => {
   }
 
   try {
-    const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
-    const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
+    const Z_API_URL = Deno.env.get('Z_API_URL');
+    const Z_API_INSTANCE_ID = Deno.env.get('Z_API_INSTANCE_ID');
+    const Z_API_TOKEN = Deno.env.get('Z_API_TOKEN');
 
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      throw new Error('Evolution API credentials not configured');
+    if (!Z_API_URL || !Z_API_INSTANCE_ID || !Z_API_TOKEN) {
+      throw new Error('Z-API credentials not configured');
     }
 
-    const { action, instanceName = 'whatsapp-bot' } = await req.json();
+    const { action } = await req.json();
+
+    console.log('WhatsApp Connect Action:', action);
 
     switch (action) {
       case 'create_instance':
-        // Criar instância do WhatsApp
-        const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-          method: 'POST',
+        // Com Z-API a instância já existe, apenas verificamos se está ativa
+        console.log('Checking Z-API instance status...');
+        
+        const statusResponse = await fetch(`${Z_API_URL}/v1/status/${Z_API_INSTANCE_ID}`, {
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY,
+            'Client-Token': Z_API_TOKEN,
           },
-          body: JSON.stringify({
-            instanceName,
-            token: EVOLUTION_API_KEY,
-            qrcode: true,
-            integration: 'WHATSAPP-BAILEYS'
-          }),
         });
 
-        const createData = await createResponse.json();
-        console.log('Instance created:', createData);
+        const statusData = await statusResponse.json();
+        console.log('Z-API Status Response:', statusData);
 
         return new Response(JSON.stringify({
           success: true,
-          data: createData,
-          instanceName
+          data: statusData,
+          message: 'Instance checked successfully'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'get_qrcode':
-        // Obter QR Code
-        const qrResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
+        // Obter QR Code do Z-API
+        console.log('Getting QR Code from Z-API...');
+        
+        const qrResponse = await fetch(`${Z_API_URL}/v1/qr-code/${Z_API_INSTANCE_ID}`, {
           method: 'GET',
           headers: {
-            'apikey': EVOLUTION_API_KEY,
+            'Client-Token': Z_API_TOKEN,
           },
         });
 
         const qrData = await qrResponse.json();
-        console.log('QR Code data:', qrData);
+        console.log('Z-API QR Response:', qrData);
 
         return new Response(JSON.stringify({
           success: true,
-          qrcode: qrData.base64 || qrData.code,
-          instanceName
+          qrcode: qrData.value || qrData.qrcode,
+          message: 'QR Code retrieved successfully'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'get_status':
-        // Verificar status da conexão
-        const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
+        // Verificar status da conexão Z-API
+        console.log('Getting Z-API connection status...');
+        
+        const connectionResponse = await fetch(`${Z_API_URL}/v1/status/${Z_API_INSTANCE_ID}`, {
           method: 'GET',
           headers: {
-            'apikey': EVOLUTION_API_KEY,
+            'Client-Token': Z_API_TOKEN,
           },
         });
 
-        const statusData = await statusResponse.json();
-        console.log('Connection status:', statusData);
+        const connectionData = await connectionResponse.json();
+        console.log('Z-API Connection Status:', connectionData);
+
+        // Z-API retorna status como "CONNECTED", "DISCONNECTED", etc.
+        const isConnected = connectionData.connected === true || connectionData.status === 'CONNECTED';
 
         return new Response(JSON.stringify({
           success: true,
-          status: statusData.instance?.connectionStatus || 'disconnected',
-          instanceName
+          status: isConnected ? 'open' : 'disconnected',
+          data: connectionData
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'disconnect':
-        // Desconectar instância
-        const disconnectResponse = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instanceName}`, {
-          method: 'DELETE',
+        // Desconectar Z-API
+        console.log('Disconnecting Z-API instance...');
+        
+        const logoutResponse = await fetch(`${Z_API_URL}/v1/logout/${Z_API_INSTANCE_ID}`, {
+          method: 'POST',
           headers: {
-            'apikey': EVOLUTION_API_KEY,
+            'Client-Token': Z_API_TOKEN,
+            'Content-Type': 'application/json',
           },
         });
 
-        const disconnectData = await disconnectResponse.json();
-        console.log('Disconnected:', disconnectData);
+        const logoutData = await logoutResponse.json();
+        console.log('Z-API Logout Response:', logoutData);
 
         return new Response(JSON.stringify({
           success: true,
-          data: disconnectData,
-          instanceName
+          data: logoutData,
+          message: 'Instance disconnected successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'restart':
+        // Reiniciar instância Z-API
+        console.log('Restarting Z-API instance...');
+        
+        const restartResponse = await fetch(`${Z_API_URL}/v1/restart/${Z_API_INSTANCE_ID}`, {
+          method: 'POST',
+          headers: {
+            'Client-Token': Z_API_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const restartData = await restartResponse.json();
+        console.log('Z-API Restart Response:', restartData);
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: restartData,
+          message: 'Instance restarted successfully'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

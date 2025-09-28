@@ -58,39 +58,44 @@ const WhatsAppBot: React.FC = () => {
     setConnectionStatus('connecting');
     
     try {
-      // Criar instância
-      const { data: createData } = await supabase.functions.invoke('whatsapp-connect', {
-        body: { action: 'create_instance', instanceName }
+      // Verificar status da instância Z-API
+      const { data: statusData } = await supabase.functions.invoke('whatsapp-connect', {
+        body: { action: 'create_instance' }
       });
 
-      if (createData?.success) {
+      if (statusData?.success) {
         toast({
-          title: "Instância criada",
-          description: "Gerando QR Code para conexão...",
+          title: "Verificando instância",
+          description: "Conectando com Z-API...",
         });
 
         // Obter QR Code
-        setTimeout(async () => {
-          const { data: qrData } = await supabase.functions.invoke('whatsapp-connect', {
-            body: { action: 'get_qrcode', instanceName }
-          });
+        const { data: qrData } = await supabase.functions.invoke('whatsapp-connect', {
+          body: { action: 'get_qrcode' }
+        });
 
-          if (qrData?.success && qrData.qrcode) {
-            setQrCode(`data:image/png;base64,${qrData.qrcode}`);
-            toast({
-              title: "QR Code gerado",
-              description: "Escaneie o QR Code com seu WhatsApp",
-            });
-          }
-        }, 2000);
+        if (qrData?.success && qrData.qrcode) {
+          // Z-API já retorna o QR code em base64
+          const qrCodeData = qrData.qrcode.startsWith('data:') 
+            ? qrData.qrcode 
+            : `data:image/png;base64,${qrData.qrcode}`;
+          
+          setQrCode(qrCodeData);
+          toast({
+            title: "QR Code gerado",
+            description: "Escaneie o QR Code com seu WhatsApp",
+          });
+        }
 
         // Verificar status periodicamente
         const statusInterval = setInterval(async () => {
-          const { data: statusData } = await supabase.functions.invoke('whatsapp-connect', {
-            body: { action: 'get_status', instanceName }
+          const { data: connectionData } = await supabase.functions.invoke('whatsapp-connect', {
+            body: { action: 'get_status' }
           });
 
-          if (statusData?.success && statusData.status === 'open') {
+          console.log('Status check:', connectionData);
+
+          if (connectionData?.success && connectionData.status === 'open') {
             setIsConnected(true);
             setConnectionStatus('connected');
             setQrCode(null);
@@ -101,16 +106,27 @@ const WhatsAppBot: React.FC = () => {
               description: "Sua conta foi conectada com sucesso",
             });
           }
-        }, 3000);
+        }, 5000); // Verificar a cada 5 segundos
 
         // Limpar intervalo após 5 minutos
-        setTimeout(() => clearInterval(statusInterval), 300000);
+        setTimeout(() => {
+          clearInterval(statusInterval);
+          if (!isConnected) {
+            setConnectionStatus('disconnected');
+            setIsConnecting(false);
+            toast({
+              title: "Timeout",
+              description: "Tempo limite para conexão. Tente novamente.",
+              variant: "destructive",
+            });
+          }
+        }, 300000);
       }
     } catch (error) {
       console.error('Erro ao conectar:', error);
       toast({
         title: "Erro na conexão",
-        description: "Falha ao conectar com WhatsApp",
+        description: "Falha ao conectar com Z-API. Verifique suas credenciais.",
         variant: "destructive",
       });
       setConnectionStatus('disconnected');
@@ -122,7 +138,7 @@ const WhatsAppBot: React.FC = () => {
   const handleDisconnect = async () => {
     try {
       const { data } = await supabase.functions.invoke('whatsapp-connect', {
-        body: { action: 'disconnect', instanceName }
+        body: { action: 'disconnect' }
       });
 
       if (data?.success) {
@@ -151,8 +167,7 @@ const WhatsAppBot: React.FC = () => {
     try {
       const { data } = await supabase.functions.invoke('whatsapp-send-message', {
         body: {
-          instanceName,
-          number: selectedContact.number,
+          phone: selectedContact.number,
           message: newMessage,
           messageType: 'text'
         }
@@ -348,14 +363,32 @@ const WhatsAppBot: React.FC = () => {
             </div>
           )}
           {connectionStatus === 'connected' ? (
-            <Button variant="outline" size="sm" className="gap-2" onClick={handleDisconnect}>
-              <WifiOff size={16} />
-              Desconectar
-            </Button>
+            <>
+              <Button variant="outline" size="sm" className="gap-2" onClick={async () => {
+                try {
+                  await supabase.functions.invoke('whatsapp-connect', {
+                    body: { action: 'restart' }
+                  });
+                  toast({
+                    title: "Instância reiniciada",
+                    description: "A instância Z-API foi reiniciada",
+                  });
+                } catch (error) {
+                  console.error('Erro ao reiniciar:', error);
+                }
+              }}>
+                <QrCode size={16} />
+                Reiniciar
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleDisconnect}>
+                <WifiOff size={16} />
+                Desconectar
+              </Button>
+            </>
           ) : (
             <Button variant="default" size="sm" className="gap-2" onClick={handleConnect} disabled={isConnecting}>
               <QrCode size={16} />
-              {isConnecting ? 'Conectando...' : 'Conectar WhatsApp'}
+              {isConnecting ? 'Conectando...' : 'Conectar Z-API'}
             </Button>
           )}
         </div>

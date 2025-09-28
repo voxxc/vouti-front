@@ -18,78 +18,90 @@ serve(async (req) => {
 
   try {
     const webhookData = await req.json();
-    console.log('WhatsApp webhook received:', JSON.stringify(webhookData, null, 2));
+    console.log('Z-API webhook received:', JSON.stringify(webhookData, null, 2));
 
-    const { event, instance, data } = webhookData;
+    // Z-API webhook structure pode variar, vamos processar diferentes tipos
+    const { type, data, instanceId } = webhookData;
 
-    // Processar diferentes tipos de eventos
-    switch (event) {
-      case 'messages.upsert':
-        // Nova mensagem recebida
-        if (data.messages && data.messages.length > 0) {
-          const message = data.messages[0];
+    switch (type) {
+      case 'message':
+        // Nova mensagem recebida via Z-API
+        if (data && data.phone && data.message) {
+          console.log('Processing new message from Z-API');
           
           // Salvar mensagem no banco de dados
           await supabase.from('whatsapp_messages').insert({
-            instance_name: instance,
-            message_id: message.key.id,
-            from_number: message.key.remoteJid,
-            message_text: message.message?.conversation || message.message?.extendedTextMessage?.text || '',
+            instance_name: instanceId || 'z-api-instance',
+            message_id: data.messageId || data.id || Date.now().toString(),
+            from_number: data.phone,
+            message_text: data.message.text || data.message || '',
             message_type: 'received',
-            timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
-            raw_data: message
+            timestamp: new Date().toISOString(),
+            raw_data: data
           });
 
-          // Automação: resposta automática para mensagens específicas
-          if (message.message?.conversation) {
-            const messageText = message.message.conversation.toLowerCase();
+          // Verificar automações
+          if (data.message && typeof data.message === 'string') {
+            const messageText = data.message.toLowerCase();
             
-            if (messageText.includes('ola') || messageText.includes('oi')) {
-              // Enviar resposta automática
-              await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/whatsapp-send-message`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                },
-                body: JSON.stringify({
-                  instanceName: instance,
-                  number: message.key.remoteJid,
-                  message: 'Olá! Obrigado por entrar em contato. Como posso ajudá-lo?'
-                })
-              });
+            // Buscar automações ativas
+            const { data: automations } = await supabase
+              .from('whatsapp_automations')
+              .select('*')
+              .eq('is_active', true);
+
+            if (automations) {
+              for (const automation of automations) {
+                if (messageText.includes(automation.trigger_keyword)) {
+                  console.log('Triggering automation:', automation.trigger_keyword);
+                  
+                  // Enviar resposta automática
+                  await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/whatsapp-send-message`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    },
+                    body: JSON.stringify({
+                      phone: data.phone,
+                      message: automation.response_message
+                    })
+                  });
+                  
+                  break; // Só executa a primeira automação encontrada
+                }
+              }
             }
           }
         }
         break;
 
-      case 'connection.update':
-        // Atualização de status da conexão
-        console.log('Connection update:', data);
+      case 'status':
+        // Atualização de status da conexão Z-API
+        console.log('Z-API Status update:', data);
         
-        // Salvar status no banco
         await supabase.from('whatsapp_instances').upsert({
-          instance_name: instance,
-          connection_status: data.state || 'unknown',
+          instance_name: instanceId || 'z-api-instance',
+          connection_status: data.connected ? 'connected' : 'disconnected',
           last_update: new Date().toISOString(),
-          qr_code: data.qr || null
+          qr_code: data.qrCode || null
         });
         break;
 
-      case 'qr.updated':
+      case 'qrcode':
         // QR Code atualizado
-        console.log('QR Code updated for instance:', instance);
+        console.log('Z-API QR Code updated');
         
         await supabase.from('whatsapp_instances').upsert({
-          instance_name: instance,
-          qr_code: data.qr,
+          instance_name: instanceId || 'z-api-instance',
+          qr_code: data.qrcode || data.value,
           connection_status: 'qr_code',
           last_update: new Date().toISOString()
         });
         break;
 
       default:
-        console.log('Unhandled webhook event:', event);
+        console.log('Unhandled Z-API webhook event:', type);
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -97,7 +109,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error processing WhatsApp webhook:', error);
+    console.error('Error processing Z-API webhook:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error'

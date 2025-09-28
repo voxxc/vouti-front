@@ -20,7 +20,7 @@ enable_signup = true
 port = 54322
 
 [functions.whatsapp-connect]
-verify_jwt = false
+verify_jwt = true
 
 [functions.whatsapp-send-message]
 verify_jwt = true
