@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Project } from "@/types/project";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
@@ -296,6 +296,42 @@ const Agenda = () => {
     setIsDetailDialogOpen(true);
   };
 
+  const handleDeleteDeadline = async (deadlineId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .delete()
+        .eq('id', deadlineId);
+
+      if (error) {
+        console.error('Error deleting deadline:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível excluir o prazo.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setDeadlines(deadlines.filter(d => d.id !== deadlineId));
+      setIsDetailDialogOpen(false);
+
+      toast({
+        title: "Prazo excluído",
+        description: "Prazo foi removido com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao excluir prazo.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const hasDeadlines = (date: Date) => {
     return deadlines.some(deadline => isSameDay(deadline.date, date));
   };
@@ -548,7 +584,17 @@ const Agenda = () => {
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Detalhes do Prazo</DialogTitle>
+              <DialogTitle className="flex items-center justify-between">
+                Detalhes do Prazo
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => selectedDeadline && handleDeleteDeadline(selectedDeadline.id)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </DialogTitle>
             </DialogHeader>
             {selectedDeadline && (
               <div className="space-y-4">
