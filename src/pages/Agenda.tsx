@@ -89,7 +89,7 @@ const Agenda = () => {
         .from('deadlines')
         .select(`
           *,
-          projects!deadlines_project_id_fkey (
+          projects (
             name,
             client
           )
@@ -165,7 +165,7 @@ const Agenda = () => {
         })
         .select(`
           *,
-          projects!deadlines_project_id_fkey (
+          projects (
             name,
             client
           )
