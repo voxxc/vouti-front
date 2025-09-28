@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageCircle, Phone, Settings, Users, BarChart3, Send, Bot, CheckCircle2, Clock, Zap } from "lucide-react";
+import { MessageCircle, Phone, Settings, Users, BarChart3, Send, Bot, CheckCircle2, Clock, Zap, QrCode, Smartphone, Wifi, WifiOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface WhatsAppContact {
   id: string;
@@ -38,10 +39,14 @@ interface WhatsAppMessage {
 }
 
 const WhatsAppBot = () => {
-  const [activeTab, setActiveTab] = useState("conversas");
+  const [activeTab, setActiveTab] = useState("conexao");
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [deviceInfo, setDeviceInfo] = useState<{name: string, battery: number} | null>(null);
 
   // Mock data
   const contacts: WhatsAppContact[] = [
@@ -118,9 +123,34 @@ const WhatsAppBot = () => {
     }
   };
 
+  // Simular processo de conexão
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    setConnectionStatus('connecting');
+    
+    // Simular geração de QR Code
+    setQrCode("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0id2hpdGUiLz4KICA8ZyBmaWxsPSJibGFjayI+CiAgICA8cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiLz4KICAgIDxyZWN0IHg9IjQwIiB5PSI0MCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIi8+CiAgICA8cmVjdCB4PSI4MCIgeT0iMCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIi8+CiAgICA8cmVjdCB4PSIxNjAiIHk9IjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIvPgogICAgPHJlY3QgeD0iMCIgeT0iODAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIvPgogICAgPHJlY3QgeD0iMTYwIiB5PSI4MCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIi8+CiAgICA8cmVjdCB4PSIwIiB5PSIxNjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIvPgogICAgPHJlY3QgeD0iMTYwIiB5PSIxNjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIvPgogIDwvZz4KPC9zdmc+");
+    
+    // Simular tempo de espera pelo scan
+    setTimeout(() => {
+      setIsConnected(true);
+      setIsConnecting(false);
+      setConnectionStatus('connected');
+      setQrCode(null);
+      setDeviceInfo({ name: 'Meu WhatsApp Business', battery: 85 });
+      setActiveTab('conversas');
+    }, 5000);
+  };
+
+  const handleDisconnect = () => {
+    setIsConnected(false);
+    setConnectionStatus('disconnected');
+    setDeviceInfo(null);
+    setActiveTab('conexao');
+  };
+
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
-    // Aqui implementar o envio da mensagem
     console.log('Enviando mensagem:', newMessage);
     setNewMessage("");
   };
@@ -137,38 +167,26 @@ const WhatsAppBot = () => {
           <p className="text-muted-foreground text-sm">Automatize atendimento e capture leads pelo WhatsApp</p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings size={16} />
-                Configurações
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Configurações do Bot</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Número do WhatsApp Business</Label>
-                  <Input id="phone" placeholder="(11) 99999-9999" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="token">Token da API WhatsApp</Label>
-                  <Input id="token" type="password" placeholder="Seu token da API" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="bot-active">Bot Ativo</Label>
-                  <Switch id="bot-active" />
-                </div>
-                <Button className="w-full">Salvar Configurações</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Button variant="professional" size="sm" className="gap-2">
-            <Bot size={16} />
-            Ativar Bot
-          </Button>
+          {connectionStatus === 'connected' && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
+              <Wifi size={14} />
+              <span>Conectado</span>
+              {deviceInfo && (
+                <span className="text-xs">• {deviceInfo.battery}%</span>
+              )}
+            </div>
+          )}
+          {connectionStatus === 'connected' ? (
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleDisconnect}>
+              <WifiOff size={16} />
+              Desconectar
+            </Button>
+          ) : (
+            <Button variant="professional" size="sm" className="gap-2" onClick={handleConnect} disabled={isConnecting}>
+              <QrCode size={16} />
+              {isConnecting ? 'Conectando...' : 'Conectar WhatsApp'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -225,11 +243,80 @@ const WhatsAppBot = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="conversas">Conversas</TabsTrigger>
-          <TabsTrigger value="fluxos">Fluxos do Bot</TabsTrigger>
-          <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="conexao">Conexão</TabsTrigger>
+          <TabsTrigger value="conversas" disabled={!isConnected}>Conversas</TabsTrigger>
+          <TabsTrigger value="fluxos" disabled={!isConnected}>Fluxos do Bot</TabsTrigger>
+          <TabsTrigger value="relatorios" disabled={!isConnected}>Relatórios</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="conexao" className="space-y-4">
+          <div className="flex justify-center">
+            <Card className="w-full max-w-md border-0 shadow-card">
+              <CardHeader className="text-center">
+                <CardTitle className="flex items-center justify-center gap-2">
+                  <Smartphone className="h-5 w-5" />
+                  Conectar WhatsApp
+                </CardTitle>
+                <CardDescription>
+                  Conecte seu WhatsApp Business escaneando o QR Code
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {connectionStatus === 'disconnected' && (
+                  <div className="text-center space-y-4">
+                    <Alert>
+                      <QrCode className="h-4 w-4" />
+                      <AlertDescription>
+                        Clique em "Conectar WhatsApp" para gerar o QR Code e conectar seu dispositivo.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+                
+                {connectionStatus === 'connecting' && qrCode && (
+                  <div className="text-center space-y-4">
+                    <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-300">
+                      <img src={qrCode} alt="QR Code WhatsApp" className="w-48 h-48 mx-auto" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Escaneie o QR Code com seu WhatsApp</p>
+                      <p className="text-xs text-muted-foreground">
+                        1. Abra o WhatsApp no seu celular<br/>
+                        2. Vá em Menu &gt; Aparelhos conectados<br/>
+                        3. Toque em "Conectar um aparelho"<br/>
+                        4. Escaneie este QR Code
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Clock size={16} className="animate-spin" />
+                      Aguardando conexão...
+                    </div>
+                  </div>
+                )}
+                
+                {connectionStatus === 'connected' && deviceInfo && (
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto">
+                      <CheckCircle2 className="w-8 h-8 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-green-600">Conectado com sucesso!</p>
+                      <p className="text-sm text-muted-foreground">{deviceInfo.name}</p>
+                      <p className="text-xs text-muted-foreground">Bateria: {deviceInfo.battery}%</p>
+                    </div>
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>
+                        Seu WhatsApp está conectado e pronto para uso. Acesse as outras abas para gerenciar conversas e configurar fluxos automatizados.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         <TabsContent value="conversas" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
