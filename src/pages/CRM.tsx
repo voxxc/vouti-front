@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import WhatsAppBot from "@/components/CRM/WhatsAppBot";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -286,9 +287,10 @@ const CRM = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
             <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
+            <TabsTrigger value="whatsapp">WhatsApp Bot</TabsTrigger>
           </TabsList>
 
           <TabsContent value="clientes" className="space-y-4">
@@ -412,6 +414,10 @@ const CRM = () => {
                 </Card>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <WhatsAppBot />
           </TabsContent>
         </Tabs>
 
