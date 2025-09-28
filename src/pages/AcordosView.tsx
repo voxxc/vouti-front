@@ -2,11 +2,12 @@ import { useState } from "react";
 import { DragDropContext, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Plus } from "lucide-react";
+import { ArrowLeft, Search, Plus, Users } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
 import TaskModal from "@/components/Project/TaskModal";
+import ProjectParticipants from "@/components/Project/ProjectParticipants";
 import EditableProjectName from "@/components/Project/EditableProjectName";
 import { Project, Task } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +26,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const { toast } = useToast();
 
   // Filtrar apenas as tarefas de acordo usando o type
@@ -273,6 +275,14 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
               <p className="text-muted-foreground">Setor de Acordos - Processos e Dívidas</p>
             </div>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsParticipantsOpen(true)}
+            className="gap-2"
+          >
+            <Users size={16} />
+            Participantes
+          </Button>
         </div>
 
         {/* Search and Actions */}
@@ -360,6 +370,13 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onUpdateTask={handleUpdateTask}
+        />
+
+        <ProjectParticipants
+          isOpen={isParticipantsOpen}
+          onClose={() => setIsParticipantsOpen(false)}
+          projectId={project.id}
+          projectName={project.name}
         />
       </div>
     </DashboardLayout>

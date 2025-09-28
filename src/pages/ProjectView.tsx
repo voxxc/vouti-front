@@ -2,11 +2,12 @@ import { useState } from "react";
 import { DragDropContext, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Plus } from "lucide-react";
+import { ArrowLeft, Search, Plus, Users } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
 import TaskModal from "@/components/Project/TaskModal";
+import ProjectParticipants from "@/components/Project/ProjectParticipants";
 import EditableProjectName from "@/components/Project/EditableProjectName";
 import { Project, Task, TASK_STATUSES } from "@/types/project";
 import { User } from "@/types/user";
@@ -38,6 +39,7 @@ const ProjectView = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const { toast } = useToast();
 
   const regularTasks = project.tasks.filter(task => task.type !== 'acordo');
@@ -322,16 +324,26 @@ const ProjectView = ({
                 projectName={project.name}
                 onUpdateName={handleUpdateProjectName}
               />
-              <p className="text-muted-foreground">Cliente: {project.client}</p>
+              <p className="text-muted-foreground">{project.client}</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={onNavigateToAcordos}
-            className="gap-2"
-          >
-            Acordos
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsParticipantsOpen(true)}
+              className="gap-2"
+            >
+              <Users size={16} />
+              Participantes
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={onNavigateToAcordos}
+              className="gap-2"
+            >
+              Acordos
+            </Button>
+          </div>
         </div>
 
         {/* Search and Actions */}
@@ -396,6 +408,13 @@ const ProjectView = ({
           onUpdateTask={handleUpdateTask}
           currentUser={currentUser}
           projectId={project.id}
+        />
+
+        <ProjectParticipants
+          isOpen={isParticipantsOpen}
+          onClose={() => setIsParticipantsOpen(false)}
+          projectId={project.id}
+          projectName={project.name}
         />
       </div>
     </DashboardLayout>
