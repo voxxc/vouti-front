@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 
 interface Cliente {
@@ -24,6 +28,15 @@ interface Cliente {
   origem: string;
 }
 
+interface ClientHistory {
+  id: string;
+  actionType: string;
+  title: string;
+  description: string;
+  createdAt: Date;
+  projectName?: string;
+}
+
 interface Oportunidade {
   id: string;
   titulo: string;
@@ -36,8 +49,52 @@ interface Oportunidade {
 }
 
 const CRM = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("clientes");
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [selectedClientHistory, setSelectedClientHistory] = useState<ClientHistory[]>([]);
+  const [selectedClientName, setSelectedClientName] = useState("");
+
+  const fetchClientHistory = async (clientName: string) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('client_history')
+        .select(`
+          *,
+          projects (name)
+        `)
+        .eq('client_name', clientName)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching client history:', error);
+        return;
+      }
+
+      const mappedHistory: ClientHistory[] = (data || []).map(item => ({
+        id: item.id,
+        actionType: item.action_type,
+        title: item.title,
+        description: item.description || '',
+        createdAt: new Date(item.created_at),
+        projectName: item.projects?.name
+      }));
+
+      setSelectedClientHistory(mappedHistory);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const openClientHistory = async (clientName: string) => {
+    setSelectedClientName(clientName);
+    await fetchClientHistory(clientName);
+    setIsHistoryDialogOpen(true);
+  };
 
   // Mock data - substituir por dados do Supabase
   const [clientes] = useState<Cliente[]>([
@@ -293,6 +350,17 @@ const CRM = () => {
                       {cliente.observacoes && (
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{cliente.observacoes}</p>
                       )}
+                      <div className="flex gap-2 mt-3">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openClientHistory(cliente.nome)}
+                          className="text-xs"
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          Histórico
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -346,6 +414,54 @@ const CRM = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Modal de Histórico do Cliente */}
+        <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[600px]">
+            <DialogHeader>
+              <DialogTitle>Histórico - {selectedClientName}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto">
+              {selectedClientHistory.length > 0 ? (
+                selectedClientHistory.map((item) => (
+                  <Card key={item.id} className="border border-muted">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {item.actionType === 'deadline_completed' ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-blue-600" />
+                          )}
+                          <h4 className="font-medium text-sm">{item.title}</h4>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {item.actionType === 'deadline_completed' ? 'Prazo Concluído' : 'Ação'}
+                        </Badge>
+                      </div>
+                      
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground mb-2">{item.description}</p>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        {item.projectName && (
+                          <span>Projeto: {item.projectName}</span>
+                        )}
+                        <span>{format(item.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhum histórico encontrado para este cliente</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

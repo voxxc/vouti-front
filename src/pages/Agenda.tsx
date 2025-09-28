@@ -27,6 +27,8 @@ const Agenda = () => {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedDeadline, setSelectedDeadline] = useState<Deadline | null>(null);
   const [formData, setFormData] = useState<DeadlineFormData>({
     title: "",
     description: "",
@@ -259,6 +261,41 @@ const Agenda = () => {
     }
   };
 
+  const createClientHistory = async (deadline: Deadline, actionType: string) => {
+    if (!user) return;
+
+    try {
+      await supabase
+        .from('client_history')
+        .insert({
+          user_id: user.id,
+          project_id: deadline.projectId,
+          client_name: deadline.clientName,
+          action_type: actionType,
+          title: deadline.title,
+          description: deadline.description
+        });
+    } catch (error) {
+      console.error('Error creating client history:', error);
+    }
+  };
+
+  const handleCompleteDeadline = async (deadline: Deadline) => {
+    await toggleDeadlineCompletion(deadline.id);
+    await createClientHistory(deadline, 'deadline_completed');
+    setIsDetailDialogOpen(false);
+    
+    toast({
+      title: "Prazo concluído",
+      description: "Prazo marcado como concluído e adicionado ao histórico do cliente.",
+    });
+  };
+
+  const openDeadlineDetails = (deadline: Deadline) => {
+    setSelectedDeadline(deadline);
+    setIsDetailDialogOpen(true);
+  };
+
   const hasDeadlines = (date: Date) => {
     return deadlines.some(deadline => isSameDay(deadline.date, date));
   };
@@ -479,15 +516,21 @@ const Agenda = () => {
                 {getUpcomingDeadlines().slice(0, 10).map((deadline) => (
                   <div key={deadline.id} className="border rounded p-2 bg-blue-50 border-blue-200">
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-sm">{deadline.title}</p>
                         <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
-                      </div>
-                      <div className="text-right">
                         <p className="text-xs text-blue-600">
                           {format(deadline.date, "dd/MM/yyyy", { locale: ptBR })}
                         </p>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDeadlineDetails(deadline)}
+                        className="ml-2"
+                      >
+                        Detalhes
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -500,6 +543,67 @@ const Agenda = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Modal de Detalhes do Prazo */}
+        <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Prazo</DialogTitle>
+            </DialogHeader>
+            {selectedDeadline && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Título</label>
+                  <p className="text-sm border rounded p-2 bg-muted">{selectedDeadline.title}</p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Descrição</label>
+                  <p className="text-sm border rounded p-2 bg-muted min-h-[60px]">
+                    {selectedDeadline.description || 'Nenhuma descrição fornecida'}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Projeto</label>
+                  <p className="text-sm border rounded p-2 bg-muted">{selectedDeadline.projectName}</p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Cliente</label>
+                  <p className="text-sm border rounded p-2 bg-muted">{selectedDeadline.clientName}</p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Data do Prazo</label>
+                  <p className="text-sm border rounded p-2 bg-muted">
+                    {format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Status:</label>
+                  <Badge 
+                    variant={selectedDeadline.completed ? "default" : isPast(selectedDeadline.date) ? "destructive" : "secondary"}
+                  >
+                    {selectedDeadline.completed ? "Concluído" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
+                  </Badge>
+                </div>
+                
+                {!selectedDeadline.completed && (
+                  <Button 
+                    onClick={() => handleCompleteDeadline(selectedDeadline)} 
+                    className="w-full"
+                    variant="professional"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Marcar como Concluído
+                  </Button>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
