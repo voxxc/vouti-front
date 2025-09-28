@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from 'react';
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
@@ -12,10 +13,30 @@ import CRM from "@/pages/CRM";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import NotFound from "@/pages/NotFound";
+import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
+  const [showTransition, setShowTransition] = useState(false);
+  const [transitionComplete, setTransitionComplete] = useState(false);
+  
+  useEffect(() => {
+    if (user && !loading) {
+      // Check if we just logged in (transition should show)
+      const shouldShowTransition = !sessionStorage.getItem('transition_completed');
+      setShowTransition(shouldShowTransition);
+      
+      if (!shouldShowTransition) {
+        setTransitionComplete(true);
+      }
+    }
+  }, [user, loading]);
+
+  const handleTransitionComplete = () => {
+    setTransitionComplete(true);
+    sessionStorage.setItem('transition_completed', 'true');
+  };
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
@@ -24,8 +45,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
+
+  if (showTransition && !transitionComplete) {
+    return <LoadingTransition onComplete={handleTransitionComplete} />;
+  }
   
-  return <>{children}</>;
+  return <div className="animate-fade-in">{children}</div>;
 };
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
