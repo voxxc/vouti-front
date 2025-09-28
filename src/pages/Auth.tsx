@@ -13,6 +13,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
 
@@ -40,6 +41,12 @@ const Auth = () => {
           variant: "destructive",
         });
       } else {
+        // Remove transition flag from session to ensure it shows
+        sessionStorage.removeItem('transition_completed');
+        
+        // Start transition fade-out
+        setIsTransitioning(true);
+        
         toast({
           title: "Sucesso",
           description: "Login realizado com sucesso!",
@@ -89,6 +96,12 @@ const Auth = () => {
           variant: "destructive",
         });
       } else {
+        // Remove transition flag from session to ensure it shows
+        sessionStorage.removeItem('transition_completed');
+        
+        // Start transition fade-out
+        setIsTransitioning(true);
+        
         toast({
           title: "Sucesso",
           description: "Conta criada com sucesso! Verifique seu email para confirmar.",
@@ -106,7 +119,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+    <div className={`min-h-screen bg-gradient-subtle flex items-center justify-center p-4 transition-opacity duration-500 ${
+      isTransitioning ? 'opacity-0 animate-fade-out' : 'opacity-100'
+    }`}>
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <Logo size="lg" className="justify-center mb-6" />
