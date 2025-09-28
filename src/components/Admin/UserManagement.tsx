@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Edit, Trash2 } from "lucide-react";
 import { User } from "@/types/user";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserManagementProps {
   users: User[];
@@ -18,6 +20,8 @@ interface UserManagementProps {
 
 const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserManagementProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,14 +29,59 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     role: 'user' as 'admin' | 'user'
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onAddUser({
-      ...formData,
-      personalInfo: {}
-    });
-    setFormData({ name: '', email: '', password: '', role: 'user' });
-    setIsOpen(false);
+    setLoading(true);
+
+    try {
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Update the profile with role
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ 
+            role: formData.role,
+            full_name: formData.name
+          })
+          .eq('user_id', authData.user.id);
+
+        if (profileError) throw profileError;
+
+        onAddUser({
+          ...formData,
+          personalInfo: {}
+        });
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Usuário criado com sucesso!",
+      });
+
+      setFormData({ name: '', email: '', password: '', role: 'user' });
+      setIsOpen(false);
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -92,8 +141,8 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              <Button type="submit" className="w-full">
-                Criar Usuário
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Criando..." : "Criar Usuário"}
               </Button>
             </form>
           </DialogContent>

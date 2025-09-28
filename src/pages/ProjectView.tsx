@@ -12,6 +12,7 @@ import { Project, Task, TASK_STATUSES } from "@/types/project";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTaskMovement, notifyTaskCreated, notifyCommentAdded } from "@/utils/notificationHelpers";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectViewProps {
   onLogout: () => void;
@@ -71,39 +72,59 @@ const ProjectView = ({
     const task = project.tasks.find(t => t.id === draggableId);
     if (!task) return;
 
-    const updatedTask = {
-      ...task,
-      status: destination.droppableId as Task['status'],
-      updatedAt: new Date()
-    };
+    try {
+      // Update task status in Supabase
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: destination.droppableId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', draggableId);
 
-    const updatedTasks = project.tasks.map(t =>
-      t.id === draggableId ? updatedTask : t
-    );
+      if (error) throw error;
 
-    const updatedProject = {
-      ...project,
-      tasks: updatedTasks,
-      updatedAt: new Date()
-    };
+      const updatedTask = {
+        ...task,
+        status: destination.droppableId as Task['status'],
+        updatedAt: new Date()
+      };
 
-    onUpdateProject(updatedProject);
-
-    // Send notification about task movement
-    if (currentUser) {
-      await notifyTaskMovement(
-        project.id,
-        task.title,
-        source.droppableId,
-        destination.droppableId,
-        currentUser.name
+      const updatedTasks = project.tasks.map(t =>
+        t.id === draggableId ? updatedTask : t
       );
-    }
 
-    toast({
-      title: "Tarefa movida",
-      description: `"${task.title}" foi movida para ${TASK_STATUSES[destination.droppableId as keyof typeof TASK_STATUSES]}`,
-    });
+      const updatedProject = {
+        ...project,
+        tasks: updatedTasks,
+        updatedAt: new Date()
+      };
+
+      onUpdateProject(updatedProject);
+
+      // Send notification about task movement
+      if (currentUser) {
+        await notifyTaskMovement(
+          project.id,
+          task.title,
+          source.droppableId,
+          destination.droppableId,
+          currentUser.name
+        );
+      }
+
+      toast({
+        title: "Tarefa movida",
+        description: `"${task.title}" foi movida para ${TASK_STATUSES[destination.droppableId as keyof typeof TASK_STATUSES]}`,
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao mover tarefa.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleTaskClick = (task: Task) => {
@@ -111,85 +132,179 @@ const ProjectView = ({
     setIsModalOpen(true);
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    const updatedTasks = project.tasks.map(t =>
-      t.id === updatedTask.id ? updatedTask : t
-    );
+  const handleUpdateTask = async (updatedTask: Task) => {
+    try {
+      // Update task in Supabase
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: updatedTask.title,
+          description: updatedTask.description,
+          status: updatedTask.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', updatedTask.id);
 
-    const updatedProject = {
-      ...project,
-      tasks: updatedTasks,
-      updatedAt: new Date()
-    };
+      if (error) throw error;
 
-    onUpdateProject(updatedProject);
+      const updatedTasks = project.tasks.map(t =>
+        t.id === updatedTask.id ? updatedTask : t
+      );
+
+      const updatedProject = {
+        ...project,
+        tasks: updatedTasks,
+        updatedAt: new Date()
+      };
+
+      onUpdateProject(updatedProject);
+
+      toast({
+        title: "Sucesso",
+        description: "Tarefa atualizada com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar tarefa.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    const updatedTasks = project.tasks.filter(t => t.id !== taskId);
-    const updatedProject = {
-      ...project,
-      tasks: updatedTasks,
-      updatedAt: new Date()
-    };
-    onUpdateProject(updatedProject);
-    
-    toast({
-      title: "Tarefa excluída",
-      description: "Tarefa removida com sucesso!",
-    });
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      // Delete task from Supabase
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      const updatedTasks = project.tasks.filter(t => t.id !== taskId);
+      const updatedProject = {
+        ...project,
+        tasks: updatedTasks,
+        updatedAt: new Date()
+      };
+      onUpdateProject(updatedProject);
+      
+      toast({
+        title: "Tarefa excluída",
+        description: "Tarefa removida com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir tarefa.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddTask = async (status: Task['status']) => {
-    const newTask: Task = {
-      id: `task-${Date.now()}`,
-      title: "Nova Tarefa",
-      description: "Clique para editar a descrição",
-      status,
-      comments: [],
-      files: [],
-      history: [{
-        id: `history-${Date.now()}`,
-        action: 'created',
-        details: 'Tarefa criada',
-        user: currentUser?.name || project.createdBy,
-        timestamp: new Date()
-      }],
-      type: 'regular',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    if (!currentUser) return;
 
-    const updatedProject = {
-      ...project,
-      tasks: [...project.tasks, newTask],
-      updatedAt: new Date()
-    };
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: "Nova Tarefa",
+          description: "Clique para editar a descrição",
+          status,
+          project_id: project.id,
+          task_type: 'regular'
+        })
+        .select()
+        .single();
 
-    onUpdateProject(updatedProject);
+      if (error) throw error;
 
-    // Send notification about task creation
-    if (currentUser) {
-      await notifyTaskCreated(
-        project.id,
-        newTask.title,
-        currentUser.name
-      );
+      const newTask: Task = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        status: data.status as Task['status'],
+        comments: [],
+        files: [],
+        history: [{
+          id: `history-${Date.now()}`,
+          action: 'created',
+          details: 'Tarefa criada',
+          user: currentUser.name || project.createdBy,
+          timestamp: new Date()
+        }],
+        type: 'regular',
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
+
+      const updatedProject = {
+        ...project,
+        tasks: [...project.tasks, newTask],
+        updatedAt: new Date()
+      };
+
+      onUpdateProject(updatedProject);
+
+      // Send notification about task creation
+      if (currentUser) {
+        await notifyTaskCreated(
+          project.id,
+          newTask.title,
+          currentUser.name
+        );
+      }
+
+      toast({
+        title: "Tarefa criada",
+        description: "Nova tarefa adicionada com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error creating task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar tarefa.",
+        variant: "destructive",
+      });
     }
-
-    toast({
-      title: "Tarefa criada",
-      description: "Nova tarefa adicionada com sucesso!",
-    });
   };
 
-  const handleUpdateProjectName = (newName: string) => {
-    const updatedProject = {
-      ...project,
-      name: newName,
-      updatedAt: new Date()
-    };
-    onUpdateProject(updatedProject);
+  const handleUpdateProjectName = async (newName: string) => {
+    try {
+      // Update project name in Supabase
+      const { error } = await supabase
+        .from('projects')
+        .update({ 
+          name: newName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', project.id);
+
+      if (error) throw error;
+
+      const updatedProject = {
+        ...project,
+        name: newName,
+        updatedAt: new Date()
+      };
+      onUpdateProject(updatedProject);
+
+      toast({
+        title: "Sucesso",
+        description: "Nome do projeto atualizado!",
+      });
+    } catch (error) {
+      console.error('Error updating project name:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar nome do projeto.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

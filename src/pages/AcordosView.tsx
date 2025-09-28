@@ -10,6 +10,7 @@ import TaskModal from "@/components/Project/TaskModal";
 import EditableProjectName from "@/components/Project/EditableProjectName";
 import { Project, Task } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AcordosViewProps {
   onLogout: () => void;
@@ -40,7 +41,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
     );
   });
 
-  const handleDragEnd = (result: DropResult) => {
+  const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
@@ -55,38 +56,58 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
     const task = acordoTasks.find(t => t.id === draggableId);
     if (!task) return;
 
-    const updatedTask = {
-      ...task,
-      status: destination.droppableId as Task['status'],
-      updatedAt: new Date(),
-      history: [
-        ...task.history,
-        {
-          id: `history-${Date.now()}`,
-          action: 'moved' as const,
-          details: `Tarefa movida para ${destination.droppableId}`,
-          user: project.createdBy,
-          timestamp: new Date()
-        }
-      ]
-    };
+    try {
+      // Update task status in Supabase
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: destination.droppableId === 'acordos-feitos' ? 'done' : 'todo',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', draggableId);
 
-    const updatedAcordoTasks = acordoTasks.map(t =>
-      t.id === draggableId ? updatedTask : t
-    );
+      if (error) throw error;
 
-    const updatedProject = {
-      ...project,
-      acordoTasks: updatedAcordoTasks,
-      updatedAt: new Date()
-    };
+      const updatedTask = {
+        ...task,
+        status: (destination.droppableId === 'acordos-feitos' ? 'done' : 'todo') as Task['status'],
+        updatedAt: new Date(),
+        history: [
+          ...task.history,
+          {
+            id: `history-${Date.now()}`,
+            action: 'moved' as const,
+            details: `Tarefa movida para ${destination.droppableId}`,
+            user: project.createdBy,
+            timestamp: new Date()
+          }
+        ]
+      };
 
-    onUpdateProject(updatedProject);
+      const updatedAcordoTasks = acordoTasks.map(t =>
+        t.id === draggableId ? updatedTask : t
+      );
 
-    toast({
-      title: "Item movido",
-      description: `"${task.title}" foi atualizado com sucesso`,
-    });
+      const updatedProject = {
+        ...project,
+        acordoTasks: updatedAcordoTasks,
+        updatedAt: new Date()
+      };
+
+      onUpdateProject(updatedProject);
+
+      toast({
+        title: "Item movido",
+        description: `"${task.title}" foi atualizado com sucesso`,
+      });
+    } catch (error) {
+      console.error('Error updating acordo task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao mover item.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleTaskClick = (task: Task) => {
@@ -94,68 +115,135 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
     setIsModalOpen(true);
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    const updatedAcordoTasks = acordoTasks.map(t =>
-      t.id === updatedTask.id ? updatedTask : t
-    );
+  const handleUpdateTask = async (updatedTask: Task) => {
+    try {
+      // Update task in Supabase
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: updatedTask.title,
+          description: updatedTask.description,
+          status: updatedTask.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', updatedTask.id);
 
-    const updatedProject = {
-      ...project,
-      acordoTasks: updatedAcordoTasks,
-      updatedAt: new Date()
-    };
+      if (error) throw error;
 
-    onUpdateProject(updatedProject);
+      const updatedAcordoTasks = acordoTasks.map(t =>
+        t.id === updatedTask.id ? updatedTask : t
+      );
+
+      const updatedProject = {
+        ...project,
+        acordoTasks: updatedAcordoTasks,
+        updatedAt: new Date()
+      };
+
+      onUpdateProject(updatedProject);
+
+      toast({
+        title: "Sucesso",
+        description: "Item atualizado com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error updating acordo task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar item.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    const updatedAcordoTasks = acordoTasks.filter(t => t.id !== taskId);
-    const updatedProject = {
-      ...project,
-      acordoTasks: updatedAcordoTasks,
-      updatedAt: new Date()
-    };
-    onUpdateProject(updatedProject);
-    
-    toast({
-      title: "Item excluído",
-      description: "Processo/Dívida removido com sucesso!",
-    });
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      // Delete task from Supabase
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      const updatedAcordoTasks = acordoTasks.filter(t => t.id !== taskId);
+      const updatedProject = {
+        ...project,
+        acordoTasks: updatedAcordoTasks,
+        updatedAt: new Date()
+      };
+      onUpdateProject(updatedProject);
+      
+      toast({
+        title: "Item excluído",
+        description: "Processo/Dívida removido com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error deleting acordo task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir item.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleAddTask = () => {
-    const newTask: Task = {
-      id: `acordo-${Date.now()}`,
-      title: "Novo Processo/Dívida",
-      description: "Clique para editar os detalhes",
-      status: 'todo',
-      comments: [],
-      files: [],
-      history: [{
-        id: `history-${Date.now()}`,
-        action: 'created',
-        details: 'Processo/Dívida criado',
-        user: project.createdBy,
-        timestamp: new Date()
-      }],
-      type: 'acordo',
-      acordoDetails: {},
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+  const handleAddTask = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: "Novo Processo/Dívida",
+          description: "Clique para editar os detalhes",
+          status: 'todo',
+          project_id: project.id,
+          task_type: 'acordo'
+        })
+        .select()
+        .single();
 
-    const updatedProject = {
-      ...project,
-      acordoTasks: [...(project.acordoTasks || []), newTask],
-      updatedAt: new Date()
-    };
+      if (error) throw error;
 
-    onUpdateProject(updatedProject);
+      const newTask: Task = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        status: data.status as Task['status'],
+        comments: [],
+        files: [],
+        history: [{
+          id: `history-${Date.now()}`,
+          action: 'created',
+          details: 'Processo/Dívida criado',
+          user: project.createdBy,
+          timestamp: new Date()
+        }],
+        type: 'acordo',
+        acordoDetails: {},
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
 
-    toast({
-      title: "Item criado",
-      description: "Novo processo/dívida adicionado com sucesso!",
-    });
+      const updatedProject = {
+        ...project,
+        acordoTasks: [...(project.acordoTasks || []), newTask],
+        updatedAt: new Date()
+      };
+
+      onUpdateProject(updatedProject);
+
+      toast({
+        title: "Item criado",
+        description: "Novo processo/dívida adicionado com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error creating acordo task:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar item.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpdateProjectName = (newName: string) => {
