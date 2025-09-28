@@ -37,7 +37,7 @@ const Dashboard = () => {
         email: profile.email,
         name: profile.full_name || profile.email,
         avatar: profile.avatar_url,
-        role: profile.role === 'admin' ? 'admin' : 'user',
+        role: profile.role as 'admin' | 'advogado' | 'comercial' | 'financeiro',
         personalInfo: {},
         createdAt: new Date(profile.created_at),
         updatedAt: new Date(profile.updated_at)
@@ -156,8 +156,24 @@ const Dashboard = () => {
     );
   }
 
+  // Obter role do usuário atual
+  const currentUserRole = systemUsers.find(u => u.id === user?.id)?.role || 'advogado';
+
+  // Função para verificar se o usuário tem acesso a uma seção
+  const hasAccess = (section: string) => {
+    if (currentUserRole === 'admin') return true;
+    if (section === 'clientes' && (currentUserRole === 'advogado')) return true;
+    if (section === 'agenda' && (currentUserRole === 'advogado')) return true;
+    if (section === 'crm' && (currentUserRole === 'comercial')) return true;
+    if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
+    return false;
+  };
+
   return (
-    <DashboardLayout>
+    <DashboardLayout
+      isAdmin={currentUserRole === 'admin'}
+      onCreateUser={() => setShowUserManagement(true)}
+    >
       <div className="space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -168,105 +184,127 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* Visão Geral Section */}
-        <div className="bg-gradient-primary p-6 rounded-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold mb-2">VISÃO GERAL</h2>
-              <p className="text-white/90">Métricas e desempenho da equipe</p>
+        {/* Visão Geral Section - Apenas para Admin */}
+        {currentUserRole === 'admin' && (
+          <div className="bg-gradient-primary p-6 rounded-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold mb-2">VISÃO GERAL</h2>
+                <p className="text-white/90">Métricas e desempenho da equipe</p>
+              </div>
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowOverview(true)}
+                className="gap-2"
+              >
+                <BarChart3 size={16} />
+                Ver Detalhes
+              </Button>
             </div>
-            <Button 
-              variant="secondary" 
-              onClick={() => setShowOverview(true)}
-              className="gap-2"
-            >
-              <BarChart3 size={16} />
-              Ver Detalhes
-            </Button>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/projects')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
-                <FolderOpen className="h-8 w-8 text-law-blue" />
-              </div>
-              <CardTitle className="text-xl">CLIENTES</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">CLIENTES</h3>
-                  <p className="text-sm text-muted-foreground">Gerencie todos os seus clientes e casos jurídicos</p>
+          {/* CLIENTES - Acesso para Admin e Advogado */}
+          {hasAccess('clientes') && (
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/projects')}>
+              <CardHeader className="text-center">
+                <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                  <FolderOpen className="h-8 w-8 text-law-blue" />
                 </div>
-                <div className="p-3 bg-law-blue/10 rounded-lg">
-                  <FolderOpen className="h-6 w-6 text-law-blue" />
+                <CardTitle className="text-xl">CLIENTES</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">CLIENTES</h3>
+                    <p className="text-sm text-muted-foreground">Gerencie todos os seus clientes e casos jurídicos</p>
+                  </div>
+                  <div className="p-3 bg-law-blue/10 rounded-lg">
+                    <FolderOpen className="h-6 w-6 text-law-blue" />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/agenda')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
-                <Calendar className="h-8 w-8 text-law-blue" />
-              </div>
-              <CardTitle className="text-xl">Agenda</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Agenda</h3>
-                  <p className="text-sm text-muted-foreground">Organize compromissos e prazos importantes</p>
+          {/* AGENDA - Acesso para Admin e Advogado */}
+          {hasAccess('agenda') && (
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/agenda')}>
+              <CardHeader className="text-center">
+                <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                  <Calendar className="h-8 w-8 text-law-blue" />
                 </div>
-                <div className="p-3 bg-law-blue/10 rounded-lg">
-                  <Calendar className="h-6 w-6 text-law-blue" />
+                <CardTitle className="text-xl">Agenda</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Agenda</h3>
+                    <p className="text-sm text-muted-foreground">Organize compromissos e prazos importantes</p>
+                  </div>
+                  <div className="p-3 bg-law-blue/10 rounded-lg">
+                    <Calendar className="h-6 w-6 text-law-blue" />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/crm')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
-                <Users className="h-8 w-8 text-law-blue" />
-              </div>
-              <CardTitle className="text-xl">CRM</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">CRM</h3>
-                  <p className="text-sm text-muted-foreground">Gestão de relacionamento com clientes</p>
+          {/* CRM - Acesso para Admin e Comercial */}
+          {hasAccess('crm') && (
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/crm')}>
+              <CardHeader className="text-center">
+                <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                  <Users className="h-8 w-8 text-law-blue" />
                 </div>
-                <div className="p-3 bg-law-blue/10 rounded-lg">
-                  <Users className="h-6 w-6 text-law-blue" />
+                <CardTitle className="text-xl">CRM</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">CRM</h3>
+                    <p className="text-sm text-muted-foreground">Gestão de relacionamento com clientes</p>
+                  </div>
+                  <div className="p-3 bg-law-blue/10 rounded-lg">
+                    <Users className="h-6 w-6 text-law-blue" />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/financial')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
-                <DollarSign className="h-8 w-8 text-law-blue" />
-              </div>
-              <CardTitle className="text-xl">Financeiro</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Financeiro</h3>
-                  <p className="text-sm text-muted-foreground">Controle financeiro e inadimplência</p>
+          {/* FINANCEIRO - Acesso para Admin e Financeiro */}
+          {hasAccess('financeiro') && (
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/financial')}>
+              <CardHeader className="text-center">
+                <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                  <DollarSign className="h-8 w-8 text-law-blue" />
                 </div>
-                <div className="p-3 bg-law-blue/10 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-law-blue" />
+                <CardTitle className="text-xl">Financeiro</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Financeiro</h3>
+                    <p className="text-sm text-muted-foreground">Controle financeiro e inadimplência</p>
+                  </div>
+                  <div className="p-3 bg-law-blue/10 rounded-lg">
+                    <DollarSign className="h-6 w-6 text-law-blue" />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
+
+        {/* Mensagem para usuários sem acesso */}
+        {!hasAccess('clientes') && !hasAccess('agenda') && !hasAccess('crm') && !hasAccess('financeiro') && (
+          <div className="text-center p-8">
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">Acesso Restrito</h3>
+            <p className="text-sm text-muted-foreground">Entre em contato com o administrador para obter acesso às funcionalidades do sistema.</p>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

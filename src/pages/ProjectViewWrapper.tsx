@@ -169,7 +169,7 @@ const ProjectViewWrapper = () => {
         id: user?.id || '',
         email: user?.email || '',
         name: user?.user_metadata?.full_name || user?.email || '',
-        role: 'user',
+        role: 'advogado',
         createdAt: new Date(),
         updatedAt: new Date()
       }}

@@ -48,7 +48,7 @@ const DashboardLayout = ({
             email: p.email,
             name: p.full_name || p.email,
             avatar: p.avatar_url || undefined,
-            role: p.role === 'admin' ? 'admin' : 'user',
+            role: p.role as 'admin' | 'advogado' | 'comercial' | 'financeiro',
             createdAt: new Date(p.created_at),
             updatedAt: new Date(p.updated_at),
           }))
@@ -66,7 +66,7 @@ const DashboardLayout = ({
           users.find((u) => u.id === user.id)?.name ||
           (user.user_metadata?.full_name || user.email || 'Usuário'),
         avatar: users.find((u) => u.id === user.id)?.avatar,
-        role: users.find((u) => u.id === user.id)?.role || 'user',
+        role: users.find((u) => u.id === user.id)?.role || 'advogado',
         createdAt: new Date(),
         updatedAt: new Date(),
       }

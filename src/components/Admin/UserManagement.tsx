@@ -26,7 +26,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     name: '',
     email: '',
     password: '',
-    role: 'user' as 'admin' | 'user'
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro'
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +70,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         description: "Usuário criado com sucesso!",
       });
 
-      setFormData({ name: '', email: '', password: '', role: 'user' });
+      setFormData({ name: '', email: '', password: '', role: 'advogado' });
       setIsOpen(false);
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -134,11 +134,13 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                 <select
                   id="role"
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'advogado' | 'comercial' | 'financeiro' })}
                   className="w-full p-2 border border-border rounded-md"
                 >
-                  <option value="user">Usuário</option>
-                  <option value="admin">Admin</option>
+                  <option value="advogado">Advogado</option>
+                  <option value="comercial">Comercial</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="admin">Administrador</option>
                 </select>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
