@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,14 +14,18 @@ import { Deadline, DeadlineFormData } from "@/types/agenda";
 import { format, isSameDay, isPast, isFuture } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Agenda = () => {
+  const { user } = useAuth();
   const handleBack = () => {
     window.history.back();
   };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState("");
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<DeadlineFormData>({
     title: "",
@@ -29,8 +33,54 @@ const Agenda = () => {
     date: new Date(),
     projectId: ""
   });
-  const projects: Project[] = [];
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+    }
+  }, [user]);
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching projects:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os projetos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Mapear os dados do Supabase para o formato Project
+      const mappedProjects: Project[] = (data || []).map(project => ({
+        id: project.id,
+        name: project.name,
+        client: project.client,
+        description: project.description || '',
+        tasks: [],
+        acordoTasks: [],
+        createdBy: project.created_by,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      }));
+
+      setProjects(mappedProjects);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao carregar projetos.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredDeadlines = deadlines.filter(deadline =>
     deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
