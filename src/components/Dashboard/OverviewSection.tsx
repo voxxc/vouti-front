@@ -10,6 +10,8 @@ import {
   Calendar,
   Target
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserMetrics {
   userId: string;
@@ -17,6 +19,8 @@ interface UserMetrics {
   completedTasks: number;
   delayedTasks: number;
   inProgressTasks: number;
+  todoTasks: number;
+  waitingTasks: number;
   completionRate: number;
 }
 
@@ -25,50 +29,154 @@ interface OverviewProps {
   projects: any[];
 }
 
+interface Task {
+  id: string;
+  title: string;
+  status: 'todo' | 'progress' | 'waiting' | 'done';
+  project_id: string;
+  created_at: string;
+  updated_at: string;
+  projects?: {
+    name: string;
+    client: string;
+  };
+}
+
 export const OverviewSection = ({ users, projects }: OverviewProps) => {
-  // Mock data for demonstration - in real app this would come from backend
-  const userMetrics: UserMetrics[] = [
-    {
-      userId: '1',
-      name: 'João Silva',
-      completedTasks: 45,
-      delayedTasks: 3,
-      inProgressTasks: 8,
-      completionRate: 92
-    },
-    {
-      userId: '2',
-      name: 'Maria Santos',
-      completedTasks: 38,
-      delayedTasks: 1,
-      inProgressTasks: 12,
-      completionRate: 96
-    },
-    {
-      userId: '3',
-      name: 'Carlos Oliveira',
-      completedTasks: 52,
-      delayedTasks: 5,
-      inProgressTasks: 6,
-      completionRate: 88
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [userMetrics, setUserMetrics] = useState<UserMetrics[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRealData();
+  }, []);
+
+  const fetchRealData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch tasks with project information
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          projects (
+            name,
+            client
+          )
+        `)
+        .order('updated_at', { ascending: false });
+
+      if (tasksError) throw tasksError;
+
+      setTasks((tasksData || []) as Task[]);
+
+      // Calculate user metrics based on real data
+      const metricsMap = new Map<string, UserMetrics>();
+
+      // Initialize metrics for each user
+      users.forEach(user => {
+        metricsMap.set(user.user_id, {
+          userId: user.user_id,
+          name: user.full_name || user.email,
+          completedTasks: 0,
+          delayedTasks: 0,
+          inProgressTasks: 0,
+          todoTasks: 0,
+          waitingTasks: 0,
+          completionRate: 0
+        });
+      });
+
+      // Count tasks by status for each user
+      tasksData?.forEach(task => {
+        // For now, we'll count all tasks as belonging to the admin user
+        // In the future, you might have an assigned_to field
+        const adminUser = users.find(u => u.role === 'admin');
+        if (adminUser) {
+          const metrics = metricsMap.get(adminUser.user_id);
+          if (metrics) {
+            switch (task.status) {
+              case 'done':
+                metrics.completedTasks++;
+                break;
+              case 'progress':
+                metrics.inProgressTasks++;
+                break;
+              case 'todo':
+                metrics.todoTasks++;
+                break;
+              case 'waiting':
+                metrics.waitingTasks++;
+                break;
+            }
+          }
+        }
+      });
+
+      // Calculate completion rates
+      metricsMap.forEach(metrics => {
+        const totalTasks = metrics.completedTasks + metrics.delayedTasks + 
+                          metrics.inProgressTasks + metrics.todoTasks + metrics.waitingTasks;
+        metrics.completionRate = totalTasks > 0 ? 
+          Math.round((metrics.completedTasks / totalTasks) * 100) : 0;
+      });
+
+      setUserMetrics(Array.from(metricsMap.values()).filter(m => 
+        m.completedTasks + m.inProgressTasks + m.todoTasks + m.waitingTasks > 0
+      ));
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-foreground">Visão Geral</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="pb-2">
+                <div className="h-4 bg-muted rounded w-2/3"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-3/4"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const totalTasks = userMetrics.reduce((sum, user) => 
-    sum + user.completedTasks + user.delayedTasks + user.inProgressTasks, 0
+    sum + user.completedTasks + user.delayedTasks + user.inProgressTasks + user.todoTasks + user.waitingTasks, 0
   );
   
   const totalCompleted = userMetrics.reduce((sum, user) => sum + user.completedTasks, 0);
   const totalDelayed = userMetrics.reduce((sum, user) => sum + user.delayedTasks, 0);
   const totalInProgress = userMetrics.reduce((sum, user) => sum + user.inProgressTasks, 0);
+  const totalWaiting = userMetrics.reduce((sum, user) => sum + user.waitingTasks, 0);
 
   const overallCompletionRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
 
-  const upcomingDeadlines = [
-    { task: 'Revisão contrato ABC Corp', client: 'ABC Corp', date: new Date(2024, 0, 28), priority: 'high' },
-    { task: 'Audiência caso Silva', client: 'João Silva', date: new Date(2024, 0, 30), priority: 'medium' },
-    { task: 'Entrega parecer técnico', client: 'Tech Solutions', date: new Date(2024, 1, 2), priority: 'high' },
-  ];
+  // Get recent tasks for upcoming deadlines (using the 5 most recent tasks)
+  const upcomingDeadlines = tasks
+    .filter(task => task.status !== 'done')
+    .slice(0, 5)
+    .map(task => ({
+      task: task.title,
+      client: task.projects?.client || task.projects?.name || 'Cliente não identificado',
+      date: new Date(task.updated_at),
+      priority: task.status === 'waiting' ? 'high' : task.status === 'progress' ? 'medium' : 'low'
+    }));
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -126,13 +234,13 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Atrasadas</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium">Aguardando</CardTitle>
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{totalDelayed}</div>
+            <div className="text-2xl font-bold text-yellow-600">{totalWaiting}</div>
             <p className="text-xs text-muted-foreground">
-              requerem atenção
+              aguardando aprovação
             </p>
           </CardContent>
         </Card>
@@ -148,13 +256,13 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {userMetrics.map((user) => (
+            {userMetrics.length > 0 ? userMetrics.map((user) => (
               <div key={user.userId} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{user.name}</span>
                   <Badge variant="outline">{user.completionRate}%</Badge>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-4 gap-2 text-xs">
                   <div className="flex items-center gap-1 text-green-600">
                     <CheckCircle size={12} />
                     {user.completedTasks} concluídas
@@ -163,14 +271,22 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
                     <Clock size={12} />
                     {user.inProgressTasks} em andamento
                   </div>
-                  <div className="flex items-center gap-1 text-red-600">
+                  <div className="flex items-center gap-1 text-yellow-600">
                     <AlertCircle size={12} />
-                    {user.delayedTasks} atrasadas
+                    {user.waitingTasks} aguardando
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Target size={12} />
+                    {user.todoTasks} a fazer
                   </div>
                 </div>
                 <Progress value={user.completionRate} className="h-2" />
               </div>
-            ))}
+            )) : (
+              <p className="text-muted-foreground text-center py-4">
+                Nenhuma tarefa encontrada
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -183,7 +299,7 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingDeadlines.map((deadline, index) => (
+            {upcomingDeadlines.length > 0 ? upcomingDeadlines.map((deadline, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex-1">
                   <p className="font-medium text-sm">{deadline.task}</p>
@@ -202,7 +318,11 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
                   </Badge>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-muted-foreground text-center py-4">
+                Nenhuma tarefa pendente
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
