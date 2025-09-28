@@ -101,38 +101,6 @@ const DashboardLayout = ({
                 <BarChart3 size={16} />
                 Dashboard
               </Button>
-              <Button
-                variant={currentPage === 'projects' ? 'default' : 'ghost'}
-                onClick={() => handleNavigation('projects')}
-                className="gap-2"
-              >
-                <FolderOpen size={16} />
-                CLIENTES
-              </Button>
-              <Button
-                variant={currentPage === 'agenda' ? 'default' : 'ghost'}
-                onClick={() => handleNavigation('agenda')}
-                className="gap-2"
-              >
-                <Calendar size={16} />
-                Agenda
-              </Button>
-              <Button
-                variant={currentPage === 'crm' ? 'default' : 'ghost'}
-                onClick={() => handleNavigation('crm')}
-                className="gap-2"
-              >
-                <Users size={16} />
-                CRM
-              </Button>
-              <Button
-                variant={currentPage === 'financial' ? 'default' : 'ghost'}
-                onClick={() => handleNavigation('financial')}
-                className="gap-2"
-              >
-                <DollarSign size={16} />
-                Financeiro
-              </Button>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -156,9 +124,6 @@ const DashboardLayout = ({
                   Usuários
                 </Button>
               )}
-              <span className="text-sm text-muted-foreground">
-                Bem-vindo ao JUS OFFICE
-              </span>
               <Button variant="ghost" onClick={handleLogout} className="gap-2">
                 <LogOut size={16} />
                 Sair
