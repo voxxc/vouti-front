@@ -38,6 +38,7 @@ const Agenda = () => {
   useEffect(() => {
     if (user) {
       fetchProjects();
+      fetchDeadlines();
     }
   }, [user]);
 
@@ -82,6 +83,54 @@ const Agenda = () => {
     }
   };
 
+  const fetchDeadlines = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('deadlines')
+        .select(`
+          *,
+          projects!deadlines_project_id_fkey (
+            name,
+            client
+          )
+        `)
+        .order('date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching deadlines:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os prazos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Mapear os dados do Supabase para o formato Deadline
+      const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
+        id: deadline.id,
+        title: deadline.title,
+        description: deadline.description || '',
+        date: new Date(deadline.date),
+        projectId: deadline.project_id,
+        projectName: deadline.projects?.name || 'Projeto não encontrado',
+        clientName: deadline.projects?.client || 'Cliente não encontrado',
+        completed: deadline.completed,
+        createdAt: new Date(deadline.created_at),
+        updatedAt: new Date(deadline.updated_at)
+      }));
+
+      setDeadlines(mappedDeadlines);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao carregar prazos.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredDeadlines = deadlines.filter(deadline =>
     deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -101,51 +150,113 @@ const Agenda = () => {
     return filteredDeadlines.filter(deadline => isFuture(deadline.date) && !deadline.completed);
   };
 
-  const handleCreateDeadline = () => {
-    if (!formData.title.trim() || !formData.projectId) return;
+  const handleCreateDeadline = async () => {
+    if (!formData.title.trim() || !formData.projectId || !user) return;
 
-    const selectedProject = projects.find(p => p.id === formData.projectId);
-    if (!selectedProject) return;
+    try {
+      const { data, error } = await supabase
+        .from('deadlines')
+        .insert({
+          user_id: user.id,
+          title: formData.title,
+          description: formData.description,
+          date: formData.date.toISOString().split('T')[0], // Formato YYYY-MM-DD
+          project_id: formData.projectId
+        })
+        .select(`
+          *,
+          projects!deadlines_project_id_fkey (
+            name,
+            client
+          )
+        `)
+        .single();
 
-    const newDeadline: Deadline = {
-      id: `deadline-${Date.now()}`,
-      title: formData.title,
-      description: formData.description,
-      date: formData.date,
-      projectId: formData.projectId,
-      projectName: selectedProject.name,
-      clientName: selectedProject.client,
-      completed: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+      if (error) {
+        console.error('Error creating deadline:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar o prazo.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    setDeadlines([...deadlines, newDeadline]);
-    setFormData({
-      title: "",
-      description: "",
-      date: new Date(),
-      projectId: ""
-    });
-    setIsDialogOpen(false);
+      // Adicionar o novo prazo à lista local
+      const newDeadline: Deadline = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        date: new Date(data.date),
+        projectId: data.project_id,
+        projectName: data.projects?.name || 'Projeto não encontrado',
+        clientName: data.projects?.client || 'Cliente não encontrado',
+        completed: data.completed,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
 
-    toast({
-      title: "Prazo criado",
-      description: "Novo prazo adicionado à agenda com sucesso.",
-    });
+      setDeadlines([...deadlines, newDeadline]);
+      setFormData({
+        title: "",
+        description: "",
+        date: new Date(),
+        projectId: ""
+      });
+      setIsDialogOpen(false);
+
+      toast({
+        title: "Prazo criado",
+        description: "Novo prazo adicionado à agenda com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao criar prazo.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const toggleDeadlineCompletion = (deadlineId: string) => {
-    setDeadlines(deadlines.map(deadline =>
-      deadline.id === deadlineId
-        ? { ...deadline, completed: !deadline.completed, updatedAt: new Date() }
-        : deadline
-    ));
+  const toggleDeadlineCompletion = async (deadlineId: string) => {
+    try {
+      const deadline = deadlines.find(d => d.id === deadlineId);
+      if (!deadline) return;
 
-    toast({
-      title: "Status atualizado",
-      description: "Status do prazo foi alterado com sucesso.",
-    });
+      const { error } = await supabase
+        .from('deadlines')
+        .update({ completed: !deadline.completed })
+        .eq('id', deadlineId);
+
+      if (error) {
+        console.error('Error updating deadline:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar o status do prazo.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setDeadlines(deadlines.map(d =>
+        d.id === deadlineId
+          ? { ...d, completed: !d.completed, updatedAt: new Date() }
+          : d
+      ));
+
+      toast({
+        title: "Status atualizado",
+        description: "Status do prazo foi alterado com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao atualizar prazo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const hasDeadlines = (date: Date) => {
