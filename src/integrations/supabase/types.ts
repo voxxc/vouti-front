@@ -302,6 +302,114 @@ export type Database = {
           },
         ]
       }
+      whatsapp_automations: {
+        Row: {
+          created_at: string | null
+          id: string
+          instance_name: string
+          is_active: boolean | null
+          response_message: string
+          trigger_keyword: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          instance_name: string
+          is_active?: boolean | null
+          response_message: string
+          trigger_keyword: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          instance_name?: string
+          is_active?: boolean | null
+          response_message?: string
+          trigger_keyword?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_instances: {
+        Row: {
+          connection_status: string | null
+          created_at: string | null
+          id: string
+          instance_name: string
+          last_update: string | null
+          qr_code: string | null
+          user_id: string | null
+        }
+        Insert: {
+          connection_status?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name: string
+          last_update?: string | null
+          qr_code?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          connection_status?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name?: string
+          last_update?: string | null
+          qr_code?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          created_at: string | null
+          direction: string | null
+          from_number: string
+          id: string
+          instance_name: string
+          message_id: string
+          message_text: string | null
+          message_type: string | null
+          raw_data: Json | null
+          timestamp: string | null
+          to_number: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          direction?: string | null
+          from_number: string
+          id?: string
+          instance_name: string
+          message_id: string
+          message_text?: string | null
+          message_type?: string | null
+          raw_data?: Json | null
+          timestamp?: string | null
+          to_number?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          direction?: string | null
+          from_number?: string
+          id?: string
+          instance_name?: string
+          message_id?: string
+          message_text?: string | null
+          message_type?: string | null
+          raw_data?: Json | null
+          timestamp?: string | null
+          to_number?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
