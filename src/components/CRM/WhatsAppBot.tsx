@@ -318,8 +318,22 @@ const WhatsAppBot: React.FC = () => {
       if (data?.success) {
         toast({
           title: "Configuração salva",
-          description: "Credenciais Z-API salvas com sucesso!",
+          description: "Use os dados abaixo para configurar os secrets no Supabase:",
         });
+        
+        // Mostrar instruções para o usuário
+        console.log('=== CONFIGURAÇÃO Z-API ===');
+        console.log('Por favor, configure os seguintes secrets no Supabase:');
+        console.log('Z_API_URL:', data.instructions.Z_API_URL);
+        console.log('Z_API_INSTANCE_ID:', data.instructions.Z_API_INSTANCE_ID);
+        console.log('Z_API_TOKEN:', data.instructions.Z_API_TOKEN);
+        console.log('========================');
+        
+        toast({
+          title: "Valores salvos no console",
+          description: "Verifique o console do navegador para os valores dos secrets",
+        });
+        
         setActiveTab('conexao');
       } else {
         throw new Error(data?.error || 'Erro ao salvar configuração');
