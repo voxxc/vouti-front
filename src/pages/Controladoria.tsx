@@ -12,17 +12,16 @@ const Controladoria = () => {
   const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   // Estados dos contadores baseados em dados reais da controladoria
   const [totalProcessos, setTotalProcessos] = useState(0);
   const [processosAtivos, setProcessosAtivos] = useState(0);
   const [processosAguardando, setProcessosAguardando] = useState(0);
   const [processosVencidos, setProcessosVencidos] = useState(0);
-
-  // Estados do formulário de cadastro
+  
+  // Estados do formulário
   const [formData, setFormData] = useState({
-    numeroProcesso: '',
+    numero_processo: '',
     cliente: '',
     tribunal: '',
     assunto: '',
@@ -30,6 +29,7 @@ const Controladoria = () => {
     observacoes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchControladoriaData();
@@ -70,53 +70,49 @@ const Controladoria = () => {
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.numeroProcesso || !formData.cliente || !formData.tribunal || !formData.assunto) {
-      toast({
-        title: "Erro no cadastro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive"
-      });
-      return;
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData.user) {
+        toast({
+          title: "Erro de autenticação",
+          description: "Você precisa estar logado para cadastrar processos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('controladoria_processos')
         .insert([{
-          numero_processo: formData.numeroProcesso,
-          cliente: formData.cliente,
-          tribunal: formData.tribunal,
-          assunto: formData.assunto,
-          status: formData.status,
-          observacoes: formData.observacoes || null
-        } as any]);
+          ...formData,
+          user_id: userData.user.id
+        }]);
 
       if (error) {
-        if (error.code === '23505') { // Unique violation
-          toast({
-            title: "Erro no cadastro",
-            description: "Já existe um processo com este número",
-            variant: "destructive"
-          });
-        } else {
-          throw error;
-        }
-        return;
+        throw error;
       }
 
       toast({
         title: "Processo cadastrado",
-        description: "Processo cadastrado com sucesso na controladoria"
+        description: "O processo foi cadastrado com sucesso!",
       });
 
       // Limpar formulário
       setFormData({
-        numeroProcesso: '',
+        numero_processo: '',
         cliente: '',
         tribunal: '',
         assunto: '',
@@ -127,12 +123,12 @@ const Controladoria = () => {
       // Recarregar dados
       fetchControladoriaData();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao cadastrar processo:', error);
       toast({
-        title: "Erro no cadastro",
-        description: "Erro ao cadastrar processo. Tente novamente.",
-        variant: "destructive"
+        title: "Erro ao cadastrar",
+        description: error.message || "Erro ao cadastrar o processo. Tente novamente.",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -285,36 +281,39 @@ const Controladoria = () => {
                 <p className="text-muted-foreground">
                   Cadastre novos processos no sistema para gerenciamento e controle.
                 </p>
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-foreground">Número do Processo*</label>
+                        <label className="text-sm font-medium text-foreground">Número do Processo</label>
                         <input 
                           type="text" 
+                          name="numero_processo"
+                          value={formData.numero_processo}
+                          onChange={handleInputChange}
                           placeholder="Ex: 0001234-56.2024.8.26.0001"
-                          value={formData.numeroProcesso}
-                          onChange={(e) => setFormData({...formData, numeroProcesso: e.target.value})}
                           className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-foreground">Cliente*</label>
+                        <label className="text-sm font-medium text-foreground">Cliente</label>
                         <input 
                           type="text" 
-                          placeholder="Nome do cliente"
+                          name="cliente"
                           value={formData.cliente}
-                          onChange={(e) => setFormData({...formData, cliente: e.target.value})}
+                          onChange={handleInputChange}
+                          placeholder="Nome do cliente"
                           className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-foreground">Tribunal*</label>
+                        <label className="text-sm font-medium text-foreground">Tribunal</label>
                         <select 
+                          name="tribunal"
                           value={formData.tribunal}
-                          onChange={(e) => setFormData({...formData, tribunal: e.target.value})}
+                          onChange={handleInputChange}
                           className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         >
@@ -322,20 +321,18 @@ const Controladoria = () => {
                           <option value="TJSP">TJSP - Tribunal de Justiça de São Paulo</option>
                           <option value="TJRJ">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
                           <option value="TJMG">TJMG - Tribunal de Justiça de Minas Gerais</option>
-                          <option value="TJRS">TJRS - Tribunal de Justiça do Rio Grande do Sul</option>
-                          <option value="TJPR">TJPR - Tribunal de Justiça do Paraná</option>
-                          <option value="TJSC">TJSC - Tribunal de Justiça de Santa Catarina</option>
                         </select>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-foreground">Assunto*</label>
+                        <label className="text-sm font-medium text-foreground">Assunto</label>
                         <input 
                           type="text" 
-                          placeholder="Assunto do processo"
+                          name="assunto"
                           value={formData.assunto}
-                          onChange={(e) => setFormData({...formData, assunto: e.target.value})}
+                          onChange={handleInputChange}
+                          placeholder="Assunto do processo"
                           className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
@@ -343,8 +340,9 @@ const Controladoria = () => {
                       <div>
                         <label className="text-sm font-medium text-foreground">Status</label>
                         <select 
+                          name="status"
                           value={formData.status}
-                          onChange={(e) => setFormData({...formData, status: e.target.value})}
+                          onChange={handleInputChange}
                           className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="ativo">Ativo</option>
@@ -356,16 +354,17 @@ const Controladoria = () => {
                       <div>
                         <label className="text-sm font-medium text-foreground">Observações</label>
                         <textarea 
+                          name="observacoes"
+                          value={formData.observacoes}
+                          onChange={handleInputChange}
                           placeholder="Observações adicionais"
                           rows={3}
-                          value={formData.observacoes}
-                          onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
                           className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
                     </div>
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end mt-6">
                     <Button 
                       type="submit"
                       className="gap-2"
@@ -377,40 +376,47 @@ const Controladoria = () => {
                     </Button>
                   </div>
                 </form>
+
+                {/* Lista de processos cadastrados */}
+                {processos.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4">Processos Cadastrados</h3>
+                    <div className="space-y-2">
+                      {processos.map((processo) => (
+                        <div key={processo.id} className="p-4 border border-border rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{processo.numero_processo}</h4>
+                              <p className="text-sm text-muted-foreground">Cliente: {processo.cliente}</p>
+                              <p className="text-sm text-muted-foreground">Tribunal: {processo.tribunal}</p>
+                              <p className="text-sm text-muted-foreground">Assunto: {processo.assunto}</p>
+                              {processo.observacoes && (
+                                <p className="text-sm text-muted-foreground mt-2">{processo.observacoes}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                processo.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                                processo.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
+                                processo.status === 'vencido' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {processo.status === 'ativo' ? 'Ativo' :
+                                 processo.status === 'aguardando' ? 'Aguardando' :
+                                 processo.status === 'vencido' ? 'Vencido' : 'Arquivado'}
+                              </span>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {new Date(processo.created_at).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-
-            {/* Lista de processos cadastrados */}
-            {processos.length > 0 && (
-              <Card className="border-0 shadow-card">
-                <CardHeader>
-                  <CardTitle>Processos Cadastrados</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {processos.map((processo) => (
-                      <div key={processo.id} className="flex items-center justify-between p-3 border border-border rounded-md">
-                        <div className="flex-1">
-                          <div className="font-medium">{processo.numero_processo}</div>
-                          <div className="text-sm text-muted-foreground">{processo.cliente} - {processo.tribunal}</div>
-                          <div className="text-sm text-muted-foreground">{processo.assunto}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            processo.status === 'ativo' ? 'bg-green-100 text-green-800' :
-                            processo.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
-                            processo.status === 'vencido' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {processo.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           <TabsContent value="relatorios" className="space-y-4">
