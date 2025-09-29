@@ -93,8 +93,9 @@ const Controladoria = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="push" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="push">PUSH - Busca Processos</TabsTrigger>
+            <TabsTrigger value="cadastro">Cadastro de Processos</TabsTrigger>
             <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
           </TabsList>
 
@@ -118,6 +119,86 @@ const Controladoria = () => {
                   <TrendingUp className="h-4 w-4" />
                   Iniciar Busca PUSH
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cadastro" className="space-y-4">
+            <Card className="border-0 shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Cadastro de Processos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">
+                  Cadastre novos processos no sistema para gerenciamento e controle.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Número do Processo</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: 0001234-56.2024.8.26.0001"
+                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Cliente</label>
+                      <input 
+                        type="text" 
+                        placeholder="Nome do cliente"
+                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Tribunal</label>
+                      <select className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">Selecione o tribunal</option>
+                        <option value="TJSP">TJSP - Tribunal de Justiça de São Paulo</option>
+                        <option value="TJRJ">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
+                        <option value="TJMG">TJMG - Tribunal de Justiça de Minas Gerais</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Assunto</label>
+                      <input 
+                        type="text" 
+                        placeholder="Assunto do processo"
+                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Status</label>
+                      <select className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="ativo">Ativo</option>
+                        <option value="aguardando">Aguardando</option>
+                        <option value="arquivado">Arquivado</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Observações</label>
+                      <textarea 
+                        placeholder="Observações adicionais"
+                        rows={3}
+                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button 
+                    className="gap-2"
+                    variant="professional"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Cadastrar Processo
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

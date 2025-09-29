@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OverviewSection } from "@/components/Dashboard/OverviewSection";
 import UserManagement from "@/components/Admin/UserManagement";
-import { FolderOpen, Calendar, Users, DollarSign, BarChart3 } from "lucide-react";
+import { FolderOpen, Calendar, Users, DollarSign, BarChart3, FileCheck } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -166,6 +166,7 @@ const Dashboard = () => {
     if (section === 'agenda' && (currentUserRole === 'advogado')) return true;
     if (section === 'crm' && (currentUserRole === 'comercial')) return true;
     if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
+    if (section === 'controladoria' && (currentUserRole === 'advogado')) return true;
     return false;
   };
 
@@ -296,10 +297,33 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* CONTROLADORIA - Acesso para Admin e Advogado */}
+          {hasAccess('controladoria') && (
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/controladoria')}>
+              <CardHeader className="text-center">
+                <div className="mx-auto p-3 bg-law-blue/10 rounded-lg w-fit">
+                  <FileCheck className="h-8 w-8 text-law-blue" />
+                </div>
+                <CardTitle className="text-xl">Controladoria</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Controladoria</h3>
+                    <p className="text-sm text-muted-foreground">Gestão e controle de processos</p>
+                  </div>
+                  <div className="p-3 bg-law-blue/10 rounded-lg">
+                    <FileCheck className="h-6 w-6 text-law-blue" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Mensagem para usuários sem acesso */}
-        {!hasAccess('clientes') && !hasAccess('agenda') && !hasAccess('crm') && !hasAccess('financeiro') && (
+        {!hasAccess('clientes') && !hasAccess('agenda') && !hasAccess('crm') && !hasAccess('financeiro') && !hasAccess('controladoria') && (
           <div className="text-center p-8">
             <h3 className="text-lg font-semibold text-muted-foreground mb-2">Acesso Restrito</h3>
             <p className="text-sm text-muted-foreground">Entre em contato com o administrador para obter acesso às funcionalidades do sistema.</p>
