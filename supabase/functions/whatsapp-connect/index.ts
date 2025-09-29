@@ -15,8 +15,18 @@ serve(async (req) => {
     const Z_API_INSTANCE_ID = Deno.env.get('Z_API_INSTANCE_ID');
     const Z_API_TOKEN = Deno.env.get('Z_API_TOKEN');
 
+    console.log('Z-API Configuration:', {
+      url: Z_API_URL ? 'configured' : 'missing',
+      instanceId: Z_API_INSTANCE_ID ? 'configured' : 'missing',
+      token: Z_API_TOKEN ? 'configured' : 'missing'
+    });
+
     if (!Z_API_URL || !Z_API_INSTANCE_ID || !Z_API_TOKEN) {
-      throw new Error('Z-API credentials not configured');
+      throw new Error(`Z-API credentials not configured. Missing: ${[
+        !Z_API_URL && 'Z_API_URL',
+        !Z_API_INSTANCE_ID && 'Z_API_INSTANCE_ID', 
+        !Z_API_TOKEN && 'Z_API_TOKEN'
+      ].filter(Boolean).join(', ')}`);
     }
 
     const { action } = await req.json();
@@ -56,6 +66,10 @@ serve(async (req) => {
             'Client-Token': Z_API_TOKEN,
           },
         });
+
+        if (!qrResponse.ok) {
+          throw new Error(`Z-API QR request failed: ${qrResponse.status} ${qrResponse.statusText}`);
+        }
 
         const qrData = await qrResponse.json();
         console.log('Z-API QR Response:', qrData);
