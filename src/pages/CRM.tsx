@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import WhatsAppBot from "@/components/CRM/WhatsAppBot";
+import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +58,8 @@ const CRM = () => {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedClientHistory, setSelectedClientHistory] = useState<ClientHistory[]>([]);
   const [selectedClientName, setSelectedClientName] = useState("");
+  const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+  const [selectedClientForPush, setSelectedClientForPush] = useState("");
 
   const fetchClientHistory = async (clientName: string) => {
     if (!user) return;
@@ -95,6 +98,11 @@ const CRM = () => {
     setSelectedClientName(clientName);
     await fetchClientHistory(clientName);
     setIsHistoryDialogOpen(true);
+  };
+
+  const openProcessUpdate = (clientName: string) => {
+    setSelectedClientForPush(clientName);
+    setIsPushDialogOpen(true);
   };
 
   // Mock data - substituir por dados do Supabase
@@ -352,17 +360,26 @@ const CRM = () => {
                       {cliente.observacoes && (
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{cliente.observacoes}</p>
                       )}
-                      <div className="flex gap-2 mt-3">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => openClientHistory(cliente.nome)}
-                          className="text-xs"
-                        >
-                          <FileText className="h-3 w-3 mr-1" />
-                          Histórico
-                        </Button>
-                      </div>
+                       <div className="flex gap-2 mt-3">
+                         <Button 
+                           variant="outline" 
+                           size="sm"
+                           onClick={() => openClientHistory(cliente.nome)}
+                           className="text-xs"
+                         >
+                           <FileText className="h-3 w-3 mr-1" />
+                           Histórico
+                         </Button>
+                         <Button 
+                           variant="outline" 
+                           size="sm"
+                           onClick={() => openProcessUpdate(cliente.nome)}
+                           className="text-xs"
+                         >
+                           <TrendingUp className="h-3 w-3 mr-1" />
+                           PUSH
+                         </Button>
+                       </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -468,6 +485,13 @@ const CRM = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal de Atualização de Processos PJE */}
+        <PJEProcessUpdater
+          isOpen={isPushDialogOpen}
+          onClose={() => setIsPushDialogOpen(false)}
+          clientName={selectedClientForPush}
+        />
       </div>
     </DashboardLayout>
   );
