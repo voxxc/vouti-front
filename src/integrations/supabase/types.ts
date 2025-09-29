@@ -55,6 +55,45 @@ export type Database = {
           },
         ]
       }
+      controladoria_processos: {
+        Row: {
+          assunto: string
+          cliente: string
+          created_at: string
+          id: string
+          numero_processo: string
+          observacoes: string | null
+          status: string
+          tribunal: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assunto: string
+          cliente: string
+          created_at?: string
+          id?: string
+          numero_processo: string
+          observacoes?: string | null
+          status?: string
+          tribunal: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assunto?: string
+          cliente?: string
+          created_at?: string
+          id?: string
+          numero_processo?: string
+          observacoes?: string | null
+          status?: string
+          tribunal?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       deadlines: {
         Row: {
           completed: boolean

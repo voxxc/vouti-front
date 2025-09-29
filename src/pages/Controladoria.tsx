@@ -6,17 +6,30 @@ import { ArrowLeft, FileText, TrendingUp, Clock, Search, AlertCircle } from "luc
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Controladoria = () => {
   const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   // Estados dos contadores baseados em dados reais da controladoria
   const [totalProcessos, setTotalProcessos] = useState(0);
   const [processosAtivos, setProcessosAtivos] = useState(0);
   const [processosAguardando, setProcessosAguardando] = useState(0);
   const [processosVencidos, setProcessosVencidos] = useState(0);
+
+  // Estados do formulário de cadastro
+  const [formData, setFormData] = useState({
+    numeroProcesso: '',
+    cliente: '',
+    tribunal: '',
+    assunto: '',
+    status: 'ativo',
+    observacoes: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchControladoriaData();
@@ -27,11 +40,10 @@ const Controladoria = () => {
       setLoading(true);
       
       // Buscar dados específicos da controladoria
-      // Por enquanto, inicia com dados zerados até que sejam cadastrados processos
       const { data: controladoriaProcessos, error } = await supabase
-        .from('tasks')
+        .from('controladoria_processos')
         .select('*')
-        .eq('task_type', 'controladoria_process'); // Apenas processos da controladoria
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Erro ao buscar dados da controladoria:', error);
@@ -55,6 +67,75 @@ const Controladoria = () => {
       console.error('Erro ao buscar dados da controladoria:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.numeroProcesso || !formData.cliente || !formData.tribunal || !formData.assunto) {
+      toast({
+        title: "Erro no cadastro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('controladoria_processos')
+        .insert([{
+          numero_processo: formData.numeroProcesso,
+          cliente: formData.cliente,
+          tribunal: formData.tribunal,
+          assunto: formData.assunto,
+          status: formData.status,
+          observacoes: formData.observacoes || null
+        } as any]);
+
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Erro no cadastro",
+            description: "Já existe um processo com este número",
+            variant: "destructive"
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast({
+        title: "Processo cadastrado",
+        description: "Processo cadastrado com sucesso na controladoria"
+      });
+
+      // Limpar formulário
+      setFormData({
+        numeroProcesso: '',
+        cliente: '',
+        tribunal: '',
+        assunto: '',
+        status: 'ativo',
+        observacoes: ''
+      });
+
+      // Recarregar dados
+      fetchControladoriaData();
+
+    } catch (error) {
+      console.error('Erro ao cadastrar processo:', error);
+      toast({
+        title: "Erro no cadastro",
+        description: "Erro ao cadastrar processo. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -204,72 +285,132 @@ const Controladoria = () => {
                 <p className="text-muted-foreground">
                   Cadastre novos processos no sistema para gerenciamento e controle.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-foreground">Número do Processo</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: 0001234-56.2024.8.26.0001"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
+                <form onSubmit={handleFormSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Número do Processo*</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: 0001234-56.2024.8.26.0001"
+                          value={formData.numeroProcesso}
+                          onChange={(e) => setFormData({...formData, numeroProcesso: e.target.value})}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Cliente*</label>
+                        <input 
+                          type="text" 
+                          placeholder="Nome do cliente"
+                          value={formData.cliente}
+                          onChange={(e) => setFormData({...formData, cliente: e.target.value})}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Tribunal*</label>
+                        <select 
+                          value={formData.tribunal}
+                          onChange={(e) => setFormData({...formData, tribunal: e.target.value})}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        >
+                          <option value="">Selecione o tribunal</option>
+                          <option value="TJSP">TJSP - Tribunal de Justiça de São Paulo</option>
+                          <option value="TJRJ">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
+                          <option value="TJMG">TJMG - Tribunal de Justiça de Minas Gerais</option>
+                          <option value="TJRS">TJRS - Tribunal de Justiça do Rio Grande do Sul</option>
+                          <option value="TJPR">TJPR - Tribunal de Justiça do Paraná</option>
+                          <option value="TJSC">TJSC - Tribunal de Justiça de Santa Catarina</option>
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground">Cliente</label>
-                      <input 
-                        type="text" 
-                        placeholder="Nome do cliente"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground">Tribunal</label>
-                      <select className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="">Selecione o tribunal</option>
-                        <option value="TJSP">TJSP - Tribunal de Justiça de São Paulo</option>
-                        <option value="TJRJ">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
-                        <option value="TJMG">TJMG - Tribunal de Justiça de Minas Gerais</option>
-                      </select>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Assunto*</label>
+                        <input 
+                          type="text" 
+                          placeholder="Assunto do processo"
+                          value={formData.assunto}
+                          onChange={(e) => setFormData({...formData, assunto: e.target.value})}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Status</label>
+                        <select 
+                          value={formData.status}
+                          onChange={(e) => setFormData({...formData, status: e.target.value})}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="ativo">Ativo</option>
+                          <option value="aguardando">Aguardando</option>
+                          <option value="arquivado">Arquivado</option>
+                          <option value="vencido">Vencido</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Observações</label>
+                        <textarea 
+                          placeholder="Observações adicionais"
+                          rows={3}
+                          value={formData.observacoes}
+                          onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-foreground">Assunto</label>
-                      <input 
-                        type="text" 
-                        placeholder="Assunto do processo"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground">Status</label>
-                      <select className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="ativo">Ativo</option>
-                        <option value="aguardando">Aguardando</option>
-                        <option value="arquivado">Arquivado</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground">Observações</label>
-                      <textarea 
-                        placeholder="Observações adicionais"
-                        rows={3}
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                    </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      type="submit"
+                      className="gap-2"
+                      variant="professional"
+                      disabled={isSubmitting}
+                    >
+                      <FileText className="h-4 w-4" />
+                      {isSubmitting ? "Cadastrando..." : "Cadastrar Processo"}
+                    </Button>
                   </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button 
-                    className="gap-2"
-                    variant="professional"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Cadastrar Processo
-                  </Button>
-                </div>
+                </form>
               </CardContent>
             </Card>
+
+            {/* Lista de processos cadastrados */}
+            {processos.length > 0 && (
+              <Card className="border-0 shadow-card">
+                <CardHeader>
+                  <CardTitle>Processos Cadastrados</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {processos.map((processo) => (
+                      <div key={processo.id} className="flex items-center justify-between p-3 border border-border rounded-md">
+                        <div className="flex-1">
+                          <div className="font-medium">{processo.numero_processo}</div>
+                          <div className="text-sm text-muted-foreground">{processo.cliente} - {processo.tribunal}</div>
+                          <div className="text-sm text-muted-foreground">{processo.assunto}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            processo.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                            processo.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
+                            processo.status === 'vencido' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {processo.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="relatorios" className="space-y-4">
