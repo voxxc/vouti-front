@@ -1,19 +1,62 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, FileText, TrendingUp, Clock, Search, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
+import { supabase } from "@/integrations/supabase/client";
 
 const Controladoria = () => {
   const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+  const [processos, setProcessos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data para processos - substituir por dados do Supabase
-  const totalProcessos = 47;
-  const processosAtivos = 32;
-  const processosAguardando = 8;
-  const processosVencidos = 7;
+  // Estados dos contadores baseados em dados reais da controladoria
+  const [totalProcessos, setTotalProcessos] = useState(0);
+  const [processosAtivos, setProcessosAtivos] = useState(0);
+  const [processosAguardando, setProcessosAguardando] = useState(0);
+  const [processosVencidos, setProcessosVencidos] = useState(0);
+
+  useEffect(() => {
+    fetchControladoriaData();
+  }, []);
+
+  const fetchControladoriaData = async () => {
+    try {
+      setLoading(true);
+      
+      // Buscar dados específicos da controladoria
+      // Por enquanto, inicia com dados zerados até que sejam cadastrados processos
+      const { data: controladoriaProcessos, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('task_type', 'controladoria_process'); // Apenas processos da controladoria
+
+      if (error) {
+        console.error('Erro ao buscar dados da controladoria:', error);
+        return;
+      }
+
+      setProcessos(controladoriaProcessos || []);
+      
+      // Calcular métricas baseadas nos dados reais
+      const total = controladoriaProcessos?.length || 0;
+      const ativos = controladoriaProcessos?.filter(p => p.status === 'ativo')?.length || 0;
+      const aguardando = controladoriaProcessos?.filter(p => p.status === 'aguardando')?.length || 0;
+      const vencidos = controladoriaProcessos?.filter(p => p.status === 'vencido')?.length || 0;
+
+      setTotalProcessos(total);
+      setProcessosAtivos(ativos);
+      setProcessosAguardando(aguardando);
+      setProcessosVencidos(vencidos);
+
+    } catch (error) {
+      console.error('Erro ao buscar dados da controladoria:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <DashboardLayout currentPage="controladoria">
@@ -32,14 +75,19 @@ const Controladoria = () => {
           </div>
         </div>
 
-        {/* Métricas de Processos */}
+        {/* Métricas de Processos da Controladoria */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="border-0 shadow-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total de Processos</p>
-                  <p className="text-2xl font-bold text-foreground">{totalProcessos}</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : totalProcessos}
+                  </p>
+                  {totalProcessos === 0 && !loading && (
+                    <p className="text-xs text-muted-foreground mt-1">Nenhum processo cadastrado</p>
+                  )}
                 </div>
                 <div className="p-3 bg-law-blue/10 rounded-lg">
                   <FileText className="h-6 w-6 text-law-blue" />
@@ -53,7 +101,9 @@ const Controladoria = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Processos Ativos</p>
-                  <p className="text-2xl font-bold text-foreground">{processosAtivos}</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : processosAtivos}
+                  </p>
                 </div>
                 <div className="p-3 bg-green-500/10 rounded-lg">
                   <TrendingUp className="h-6 w-6 text-green-600" />
@@ -67,7 +117,9 @@ const Controladoria = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Aguardando</p>
-                  <p className="text-2xl font-bold text-foreground">{processosAguardando}</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : processosAguardando}
+                  </p>
                 </div>
                 <div className="p-3 bg-yellow-500/10 rounded-lg">
                   <Clock className="h-6 w-6 text-yellow-600" />
@@ -81,7 +133,9 @@ const Controladoria = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Vencidos</p>
-                  <p className="text-2xl font-bold text-foreground">{processosVencidos}</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : processosVencidos}
+                  </p>
                 </div>
                 <div className="p-3 bg-red-500/10 rounded-lg">
                   <AlertCircle className="h-6 w-6 text-red-600" />
@@ -90,6 +144,21 @@ const Controladoria = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Aviso quando não há dados */}
+        {!loading && totalProcessos === 0 && (
+          <Card className="border-2 border-dashed border-muted-foreground/20">
+            <CardContent className="p-8 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                Nenhum processo cadastrado
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Comece cadastrando processos na aba "Cadastro de Processos" para ver as métricas aparecerem aqui.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Tabs */}
         <Tabs defaultValue="push" className="space-y-4">
