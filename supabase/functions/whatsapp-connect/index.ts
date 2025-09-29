@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,151 +12,118 @@ serve(async (req) => {
   }
 
   try {
-    const Z_API_URL = Deno.env.get('Z_API_URL');
-    const Z_API_INSTANCE_ID = Deno.env.get('Z_API_INSTANCE_ID');
-    const Z_API_TOKEN = Deno.env.get('Z_API_TOKEN');
+    // Get Z-API credentials from environment
+    const zapiUrl = Deno.env.get('Z_API_URL');
+    const zapiInstanceId = Deno.env.get('Z_API_INSTANCE_ID');
+    const zapiToken = Deno.env.get('Z_API_TOKEN');
 
     console.log('Z-API Configuration:', {
-      url: Z_API_URL ? 'configured' : 'missing',
-      instanceId: Z_API_INSTANCE_ID ? 'configured' : 'missing',
-      token: Z_API_TOKEN ? 'configured' : 'missing'
+      url: zapiUrl || 'missing',
+      instanceId: zapiInstanceId || 'missing',
+      token: zapiToken ? '[CONFIGURED]' : 'missing'
     });
 
-    if (!Z_API_URL || !Z_API_INSTANCE_ID || !Z_API_TOKEN) {
-      throw new Error(`Z-API credentials not configured. Missing: ${[
-        !Z_API_URL && 'Z_API_URL',
-        !Z_API_INSTANCE_ID && 'Z_API_INSTANCE_ID', 
-        !Z_API_TOKEN && 'Z_API_TOKEN'
-      ].filter(Boolean).join(', ')}`);
+    if (!zapiUrl || !zapiInstanceId || !zapiToken) {
+      const missing = [];
+      if (!zapiUrl) missing.push('Z_API_URL');
+      if (!zapiInstanceId) missing.push('Z_API_INSTANCE_ID');
+      if (!zapiToken) missing.push('Z_API_TOKEN');
+      
+      throw new Error(`Z-API credentials not configured. Missing: ${missing.join(', ')}`);
     }
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { action } = await req.json();
 
-    console.log('WhatsApp Connect Action:', action);
+    let apiEndpoint = '';
+    let response;
 
     switch (action) {
       case 'create_instance':
-        // Com Z-API a instância já existe, apenas verificamos se está ativa
-        console.log('Checking Z-API instance status...');
-        
-        const statusResponse = await fetch(`${Z_API_URL}/v1/status/${Z_API_INSTANCE_ID}`, {
-          method: 'GET',
-          headers: {
-            'Client-Token': Z_API_TOKEN,
-          },
-        });
-
-        const statusData = await statusResponse.json();
-        console.log('Z-API Status Response:', statusData);
-
-        return new Response(JSON.stringify({
-          success: true,
-          data: statusData,
-          message: 'Instance checked successfully'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
-      case 'get_qrcode':
-        // Obter QR Code do Z-API
-        console.log('Getting QR Code from Z-API...');
-        
-        const qrResponse = await fetch(`${Z_API_URL}/v1/qr-code/${Z_API_INSTANCE_ID}`, {
-          method: 'GET',
-          headers: {
-            'Client-Token': Z_API_TOKEN,
-          },
-        });
-
-        if (!qrResponse.ok) {
-          throw new Error(`Z-API QR request failed: ${qrResponse.status} ${qrResponse.statusText}`);
-        }
-
-        const qrData = await qrResponse.json();
-        console.log('Z-API QR Response:', qrData);
-
-        return new Response(JSON.stringify({
-          success: true,
-          qrcode: qrData.value || qrData.qrcode,
-          message: 'QR Code retrieved successfully'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
       case 'get_status':
-        // Verificar status da conexão Z-API
-        console.log('Getting Z-API connection status...');
+        apiEndpoint = `${zapiUrl}/status`;
+        break;
         
-        const connectionResponse = await fetch(`${Z_API_URL}/v1/status/${Z_API_INSTANCE_ID}`, {
-          method: 'GET',
-          headers: {
-            'Client-Token': Z_API_TOKEN,
-          },
-        });
-
-        const connectionData = await connectionResponse.json();
-        console.log('Z-API Connection Status:', connectionData);
-
-        // Z-API retorna status como "CONNECTED", "DISCONNECTED", etc.
-        const isConnected = connectionData.connected === true || connectionData.status === 'CONNECTED';
-
-        return new Response(JSON.stringify({
-          success: true,
-          status: isConnected ? 'open' : 'disconnected',
-          data: connectionData
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
+      case 'get_qrcode':
+        apiEndpoint = `${zapiUrl}/qr-code`;
+        break;
+        
       case 'disconnect':
-        // Desconectar Z-API
-        console.log('Disconnecting Z-API instance...');
+        apiEndpoint = `${zapiUrl}/logout`;
+        break;
         
-        const logoutResponse = await fetch(`${Z_API_URL}/v1/logout/${Z_API_INSTANCE_ID}`, {
-          method: 'POST',
-          headers: {
-            'Client-Token': Z_API_TOKEN,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const logoutData = await logoutResponse.json();
-        console.log('Z-API Logout Response:', logoutData);
-
-        return new Response(JSON.stringify({
-          success: true,
-          data: logoutData,
-          message: 'Instance disconnected successfully'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
       case 'restart':
-        // Reiniciar instância Z-API
-        console.log('Restarting Z-API instance...');
+        apiEndpoint = `${zapiUrl}/restart`;
+        break;
         
-        const restartResponse = await fetch(`${Z_API_URL}/v1/restart/${Z_API_INSTANCE_ID}`, {
-          method: 'POST',
-          headers: {
-            'Client-Token': Z_API_TOKEN,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const restartData = await restartResponse.json();
-        console.log('Z-API Restart Response:', restartData);
-
-        return new Response(JSON.stringify({
-          success: true,
-          data: restartData,
-          message: 'Instance restarted successfully'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
       default:
-        throw new Error('Invalid action');
+        throw new Error(`Invalid action: ${action}`);
     }
+
+    console.log(`Making request to: ${apiEndpoint}`);
+
+    // Make request to Z-API
+    const zapiResponse = await fetch(apiEndpoint, {
+      method: 'GET',
+      headers: {
+        'Client-Token': zapiToken,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const zapiData = await zapiResponse.json();
+    console.log('Z-API Response:', zapiData);
+
+    if (!zapiResponse.ok) {
+      throw new Error(`Z-API Error: ${zapiData.message || 'Unknown error'}`);
+    }
+
+    // Update instance status in database
+    if (action === 'get_status' || action === 'create_instance') {
+      const { error: upsertError } = await supabase
+        .from('whatsapp_instances')
+        .upsert({
+          instance_name: zapiInstanceId,
+          connection_status: zapiData.connected ? 'connected' : 'disconnected',
+          last_update: new Date().toISOString(),
+        }, {
+          onConflict: 'instance_name'
+        });
+
+      if (upsertError) {
+        console.error('Error updating instance status:', upsertError);
+      }
+    }
+
+    // Handle QR code response
+    if (action === 'get_qrcode' && zapiData.value) {
+      const { error: updateError } = await supabase
+        .from('whatsapp_instances')
+        .upsert({
+          instance_name: zapiInstanceId,
+          qr_code: zapiData.value,
+          connection_status: 'awaiting_qr',
+          last_update: new Date().toISOString(),
+        }, {
+          onConflict: 'instance_name'
+        });
+
+      if (updateError) {
+        console.error('Error updating QR code:', updateError);
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: zapiData,
+      action: action
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error in whatsapp-connect function:', error);

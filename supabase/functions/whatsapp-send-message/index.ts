@@ -11,71 +11,70 @@ serve(async (req) => {
   }
 
   try {
-    const Z_API_URL = Deno.env.get('Z_API_URL');
-    const Z_API_INSTANCE_ID = Deno.env.get('Z_API_INSTANCE_ID');
-    const Z_API_TOKEN = Deno.env.get('Z_API_TOKEN');
+    // Get Z-API credentials from environment
+    const zapiUrl = Deno.env.get('Z_API_URL');
+    const zapiInstanceId = Deno.env.get('Z_API_INSTANCE_ID');
+    const zapiToken = Deno.env.get('Z_API_TOKEN');
 
-    if (!Z_API_URL || !Z_API_INSTANCE_ID || !Z_API_TOKEN) {
+    if (!zapiUrl || !zapiInstanceId || !zapiToken) {
       throw new Error('Z-API credentials not configured');
     }
 
-    const { 
-      phone, 
-      message, 
-      messageType = 'text',
-      mediaUrl 
-    } = await req.json();
+    const { phone, message, messageType = 'text', mediaUrl } = await req.json();
 
-    console.log('Sending message via Z-API:', { phone, messageType });
+    if (!phone || !message) {
+      throw new Error('Phone and message are required');
+    }
 
-    let endpoint = '';
-    let messageData: any = {};
+    let apiEndpoint = '';
+    let messagePayload = {};
 
     if (messageType === 'text') {
-      endpoint = `${Z_API_URL}/v1/send-text/${Z_API_INSTANCE_ID}`;
-      messageData = {
-        phone: phone.replace(/\D/g, ''), // Remove non-digits
+      apiEndpoint = `${zapiUrl}/send-text`;
+      messagePayload = {
+        phone: phone,
         message: message
       };
     } else if (messageType === 'media' && mediaUrl) {
-      endpoint = `${Z_API_URL}/v1/send-image/${Z_API_INSTANCE_ID}`;
-      messageData = {
-        phone: phone.replace(/\D/g, ''),
-        image: mediaUrl,
-        caption: message || ''
+      apiEndpoint = `${zapiUrl}/send-file-url`;
+      messagePayload = {
+        phone: phone,
+        message: message,
+        url: mediaUrl
       };
     } else {
-      throw new Error('Invalid message type or missing data');
+      throw new Error('Invalid message type or missing media URL');
     }
 
-    console.log('Z-API Request:', { endpoint, messageData });
+    console.log(`Sending ${messageType} message to ${phone}`);
 
-    const response = await fetch(endpoint, {
+    // Make request to Z-API
+    const zapiResponse = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
+        'Client-Token': zapiToken,
         'Content-Type': 'application/json',
-        'Client-Token': Z_API_TOKEN,
       },
-      body: JSON.stringify(messageData),
+      body: JSON.stringify(messagePayload),
     });
 
-    const data = await response.json();
-    console.log('Z-API Response:', data);
+    const zapiData = await zapiResponse.json();
+    console.log('Z-API Response:', zapiData);
 
-    if (!response.ok) {
-      throw new Error(`Z-API Error: ${data.message || 'Failed to send message'}`);
+    if (!zapiResponse.ok) {
+      throw new Error(`Z-API Error: ${zapiData.message || 'Failed to send message'}`);
     }
 
     return new Response(JSON.stringify({
       success: true,
-      data,
-      messageId: data.messageId || data.id
+      data: zapiData,
+      messageType: messageType
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error sending WhatsApp message:', error);
+    console.error('Error in whatsapp-send-message function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error'
