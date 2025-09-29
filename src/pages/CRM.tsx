@@ -58,8 +58,6 @@ const CRM = () => {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedClientHistory, setSelectedClientHistory] = useState<ClientHistory[]>([]);
   const [selectedClientName, setSelectedClientName] = useState("");
-  const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
-  const [selectedClientForPush, setSelectedClientForPush] = useState("");
 
   const fetchClientHistory = async (clientName: string) => {
     if (!user) return;
@@ -100,10 +98,6 @@ const CRM = () => {
     setIsHistoryDialogOpen(true);
   };
 
-  const openProcessUpdate = (clientName: string) => {
-    setSelectedClientForPush(clientName);
-    setIsPushDialogOpen(true);
-  };
 
   // Mock data - substituir por dados do Supabase
   const [clientes] = useState<Cliente[]>([
@@ -370,15 +364,6 @@ const CRM = () => {
                            <FileText className="h-3 w-3 mr-1" />
                            Histórico
                          </Button>
-                         <Button 
-                           variant="outline" 
-                           size="sm"
-                           onClick={() => openProcessUpdate(cliente.nome)}
-                           className="text-xs"
-                         >
-                           <TrendingUp className="h-3 w-3 mr-1" />
-                           PUSH
-                         </Button>
                        </div>
                     </div>
                   </CardContent>
@@ -486,12 +471,6 @@ const CRM = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Modal de Atualização de Processos PJE */}
-        <PJEProcessUpdater
-          isOpen={isPushDialogOpen}
-          onClose={() => setIsPushDialogOpen(false)}
-          clientName={selectedClientForPush}
-        />
       </div>
     </DashboardLayout>
   );

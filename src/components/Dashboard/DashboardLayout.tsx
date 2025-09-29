@@ -13,8 +13,8 @@ import { User as UserType } from "@/types/user";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial';
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial') => void;
+  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria';
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria') => void;
   projects?: any[];
   onCreateUser?: () => void;
   isAdmin?: boolean;

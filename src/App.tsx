@@ -12,6 +12,7 @@ import Agenda from "@/pages/Agenda";
 import CRM from "@/pages/CRM";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
+import Controladoria from "@/pages/Controladoria";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -113,6 +114,11 @@ function App() {
               <Route path="/financial" element={
                 <ProtectedRoute>
                   <Financial />
+                </ProtectedRoute>
+              } />
+              <Route path="/controladoria" element={
+                <ProtectedRoute>
+                  <Controladoria />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />
