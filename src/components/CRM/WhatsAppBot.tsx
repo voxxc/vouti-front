@@ -52,6 +52,14 @@ const WhatsAppBot: React.FC = () => {
   const [newKeyword, setNewKeyword] = useState('');
   const [newResponse, setNewResponse] = useState('');
   const [instanceName] = useState('whatsapp-bot');
+  
+  // Configurações Z-API
+  const [zapiConfig, setZapiConfig] = useState({
+    url: '',
+    instanceId: '',
+    token: ''
+  });
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -284,6 +292,50 @@ const WhatsAppBot: React.FC = () => {
     }
   };
 
+  const saveZapiConfig = async () => {
+    setIsSavingConfig(true);
+    
+    try {
+      // Validar campos obrigatórios
+      if (!zapiConfig.url || !zapiConfig.instanceId || !zapiConfig.token) {
+        toast({
+          title: "Campos obrigatórios",
+          description: "Preencha todos os campos de configuração",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Salvar configurações via edge function
+      const { data } = await supabase.functions.invoke('save-zapi-config', {
+        body: {
+          url: zapiConfig.url,
+          instanceId: zapiConfig.instanceId,
+          token: zapiConfig.token
+        }
+      });
+
+      if (data?.success) {
+        toast({
+          title: "Configuração salva",
+          description: "Credenciais Z-API salvas com sucesso!",
+        });
+        setActiveTab('conexao');
+      } else {
+        throw new Error(data?.error || 'Erro ao salvar configuração');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao salvar configuração Z-API",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   useEffect(() => {
     // Carregar automações existentes
     const loadAutomations = async () => {
@@ -447,12 +499,101 @@ const WhatsAppBot: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="configuracao">Configuração</TabsTrigger>
           <TabsTrigger value="conexao">Conexão</TabsTrigger>
           <TabsTrigger value="conversas" disabled={!isConnected}>Conversas</TabsTrigger>
           <TabsTrigger value="fluxos" disabled={!isConnected}>Automações</TabsTrigger>
           <TabsTrigger value="relatorios" disabled={!isConnected}>Relatórios</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="configuracao" className="space-y-4">
+          <Card className="border-0 shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Configuração Z-API
+              </CardTitle>
+              <CardDescription>
+                Configure suas credenciais Z-API para conectar o WhatsApp Business
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="zapi-url">URL da Z-API</Label>
+                <Input
+                  id="zapi-url"
+                  placeholder="https://api.z-api.io"
+                  value={zapiConfig.url}
+                  onChange={(e) => setZapiConfig(prev => ({ ...prev, url: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  URL base da sua instância Z-API
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="instance-id">Instance ID</Label>
+                <Input
+                  id="instance-id"
+                  placeholder="Seu Instance ID"
+                  value={zapiConfig.instanceId}
+                  onChange={(e) => setZapiConfig(prev => ({ ...prev, instanceId: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  ID da sua instância WhatsApp no Z-API
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="client-token">Client Token</Label>
+                <Input
+                  id="client-token"
+                  type="password"
+                  placeholder="Seu Client Token"
+                  value={zapiConfig.token}
+                  onChange={(e) => setZapiConfig(prev => ({ ...prev, token: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Token de autenticação da sua instância Z-API
+                </p>
+              </div>
+
+              <Alert>
+                <QrCode className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Como obter suas credenciais Z-API:</strong>
+                  <br />
+                  1. Acesse o painel Z-API em <a href="https://developer.z-api.io" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">developer.z-api.io</a>
+                  <br />
+                  2. Crie uma nova instância ou acesse uma existente
+                  <br />
+                  3. Copie a URL, Instance ID e Client Token
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={saveZapiConfig} 
+                  disabled={isSavingConfig}
+                  className="flex-1"
+                >
+                  {isSavingConfig ? (
+                    <>
+                      <Clock size={16} className="mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} className="mr-2" />
+                      Salvar Configuração
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="conexao" className="space-y-4">
           <div className="flex justify-center">
