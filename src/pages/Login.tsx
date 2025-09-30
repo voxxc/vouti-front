@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import Logo from "@/components/Logo";
+import moraLogo from "@/assets/mora-logo.png";
 import { useToast } from "@/hooks/use-toast";
 
 interface LoginProps {
@@ -54,24 +54,17 @@ const Login = ({ onLogin }: LoginProps) => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="relative">
-              {/* Background gradient circle */}
-              <div className="absolute inset-0 bg-gradient-to-br from-mora-gold via-amber-500 to-yellow-600 rounded-xl shadow-elegant opacity-90"></div>
-              
-              {/* Icon container */}
-              <div className="relative p-3 bg-gradient-to-br from-mora-blue to-mora-blue-dark rounded-xl shadow-lg">
-                <div className="text-3xl font-bold text-white">M</div>
-              </div>
-
-              {/* Decorative dot */}
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-mora-gold rounded-full border-2 border-background shadow-sm"></div>
-            </div>
+            <img 
+              src={moraLogo} 
+              alt="MORA Logo" 
+              className="w-16 h-16 object-contain"
+            />
             
             <div className="flex flex-col">
-              <span className="text-2xl font-bold text-foreground tracking-wider leading-none">
+              <span className="text-2xl font-bold text-mora-gold tracking-wider leading-none">
                 MORA
               </span>
-              <span className="text-xs text-muted-foreground font-medium tracking-wide mt-0.5">
+              <span className="text-xs text-mora-gold font-medium tracking-wide mt-0.5">
                 GESTÃO JURÍDICA
               </span>
             </div>
