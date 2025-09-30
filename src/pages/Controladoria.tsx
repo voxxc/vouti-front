@@ -26,14 +26,35 @@ const Controladoria = () => {
     tribunal: '',
     assunto: '',
     status: 'ativo',
-    observacoes: ''
+    observacoes: '',
+    advogado_responsavel_id: ''
   });
+  const [advogados, setAdvogados] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchControladoriaData();
+    fetchAdvogados();
   }, []);
+
+  const fetchAdvogados = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao buscar advogados:', error);
+        return;
+      }
+
+      setAdvogados(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar advogados:', error);
+    }
+  };
 
   const fetchControladoriaData = async () => {
     try {
@@ -117,7 +138,8 @@ const Controladoria = () => {
         tribunal: '',
         assunto: '',
         status: 'ativo',
-        observacoes: ''
+        observacoes: '',
+        advogado_responsavel_id: ''
       });
 
       // Recarregar dados
@@ -292,7 +314,7 @@ const Controladoria = () => {
                           value={formData.numero_processo}
                           onChange={handleInputChange}
                           placeholder="Ex: 0001234-56.2024.8.26.0001"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
@@ -304,24 +326,21 @@ const Controladoria = () => {
                           value={formData.cliente}
                           onChange={handleInputChange}
                           placeholder="Nome do cliente"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
                       <div>
                         <label className="text-sm font-medium text-foreground">Tribunal</label>
-                        <select 
+                        <input 
+                          type="text" 
                           name="tribunal"
                           value={formData.tribunal}
                           onChange={handleInputChange}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="Ex: TJSP, TJRJ, STF, etc."
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
                           required
-                        >
-                          <option value="">Selecione o tribunal</option>
-                          <option value="TJSP">TJSP - Tribunal de Justiça de São Paulo</option>
-                          <option value="TJRJ">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
-                          <option value="TJMG">TJMG - Tribunal de Justiça de Minas Gerais</option>
-                        </select>
+                        />
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -333,9 +352,25 @@ const Controladoria = () => {
                           value={formData.assunto}
                           onChange={handleInputChange}
                           placeholder="Assunto do processo"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">Advogado Responsável</label>
+                        <select 
+                          name="advogado_responsavel_id"
+                          value={formData.advogado_responsavel_id}
+                          onChange={handleInputChange}
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">Selecione o advogado</option>
+                          {advogados.map((advogado) => (
+                            <option key={advogado.user_id} value={advogado.user_id}>
+                              {advogado.full_name || advogado.email}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-foreground">Status</label>
@@ -343,7 +378,7 @@ const Controladoria = () => {
                           name="status"
                           value={formData.status}
                           onChange={handleInputChange}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="ativo">Ativo</option>
                           <option value="aguardando">Aguardando</option>
@@ -359,7 +394,7 @@ const Controladoria = () => {
                           onChange={handleInputChange}
                           placeholder="Observações adicionais"
                           rows={3}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
                     </div>
