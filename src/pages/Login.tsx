@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import moraLogo from "@/assets/mora-logo.png";
+import Logo from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 
 interface LoginProps {
@@ -53,21 +53,8 @@ const Login = ({ onLogin }: LoginProps) => {
     <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <img 
-              src={moraLogo} 
-              alt="MORA Logo" 
-              className="w-16 h-16 object-contain"
-            />
-            
-            <div className="flex flex-col">
-              <span className="text-2xl font-bold text-mora-gold tracking-wider leading-none">
-                MORA
-              </span>
-              <span className="text-xs text-mora-gold font-medium tracking-wide mt-0.5">
-                GESTÃO JURÍDICA
-              </span>
-            </div>
+          <div className="mb-8">
+            <Logo size="lg" />
           </div>
         </div>
 
