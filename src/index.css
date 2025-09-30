@@ -8,37 +8,37 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 11% 15%;
-    --foreground: 210 20% 98%;
+    --background: 216 28% 7%;
+    --foreground: 0 0% 100%;
 
-    --card: 210 15% 12%;
-    --card-foreground: 210 20% 98%;
+    --card: 220 13% 9%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 210 15% 12%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 220 13% 9%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 20% 98%;
+    --primary: 210 100% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 20%;
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 220 13% 15%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 20% 18%;
-    --muted-foreground: 210 20% 70%;
+    --muted: 220 13% 15%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 210 20% 22%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 220 13% 15%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 65% 55%;
-    --destructive-foreground: 210 20% 98%;
+    --destructive-foreground: 0 0% 100%;
 
     /* MORA Professional colors */
-    --mora-blue: 217 91% 60%;
-    --mora-blue-dark: 217 91% 45%;
-    --mora-gold: 45 100% 70%;
-    --mora-neutral: 210 20% 60%;
-    --mora-dark: 210 11% 15%;
-    --mora-card: 210 15% 12%;
+    --mora-blue: 210 100% 60%;
+    --mora-blue-dark: 210 100% 50%;
+    --mora-gold: 43 100% 60%;
+    --mora-neutral: 220 13% 60%;
+    --mora-dark: 216 28% 7%;
+    --mora-card: 220 13% 9%;
     
     /* Status colors for kanban */
     --status-waiting: 45 40% 25%;
@@ -48,16 +48,16 @@ All colors MUST be HSL.
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--mora-blue)), hsl(var(--mora-blue-dark)));
-    --gradient-subtle: linear-gradient(180deg, hsl(210 11% 15%), hsl(210 15% 12%));
-    --gradient-background: radial-gradient(ellipse at center, hsl(210 15% 12%) 0%, hsl(210 11% 15%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(216 28% 7%), hsl(220 13% 9%));
+    --gradient-background: radial-gradient(ellipse at top, hsl(220 13% 11%) 0%, hsl(216 28% 7%) 100%);
 
     /* Shadows */
     --shadow-elegant: 0 10px 40px -10px hsl(0 0% 0% / 0.4);
     --shadow-card: 0 8px 32px -8px hsl(0 0% 0% / 0.3);
 
-    --border: 210 20% 25%;
-    --input: 210 15% 20%;
-    --ring: 217 91% 60%;
+    --border: 220 13% 20%;
+    --input: 0 0% 100%;
+    --ring: 210 100% 60%;
 
     --radius: 0.5rem;
 

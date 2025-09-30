@@ -40,10 +40,10 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
       
       {/* Text */}
       <div className="flex flex-col items-center text-center">
-        <span className={`font-bold text-mora-gold tracking-widest ${logoSizes[size].sub} leading-none`}>
+        <span className={`font-bold text-mora-gold tracking-[0.3em] ${logoSizes[size].sub} leading-none`}>
           MORA
         </span>
-        <span className="text-xs text-mora-gold font-medium tracking-wide mt-1 opacity-80">
+        <span className="text-xs text-mora-gold font-normal tracking-[0.15em] mt-1">
           GESTÃO JURÍDICA
         </span>
       </div>

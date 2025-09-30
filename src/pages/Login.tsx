@@ -68,7 +68,7 @@ const Login = ({ onLogin }: LoginProps) => {
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground">Email</Label>
+                <Label htmlFor="email" className="text-white">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -76,12 +76,12 @@ const Login = ({ onLogin }: LoginProps) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
-                  className="bg-input border-border text-foreground"
+                  className="bg-white text-gray-900 border-0"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">Senha</Label>
+                <Label htmlFor="password" className="text-white">Senha</Label>
                 <Input
                   id="password"
                   type="password"
@@ -89,13 +89,13 @@ const Login = ({ onLogin }: LoginProps) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="bg-input border-border text-foreground"
+                  className="bg-white text-gray-900 border-0"
                 />
               </div>
 
               <Button 
                 type="submit" 
-                className="w-full bg-mora-blue hover:bg-mora-blue-dark text-white font-medium py-3 mt-6"
+                className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 mt-6"
                 disabled={isLoading}
               >
                 {isLoading ? "Entrando..." : "Entrar"}
@@ -103,14 +103,9 @@ const Login = ({ onLogin }: LoginProps) => {
             </form>
 
             <div className="text-center space-y-2">
-              <button className="text-sm text-muted-foreground hover:text-mora-blue transition-colors">
+              <button className="text-sm text-gray-400 hover:text-mora-gold transition-colors">
                 Esqueceu a senha?
               </button>
-              <div className="border-t border-border pt-4">
-                <p className="text-xs text-muted-foreground">
-                  Demo: admin@escritorio.com / 123456
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>
