@@ -178,7 +178,7 @@ const Dashboard = () => {
       <div className="space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Bem-vindo ao JUS OFFICE
+            Bem-vindo ao MORA
           </h1>
           <p className="text-lg text-muted-foreground">
             Sistema de Gestão Jurídica
