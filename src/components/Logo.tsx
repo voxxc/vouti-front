@@ -18,24 +18,24 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
 
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      {/* Logo Icon - Stylized M letters */}
-      <div className="relative mb-2">
-        <div className="flex items-center justify-center">
-          {/* Left M (Blue) */}
-          <span className={`font-bold text-mora-blue ${logoSizes[size].main} leading-none tracking-tight`}>
-            M
-          </span>
-          
-          {/* Right M (Gold) with overlap effect */}
-          <span className={`font-bold text-mora-gold ${logoSizes[size].main} leading-none tracking-tight -ml-3`}>
-            M
-          </span>
-        </div>
-        
-        {/* Shield/Bridge element between Ms */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <div className="w-4 h-4 bg-mora-gold clip-shield opacity-80"></div>
-        </div>
+      {/* Logo Icon - Single 3D M */}
+      <div className="relative mb-4">
+        <span 
+          className={`font-bold text-mora-gold ${logoSizes[size].main} leading-none tracking-tight`}
+          style={{
+            textShadow: `
+              -2px -2px 0 hsl(210 100% 30%),
+              2px -2px 0 hsl(210 100% 30%),
+              -2px 2px 0 hsl(210 100% 30%),
+              2px 2px 0 hsl(210 100% 30%),
+              0px 4px 8px rgba(0, 0, 0, 0.5),
+              0px 8px 16px rgba(0, 0, 0, 0.3)
+            `,
+            filter: 'drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4))'
+          }}
+        >
+          M
+        </span>
       </div>
       
       {/* Text */}
