@@ -50,23 +50,45 @@ const Login = ({ onLogin }: LoginProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <Logo size="lg" className="justify-center mb-6" />
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="relative">
+              {/* Background gradient circle */}
+              <div className="absolute inset-0 bg-gradient-to-br from-mora-gold via-amber-500 to-yellow-600 rounded-xl shadow-elegant opacity-90"></div>
+              
+              {/* Icon container */}
+              <div className="relative p-3 bg-gradient-to-br from-mora-blue to-mora-blue-dark rounded-xl shadow-lg">
+                <div className="text-3xl font-bold text-white">M</div>
+              </div>
+
+              {/* Decorative dot */}
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-mora-gold rounded-full border-2 border-background shadow-sm"></div>
+            </div>
+            
+            <div className="flex flex-col">
+              <span className="text-2xl font-bold text-foreground tracking-wider leading-none">
+                MORA
+              </span>
+              <span className="text-xs text-muted-foreground font-medium tracking-wide mt-0.5">
+                GESTÃO JURÍDICA
+              </span>
+            </div>
+          </div>
         </div>
 
-        <Card className="shadow-card border-0">
-          <CardHeader className="space-y-1 text-center pb-4">
+        <Card className="shadow-card border-0 bg-mora-card">
+          <CardHeader className="space-y-1 text-center pb-6">
             <h3 className="text-xl font-semibold text-foreground">Acesso ao Sistema</h3>
             <p className="text-sm text-muted-foreground">
-              Entre com suas credenciais para continuar
+              Entre ou crie sua conta para continuar
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-foreground">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -74,11 +96,12 @@ const Login = ({ onLogin }: LoginProps) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
+                  className="bg-input border-border text-foreground"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="password" className="text-foreground">Senha</Label>
                 <Input
                   id="password"
                   type="password"
@@ -86,23 +109,28 @@ const Login = ({ onLogin }: LoginProps) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
+                  className="bg-input border-border text-foreground"
                 />
               </div>
 
               <Button 
                 type="submit" 
-                className="w-full"
-                variant="professional"
+                className="w-full bg-mora-blue hover:bg-mora-blue-dark text-white font-medium py-3 mt-6"
                 disabled={isLoading}
               >
                 {isLoading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-xs text-muted-foreground">
-                Demo: admin@escritorio.com / 123456
-              </p>
+            <div className="text-center space-y-2">
+              <button className="text-sm text-muted-foreground hover:text-mora-blue transition-colors">
+                Esqueceu a senha?
+              </button>
+              <div className="border-t border-border pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Demo: admin@escritorio.com / 123456
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
