@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, TrendingUp, Clock, Search, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, FileText, TrendingUp, Clock, Search, AlertCircle, Eye } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +14,8 @@ const Controladoria = () => {
   const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProcesso, setSelectedProcesso] = useState<any>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   // Estados dos contadores baseados em dados reais da controladoria
   const [totalProcessos, setTotalProcessos] = useState(0);
@@ -314,7 +318,7 @@ const Controladoria = () => {
                           value={formData.numero_processo}
                           onChange={handleInputChange}
                           placeholder="Ex: 0001234-56.2024.8.26.0001"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
@@ -326,24 +330,10 @@ const Controladoria = () => {
                           value={formData.cliente}
                           onChange={handleInputChange}
                           placeholder="Nome do cliente"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Tribunal</label>
-                        <input 
-                          type="text" 
-                          name="tribunal"
-                          value={formData.tribunal}
-                          onChange={handleInputChange}
-                          placeholder="Ex: TJSP, TJRJ, STF, etc."
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium text-foreground">Assunto</label>
                         <input 
@@ -352,17 +342,19 @@ const Controladoria = () => {
                           value={formData.assunto}
                           onChange={handleInputChange}
                           placeholder="Assunto do processo"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                           required
                         />
                       </div>
+                    </div>
+                    <div className="space-y-4">
                       <div>
                         <label className="text-sm font-medium text-foreground">Advogado Responsável</label>
                         <select 
                           name="advogado_responsavel_id"
                           value={formData.advogado_responsavel_id}
                           onChange={handleInputChange}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="">Selecione o advogado</option>
                           {advogados.map((advogado) => (
@@ -378,7 +370,7 @@ const Controladoria = () => {
                           name="status"
                           value={formData.status}
                           onChange={handleInputChange}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="ativo">Ativo</option>
                           <option value="aguardando">Aguardando</option>
@@ -392,9 +384,9 @@ const Controladoria = () => {
                           name="observacoes"
                           value={formData.observacoes}
                           onChange={handleInputChange}
-                          placeholder="Observações adicionais"
+                          placeholder="Observações adicionais (inclua Tribunal aqui se necessário)"
                           rows={3}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-black focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                         />
                       </div>
                     </div>
@@ -415,39 +407,42 @@ const Controladoria = () => {
                 {/* Lista de processos cadastrados */}
                 {processos.length > 0 && (
                   <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4">Processos Cadastrados</h3>
-                    <div className="space-y-2">
-                      {processos.map((processo) => (
-                        <div key={processo.id} className="p-4 border border-border rounded-lg">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <h4 className="font-medium">{processo.numero_processo}</h4>
-                              <p className="text-sm text-muted-foreground">Cliente: {processo.cliente}</p>
-                              <p className="text-sm text-muted-foreground">Tribunal: {processo.tribunal}</p>
-                              <p className="text-sm text-muted-foreground">Assunto: {processo.assunto}</p>
-                              {processo.observacoes && (
-                                <p className="text-sm text-muted-foreground mt-2">{processo.observacoes}</p>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                                processo.status === 'ativo' ? 'bg-green-100 text-green-800' :
-                                processo.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
-                                processo.status === 'vencido' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {processo.status === 'ativo' ? 'Ativo' :
-                                 processo.status === 'aguardando' ? 'Aguardando' :
-                                 processo.status === 'vencido' ? 'Vencido' : 'Arquivado'}
-                              </span>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(processo.created_at).toLocaleDateString('pt-BR')}
-                              </p>
+                    <h3 className="text-lg font-semibold mb-4 text-foreground">Processos Cadastrados</h3>
+                    <ScrollArea className="h-[400px] rounded-md border border-border p-4">
+                      <div className="space-y-3">
+                        {processos.map((processo) => (
+                          <div 
+                            key={processo.id} 
+                            className="p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                            onClick={() => {
+                              setSelectedProcesso(processo);
+                              setIsDetailsDialogOpen(true);
+                            }}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-foreground">{processo.numero_processo}</h4>
+                                <p className="text-sm text-muted-foreground">Cliente: {processo.cliente}</p>
+                                <p className="text-sm text-muted-foreground">Assunto: {processo.assunto}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                  processo.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                                  processo.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
+                                  processo.status === 'vencido' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {processo.status === 'ativo' ? 'Ativo' :
+                                   processo.status === 'aguardando' ? 'Aguardando' :
+                                   processo.status === 'vencido' ? 'Vencido' : 'Arquivado'}
+                                </span>
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
                 )}
               </CardContent>
@@ -474,6 +469,83 @@ const Controladoria = () => {
           onClose={() => setIsPushDialogOpen(false)}
           clientName=""
         />
+
+        {/* Modal de Detalhes do Processo */}
+        <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">Detalhes do Processo</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Informações completas do processo selecionado
+              </DialogDescription>
+            </DialogHeader>
+            {selectedProcesso && (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Número do Processo</label>
+                    <p className="text-base font-medium text-foreground mt-1">{selectedProcesso.numero_processo}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Status</label>
+                    <p className="mt-1">
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                        selectedProcesso.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                        selectedProcesso.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
+                        selectedProcesso.status === 'vencido' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedProcesso.status === 'ativo' ? 'Ativo' :
+                         selectedProcesso.status === 'aguardando' ? 'Aguardando' :
+                         selectedProcesso.status === 'vencido' ? 'Vencido' : 'Arquivado'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Cliente</label>
+                  <p className="text-base text-foreground mt-1">{selectedProcesso.cliente}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Assunto</label>
+                  <p className="text-base text-foreground mt-1">{selectedProcesso.assunto}</p>
+                </div>
+
+                {selectedProcesso.observacoes && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Observações</label>
+                    <p className="text-base text-foreground mt-1 whitespace-pre-wrap">{selectedProcesso.observacoes}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Data de Cadastro</label>
+                    <p className="text-base text-foreground mt-1">
+                      {new Date(selectedProcesso.created_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Última Atualização</label>
+                    <p className="text-base text-foreground mt-1">
+                      {new Date(selectedProcesso.updated_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
