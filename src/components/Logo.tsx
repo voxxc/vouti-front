@@ -19,7 +19,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
   return (
     <div className={`flex flex-col items-center ${className}`}>
       {/* Logo Icon - M */}
-      <div className="relative mb-4">
+      <div className="relative mb-1">
         {/* Main M Letter with gradient gold */}
         <div 
           className={`font-black ${logoSizes[size].main} leading-none tracking-wide relative`}
