@@ -143,9 +143,6 @@ const PJEProcessUpdater = ({ isOpen, onClose, clientName }: PJEProcessUpdaterPro
             <RefreshCw className="h-5 w-5" />
             PUSH - Atualização de Processos
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Cliente: {clientName} | Busca automatizada no PJE (https://comunica.pje.jus.br/)
-          </p>
         </DialogHeader>
 
         <div className="space-y-6 overflow-y-auto">
