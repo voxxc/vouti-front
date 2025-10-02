@@ -55,84 +55,91 @@ const LandingPage1 = () => {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
-          {/* Logo Placeholder */}
-          <div className="flex justify-center mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-              <div className="text-6xl font-bold text-white">
-                LOGO
-              </div>
-            </div>
+      {/* Hero Section with Video Background */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* Video Background */}
+        <div className="absolute inset-0 w-full h-full">
+          <iframe
+            className="absolute top-1/2 left-1/2 w-[100vw] h-[100vh] min-w-[100vw] min-h-[100vh] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+            src="https://www.youtube.com/embed/JlAKU98xcW4?autoplay=1&mute=1&loop=1&playlist=JlAKU98xcW4&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1"
+            title="Background video"
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            style={{ objectFit: 'cover' }}
+          />
+          <div className="absolute inset-0 bg-emerald-900/60 backdrop-blur-[2px]" />
+        </div>
+
+        {/* Content */}
+        <div className="container mx-auto px-4 py-20 relative z-10">
+          <div className="max-w-4xl mx-auto text-center space-y-8">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight drop-shadow-lg">
+              Produtor, <span className="text-emerald-300">Dívidas Rurais</span> estão ameaçando o futuro do seu negócio?
+            </h1>
+
+            <p className="text-xl md:text-2xl text-white drop-shadow-lg">
+              Com nossos serviços, você renegocia, reduz juros e retoma o controle da sua propriedade. 
+              <strong className="block mt-2">Dívidas se negociam, sua terra se preserva!</strong>
+            </p>
+
+            <p className="text-lg text-emerald-200 font-semibold drop-shadow-lg">
+              Preencha o formulário e fale com um especialista agora mesmo!
+            </p>
+
+            {/* Form */}
+            <Card className="bg-white/95 backdrop-blur-sm shadow-2xl max-w-md mx-auto">
+              <CardContent className="p-6">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <Input
+                    placeholder="Digite seu nome"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    className="h-12"
+                  />
+                  
+                  <Input
+                    placeholder="Telefone com DDD"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    required
+                    className="h-12"
+                  />
+                  
+                  <Input
+                    placeholder="Confirme seu Telefone com DDD"
+                    value={formData.phoneConfirm}
+                    onChange={(e) => setFormData({ ...formData, phoneConfirm: e.target.value })}
+                    required
+                    className="h-12"
+                  />
+
+                  <Select
+                    value={formData.areaAtuacao}
+                    onValueChange={(value) => setFormData({ ...formData, areaAtuacao: value })}
+                    required
+                  >
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Área de Atuação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="agricultor">Agricultor</SelectItem>
+                      <SelectItem value="produtor-rural">Produtor Rural</SelectItem>
+                      <SelectItem value="pecuarista">Pecuarista</SelectItem>
+                      <SelectItem value="outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg"
+                  >
+                    FALAR COM ESPECIALISTA AGORA!
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           </div>
-
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
-            Produtor, <span className="text-emerald-400">Dívidas Rurais</span> estão ameaçando o futuro do seu negócio?
-          </h1>
-
-          <p className="text-xl md:text-2xl text-white/90">
-            Com nossos serviços, você renegocia, reduz juros e retoma o controle da sua propriedade. 
-            <strong className="block mt-2">Dívidas se negociam, sua terra se preserva!</strong>
-          </p>
-
-          <p className="text-lg text-emerald-300 font-semibold">
-            Preencha o formulário e fale com um especialista agora mesmo!
-          </p>
-
-          {/* Form */}
-          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl max-w-md mx-auto">
-            <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  placeholder="Digite seu nome"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  className="h-12"
-                />
-                
-                <Input
-                  placeholder="Telefone com DDD"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  required
-                  className="h-12"
-                />
-                
-                <Input
-                  placeholder="Confirme seu Telefone com DDD"
-                  value={formData.phoneConfirm}
-                  onChange={(e) => setFormData({ ...formData, phoneConfirm: e.target.value })}
-                  required
-                  className="h-12"
-                />
-
-                <Select
-                  value={formData.areaAtuacao}
-                  onValueChange={(value) => setFormData({ ...formData, areaAtuacao: value })}
-                  required
-                >
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Área de Atuação" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="agricultor">Agricultor</SelectItem>
-                    <SelectItem value="produtor-rural">Produtor Rural</SelectItem>
-                    <SelectItem value="pecuarista">Pecuarista</SelectItem>
-                    <SelectItem value="outros">Outros</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg"
-                >
-                  FALAR COM ESPECIALISTA AGORA!
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
         </div>
       </section>
 
