@@ -5,17 +5,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Instagram, MessageCircle, CheckCircle2, Users, Shield, TrendingUp, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const LandingPage1 = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
+    email: "",
     phone: "",
     phoneConfirm: "",
     areaAtuacao: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.phone !== formData.phoneConfirm) {
@@ -27,18 +32,57 @@ const LandingPage1 = () => {
       return;
     }
 
-    toast({
-      title: "Formulário enviado!",
-      description: "Entraremos em contato em breve.",
-    });
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para enviar o formulário",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Reset form
-    setFormData({
-      name: "",
-      phone: "",
-      phoneConfirm: "",
-      areaAtuacao: "",
-    });
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('leads_captacao')
+        .insert({
+          nome: formData.name,
+          email: formData.email || null,
+          telefone: formData.phone,
+          tipo: formData.areaAtuacao,
+          status: 'captacao',
+          prioridade: 'a definir',
+          validado: formData.phone ? 'validado' : 'a definir',
+          user_id: user.id,
+          origem: 'landing_page_1',
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Formulário enviado!",
+        description: "Entraremos em contato em breve.",
+      });
+
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        phoneConfirm: "",
+        areaAtuacao: "",
+      });
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Erro ao enviar formulário",
+        description: "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -97,6 +141,14 @@ const LandingPage1 = () => {
                     required
                     className="h-12"
                   />
+
+                  <Input
+                    type="email"
+                    placeholder="Digite seu e-mail"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="h-12"
+                  />
                   
                   <Input
                     placeholder="Telefone com DDD"
@@ -132,9 +184,10 @@ const LandingPage1 = () => {
 
                   <Button 
                     type="submit" 
-                    className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg"
+                    disabled={isSubmitting}
+                    className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg disabled:opacity-50"
                   >
-                    FALAR COM ESPECIALISTA AGORA!
+                    {isSubmitting ? "ENVIANDO..." : "FALAR COM ESPECIALISTA AGORA!"}
                   </Button>
                 </form>
               </CardContent>
