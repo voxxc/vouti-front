@@ -138,6 +138,57 @@ export type Database = {
           },
         ]
       }
+      leads_captacao: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          nome: string
+          origem: string | null
+          prioridade: string | null
+          responsavel_id: string | null
+          status: string | null
+          telefone: string | null
+          tipo: string | null
+          uf: string | null
+          updated_at: string
+          user_id: string
+          validado: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome: string
+          origem?: string | null
+          prioridade?: string | null
+          responsavel_id?: string | null
+          status?: string | null
+          telefone?: string | null
+          tipo?: string | null
+          uf?: string | null
+          updated_at?: string
+          user_id: string
+          validado?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          origem?: string | null
+          prioridade?: string | null
+          responsavel_id?: string | null
+          status?: string | null
+          telefone?: string | null
+          tipo?: string | null
+          uf?: string | null
+          updated_at?: string
+          user_id?: string
+          validado?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string

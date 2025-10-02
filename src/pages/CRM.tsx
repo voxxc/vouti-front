@@ -10,6 +10,7 @@ import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileTex
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import WhatsAppBot from "@/components/CRM/WhatsAppBot";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
+import CaptacaoSheet from "@/components/CRM/CaptacaoSheet";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -304,9 +305,10 @@ const CRM = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
             <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
+            <TabsTrigger value="captacao">CAPTAÇÃO</TabsTrigger>
             <TabsTrigger value="whatsapp">WhatsApp Bot</TabsTrigger>
           </TabsList>
 
@@ -431,6 +433,10 @@ const CRM = () => {
                 </Card>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="captacao">
+            <CaptacaoSheet />
           </TabsContent>
 
           <TabsContent value="whatsapp">
