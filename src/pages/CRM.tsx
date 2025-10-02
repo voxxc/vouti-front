@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Layout } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import WhatsAppBot from "@/components/CRM/WhatsAppBot";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
@@ -14,6 +15,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 
 interface Cliente {
@@ -53,11 +55,13 @@ interface Oportunidade {
 const CRM = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("clientes");
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedClientHistory, setSelectedClientHistory] = useState<ClientHistory[]>([]);
   const [selectedClientName, setSelectedClientName] = useState("");
+  const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
 
   const fetchClientHistory = async (clientName: string) => {
     if (!user) return;
@@ -209,10 +213,20 @@ const CRM = () => {
               <p className="text-muted-foreground">Gerencie leads, prospects e clientes</p>
             </div>
           </div>
-          <Button variant="professional" className="gap-2">
-            <Plus size={16} />
-            Novo Cliente
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="professional" className="gap-2">
+              <Plus size={16} />
+              Novo Cliente
+            </Button>
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => setIsLandingPagesDialogOpen(true)}
+            >
+              <Layout size={16} />
+              LANDING PAGES
+            </Button>
+          </div>
         </div>
 
         {/* Métricas */}
@@ -422,6 +436,41 @@ const CRM = () => {
             <WhatsAppBot />
           </TabsContent>
         </Tabs>
+
+        {/* Modal de Landing Pages */}
+        <Dialog open={isLandingPagesDialogOpen} onOpenChange={setIsLandingPagesDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Selecione uma Landing Page</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="h-[400px] pr-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col gap-2"
+                  onClick={() => {
+                    navigate('/landing-page-1');
+                    setIsLandingPagesDialogOpen(false);
+                  }}
+                >
+                  <Layout className="h-6 w-6" />
+                  <span>Landing Page 1</span>
+                </Button>
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                  <Button
+                    key={num}
+                    variant="outline"
+                    className="h-24 flex flex-col gap-2"
+                    disabled
+                  >
+                    <Layout className="h-6 w-6" />
+                    <span>Landing Page {num}</span>
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
 
         {/* Modal de Histórico do Cliente */}
         <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>

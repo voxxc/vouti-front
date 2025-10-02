@@ -13,6 +13,7 @@ import CRM from "@/pages/CRM";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
+import LandingPage1 from "@/pages/LandingPage1";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -121,6 +122,7 @@ function App() {
                   <Controladoria />
                 </ProtectedRoute>
               } />
+              <Route path="/landing-page-1" element={<LandingPage1 />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
