@@ -213,14 +213,15 @@ const CRM = () => {
               <p className="text-muted-foreground">Gerencie leads, prospects e clientes</p>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 justify-end">
             <Button variant="professional" className="gap-2">
               <Plus size={16} />
               Novo Cliente
             </Button>
             <Button 
-              variant="outline" 
+              variant="default"
               className="gap-2"
+              title="Abrir lista de Landing Pages"
               onClick={() => setIsLandingPagesDialogOpen(true)}
             >
               <Layout size={16} />
