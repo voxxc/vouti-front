@@ -12,9 +12,9 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, MessageSquare, User, Check } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { LeadCommentPanel } from "./LeadCommentPanel";
 
 interface Lead {
   id: string;
@@ -95,7 +95,8 @@ export function CaptacaoSheet() {
   const [loading, setLoading] = useState(true);
   const [statusGroups, setStatusGroups] = useState<StatusGroup[]>([
     { label: "Captação", statusValues: ["captacao"], isOpen: true },
-    { label: "Em agendamento / Agendar", statusValues: ["agendado", "agendar", "1a tentativa de contato", "2a tentativa de contato", "3a tentativa de contato", "4a tentativa de contato"], isOpen: false },
+    { label: "VALIDADO", statusValues: ["1a tentativa de contato", "2a tentativa de contato", "3a tentativa de contato", "4a tentativa de contato"], isOpen: false },
+    { label: "Em agendamento / Agendar", statusValues: ["agendado", "agendar"], isOpen: false },
     { label: "Reunião realizada", statusValues: ["1a reuniao realizada", "2a reuniao realizada"], isOpen: false },
     { label: "Fechamento", statusValues: ["proposta enviada", "negociou com banco"], isOpen: false },
     { label: "Reagendar", statusValues: ["reagendar"], isOpen: false },
@@ -256,16 +257,8 @@ export function CaptacaoSheet() {
                       <MessageSquare className="h-4 w-4" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Comentário</h4>
-                      <Textarea
-                        value={lead.comentario || ''}
-                        onChange={(e) => updateLead(lead.id, 'comentario', e.target.value)}
-                        placeholder="Adicione um comentário..."
-                        className="min-h-[100px]"
-                      />
-                    </div>
+                  <PopoverContent className="w-auto p-4">
+                    <LeadCommentPanel leadId={lead.id} />
                   </PopoverContent>
                 </Popover>
               </TableCell>

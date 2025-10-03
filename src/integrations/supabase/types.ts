@@ -138,6 +138,41 @@ export type Database = {
           },
         ]
       }
+      lead_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          lead_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_comments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_captacao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads_captacao: {
         Row: {
           comentario: string | null
