@@ -1,16 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export interface MessageAttachment {
-  id: string;
-  message_id: string;
-  file_name: string;
-  file_path: string;
-  file_size: number | null;
-  file_type: string | null;
-  created_at: string;
-}
-
 export interface Message {
   id: string;
   sender_id: string;
@@ -21,7 +11,6 @@ export interface Message {
   message_type: 'direct' | 'mention' | 'notification';
   created_at: string;
   updated_at: string;
-  attachments?: MessageAttachment[];
 }
 
 export const useMessages = (userId?: string) => {
@@ -38,10 +27,7 @@ export const useMessages = (userId?: string) => {
       try {
         const { data, error } = await supabase
           .from('messages')
-          .select(`
-            *,
-            attachments:message_attachments(*)
-          `)
+          .select('*')
           .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
           .order('created_at', { ascending: true });
 
@@ -67,16 +53,10 @@ export const useMessages = (userId?: string) => {
           schema: 'public',
           table: 'messages'
         },
-        async (payload) => {
+        (payload) => {
           const newMessage = payload.new as Message;
           if (newMessage.sender_id === userId || newMessage.receiver_id === userId) {
-            // Fetch attachments for the new message
-            const { data: attachments } = await supabase
-              .from('message_attachments')
-              .select('*')
-              .eq('message_id', newMessage.id);
-            
-            setMessages(prev => [...prev, { ...newMessage, attachments: attachments || [] }]);
+            setMessages(prev => [...prev, newMessage]);
           }
         }
       )
@@ -91,7 +71,7 @@ export const useMessages = (userId?: string) => {
           const updatedMessage = payload.new as Message;
           if (updatedMessage.sender_id === userId || updatedMessage.receiver_id === userId) {
             setMessages(prev => 
-              prev.map(m => m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m)
+              prev.map(m => m.id === updatedMessage.id ? updatedMessage : m)
             );
           }
         }
@@ -120,10 +100,11 @@ export const useMessages = (userId?: string) => {
     content: string, 
     messageType: 'direct' | 'mention' | 'notification' = 'direct',
     relatedProjectId?: string,
-    files?: File[]
+    attachments?: File[]
   ) => {
     try {
-      const { data: messageData, error: messageError } = await supabase
+      // Insert message first
+      const { data: newMessage, error: messageError } = await supabase
         .from('messages')
         .insert({
           sender_id: userId,
@@ -137,11 +118,11 @@ export const useMessages = (userId?: string) => {
 
       if (messageError) throw messageError;
 
-      // Upload files if any
-      if (files && files.length > 0 && messageData) {
-        for (const file of files) {
+      // Upload attachments if any
+      if (attachments && attachments.length > 0 && newMessage) {
+        for (const file of attachments) {
           const fileExt = file.name.split('.').pop();
-          const fileName = `${userId}/${messageData.id}/${Date.now()}.${fileExt}`;
+          const fileName = `${userId}/${newMessage.id}/${Date.now()}.${fileExt}`;
           
           const { error: uploadError } = await supabase.storage
             .from('message-attachments')
@@ -149,18 +130,14 @@ export const useMessages = (userId?: string) => {
 
           if (uploadError) throw uploadError;
 
-          // Create attachment record
-          const { error: attachmentError } = await supabase
-            .from('message_attachments')
-            .insert({
-              message_id: messageData.id,
-              file_name: file.name,
-              file_path: fileName,
-              file_size: file.size,
-              file_type: file.type
-            });
-
-          if (attachmentError) throw attachmentError;
+          // Save attachment metadata
+          await supabase.from('message_attachments').insert({
+            message_id: newMessage.id,
+            file_name: file.name,
+            file_path: fileName,
+            file_size: file.size,
+            file_type: file.type
+          });
         }
       }
     } catch (error) {
@@ -171,14 +148,14 @@ export const useMessages = (userId?: string) => {
 
   const deleteMessage = async (messageId: string) => {
     try {
-      // Delete message (attachments will cascade delete)
       const { error } = await supabase
         .from('messages')
         .delete()
-        .eq('id', messageId)
-        .eq('sender_id', userId);
+        .eq('id', messageId);
 
       if (error) throw error;
+
+      setMessages(prev => prev.filter(m => m.id !== messageId));
     } catch (error) {
       console.error('Error deleting message:', error);
       throw error;
@@ -214,29 +191,6 @@ export const useMessages = (userId?: string) => {
     ).length;
   };
 
-  const downloadAttachment = async (filePath: string, fileName: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('message-attachments')
-        .download(filePath);
-
-      if (error) throw error;
-
-      // Create download link
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading attachment:', error);
-      throw error;
-    }
-  };
-
   return {
     messages,
     loading,
@@ -244,7 +198,6 @@ export const useMessages = (userId?: string) => {
     deleteMessage,
     markAsRead,
     getUserMessages,
-    getUnreadCount,
-    downloadAttachment
+    getUnreadCount
   };
 };
