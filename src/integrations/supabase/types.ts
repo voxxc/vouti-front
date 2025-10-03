@@ -140,6 +140,7 @@ export type Database = {
       }
       leads_captacao: {
         Row: {
+          comentario: string | null
           created_at: string
           email: string | null
           id: string
@@ -156,6 +157,7 @@ export type Database = {
           validado: string | null
         }
         Insert: {
+          comentario?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -172,6 +174,7 @@ export type Database = {
           validado?: string | null
         }
         Update: {
+          comentario?: string | null
           created_at?: string
           email?: string | null
           id?: string

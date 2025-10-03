@@ -1,20 +1,19 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, User, ChevronDown, Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronRight, MessageSquare, User, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface Lead {
   id: string;
@@ -22,18 +21,26 @@ interface Lead {
   email: string | null;
   telefone: string | null;
   tipo: string | null;
-  status: string;
-  prioridade: string;
-  validado: string;
+  status: string | null;
+  prioridade: string | null;
+  validado: string | null;
   uf: string | null;
   responsavel_id: string | null;
   created_at: string;
+  comentario?: string | null;
 }
 
 interface Profile {
   user_id: string;
   full_name: string | null;
   avatar_url: string | null;
+  email: string;
+}
+
+interface StatusGroup {
+  label: string;
+  statusValues: string[];
+  isOpen: boolean;
 }
 
 const TIPOS_CONFIG = {
@@ -78,13 +85,22 @@ const VALIDADO_CONFIG = {
   'a definir': { label: 'A Definir', color: 'bg-gray-400 text-white' },
 };
 
-export default function CaptacaoSheet() {
+export function CaptacaoSheet() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [statusGroups, setStatusGroups] = useState<StatusGroup[]>([
+    { label: "Captação", statusValues: ["captacao"], isOpen: true },
+    { label: "Em agendamento / Agendar", statusValues: ["agendado", "agendar", "1a tentativa de contato", "2a tentativa de contato", "3a tentativa de contato", "4a tentativa de contato"], isOpen: false },
+    { label: "Reunião realizada", statusValues: ["1a reuniao realizada", "2a reuniao realizada"], isOpen: false },
+    { label: "Fechamento", statusValues: ["proposta enviada", "negociou com banco"], isOpen: false },
+    { label: "Reagendar", statusValues: ["reagendar"], isOpen: false },
+    { label: "Sucesso do cliente", statusValues: ["sucesso do cliente"], isOpen: false },
+    { label: "Desqualificado", statusValues: ["ja tem advogado", "desqualificado"], isOpen: false },
+  ]);
 
   useEffect(() => {
     if (user) {
@@ -104,11 +120,6 @@ export default function CaptacaoSheet() {
       setLeads(data || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
-      toast({
-        title: "Erro ao carregar leads",
-        description: "Não foi possível carregar os leads de captação.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -118,7 +129,7 @@ export default function CaptacaoSheet() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, full_name, avatar_url');
+        .select('user_id, full_name, avatar_url, email');
 
       if (error) throw error;
       setProfiles(data || []);
@@ -127,31 +138,27 @@ export default function CaptacaoSheet() {
     }
   };
 
-  const updateLead = async (leadId: string, field: string, value: any) => {
+  const updateLead = async (id: string, field: string, value: any) => {
     try {
       const { error } = await supabase
         .from('leads_captacao')
-        .update({ [field]: value, updated_at: new Date().toISOString() })
-        .eq('id', leadId);
+        .update({ [field]: value })
+        .eq('id', id);
 
       if (error) throw error;
 
       setLeads(leads.map(lead => 
-        lead.id === leadId ? { ...lead, [field]: value } : lead
+        lead.id === id ? { ...lead, [field]: value } : lead
       ));
-
-      toast({
-        title: "Lead atualizado",
-        description: "As informações foram atualizadas com sucesso.",
-      });
     } catch (error) {
       console.error('Error updating lead:', error);
-      toast({
-        title: "Erro ao atualizar",
-        description: "Não foi possível atualizar o lead.",
-        variant: "destructive",
-      });
     }
+  };
+
+  const toggleGroup = (index: number) => {
+    setStatusGroups(statusGroups.map((group, i) => 
+      i === index ? { ...group, isOpen: !group.isOpen } : group
+    ));
   };
 
   const filteredLeads = leads.filter(lead =>
@@ -159,6 +166,12 @@ export default function CaptacaoSheet() {
     lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.telefone?.includes(searchTerm)
   );
+
+  const getLeadsByStatus = (statusValues: string[]) => {
+    return filteredLeads.filter(lead => 
+      statusValues.includes(lead.status?.toLowerCase() || '')
+    );
+  };
 
   const getResponsavelInfo = (responsavelId: string | null) => {
     if (!responsavelId) return null;
@@ -200,246 +213,275 @@ export default function CaptacaoSheet() {
     return dddMap[ddd] || null;
   };
 
+  const renderLeadsTable = (leadsToRender: Lead[]) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="min-w-[200px]">Elemento</TableHead>
+          <TableHead className="min-w-[100px]">Comentário</TableHead>
+          <TableHead className="min-w-[150px]">Responsável</TableHead>
+          <TableHead className="min-w-[120px]">Data</TableHead>
+          <TableHead className="min-w-[150px]">Tipo</TableHead>
+          <TableHead className="min-w-[200px]">Status</TableHead>
+          <TableHead className="min-w-[150px]">Prioridade</TableHead>
+          <TableHead className="min-w-[120px]">Validado</TableHead>
+          <TableHead className="min-w-[80px]">UF</TableHead>
+          <TableHead className="min-w-[200px]">E-mail</TableHead>
+          <TableHead className="min-w-[150px]">Telefone</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {loading ? (
+          <TableRow>
+            <TableCell colSpan={11} className="text-center py-8">
+              Carregando...
+            </TableCell>
+          </TableRow>
+        ) : leadsToRender.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={11} className="text-center py-8">
+              Nenhum lead encontrado
+            </TableCell>
+          </TableRow>
+        ) : (
+          leadsToRender.map((lead) => (
+            <TableRow key={lead.id}>
+              <TableCell className="font-medium">{lead.nome}</TableCell>
+              
+              <TableCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Comentário</h4>
+                      <Textarea
+                        value={lead.comentario || ''}
+                        onChange={(e) => updateLead(lead.id, 'comentario', e.target.value)}
+                        placeholder="Adicione um comentário..."
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </TableCell>
+
+              <TableCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
+                      {lead.responsavel_id ? (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={getResponsavelInfo(lead.responsavel_id)?.avatar_url || ''} />
+                          <AvatarFallback>
+                            {getResponsavelInfo(lead.responsavel_id)?.full_name?.charAt(0) || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                          <User className="h-4 w-4" />
+                        </div>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar usuário..." />
+                      <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {profiles.map((profile) => (
+                          <CommandItem
+                            key={profile.user_id}
+                            onSelect={() => updateLead(lead.id, 'responsavel_id', profile.user_id)}
+                          >
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarImage src={profile.avatar_url || ''} />
+                              <AvatarFallback>{profile.full_name?.charAt(0) || '?'}</AvatarFallback>
+                            </Avatar>
+                            {profile.full_name || profile.email}
+                            {lead.responsavel_id === profile.user_id && (
+                              <Check className="ml-auto h-4 w-4" />
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TableCell>
+
+              <TableCell>{format(new Date(lead.created_at), 'dd/MM/yyyy')}</TableCell>
+
+              <TableCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Badge className={TIPOS_CONFIG[lead.tipo?.toLowerCase() || '']?.color || 'bg-gray-500'}>
+                        {TIPOS_CONFIG[lead.tipo?.toLowerCase() || '']?.label || lead.tipo || 'N/A'}
+                      </Badge>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar tipo..." />
+                      <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {Object.entries(TIPOS_CONFIG).map(([key, config]) => (
+                          <CommandItem
+                            key={key}
+                            onSelect={() => updateLead(lead.id, 'tipo', key)}
+                          >
+                            <Badge className={config.color}>{config.label}</Badge>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TableCell>
+
+              <TableCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Badge className={STATUS_CONFIG[lead.status?.toLowerCase() || '']?.color || 'bg-gray-500'}>
+                        {STATUS_CONFIG[lead.status?.toLowerCase() || '']?.label || lead.status || 'N/A'}
+                      </Badge>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar status..." />
+                      <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                          <CommandItem
+                            key={key}
+                            onSelect={() => updateLead(lead.id, 'status', key)}
+                          >
+                            <Badge className={config.color}>{config.label}</Badge>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TableCell>
+
+              <TableCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Badge className={PRIORIDADE_CONFIG[lead.prioridade?.toLowerCase() || '']?.color || 'bg-gray-500'}>
+                        {PRIORIDADE_CONFIG[lead.prioridade?.toLowerCase() || '']?.label || lead.prioridade || 'N/A'}
+                      </Badge>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar prioridade..." />
+                      <CommandEmpty>Nenhuma prioridade encontrada.</CommandEmpty>
+                      <CommandGroup>
+                        {Object.entries(PRIORIDADE_CONFIG).map(([key, config]) => (
+                          <CommandItem
+                            key={key}
+                            onSelect={() => updateLead(lead.id, 'prioridade', key)}
+                          >
+                            <Badge className={config.color}>{config.label}</Badge>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TableCell>
+
+              <TableCell>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Badge className={VALIDADO_CONFIG[lead.validado?.toLowerCase() || '']?.color || 'bg-gray-500'}>
+                        {VALIDADO_CONFIG[lead.validado?.toLowerCase() || '']?.label || lead.validado || 'N/A'}
+                      </Badge>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar validação..." />
+                      <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+                      <CommandGroup>
+                        {Object.entries(VALIDADO_CONFIG).map(([key, config]) => (
+                          <CommandItem
+                            key={key}
+                            onSelect={() => updateLead(lead.id, 'validado', key)}
+                          >
+                            <Badge className={config.color}>{config.label}</Badge>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </TableCell>
+
+              <TableCell>{lead.uf || (lead.telefone ? getDDDtoUF(lead.telefone) : 'N/A')}</TableCell>
+              <TableCell>{lead.email || 'N/A'}</TableCell>
+              <TableCell>{lead.telefone || 'N/A'}</TableCell>
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar leads por nome, email ou telefone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        <Input
+          placeholder="Buscar leads..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
         <div className="text-sm text-muted-foreground">
-          {filteredLeads.length} leads encontrados
+          {filteredLeads.length} leads no total
         </div>
       </div>
 
-      <ScrollArea className="h-[600px] w-full border rounded-lg">
-        <div className="min-w-[1800px]">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[200px] sticky left-0 bg-muted/50 z-10">Elemento</TableHead>
-                <TableHead className="w-[120px]">Responsável</TableHead>
-                <TableHead className="w-[120px]">Data</TableHead>
-                <TableHead className="w-[150px]">Tipo</TableHead>
-                <TableHead className="w-[180px]">Status</TableHead>
-                <TableHead className="w-[150px]">Prioridade</TableHead>
-                <TableHead className="w-[140px]">Validado</TableHead>
-                <TableHead className="w-[80px]">UF</TableHead>
-                <TableHead className="w-[250px]">E-mail</TableHead>
-                <TableHead className="w-[150px]">Telefone</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
-              ) : filteredLeads.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    Nenhum lead encontrado
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredLeads.map((lead) => {
-                  const responsavel = getResponsavelInfo(lead.responsavel_id);
-                  const ufFromDDD = getDDDtoUF(lead.telefone);
-
-                  return (
-                    <TableRow key={lead.id} className="hover:bg-muted/30">
-                      <TableCell className="font-medium sticky left-0 bg-background">
-                        {lead.nome}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              {responsavel ? (
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={responsavel.avatar_url || undefined} />
-                                  <AvatarFallback>
-                                    {responsavel.full_name?.substring(0, 2).toUpperCase() || 'US'}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ) : (
-                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="p-0 w-[250px]" align="start">
-                            <Command>
-                              <CommandInput placeholder="Buscar usuário..." />
-                              <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                              <CommandGroup>
-                                {profiles.map((profile) => (
-                                  <CommandItem
-                                    key={profile.user_id}
-                                    onSelect={() => updateLead(lead.id, 'responsavel_id', profile.user_id)}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <Avatar className="h-6 w-6">
-                                      <AvatarImage src={profile.avatar_url || undefined} />
-                                      <AvatarFallback>
-                                        {profile.full_name?.substring(0, 2).toUpperCase() || 'US'}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span>{profile.full_name || 'Sem nome'}</span>
-                                    {lead.responsavel_id === profile.user_id && (
-                                      <Check className="ml-auto h-4 w-4" />
-                                    )}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-
-                      <TableCell className="text-sm">
-                        {format(new Date(lead.created_at), "dd/MM/yy", { locale: ptBR })}
-                      </TableCell>
-
-                      <TableCell>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2">
-                              {lead.tipo ? (
-                                <Badge className={TIPOS_CONFIG[lead.tipo as keyof typeof TIPOS_CONFIG]?.color || 'bg-gray-500'}>
-                                  {TIPOS_CONFIG[lead.tipo as keyof typeof TIPOS_CONFIG]?.label || lead.tipo}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="p-2 w-[200px]" align="start">
-                            <div className="space-y-1">
-                              {Object.entries(TIPOS_CONFIG).map(([key, config]) => (
-                                <Button
-                                  key={key}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => updateLead(lead.id, 'tipo', key)}
-                                >
-                                  <Badge className={config.color}>{config.label}</Badge>
-                                </Button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-
-                      <TableCell>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2">
-                              <Badge className={STATUS_CONFIG[lead.status as keyof typeof STATUS_CONFIG]?.color || 'bg-gray-500'}>
-                                {STATUS_CONFIG[lead.status as keyof typeof STATUS_CONFIG]?.label || lead.status}
-                              </Badge>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="p-2 w-[220px] max-h-[400px] overflow-y-auto" align="start">
-                            <div className="space-y-1">
-                              {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                                <Button
-                                  key={key}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => updateLead(lead.id, 'status', key)}
-                                >
-                                  <Badge className={config.color}>{config.label}</Badge>
-                                </Button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-
-                      <TableCell>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2">
-                              <Badge className={PRIORIDADE_CONFIG[lead.prioridade as keyof typeof PRIORIDADE_CONFIG]?.color || 'bg-gray-500'}>
-                                {PRIORIDADE_CONFIG[lead.prioridade as keyof typeof PRIORIDADE_CONFIG]?.label || lead.prioridade}
-                              </Badge>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="p-2 w-[200px]" align="start">
-                            <div className="space-y-1">
-                              {Object.entries(PRIORIDADE_CONFIG).map(([key, config]) => (
-                                <Button
-                                  key={key}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => updateLead(lead.id, 'prioridade', key)}
-                                >
-                                  <Badge className={config.color}>{config.label}</Badge>
-                                </Button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-
-                      <TableCell>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2">
-                              <Badge className={VALIDADO_CONFIG[lead.validado as keyof typeof VALIDADO_CONFIG]?.color || 'bg-gray-500'}>
-                                {VALIDADO_CONFIG[lead.validado as keyof typeof VALIDADO_CONFIG]?.label || lead.validado}
-                              </Badge>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="p-2 w-[180px]" align="start">
-                            <div className="space-y-1">
-                              {Object.entries(VALIDADO_CONFIG).map(([key, config]) => (
-                                <Button
-                                  key={key}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => updateLead(lead.id, 'validado', key)}
-                                >
-                                  <Badge className={config.color}>{config.label}</Badge>
-                                </Button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
-
-                      <TableCell className="text-sm font-medium">
-                        {lead.uf || ufFromDDD || '-'}
-                      </TableCell>
-
-                      <TableCell className="text-sm">
-                        {lead.email || '-'}
-                      </TableCell>
-
-                      <TableCell className="text-sm">
-                        {lead.telefone || '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </ScrollArea>
+      <div className="space-y-2">
+        {statusGroups.map((group, index) => {
+          const groupLeads = getLeadsByStatus(group.statusValues);
+          
+          return (
+            <Collapsible 
+              key={index} 
+              open={group.isOpen}
+              onOpenChange={() => toggleGroup(index)}
+              className="border rounded-lg"
+            >
+              <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  {group.isOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <span className="font-semibold">{group.label}</span>
+                  <Badge variant="secondary">{groupLeads.length} Elementos</Badge>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <ScrollArea className="h-[400px] w-full">
+                  {renderLeadsTable(groupLeads)}
+                </ScrollArea>
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
     </div>
   );
 }
