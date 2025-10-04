@@ -2,14 +2,18 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download, Search, Lightbulb, Zap, TrendingUp } from "lucide-react";
+import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download, Search, Lightbulb, Zap, TrendingUp, KeyRound } from "lucide-react";
 import heroImage from "@/assets/hero-bg-landing2.jpg";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const LandingPage2 = () => {
+  const navigate = useNavigate();
   const [showCarousel, setShowCarousel] = useState(false);
   const [currentPhrase, setCurrentPhrase] = useState(0);
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggInput, setEasterEggInput] = useState("");
 
   const phrases = [
     "Growth Business é a união de estratégia, tecnologia e dados para transformar empresas em potências escaláveis.",
@@ -37,6 +41,17 @@ const LandingPage2 = () => {
         setShowCarousel(false);
         setCurrentPhrase(0);
       }, 1000);
+    }
+  };
+
+  const handleEasterEggSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (easterEggInput.toLowerCase() === 'mora') {
+        navigate('/auth');
+      } else {
+        setEasterEggInput('');
+        setShowEasterEgg(false);
+      }
     }
   };
 
@@ -359,6 +374,32 @@ const LandingPage2 = () => {
           </div>
         </div>
       </footer>
+
+      {/* Easter Egg */}
+      <button
+        onClick={() => setShowEasterEgg(!showEasterEgg)}
+        className="fixed bottom-4 right-4 w-8 h-8 opacity-0 hover:opacity-10 transition-opacity z-50"
+        aria-label="Secret"
+      >
+        <KeyRound className="w-4 h-4 text-accent" />
+      </button>
+
+      {showEasterEgg && (
+        <div className="fixed bottom-16 right-4 z-50 animate-fade-in">
+          <Input
+            type="text"
+            value={easterEggInput}
+            onChange={(e) => setEasterEggInput(e.target.value)}
+            onKeyDown={handleEasterEggSubmit}
+            onBlur={() => {
+              setTimeout(() => setShowEasterEgg(false), 200);
+            }}
+            placeholder="..."
+            autoFocus
+            className="w-32 h-8 text-sm backdrop-blur-md bg-background/80 border-accent focus:ring-accent"
+          />
+        </div>
+      )}
     </div>
   );
 };
