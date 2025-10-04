@@ -1,333 +1,340 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
-import { Instagram, MessageCircle, CheckCircle2, Users, Shield, TrendingUp, ArrowRight } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download } from "lucide-react";
+import heroImage from "@/assets/hero-bg.jpg";
+import { useState } from "react";
 
 const LandingPage1 = () => {
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    phoneConfirm: "",
-    areaAtuacao: "",
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCarousel, setShowCarousel] = useState(false);
+  const [currentPhrase, setCurrentPhrase] = useState(0);
+  const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formData.phone !== formData.phoneConfirm) {
-      toast({
-        title: "Erro",
-        description: "Os números de telefone não coincidem",
-        variant: "destructive",
-      });
-      return;
-    }
+  const phrases = [
+    "Growth Business é a união de estratégia, tecnologia e dados para transformar empresas em potências escaláveis.",
+    "No mercado atual, quem não escala fica para trás. Métodos de crescimento acelerado são essenciais para se manter competitivo.",
+    "Dar o máximo hoje é construir os resultados que todos irão admirar amanhã.",
+    "DE MORAIS, é a confiança no alicerce que transforma parcerias em crescimento real.",
+    "A hora de evoluir é agora. Seu negócio merece mais."
+  ];
 
-    if (!user) {
-      toast({
-        title: "Erro",
-        description: "Você precisa estar logado para enviar o formulário",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleStart = () => {
+    setShowCarousel(true);
+  };
 
-    setIsSubmitting(true);
-
-    try {
-      const { error } = await supabase
-        .from('leads_captacao')
-        .insert({
-          nome: formData.name,
-          email: formData.email || null,
-          telefone: formData.phone,
-          tipo: formData.areaAtuacao,
-          status: 'captacao',
-          prioridade: 'a definir',
-          validado: formData.phone ? 'validado' : 'a definir',
-          user_id: user.id,
-          origem: 'landing_page_1',
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Formulário enviado!",
-        description: "Entraremos em contato em breve.",
-      });
-
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        phoneConfirm: "",
-        areaAtuacao: "",
-      });
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      toast({
-        title: "Erro ao enviar formulário",
-        description: "Tente novamente mais tarde.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
+  const handleNext = () => {
+    if (currentPhrase < phrases.length - 1) {
+      setFadeState('out');
+      setTimeout(() => {
+        setCurrentPhrase((prev) => prev + 1);
+        setFadeState('in');
+      }, 500);
+    } else {
+      // Scroll to solutions section
+      const solutionsSection = document.getElementById('solutions-section');
+      solutionsSection?.scrollIntoView({ behavior: 'smooth' });
+      // Reset carousel
+      setTimeout(() => {
+        setShowCarousel(false);
+        setCurrentPhrase(0);
+      }, 1000);
     }
   };
 
+  const solutions = [
+    {
+      icon: Brain,
+      title: "IA & Automação",
+      description: "Inteligência artificial trabalhando 24/7 pelo seu negócio"
+    },
+    {
+      icon: Code,
+      title: "Desenvolvimento",
+      description: "Sistemas escaláveis e robustos sob medida"
+    },
+    {
+      icon: LineChart,
+      title: "Growth Marketing",
+      description: "Crescimento acelerado com dados e estratégia"
+    },
+    {
+      icon: Rocket,
+      title: "Tráfego Pago",
+      description: "ROI otimizado em todas as campanhas"
+    },
+    {
+      icon: Shield,
+      title: "Consultoria",
+      description: "Estratégia personalizada para seu mercado"
+    },
+    {
+      icon: Sparkles,
+      title: "Otimização",
+      description: "Processos enxutos e alta performance"
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-emerald-900">
-      {/* Header with Social Links */}
-      <header className="bg-emerald-950/50 py-3">
-        <div className="container mx-auto px-4 flex justify-end gap-4">
-          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors">
-            <Instagram className="h-5 w-5" />
-          </a>
-          <a href="https://wa.me/" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors">
-            <MessageCircle className="h-5 w-5" />
-          </a>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Logo Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 py-8 bg-black">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-5xl md:text-7xl font-cormorant font-bold tracking-widest text-accent">
+            DE MORAIS<span className="text-red-600">.</span>
+          </h1>
         </div>
       </header>
 
-      {/* Hero Section with Video Background */}
+      {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Video Background */}
-        <div className="absolute inset-0 w-full h-full">
-          <iframe
-            className="absolute top-1/2 left-1/2 w-[100vw] h-[100vh] min-w-[100vw] min-h-[100vh] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-            src="https://www.youtube.com/embed/JlAKU98xcW4?autoplay=1&mute=1&loop=1&playlist=JlAKU98xcW4&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1"
-            title="Background video"
-            frameBorder="0"
-            allow="autoplay; encrypted-media"
-            style={{ objectFit: 'cover' }}
-          />
-          <div className="absolute inset-0 bg-emerald-900/60 backdrop-blur-[2px]" />
-        </div>
+        <div
+          className="absolute inset-0 z-0 opacity-10"
+          style={{
+            backgroundImage: `url(${heroImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-background via-background to-background/50" />
 
-        {/* Content */}
-        <div className="container mx-auto px-4 py-20 relative z-10">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight drop-shadow-lg">
-              Produtor, <span className="text-emerald-300">Dívidas Rurais</span> estão ameaçando o futuro do seu negócio?
-            </h1>
-
-            <p className="text-xl md:text-2xl text-white drop-shadow-lg">
-              Com nossos serviços, você renegocia, reduz juros e retoma o controle da sua propriedade. 
-              <strong className="block mt-2">Dívidas se negociam, sua terra se preserva!</strong>
-            </p>
-
-            <p className="text-lg text-emerald-200 font-semibold drop-shadow-lg">
-              Preencha o formulário e fale com um especialista agora mesmo!
-            </p>
-
-            {/* Form */}
-            <Card className="bg-white/95 backdrop-blur-sm shadow-2xl max-w-md mx-auto">
-              <CardContent className="p-6">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <Input
-                    placeholder="Digite seu nome"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    className="h-12"
-                  />
-
-                  <Input
-                    type="email"
-                    placeholder="Digite seu e-mail"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="h-12"
-                  />
-                  
-                  <Input
-                    placeholder="Telefone com DDD"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    required
-                    className="h-12"
-                  />
-                  
-                  <Input
-                    placeholder="Confirme seu Telefone com DDD"
-                    value={formData.phoneConfirm}
-                    onChange={(e) => setFormData({ ...formData, phoneConfirm: e.target.value })}
-                    required
-                    className="h-12"
-                  />
-
-                  <Select
-                    value={formData.areaAtuacao}
-                    onValueChange={(value) => setFormData({ ...formData, areaAtuacao: value })}
-                    required
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Área de Atuação" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="agricultor">Agricultor</SelectItem>
-                      <SelectItem value="produtor-rural">Produtor Rural</SelectItem>
-                      <SelectItem value="pecuarista">Pecuarista</SelectItem>
-                      <SelectItem value="outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg disabled:opacity-50"
-                  >
-                    {isSubmitting ? "ENVIANDO..." : "FALAR COM ESPECIALISTA AGORA!"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Solutions Section */}
-      <section className="bg-gradient-to-b from-amber-50 to-amber-100 py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
-                  <span className="text-amber-600">Soluções reais</span> para quem vive do campo
-                </h2>
-                
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600 flex-shrink-0 mt-1" />
-                    <p className="text-lg text-gray-700">
-                      Renegociação de dívidas com instituições financeiras
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600 flex-shrink-0 mt-1" />
-                    <p className="text-lg text-gray-700">
-                      Redução de juros e prazos estendidos
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600 flex-shrink-0 mt-1" />
-                    <p className="text-lg text-gray-700">
-                      Proteção do seu patrimônio rural
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600 flex-shrink-0 mt-1" />
-                    <p className="text-lg text-gray-700">
-                      Planejamento financeiro especializado
-                    </p>
-                  </div>
+        <div className="container mx-auto px-4 z-10">
+          {!showCarousel ? (
+            <div className={`max-w-5xl mx-auto text-center space-y-8 transition-opacity duration-500 ${showCarousel ? 'opacity-0' : 'opacity-100 animate-fade-in'}`}>
+              <div className="inline-block">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-sm text-primary font-medium">Premium Growth Solutions</span>
                 </div>
+              </div>
 
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-6 text-lg">
-                  Quero resolver minhas dívidas
-                  <ArrowRight className="ml-2 h-5 w-5" />
+              <h2 className="text-6xl md:text-8xl font-bold tracking-tight">
+                <span className="block text-foreground">Escale Seu</span>
+                <span className="block bg-gradient-premium bg-clip-text text-transparent">Negócio</span>
+              </h2>
+
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
+                Tecnologia de ponta e estratégias data-driven para empresas que buscam crescimento exponencial
+              </p>
+
+              <div className="pt-8">
+                <Button
+                  size="lg"
+                  onClick={handleStart}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 py-6 shadow-gold"
+                >
+                  START
+                  <Play className="ml-2 h-5 w-5 fill-current" />
                 </Button>
               </div>
+            </div>
+          ) : (
+            <div className={`max-w-4xl mx-auto text-center space-y-8 transition-opacity duration-500 ${fadeState === 'in' ? 'opacity-100' : 'opacity-0'}`}>
+              <p className="text-2xl md:text-4xl text-foreground leading-relaxed font-cormorant font-medium">
+                {phrases[currentPhrase]}
+              </p>
+              <Button
+                size="lg"
+                onClick={handleNext}
+                className="bg-yellow-500 text-black hover:bg-yellow-600 font-bold px-8 py-6"
+              >
+                NEXT
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </div>
+          )}
+        </div>
 
-              <div className="relative">
-                <div className="aspect-video bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-2xl flex items-center justify-center">
-                  <div className="text-white text-center">
-                    <TrendingUp className="h-24 w-24 mx-auto mb-4" />
-                    <p className="text-xl font-semibold">Imagem ilustrativa</p>
+        {/* Floating elements */}
+        <div className="absolute top-1/4 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-60" />
+        <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 right-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '2s' }} />
+      </section>
+
+      {/* Solutions Grid */}
+      <section id="solutions-section" className="py-32 relative">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+              Soluções <span className="bg-gradient-premium bg-clip-text text-transparent">Completas</span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Tudo que você precisa para dominar seu mercado
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {solutions.map((solution, index) => (
+              <Card
+                key={index}
+                className="group p-8 bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 transition-all duration-300 hover:shadow-gold cursor-pointer"
+              >
+                <div className="space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <solution.icon className="h-7 w-7 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-foreground">{solution.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed">{solution.description}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Process Section */}
+      <section className="py-32 bg-card/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-20">
+              <h2 className="text-5xl md:text-6xl font-bold mb-6">
+                Processo <span className="bg-gradient-premium bg-clip-text text-transparent">Simples</span>
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                Do primeiro contato aos resultados extraordinários
+              </p>
+            </div>
+
+            <div className="space-y-8">
+              {[
+                { num: "01", title: "Análise", desc: "Entendemos seu negócio, desafios e objetivos" },
+                { num: "02", title: "Estratégia", desc: "Criamos um plano personalizado de crescimento" },
+                { num: "03", title: "Execução", desc: "Implementamos as soluções com excelência" },
+                { num: "04", title: "Otimização", desc: "Medimos, ajustamos e escalamos resultados" }
+              ].map((step, index) => (
+                <div key={index} className="flex gap-6 items-start group">
+                  <div className="flex-shrink-0">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-premium flex items-center justify-center text-primary-foreground font-bold text-xl">
+                      {step.num}
+                    </div>
+                  </div>
+                  <div className="flex-1 pt-3">
+                    <h3 className="text-2xl font-bold text-foreground mb-2">{step.title}</h3>
+                    <p className="text-muted-foreground text-lg">{step.desc}</p>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* E-book Offer Section */}
+      <section className="py-20 bg-card/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Pronto Para
+              <br />
+              <span className="bg-gradient-premium bg-clip-text text-transparent">Decolar?</span>
+            </h2>
+
+            <div className="my-12 p-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur-sm">
+              <Download className="h-12 w-12 text-primary mx-auto mb-4" />
+              <h3 className="text-2xl md:text-3xl font-bold mb-4 text-foreground">
+                E-book Gratuito
+              </h3>
+              <p className="text-xl text-primary mb-6">
+                10 Erros de Gestão que Impedem o Crescimento
+              </p>
+              <p className="text-muted-foreground mb-6">
+                Descubra os erros mais comuns que travam o crescimento das empresas e como evitá-los. Preencha o formulário abaixo para receber.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section with Form */}
+      <section className="py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-12">
+              <p className="text-xl text-muted-foreground mb-8">
+                Agende uma reunião estratégica gratuita e descubra como multiplicar seus resultados
+              </p>
+            </div>
+
+            <form className="space-y-6 mb-12">
+              <div className="grid md:grid-cols-2 gap-6">
+                <Input
+                  placeholder="Nome"
+                  className="bg-card/50 border-border"
+                />
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  className="bg-card/50 border-border"
+                />
               </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <Input
+                  placeholder="WhatsApp"
+                  className="bg-card/50 border-border"
+                />
+                <Input
+                  placeholder="Área de Atuação"
+                  className="bg-card/50 border-border"
+                />
+              </div>
+
+              <Textarea
+                placeholder="O que você deseja hoje?"
+                className="bg-card/50 border-border min-h-[120px]"
+              />
+            </form>
+
+            <div className="text-center">
+              <Button
+                size="lg"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-gold text-xl px-12 py-8 w-full md:w-auto"
+              >
+                Agendar Agora
+                <ArrowRight className="ml-2 h-6 w-6" />
+              </Button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="bg-emerald-900 py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-16">
-              Por que escolher nossos serviços?
-            </h2>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 transition-colors">
-                <CardContent className="p-8 text-center">
-                  <Users className="h-16 w-16 text-emerald-400 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-white mb-3">
-                    Expertise no Setor
-                  </h3>
-                  <p className="text-white/80 text-lg">
-                    Especialistas com anos de experiência no agronegócio
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 transition-colors">
-                <CardContent className="p-8 text-center">
-                  <Shield className="h-16 w-16 text-emerald-400 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-white mb-3">
-                    Segurança Total
-                  </h3>
-                  <p className="text-white/80 text-lg">
-                    Protegemos seus interesses e seu patrimônio
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 transition-colors">
-                <CardContent className="p-8 text-center">
-                  <TrendingUp className="h-16 w-16 text-emerald-400 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-white mb-3">
-                    Resultados Comprovados
-                  </h3>
-                  <p className="text-white/80 text-lg">
-                    Centenas de produtores já recuperaram o controle financeiro
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-b from-emerald-800 to-emerald-900 py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center space-y-8">
-            <h2 className="text-4xl md:text-5xl font-bold text-white">
-              Não deixe as dívidas tomarem sua propriedade
-            </h2>
-            <p className="text-xl text-white/90">
-              Entre em contato hoje mesmo e descubra como podemos ajudar você a retomar o controle do seu negócio rural.
-            </p>
-            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white px-12 py-6 text-xl font-bold">
-              FALAR COM ESPECIALISTA
-              <MessageCircle className="ml-2 h-6 w-6" />
-            </Button>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-emerald-950 py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-white/60">
-            © 2025 - Todos os direitos reservados
-          </p>
+      <footer className="py-16 border-t border-border">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-12 mb-12">
+              <div>
+                <h3 className="text-2xl font-cormorant font-bold bg-gradient-premium bg-clip-text text-transparent mb-4">
+                  DE MORAIS<span className="text-red-600">.</span>
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  Crescimento exponencial através de tecnologia e estratégia
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-4 text-foreground">Soluções</h4>
+                <ul className="space-y-2 text-muted-foreground text-sm">
+                  <li className="hover:text-primary transition-colors cursor-pointer">IA & Automação</li>
+                  <li className="hover:text-primary transition-colors cursor-pointer">Desenvolvimento</li>
+                  <li className="hover:text-primary transition-colors cursor-pointer">Marketing</li>
+                  <li className="hover:text-primary transition-colors cursor-pointer">Tráfego</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-4 text-foreground">Contato</h4>
+                <ul className="space-y-2 text-muted-foreground text-sm">
+                  <li className="hover:text-primary transition-colors cursor-pointer">contato@demorais.xyz</li>
+                  <li className="hover:text-primary transition-colors cursor-pointer">+55 92 99127-6333</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="pt-8 border-t border-border text-center text-muted-foreground text-sm">
+              <p>&copy; 2024 DE MORAIS | Soluções Digitais. Todos os direitos reservados.</p>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

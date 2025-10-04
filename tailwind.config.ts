@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        cormorant: ['Cormorant Garamond', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,18 +50,6 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
-        },
-        law: {
-          blue: "hsl(var(--law-blue))",
-          "blue-light": "hsl(var(--law-blue-light))",
-          gold: "hsl(var(--law-gold))",
-          neutral: "hsl(var(--law-neutral))",
-        },
-        status: {
-          waiting: "hsl(var(--status-waiting))",
-          todo: "hsl(var(--status-todo))",
-          progress: "hsl(var(--status-progress))",
-          done: "hsl(var(--status-done))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

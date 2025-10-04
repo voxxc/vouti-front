@@ -2,134 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 8%;
+    --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 12%;
+    --card: 240 10% 6%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 12%;
+    --popover: 240 10% 6%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 43 90% 55%;
-    --primary-foreground: 0 0% 10%;
+    --primary: 45 100% 51%;
+    --primary-foreground: 240 10% 3.9%;
 
-    --secondary: 0 0% 18%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 240 5% 84%;
+    --secondary-foreground: 240 10% 3.9%;
 
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 0 0% 20%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 0 0% 95%;
+    --accent-foreground: 240 10% 3.9%;
 
-    --destructive: 0 65% 55%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    /* MORA Professional colors */
-    --mora-blue: 210 100% 25%;
-    --mora-blue-dark: 210 100% 18%;
-    --mora-gold: 43 90% 55%;
-    --mora-neutral: 0 0% 40%;
-    --mora-dark: 0 0% 8%;
-    --mora-card: 0 0% 12%;
-    
-    /* Status colors for kanban */
-    --status-waiting: 45 30% 20%;
-    --status-todo: 217 30% 20%;
-    --status-progress: 35 30% 20%;
-    --status-done: 150 30% 20%;
+    --border: 240 10% 15%;
+    --input: 240 10% 15%;
+    --ring: 45 100% 51%;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(0 0% 15%), hsl(0 0% 8%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 12%), hsl(0 0% 8%));
-    --gradient-background: radial-gradient(ellipse at top, hsl(0 0% 14%) 0%, hsl(0 0% 6%) 100%);
-    --gradient-premium: linear-gradient(135deg, hsl(0 0% 18%) 0%, hsl(0 0% 10%) 50%, hsl(0 0% 5%) 100%);
+    --radius: 0.75rem;
 
-    /* Shadows */
-    --shadow-elegant: 0 10px 40px -10px hsl(0 0% 0% / 0.6);
-    --shadow-card: 0 8px 32px -8px hsl(0 0% 0% / 0.5);
+    /* Premium gradients */
+    --gradient-premium: linear-gradient(135deg, hsl(45 100% 51%) 0%, hsl(0 0% 95%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(240 10% 3.9%) 0%, hsl(0 0% 8%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 5% / 0.8) 0%, hsl(0 0% 10% / 0.5) 100%);
 
-    --border: 220 13% 20%;
-    --input: 0 0% 100%;
-    --ring: 210 100% 60%;
+    /* Premium shadows */
+    --shadow-gold: 0 0 40px hsl(45 100% 51% / 0.15);
+    --shadow-silver: 0 0 60px hsl(0 0% 95% / 0.1);
+    --shadow-elegant: 0 20px 60px -15px hsl(240 10% 3.9% / 0.8);
 
-    --radius: 0.5rem;
+    /* Animations */
+    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 220 10% 90%;
-
     --sidebar-foreground: 220 20% 15%;
-
     --sidebar-primary: 215 30% 25%;
-
     --sidebar-primary-foreground: 210 40% 98%;
-
     --sidebar-accent: 220 8% 85%;
-
     --sidebar-accent-foreground: 220 20% 15%;
-
     --sidebar-border: 220 8% 80%;
-
     --sidebar-ring: 215 30% 25%;
-  }
-
-  .dark {
-    --background: 220 15% 12%;
-    --foreground: 220 8% 92%;
-
-    --card: 220 15% 15%;
-    --card-foreground: 220 8% 92%;
-
-    --popover: 220 15% 15%;
-    --popover-foreground: 220 8% 92%;
-
-    --primary: 215 35% 65%;
-    --primary-foreground: 220 15% 12%;
-
-    --secondary: 220 12% 18%;
-    --secondary-foreground: 220 8% 92%;
-
-    --muted: 220 12% 18%;
-    --muted-foreground: 220 8% 70%;
-
-    --accent: 220 12% 22%;
-    --accent-foreground: 220 8% 92%;
-
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 220 8% 92%;
-
-    /* Keep existing colors for compatibility */
-    --law-blue: 215 35% 65%;
-    --law-blue-light: 215 35% 75%;
-    --law-gold: 45 85% 65%;
-    --law-neutral: 220 8% 60%;
-    
-    /* Dark status colors */
-    --status-waiting: 45 40% 20%;
-    --status-todo: 215 40% 20%;
-    --status-progress: 35 40% 20%;
-    --status-done: 150 40% 20%;
-
-    --shadow-elegant: 0 4px 20px -4px hsl(0 0% 0% / 0.25);
-    --shadow-card: 0 2px 10px -2px hsl(0 0% 0% / 0.15);
-
-    --border: 220 12% 25%;
-    --input: 220 12% 25%;
-    --ring: 215 35% 65%;
-    --sidebar-background: 220 15% 10%;
-    --sidebar-foreground: 220 8% 92%;
-    --sidebar-primary: 215 35% 65%;
-    --sidebar-primary-foreground: 220 15% 12%;
-    --sidebar-accent: 220 12% 18%;
-    --sidebar-accent-foreground: 220 8% 92%;
-    --sidebar-border: 220 12% 22%;
-    --sidebar-ring: 215 35% 65%;
   }
 }
 
