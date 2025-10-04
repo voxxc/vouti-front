@@ -463,7 +463,18 @@ const CRM = () => {
                   <Layout className="h-6 w-6" />
                   <span>Landing Page 1</span>
                 </Button>
-                {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col gap-2"
+                  onClick={() => {
+                    navigate('/landing-page-2');
+                    setIsLandingPagesDialogOpen(false);
+                  }}
+                >
+                  <Layout className="h-6 w-6" />
+                  <span>Landing Page 2</span>
+                </Button>
+                {[3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                   <Button
                     key={num}
                     variant="outline"
