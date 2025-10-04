@@ -98,7 +98,7 @@ const LandingPage2 = () => {
 
         <div className="container mx-auto px-4 z-10">
           {!showCarousel ? (
-            <div className={`max-w-5xl mx-auto text-center space-y-8 transition-opacity duration-500 ${showCarousel ? 'opacity-0' : 'opacity-100 animate-fade-in'}`}>
+            <div className={`max-w-5xl mx-auto text-center space-y-8 transition-opacity duration-500 ${showCarousel ? 'opacity-0' : 'opacity-100 animate-slide-up'}`}>
               <div className="inline-block">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm">
                   <Sparkles className="h-4 w-4 text-primary" />
@@ -108,7 +108,7 @@ const LandingPage2 = () => {
 
               <h2 className="text-6xl md:text-8xl font-bold tracking-tight">
                 <span className="block text-foreground">Escale Seu</span>
-                <span className="block text-primary">Negócio</span>
+                <span className="block bg-gradient-premium bg-clip-text text-transparent">Negócio</span>
               </h2>
 
               <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
@@ -154,7 +154,7 @@ const LandingPage2 = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-20">
             <h2 className="text-5xl md:text-6xl font-bold mb-6">
-              Soluções <span className="text-primary">Completas</span>
+              Soluções <span className="bg-gradient-premium bg-clip-text text-transparent">Completas</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Tudo que você precisa para dominar seu mercado
@@ -186,7 +186,7 @@ const LandingPage2 = () => {
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-20">
               <h2 className="text-5xl md:text-6xl font-bold mb-6">
-                Processo <span className="text-primary">Simples</span>
+                Processo <span className="bg-gradient-premium bg-clip-text text-transparent">Simples</span>
               </h2>
               <p className="text-xl text-muted-foreground">
                 Do primeiro contato aos resultados extraordinários
@@ -229,7 +229,7 @@ const LandingPage2 = () => {
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Pronto Para
               <br />
-              <span className="text-primary">Decolar?</span>
+              <span className="bg-gradient-premium bg-clip-text text-transparent">Decolar?</span>
             </h2>
 
             <div className="my-12 p-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur-sm">
@@ -307,7 +307,7 @@ const LandingPage2 = () => {
           <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-3 gap-12 mb-12">
               <div>
-                <h3 className="text-2xl font-cormorant font-bold text-accent mb-4">
+                <h3 className="text-2xl font-cormorant font-bold bg-gradient-premium bg-clip-text text-transparent mb-4">
                   DE MORAIS<span className="text-red-600">.</span>
                 </h3>
                 <p className="text-muted-foreground text-sm">
