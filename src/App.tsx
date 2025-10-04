@@ -14,6 +14,7 @@ import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
 import LandingPage1 from "@/pages/LandingPage1";
+import LandingPage2 from "@/pages/LandingPage2";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -123,6 +124,7 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/landing-page-1" element={<LandingPage1 />} />
+              <Route path="/landing-page-2" element={<LandingPage2 />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
