@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download } from "lucide-react";
-import heroImage from "@/assets/hero-bg.jpg";
+import heroImage from "@/assets/hero-bg-landing2.jpg";
 import { useState } from "react";
 
 const LandingPage2 = () => {
