@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download } from "lucide-react";
+import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download, Search, Lightbulb, Zap, TrendingUp } from "lucide-react";
 import heroImage from "@/assets/hero-bg-landing2.jpg";
 import { useState } from "react";
 
@@ -151,6 +151,11 @@ const LandingPage2 = () => {
 
       {/* Solutions Grid */}
       <section id="solutions-section" className="py-32 relative">
+        {/* Floating elements */}
+        <div className="absolute top-20 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" />
+        <div className="absolute top-40 right-1/3 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '0.5s' }} />
+        <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '1.5s' }} />
+        
         <div className="container mx-auto px-4">
           <div className="text-center mb-20">
             <h2 className="text-5xl md:text-6xl font-bold mb-6">
@@ -181,7 +186,12 @@ const LandingPage2 = () => {
       </section>
 
       {/* Process Section */}
-      <section className="py-32 bg-card/20">
+      <section className="py-32 bg-card/20 relative">
+        {/* Floating elements */}
+        <div className="absolute top-1/4 right-20 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '0.3s' }} />
+        <div className="absolute bottom-1/4 left-16 w-3 h-3 rounded-full bg-accent animate-float opacity-50" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 right-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-40" style={{ animationDelay: '2s' }} />
+        
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-20">
@@ -195,10 +205,10 @@ const LandingPage2 = () => {
 
             <div className="grid md:grid-cols-2 gap-8">
               {[
-                { num: "01", title: "Análise", desc: "Entendemos seu negócio, desafios e objetivos" },
-                { num: "02", title: "Estratégia", desc: "Criamos um plano personalizado de crescimento" },
-                { num: "03", title: "Execução", desc: "Implementamos as soluções com excelência" },
-                { num: "04", title: "Otimização", desc: "Medimos, ajustamos e escalamos resultados" }
+                { icon: Search, title: "Análise", desc: "Entendemos seu negócio, desafios e objetivos" },
+                { icon: Lightbulb, title: "Estratégia", desc: "Criamos um plano personalizado de crescimento" },
+                { icon: Zap, title: "Execução", desc: "Implementamos as soluções com excelência" },
+                { icon: TrendingUp, title: "Otimização", desc: "Medimos, ajustamos e escalamos resultados" }
               ].map((step, index) => (
                 <Card
                   key={index}
@@ -206,8 +216,8 @@ const LandingPage2 = () => {
                 >
                   <div className="flex gap-4 items-start">
                     <div className="flex-shrink-0">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-lg text-primary">
-                        {step.num}
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <step.icon className="h-6 w-6 text-primary" />
                       </div>
                     </div>
                     <div className="flex-1">
@@ -223,7 +233,11 @@ const LandingPage2 = () => {
       </section>
 
       {/* E-book Offer Section */}
-      <section className="py-20 bg-card/20">
+      <section className="py-20 bg-card/20 relative">
+        {/* Floating elements */}
+        <div className="absolute top-10 left-1/4 w-3 h-3 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.7s' }} />
+        <div className="absolute bottom-20 right-1/4 w-2 h-2 rounded-full bg-accent animate-float opacity-60" style={{ animationDelay: '1.3s' }} />
+        
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -249,7 +263,12 @@ const LandingPage2 = () => {
       </section>
 
       {/* CTA Section with Form */}
-      <section className="py-32">
+      <section className="py-32 relative">
+        {/* Floating elements */}
+        <div className="absolute top-1/3 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.4s' }} />
+        <div className="absolute bottom-1/3 right-12 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1.7s' }} />
+        <div className="absolute top-2/3 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '0.9s' }} />
+        
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
