@@ -77,13 +77,10 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       if (authData.user) {
         console.log('User created in auth:', authData.user.id);
         
-        // Update the profile with role
+        // Update the profile with full name
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ 
-            role: formData.role,
-            full_name: formData.name
-          })
+          .update({ full_name: formData.name })
           .eq('user_id', authData.user.id);
 
         if (profileError) {
@@ -91,7 +88,20 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
           throw profileError;
         }
 
-        console.log('Profile updated successfully');
+        // Insert role in user_roles table (secure)
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authData.user.id,
+            role: formData.role
+          });
+
+        if (roleError) {
+          console.error('Error assigning role:', roleError);
+          throw roleError;
+        }
+
+        console.log('User created and role assigned successfully');
 
         onAddUser({
           ...formData,

@@ -39,7 +39,15 @@ const DashboardLayout = ({
     const loadUsers = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, email, full_name, avatar_url, role, created_at, updated_at');
+        .select(`
+          user_id, 
+          email, 
+          full_name, 
+          avatar_url, 
+          created_at, 
+          updated_at,
+          user_roles (role)
+        `);
 
       if (!error && data) {
         setUsers(
@@ -48,7 +56,7 @@ const DashboardLayout = ({
             email: p.email,
             name: p.full_name || p.email,
             avatar: p.avatar_url || undefined,
-            role: p.role as 'admin' | 'advogado' | 'comercial' | 'financeiro',
+            role: (p.user_roles?.[0]?.role || 'advogado') as 'admin' | 'advogado' | 'comercial' | 'financeiro',
             createdAt: new Date(p.created_at),
             updatedAt: new Date(p.updated_at),
           }))
