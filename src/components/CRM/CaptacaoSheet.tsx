@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -469,7 +469,10 @@ export function CaptacaoSheet() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <ScrollArea className="h-[400px] w-full">
-                  {renderLeadsTable(groupLeads)}
+                  <div className="min-w-[1640px]">
+                    {renderLeadsTable(groupLeads)}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               </CollapsibleContent>
             </Collapsible>
