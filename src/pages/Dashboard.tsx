@@ -197,11 +197,11 @@ const Dashboard = () => {
 
           {/* Visão Geral Section - Apenas para Admin */}
           {currentUserRole === 'admin' && (
-            <div className="bg-gradient-primary p-6 rounded-lg text-white">
+            <div className="bg-gradient-primary p-6 rounded-lg border border-border/50 shadow-elegant">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold mb-2">VISÃO GERAL</h2>
-                  <p className="text-white/90">Métricas e desempenho da equipe</p>
+                  <h2 className="text-xl font-semibold mb-2 text-primary-foreground">VISÃO GERAL</h2>
+                  <p className="text-primary-foreground/90">Métricas e desempenho da equipe</p>
                 </div>
                 <Button 
                   variant="secondary" 
