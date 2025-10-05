@@ -49,6 +49,28 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
     return colorMap[color as keyof typeof colorMap] || colorMap.default;
   };
 
+  const getTextColorClasses = (color?: string) => {
+    if (!color || color === 'default') {
+      return {
+        title: 'text-foreground',
+        description: 'text-muted-foreground',
+        meta: 'text-muted-foreground',
+        label: 'text-muted-foreground',
+        value: 'text-foreground',
+        icon: 'text-muted-foreground'
+      };
+    }
+    
+    return {
+      title: 'text-gray-900 dark:text-gray-100',
+      description: 'text-gray-700 dark:text-gray-300',
+      meta: 'text-gray-700 dark:text-gray-300',
+      label: 'text-gray-700 dark:text-gray-400',
+      value: 'text-gray-900 dark:text-gray-100',
+      icon: 'text-gray-700 dark:text-gray-300'
+    };
+  };
+
   const handleGenerateMessage = (e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -120,7 +142,7 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
-          <CardTitle className="text-sm font-medium leading-tight flex-1">
+          <CardTitle className={`text-sm font-medium leading-tight flex-1 ${getTextColorClasses(task.cardColor).title}`}>
             {task.title}
           </CardTitle>
           {onDelete && (
@@ -132,7 +154,7 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
                   className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={handleDeleteClick}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className={`h-3 w-3 ${getTextColorClasses(task.cardColor).icon}`} />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -160,20 +182,20 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
       
       <CardContent className="space-y-3">
         {task.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className={`text-xs line-clamp-2 ${getTextColorClasses(task.cardColor).description}`}>
             {task.description}
           </p>
         )}
         
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" />
+          <div className={`flex items-center gap-1 text-xs ${getTextColorClasses(task.cardColor).meta}`}>
+            <Calendar className={`h-3 w-3 ${getTextColorClasses(task.cardColor).icon}`} />
             {format(new Date(task.updatedAt), "dd/MM", { locale: ptBR })}
           </div>
           
           <Badge 
             variant="outline" 
-            className="text-xs px-2 py-0.5"
+            className={`text-xs px-2 py-0.5 ${task.cardColor && task.cardColor !== 'default' ? 'bg-gray-200/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100' : ''}`}
           >
             {TASK_STATUSES[task.status]}
           </Badge>
@@ -184,38 +206,38 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
           <div className="space-y-1 text-xs border-t pt-2 mt-2">
             {task.acordoDetails.contratoProcesso && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Contrato/Processo:</span>
-                <span className="font-medium">{task.acordoDetails.contratoProcesso}</span>
+                <span className={getTextColorClasses(task.cardColor).label}>Contrato/Processo:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>{task.acordoDetails.contratoProcesso}</span>
               </div>
             )}
             {task.acordoDetails.valorOriginal !== undefined && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor original:</span>
-                <span className="font-medium">R$ {task.acordoDetails.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className={getTextColorClasses(task.cardColor).label}>Valor original:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>R$ {task.acordoDetails.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             {task.acordoDetails.valorAtualizado !== undefined && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor atualizado:</span>
-                <span className="font-medium">R$ {task.acordoDetails.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className={getTextColorClasses(task.cardColor).label}>Valor atualizado:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>R$ {task.acordoDetails.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             {task.acordoDetails.banco && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Banco:</span>
-                <span className="font-medium">{task.acordoDetails.banco}</span>
+                <span className={getTextColorClasses(task.cardColor).label}>Banco:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>{task.acordoDetails.banco}</span>
               </div>
             )}
             {task.acordoDetails.aVista !== undefined && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">À vista:</span>
-                <span className="font-medium">R$ {task.acordoDetails.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className={getTextColorClasses(task.cardColor).label}>À vista:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>R$ {task.acordoDetails.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             {task.acordoDetails.parcelado && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Parcelado:</span>
-                <span className="font-medium">
+                <span className={getTextColorClasses(task.cardColor).label}>Parcelado:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>
                   R$ {task.acordoDetails.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + 
                   {task.acordoDetails.parcelado.quantidadeParcelas}x R$ {task.acordoDetails.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
@@ -223,8 +245,8 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
             )}
             {task.acordoDetails.honorarios !== undefined && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Honorários:</span>
-                <span className="font-medium">R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className={getTextColorClasses(task.cardColor).label}>Honorários:</span>
+                <span className={`font-medium ${getTextColorClasses(task.cardColor).value}`}>R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
             
@@ -234,9 +256,9 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
                 variant="outline"
                 size="sm"
                 onClick={handleGenerateMessage}
-                className="w-full text-xs gap-1"
+                className={`w-full text-xs gap-1 ${task.cardColor && task.cardColor !== 'default' ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700' : ''}`}
               >
-                <MessageSquare className="h-3 w-3" />
+                <MessageSquare className={`h-3 w-3 ${getTextColorClasses(task.cardColor).icon}`} />
                 GERAR MENSAGEM
               </Button>
             </div>
@@ -245,7 +267,7 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
 
         {/* File and Comment Count */}
         {(task.files?.length > 0 || task.comments?.length > 0) && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className={`flex items-center gap-2 text-xs ${getTextColorClasses(task.cardColor).meta}`}>
             {task.files?.length > 0 && (
               <span>{task.files.length} arquivo{task.files.length !== 1 ? 's' : ''}</span>
             )}
