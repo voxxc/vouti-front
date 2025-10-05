@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Download, Search, Lightbulb, Zap, TrendingUp, KeyRound } from "lucide-react";
 import heroImage from "@/assets/hero-bg-landing2.jpg";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const LandingPage2 = () => {
@@ -14,6 +14,19 @@ const LandingPage2 = () => {
   const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggInput, setEasterEggInput] = useState("");
+
+  // Force theme for landing page (uses design system, not user theme)
+  useEffect(() => {
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add('dark');
+    
+    return () => {
+      // Restore theme when leaving
+      const storedTheme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(storedTheme);
+    };
+  }, []);
 
   const phrases = [
     "Growth Business é a união de estratégia, tecnologia e dados para transformar empresas em potências escaláveis.",

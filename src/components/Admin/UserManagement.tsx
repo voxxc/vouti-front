@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Edit, Trash2 } from "lucide-react";
+import { UserPlus, Edit, Trash2, Search } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,7 @@ interface UserManagementProps {
 const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserManagementProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
@@ -28,6 +29,32 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     password: '',
     role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro'
   });
+
+  // Set up realtime subscription for profiles
+  useEffect(() => {
+    const channel = supabase
+      .channel('profiles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'profiles'
+        },
+        (payload) => {
+          console.log('New user created:', payload);
+          toast({
+            title: "Novo usuário",
+            description: "Um novo usuário foi adicionado ao sistema",
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +75,8 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       if (authError) throw authError;
 
       if (authData.user) {
+        console.log('User created in auth:', authData.user.id);
+        
         // Update the profile with role
         const { error: profileError } = await supabase
           .from('profiles')
@@ -57,7 +86,12 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
           })
           .eq('user_id', authData.user.id);
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+          throw profileError;
+        }
+
+        console.log('Profile updated successfully');
 
         onAddUser({
           ...formData,
@@ -83,6 +117,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       setLoading(false);
     }
   };
+
+  // Filter users based on search query
+  const filteredUsers = users.filter((user) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      user.role.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -151,8 +195,19 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         </Dialog>
       </div>
 
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar usuários por nome, email ou perfil..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {users.map((user) => (
+        {filteredUsers.map((user) => (
           <Card key={user.id}>
             <CardHeader className="flex flex-row items-center space-y-0 pb-2">
               <Avatar className="h-10 w-10 mr-3">

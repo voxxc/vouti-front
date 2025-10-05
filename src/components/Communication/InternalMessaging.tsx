@@ -8,6 +8,7 @@ import { useMessages } from '@/hooks/useMessages';
 import { User as UserType } from '@/types/user';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
+import NewConversationModal from './NewConversationModal';
 import {
   Dialog,
   DialogContent,
@@ -98,7 +99,14 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
             <DialogHeader className="p-4 border-b">
               <DialogTitle className="text-base">Mensagens</DialogTitle>
             </DialogHeader>
-            <ScrollArea className="h-[calc(600px-80px)]">
+            <div className="p-2">
+              <NewConversationModal
+                users={users}
+                onSelectUser={handleUserSelect}
+                currentUserId={currentUser.id}
+              />
+            </div>
+            <ScrollArea className="h-[calc(600px-140px)]">
               <div className="p-2">
                 {otherUsers.map((user) => {
                   const unreadCount = getUnreadCount(user.id);

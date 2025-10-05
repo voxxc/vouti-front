@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Theme = 'dark' | 'light';
 
@@ -22,14 +24,41 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('theme');
-      return (stored as Theme) || 'light';
-    }
-    return 'light';
-  });
+  const { user } = useAuth();
+  const [theme, setTheme] = useState<Theme>('dark'); // Default to dark
+  const [isLoadingTheme, setIsLoadingTheme] = useState(true);
 
+  // Load theme from Supabase when user is available
+  useEffect(() => {
+    const loadUserTheme = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('theme_preference')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!error && data?.theme_preference) {
+            setTheme(data.theme_preference as Theme);
+          }
+        } catch (error) {
+          console.error('Error loading theme:', error);
+        }
+      } else {
+        // If no user, load from localStorage
+        const stored = localStorage.getItem('theme') as Theme;
+        if (stored) {
+          setTheme(stored);
+        }
+      }
+      setIsLoadingTheme(false);
+    };
+
+    loadUserTheme();
+  }, [user]);
+
+  // Apply theme to document
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
@@ -37,9 +66,26 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  const toggleTheme = async () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+
+    // Save to Supabase if user is logged in
+    if (user) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ theme_preference: newTheme })
+          .eq('user_id', user.id);
+      } catch (error) {
+        console.error('Error saving theme:', error);
+      }
+    }
   };
+
+  if (isLoadingTheme) {
+    return null; // Prevent flash of wrong theme
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
