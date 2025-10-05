@@ -8,6 +8,62 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* Light Mode - Nova Paleta */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+
+    /* Premium gradients - Light Mode */
+    --gradient-premium: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(221 83% 63%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(214 32% 91%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.9) 0%, hsl(210 40% 98% / 0.7) 100%);
+
+    /* Premium shadows - Light Mode */
+    --shadow-gold: 0 0 40px hsl(221 83% 53% / 0.15);
+    --shadow-silver: 0 0 60px hsl(221 83% 53% / 0.08);
+    --shadow-elegant: 0 10px 40px -10px hsl(221 83% 53% / 0.2);
+
+    /* Animations */
+    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 221 83% 53%;
+  }
+
+  .dark {
+    /* Dark Mode - Mantém paleta original */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
@@ -36,20 +92,15 @@ All colors MUST be HSL.
     --input: 240 10% 15%;
     --ring: 45 100% 51%;
 
-    --radius: 0.75rem;
-
-    /* Premium gradients */
+    /* Premium gradients - Dark Mode */
     --gradient-premium: linear-gradient(135deg, hsl(45 100% 51%) 0%, hsl(0 0% 95%) 100%);
     --gradient-hero: linear-gradient(180deg, hsl(240 10% 3.9%) 0%, hsl(0 0% 8%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(0 0% 5% / 0.8) 0%, hsl(0 0% 10% / 0.5) 100%);
 
-    /* Premium shadows */
+    /* Premium shadows - Dark Mode */
     --shadow-gold: 0 0 40px hsl(45 100% 51% / 0.15);
     --shadow-silver: 0 0 60px hsl(0 0% 95% / 0.1);
     --shadow-elegant: 0 20px 60px -15px hsl(240 10% 3.9% / 0.8);
-
-    /* Animations */
-    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 220 10% 90%;
     --sidebar-foreground: 220 20% 15%;
