@@ -124,6 +124,10 @@ const DashboardLayout = ({
             <div className="flex items-center space-x-4">
               <GlobalSearch projects={projects} />
 
+              {currentUser && users.length > 0 && (
+                <InternalMessaging currentUser={currentUser} users={users} />
+              )}
+              
               {user && (
                 <NotificationCenter 
                   userId={user.id} 
@@ -131,10 +135,6 @@ const DashboardLayout = ({
                 />
               )}
 
-              {currentUser && users.length > 0 && (
-                <InternalMessaging currentUser={currentUser} users={users} />
-              )}
-              
               <ThemeToggle />
               {isAdmin && onCreateUser && (
                 <Button variant="outline" onClick={onCreateUser} className="gap-2">
