@@ -48,6 +48,7 @@ export interface Task {
   history: TaskHistoryEntry[];
   type?: 'regular' | 'acordo';
   acordoDetails?: AcordoDetails;
+  cardColor?: 'default' | 'blue' | 'green' | 'yellow' | 'purple' | 'pink' | 'orange' | 'red';
   createdAt: Date;
   updatedAt: Date;
 }

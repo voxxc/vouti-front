@@ -35,6 +35,20 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
     e.stopPropagation();
   };
 
+  const getCardColorClasses = (color?: string) => {
+    const colorMap = {
+      'default': 'bg-card border-border',
+      'blue': 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800',
+      'green': 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800',
+      'yellow': 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800',
+      'purple': 'bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800',
+      'pink': 'bg-pink-50 border-pink-200 dark:bg-pink-950 dark:border-pink-800',
+      'orange': 'bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800',
+      'red': 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
+    };
+    return colorMap[color as keyof typeof colorMap] || colorMap.default;
+  };
+
   const handleGenerateMessage = (e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -101,7 +115,7 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
 
   return (
     <Card 
-      className="cursor-pointer hover:shadow-lg transition-shadow border-0 shadow-card group"
+      className={`cursor-pointer hover:shadow-lg transition-shadow shadow-card group ${getCardColorClasses(task.cardColor)}`}
       onClick={handleCardClick}
     >
       <CardHeader className="pb-2">

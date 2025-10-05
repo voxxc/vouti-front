@@ -429,6 +429,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          card_color: string | null
           created_at: string
           description: string | null
           id: string
@@ -439,6 +440,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          card_color?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -449,6 +451,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          card_color?: string | null
           created_at?: string
           description?: string | null
           id?: string

@@ -143,6 +143,7 @@ const ProjectView = ({
           title: updatedTask.title,
           description: updatedTask.description,
           status: updatedTask.status,
+          card_color: updatedTask.cardColor || 'default',
           updated_at: new Date().toISOString()
         })
         .eq('id', updatedTask.id);

@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import TaskFilePanel from "./TaskFilePanel";
 import TaskHistoryPanel from "./TaskHistoryPanel";
+import CardColorPicker from "./CardColorPicker";
 import { notifyCommentAdded } from "@/utils/notificationHelpers";
 
 interface TaskModalProps {
@@ -274,6 +275,21 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     });
   };
 
+  const handleColorChange = (color: string) => {
+    const updatedTask = {
+      ...task,
+      cardColor: color as Task['cardColor'],
+      updatedAt: new Date()
+    };
+    
+    onUpdateTask(updatedTask);
+    
+    toast({
+      title: "Cor atualizada",
+      description: "A cor do card foi alterada!",
+    });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
@@ -304,10 +320,16 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
                   </Button>
                 </>
               ) : (
-                <Button onClick={handleEditTask} variant="ghost" size="sm" className="gap-1">
-                  <Edit className="h-3 w-3" />
-                  Editar
-                </Button>
+                <>
+                  <CardColorPicker
+                    currentColor={task.cardColor || 'default'}
+                    onColorChange={handleColorChange}
+                  />
+                  <Button onClick={handleEditTask} variant="ghost" size="sm" className="gap-1">
+                    <Edit className="h-3 w-3" />
+                    Editar
+                  </Button>
+                </>
               )}
             </div>
           </div>
