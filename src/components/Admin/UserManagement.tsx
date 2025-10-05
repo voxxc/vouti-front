@@ -20,6 +20,7 @@ interface UserManagementProps {
 
 const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserManagementProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
@@ -27,6 +28,12 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     name: '',
     email: '',
     password: '',
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro'
+  });
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
     role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro'
   });
 
@@ -128,6 +135,98 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     }
   };
 
+  const handleEdit = (user: User) => {
+    setEditingUser(user);
+    setEditFormData({
+      name: user.name,
+      email: user.email,
+      role: user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro'
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setLoading(true);
+
+    try {
+      // Update profile (name and email)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          full_name: editFormData.name,
+          email: editFormData.email
+        })
+        .eq('user_id', editingUser.id);
+
+      if (profileError) throw profileError;
+
+      // Update role in user_roles table
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .update({ role: editFormData.role })
+        .eq('user_id', editingUser.id);
+
+      if (roleError) throw roleError;
+
+      onEditUser(editingUser.id, {
+        name: editFormData.name,
+        email: editFormData.email,
+        role: editFormData.role
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Usuário atualizado com sucesso!",
+      });
+
+      setIsEditOpen(false);
+      setEditingUser(null);
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (userId: string, userName: string) => {
+    if (!confirm(`Tem certeza que deseja deletar o usuário ${userName}?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Call edge function to delete user from auth.users
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
+
+      if (error) throw error;
+
+      onDeleteUser(userId);
+
+      toast({
+        title: "Sucesso",
+        description: "Usuário deletado com sucesso!",
+      });
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao deletar usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter users based on search query
   const filteredUsers = users.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -203,6 +302,53 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Nome</Label>
+                <Input
+                  id="edit-name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-role">Perfil</Label>
+                <select
+                  id="edit-role"
+                  value={editFormData.role}
+                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as 'admin' | 'advogado' | 'comercial' | 'financeiro' })}
+                  className="w-full p-2 border border-border rounded-md"
+                >
+                  <option value="advogado">Advogado</option>
+                  <option value="comercial">Comercial</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Search Input */}
@@ -234,11 +380,23 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
             </CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" className="flex-1 gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="flex-1 gap-2"
+                  onClick={() => handleEdit(user)}
+                  disabled={loading}
+                >
                   <Edit size={14} />
                   Editar
                 </Button>
-                <Button variant="ghost" size="sm" className="text-destructive">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-destructive"
+                  onClick={() => handleDelete(user.id, user.name)}
+                  disabled={loading}
+                >
                   <Trash2 size={14} />
                 </Button>
               </div>
