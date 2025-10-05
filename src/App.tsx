@@ -77,7 +77,7 @@ function App() {
         <ThemeProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<LandingPage2 />} />
               <Route path="/auth" element={
                 <PublicRoute>
                   <Auth />
