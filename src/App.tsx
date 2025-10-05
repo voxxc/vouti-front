@@ -72,9 +72,9 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <TooltipProvider>
-        <AuthProvider>
+    <TooltipProvider>
+      <AuthProvider>
+        <ThemeProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -129,9 +129,9 @@ function App() {
             </Routes>
             <Toaster />
           </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </ThemeProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </TooltipProvider>
   );
 }
 
