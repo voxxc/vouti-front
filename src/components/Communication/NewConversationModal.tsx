@@ -17,15 +17,23 @@ const NewConversationModal = ({ users, onSelectUser, currentUserId }: NewConvers
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredUsers = users
-    .filter(user => user.id !== currentUserId)
-    .filter(user => {
-      const query = searchQuery.toLowerCase();
-      return (
-        user.name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query)
-      );
-    });
+  // Filter users excluding current user
+  const availableUsers = users.filter(user => user.id !== currentUserId);
+  
+  // Apply search filter
+  const filteredUsers = searchQuery.trim() === '' 
+    ? availableUsers 
+    : availableUsers.filter(user => {
+        const query = searchQuery.toLowerCase();
+        const name = (user.name || '').toLowerCase();
+        const email = (user.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      });
+
+  console.log('NewConversationModal - Total users:', users.length);
+  console.log('NewConversationModal - Available users:', availableUsers.length);
+  console.log('NewConversationModal - Filtered users:', filteredUsers.length);
+  console.log('NewConversationModal - Search query:', searchQuery);
 
   const handleSelectUser = (user: UserType) => {
     onSelectUser(user);
@@ -59,19 +67,23 @@ const NewConversationModal = ({ users, onSelectUser, currentUserId }: NewConvers
           </div>
 
           {/* Users List */}
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-2">
-              {filteredUsers.length > 0 ? (
+          <ScrollArea className="h-[400px] border rounded-md">
+            <div className="space-y-2 p-2">
+              {availableUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Nenhum usuário disponível</p>
+                </div>
+              ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => (
                   <div
                     key={user.id}
                     onClick={() => handleSelectUser(user)}
-                    className="p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                    className="p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors border border-transparent hover:border-border"
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={user.avatar} />
-                        <AvatarFallback>
+                        <AvatarFallback className="bg-primary/10">
                           <User className="h-5 w-5" />
                         </AvatarFallback>
                       </Avatar>
@@ -84,7 +96,7 @@ const NewConversationModal = ({ users, onSelectUser, currentUserId }: NewConvers
                 ))
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum usuário encontrado</p>
+                  <p>Nenhum usuário encontrado para "{searchQuery}"</p>
                 </div>
               )}
             </div>

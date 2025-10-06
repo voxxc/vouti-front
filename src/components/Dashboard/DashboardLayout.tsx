@@ -37,6 +37,7 @@ const DashboardLayout = ({
 
   useEffect(() => {
     const loadUsers = async () => {
+      console.log('DashboardLayout - Loading users...');
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -49,18 +50,24 @@ const DashboardLayout = ({
           user_roles (role)
         `);
 
-      if (!error && data) {
-        setUsers(
-          data.map((p: any) => ({
-            id: p.user_id,
-            email: p.email,
-            name: p.full_name || p.email,
-            avatar: p.avatar_url || undefined,
-            role: (p.user_roles?.[0]?.role || 'advogado') as 'admin' | 'advogado' | 'comercial' | 'financeiro',
-            createdAt: new Date(p.created_at),
-            updatedAt: new Date(p.updated_at),
-          }))
-        );
+      if (error) {
+        console.error('DashboardLayout - Error loading users:', error);
+        return;
+      }
+
+      if (data) {
+        console.log('DashboardLayout - Raw profiles data:', data);
+        const mappedUsers = data.map((p: any) => ({
+          id: p.user_id,
+          email: p.email,
+          name: p.full_name || p.email,
+          avatar: p.avatar_url || undefined,
+          role: (p.user_roles?.[0]?.role || 'advogado') as 'admin' | 'advogado' | 'comercial' | 'financeiro',
+          createdAt: new Date(p.created_at),
+          updatedAt: new Date(p.updated_at),
+        }));
+        console.log('DashboardLayout - Mapped users:', mappedUsers);
+        setUsers(mappedUsers);
       }
     };
     loadUsers();
