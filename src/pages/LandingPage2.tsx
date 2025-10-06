@@ -17,6 +17,9 @@ const LandingPage2 = () => {
 
   // Force theme for landing page (uses design system, not user theme)
   useEffect(() => {
+    // Clear any session storage that might cause redirects
+    sessionStorage.removeItem('transition_completed');
+    
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add('dark');
     

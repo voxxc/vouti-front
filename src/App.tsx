@@ -73,64 +73,103 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   return (
     <TooltipProvider>
-      <AuthProvider>
-        <ThemeProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<LandingPage2 />} />
-              <Route path="/auth" element={
+      <BrowserRouter>
+        <Routes>
+          {/* Landing Page - Public, no auth/theme providers */}
+          <Route path="/" element={<LandingPage2 />} />
+          
+          {/* Auth and Protected Routes - Wrapped with providers */}
+          <Route path="/auth" element={
+            <AuthProvider>
+              <ThemeProvider>
                 <PublicRoute>
                   <Auth />
                 </PublicRoute>
-              } />
+              </ThemeProvider>
+            </AuthProvider>
+          } />
               <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/projects" element={
-                <ProtectedRoute>
-                  <Projects />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <Projects />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/project/:id" element={
-                <ProtectedRoute>
-                  <ProjectViewWrapper />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <ProjectViewWrapper />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/project/:id/acordos" element={
-                <ProtectedRoute>
-                  <AcordosViewWrapper />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <AcordosViewWrapper />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/agenda" element={
-                <ProtectedRoute>
-                  <Agenda />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <Agenda />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/crm" element={
-                <ProtectedRoute>
-                  <CRM />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <CRM />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/financial" element={
-                <ProtectedRoute>
-                  <Financial />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <Financial />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
               <Route path="/controladoria" element={
-                <ProtectedRoute>
-                  <Controladoria />
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <Controladoria />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
               } />
+              
+              {/* Additional Landing Pages */}
               <Route path="/landing-page-1" element={<LandingPage1 />} />
               <Route path="/landing-page-2" element={<LandingPage2 />} />
+              
+              {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
           </BrowserRouter>
-        </ThemeProvider>
-      </AuthProvider>
     </TooltipProvider>
   );
 }
