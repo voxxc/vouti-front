@@ -79,9 +79,8 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative gap-2">
-          <MessageCircle className="h-4 w-4" />
-          Mensagens
+        <Button variant="ghost" size="icon" className="relative">
+          <MessageCircle className="h-5 w-5" />
           {totalUnread > 0 && (
             <Badge 
               variant="destructive" 

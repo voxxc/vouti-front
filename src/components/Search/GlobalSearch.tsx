@@ -188,9 +188,8 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Search size={16} />
-          Busca Global
+        <Button variant="ghost" size="icon">
+          <Search size={20} />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh]">
