@@ -82,6 +82,7 @@ const DashboardLayout = ({
 
   const handleLogout = async () => {
     await signOut();
+    navigate('/');
   };
 
   const handleNavigation = (page: string) => {
