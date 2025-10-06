@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -13,7 +13,7 @@ import CRM from "@/pages/CRM";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
-import LandingPage1 from "@/pages/LandingPage1";
+// Removed unused LandingPage1 import
 import LandingPage2 from "@/pages/LandingPage2";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
@@ -58,13 +58,34 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/auth' && typeof window !== 'undefined') {
+      const intent = localStorage.getItem('auth_intent');
+      if (intent === '1') {
+        localStorage.removeItem('auth_intent');
+      }
+    }
+  }, [location.pathname]);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
   }
   
   if (user) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Safeguard: prevent accidental /auth landing without explicit intent or auth tokens
+  if (
+    location.pathname === '/auth' &&
+    typeof window !== 'undefined' &&
+    !localStorage.getItem('auth_intent') &&
+    !window.location.hash.includes('access_token') &&
+    !window.location.search.includes('access_token')
+  ) {
+    return <Navigate to="/" replace />;
   }
   
   return <>{children}</>;
@@ -161,9 +182,9 @@ function App() {
                 </AuthProvider>
               } />
               
-              {/* Additional Landing Pages */}
-              <Route path="/landing-page-1" element={<LandingPage1 />} />
-              <Route path="/landing-page-2" element={<LandingPage2 />} />
+              {/* Redirect old landing routes to homepage */}
+              <Route path="/landing-page-1" element={<Navigate to="/" replace />} />
+              <Route path="/landing-page-2" element={<Navigate to="/" replace />} />
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />

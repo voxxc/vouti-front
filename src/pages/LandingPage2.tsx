@@ -63,6 +63,8 @@ const LandingPage2 = () => {
   const handleEasterEggSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (easterEggInput.toLowerCase() === 'mora') {
+        // Mark explicit intent to open the auth page
+        try { localStorage.setItem('auth_intent', '1'); } catch {}
         navigate('/auth');
       } else {
         setEasterEggInput('');
