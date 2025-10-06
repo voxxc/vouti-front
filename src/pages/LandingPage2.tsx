@@ -6,6 +6,7 @@ import { ArrowRight, Sparkles, Brain, Rocket, Shield, LineChart, Code, Play, Dow
 import heroImage from "@/assets/hero-bg-landing2.jpg";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const LandingPage2 = () => {
   const navigate = useNavigate();
@@ -60,9 +61,11 @@ const LandingPage2 = () => {
     }
   };
 
-  const handleEasterEggSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (easterEggInput.toLowerCase() === 'mora') {
+        // Force logout to ensure authentication screen shows
+        await supabase.auth.signOut();
         // Mark explicit intent to open the auth page
         try { localStorage.setItem('auth_intent', '1'); } catch {}
         navigate('/auth');
