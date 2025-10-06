@@ -107,38 +107,44 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
             </div>
             <ScrollArea className="h-[calc(600px-140px)]">
               <div className="p-2">
-                {otherUsers.map((user) => {
-                  const unreadCount = getUnreadCount(user.id);
-                  return (
-                    <div
-                      key={user.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedUser?.id === user.id 
-                          ? 'bg-primary/10 border border-primary/20' 
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => handleUserSelect(user)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar} />
-                          <AvatarFallback>
-                            <User className="h-4 w-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{user.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                {otherUsers.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    {users.length === 0 ? 'Carregando usuários...' : 'Nenhum outro usuário disponível'}
+                  </div>
+                ) : (
+                  otherUsers.map((user) => {
+                    const unreadCount = getUnreadCount(user.id);
+                    return (
+                      <div
+                        key={user.id}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          selectedUser?.id === user.id 
+                            ? 'bg-primary/10 border border-primary/20' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => handleUserSelect(user)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar} />
+                            <AvatarFallback>
+                              <User className="h-4 w-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{user.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                          </div>
+                          {unreadCount > 0 && (
+                            <Badge variant="destructive" className="h-5 text-xs">
+                              {unreadCount}
+                            </Badge>
+                          )}
                         </div>
-                        {unreadCount > 0 && (
-                          <Badge variant="destructive" className="h-5 text-xs">
-                            {unreadCount}
-                          </Badge>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </ScrollArea>
           </div>

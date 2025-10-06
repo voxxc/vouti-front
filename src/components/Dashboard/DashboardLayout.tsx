@@ -133,7 +133,7 @@ const DashboardLayout = ({
             <div className="flex items-center space-x-4">
               <GlobalSearch projects={projects} />
 
-              {currentUser && users.length > 0 && (
+              {currentUser && (
                 <InternalMessaging currentUser={currentUser} users={users} />
               )}
               
