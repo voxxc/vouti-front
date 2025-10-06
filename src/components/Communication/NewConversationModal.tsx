@@ -1,11 +1,19 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PenSquare, User, Search } from 'lucide-react';
 import { User as UserType } from '@/types/user';
+
+// Normalize string by removing accents and converting to lowercase
+const normalizeString = (str: string): string => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+};
 
 interface NewConversationModalProps {
   users: UserType[];
@@ -20,20 +28,21 @@ const NewConversationModal = ({ users, onSelectUser, currentUserId }: NewConvers
   // Filter users excluding current user
   const availableUsers = users.filter(user => user.id !== currentUserId);
   
-  // Apply search filter
+  // Apply search filter with accent-insensitive matching
   const filteredUsers = searchQuery.trim() === '' 
     ? availableUsers 
     : availableUsers.filter(user => {
-        const query = searchQuery.toLowerCase();
-        const name = (user.name || '').toLowerCase();
-        const email = (user.email || '').toLowerCase();
-        return name.includes(query) || email.includes(query);
+        const normalizedQuery = normalizeString(searchQuery);
+        const normalizedName = normalizeString(user.name || '');
+        const normalizedEmail = normalizeString(user.email || '');
+        return normalizedName.includes(normalizedQuery) || normalizedEmail.includes(normalizedQuery);
       });
 
   console.log('NewConversationModal - Total users:', users.length);
-  console.log('NewConversationModal - Available users:', availableUsers.length);
+  console.log('NewConversationModal - Available users (excluding current):', availableUsers.length);
   console.log('NewConversationModal - Filtered users:', filteredUsers.length);
   console.log('NewConversationModal - Search query:', searchQuery);
+  console.log('NewConversationModal - Current user ID:', currentUserId);
 
   const handleSelectUser = (user: UserType) => {
     onSelectUser(user);
@@ -52,6 +61,9 @@ const NewConversationModal = ({ users, onSelectUser, currentUserId }: NewConvers
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Iniciar Nova Conversa</DialogTitle>
+          <DialogDescription>
+            Busque e selecione um usuário para iniciar uma conversa direta.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

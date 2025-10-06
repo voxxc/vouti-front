@@ -38,38 +38,74 @@ const DashboardLayout = ({
   useEffect(() => {
     const loadUsers = async () => {
       console.log('DashboardLayout - Loading users...');
-      const { data, error } = await supabase
+      
+      // First, fetch profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          user_id, 
-          email, 
-          full_name, 
-          avatar_url, 
-          created_at, 
-          updated_at,
-          user_roles (role)
-        `);
+        .select('user_id, email, full_name, avatar_url, created_at, updated_at');
 
-      if (error) {
-        console.error('DashboardLayout - Error loading users:', error);
+      if (profilesError) {
+        console.error('DashboardLayout - Error loading profiles:', profilesError);
         return;
       }
 
-      if (data) {
-        console.log('DashboardLayout - Raw profiles data:', data);
-        const mappedUsers = data.map((p: any) => ({
+      if (!profilesData || profilesData.length === 0) {
+        console.warn('DashboardLayout - No profiles found');
+        return;
+      }
+
+      console.log('DashboardLayout - Profiles loaded:', profilesData.length);
+
+      // Second, fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) {
+        console.error('DashboardLayout - Error loading roles:', rolesError);
+      }
+
+      console.log('DashboardLayout - Roles loaded:', rolesData?.length || 0);
+
+      // Merge profiles with roles
+      const mappedUsers = profilesData.map((p: any) => {
+        const userRole = rolesData?.find((r: any) => r.user_id === p.user_id);
+        return {
           id: p.user_id,
           email: p.email,
           name: p.full_name || p.email,
           avatar: p.avatar_url || undefined,
-          role: (p.user_roles?.[0]?.role || 'advogado') as 'admin' | 'advogado' | 'comercial' | 'financeiro',
+          role: (userRole?.role || 'advogado') as 'admin' | 'advogado' | 'comercial' | 'financeiro',
           createdAt: new Date(p.created_at),
           updatedAt: new Date(p.updated_at),
-        }));
-        console.log('DashboardLayout - Mapped users:', mappedUsers);
-        setUsers(mappedUsers);
-      }
+        };
+      });
+
+      console.log('DashboardLayout - Final mapped users:', mappedUsers.length, mappedUsers);
+      setUsers(mappedUsers);
+
+      // Set up real-time subscription for new users
+      const channel = supabase
+        .channel('profiles-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles'
+          },
+          () => {
+            console.log('DashboardLayout - Profile change detected, reloading users...');
+            loadUsers();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     };
+    
     loadUsers();
   }, []);
 
