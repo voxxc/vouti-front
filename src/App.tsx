@@ -77,16 +77,6 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Safeguard: prevent accidental /auth landing without explicit intent or auth tokens
-  if (
-    location.pathname === '/auth' &&
-    typeof window !== 'undefined' &&
-    !localStorage.getItem('auth_intent') &&
-    !window.location.hash.includes('access_token') &&
-    !window.location.search.includes('access_token')
-  ) {
-    return <Navigate to="/" replace />;
-  }
   
   return <>{children}</>;
 };
