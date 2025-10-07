@@ -17,6 +17,7 @@ import Controladoria from "@/pages/Controladoria";
 import LandingPage2 from "@/pages/LandingPage2";
 import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
+import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -210,13 +211,20 @@ function App() {
                   </MetalPublicRoute>
                 </MetalAuthProvider>
               } />
-              <Route path="/metal-dashboard" element={
-                <MetalAuthProvider>
-                  <MetalProtectedRoute>
-                    <MetalDashboard />
-                  </MetalProtectedRoute>
-                </MetalAuthProvider>
-              } />
+          <Route path="/metal-dashboard" element={
+            <MetalAuthProvider>
+              <MetalProtectedRoute>
+                <MetalDashboard />
+              </MetalProtectedRoute>
+            </MetalAuthProvider>
+          } />
+          <Route path="/metal-admin/usuarios" element={
+            <MetalAuthProvider>
+              <MetalProtectedRoute>
+                <MetalAdminUsers />
+              </MetalProtectedRoute>
+            </MetalAuthProvider>
+          } />
               
               {/* Redirect old landing routes to homepage */}
               <Route path="/landing-page-1" element={<Navigate to="/" replace />} />

@@ -1,0 +1,280 @@
+import { useEffect, useState } from 'react';
+import { useMetalAuth } from '@/contexts/MetalAuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Shield, User } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { toast } from '@/hooks/use-toast';
+import type { MetalProfile } from '@/types/metal';
+
+interface UserWithRole extends MetalProfile {
+  is_admin: boolean;
+}
+
+const SETORES = [
+  'Corte',
+  'Dobra',
+  'Solda',
+  'Pintura',
+  'Montagem',
+  'Expedição'
+];
+
+const MetalAdminUsers = () => {
+  const { user, isAdmin, signOut } = useMetalAuth();
+  const navigate = useNavigate();
+  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/metal-auth');
+      return;
+    }
+
+    if (!isAdmin) {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas administradores podem acessar esta página.",
+        variant: "destructive",
+      });
+      navigate('/metal-dashboard');
+      return;
+    }
+
+    loadUsers();
+  }, [user, isAdmin, navigate]);
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('metal_profiles' as any)
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Get all admin roles
+      const { data: adminRoles, error: rolesError } = await supabase
+        .from('metal_user_roles' as any)
+        .select('user_id')
+        .eq('role', 'admin');
+
+      if (rolesError) throw rolesError;
+
+      const adminUserIds = new Set(adminRoles?.map((r: any) => r.user_id) || []);
+
+      const usersWithRoles: UserWithRole[] = profiles?.map((profile: any) => ({
+        ...profile,
+        is_admin: adminUserIds.has(profile.user_id),
+      })) || [];
+
+      setUsers(usersWithRoles);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os usuários.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserSetor = async (userId: string, setor: string) => {
+    try {
+      const { error } = await supabase
+        .from('metal_profiles' as any)
+        .update({ setor })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Setor atualizado",
+        description: "O setor do usuário foi atualizado com sucesso.",
+      });
+
+      loadUsers();
+    } catch (error) {
+      console.error('Error updating setor:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o setor.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleAdminRole = async (userId: string, currentIsAdmin: boolean) => {
+    try {
+      if (currentIsAdmin) {
+        // Remove admin role
+        const { error } = await supabase
+          .from('metal_user_roles' as any)
+          .delete()
+          .eq('user_id', userId)
+          .eq('role', 'admin');
+
+        if (error) throw error;
+
+        toast({
+          title: "Admin removido",
+          description: "Permissões de administrador removidas.",
+        });
+      } else {
+        // Add admin role
+        const { error } = await supabase
+          .from('metal_user_roles' as any)
+          .insert({
+            user_id: userId,
+            role: 'admin',
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Admin adicionado",
+          description: "Permissões de administrador concedidas.",
+        });
+      }
+
+      loadUsers();
+    } catch (error) {
+      console.error('Error toggling admin role:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar as permissões.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Header */}
+      <header className="border-b border-slate-700 bg-slate-900/90 backdrop-blur">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/metal-dashboard')}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar
+              </Button>
+              <div>
+                <h1 className="text-xl font-bold text-white">Gerenciamento de Usuários</h1>
+                <p className="text-sm text-slate-400">MetalSystem - Administração</p>
+              </div>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={signOut}>
+              Sair
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Usuários do Sistema</CardTitle>
+            <CardDescription className="text-slate-400">
+              Configure setores e permissões dos usuários
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8 text-slate-400">
+                Carregando usuários...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700">
+                    <TableHead className="text-slate-300">Nome</TableHead>
+                    <TableHead className="text-slate-300">Email</TableHead>
+                    <TableHead className="text-slate-300">Setor</TableHead>
+                    <TableHead className="text-slate-300">Permissão</TableHead>
+                    <TableHead className="text-slate-300">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id} className="border-slate-700">
+                      <TableCell className="text-white font-medium">
+                        {user.full_name || 'Sem nome'}
+                      </TableCell>
+                      <TableCell className="text-slate-300">{user.email}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={user.setor || 'sem_setor'}
+                          onValueChange={(value) => 
+                            updateUserSetor(user.user_id, value === 'sem_setor' ? '' : value)
+                          }
+                        >
+                          <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sem_setor">Sem setor</SelectItem>
+                            {SETORES.map((setor) => (
+                              <SelectItem key={setor} value={setor}>
+                                {setor}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        {user.is_admin ? (
+                          <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Admin
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-slate-600 text-slate-400">
+                            <User className="w-3 h-3 mr-1" />
+                            Operador
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleAdminRole(user.user_id, user.is_admin)}
+                          className={
+                            user.is_admin
+                              ? 'border-red-500/50 text-red-400 hover:bg-red-500/10'
+                              : 'border-green-500/50 text-green-400 hover:bg-green-500/10'
+                          }
+                        >
+                          {user.is_admin ? 'Remover Admin' : 'Tornar Admin'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+};
+
+export default MetalAdminUsers;

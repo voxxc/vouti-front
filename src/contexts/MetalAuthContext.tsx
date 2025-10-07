@@ -102,6 +102,13 @@ export const MetalAuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, fullName: string, setor?: string) => {
     const redirectUrl = `${window.location.origin}/metal-auth`;
     
+    // Check if this is the first user
+    const { count } = await supabase
+      .from('metal_profiles' as any)
+      .select('*', { count: 'exact', head: true });
+
+    const isFirstUser = count === 0;
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -122,9 +129,19 @@ export const MetalAuthProvider = ({ children }: { children: ReactNode }) => {
         setor: setor || null,
       });
 
+      // If first user, make them admin
+      if (isFirstUser) {
+        await supabase.from('metal_user_roles' as any).insert({
+          user_id: data.user.id,
+          role: 'admin',
+        });
+      }
+
       toast({
         title: "Conta criada!",
-        description: "Bem-vindo ao MetalSystem.",
+        description: isFirstUser 
+          ? "Bem-vindo ao MetalSystem! Você é o administrador." 
+          : "Bem-vindo ao MetalSystem.",
       });
     }
 
