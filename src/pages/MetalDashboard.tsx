@@ -80,12 +80,14 @@ const MetalDashboard = () => {
   };
 
   const SETORES = [
-    'Corte',
+    'Programação',
+    'Guilhotina',
+    'Corte a laser',
     'Dobra',
-    'Solda',
-    'Pintura',
     'Montagem',
-    'Expedição'
+    'Acabamento',
+    'Expedição',
+    'Entrega'
   ];
 
   return (
