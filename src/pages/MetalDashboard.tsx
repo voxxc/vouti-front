@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Factory, Package, TrendingUp, Users, LogOut, Plus, Settings } from 'lucide-react';
+import biluzeraGif from '@/assets/biluzera.gif';
 
 interface MetricData {
   totalOPs: number;
@@ -22,6 +23,8 @@ const MetalDashboard = () => {
     opsConcluidas: 0,
     totalSetores: 0,
   });
+  const [showBiluzera, setShowBiluzera] = useState(false);
+  const [keySequence, setKeySequence] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -31,6 +34,21 @@ const MetalDashboard = () => {
 
     loadMetrics();
   }, [user, navigate]);
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      const newSequence = (keySequence + e.key).slice(-8);
+      setKeySequence(newSequence);
+      
+      if (newSequence === 'biluzera') {
+        setShowBiluzera(!showBiluzera);
+        setKeySequence('');
+      }
+    };
+
+    window.addEventListener('keypress', handleKeyPress);
+    return () => window.removeEventListener('keypress', handleKeyPress);
+  }, [keySequence, showBiluzera]);
 
   const loadMetrics = async () => {
     try {
@@ -71,7 +89,17 @@ const MetalDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+      {/* Easter Egg */}
+      {showBiluzera && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <img 
+            src={biluzeraGif} 
+            alt="Biluzera" 
+            className="w-96 h-auto"
+          />
+        </div>
+      )}
       {/* Header */}
       <header className="border-b border-slate-700 bg-slate-900/90 backdrop-blur">
         <div className="container mx-auto px-4 py-4">
