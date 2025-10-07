@@ -301,6 +301,57 @@ export type Database = {
         }
         Relationships: []
       }
+      metal_profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          setor: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          setor?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          setor?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      metal_user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["metal_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["metal_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["metal_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           content: string
@@ -619,6 +670,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      has_metal_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["metal_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -637,6 +695,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "advogado" | "comercial" | "financeiro"
+      metal_role: "admin" | "operador"
       user_role_type: "admin" | "advogado" | "comercial" | "financeiro"
     }
     CompositeTypes: {
@@ -766,6 +825,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "advogado", "comercial", "financeiro"],
+      metal_role: ["admin", "operador"],
       user_role_type: ["admin", "advogado", "comercial", "financeiro"],
     },
   },
