@@ -63,12 +63,16 @@ const LandingPage2 = () => {
 
   const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      if (easterEggInput.toLowerCase() === 'mora') {
+      const code = easterEggInput.toLowerCase();
+      if (code === 'mora') {
         // Force logout to ensure authentication screen shows
         await supabase.auth.signOut();
         // Mark explicit intent to open the auth page
         try { localStorage.setItem('auth_intent', '1'); } catch {}
         navigate('/auth');
+      } else if (code === 'metalsystem') {
+        await supabase.auth.signOut();
+        navigate('/metal-auth');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);

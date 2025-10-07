@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
 import { useState, useEffect } from 'react';
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
@@ -13,8 +14,9 @@ import CRM from "@/pages/CRM";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
-// Removed unused LandingPage1 import
 import LandingPage2 from "@/pages/LandingPage2";
+import MetalAuth from "@/pages/MetalAuth";
+import MetalDashboard from "@/pages/MetalDashboard";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -77,6 +79,34 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  
+  return <>{children}</>;
+};
+
+const MetalProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useMetalAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">Carregando...</div>;
+  }
+  
+  if (!user) {
+    return <Navigate to="/metal-auth" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const MetalPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useMetalAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">Carregando...</div>;
+  }
+  
+  if (user) {
+    return <Navigate to="/metal-dashboard" replace />;
+  }
   
   return <>{children}</>;
 };
@@ -170,6 +200,22 @@ function App() {
                     </ProtectedRoute>
                   </ThemeProvider>
                 </AuthProvider>
+              } />
+              
+              {/* MetalSystem Routes - Completely separate from Mora */}
+              <Route path="/metal-auth" element={
+                <MetalAuthProvider>
+                  <MetalPublicRoute>
+                    <MetalAuth />
+                  </MetalPublicRoute>
+                </MetalAuthProvider>
+              } />
+              <Route path="/metal-dashboard" element={
+                <MetalAuthProvider>
+                  <MetalProtectedRoute>
+                    <MetalDashboard />
+                  </MetalProtectedRoute>
+                </MetalAuthProvider>
               } />
               
               {/* Redirect old landing routes to homepage */}
