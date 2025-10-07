@@ -70,7 +70,7 @@ const LandingPage2 = () => {
         // Mark explicit intent to open the auth page
         try { localStorage.setItem('auth_intent', '1'); } catch {}
         navigate('/auth');
-      } else if (code === 'metalsystem') {
+      } else if (code === 'metal') {
         await supabase.auth.signOut();
         navigate('/metal-auth');
       } else {
