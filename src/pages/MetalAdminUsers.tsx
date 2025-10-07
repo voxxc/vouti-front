@@ -16,12 +16,17 @@ interface UserWithRole extends MetalProfile {
 }
 
 const SETORES = [
-  'Corte',
+  'Projeto 1',
+  'Almoxarifado',
+  'Projeto 2',
+  'Programação',
+  'Guilhotina',
+  'Corte a laser',
   'Dobra',
-  'Solda',
-  'Pintura',
   'Montagem',
-  'Expedição'
+  'Acabamento',
+  'Expedição',
+  'Entrega'
 ];
 
 const MetalAdminUsers = () => {
