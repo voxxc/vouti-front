@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, User, Plus, Pencil } from 'lucide-react';
+import { ArrowLeft, Shield, User, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,16 @@ import { toast } from '@/hooks/use-toast';
 import type { MetalProfile } from '@/types/metal';
 import { CreateUserDialog } from '@/components/Metal/CreateUserDialog';
 import { EditUserDialog } from '@/components/Metal/EditUserDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserWithRole extends MetalProfile {
   is_admin: boolean;
@@ -38,7 +48,9 @@ const MetalAdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<MetalProfile | null>(null);
+  const [userToDelete, setUserToDelete] = useState<MetalProfile | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -163,6 +175,49 @@ const MetalAdminUsers = () => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar as permissões.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão não encontrada");
+
+      const response = await fetch(
+        `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/delete-metal-user`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ user_id: userToDelete.user_id }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao deletar usuário");
+      }
+
+      toast({
+        title: "Usuário deletado",
+        description: "O usuário foi removido do sistema com sucesso.",
+      });
+
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+      loadUsers();
+    } catch (error: any) {
+      console.error("Erro ao deletar usuário:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível deletar o usuário.",
         variant: "destructive",
       });
     }
@@ -295,6 +350,18 @@ const MetalAdminUsers = () => {
                           >
                             {user.is_admin ? 'Remover Admin' : 'Tornar Admin'}
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Deletar
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -317,6 +384,29 @@ const MetalAdminUsers = () => {
           onSuccess={loadUsers}
           user={selectedUser}
         />
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="bg-slate-800 border-slate-700">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-300">
+                Tem certeza que deseja deletar o usuário <strong>{userToDelete?.full_name}</strong>?
+                Esta ação não pode ser desfeita e removerá todos os dados associados a este usuário.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteUser}
+                className="bg-red-500 text-white hover:bg-red-600"
+              >
+                Deletar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
