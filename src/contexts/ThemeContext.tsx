@@ -24,9 +24,16 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const { user } = useAuth();
   const [theme, setTheme] = useState<Theme>('dark'); // Default to dark
   const [isLoadingTheme, setIsLoadingTheme] = useState(true);
+  // Get user from AuthContext only if it's available
+  let user = null;
+  try {
+    const authContext = useAuth();
+    user = authContext?.user;
+  } catch (error) {
+    // AuthContext not available, continue without it
+  }
 
   // Load theme from Supabase when user is available
   useEffect(() => {
