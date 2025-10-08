@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,13 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [imageZoom, setImageZoom] = useState(1);
   const [imageRotation, setImageRotation] = useState(0);
   const [savedRotation, setSavedRotation] = useState(0);
+  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [startPanPosition, setStartPanPosition] = useState({ x: 0, y: 0 });
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastTouchDistance = useRef<number>(0);
+  
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -117,8 +124,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     }
   };
 
+  // Zoom e Pan handlers
   const handleZoomIn = () => {
-    setImageZoom(prev => Math.min(prev + 0.25, 3));
+    setImageZoom(prev => Math.min(prev + 0.25, 5));
   };
 
   const handleZoomOut = () => {
@@ -127,6 +135,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
   const handleResetZoom = () => {
     setImageZoom(1);
+    setPanPosition({ x: 0, y: 0 });
   };
 
   const handleRotate = () => {
@@ -142,11 +151,98 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     setImageViewerOpen(false);
     setImageZoom(1);
     setImageRotation(savedRotation);
+    setPanPosition({ x: 0, y: 0 });
   };
 
   const handleOpenViewer = () => {
     setImageViewerOpen(true);
     setImageRotation(savedRotation);
+    setImageZoom(1);
+    setPanPosition({ x: 0, y: 0 });
+  };
+
+  // Mouse wheel zoom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !imageViewerOpen) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setImageZoom(prev => Math.max(0.5, Math.min(5, prev + delta)));
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [imageViewerOpen]);
+
+  // Touch pinch zoom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !imageViewerOpen) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const distance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        lastTouchDistance.current = distance;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const distance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        
+        if (lastTouchDistance.current > 0) {
+          const delta = (distance - lastTouchDistance.current) * 0.01;
+          setImageZoom(prev => Math.max(0.5, Math.min(5, prev + delta)));
+        }
+        
+        lastTouchDistance.current = distance;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      lastTouchDistance.current = 0;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [imageViewerOpen]);
+
+  // Pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (imageZoom > 1) {
+      setIsPanning(true);
+      setStartPanPosition({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning && imageZoom > 1) {
+      setPanPosition({ 
+        x: e.clientX - startPanPosition.x, 
+        y: e.clientY - startPanPosition.y 
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
   };
 
   return (
@@ -349,15 +445,24 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             </div>
 
             {/* Image Container with Zoom and Rotation */}
-            <div className="flex-1 overflow-auto flex items-center justify-center p-2 md:p-4">
+            <div 
+              ref={containerRef}
+              className="flex-1 overflow-hidden flex items-center justify-center p-2 md:p-4 select-none"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
               <img
+                ref={imageRef}
                 src={formData.ficha_tecnica_url || ''}
                 alt="Ficha Técnica"
-                className="max-w-none transition-transform duration-200"
+                className="max-w-full max-h-full object-contain transition-transform duration-200"
                 style={{
-                  transform: `scale(${imageZoom}) rotate(${imageRotation}deg)`,
-                  cursor: imageZoom > 1 ? 'move' : 'default',
+                  transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${imageZoom}) rotate(${imageRotation}deg)`,
+                  cursor: imageZoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default',
                 }}
+                draggable={false}
               />
             </div>
           </div>
