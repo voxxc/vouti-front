@@ -78,7 +78,64 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     if (!selectedOP) return;
     
     try {
-      const { error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Verificar se já existe um fluxo aberto (sem saída) para esta OP
+      const { data: openFlow } = await supabase
+        .from("metal_setor_flow")
+        .select("*")
+        .eq("op_id", selectedOP.id)
+        .is("saida", null)
+        .order("entrada", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Se existe um fluxo aberto em outro setor, fecha ele
+      if (openFlow && openFlow.setor !== setor) {
+        const { error: closeError } = await supabase
+          .from("metal_setor_flow")
+          .update({
+            saida: new Date().toISOString(),
+            operador_saida_id: user.id
+          })
+          .eq("id", openFlow.id);
+
+        if (closeError) throw closeError;
+
+        // Registrar histórico de saída do setor anterior
+        await supabase.from("metal_op_history").insert({
+          op_id: selectedOP.id,
+          user_id: user.id,
+          acao: "saida_setor",
+          detalhes: `Saiu do setor: ${openFlow.setor}`
+        });
+      }
+
+      // Se o setor selecionado é diferente do fluxo aberto, cria novo fluxo
+      if (!openFlow || openFlow.setor !== setor) {
+        const { error: flowError } = await supabase
+          .from("metal_setor_flow")
+          .insert({
+            op_id: selectedOP.id,
+            setor: setor,
+            entrada: new Date().toISOString(),
+            operador_entrada_id: user.id
+          });
+
+        if (flowError) throw flowError;
+
+        // Registrar histórico de entrada no novo setor
+        await supabase.from("metal_op_history").insert({
+          op_id: selectedOP.id,
+          user_id: user.id,
+          acao: "entrada_setor",
+          detalhes: `Entrou no setor: ${setor}`
+        });
+      }
+
+      // Atualizar a OP com o setor atual
+      const { error: updateError } = await supabase
         .from("metal_ops")
         .update({
           setor_atual: setor,
@@ -86,9 +143,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         })
         .eq("id", selectedOP.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      toast({ title: `Setor atualizado para ${setor}` });
+      toast({ title: `OP movida para ${setor}` });
       onSave();
     } catch (error: any) {
       toast({
