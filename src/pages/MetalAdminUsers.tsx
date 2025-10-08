@@ -176,9 +176,10 @@ const MetalAdminUsers = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => navigate('/metal-dashboard')}
+                className="border-slate-600 text-white hover:bg-slate-700"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
