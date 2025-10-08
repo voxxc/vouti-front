@@ -64,7 +64,12 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       if (updateError) throw updateError;
 
       toast({ title: "OP resetada com sucesso!" });
-      onSave();
+      // Não fecha o painel, apenas recarrega os dados
+      setFormData({
+        ...formData,
+        setor_atual: null,
+        status: "aguardando"
+      });
     } catch (error: any) {
       toast({
         title: "Erro ao resetar OP",
