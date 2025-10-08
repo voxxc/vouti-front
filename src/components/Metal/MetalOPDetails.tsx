@@ -200,14 +200,46 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     setUploading(true);
     try {
       const fileExt = file.name.split(".").pop();
-      const fileName = `${formData.numero_op || Date.now()}.${fileExt}`;
+      // Criar nome único usando ID da OP (se existir) ou timestamp
+      const uniqueId = selectedOP?.id || `temp-${Date.now()}`;
+      const fileName = `op-${uniqueId}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      // Se já existe uma imagem antiga, deletar primeiro para evitar lixo no storage
+      if (formData.ficha_tecnica_url) {
+        try {
+          const oldPath = formData.ficha_tecnica_url.split('/').pop();
+          if (oldPath) {
+            await supabase.storage
+              .from("op-fichas-tecnicas")
+              .remove([oldPath]);
+          }
+        } catch (error) {
+          console.log("Erro ao deletar imagem antiga, continuando...");
+        }
+      }
+
+      // Upload da nova imagem - sem upsert para evitar sobrescrever
       const { error: uploadError } = await supabase.storage
         .from("op-fichas-tecnicas")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: false });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        // Se arquivo já existe, deletar e tentar novamente
+        if (uploadError.message.includes('already exists')) {
+          await supabase.storage
+            .from("op-fichas-tecnicas")
+            .remove([filePath]);
+          
+          const { error: retryError } = await supabase.storage
+            .from("op-fichas-tecnicas")
+            .upload(filePath, file, { upsert: false });
+          
+          if (retryError) throw retryError;
+        } else {
+          throw uploadError;
+        }
+      }
 
       const { data } = supabase.storage
         .from("op-fichas-tecnicas")
