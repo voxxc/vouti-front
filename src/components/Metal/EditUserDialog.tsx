@@ -169,14 +169,16 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
           <div className="space-y-2">
             <Label htmlFor="edit_setor">Setor</Label>
             <Select
-              value={formData.setor}
-              onValueChange={(value) => setFormData({ ...formData, setor: value })}
+              value={formData.setor || "sem_setor"}
+              onValueChange={(value) => 
+                setFormData({ ...formData, setor: value === "sem_setor" ? "" : value })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um setor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem setor</SelectItem>
+                <SelectItem value="sem_setor">Sem setor</SelectItem>
                 {SETORES.map((setor) => (
                   <SelectItem key={setor} value={setor}>
                     {setor}
