@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useMetalAuth } from "@/contexts/MetalAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Factory, Users } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LogOut, Plus, Factory, Users, Menu, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { MetalOPList } from "@/components/Metal/MetalOPList";
 import { MetalOPDetails } from "@/components/Metal/MetalOPDetails";
@@ -198,37 +204,42 @@ const MetalDashboard = () => {
 
           <div className="flex items-center gap-2 md:gap-4">
             {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/metal-admin-users')}
-                className="h-8 md:h-9"
-              >
-                <Users className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden md:inline md:ml-2">Usuários</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 md:h-9">
+                    <Menu className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="hidden md:inline md:ml-2">Menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/metal-admin-users')}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Usuários
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleNewOP}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova OP
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setShowCompleted(!showCompleted);
+                    setSelectedOP(null);
+                    setIsCreating(false);
+                  }}>
+                    <Factory className="h-4 w-4 mr-2" />
+                    {showCompleted ? "Ver Ativas" : "Ver Concluídas"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/metal-reports')}>
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Relatórios
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             
-            {(isAdmin || profile?.setor === 'Programação') && (
+            {!isAdmin && (isAdmin || profile?.setor === 'Programação') && (
               <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
                 <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
                 <span className="hidden sm:inline">Nova OP</span>
-              </Button>
-            )}
-            
-            {isAdmin && (
-              <Button 
-                variant={showCompleted ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => {
-                  setShowCompleted(!showCompleted);
-                  setSelectedOP(null);
-                  setIsCreating(false);
-                }}
-                className="h-8 md:h-9"
-              >
-                <span className="hidden sm:inline">{showCompleted ? "Ver Ativas" : "Ver Concluídas"}</span>
-                <span className="sm:hidden">{showCompleted ? "Ativas" : "Concluídas"}</span>
               </Button>
             )}
             

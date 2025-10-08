@@ -17,6 +17,7 @@ import LandingPage2 from "@/pages/LandingPage2";
 import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
 import MetalAdminUsers from "@/pages/MetalAdminUsers";
+import MetalReports from "@/pages/MetalReports";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -203,6 +204,13 @@ function App() {
             <MetalAuthProvider>
               <MetalProtectedRoute>
                 <MetalAdminUsers />
+              </MetalProtectedRoute>
+            </MetalAuthProvider>
+          } />
+          <Route path="/metal-reports" element={
+            <MetalAuthProvider>
+              <MetalProtectedRoute>
+                <MetalReports />
               </MetalProtectedRoute>
             </MetalAuthProvider>
           } />
