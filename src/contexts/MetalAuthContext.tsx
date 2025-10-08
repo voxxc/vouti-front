@@ -149,15 +149,26 @@ export const MetalAuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setIsAdmin(false);
-    navigate('/metal-auth');
-    
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!",
-    });
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      // Ignore session_not_found errors - session already gone
+      if (error && error.message !== 'Session from session_id claim in JWT does not exist') {
+        console.error('Logout error:', error);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Always clear local state and redirect, even if logout fails
+      setProfile(null);
+      setIsAdmin(false);
+      navigate('/metal-auth');
+      
+      toast({
+        title: "Logout realizado",
+        description: "Até logo!",
+      });
+    }
   };
 
   const value = {
