@@ -286,68 +286,70 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       <Dialog open={imageViewerOpen} onOpenChange={(open) => {
         if (!open) handleCloseViewer();
       }}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95">
-          <div className="relative h-[95vh] flex flex-col">
+        <DialogContent className="max-w-full max-h-full w-full h-full p-0 bg-black/95 md:max-w-[90vw] md:max-h-[90vh] md:w-auto md:h-auto">
+          <div className="relative w-full h-full md:h-[90vh] flex flex-col">
             {/* Top Controls - Zoom */}
-            <div className="absolute top-4 right-4 z-10 flex gap-2">
+            <div className="absolute top-2 right-2 md:top-4 md:right-4 z-10 flex gap-1 md:gap-2">
               <Button
                 variant="secondary"
                 size="icon"
                 onClick={handleZoomOut}
-                className="h-10 w-10"
+                className="h-8 w-8 md:h-10 md:w-10"
               >
-                <ZoomOut className="h-5 w-5" />
+                <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
               <Button
                 variant="secondary"
                 size="icon"
                 onClick={handleResetZoom}
-                className="h-10 w-10"
+                className="h-8 w-8 md:h-10 md:w-10"
               >
-                <span className="text-xs font-bold">{Math.round(imageZoom * 100)}%</span>
+                <span className="text-[10px] md:text-xs font-bold">{Math.round(imageZoom * 100)}%</span>
               </Button>
               <Button
                 variant="secondary"
                 size="icon"
                 onClick={handleZoomIn}
-                className="h-10 w-10"
+                className="h-8 w-8 md:h-10 md:w-10"
               >
-                <ZoomIn className="h-5 w-5" />
+                <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
               <Button
                 variant="secondary"
                 size="icon"
                 onClick={handleCloseViewer}
-                className="h-10 w-10"
+                className="h-8 w-8 md:h-10 md:w-10"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </div>
 
             {/* Bottom Controls - Rotation */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/50 p-2 rounded-lg backdrop-blur">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 md:bottom-4 z-10 flex flex-col md:flex-row gap-1 md:gap-2 bg-black/70 p-1.5 md:p-2 rounded-lg backdrop-blur">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={handleRotate}
-                className="h-10 gap-2"
+                className="h-8 md:h-10 gap-1 md:gap-2 text-xs md:text-sm"
               >
-                <RotateCw className="h-4 w-4" />
-                Rotacionar 90°
+                <RotateCw className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Rotacionar 90°</span>
+                <span className="sm:hidden">90°</span>
               </Button>
               <Button
                 variant="default"
                 size="sm"
                 onClick={handleSaveRotation}
-                className="h-10 gap-2 bg-green-600 hover:bg-green-700"
+                className="h-8 md:h-10 gap-1 md:gap-2 bg-green-600 hover:bg-green-700 text-xs md:text-sm"
               >
-                <Save className="h-4 w-4" />
-                Salvar Rotação
+                <Save className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Salvar Rotação</span>
+                <span className="sm:hidden">Salvar</span>
               </Button>
             </div>
 
             {/* Image Container with Zoom and Rotation */}
-            <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+            <div className="flex-1 overflow-auto flex items-center justify-center p-2 md:p-4">
               <img
                 src={formData.ficha_tecnica_url || ''}
                 alt="Ficha Técnica"
