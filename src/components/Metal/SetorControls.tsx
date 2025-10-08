@@ -35,19 +35,29 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
   const checkStatus = async () => {
     if (!userSetor) return;
 
+    // Buscar o último registro de fluxo para este setor
     const { data } = await supabase
       .from("metal_setor_flow")
       .select("*")
       .eq("op_id", selectedOP.id)
       .eq("setor", userSetor)
-      .order("created_at", { ascending: false })
+      .order("entrada", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (data) {
-      setIsInProgress(!!data.entrada && !data.saida);
-      setIsPaused(!!data.saida);
+      // Se tem entrada mas não tem saída = está em progresso
+      if (data.entrada && !data.saida) {
+        setIsInProgress(true);
+        setIsPaused(false);
+      } 
+      // Se tem entrada E tem saída = está pausado
+      else if (data.entrada && data.saida) {
+        setIsInProgress(false);
+        setIsPaused(true);
+      }
     } else {
+      // Não tem nenhum registro = não iniciou ainda
       setIsInProgress(false);
       setIsPaused(false);
     }
@@ -75,7 +85,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
       if (!user) throw new Error("Usuário não autenticado");
 
       if (!isInProgress && !isPaused) {
-        // INICIAR
+        // INICIAR (primeira vez)
         const { error: flowError } = await supabase.from("metal_setor_flow").insert({
           op_id: selectedOP.id,
           setor: userSetor,
@@ -109,8 +119,43 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
         setIsPaused(false);
         toast.success("Produção iniciada");
 
+      } else if (isPaused) {
+        // RETOMAR (já pausou antes, criar novo registro de entrada)
+        const { error: flowError } = await supabase.from("metal_setor_flow").insert({
+          op_id: selectedOP.id,
+          setor: userSetor,
+          entrada: new Date().toISOString(),
+          operador_entrada_id: user.id
+        });
+
+        if (flowError) throw flowError;
+
+        const { error: opError } = await supabase
+          .from("metal_ops")
+          .update({
+            status: "em_producao",
+            setor_atual: userSetor
+          })
+          .eq("id", selectedOP.id);
+
+        if (opError) {
+          console.error("Erro ao atualizar OP:", opError);
+          throw new Error(`Erro ao atualizar OP: ${opError.message}`);
+        }
+
+        await supabase.from("metal_op_history").insert({
+          op_id: selectedOP.id,
+          user_id: user.id,
+          acao: "retomou",
+          detalhes: `Retomou produção no setor ${userSetor}`
+        });
+
+        setIsInProgress(true);
+        setIsPaused(false);
+        toast.success("Produção retomada");
+
       } else if (isInProgress) {
-        // PAUSAR
+        // PAUSAR (fechar o registro atual)
         const { data: currentFlow } = await supabase
           .from("metal_setor_flow")
           .select("*")
