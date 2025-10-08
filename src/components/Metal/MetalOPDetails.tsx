@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin, Info, Clock, User, Calendar, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import type { MetalOP } from "@/types/metal";
+import type { MetalOP, MetalSetorFlow } from "@/types/metal";
 import { SetorControls } from "./SetorControls";
-import { MetalOPDetailsSheet } from "./MetalOPDetailsSheet";
+import { format } from "date-fns";
 
 interface MetalOPDetailsProps {
   selectedOP: MetalOP | null;
@@ -24,7 +25,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [uploading, setUploading] = useState(false);
   const [rotation, setRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
   const [userSetor, setUserSetor] = useState<string | null>(null);
-  const [showDetailsSheet, setShowDetailsSheet] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [setorFlows, setSetorFlows] = useState<MetalSetorFlow[]>([]);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -56,6 +58,12 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     loadUserSetor();
   }, []);
 
+  useEffect(() => {
+    if (selectedOP?.id && showDetails) {
+      loadSetorFlows();
+    }
+  }, [selectedOP?.id, showDetails]);
+
   const loadUserSetor = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -69,6 +77,27 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     if (profile) {
       setUserSetor(profile.setor);
     }
+  };
+
+  const loadSetorFlows = async () => {
+    if (!selectedOP?.id) return;
+
+    const { data } = await supabase
+      .from("metal_setor_flow")
+      .select("*")
+      .eq("op_id", selectedOP.id)
+      .order("entrada", { ascending: true });
+
+    if (data) {
+      setSetorFlows(data);
+    }
+  };
+
+  const getSetorStatus = (setor: string) => {
+    const flow = setorFlows.find(f => f.setor === setor);
+    if (!flow) return 'pending';
+    if (flow.saida) return 'completed';
+    return 'in-progress';
   };
 
   const handleRotate = () => {
@@ -519,23 +548,113 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
           {!isCreating && selectedOP && (
             <Button 
-              onClick={() => setShowDetailsSheet(true)} 
+              onClick={() => setShowDetails(!showDetails)} 
               variant="outline"
               className="w-full h-12 text-base" 
               size="lg"
             >
               <Info className="h-4 w-4 mr-2" />
               DETALHES
+              {showDetails ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
             </Button>
+          )}
+
+          {/* Seção de Detalhes Expandida */}
+          {!isCreating && selectedOP && showDetails && (
+            <div className="space-y-6 pt-4 border-t">
+              <div className="text-center space-y-1">
+                <h3 className="text-xl font-semibold">Detalhes da OP</h3>
+                <p className="text-muted-foreground font-medium">OP {selectedOP.numero_op}</p>
+              </div>
+
+              {/* Status Card */}
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <Badge variant={selectedOP.status === 'concluido' ? 'default' : 'secondary'}>
+                      {selectedOP.status}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedOP.produto}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedOP.cliente}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>{format(new Date(selectedOP.data_entrada), 'dd/MM/yyyy')}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span>Qtd: {selectedOP.quantidade}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Progresso nos Setores */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  <h3 className="font-semibold">Progresso nos Setores</h3>
+                </div>
+
+                <div className="space-y-2">
+                  {SETORES.map((setor, index) => {
+                    const status = getSetorStatus(setor);
+                    const flow = setorFlows.find(f => f.setor === setor);
+
+                    return (
+                      <div
+                        key={setor}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="relative">
+                          <div
+                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                              status === 'completed'
+                                ? 'bg-primary border-primary text-primary-foreground'
+                                : status === 'in-progress'
+                                ? 'bg-yellow-500/20 border-yellow-500 text-yellow-600'
+                                : 'bg-muted border-muted-foreground/30 text-muted-foreground'
+                            }`}
+                          >
+                            {status === 'completed' ? (
+                              <span className="text-xs font-bold">✓</span>
+                            ) : (
+                              <span className="text-xs">{index + 1}</span>
+                            )}
+                          </div>
+                          {index < SETORES.length - 1 && (
+                            <div className="absolute top-8 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-border" />
+                          )}
+                        </div>
+
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{setor}</p>
+                          {flow && (
+                            <p className="text-xs text-muted-foreground">
+                              {flow.entrada && `Entrada: ${format(new Date(flow.entrada), 'dd/MM HH:mm')}`}
+                              {flow.saida && ` - Saída: ${format(new Date(flow.saida), 'dd/MM HH:mm')}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </ScrollArea>
-
-      <MetalOPDetailsSheet
-        op={selectedOP}
-        open={showDetailsSheet}
-        onOpenChange={setShowDetailsSheet}
-      />
     </div>
   );
 }
