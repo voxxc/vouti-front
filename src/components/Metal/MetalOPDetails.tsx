@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
+import { ProgramacaoControls } from "./ProgramacaoControls";
 
 interface MetalOPDetailsProps {
   selectedOP: MetalOP | null;
@@ -21,6 +22,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [rotation, setRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
+  const [userSetor, setUserSetor] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -30,6 +32,25 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       status: "aguardando",
     }
   );
+
+  useEffect(() => {
+    loadUserSetor();
+  }, []);
+
+  const loadUserSetor = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: profile } = await supabase
+      .from("metal_profiles")
+      .select("setor")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profile) {
+      setUserSetor(profile.setor);
+    }
+  };
 
   const handleRotate = () => {
     setRotation((prev) => (prev + 90) % 360);
@@ -283,6 +304,16 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                     style={{ transform: `rotate(${rotation}deg)` }}
                   />
                 </div>
+                
+                {/* Controles específicos do setor Programação */}
+                {!isCreating && selectedOP && (
+                  <ProgramacaoControls 
+                    selectedOP={selectedOP}
+                    userSetor={userSetor}
+                    onUpdate={onSave}
+                  />
+                )}
+
                 <div className="flex flex-wrap gap-2 justify-center mt-6">
                   <Button
                     variant="outline"
