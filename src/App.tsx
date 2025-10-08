@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
 import { useState, useEffect } from 'react';
@@ -123,83 +122,65 @@ function App() {
           {/* Auth and Protected Routes - Wrapped with providers */}
           <Route path="/auth" element={
             <AuthProvider>
-              <ThemeProvider>
-                <PublicRoute>
-                  <Auth />
-                </PublicRoute>
-              </ThemeProvider>
+              <PublicRoute>
+                <Auth />
+              </PublicRoute>
             </AuthProvider>
           } />
               <Route path="/dashboard" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/projects" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Projects />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <Projects />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/project/:id" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ProjectViewWrapper />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <ProjectViewWrapper />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/project/:id/acordos" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <AcordosViewWrapper />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <AcordosViewWrapper />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/agenda" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Agenda />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <Agenda />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/crm" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <CRM />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <CRM />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/financial" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Financial />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <Financial />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               <Route path="/controladoria" element={
                 <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Controladoria />
-                    </ProtectedRoute>
-                  </ThemeProvider>
+                  <ProtectedRoute>
+                    <Controladoria />
+                  </ProtectedRoute>
                 </AuthProvider>
               } />
               
