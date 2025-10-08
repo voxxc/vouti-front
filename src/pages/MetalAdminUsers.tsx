@@ -179,10 +179,10 @@ const MetalAdminUsers = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/metal-dashboard')}
-                className="border-slate-600 text-white hover:bg-slate-700"
+                className="border-orange-500 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Voltar
+                Voltar ao Dashboard
               </Button>
               <div>
                 <h1 className="text-xl font-bold text-white">Gerenciamento de Usuários</h1>
