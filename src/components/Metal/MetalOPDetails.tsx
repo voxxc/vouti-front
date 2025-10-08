@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin } from "lucide-react";
+import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin, Info } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
 import { SetorControls } from "./SetorControls";
+import { MetalOPDetailsSheet } from "./MetalOPDetailsSheet";
 
 interface MetalOPDetailsProps {
   selectedOP: MetalOP | null;
@@ -23,6 +24,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [uploading, setUploading] = useState(false);
   const [rotation, setRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
   const [userSetor, setUserSetor] = useState<string | null>(null);
+  const [showDetailsSheet, setShowDetailsSheet] = useState(false);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -514,8 +516,26 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           <Button onClick={handleSave} className="w-full h-12 text-base" size="lg">
             {isCreating ? "Criar OP" : "Salvar"}
           </Button>
+
+          {!isCreating && selectedOP && (
+            <Button 
+              onClick={() => setShowDetailsSheet(true)} 
+              variant="outline"
+              className="w-full h-12 text-base" 
+              size="lg"
+            >
+              <Info className="h-4 w-4 mr-2" />
+              DETALHES
+            </Button>
+          )}
         </div>
       </ScrollArea>
+
+      <MetalOPDetailsSheet
+        op={selectedOP}
+        open={showDetailsSheet}
+        onOpenChange={setShowDetailsSheet}
+      />
     </div>
   );
 }
