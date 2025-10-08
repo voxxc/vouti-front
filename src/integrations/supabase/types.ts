@@ -301,6 +301,110 @@ export type Database = {
         }
         Relationships: []
       }
+      metal_op_history: {
+        Row: {
+          acao: string
+          created_at: string
+          detalhes: string | null
+          id: string
+          op_id: string
+          user_id: string
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          detalhes?: string | null
+          id?: string
+          op_id: string
+          user_id: string
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          detalhes?: string | null
+          id?: string
+          op_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metal_op_history_op_id_fkey"
+            columns: ["op_id"]
+            isOneToOne: false
+            referencedRelation: "metal_ops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metal_ops: {
+        Row: {
+          acabamento: string | null
+          cliente: string
+          created_at: string
+          created_by: string
+          data_entrada: string
+          data_prevista_saida: string | null
+          desenhista: string | null
+          dimensoes: string | null
+          ficha_tecnica_url: string | null
+          id: string
+          item: string | null
+          material: string | null
+          numero_op: string
+          observacoes: string | null
+          pedido: string | null
+          produto: string
+          quantidade: number
+          setor_atual: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          acabamento?: string | null
+          cliente: string
+          created_at?: string
+          created_by: string
+          data_entrada?: string
+          data_prevista_saida?: string | null
+          desenhista?: string | null
+          dimensoes?: string | null
+          ficha_tecnica_url?: string | null
+          id?: string
+          item?: string | null
+          material?: string | null
+          numero_op: string
+          observacoes?: string | null
+          pedido?: string | null
+          produto: string
+          quantidade: number
+          setor_atual?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          acabamento?: string | null
+          cliente?: string
+          created_at?: string
+          created_by?: string
+          data_entrada?: string
+          data_prevista_saida?: string | null
+          desenhista?: string | null
+          dimensoes?: string | null
+          ficha_tecnica_url?: string | null
+          id?: string
+          item?: string | null
+          material?: string | null
+          numero_op?: string
+          observacoes?: string | null
+          pedido?: string | null
+          produto?: string
+          quantidade?: number
+          setor_atual?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       metal_profiles: {
         Row: {
           created_at: string | null
@@ -330,6 +434,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      metal_setor_flow: {
+        Row: {
+          created_at: string
+          entrada: string | null
+          id: string
+          observacoes: string | null
+          op_id: string
+          operador_entrada_id: string | null
+          operador_saida_id: string | null
+          saida: string | null
+          setor: string
+        }
+        Insert: {
+          created_at?: string
+          entrada?: string | null
+          id?: string
+          observacoes?: string | null
+          op_id: string
+          operador_entrada_id?: string | null
+          operador_saida_id?: string | null
+          saida?: string | null
+          setor: string
+        }
+        Update: {
+          created_at?: string
+          entrada?: string | null
+          id?: string
+          observacoes?: string | null
+          op_id?: string
+          operador_entrada_id?: string | null
+          operador_saida_id?: string | null
+          saida?: string | null
+          setor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metal_setor_flow_op_id_fkey"
+            columns: ["op_id"]
+            isOneToOne: false
+            referencedRelation: "metal_ops"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       metal_user_roles: {
         Row: {

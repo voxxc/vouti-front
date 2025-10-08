@@ -20,13 +20,20 @@ export interface MetalUserRole {
 export interface MetalOP {
   id: string;
   numero_op: string;
-  cliente: string;
-  produto: string;
-  quantidade: number;
   data_entrada: string;
-  data_prevista_saida: string | null;
+  produto: string;
+  dimensoes: string | null;
+  material: string | null;
+  acabamento: string | null;
+  cliente: string;
+  pedido: string | null;
+  item: string | null;
+  quantidade: number;
+  desenhista: string | null;
+  ficha_tecnica_url: string | null;
   status: string;
   setor_atual: string | null;
+  data_prevista_saida: string | null;
   observacoes: string | null;
   created_by: string;
   created_at: string;
