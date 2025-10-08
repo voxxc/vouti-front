@@ -29,12 +29,12 @@ export function MetalOPList({ ops, selectedOP, onSelectOP, userSetor, isAdmin }:
     // Admin vê todas as OPs
     if (isAdmin) return true;
     
-    // Programação vê OPs aguardando ou que estão em Programação
+    // Programação vê OPs sem setor (recém-criadas) ou que estão em Programação
     if (userSetor === 'Programação') {
-      return op.status === 'aguardando' || op.setor_atual === 'Programação';
+      return !op.setor_atual || op.setor_atual === 'Programação';
     }
     
-    // Outros setores veem apenas OPs que estão no seu setor
+    // Outros setores veem apenas OPs que estão no seu setor (independente do status)
     return op.setor_atual === userSetor;
   });
 

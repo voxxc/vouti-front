@@ -167,47 +167,16 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Registrar saída da Programação
-      const { data: openFlow } = await supabase
-        .from("metal_setor_flow")
-        .select("*")
-        .eq("op_id", selectedOP.id)
-        .eq("setor", "Programação")
-        .is("saida", null)
-        .maybeSingle();
-
-      if (openFlow) {
-        const { error: updateError } = await supabase
-          .from("metal_setor_flow")
-          .update({
-            saida: new Date().toISOString(),
-            operador_saida_id: user.id
-          })
-          .eq("id", openFlow.id);
-
-        if (updateError) throw updateError;
-      }
-
       // Avançar para Guilhotina (próximo setor)
       const proximoSetor = "Guilhotina";
       
-      const { error: flowError } = await supabase
-        .from("metal_setor_flow")
-        .insert({
-          op_id: selectedOP.id,
-          setor: proximoSetor,
-          entrada: new Date().toISOString(),
-          operador_entrada_id: user.id
-        });
-
-      if (flowError) throw flowError;
-
-      // Atualizar OP
+      // Atualizar OP para aguardando no próximo setor
+      // NÃO criar fluxo - será criado quando o operador do próximo setor apertar "Iniciar"
       const { error: opError } = await supabase
         .from("metal_ops")
         .update({
           setor_atual: proximoSetor,
-          status: "em_producao"
+          status: "aguardando"
         })
         .eq("id", selectedOP.id);
 
