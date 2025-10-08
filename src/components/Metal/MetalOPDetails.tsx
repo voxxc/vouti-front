@@ -33,6 +33,23 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     }
   );
 
+  // Atualizar formData e rotation quando selectedOP mudar
+  useEffect(() => {
+    if (isCreating) {
+      setFormData({
+        numero_op: "",
+        produto: "",
+        data_entrada: new Date().toISOString().split('T')[0],
+        quantidade: 1,
+        status: "aguardando",
+      });
+      setRotation(0);
+    } else if (selectedOP) {
+      setFormData(selectedOP);
+      setRotation(selectedOP.ficha_tecnica_rotation || 0);
+    }
+  }, [selectedOP, isCreating]);
+
   useEffect(() => {
     loadUserSetor();
   }, []);
