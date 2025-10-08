@@ -247,11 +247,11 @@ const MetalDashboard = () => {
       </header>
 
       {/* Main Layout - Responsive */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-x-auto overflow-y-hidden">
         {/* Mobile: Stack vertically, Desktop: 3 columns */}
         
         {/* Left Sidebar - OP List (Hidden on mobile when OP selected) */}
-        <div className={`${(selectedOP || isCreating) ? 'hidden md:block' : 'block'} w-full md:w-80 flex-shrink-0 border-b md:border-b-0 md:border-r`}>
+        <div className={`${(selectedOP || isCreating) ? 'hidden md:block' : 'block'} w-full md:w-80 md:min-w-80 flex-shrink-0 border-b md:border-b-0 md:border-r`}>
           {showCompleted ? (
             <CompletedOPsList
               ops={ops}
@@ -270,7 +270,7 @@ const MetalDashboard = () => {
         </div>
 
         {/* Center - OP Details (Full width on mobile when active) */}
-        <div className={`${(selectedOP || isCreating) ? 'flex' : 'hidden md:flex'} flex-1 overflow-hidden`}>
+        <div className={`${(selectedOP || isCreating) ? 'flex' : 'hidden md:flex'} flex-1 overflow-auto`}>
           {(selectedOP || isCreating) ? (
             <MetalOPDetails
               selectedOP={selectedOP}
