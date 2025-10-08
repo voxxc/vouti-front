@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { MetalOPList } from "@/components/Metal/MetalOPList";
 import { MetalOPDetails } from "@/components/Metal/MetalOPDetails";
 import { MetalOPInfo } from "@/components/Metal/MetalOPInfo";
-import { MetalSetorBar } from "@/components/Metal/MetalSetorBar";
 import { CompletedOPsList } from "@/components/Metal/CompletedOPsList";
 import type { MetalOP } from "@/types/metal";
 
@@ -293,14 +292,6 @@ const MetalDashboard = () => {
         <div className="hidden lg:block w-96 flex-shrink-0">
           <MetalOPInfo selectedOP={selectedOP} />
         </div>
-      </div>
-
-      {/* Bottom Bar - Setores (Scrollable on mobile) */}
-      <div className="flex-shrink-0">
-        <MetalSetorBar 
-          selectedOP={selectedOP} 
-          onSetorClick={handleSetorClick} 
-        />
       </div>
     </div>
   );
