@@ -103,15 +103,15 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Criar Novo Usuário</DialogTitle>
           <DialogDescription>
-            Preencha os dados para criar um novo usuário no sistema.
+            Preencha os dados para criar um novo usuário.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="full_name">Nome Completo *</Label>
             <Input
@@ -124,7 +124,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Login (Email) *</Label>
             <Input
               id="email"
               type="email"
@@ -151,14 +151,13 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label htmlFor="setor">Setor</Label>
             <Select
-              value={formData.setor}
+              value={formData.setor || ""}
               onValueChange={(value) => setFormData({ ...formData, setor: value })}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um setor" />
+              <SelectTrigger id="setor">
+                <SelectValue placeholder="Selecione um setor (opcional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem setor</SelectItem>
                 {SETORES.map((setor) => (
                   <SelectItem key={setor} value={setor}>
                     {setor}
@@ -168,8 +167,13 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
             </Select>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="is_admin">Permissão de Administrador</Label>
+          <div className="flex items-center justify-between py-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="is_admin">Administrador</Label>
+              <p className="text-xs text-muted-foreground">
+                Dar permissões de administrador
+              </p>
+            </div>
             <Switch
               id="is_admin"
               checked={formData.is_admin}
@@ -177,16 +181,17 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
             />
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="flex-1"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="flex-1">
               {loading ? "Criando..." : "Criar Usuário"}
             </Button>
           </div>
