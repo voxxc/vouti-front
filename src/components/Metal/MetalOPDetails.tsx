@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Camera, X, FileImage, ZoomIn, ZoomOut, Maximize2, RotateCw, Save } from "lucide-react";
+import { Camera, X, FileImage, ZoomIn, ZoomOut, Maximize2, RotateCw, Save, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -22,8 +22,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [uploading, setUploading] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);
-  const [imageRotation, setImageRotation] = useState(0);
-  const [savedRotation, setSavedRotation] = useState(0);
+  const [imageRotation, setImageRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
+  const [savedRotation, setSavedRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [startPanPosition, setStartPanPosition] = useState({ x: 0, y: 0 });
@@ -38,6 +38,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       data_entrada: new Date().toISOString().split('T')[0],
       quantidade: 1,
       status: "aguardando",
+      ficha_tecnica_rotation: 0,
     }
   );
 
@@ -96,6 +97,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           quantidade: formData.quantidade || 1,
           data_entrada: formData.data_entrada || new Date().toISOString().split('T')[0],
           ficha_tecnica_url: formData.ficha_tecnica_url,
+          ficha_tecnica_rotation: formData.ficha_tecnica_rotation || 0,
           status: formData.status || 'aguardando',
           created_by: user.id,
         }]);
@@ -108,6 +110,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             produto: formData.produto,
             data_entrada: formData.data_entrada,
             ficha_tecnica_url: formData.ficha_tecnica_url,
+            ficha_tecnica_rotation: formData.ficha_tecnica_rotation || 0,
           })
           .eq("id", selectedOP?.id);
         if (error) throw error;
@@ -142,9 +145,39 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     setImageRotation(prev => (prev + 90) % 360);
   };
 
-  const handleSaveRotation = () => {
-    setSavedRotation(imageRotation);
-    toast({ title: "Rotação salva!" });
+  const handleSaveRotation = async () => {
+    if (!selectedOP?.id) {
+      toast({
+        title: "Erro",
+        description: "OP não encontrada para salvar rotação.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('metal_ops')
+        .update({ ficha_tecnica_rotation: imageRotation })
+        .eq('id', selectedOP.id);
+
+      if (error) throw error;
+
+      setSavedRotation(imageRotation);
+      setFormData({ ...formData, ficha_tecnica_rotation: imageRotation });
+      
+      toast({
+        title: "Rotação salva",
+        description: "A rotação da imagem foi salva com sucesso.",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar rotação:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar a rotação da imagem.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCloseViewer = () => {
@@ -225,18 +258,22 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   }, [imageViewerOpen]);
 
   // Pan handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (imageZoom > 1) {
       setIsPanning(true);
-      setStartPanPosition({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      setStartPanPosition({ x: clientX - panPosition.x, y: clientY - panPosition.y });
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (isPanning && imageZoom > 1) {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       setPanPosition({ 
-        x: e.clientX - startPanPosition.x, 
-        y: e.clientY - startPanPosition.y 
+        x: clientX - startPanPosition.x, 
+        y: clientY - startPanPosition.y 
       });
     }
   };
@@ -263,21 +300,42 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             <Label className="mb-3 block text-sm md:text-base">Ficha Técnica da OP</Label>
             {formData.ficha_tecnica_url ? (
               <div className="relative w-full">
-                <div 
-                  className="relative w-full cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={handleOpenViewer}
-                >
-                  <img
-                    src={formData.ficha_tecnica_url}
-                    alt="Ficha Técnica"
-                    className="w-full h-auto object-contain rounded-lg border"
-                    style={{
-                      transform: `rotate(${savedRotation}deg)`,
+                <div className="relative w-full h-48 bg-muted rounded-lg overflow-hidden group">
+                  <button
+                    onClick={handleOpenViewer}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleOpenViewer();
                     }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors rounded-lg">
-                    <Maximize2 className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
-                  </div>
+                    className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
+                    type="button"
+                    aria-label="Abrir visualizador de imagem"
+                  >
+                    <img
+                      src={formData.ficha_tecnica_url}
+                      alt="Ficha Técnica"
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform pointer-events-none"
+                      style={{
+                        transform: `rotate(${savedRotation}deg)`,
+                      }}
+                    />
+                  </button>
+                  
+                  {/* Floating "Ver" button for mobile */}
+                  <Button
+                    onClick={handleOpenViewer}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenViewer();
+                    }}
+                    size="sm"
+                    className="absolute bottom-2 right-2 sm:hidden z-10 bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm touch-manipulation active:scale-95 transition-transform"
+                    type="button"
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Ver
+                  </Button>
                 </div>
                 <Button
                   variant="destructive"
@@ -382,8 +440,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       <Dialog open={imageViewerOpen} onOpenChange={(open) => {
         if (!open) handleCloseViewer();
       }}>
-        <DialogContent className="max-w-full max-h-full w-full h-full p-0 bg-black/95 border-0 md:max-w-[85vw] md:max-h-[85vh] md:rounded-lg">
-          <div className="relative w-full h-full flex flex-col touch-none">
+        <DialogContent className="fixed inset-0 w-screen h-screen max-w-none p-0 bg-black/95 border-0 z-[100] md:inset-auto md:max-w-[85vw] md:max-h-[85vh] md:w-auto md:h-auto md:rounded-lg">
+          <div className="relative w-full h-full flex flex-col touch-none overflow-hidden">
             {/* Top Controls - Zoom */}
             <div className="absolute top-3 right-3 md:top-4 md:right-4 z-10 flex gap-1.5 md:gap-2 bg-black/60 p-1 rounded-lg backdrop-blur-sm">
               <Button
@@ -447,11 +505,14 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             {/* Image Container with Zoom and Rotation */}
             <div 
               ref={containerRef}
-              className="flex-1 overflow-hidden flex items-center justify-center p-2 md:p-4 select-none"
+              className="flex-1 overflow-hidden flex items-center justify-center p-2 md:p-4 select-none cursor-move touch-none"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
+              onTouchStart={handleMouseDown}
+              onTouchMove={handleMouseMove}
+              onTouchEnd={handleMouseUp}
             >
               <img
                 ref={imageRef}

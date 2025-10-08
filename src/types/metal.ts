@@ -31,6 +31,7 @@ export interface MetalOP {
   quantidade: number;
   desenhista: string | null;
   ficha_tecnica_url: string | null;
+  ficha_tecnica_rotation: number;
   status: string;
   setor_atual: string | null;
   data_prevista_saida: string | null;
