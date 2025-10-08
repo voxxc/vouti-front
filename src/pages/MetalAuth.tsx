@@ -13,7 +13,7 @@ const MetalAuth = () => {
   const { signIn, signUp, user } = useMetalAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [setor, setSetor] = useState('');
@@ -27,10 +27,10 @@ const MetalAuth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
+    if (!login || !password) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha email e senha.",
+        description: "Preencha login e senha.",
         variant: "destructive",
       });
       return;
@@ -38,6 +38,8 @@ const MetalAuth = () => {
 
     setIsLoading(true);
 
+    // Convert login to email format
+    const email = `${login.toLowerCase().trim()}@metalsystem.local`;
     const { error } = await signIn(email, password);
 
     if (error) {
@@ -56,7 +58,7 @@ const MetalAuth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password || !fullName) {
+    if (!login || !password || !fullName) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha todos os campos obrigatórios.",
@@ -76,6 +78,8 @@ const MetalAuth = () => {
 
     setIsLoading(true);
 
+    // Convert login to email format
+    const email = `${login.toLowerCase().trim()}@metalsystem.local`;
     const { error } = await signUp(email, password, fullName, setor);
 
     if (error) {
@@ -118,13 +122,13 @@ const MetalAuth = () => {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email" className="text-slate-200">Email</Label>
+                  <Label htmlFor="signin-login" className="text-slate-200">Login</Label>
                   <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="signin-login"
+                    type="text"
+                    placeholder="Ex: matheus"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ''))}
                     disabled={isLoading}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
@@ -176,13 +180,13 @@ const MetalAuth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-slate-200">Email *</Label>
+                  <Label htmlFor="signup-login" className="text-slate-200">Login *</Label>
                   <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="signup-login"
+                    type="text"
+                    placeholder="Ex: matheus"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ''))}
                     disabled={isLoading}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
