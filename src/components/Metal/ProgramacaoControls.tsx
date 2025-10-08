@@ -33,20 +33,21 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
 
     setIsInProgress(!!openFlow);
 
-    // Verificar se foi pausado (último fluxo tem saída mas OP ainda em Programação)
+    // Verificar se foi pausado
+    // Está pausado se NÃO tem fluxo aberto mas tem pelo menos um fluxo fechado
     if (!openFlow) {
-      const { data: lastFlow } = await supabase
+      const { data: closedFlows, count } = await supabase
         .from("metal_setor_flow")
-        .select("*")
+        .select("*", { count: 'exact' })
         .eq("op_id", selectedOP.id)
         .eq("setor", "Programação")
-        .not("saida", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .not("saida", "is", null);
 
-      // Está pausado se existe fluxo fechado E a OP ainda está em Programação
-      setIsPaused(!!lastFlow && selectedOP.setor_atual === "Programação");
+      // Está pausado se tem fluxo fechado E a OP ainda não avançou para outro setor
+      const hasClosedFlow = (count || 0) > 0;
+      const notInOtherSetor = !selectedOP.setor_atual || selectedOP.setor_atual === "Programação";
+      
+      setIsPaused(hasClosedFlow && notInOtherSetor);
     } else {
       setIsPaused(false);
     }
@@ -79,12 +80,12 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
 
           if (updateError) throw updateError;
 
-          // Atualizar OP para aguardando
+          // Atualizar OP para pausado (manter em Programação)
           const { error: opError } = await supabase
             .from("metal_ops")
             .update({
-              status: "aguardando",
-              setor_atual: null
+              status: "pausado",
+              setor_atual: "Programação"
             })
             .eq("id", selectedOP.id);
 
