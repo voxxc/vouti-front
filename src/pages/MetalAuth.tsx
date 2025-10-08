@@ -116,19 +116,16 @@ const MetalAuth = () => {
 
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="signin">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-            </TabsList>
+            <div className="mb-6" />
 
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-login" className="text-slate-200">Login ou E-mail</Label>
+                  <Label htmlFor="signin-login" className="text-slate-200">Login</Label>
                   <Input
                     id="signin-login"
                     type="text"
-                    placeholder="Ex: matheus ou email@example.com"
+                    placeholder="ex: login"
                     value={login}
                     onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.@]/g, ''))}
                     disabled={isLoading}
@@ -161,77 +158,6 @@ const MetalAuth = () => {
                     </>
                   ) : (
                     'Entrar'
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name" className="text-slate-200">Nome Completo *</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Seu nome"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    disabled={isLoading}
-                    className="bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-login" className="text-slate-200">Login ou E-mail *</Label>
-                  <Input
-                    id="signup-login"
-                    type="text"
-                    placeholder="Ex: matheus ou email@example.com"
-                    value={login}
-                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.@]/g, ''))}
-                    disabled={isLoading}
-                    className="bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-slate-200">Senha *</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    className="bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-setor" className="text-slate-200">Setor</Label>
-                  <Input
-                    id="signup-setor"
-                    type="text"
-                    placeholder="Ex: Corte, Dobra, Solda..."
-                    value={setor}
-                    onChange={(e) => setSetor(e.target.value)}
-                    disabled={isLoading}
-                    className="bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-orange-600 hover:bg-orange-700"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando conta...
-                    </>
-                  ) : (
-                    'Criar Conta'
                   )}
                 </Button>
               </form>
