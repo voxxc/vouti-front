@@ -20,7 +20,7 @@ interface MetalOPDetailsProps {
 export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: MetalOPDetailsProps) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
-  const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -227,6 +227,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           quantidade: formData.quantidade || 1,
           data_entrada: formData.data_entrada || new Date().toISOString().split('T')[0],
           ficha_tecnica_url: formData.ficha_tecnica_url,
+          ficha_tecnica_rotation: rotation,
           status: formData.status || 'aguardando',
           created_by: user.id,
         }]);
@@ -239,6 +240,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             produto: formData.produto,
             data_entrada: formData.data_entrada,
             ficha_tecnica_url: formData.ficha_tecnica_url,
+            ficha_tecnica_rotation: rotation,
           })
           .eq("id", selectedOP?.id);
         if (error) throw error;
