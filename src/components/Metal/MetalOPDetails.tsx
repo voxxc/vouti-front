@@ -440,10 +440,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       <Dialog open={imageViewerOpen} onOpenChange={(open) => {
         if (!open) handleCloseViewer();
       }}>
-        <DialogContent className="fixed inset-0 w-screen h-screen max-w-none p-0 bg-black/95 border-0 z-[100] md:inset-auto md:max-w-[85vw] md:max-h-[85vh] md:w-auto md:h-auto md:rounded-lg">
+        <DialogContent className="fixed inset-0 w-screen h-screen max-w-none p-0 border-0 bg-black/95 md:relative md:max-w-[90vw] md:max-h-[90vh] md:w-auto md:h-auto md:rounded-lg md:border md:bg-background z-[100]">
           <div className="relative w-full h-full flex flex-col touch-none overflow-hidden">
             {/* Top Controls - Zoom */}
-            <div className="absolute top-3 right-3 md:top-4 md:right-4 z-10 flex gap-1.5 md:gap-2 bg-black/60 p-1 rounded-lg backdrop-blur-sm">
+            <div className="absolute top-3 right-3 md:top-4 md:right-4 z-10 flex gap-1.5 md:gap-2 bg-black/60 md:bg-muted p-1 rounded-lg backdrop-blur-sm md:backdrop-blur-none">
               <Button
                 variant="secondary"
                 size="icon"
@@ -479,7 +479,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             </div>
 
             {/* Bottom Controls - Rotation */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 md:bottom-4 z-10 flex gap-2 bg-black/70 p-2 rounded-lg backdrop-blur">
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 md:bottom-4 z-10 flex gap-2 bg-black/70 md:bg-muted p-2 rounded-lg backdrop-blur md:backdrop-blur-none">
               <Button
                 variant="secondary"
                 size="sm"
@@ -505,7 +505,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             {/* Image Container with Zoom and Rotation */}
             <div 
               ref={containerRef}
-              className="flex-1 overflow-hidden flex items-center justify-center p-2 md:p-4 select-none cursor-move touch-none"
+              className="flex-1 overflow-hidden flex items-center justify-center p-2 md:p-4 md:bg-muted/30 select-none cursor-move touch-none"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
