@@ -17,6 +17,7 @@ const MetalDashboard = () => {
   const [ops, setOps] = useState<MetalOP[]>([]);
   const [selectedOP, setSelectedOP] = useState<MetalOP | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [userSetor, setUserSetor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -25,6 +26,7 @@ const MetalDashboard = () => {
     }
 
     loadOPs();
+    loadUserSetor();
 
     // Realtime subscription
     const channel = supabase
@@ -39,6 +41,20 @@ const MetalDashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [user, navigate]);
+
+  const loadUserSetor = async () => {
+    if (!user) return;
+
+    const { data: profileData } = await supabase
+      .from("metal_profiles")
+      .select("setor")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileData) {
+      setUserSetor(profileData.setor);
+    }
+  };
 
   const loadOPs = async () => {
     try {
@@ -75,6 +91,19 @@ const MetalDashboard = () => {
     loadOPs();
     setIsCreating(false);
     setSelectedOP(null);
+  };
+
+  const handleSaveAndKeepOpen = async () => {
+    await loadOPs();
+    // Recarregar selectedOP atualizada
+    if (selectedOP) {
+      const { data } = await supabase
+        .from('metal_ops')
+        .select('*')
+        .eq('id', selectedOP.id)
+        .single();
+      if (data) setSelectedOP(data);
+    }
   };
 
   const handleSetorClick = async (setor: string) => {
@@ -208,7 +237,9 @@ const MetalDashboard = () => {
           <MetalOPList 
             ops={ops} 
             selectedOP={selectedOP} 
-            onSelectOP={handleSelectOP} 
+            onSelectOP={handleSelectOP}
+            userSetor={userSetor}
+            isAdmin={isAdmin}
           />
         </div>
 
@@ -218,7 +249,7 @@ const MetalDashboard = () => {
             <MetalOPDetails
               selectedOP={selectedOP}
               onClose={handleClose}
-              onSave={handleSave}
+              onSave={isCreating ? handleSave : handleSaveAndKeepOpen}
               isCreating={isCreating}
             />
           ) : (

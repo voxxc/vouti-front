@@ -14,14 +14,16 @@ interface ProgramacaoControlsProps {
 export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: ProgramacaoControlsProps) {
   const { toast } = useToast();
   const [isInProgress, setIsInProgress] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    checkIfInProgress();
+    checkStatus();
   }, [selectedOP]);
 
-  const checkIfInProgress = async () => {
-    const { data } = await supabase
+  const checkStatus = async () => {
+    // Verificar se tem fluxo aberto (sem saída)
+    const { data: openFlow } = await supabase
       .from("metal_setor_flow")
       .select("*")
       .eq("op_id", selectedOP.id)
@@ -29,7 +31,25 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       .is("saida", null)
       .maybeSingle();
 
-    setIsInProgress(!!data);
+    setIsInProgress(!!openFlow);
+
+    // Verificar se foi pausado (último fluxo tem saída mas OP ainda em Programação)
+    if (!openFlow) {
+      const { data: lastFlow } = await supabase
+        .from("metal_setor_flow")
+        .select("*")
+        .eq("op_id", selectedOP.id)
+        .eq("setor", "Programação")
+        .not("saida", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Está pausado se existe fluxo fechado E a OP ainda está em Programação
+      setIsPaused(!!lastFlow && selectedOP.setor_atual === "Programação");
+    } else {
+      setIsPaused(false);
+    }
   };
 
   const handleIniciarPausar = async () => {
@@ -80,6 +100,7 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
 
           toast({ title: "OP pausada" });
           setIsInProgress(false);
+          setIsPaused(true);
         }
       } else {
         // Iniciar - registrar entrada no setor
@@ -115,6 +136,7 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
 
         toast({ title: "OP iniciada" });
         setIsInProgress(true);
+        setIsPaused(false);
       }
 
       onUpdate();
@@ -130,10 +152,10 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
   };
 
   const handleAvancar = async () => {
-    if (!isInProgress) {
+    if (!isPaused) {
       toast({
         title: "Atenção",
-        description: "Você precisa iniciar a OP antes de avançar",
+        description: "Você precisa pausar a OP antes de avançar",
         variant: "destructive",
       });
       return;
@@ -204,6 +226,7 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       });
       
       setIsInProgress(false);
+      setIsPaused(false);
       onUpdate();
     } catch (error: any) {
       toast({
@@ -245,7 +268,7 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       <Button
         variant="outline"
         onClick={handleAvancar}
-        disabled={loading || !isInProgress}
+        disabled={loading || !isPaused}
         className="flex-1 h-12"
       >
         <ArrowRight className="h-4 w-4 mr-2" />

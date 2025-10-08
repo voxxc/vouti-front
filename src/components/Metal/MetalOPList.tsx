@@ -10,6 +10,8 @@ interface MetalOPListProps {
   ops: MetalOP[];
   selectedOP: MetalOP | null;
   onSelectOP: (op: MetalOP) => void;
+  userSetor: string | null;
+  isAdmin: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,10 +21,25 @@ const STATUS_COLORS: Record<string, string> = {
   atrasado: "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function MetalOPList({ ops, selectedOP, onSelectOP }: MetalOPListProps) {
+export function MetalOPList({ ops, selectedOP, onSelectOP, userSetor, isAdmin }: MetalOPListProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOPs = ops.filter((op) =>
+  // Primeiro filtrar por setor
+  const filteredBySetor = ops.filter((op) => {
+    // Admin vê todas as OPs
+    if (isAdmin) return true;
+    
+    // Programação vê OPs aguardando ou que estão em Programação
+    if (userSetor === 'Programação') {
+      return op.status === 'aguardando' || op.setor_atual === 'Programação';
+    }
+    
+    // Outros setores veem apenas OPs que estão no seu setor
+    return op.setor_atual === userSetor;
+  });
+
+  // Depois aplicar busca
+  const filteredOPs = filteredBySetor.filter((op) =>
     op.numero_op.toLowerCase().includes(searchTerm.toLowerCase()) ||
     op.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
     op.produto.toLowerCase().includes(searchTerm.toLowerCase())

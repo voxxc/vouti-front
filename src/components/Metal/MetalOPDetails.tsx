@@ -269,6 +269,14 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
       toast({ title: isCreating ? "OP criada com sucesso!" : "OP atualizada com sucesso!" });
       onSave();
+      
+      // Ao salvar, atualizar rotation no banco
+      if (!isCreating && rotation !== selectedOP?.ficha_tecnica_rotation) {
+        await supabase
+          .from("metal_ops")
+          .update({ ficha_tecnica_rotation: rotation })
+          .eq("id", selectedOP?.id);
+      }
     } catch (error: any) {
       toast({
         title: "Erro ao salvar OP",
