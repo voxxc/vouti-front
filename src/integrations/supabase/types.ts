@@ -346,7 +346,6 @@ export type Database = {
           data_prevista_saida: string | null
           desenhista: string | null
           dimensoes: string | null
-          ficha_tecnica_rotation: number
           ficha_tecnica_url: string | null
           id: string
           item: string | null
@@ -369,7 +368,6 @@ export type Database = {
           data_prevista_saida?: string | null
           desenhista?: string | null
           dimensoes?: string | null
-          ficha_tecnica_rotation?: number
           ficha_tecnica_url?: string | null
           id?: string
           item?: string | null
@@ -392,7 +390,6 @@ export type Database = {
           data_prevista_saida?: string | null
           desenhista?: string | null
           dimensoes?: string | null
-          ficha_tecnica_rotation?: number
           ficha_tecnica_url?: string | null
           id?: string
           item?: string | null

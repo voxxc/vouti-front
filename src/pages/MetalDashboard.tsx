@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMetalAuth } from "@/contexts/MetalAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Factory, Users } from "lucide-react";
+import { LogOut, Plus, Factory } from "lucide-react";
 import { toast } from "sonner";
 import { MetalOPList } from "@/components/Metal/MetalOPList";
 import { MetalOPDetails } from "@/components/Metal/MetalOPDetails";
@@ -12,14 +12,11 @@ import { MetalSetorBar } from "@/components/Metal/MetalSetorBar";
 import type { MetalOP } from "@/types/metal";
 
 const MetalDashboard = () => {
-  const { user, profile, isAdmin, signOut } = useMetalAuth();
+  const { user, profile, signOut } = useMetalAuth();
   const navigate = useNavigate();
   const [ops, setOps] = useState<MetalOP[]>([]);
   const [selectedOP, setSelectedOP] = useState<MetalOP | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  
-  // Check if user can create OPs (admin or programacao)
-  const canCreateOP = isAdmin || profile?.setor === 'programacao';
 
   useEffect(() => {
     if (!user) {
@@ -170,23 +167,10 @@ const MetalDashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            {isAdmin && (
-              <Button 
-                onClick={() => navigate('/metal-admin-users')} 
-                size="sm" 
-                variant="outline"
-                className="h-8 md:h-9 border-slate-600 hover:bg-slate-700"
-              >
-                <Users className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
-                <span className="hidden sm:inline">Usuários</span>
-              </Button>
-            )}
-            {canCreateOP && (
-              <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
-                <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
-                <span className="hidden sm:inline">Nova OP</span>
-              </Button>
-            )}
+            <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
+              <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+              <span className="hidden sm:inline">Nova OP</span>
+            </Button>
             
             <div className="text-right hidden md:block">
               <p className="text-sm text-white font-medium">{profile?.full_name}</p>
