@@ -128,7 +128,7 @@ const MetalAuth = () => {
                     type="text"
                     placeholder="Ex: matheus"
                     value={login}
-                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ''))}
+                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.@]/g, ''))}
                     disabled={isLoading}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
@@ -186,7 +186,7 @@ const MetalAuth = () => {
                     type="text"
                     placeholder="Ex: matheus"
                     value={login}
-                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ''))}
+                    onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.@]/g, ''))}
                     disabled={isLoading}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
