@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -289,8 +289,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                   
                   {!isCreating && (
                     <>
-                      <Popover>
-                        <PopoverTrigger asChild>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                           <Button
                             variant="outline"
                             size="sm"
@@ -299,23 +299,18 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                             <MapPin className="h-4 w-4" />
                             Definir Fase
                           </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-2">
-                          <div className="space-y-1">
-                            {SETORES.map((setor) => (
-                              <Button
-                                key={setor}
-                                variant="ghost"
-                                size="sm"
-                                className="w-full justify-start"
-                                onClick={() => handleSetSetor(setor)}
-                              >
-                                {setor}
-                              </Button>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56" align="center">
+                          {SETORES.map((setor) => (
+                            <DropdownMenuItem
+                              key={setor}
+                              onClick={() => handleSetSetor(setor)}
+                            >
+                              {setor}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
                       <Button
                         variant="outline"
