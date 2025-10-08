@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMetalAuth } from "@/contexts/MetalAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Factory } from "lucide-react";
+import { LogOut, Plus, Factory, Users } from "lucide-react";
 import { toast } from "sonner";
 import { MetalOPList } from "@/components/Metal/MetalOPList";
 import { MetalOPDetails } from "@/components/Metal/MetalOPDetails";
@@ -12,7 +12,7 @@ import { MetalSetorBar } from "@/components/Metal/MetalSetorBar";
 import type { MetalOP } from "@/types/metal";
 
 const MetalDashboard = () => {
-  const { user, profile, signOut } = useMetalAuth();
+  const { user, profile, signOut, isAdmin } = useMetalAuth();
   const navigate = useNavigate();
   const [ops, setOps] = useState<MetalOP[]>([]);
   const [selectedOP, setSelectedOP] = useState<MetalOP | null>(null);
@@ -167,6 +167,18 @@ const MetalDashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/metal-admin-users')}
+                className="h-8 md:h-9"
+              >
+                <Users className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden md:inline md:ml-2">Usuários</span>
+              </Button>
+            )}
+            
             <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
               <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
               <span className="hidden sm:inline">Nova OP</span>

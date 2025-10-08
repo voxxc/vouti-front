@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, User } from 'lucide-react';
+import { ArrowLeft, Shield, User, Plus, Pencil } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import type { MetalProfile } from '@/types/metal';
+import { CreateUserDialog } from '@/components/Metal/CreateUserDialog';
+import { EditUserDialog } from '@/components/Metal/EditUserDialog';
 
 interface UserWithRole extends MetalProfile {
   is_admin: boolean;
@@ -34,6 +36,9 @@ const MetalAdminUsers = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<MetalProfile | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -195,10 +200,18 @@ const MetalAdminUsers = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Usuários do Sistema</CardTitle>
-            <CardDescription className="text-slate-400">
-              Configure setores e permissões dos usuários
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-white">Usuários do Sistema</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Configure setores e permissões dos usuários
+                </CardDescription>
+              </div>
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Usuário
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -257,18 +270,31 @@ const MetalAdminUsers = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleAdminRole(user.user_id, user.is_admin)}
-                          className={
-                            user.is_admin
-                              ? 'border-red-500/50 text-red-400 hover:bg-red-500/10'
-                              : 'border-green-500/50 text-green-400 hover:bg-green-500/10'
-                          }
-                        >
-                          {user.is_admin ? 'Remover Admin' : 'Tornar Admin'}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setEditDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="w-3 h-3 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleAdminRole(user.user_id, user.is_admin)}
+                            className={
+                              user.is_admin
+                                ? 'border-red-500/50 text-red-400 hover:bg-red-500/10'
+                                : 'border-green-500/50 text-green-400 hover:bg-green-500/10'
+                            }
+                          >
+                            {user.is_admin ? 'Remover Admin' : 'Tornar Admin'}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -277,6 +303,19 @@ const MetalAdminUsers = () => {
             )}
           </CardContent>
         </Card>
+
+        <CreateUserDialog 
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onSuccess={loadUsers}
+        />
+
+        <EditUserDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSuccess={loadUsers}
+          user={selectedUser}
+        />
       </main>
     </div>
   );
