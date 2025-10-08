@@ -223,7 +223,7 @@ const MetalAdminUsers = () => {
                 <TableHeader>
                   <TableRow className="border-slate-700">
                     <TableHead className="text-slate-300">Nome</TableHead>
-                    <TableHead className="text-slate-300">Email</TableHead>
+                    <TableHead className="text-slate-300">Login</TableHead>
                     <TableHead className="text-slate-300">Setor</TableHead>
                     <TableHead className="text-slate-300">Permissão</TableHead>
                     <TableHead className="text-slate-300">Ações</TableHead>

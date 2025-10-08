@@ -44,7 +44,10 @@ serve(async (req) => {
       throw new Error('Apenas administradores podem criar usuários')
     }
 
-    const { email, password, full_name, setor, is_admin } = await req.json()
+    const { login, password, full_name, setor, is_admin } = await req.json()
+
+    // Create a fictional email based on login
+    const email = `${login}@metalsystem.local`
 
     // Create the user using admin API
     const { data: newUser, error: createError } = await supabaseClient.auth.admin.createUser({
@@ -58,12 +61,12 @@ serve(async (req) => {
 
     if (createError) throw createError
 
-    // Create profile
+    // Create profile with login stored
     const { error: profileError } = await supabaseClient
       .from('metal_profiles')
       .insert({
         user_id: newUser.user.id,
-        email,
+        email: login, // Store login instead of email
         full_name,
         setor: setor || null,
       })

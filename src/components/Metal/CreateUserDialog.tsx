@@ -31,7 +31,7 @@ interface CreateUserDialogProps {
 export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDialogProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    login: "",
     password: "",
     full_name: "",
     setor: "",
@@ -41,10 +41,10 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password || !formData.full_name) {
+    if (!formData.login || !formData.password || !formData.full_name) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha email, senha e nome completo.",
+        description: "Preencha login, senha e nome completo.",
         variant: "destructive",
       });
       return;
@@ -80,7 +80,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       });
 
       setFormData({
-        email: "",
+        login: "",
         password: "",
         full_name: "",
         setor: "",
@@ -124,15 +124,17 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Login (Email) *</Label>
+            <Label htmlFor="login">Login *</Label>
             <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="usuario@exemplo.com"
+              id="login"
+              type="text"
+              value={formData.login}
+              onChange={(e) => setFormData({ ...formData, login: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+              placeholder="Ex: joao.silva"
+              pattern="[a-z0-9]+"
               required
             />
+            <p className="text-xs text-muted-foreground">Apenas letras minúsculas e números</p>
           </div>
 
           <div className="space-y-2">
