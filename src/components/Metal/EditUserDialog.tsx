@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const SETORES = [
@@ -57,11 +57,7 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
     e.preventDefault();
     
     if (!user || !formData.email || !formData.full_name) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Preencha email e nome completo.",
-        variant: "destructive",
-      });
+      toast.error("Preencha email e nome completo.");
       return;
     }
 
@@ -101,20 +97,13 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
         throw new Error(result.error || "Erro ao atualizar usuário");
       }
 
-      toast({
-        title: "Usuário atualizado!",
-        description: "Os dados do usuário foram atualizados com sucesso.",
-      });
+      toast.success("Usuário atualizado com sucesso!");
 
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error updating user:", error);
-      toast({
-        title: "Erro ao atualizar usuário",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(error.message || "Erro ao atualizar usuário");
     } finally {
       setLoading(false);
     }
@@ -143,7 +132,7 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit_email">Email *</Label>
+            <Label htmlFor="edit_email">Login *</Label>
             <Input
               id="edit_email"
               type="email"
