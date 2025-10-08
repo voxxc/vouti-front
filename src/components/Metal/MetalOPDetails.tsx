@@ -113,35 +113,54 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     if (!selectedOP) return;
     
     try {
-      // Deletar todos os registros de fluxo de setor
-      const { error: deleteError } = await supabase
-        .from("metal_setor_flow")
-        .delete()
-        .eq("op_id", selectedOP.id);
-      
-      if (deleteError) throw deleteError;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
 
-      // Resetar setor_atual e status da OP
-      const { error: updateError } = await supabase
-        .from("metal_ops")
-        .update({
-          setor_atual: null,
-          status: "aguardando"
-        })
-        .eq("id", selectedOP.id);
+      // Se for Programação ou Admin, resetar tudo
+      if (userSetor === 'Programação' || !userSetor) {
+        // Deletar todos os registros de fluxo de setor
+        const { error: deleteError } = await supabase
+          .from("metal_setor_flow")
+          .delete()
+          .eq("op_id", selectedOP.id);
+        
+        if (deleteError) throw deleteError;
 
-      if (updateError) throw updateError;
+        // Resetar setor_atual e status da OP
+        const { error: updateError } = await supabase
+          .from("metal_ops")
+          .update({
+            setor_atual: null,
+            status: "aguardando"
+          })
+          .eq("id", selectedOP.id);
 
-      toast({ title: "OP resetada com sucesso!" });
-      // Não fecha o painel, apenas recarrega os dados
+        if (updateError) throw updateError;
+
+        toast({ title: "OP resetada completamente!" });
+      } else {
+        // Para outros setores, resetar apenas o setor atual
+        const { error: deleteError } = await supabase
+          .from("metal_setor_flow")
+          .delete()
+          .eq("op_id", selectedOP.id)
+          .eq("setor", userSetor);
+        
+        if (deleteError) throw deleteError;
+
+        toast({ title: `Resetado apenas o setor ${userSetor}` });
+      }
+
+      // Recarregar dados
       setFormData({
         ...formData,
-        setor_atual: null,
-        status: "aguardando"
+        setor_atual: userSetor === 'Programação' ? null : formData.setor_atual,
+        status: userSetor === 'Programação' ? "aguardando" : formData.status
       });
+      onSave();
     } catch (error: any) {
       toast({
-        title: "Erro ao resetar OP",
+        title: "Erro ao resetar",
         description: error.message,
         variant: "destructive",
       });
@@ -403,62 +422,80 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 )}
 
                 <div className="flex flex-wrap gap-2 justify-center mt-6">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRotate}
-                    className="flex items-center gap-2"
-                  >
-                    <RotateCw className="h-4 w-4" />
-                    Rotacionar
-                  </Button>
-                  
-                  {!isCreating && (
+                  {/* Botões visíveis apenas para Programação */}
+                  {userSetor === 'Programação' && (
                     <>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            <MapPin className="h-4 w-4" />
-                            Definir Fase
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56" align="center">
-                          {SETORES.map((setor) => (
-                            <DropdownMenuItem
-                              key={setor}
-                              onClick={() => handleSetSetor(setor)}
-                            >
-                              {setor}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleResetOP}
+                        onClick={handleRotate}
                         className="flex items-center gap-2"
                       >
-                        <RefreshCw className="h-4 w-4" />
-                        Resetar
+                        <RotateCw className="h-4 w-4" />
+                        Rotacionar
                       </Button>
+                      
+                      {!isCreating && (
+                        <>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2"
+                              >
+                                <MapPin className="h-4 w-4" />
+                                Definir Fase
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="center">
+                              {SETORES.map((setor) => (
+                                <DropdownMenuItem
+                                  key={setor}
+                                  onClick={() => handleSetSetor(setor)}
+                                >
+                                  {setor}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleResetOP}
+                            className="flex items-center gap-2"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Resetar
+                          </Button>
+
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleRemoveImage}
+                            className="flex items-center gap-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Remover
+                          </Button>
+                        </>
+                      )}
                     </>
                   )}
 
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleRemoveImage}
-                    className="flex items-center gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Remover
-                  </Button>
+                  {/* Botão Resetar para outros setores (apenas resetar fase) */}
+                  {!isCreating && userSetor !== 'Programação' && userSetor && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetOP}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Resetar Fase
+                    </Button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -512,6 +549,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 onChange={(e) => setFormData({ ...formData, numero_op: e.target.value })}
                 placeholder="Ex: 1938/25"
                 className="text-base h-12"
+                disabled={userSetor !== 'Programação' && !isCreating}
               />
             </div>
 
@@ -525,6 +563,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 onChange={(e) => setFormData({ ...formData, produto: e.target.value })}
                 placeholder="Ex: Funil, Passa Pratos"
                 className="text-base h-12"
+                disabled={userSetor !== 'Programação' && !isCreating}
               />
             </div>
 
@@ -538,6 +577,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 value={formData.data_entrada}
                 onChange={(e) => setFormData({ ...formData, data_entrada: e.target.value })}
                 className="text-base h-12"
+                disabled={userSetor !== 'Programação' && !isCreating}
               />
             </div>
           </div>
