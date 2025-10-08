@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, X, FileImage, RotateCw, Trash2 } from "lucide-react";
+import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -38,6 +39,76 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     setFormData({ ...formData, ficha_tecnica_url: null });
     setRotation(0);
   };
+
+  const handleResetOP = async () => {
+    if (!selectedOP) return;
+    
+    try {
+      // Deletar todos os registros de fluxo de setor
+      const { error: deleteError } = await supabase
+        .from("metal_setor_flow")
+        .delete()
+        .eq("op_id", selectedOP.id);
+      
+      if (deleteError) throw deleteError;
+
+      // Resetar setor_atual e status da OP
+      const { error: updateError } = await supabase
+        .from("metal_ops")
+        .update({
+          setor_atual: null,
+          status: "aguardando"
+        })
+        .eq("id", selectedOP.id);
+
+      if (updateError) throw updateError;
+
+      toast({ title: "OP resetada com sucesso!" });
+      onSave();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao resetar OP",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSetSetor = async (setor: string) => {
+    if (!selectedOP) return;
+    
+    try {
+      const { error } = await supabase
+        .from("metal_ops")
+        .update({
+          setor_atual: setor,
+          status: "em_producao"
+        })
+        .eq("id", selectedOP.id);
+
+      if (error) throw error;
+
+      toast({ title: `Setor atualizado para ${setor}` });
+      onSave();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar setor",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const SETORES = [
+    'Programação',
+    'Guilhotina',
+    'Corte a laser',
+    'Dobra',
+    'Montagem',
+    'Acabamento',
+    'Expedição',
+    'Entrega'
+  ];
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -146,7 +217,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                   className="w-full h-auto object-contain rounded-lg border transition-transform duration-300"
                   style={{ transform: `rotate(${rotation}deg)` }}
                 />
-                <div className="flex gap-2 justify-center">
+                <div className="flex flex-wrap gap-2 justify-center">
                   <Button
                     variant="outline"
                     size="sm"
@@ -156,6 +227,49 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                     <RotateCw className="h-4 w-4" />
                     Rotacionar
                   </Button>
+                  
+                  {!isCreating && (
+                    <>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            Definir Fase
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2">
+                          <div className="space-y-1">
+                            {SETORES.map((setor) => (
+                              <Button
+                                key={setor}
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => handleSetSetor(setor)}
+                              >
+                                {setor}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleResetOP}
+                        className="flex items-center gap-2"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Resetar
+                      </Button>
+                    </>
+                  )}
+
                   <Button
                     variant="destructive"
                     size="sm"
