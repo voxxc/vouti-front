@@ -210,14 +210,16 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           <Card className="p-4">
             <Label className="mb-3 block text-sm md:text-base">Ficha Técnica da OP</Label>
             {formData.ficha_tecnica_url ? (
-              <div className="w-full space-y-3">
-                <img
-                  src={formData.ficha_tecnica_url}
-                  alt="Ficha Técnica"
-                  className="w-full h-auto object-contain rounded-lg border transition-transform duration-300"
-                  style={{ transform: `rotate(${rotation}deg)` }}
-                />
-                <div className="flex flex-wrap gap-2 justify-center">
+              <div className="w-full space-y-6">
+                <div className="w-full min-h-[200px] flex items-center justify-center mb-8">
+                  <img
+                    src={formData.ficha_tecnica_url}
+                    alt="Ficha Técnica"
+                    className="max-w-full h-auto object-contain rounded-lg border transition-transform duration-300"
+                    style={{ transform: `rotate(${rotation}deg)` }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center mt-6">
                   <Button
                     variant="outline"
                     size="sm"
