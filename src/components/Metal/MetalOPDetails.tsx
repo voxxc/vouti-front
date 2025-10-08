@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, X, FileImage } from "lucide-react";
+import { Camera, X, FileImage, RotateCw, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -19,6 +19,7 @@ interface MetalOPDetailsProps {
 export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: MetalOPDetailsProps) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
+  const [rotation, setRotation] = useState(0);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -28,6 +29,15 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       status: "aguardando",
     }
   );
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const handleRemoveImage = () => {
+    setFormData({ ...formData, ficha_tecnica_url: null });
+    setRotation(0);
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -129,20 +139,33 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           <Card className="p-4">
             <Label className="mb-3 block text-sm md:text-base">Ficha Técnica da OP</Label>
             {formData.ficha_tecnica_url ? (
-              <div className="relative w-full">
+              <div className="w-full space-y-3">
                 <img
                   src={formData.ficha_tecnica_url}
                   alt="Ficha Técnica"
-                  className="w-full h-auto object-contain rounded-lg border"
+                  className="w-full h-auto object-contain rounded-lg border transition-transform duration-300"
+                  style={{ transform: `rotate(${rotation}deg)` }}
                 />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={() => setFormData({ ...formData, ficha_tecnica_url: null })}
-                >
-                  Remover
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRotate}
+                    className="flex items-center gap-2"
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    Rotacionar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRemoveImage}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remover
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
