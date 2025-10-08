@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useState, useEffect } from 'react';
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
@@ -114,8 +115,9 @@ const MetalPublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
-    <TooltipProvider>
-      <BrowserRouter>
+    <ThemeProvider>
+      <TooltipProvider>
+        <BrowserRouter>
         <Routes>
           {/* Landing Page - Public, no auth/theme providers */}
           <Route path="/" element={<LandingPage2 />} />
@@ -224,7 +226,8 @@ function App() {
             </Routes>
             <Toaster />
           </BrowserRouter>
-    </TooltipProvider>
+        </TooltipProvider>
+      </ThemeProvider>
   );
 }
 
