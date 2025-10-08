@@ -15,7 +15,7 @@ interface SetorControlsProps {
 const SETOR_SEQUENCE = [
   "Programação",
   "Guilhotina",
-  "Corte a Laser",
+  "Corte a laser",
   "Dobra",
   "Montagem",
   "Acabamento",
