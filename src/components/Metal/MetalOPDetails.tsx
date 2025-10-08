@@ -116,9 +116,22 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Se for Programação ou Admin, resetar tudo
-      if (userSetor === 'Programação' || !userSetor) {
-        // Deletar todos os registros de fluxo de setor
+      const setorIndex = SETORES.indexOf(userSetor || '');
+      const isRestricted = setorIndex >= 1; // Guilhotina para baixo
+
+      // Se for setor restrito (Guilhotina para baixo), resetar apenas o setor atual
+      if (isRestricted && userSetor) {
+        const { error: deleteError } = await supabase
+          .from("metal_setor_flow")
+          .delete()
+          .eq("op_id", selectedOP.id)
+          .eq("setor", userSetor);
+        
+        if (deleteError) throw deleteError;
+
+        toast({ title: `Resetado apenas o setor ${userSetor}` });
+      } else {
+        // Para Programação ou Admin, resetar tudo
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
           .delete()
@@ -138,24 +151,13 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         if (updateError) throw updateError;
 
         toast({ title: "OP resetada completamente!" });
-      } else {
-        // Para outros setores, resetar apenas o setor atual
-        const { error: deleteError } = await supabase
-          .from("metal_setor_flow")
-          .delete()
-          .eq("op_id", selectedOP.id)
-          .eq("setor", userSetor);
-        
-        if (deleteError) throw deleteError;
-
-        toast({ title: `Resetado apenas o setor ${userSetor}` });
       }
 
       // Recarregar dados
       setFormData({
         ...formData,
-        setor_atual: userSetor === 'Programação' ? null : formData.setor_atual,
-        status: userSetor === 'Programação' ? "aguardando" : formData.status
+        setor_atual: isRestricted ? formData.setor_atual : null,
+        status: isRestricted ? formData.status : "aguardando"
       });
       onSave();
     } catch (error: any) {
@@ -259,6 +261,14 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     'Expedição',
     'Entrega'
   ];
+
+  // Verificar se o setor está "da Guilhotina para baixo"
+  const isRestrictedSetor = () => {
+    if (!userSetor) return false;
+    const setorIndex = SETORES.indexOf(userSetor);
+    // Guilhotina é índice 1, então >= 1 significa "da Guilhotina para baixo"
+    return setorIndex >= 1;
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -422,8 +432,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 )}
 
                 <div className="flex flex-wrap gap-2 justify-center mt-6">
-                  {/* Botões visíveis apenas para Programação */}
-                  {userSetor === 'Programação' && (
+                  {/* Botões ocultos apenas para setores da Guilhotina para baixo */}
+                  {!isRestrictedSetor() && (
                     <>
                       <Button
                         variant="outline"
@@ -484,8 +494,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                     </>
                   )}
 
-                  {/* Botão Resetar para outros setores (apenas resetar fase) */}
-                  {!isCreating && userSetor !== 'Programação' && userSetor && (
+                  {/* Botão Resetar Fase apenas para setores da Guilhotina para baixo */}
+                  {!isCreating && isRestrictedSetor() && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -549,7 +559,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 onChange={(e) => setFormData({ ...formData, numero_op: e.target.value })}
                 placeholder="Ex: 1938/25"
                 className="text-base h-12"
-                disabled={userSetor !== 'Programação' && !isCreating}
+                disabled={isRestrictedSetor() && !isCreating}
               />
             </div>
 
@@ -563,7 +573,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 onChange={(e) => setFormData({ ...formData, produto: e.target.value })}
                 placeholder="Ex: Funil, Passa Pratos"
                 className="text-base h-12"
-                disabled={userSetor !== 'Programação' && !isCreating}
+                disabled={isRestrictedSetor() && !isCreating}
               />
             </div>
 
@@ -577,7 +587,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 value={formData.data_entrada}
                 onChange={(e) => setFormData({ ...formData, data_entrada: e.target.value })}
                 className="text-base h-12"
-                disabled={userSetor !== 'Programação' && !isCreating}
+                disabled={isRestrictedSetor() && !isCreating}
               />
             </div>
           </div>
