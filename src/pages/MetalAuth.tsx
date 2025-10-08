@@ -38,8 +38,9 @@ const MetalAuth = () => {
 
     setIsLoading(true);
 
-    // Convert login to email format
-    const email = `${login.toLowerCase().trim()}@metalsystem.local`;
+    // Convert login to email format if needed
+    const normalized = login.trim().toLowerCase();
+    const email = normalized.includes('@') ? normalized : `${normalized}@metalsystem.local`;
     const { error } = await signIn(email, password);
 
     if (error) {
@@ -78,8 +79,9 @@ const MetalAuth = () => {
 
     setIsLoading(true);
 
-    // Convert login to email format
-    const email = `${login.toLowerCase().trim()}@metalsystem.local`;
+    // Convert login to email format if needed
+    const normalized = login.trim().toLowerCase();
+    const email = normalized.includes('@') ? normalized : `${normalized}@metalsystem.local`;
     const { error } = await signUp(email, password, fullName, setor);
 
     if (error) {
@@ -122,11 +124,11 @@ const MetalAuth = () => {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-login" className="text-slate-200">Login</Label>
+                  <Label htmlFor="signin-login" className="text-slate-200">Login ou E-mail</Label>
                   <Input
                     id="signin-login"
                     type="text"
-                    placeholder="Ex: matheus"
+                    placeholder="Ex: matheus ou email@example.com"
                     value={login}
                     onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.@]/g, ''))}
                     disabled={isLoading}
@@ -180,11 +182,11 @@ const MetalAuth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-login" className="text-slate-200">Login *</Label>
+                  <Label htmlFor="signup-login" className="text-slate-200">Login ou E-mail *</Label>
                   <Input
                     id="signup-login"
                     type="text"
-                    placeholder="Ex: matheus"
+                    placeholder="Ex: matheus ou email@example.com"
                     value={login}
                     onChange={(e) => setLogin(e.target.value.toLowerCase().replace(/[^a-z0-9.@]/g, ''))}
                     disabled={isLoading}
