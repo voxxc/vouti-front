@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMetalAuth } from "@/contexts/MetalAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Factory } from "lucide-react";
+import { LogOut, Plus, Factory, Users } from "lucide-react";
 import { toast } from "sonner";
 import { MetalOPList } from "@/components/Metal/MetalOPList";
 import { MetalOPDetails } from "@/components/Metal/MetalOPDetails";
@@ -170,6 +170,17 @@ const MetalDashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+            {isAdmin && (
+              <Button 
+                onClick={() => navigate('/metal-admin-users')} 
+                size="sm" 
+                variant="outline"
+                className="h-8 md:h-9 border-slate-600 hover:bg-slate-700"
+              >
+                <Users className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+                <span className="hidden sm:inline">Usuários</span>
+              </Button>
+            )}
             {canCreateOP && (
               <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
                 <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
