@@ -30,9 +30,9 @@ export function MetalOPList({ ops, selectedOP, onSelectOP }: MetalOPListProps) {
 
   return (
     <div className="h-full flex flex-col bg-background border-r">
-      <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Package className="h-5 w-5" />
+      <div className="p-3 md:p-4 border-b">
+        <h2 className="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">
+          <Package className="h-4 w-4 md:h-5 md:w-5" />
           Ordens de Produção
         </h2>
         <div className="relative">
@@ -41,7 +41,7 @@ export function MetalOPList({ ops, selectedOP, onSelectOP }: MetalOPListProps) {
             placeholder="Buscar OP..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-10"
           />
         </div>
       </div>
@@ -51,27 +51,26 @@ export function MetalOPList({ ops, selectedOP, onSelectOP }: MetalOPListProps) {
           {filteredOPs.map((op) => (
             <Card
               key={op.id}
-              className={`p-3 cursor-pointer transition-all hover:shadow-md ${
+              className={`p-3 cursor-pointer transition-all hover:shadow-md active:scale-95 ${
                 selectedOP?.id === op.id ? "ring-2 ring-primary" : ""
               }`}
               onClick={() => onSelectOP(op)}
             >
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-sm">OP {op.numero_op}</div>
+                  <div className="font-semibold text-sm md:text-base">OP {op.numero_op}</div>
                   <Badge 
                     variant="outline" 
-                    className={STATUS_COLORS[op.status] || ""}
+                    className={`${STATUS_COLORS[op.status] || ""} text-xs`}
                   >
                     {op.status.replace('_', ' ')}
                   </Badge>
                 </div>
                 
-                <div className="text-xs text-muted-foreground space-y-1">
+                <div className="text-xs md:text-sm text-muted-foreground space-y-1">
                   <div className="font-medium">{op.produto}</div>
-                  <div>{op.cliente}</div>
                   {op.setor_atual && (
-                    <div className="text-primary font-medium">
+                    <div className="text-primary font-medium text-xs">
                       📍 {op.setor_atual}
                     </div>
                   )}
@@ -94,7 +93,7 @@ export function MetalOPList({ ops, selectedOP, onSelectOP }: MetalOPListProps) {
           {filteredOPs.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Nenhuma OP encontrada</p>
+              <p className="text-sm">Nenhuma OP encontrada</p>
             </div>
           )}
         </div>

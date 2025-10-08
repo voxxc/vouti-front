@@ -154,41 +154,43 @@ const MetalDashboard = () => {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <header className="h-16 border-b border-slate-700 bg-slate-900/90 backdrop-blur flex-shrink-0">
-        <div className="h-full px-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-500/20 rounded-lg">
-              <Factory className="w-5 h-5 text-orange-500" />
+      <header className="h-14 md:h-16 border-b border-slate-700 bg-slate-900/90 backdrop-blur flex-shrink-0">
+        <div className="h-full px-3 md:px-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="p-1.5 md:p-2 bg-orange-500/20 rounded-lg">
+              <Factory className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">MetalSystem</h1>
-              <p className="text-xs text-slate-400">Dashboard de Produção</p>
+              <h1 className="text-sm md:text-lg font-bold text-white">MetalSystem</h1>
+              <p className="text-xs text-slate-400 hidden sm:block">Dashboard de Produção</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Nova OP
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
+              <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+              <span className="hidden sm:inline">Nova OP</span>
             </Button>
             
-            <div className="text-right">
+            <div className="text-right hidden md:block">
               <p className="text-sm text-white font-medium">{profile?.full_name}</p>
               <p className="text-xs text-slate-400">{profile?.setor || 'Sem setor'}</p>
             </div>
             
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair
+            <Button variant="outline" size="sm" onClick={signOut} className="h-8 md:h-9">
+              <LogOut className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden md:inline md:ml-2">Sair</span>
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Layout - 3 Columns */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - OP List */}
-        <div className="w-80 flex-shrink-0">
+      {/* Main Layout - Responsive */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Mobile: Stack vertically, Desktop: 3 columns */}
+        
+        {/* Left Sidebar - OP List (Hidden on mobile when OP selected) */}
+        <div className={`${(selectedOP || isCreating) ? 'hidden md:block' : 'block'} w-full md:w-80 flex-shrink-0 border-b md:border-b-0 md:border-r`}>
           <MetalOPList 
             ops={ops} 
             selectedOP={selectedOP} 
@@ -196,8 +198,8 @@ const MetalDashboard = () => {
           />
         </div>
 
-        {/* Center - OP Details */}
-        <div className="flex-1">
+        {/* Center - OP Details (Full width on mobile when active) */}
+        <div className={`${(selectedOP || isCreating) ? 'flex' : 'hidden md:flex'} flex-1 overflow-hidden`}>
           {(selectedOP || isCreating) ? (
             <MetalOPDetails
               selectedOP={selectedOP}
@@ -208,21 +210,21 @@ const MetalDashboard = () => {
           ) : (
             <div className="h-full flex items-center justify-center bg-background">
               <div className="text-center text-muted-foreground p-8">
-                <Factory className="h-24 w-24 mx-auto mb-4 opacity-20" />
-                <p className="text-lg mb-2">Selecione uma OP ou crie uma nova</p>
-                <p className="text-sm">Use a lista à esquerda ou clique em "Nova OP"</p>
+                <Factory className="h-16 md:h-24 w-16 md:w-24 mx-auto mb-4 opacity-20" />
+                <p className="text-base md:text-lg mb-2">Selecione uma OP ou crie uma nova</p>
+                <p className="text-sm hidden md:block">Use a lista à esquerda ou clique em "Nova OP"</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Sidebar - OP Info */}
-        <div className="w-96 flex-shrink-0">
+        {/* Right Sidebar - OP Info (Hidden on mobile, collapsible on tablet) */}
+        <div className="hidden lg:block w-96 flex-shrink-0">
           <MetalOPInfo selectedOP={selectedOP} />
         </div>
       </div>
 
-      {/* Bottom Bar - Setores */}
+      {/* Bottom Bar - Setores (Scrollable on mobile) */}
       <div className="flex-shrink-0">
         <MetalSetorBar 
           selectedOP={selectedOP} 

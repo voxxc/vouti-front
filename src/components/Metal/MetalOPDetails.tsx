@@ -3,9 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Upload, Save, X, FileImage } from "lucide-react";
+import { Camera, X, FileImage } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -24,9 +23,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     selectedOP || {
       numero_op: "",
       produto: "",
-      cliente: "",
-      quantidade: 1,
       data_entrada: new Date().toISOString().split('T')[0],
+      quantidade: 1,
       status: "aguardando",
     }
   );
@@ -69,10 +67,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      if (!formData.numero_op || !formData.produto || !formData.cliente) {
+      if (!formData.numero_op || !formData.produto) {
         toast({ 
           title: "Campos obrigatórios", 
-          description: "Preencha Número OP, Produto e Cliente",
+          description: "Preencha Número OP e Chapa",
           variant: "destructive" 
         });
         return;
@@ -82,18 +80,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         const { error } = await supabase.from("metal_ops").insert([{
           numero_op: formData.numero_op,
           produto: formData.produto,
-          cliente: formData.cliente,
+          cliente: formData.cliente || "",
           quantidade: formData.quantidade || 1,
           data_entrada: formData.data_entrada || new Date().toISOString().split('T')[0],
-          dimensoes: formData.dimensoes,
-          material: formData.material,
-          acabamento: formData.acabamento,
-          pedido: formData.pedido,
-          item: formData.item,
-          desenhista: formData.desenhista,
           ficha_tecnica_url: formData.ficha_tecnica_url,
-          data_prevista_saida: formData.data_prevista_saida,
-          observacoes: formData.observacoes,
           status: formData.status || 'aguardando',
           created_by: user.id,
         }]);
@@ -104,18 +94,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           .update({
             numero_op: formData.numero_op,
             produto: formData.produto,
-            cliente: formData.cliente,
-            quantidade: formData.quantidade,
             data_entrada: formData.data_entrada,
-            dimensoes: formData.dimensoes,
-            material: formData.material,
-            acabamento: formData.acabamento,
-            pedido: formData.pedido,
-            item: formData.item,
-            desenhista: formData.desenhista,
             ficha_tecnica_url: formData.ficha_tecnica_url,
-            data_prevista_saida: formData.data_prevista_saida,
-            observacoes: formData.observacoes,
           })
           .eq("id", selectedOP?.id);
         if (error) throw error;
@@ -134,191 +114,119 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
   return (
     <div className="h-full flex flex-col bg-background">
-      <div className="p-4 border-b flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          {isCreating ? "Nova Ordem de Produção" : `OP ${selectedOP?.numero_op}`}
+      <div className="p-3 md:p-4 border-b flex items-center justify-between">
+        <h2 className="text-base md:text-lg font-semibold">
+          {isCreating ? "Nova OP" : `OP ${selectedOP?.numero_op}`}
         </h2>
         <Button variant="ghost" size="icon" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-6">
-          {/* Ficha Técnica */}
+      <ScrollArea className="flex-1 p-3 md:p-4">
+        <div className="space-y-4 md:space-y-6 max-w-2xl mx-auto">
+          {/* Upload de Ficha Técnica */}
           <Card className="p-4">
-            <Label className="mb-2 block">Ficha Técnica</Label>
+            <Label className="mb-3 block text-sm md:text-base">Ficha Técnica da OP</Label>
             {formData.ficha_tecnica_url ? (
-              <div className="relative aspect-[3/4] w-full max-w-md mx-auto">
+              <div className="relative w-full">
                 <img
                   src={formData.ficha_tecnica_url}
                   alt="Ficha Técnica"
-                  className="w-full h-full object-contain rounded-lg border"
+                  className="w-full h-auto object-contain rounded-lg border"
                 />
                 <Button
                   variant="destructive"
                   size="sm"
                   className="absolute top-2 right-2"
-                  onClick={() => setFormData({ ...formData, ficha_tecnica_url: undefined })}
+                  onClick={() => setFormData({ ...formData, ficha_tecnica_url: null })}
                 >
                   Remover
                 </Button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                <FileImage className="h-12 w-12 mb-2 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {uploading ? "Enviando..." : "Clique para enviar a ficha técnica"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                  disabled={uploading}
-                />
-              </label>
+              <div className="space-y-3">
+                {/* Botão de Câmera para Mobile */}
+                <label className="flex flex-col items-center justify-center h-40 md:h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors bg-accent/20">
+                  <Camera className="h-10 w-10 md:h-12 md:w-12 mb-2 text-primary" />
+                  <span className="text-sm md:text-base font-medium text-center px-4">
+                    {uploading ? "Enviando..." : "Tirar Foto da Ficha"}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1">
+                    Use a câmera do celular
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
+                </label>
+
+                {/* Botão de Galeria/Arquivo */}
+                <label className="flex flex-col items-center justify-center h-32 md:h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                  <FileImage className="h-8 w-8 md:h-10 md:w-10 mb-2 text-muted-foreground" />
+                  <span className="text-sm md:text-base text-center px-4">
+                    {uploading ? "Enviando..." : "Escolher da Galeria"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
             )}
           </Card>
 
-          {/* Formulário */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Formulário Simplificado */}
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="numero_op">Número OP *</Label>
+              <Label htmlFor="numero_op" className="text-sm md:text-base">
+                Número da OP *
+              </Label>
               <Input
                 id="numero_op"
                 value={formData.numero_op}
                 onChange={(e) => setFormData({ ...formData, numero_op: e.target.value })}
                 placeholder="Ex: 1938/25"
+                className="text-base h-12"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="data_entrada">Data de Entrada</Label>
+              <Label htmlFor="produto" className="text-sm md:text-base">
+                Chapa *
+              </Label>
+              <Input
+                id="produto"
+                value={formData.produto}
+                onChange={(e) => setFormData({ ...formData, produto: e.target.value })}
+                placeholder="Ex: Funil, Passa Pratos"
+                className="text-base h-12"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="data_entrada" className="text-sm md:text-base">
+                Data de Entrada
+              </Label>
               <Input
                 id="data_entrada"
                 type="date"
                 value={formData.data_entrada}
                 onChange={(e) => setFormData({ ...formData, data_entrada: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor="produto">Produto *</Label>
-              <Input
-                id="produto"
-                value={formData.produto}
-                onChange={(e) => setFormData({ ...formData, produto: e.target.value })}
-                placeholder="Ex: Funil"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dimensoes">Dimensões</Label>
-              <Input
-                id="dimensoes"
-                value={formData.dimensoes || ""}
-                onChange={(e) => setFormData({ ...formData, dimensoes: e.target.value })}
-                placeholder="Ex: 300x400mm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="material">Material</Label>
-              <Input
-                id="material"
-                value={formData.material || ""}
-                onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-                placeholder="Ex: Aço Inox"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="acabamento">Acabamento</Label>
-              <Input
-                id="acabamento"
-                value={formData.acabamento || ""}
-                onChange={(e) => setFormData({ ...formData, acabamento: e.target.value })}
-                placeholder="Ex: Polido"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cliente">Cliente *</Label>
-              <Input
-                id="cliente"
-                value={formData.cliente}
-                onChange={(e) => setFormData({ ...formData, cliente: e.target.value })}
-                placeholder="Nome do cliente"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pedido">Pedido</Label>
-              <Input
-                id="pedido"
-                value={formData.pedido || ""}
-                onChange={(e) => setFormData({ ...formData, pedido: e.target.value })}
-                placeholder="Número do pedido"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="item">Item</Label>
-              <Input
-                id="item"
-                value={formData.item || ""}
-                onChange={(e) => setFormData({ ...formData, item: e.target.value })}
-                placeholder="Item do pedido"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="quantidade">Quantidade *</Label>
-              <Input
-                id="quantidade"
-                type="number"
-                value={formData.quantidade}
-                onChange={(e) => setFormData({ ...formData, quantidade: parseInt(e.target.value) })}
-                min="1"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="desenhista">Desenhista</Label>
-              <Input
-                id="desenhista"
-                value={formData.desenhista || ""}
-                onChange={(e) => setFormData({ ...formData, desenhista: e.target.value })}
-                placeholder="Nome do desenhista"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="data_prevista_saida">Previsão de Saída</Label>
-              <Input
-                id="data_prevista_saida"
-                type="date"
-                value={formData.data_prevista_saida || ""}
-                onChange={(e) => setFormData({ ...formData, data_prevista_saida: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                value={formData.observacoes || ""}
-                onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                placeholder="Observações adicionais"
-                rows={3}
+                className="text-base h-12"
               />
             </div>
           </div>
 
-          <Button onClick={handleSave} className="w-full" size="lg">
-            <Save className="h-4 w-4 mr-2" />
-            {isCreating ? "Criar OP" : "Salvar Alterações"}
+          <Button onClick={handleSave} className="w-full h-12 text-base" size="lg">
+            {isCreating ? "Criar OP" : "Salvar"}
           </Button>
         </div>
       </ScrollArea>

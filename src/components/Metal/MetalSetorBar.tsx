@@ -20,8 +20,8 @@ const SETORES = [
 
 export function MetalSetorBar({ selectedOP, onSetorClick }: MetalSetorBarProps) {
   return (
-    <div className="h-20 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="h-full flex items-center gap-2 px-4 overflow-x-auto">
+    <div className="h-16 md:h-20 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="h-full flex items-center gap-2 px-2 md:px-4 overflow-x-auto scrollbar-hide">
         {SETORES.map((setor) => {
           const isCurrentSetor = selectedOP?.setor_atual === setor.nome;
           
@@ -29,16 +29,17 @@ export function MetalSetorBar({ selectedOP, onSetorClick }: MetalSetorBarProps) 
             <Button
               key={setor.nome}
               variant={isCurrentSetor ? "default" : "outline"}
-              className="flex-shrink-0 relative"
+              className="flex-shrink-0 relative h-10 md:h-auto text-xs md:text-sm px-2 md:px-4"
               onClick={() => onSetorClick(setor.nome)}
               disabled={!selectedOP}
             >
-              <span className="mr-2">{setor.icon}</span>
-              {setor.nome}
+              <span className="mr-1 md:mr-2">{setor.icon}</span>
+              <span className="hidden sm:inline">{setor.nome}</span>
+              <span className="sm:hidden">{setor.nome.split(' ')[0]}</span>
               {isCurrentSetor && (
                 <Badge 
                   variant="secondary" 
-                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 rounded-full p-0 flex items-center justify-center text-xs"
                 >
                   ●
                 </Badge>
