@@ -30,13 +30,39 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
 
   useEffect(() => {
     checkStatus();
-  }, [selectedOP]);
+  }, [selectedOP?.id, userSetor]);
+
+  // Recarregar status ao voltar o foco na janela
+  useEffect(() => {
+    const handleFocus = () => {
+      checkStatus();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [selectedOP?.id, userSetor]);
 
   const checkStatus = async () => {
     if (!userSetor) return;
 
-    // Buscar o último registro de fluxo para este setor
-    const { data } = await supabase
+    // Primeiro: verificar se existe algum registro ABERTO (saida IS NULL)
+    const { data: openFlow } = await supabase
+      .from("metal_setor_flow")
+      .select("*")
+      .eq("op_id", selectedOP.id)
+      .eq("setor", userSetor)
+      .is("saida", null)
+      .maybeSingle();
+
+    if (openFlow) {
+      // Existe um fluxo aberto = está em progresso
+      setIsInProgress(true);
+      setIsPaused(false);
+      return;
+    }
+
+    // Se não existe aberto, buscar o último registro para ver se está pausado
+    const { data: lastFlow } = await supabase
       .from("metal_setor_flow")
       .select("*")
       .eq("op_id", selectedOP.id)
@@ -45,17 +71,10 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
       .limit(1)
       .maybeSingle();
 
-    if (data) {
-      // Se tem entrada mas não tem saída = está em progresso
-      if (data.entrada && !data.saida) {
-        setIsInProgress(true);
-        setIsPaused(false);
-      } 
-      // Se tem entrada E tem saída = está pausado
-      else if (data.entrada && data.saida) {
-        setIsInProgress(false);
-        setIsPaused(true);
-      }
+    if (lastFlow && lastFlow.saida) {
+      // Última sessão foi fechada = está pausado
+      setIsInProgress(false);
+      setIsPaused(true);
     } else {
       // Não tem nenhum registro = não iniciou ainda
       setIsInProgress(false);
@@ -85,7 +104,26 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
       if (!user) throw new Error("Usuário não autenticado");
 
       if (!isInProgress && !isPaused) {
-        // INICIAR (primeira vez)
+        // INICIAR (primeira vez) - mas primeiro verificar se já não existe fluxo aberto
+        const { data: existingOpen } = await supabase
+          .from("metal_setor_flow")
+          .select("*")
+          .eq("op_id", selectedOP.id)
+          .eq("setor", userSetor)
+          .is("saida", null)
+          .maybeSingle();
+
+        if (existingOpen) {
+          // Já existe fluxo aberto, apenas sincronizar estado
+          setIsInProgress(true);
+          setIsPaused(false);
+          toast.success("Produção já estava iniciada neste setor");
+          await checkStatus();
+          onUpdate();
+          return;
+        }
+
+        // Não existe aberto, criar novo
         const { error: flowError } = await supabase.from("metal_setor_flow").insert({
           op_id: selectedOP.id,
           setor: userSetor,
@@ -118,6 +156,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
         setIsInProgress(true);
         setIsPaused(false);
         toast.success("Produção iniciada");
+        await checkStatus();
 
       } else if (isPaused) {
         // RETOMAR (já pausou antes, criar novo registro de entrada)
@@ -153,6 +192,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
         setIsInProgress(true);
         setIsPaused(false);
         toast.success("Produção retomada");
+        await checkStatus();
 
       } else if (isInProgress) {
         // PAUSAR (fechar o registro atual)
@@ -198,6 +238,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
         setIsInProgress(false);
         setIsPaused(true);
         toast.success("Produção pausada");
+        await checkStatus();
       }
 
       onUpdate();
