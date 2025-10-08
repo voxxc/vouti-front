@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, X, FileImage } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Camera, X, FileImage, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -19,6 +20,8 @@ interface MetalOPDetailsProps {
 export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: MetalOPDetailsProps) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [imageZoom, setImageZoom] = useState(1);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -112,6 +115,18 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     }
   };
 
+  const handleZoomIn = () => {
+    setImageZoom(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setImageZoom(prev => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setImageZoom(1);
+  };
+
   return (
     <div className="h-full flex flex-col bg-background">
       <div className="p-3 md:p-4 border-b flex items-center justify-between">
@@ -130,16 +145,27 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             <Label className="mb-3 block text-sm md:text-base">Ficha Técnica da OP</Label>
             {formData.ficha_tecnica_url ? (
               <div className="relative w-full">
-                <img
-                  src={formData.ficha_tecnica_url}
-                  alt="Ficha Técnica"
-                  className="w-full h-auto object-contain rounded-lg border"
-                />
+                <div 
+                  className="relative w-full cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setImageViewerOpen(true)}
+                >
+                  <img
+                    src={formData.ficha_tecnica_url}
+                    alt="Ficha Técnica"
+                    className="w-full h-auto object-contain rounded-lg border"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors rounded-lg">
+                    <Maximize2 className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
                 <Button
                   variant="destructive"
                   size="sm"
                   className="absolute top-2 right-2"
-                  onClick={() => setFormData({ ...formData, ficha_tecnica_url: null })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFormData({ ...formData, ficha_tecnica_url: null });
+                  }}
                 >
                   Remover
                 </Button>
@@ -230,6 +256,62 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           </Button>
         </div>
       </ScrollArea>
+
+      {/* Image Viewer Modal with Zoom */}
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95">
+          <div className="relative h-[95vh] flex flex-col">
+            {/* Controls */}
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={handleZoomOut}
+                className="h-10 w-10"
+              >
+                <ZoomOut className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={handleResetZoom}
+                className="h-10 w-10"
+              >
+                <span className="text-xs font-bold">{Math.round(imageZoom * 100)}%</span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={handleZoomIn}
+                className="h-10 w-10"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setImageViewerOpen(false)}
+                className="h-10 w-10"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Image Container with Zoom and Pan */}
+            <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+              <img
+                src={formData.ficha_tecnica_url || ''}
+                alt="Ficha Técnica"
+                className="max-w-none transition-transform duration-200"
+                style={{
+                  transform: `scale(${imageZoom})`,
+                  cursor: imageZoom > 1 ? 'move' : 'default',
+                }}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
