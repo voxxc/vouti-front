@@ -46,6 +46,8 @@ serve(async (req) => {
 
     const { user_id, email, password, full_name, setor } = await req.json()
 
+    console.log('Update user request:', { user_id, email, full_name, setor: setor ?? 'null' })
+
     // Update user email/password if provided
     const updateData: any = {}
     if (email) updateData.email = email
@@ -58,20 +60,29 @@ serve(async (req) => {
         updateData
       )
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Auth update error:', updateError)
+        throw updateError
+      }
     }
 
-    // Update profile
+    // Update profile - permitir null explicitamente para setor
+    const profileUpdate: any = {}
+    if (email !== undefined) profileUpdate.email = email
+    if (full_name !== undefined) profileUpdate.full_name = full_name
+    if (setor !== undefined) profileUpdate.setor = setor
+
     const { error: profileError } = await supabaseClient
       .from('metal_profiles')
-      .update({
-        email: email || undefined,
-        full_name: full_name || undefined,
-        setor: setor !== undefined ? setor : undefined,
-      })
+      .update(profileUpdate)
       .eq('user_id', user_id)
 
-    if (profileError) throw profileError
+    if (profileError) {
+      console.error('Profile update error:', profileError)
+      throw profileError
+    }
+
+    console.log('User updated successfully:', user_id)
 
     return new Response(
       JSON.stringify({ success: true }),

@@ -79,6 +79,8 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
         payload.password = formData.password;
       }
 
+      console.log('Enviando atualização:', payload);
+
       const response = await fetch(
         `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/update-metal-user`,
         {
@@ -92,6 +94,7 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
       );
 
       const result = await response.json();
+      console.log('Resposta da atualização:', result);
 
       if (!response.ok) {
         throw new Error(result.error || "Erro ao atualizar usuário");
@@ -102,8 +105,8 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error updating user:", error);
-      toast.error(error.message || "Erro ao atualizar usuário");
+      console.error("Erro ao atualizar usuário:", error);
+      toast.error(error.message || "Erro ao atualizar usuário. Verifique o console para mais detalhes.");
     } finally {
       setLoading(false);
     }
