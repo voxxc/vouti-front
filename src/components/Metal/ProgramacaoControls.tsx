@@ -180,7 +180,10 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
         })
         .eq("id", selectedOP.id);
 
-      if (opError) throw opError;
+      if (opError) {
+        console.error("Erro ao atualizar OP:", opError);
+        throw new Error(`Erro ao atualizar OP: ${opError.message}`);
+      }
 
       // Registrar histórico
       await supabase.from("metal_op_history").insert({
