@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Camera, X, FileImage, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Camera, X, FileImage, ZoomIn, ZoomOut, Maximize2, RotateCw, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
@@ -22,6 +22,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [uploading, setUploading] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);
+  const [imageRotation, setImageRotation] = useState(0);
+  const [savedRotation, setSavedRotation] = useState(0);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -127,6 +129,26 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     setImageZoom(1);
   };
 
+  const handleRotate = () => {
+    setImageRotation(prev => (prev + 90) % 360);
+  };
+
+  const handleSaveRotation = () => {
+    setSavedRotation(imageRotation);
+    toast({ title: "Rotação salva!" });
+  };
+
+  const handleCloseViewer = () => {
+    setImageViewerOpen(false);
+    setImageZoom(1);
+    setImageRotation(savedRotation);
+  };
+
+  const handleOpenViewer = () => {
+    setImageViewerOpen(true);
+    setImageRotation(savedRotation);
+  };
+
   return (
     <div className="h-full flex flex-col bg-background">
       <div className="p-3 md:p-4 border-b flex items-center justify-between">
@@ -147,12 +169,15 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
               <div className="relative w-full">
                 <div 
                   className="relative w-full cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => setImageViewerOpen(true)}
+                  onClick={handleOpenViewer}
                 >
                   <img
                     src={formData.ficha_tecnica_url}
                     alt="Ficha Técnica"
                     className="w-full h-auto object-contain rounded-lg border"
+                    style={{
+                      transform: `rotate(${savedRotation}deg)`,
+                    }}
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors rounded-lg">
                     <Maximize2 className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
@@ -257,11 +282,13 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         </div>
       </ScrollArea>
 
-      {/* Image Viewer Modal with Zoom */}
-      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+      {/* Image Viewer Modal with Zoom and Rotation */}
+      <Dialog open={imageViewerOpen} onOpenChange={(open) => {
+        if (!open) handleCloseViewer();
+      }}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95">
           <div className="relative h-[95vh] flex flex-col">
-            {/* Controls */}
+            {/* Top Controls - Zoom */}
             <div className="absolute top-4 right-4 z-10 flex gap-2">
               <Button
                 variant="secondary"
@@ -290,21 +317,43 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={() => setImageViewerOpen(false)}
+                onClick={handleCloseViewer}
                 className="h-10 w-10"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
 
-            {/* Image Container with Zoom and Pan */}
+            {/* Bottom Controls - Rotation */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/50 p-2 rounded-lg backdrop-blur">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleRotate}
+                className="h-10 gap-2"
+              >
+                <RotateCw className="h-4 w-4" />
+                Rotacionar 90°
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveRotation}
+                className="h-10 gap-2 bg-green-600 hover:bg-green-700"
+              >
+                <Save className="h-4 w-4" />
+                Salvar Rotação
+              </Button>
+            </div>
+
+            {/* Image Container with Zoom and Rotation */}
             <div className="flex-1 overflow-auto flex items-center justify-center p-4">
               <img
                 src={formData.ficha_tecnica_url || ''}
                 alt="Ficha Técnica"
                 className="max-w-none transition-transform duration-200"
                 style={{
-                  transform: `scale(${imageZoom})`,
+                  transform: `scale(${imageZoom}) rotate(${imageRotation}deg)`,
                   cursor: imageZoom > 1 ? 'move' : 'default',
                 }}
               />
