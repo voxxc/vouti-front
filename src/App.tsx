@@ -218,7 +218,7 @@ function App() {
               </MetalProtectedRoute>
             </MetalAuthProvider>
           } />
-          <Route path="/metal-admin/usuarios" element={
+          <Route path="/metal-admin-users" element={
             <MetalAuthProvider>
               <MetalProtectedRoute>
                 <MetalAdminUsers />
