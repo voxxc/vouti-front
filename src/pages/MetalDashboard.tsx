@@ -12,11 +12,14 @@ import { MetalSetorBar } from "@/components/Metal/MetalSetorBar";
 import type { MetalOP } from "@/types/metal";
 
 const MetalDashboard = () => {
-  const { user, profile, signOut } = useMetalAuth();
+  const { user, profile, isAdmin, signOut } = useMetalAuth();
   const navigate = useNavigate();
   const [ops, setOps] = useState<MetalOP[]>([]);
   const [selectedOP, setSelectedOP] = useState<MetalOP | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Check if user can create OPs (admin or programacao)
+  const canCreateOP = isAdmin || profile?.setor === 'programacao';
 
   useEffect(() => {
     if (!user) {
@@ -167,10 +170,12 @@ const MetalDashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
-              <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
-              <span className="hidden sm:inline">Nova OP</span>
-            </Button>
+            {canCreateOP && (
+              <Button onClick={handleNewOP} size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 md:h-9">
+                <Plus className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+                <span className="hidden sm:inline">Nova OP</span>
+              </Button>
+            )}
             
             <div className="text-right hidden md:block">
               <p className="text-sm text-white font-medium">{profile?.full_name}</p>
