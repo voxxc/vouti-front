@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { MetalOP } from "@/types/metal";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle, Search } from "lucide-react";
 
 interface CompletedOPsListProps {
   ops: MetalOP[];
@@ -11,26 +13,45 @@ interface CompletedOPsListProps {
 }
 
 export const CompletedOPsList = ({ ops, selectedOP, onSelectOP }: CompletedOPsListProps) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  
   const completedOPs = ops.filter(op => op.status === "concluido");
+
+  // Aplicar filtro de busca
+  const filteredOPs = completedOPs.filter((op) =>
+    op.numero_op.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    op.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    op.produto.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b space-y-3">
         <div className="flex items-center gap-2">
           <CheckCircle className="h-5 w-5 text-green-500" />
           <h2 className="text-xl font-semibold">OPs Concluídas</h2>
           <Badge variant="outline">{completedOPs.length}</Badge>
         </div>
+        
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar OP concluída..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-2">
-          {completedOPs.length === 0 ? (
+          {filteredOPs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Nenhuma OP concluída ainda
+              {searchTerm ? "Nenhuma OP encontrada" : "Nenhuma OP concluída ainda"}
             </div>
           ) : (
-            completedOPs.map((op) => (
+            filteredOPs.map((op) => (
               <Card
                 key={op.id}
                 className={`p-4 cursor-pointer transition-colors hover:bg-accent ${
