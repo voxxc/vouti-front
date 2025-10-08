@@ -9,6 +9,7 @@ import { MetalOPList } from "@/components/Metal/MetalOPList";
 import { MetalOPDetails } from "@/components/Metal/MetalOPDetails";
 import { MetalOPInfo } from "@/components/Metal/MetalOPInfo";
 import { MetalSetorBar } from "@/components/Metal/MetalSetorBar";
+import { CompletedOPsList } from "@/components/Metal/CompletedOPsList";
 import type { MetalOP } from "@/types/metal";
 
 const MetalDashboard = () => {
@@ -18,6 +19,7 @@ const MetalDashboard = () => {
   const [selectedOP, setSelectedOP] = useState<MetalOP | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [userSetor, setUserSetor] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -215,6 +217,22 @@ const MetalDashboard = () => {
               </Button>
             )}
             
+            {isAdmin && (
+              <Button 
+                variant={showCompleted ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => {
+                  setShowCompleted(!showCompleted);
+                  setSelectedOP(null);
+                  setIsCreating(false);
+                }}
+                className="h-8 md:h-9"
+              >
+                <span className="hidden sm:inline">{showCompleted ? "Ver Ativas" : "Ver Concluídas"}</span>
+                <span className="sm:hidden">{showCompleted ? "Ativas" : "Concluídas"}</span>
+              </Button>
+            )}
+            
             <div className="text-right hidden md:block">
               <p className="text-sm text-white font-medium">{profile?.full_name}</p>
               <p className="text-xs text-slate-400">{profile?.setor || 'Sem setor'}</p>
@@ -234,13 +252,21 @@ const MetalDashboard = () => {
         
         {/* Left Sidebar - OP List (Hidden on mobile when OP selected) */}
         <div className={`${(selectedOP || isCreating) ? 'hidden md:block' : 'block'} w-full md:w-80 flex-shrink-0 border-b md:border-b-0 md:border-r`}>
-          <MetalOPList 
-            ops={ops} 
-            selectedOP={selectedOP} 
-            onSelectOP={handleSelectOP}
-            userSetor={userSetor}
-            isAdmin={isAdmin}
-          />
+          {showCompleted ? (
+            <CompletedOPsList
+              ops={ops}
+              selectedOP={selectedOP}
+              onSelectOP={handleSelectOP}
+            />
+          ) : (
+            <MetalOPList 
+              ops={ops} 
+              selectedOP={selectedOP} 
+              onSelectOP={handleSelectOP}
+              userSetor={userSetor}
+              isAdmin={isAdmin}
+            />
+          )}
         </div>
 
         {/* Center - OP Details (Full width on mobile when active) */}

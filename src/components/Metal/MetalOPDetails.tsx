@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { MetalOP } from "@/types/metal";
-import { ProgramacaoControls } from "./ProgramacaoControls";
+import { SetorControls } from "./SetorControls";
 
 interface MetalOPDetailsProps {
   selectedOP: MetalOP | null;
@@ -313,9 +313,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                   />
                 </div>
                 
-                {/* Controles específicos do setor Programação */}
+                {/* Controles de setor */}
                 {!isCreating && selectedOP && (
-                  <ProgramacaoControls 
+                  <SetorControls 
                     selectedOP={selectedOP}
                     userSetor={userSetor}
                     onUpdate={onSave}

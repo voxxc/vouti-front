@@ -26,7 +26,12 @@ export function MetalOPList({ ops, selectedOP, onSelectOP, userSetor, isAdmin }:
 
   // Primeiro filtrar por setor
   const filteredBySetor = ops.filter((op) => {
-    // Admin vê todas as OPs
+    // Operadores NÃO veem OPs concluídas
+    if (!isAdmin && op.status === "concluido") {
+      return false;
+    }
+    
+    // Admin vê todas as OPs (exceto concluídas que vão para outra aba)
     if (isAdmin) return true;
     
     // Programação vê OPs sem setor (recém-criadas) ou que estão em Programação
