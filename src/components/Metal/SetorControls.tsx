@@ -235,8 +235,14 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
     }
   };
 
-  // Só mostra os controles se o setor do usuário corresponde ao setor atual da OP
-  if (userSetor !== selectedOP.setor_atual) {
+  // Lógica para mostrar controles:
+  // - Programação: vê controles quando setor_atual é NULL ou "Programação"
+  // - Outros setores: vê controles quando setor_atual corresponde ao seu setor
+  const shouldShowControls = userSetor === "Programação" 
+    ? (!selectedOP.setor_atual || selectedOP.setor_atual === "Programação")
+    : (userSetor === selectedOP.setor_atual);
+
+  if (!shouldShowControls) {
     return null;
   }
 
