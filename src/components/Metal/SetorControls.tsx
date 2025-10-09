@@ -14,7 +14,6 @@ interface SetorControlsProps {
 // Sequência de setores
 const SETOR_SEQUENCE = [
   "Programação",
-  "Guilhotina",
   "Corte a laser",
   "Dobra",
   "Montagem",
@@ -259,7 +258,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
       if (!user) throw new Error("Usuário não autenticado");
 
       // Validação para setores de corte - verificar se material specs foram definidos
-      if (userSetor === "Guilhotina" || userSetor === "Corte a laser") {
+      if (userSetor === "Corte a laser") {
         if (!selectedOP.aco || selectedOP.aco.length === 0 || 
             !selectedOP.espessura || selectedOP.espessura.length === 0) {
           toast.error("É necessário confirmar as especificações de material antes de avançar");

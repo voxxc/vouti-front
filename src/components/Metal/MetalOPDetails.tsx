@@ -615,7 +615,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
               />
             )}
 
-            {(userSetor === "Guilhotina" || userSetor === "Corte a laser") && !isCreating && (
+            {userSetor === "Corte a laser" && !isCreating && (
               <MaterialSpecsConfirmation
                 aco={formData.aco}
                 espessura={formData.espessura}

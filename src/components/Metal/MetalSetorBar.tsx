@@ -9,7 +9,6 @@ interface MetalSetorBarProps {
 
 const SETORES = [
   { nome: 'Programação', icon: '📋' },
-  { nome: 'Guilhotina', icon: '✂️' },
   { nome: 'Corte a laser', icon: '🔦' },
   { nome: 'Dobra', icon: '🔧' },
   { nome: 'Montagem', icon: '🔨' },
