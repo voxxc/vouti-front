@@ -29,6 +29,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [uploading, setUploading] = useState(false);
   const [rotation, setRotation] = useState(selectedOP?.ficha_tecnica_rotation || 0);
   const [userSetor, setUserSetor] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [setorFlows, setSetorFlows] = useState<MetalSetorFlow[]>([]);
   const [controlsRefresh, setControlsRefresh] = useState(0);
@@ -89,6 +90,16 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     if (profile) {
       setUserSetor(profile.setor);
     }
+
+    // Verificar se é admin
+    const { data: roleData } = await supabase
+      .from("metal_user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    setIsAdmin(!!roleData);
   };
 
   const loadSetorFlows = async () => {
@@ -135,15 +146,81 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         return;
       }
 
+      setShowResetDialog(false);
+
+      // ADMIN: Resetar para o estado após Programação
+      if (isAdmin) {
+        // Buscar o registro de saída da Programação
+        const { data: programacaoFlow } = await supabase
+          .from("metal_setor_flow")
+          .select("*")
+          .eq("op_id", selectedOP.id)
+          .eq("setor", "Programação")
+          .not("saida", "is", null)
+          .order("saida", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!programacaoFlow) {
+          toast({
+            title: "Erro",
+            description: "Não foi possível encontrar o registro de saída da Programação",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Deletar todos os registros EXCETO os da Programação
+        const { error: deleteError } = await supabase
+          .from("metal_setor_flow")
+          .delete()
+          .eq("op_id", selectedOP.id)
+          .neq("setor", "Programação");
+
+        if (deleteError) throw deleteError;
+
+        // Atualizar OP para o próximo setor após Programação (Corte a laser)
+        const { error: opError } = await supabase
+          .from("metal_ops")
+          .update({
+            setor_atual: "Corte a laser",
+            status: "aguardando"
+          })
+          .eq("id", selectedOP.id);
+
+        if (opError) throw opError;
+
+        // Registrar no histórico
+        await supabase.from("metal_op_history").insert({
+          op_id: selectedOP.id,
+          user_id: user.id,
+          acao: "resetou (admin)",
+          detalhes: "Admin resetou a OP para o estado após Programação"
+        });
+
+        setFormData({
+          ...formData,
+          setor_atual: "Corte a laser",
+          status: "aguardando"
+        });
+
+        await loadSetorFlows();
+        setControlsRefresh(v => v + 1);
+
+        toast({ 
+          title: "✅ OP resetada com sucesso", 
+          description: "OP voltou ao estado de quando foi enviada da Programação para Corte a laser." 
+        });
+        onSave();
+        return;
+      }
+
+      // OPERADORES: Lógica original
       const setorIndex = SETORES.indexOf(userSetor);
       const isRestricted = setorIndex >= 1; // Corte a laser para baixo
 
-      // Se for setor restrito (Corte a laser para baixo), resetar apenas o setor atual
       if (isRestricted) {
-        // Fechar o dialog
-        setShowResetDialog(false);
-        
-        // PASSO 2: Deletar TODOS os registros do setor
+        // Deletar TODOS os registros do setor
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
           .delete()
@@ -152,7 +229,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (deleteError) throw deleteError;
 
-        // PASSO 3: Atualizar status da OP para "aguardando" no setor atual
+        // Atualizar status da OP para "aguardando" no setor atual
         const { error: opError } = await supabase
           .from("metal_ops")
           .update({ status: "aguardando" })
@@ -160,7 +237,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (opError) throw opError;
 
-        // PASSO 4: Adicionar ao histórico
+        // Adicionar ao histórico
         await supabase.from("metal_op_history").insert({
           op_id: selectedOP.id,
           user_id: user.id,
@@ -168,15 +245,12 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           detalhes: `Resetou a fase do setor ${userSetor}. OP retornou ao estado inicial do setor.`
         });
 
-        // PASSO 5: Atualizar estado local
         setFormData({
           ...formData,
           status: "aguardando"
         });
 
         await loadSetorFlows();
-        
-        // PASSO 6: Forçar atualização dos controles
         setControlsRefresh(v => v + 1);
 
         toast({ 
@@ -213,10 +287,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         });
 
         toast({ title: "OP resetada completamente!" });
+        onSave();
       }
-
-      // Recarregar dados
-      onSave();
     } catch (error: any) {
       toast({
         title: "Erro ao resetar",
