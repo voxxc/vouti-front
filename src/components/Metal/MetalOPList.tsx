@@ -3,7 +3,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Package } from "lucide-react";
+import { Search, Package, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { MetalOP } from "@/types/metal";
 
 interface MetalOPListProps {
@@ -12,6 +18,8 @@ interface MetalOPListProps {
   onSelectOP: (op: MetalOP) => void;
   userSetor: string | null;
   isAdmin: boolean;
+  selectedSetorFilter?: string | null;
+  onSetorFilterChange?: (setor: string | null) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -21,7 +29,25 @@ const STATUS_COLORS: Record<string, string> = {
   atrasado: "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function MetalOPList({ ops, selectedOP, onSelectOP, userSetor, isAdmin }: MetalOPListProps) {
+const SETORES_FILTRO = [
+  { nome: 'Programação', icon: '📋' },
+  { nome: 'Corte a laser', icon: '🔦' },
+  { nome: 'Dobra', icon: '🔧' },
+  { nome: 'Montagem', icon: '🔨' },
+  { nome: 'Acabamento', icon: '✨' },
+  { nome: 'Expedição', icon: '📦' },
+  { nome: 'Entrega', icon: '🚚' },
+];
+
+export function MetalOPList({ 
+  ops, 
+  selectedOP, 
+  onSelectOP, 
+  userSetor, 
+  isAdmin,
+  selectedSetorFilter,
+  onSetorFilterChange 
+}: MetalOPListProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Primeiro filtrar por setor
@@ -29,6 +55,13 @@ export function MetalOPList({ ops, selectedOP, onSelectOP, userSetor, isAdmin }:
     // Operadores NÃO veem OPs concluídas
     if (!isAdmin && op.status === "concluido") {
       return false;
+    }
+    
+    // Admin com filtro de setor ativo
+    if (isAdmin && selectedSetorFilter) {
+      // Mostrar apenas OPs do setor selecionado com status aguardando ou em_andamento
+      return op.setor_atual === selectedSetorFilter && 
+             (op.status === "aguardando" || op.status === "em_andamento");
     }
     
     // Admin vê todas as OPs (exceto concluídas que vão para outra aba)
@@ -53,10 +86,46 @@ export function MetalOPList({ ops, selectedOP, onSelectOP, userSetor, isAdmin }:
   return (
     <div className="h-full flex flex-col bg-background border-r">
       <div className="p-3 md:p-4 border-b">
-        <h2 className="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">
-          <Package className="h-4 w-4 md:h-5 md:w-5" />
-          Ordens de Produção
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
+            <Package className="h-4 w-4 md:h-5 md:w-5" />
+            Ordens de Produção
+          </h2>
+          
+          {isAdmin && onSetorFilterChange && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1 text-sm hover:text-primary transition-colors">
+                  <ChevronDown className="h-4 w-4" />
+                  {selectedSetorFilter && (
+                    <Badge variant="secondary" className="ml-1 text-xs">
+                      {selectedSetorFilter}
+                    </Badge>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                <DropdownMenuItem
+                  onClick={() => onSetorFilterChange(null)}
+                  className="cursor-pointer"
+                >
+                  <span className="mr-2">🔄</span>
+                  Todos os Setores
+                </DropdownMenuItem>
+                {SETORES_FILTRO.map((setor) => (
+                  <DropdownMenuItem
+                    key={setor.nome}
+                    onClick={() => onSetorFilterChange(setor.nome)}
+                    className="cursor-pointer"
+                  >
+                    <span className="mr-2">{setor.icon}</span>
+                    {setor.nome}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

@@ -25,6 +25,7 @@ const MetalDashboard = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [userSetor, setUserSetor] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [selectedSetorFilter, setSelectedSetorFilter] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -224,6 +225,7 @@ const MetalDashboard = () => {
                     setShowCompleted(!showCompleted);
                     setSelectedOP(null);
                     setIsCreating(false);
+                    setSelectedSetorFilter(null);
                   }}>
                     <Factory className="h-4 w-4 mr-2" />
                     {showCompleted ? "Ver Ativas" : "Ver Concluídas"}
@@ -288,6 +290,8 @@ const MetalDashboard = () => {
               onSelectOP={handleSelectOP}
               userSetor={userSetor}
               isAdmin={isAdmin}
+              selectedSetorFilter={selectedSetorFilter}
+              onSetorFilterChange={setSelectedSetorFilter}
             />
           )}
         </div>
