@@ -251,7 +251,14 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
   };
 
   const handleAvancarOuConcluir = async () => {
-    if (!userSetor || !isPaused) return;
+    if (!userSetor) return;
+
+    // Programação pode enviar sem precisar pausar; demais setores precisam estar pausados
+    const mustBePaused = userSetor !== "Programação";
+    if (mustBePaused && !isPaused) {
+      toast.error("Você precisa pausar a OP antes de enviar");
+      return;
+    }
 
     setLoading(true);
     try {
