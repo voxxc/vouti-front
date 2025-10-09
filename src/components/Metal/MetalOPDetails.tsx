@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Camera, X, FileImage, RotateCw, Trash2, RefreshCw, MapPin, Info, Clock, User, Calendar, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +15,7 @@ import { SetorControls } from "./SetorControls";
 import { format } from "date-fns";
 import { MaterialSpecsInput } from "./MaterialSpecsInput";
 import { MaterialSpecsConfirmation } from "./MaterialSpecsConfirmation";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface MetalOPDetailsProps {
   selectedOP: MetalOP | null;
@@ -30,6 +32,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [showDetails, setShowDetails] = useState(false);
   const [setorFlows, setSetorFlows] = useState<MetalSetorFlow[]>([]);
   const [controlsRefresh, setControlsRefresh] = useState(0);
+  const [showResetDialog, setShowResetDialog] = useState(false);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -132,23 +135,14 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         return;
       }
 
-      // PASSO 1: Confirmar com o usuário
-      const confirmacao = window.confirm(
-        `ATENÇÃO: Resetar a fase vai REMOVER todo o progresso do setor "${userSetor}".\n\n` +
-        `Isso vai:\n` +
-        `- Apagar todas as pausas e retomadas registradas\n` +
-        `- Restaurar a OP ao estado inicial do setor\n` +
-        `- O botão voltará para "Iniciar"\n\n` +
-        `Deseja continuar?`
-      );
-
-      if (!confirmacao) return;
-
       const setorIndex = SETORES.indexOf(userSetor);
       const isRestricted = setorIndex >= 1; // Corte a laser para baixo
 
       // Se for setor restrito (Corte a laser para baixo), resetar apenas o setor atual
       if (isRestricted) {
+        // Fechar o dialog
+        setShowResetDialog(false);
+        
         // PASSO 2: Deletar TODOS os registros do setor
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
@@ -542,7 +536,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleResetOP}
+                            onClick={() => setShowResetDialog(true)}
                             className="flex items-center gap-2"
                           >
                             <RefreshCw className="h-4 w-4" />
@@ -568,7 +562,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleResetOP}
+                      onClick={() => setShowResetDialog(true)}
                       className="flex items-center gap-2"
                     >
                       <RefreshCw className="h-4 w-4" />
@@ -792,6 +786,45 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           )}
         </div>
       </ScrollArea>
+
+      {/* Dialog de confirmação para resetar fase */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-destructive" />
+              Resetar Fase do Setor
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="font-semibold text-foreground">
+                Você está prestes a REMOVER todo o progresso do setor <span className="text-primary">"{userSetor}"</span>.
+              </p>
+              <div className="text-sm space-y-1 bg-muted p-3 rounded-md">
+                <p className="font-medium">Isso vai:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Apagar todas as pausas e retomadas registradas</li>
+                  <li>Restaurar a OP ao estado inicial do setor</li>
+                  <li>O botão voltará para "Iniciar"</li>
+                </ul>
+              </div>
+              <p className="text-destructive font-semibold pt-2 flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Esta ação não pode ser desfeita.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetOP}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Resetar Fase
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
