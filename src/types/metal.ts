@@ -36,6 +36,9 @@ export interface MetalOP {
   setor_atual: string | null;
   data_prevista_saida: string | null;
   observacoes: string | null;
+  aco: string[] | null;
+  espessura: string[] | null;
+  quantidade_material: number | null;
   created_by: string;
   created_at: string;
   updated_at: string;

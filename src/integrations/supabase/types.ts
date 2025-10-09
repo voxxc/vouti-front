@@ -339,6 +339,7 @@ export type Database = {
       metal_ops: {
         Row: {
           acabamento: string | null
+          aco: string[] | null
           cliente: string
           created_at: string
           created_by: string
@@ -346,6 +347,7 @@ export type Database = {
           data_prevista_saida: string | null
           desenhista: string | null
           dimensoes: string | null
+          espessura: string[] | null
           ficha_tecnica_rotation: number
           ficha_tecnica_url: string | null
           id: string
@@ -356,12 +358,14 @@ export type Database = {
           pedido: string | null
           produto: string
           quantidade: number
+          quantidade_material: number | null
           setor_atual: string | null
           status: string
           updated_at: string
         }
         Insert: {
           acabamento?: string | null
+          aco?: string[] | null
           cliente: string
           created_at?: string
           created_by: string
@@ -369,6 +373,7 @@ export type Database = {
           data_prevista_saida?: string | null
           desenhista?: string | null
           dimensoes?: string | null
+          espessura?: string[] | null
           ficha_tecnica_rotation?: number
           ficha_tecnica_url?: string | null
           id?: string
@@ -379,12 +384,14 @@ export type Database = {
           pedido?: string | null
           produto: string
           quantidade: number
+          quantidade_material?: number | null
           setor_atual?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           acabamento?: string | null
+          aco?: string[] | null
           cliente?: string
           created_at?: string
           created_by?: string
@@ -392,6 +399,7 @@ export type Database = {
           data_prevista_saida?: string | null
           desenhista?: string | null
           dimensoes?: string | null
+          espessura?: string[] | null
           ficha_tecnica_rotation?: number
           ficha_tecnica_url?: string | null
           id?: string
@@ -402,6 +410,7 @@ export type Database = {
           pedido?: string | null
           produto?: string
           quantidade?: number
+          quantidade_material?: number | null
           setor_atual?: string | null
           status?: string
           updated_at?: string
