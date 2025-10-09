@@ -248,7 +248,20 @@ const MetalDashboard = () => {
               <p className="text-xs text-slate-400">{profile?.setor || 'Sem setor'}</p>
             </div>
             
-            <Button variant="outline" size="sm" onClick={signOut} className="h-8 md:h-9">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                try {
+                  await signOut();
+                } catch (error) {
+                  // Se houver erro, força navegação de qualquer forma
+                  console.log('Forçando logout mesmo com erro');
+                  navigate('/metal-auth');
+                }
+              }} 
+              className="h-8 md:h-9"
+            >
               <LogOut className="w-3 h-3 md:w-4 md:h-4" />
               <span className="hidden md:inline md:ml-2">Sair</span>
             </Button>
