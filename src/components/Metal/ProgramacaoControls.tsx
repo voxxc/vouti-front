@@ -171,7 +171,6 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       const proximoSetor = "Guilhotina";
       
       // Atualizar OP para aguardando no próximo setor
-      // NÃO criar fluxo - será criado quando o operador do próximo setor apertar "Iniciar"
       const { error: opError } = await supabase
         .from("metal_ops")
         .update({
@@ -182,8 +181,10 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
 
       if (opError) {
         console.error("Erro ao atualizar OP:", opError);
-        throw new Error(`Erro ao atualizar OP: ${opError.message}`);
+        throw new Error(`Falha ao avançar: ${opError.message}`);
       }
+
+      console.log(`OP ${selectedOP.numero_op} avançada para ${proximoSetor}`);
 
       // Registrar histórico
       await supabase.from("metal_op_history").insert({
