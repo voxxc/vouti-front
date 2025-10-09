@@ -23,7 +23,6 @@ interface MetalOPInfoProps {
 
 const SETORES = [
   'Programação',
-  'Guilhotina',
   'Corte a laser',
   'Dobra',
   'Montagem',

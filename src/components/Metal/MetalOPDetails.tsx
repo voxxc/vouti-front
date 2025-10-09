@@ -125,9 +125,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       if (!user) throw new Error("Usuário não autenticado");
 
       const setorIndex = SETORES.indexOf(userSetor || '');
-      const isRestricted = setorIndex >= 1; // Guilhotina para baixo
+      const isRestricted = setorIndex >= 1; // Corte a laser para baixo
 
-      // Se for setor restrito (Guilhotina para baixo), resetar apenas o setor atual
+      // Se for setor restrito (Corte a laser para baixo), resetar apenas o setor atual
       if (isRestricted && userSetor) {
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
@@ -261,7 +261,6 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
   const SETORES = [
     'Programação',
-    'Guilhotina',
     'Corte a laser',
     'Dobra',
     'Montagem',
@@ -270,11 +269,11 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
     'Entrega'
   ];
 
-  // Verificar se o setor está "da Guilhotina para baixo"
+  // Verificar se o setor está "do Corte a laser para baixo"
   const isRestrictedSetor = () => {
     if (!userSetor) return false;
     const setorIndex = SETORES.indexOf(userSetor);
-    // Guilhotina é índice 1, então >= 1 significa "da Guilhotina para baixo"
+    // Corte a laser é índice 1, então >= 1 significa "do Corte a laser para baixo"
     return setorIndex >= 1;
   };
 
@@ -446,7 +445,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 )}
 
                 <div className="flex flex-wrap gap-2 justify-center mt-6">
-                  {/* Botões ocultos apenas para setores da Guilhotina para baixo */}
+                  {/* Botões ocultos apenas para setores do Corte a laser para baixo */}
                   {!isRestrictedSetor() && (
                     <>
                       <Button
@@ -508,7 +507,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                     </>
                   )}
 
-                  {/* Botão Resetar Fase apenas para setores da Guilhotina para baixo */}
+                  {/* Botão Resetar Fase apenas para setores do Corte a laser para baixo */}
                   {!isCreating && isRestrictedSetor() && (
                     <Button
                       variant="outline"
