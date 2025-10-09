@@ -129,17 +129,81 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
       // Se for setor restrito (Corte a laser para baixo), resetar apenas o setor atual
       if (isRestricted && userSetor) {
+        // PASSO 1: Buscar o PRIMEIRO registro de entrada no setor (registro original)
+        const { data: firstEntry, error: fetchError } = await supabase
+          .from("metal_setor_flow")
+          .select("*")
+          .eq("op_id", selectedOP.id)
+          .eq("setor", userSetor)
+          .order("entrada", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (fetchError) throw fetchError;
+
+        if (!firstEntry) {
+          toast({ 
+            title: "Erro", 
+            description: "Não foi encontrado registro de entrada original no setor",
+            variant: "destructive" 
+          });
+          return;
+        }
+
+        // PASSO 2: Deletar TODOS os registros do setor
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
           .delete()
           .eq("op_id", selectedOP.id)
           .eq("setor", userSetor);
-        
+
         if (deleteError) throw deleteError;
 
-        toast({ title: `Resetado apenas o setor ${userSetor}` });
+        // PASSO 3: Recriar APENAS o registro de ENTRADA original (sem saída)
+        const { error: insertError } = await supabase
+          .from("metal_setor_flow")
+          .insert({
+            op_id: selectedOP.id,
+            setor: userSetor,
+            entrada: firstEntry.entrada,                    // Mantém timestamp original
+            operador_entrada_id: firstEntry.operador_entrada_id, // Mantém operador
+            saida: null,                                    // SEM saída
+            operador_saida_id: null,                        // SEM operador de saída
+            observacoes: firstEntry.observacoes             // Mantém observações originais
+          });
+
+        if (insertError) throw insertError;
+
+        // PASSO 4: Atualizar status da OP para "aguardando" no setor atual
+        const { error: opError } = await supabase
+          .from("metal_ops")
+          .update({ status: "aguardando" })
+          .eq("id", selectedOP.id);
+
+        if (opError) throw opError;
+
+        // PASSO 5: Adicionar ao histórico
+        await supabase.from("metal_op_history").insert({
+          op_id: selectedOP.id,
+          user_id: user.id,
+          acao: `Resetou fase no setor ${userSetor}`,
+          detalhes: `OP voltou ao estado inicial de quando chegou neste setor`
+        });
+
+        // PASSO 6: Atualizar estado local
+        setFormData({
+          ...formData,
+          status: "aguardando"
+        });
+
+        toast({ 
+          title: "✅ Fase resetada com sucesso", 
+          description: `A OP voltou ao estado de quando chegou no ${userSetor}. Você pode iniciar novamente.` 
+        });
+
+        await loadSetorFlows();
       } else {
-        // Para Programação ou Admin, resetar tudo
+        // Para Programação: resetar completamente a OP
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
           .delete()
@@ -158,15 +222,18 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (updateError) throw updateError;
 
+        // Adicionar ao histórico
+        await supabase.from("metal_op_history").insert({
+          op_id: selectedOP.id,
+          user_id: user.id,
+          acao: "Resetou completamente a OP",
+          detalhes: "OP voltou ao estado inicial"
+        });
+
         toast({ title: "OP resetada completamente!" });
       }
 
       // Recarregar dados
-      setFormData({
-        ...formData,
-        setor_atual: isRestricted ? formData.setor_atual : null,
-        status: isRestricted ? formData.status : "aguardando"
-      });
       onSave();
     } catch (error: any) {
       toast({
