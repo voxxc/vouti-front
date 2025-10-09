@@ -257,11 +257,11 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Validação para setores de corte - verificar se material specs foram definidos
-      if (userSetor === "Corte a laser") {
+      // Validação para setores que precisam de material specs
+      if (userSetor === "Programação" || userSetor === "Corte a laser") {
         if (!selectedOP.aco || selectedOP.aco.length === 0 || 
             !selectedOP.espessura || selectedOP.espessura.length === 0) {
-          toast.error("É necessário confirmar as especificações de material antes de avançar");
+          toast.error("É necessário confirmar as especificações de material antes de enviar");
           setLoading(false);
           return;
         }
@@ -341,30 +341,35 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
     return null;
   }
 
+  // Programação não tem botão de iniciar/pausar, apenas enviar
+  const isProgramacao = userSetor === "Programação";
+
   return (
     <div className="flex gap-2 mt-4">
-      <Button
-        onClick={handleIniciarPausar}
-        disabled={loading || isPaused}
-        variant={isInProgress ? "outline" : "default"}
-        className="flex-1"
-      >
-        {isInProgress ? (
-          <>
-            <Pause className="mr-2 h-4 w-4" />
-            Pausar
-          </>
-        ) : (
-          <>
-            <Play className="mr-2 h-4 w-4" />
-            {isPaused ? "Retomar" : "Iniciar"}
-          </>
-        )}
-      </Button>
+      {!isProgramacao && (
+        <Button
+          onClick={handleIniciarPausar}
+          disabled={loading || isPaused}
+          variant={isInProgress ? "outline" : "default"}
+          className="flex-1"
+        >
+          {isInProgress ? (
+            <>
+              <Pause className="mr-2 h-4 w-4" />
+              Pausar
+            </>
+          ) : (
+            <>
+              <Play className="mr-2 h-4 w-4" />
+              {isPaused ? "Retomar" : "Iniciar"}
+            </>
+          )}
+        </Button>
+      )}
 
       <Button
         onClick={handleAvancarOuConcluir}
-        disabled={loading || !isPaused}
+        disabled={loading || (!isProgramacao && !isPaused)}
         variant="default"
         className="flex-1"
       >
@@ -376,7 +381,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
         ) : (
           <>
             <ArrowRight className="mr-2 h-4 w-4" />
-            Avançar
+            Enviar
           </>
         )}
       </Button>
