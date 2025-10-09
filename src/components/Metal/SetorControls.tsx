@@ -9,6 +9,7 @@ interface SetorControlsProps {
   selectedOP: MetalOP;
   userSetor: string | null;
   onUpdate: () => void;
+  refreshKey?: number;
 }
 
 // Sequência de setores
@@ -22,14 +23,14 @@ const SETOR_SEQUENCE = [
   "Entrega"
 ];
 
-export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControlsProps) => {
+export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: SetorControlsProps) => {
   const [isInProgress, setIsInProgress] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     checkStatus();
-  }, [selectedOP?.id, userSetor]);
+  }, [selectedOP?.id, userSetor, refreshKey]);
 
   // Recarregar status ao voltar o foco na janela
   useEffect(() => {
@@ -39,7 +40,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
     
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [selectedOP?.id, userSetor]);
+  }, [selectedOP?.id, userSetor, refreshKey]);
 
   const checkStatus = async () => {
     if (!userSetor) return;

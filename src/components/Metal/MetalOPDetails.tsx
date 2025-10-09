@@ -29,6 +29,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [userSetor, setUserSetor] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [setorFlows, setSetorFlows] = useState<MetalSetorFlow[]>([]);
+  const [controlsRefresh, setControlsRefresh] = useState(0);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -118,38 +119,36 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   };
 
   const handleResetOP = async () => {
-    if (!selectedOP) return;
+    if (!selectedOP || !userSetor) return;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      if (!user) {
+        toast({ 
+          title: "Erro", 
+          description: "Usuário não autenticado",
+          variant: "destructive" 
+        });
+        return;
+      }
 
-      const setorIndex = SETORES.indexOf(userSetor || '');
+      // PASSO 1: Confirmar com o usuário
+      const confirmacao = window.confirm(
+        `ATENÇÃO: Resetar a fase vai REMOVER todo o progresso do setor "${userSetor}".\n\n` +
+        `Isso vai:\n` +
+        `- Apagar todas as pausas e retomadas registradas\n` +
+        `- Restaurar a OP ao estado inicial do setor\n` +
+        `- O botão voltará para "Iniciar"\n\n` +
+        `Deseja continuar?`
+      );
+
+      if (!confirmacao) return;
+
+      const setorIndex = SETORES.indexOf(userSetor);
       const isRestricted = setorIndex >= 1; // Corte a laser para baixo
 
       // Se for setor restrito (Corte a laser para baixo), resetar apenas o setor atual
-      if (isRestricted && userSetor) {
-        // PASSO 1: Buscar o PRIMEIRO registro de entrada no setor (registro original)
-        const { data: firstEntry, error: fetchError } = await supabase
-          .from("metal_setor_flow")
-          .select("*")
-          .eq("op_id", selectedOP.id)
-          .eq("setor", userSetor)
-          .order("entrada", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (fetchError) throw fetchError;
-
-        if (!firstEntry) {
-          toast({ 
-            title: "Erro", 
-            description: "Não foi encontrado registro de entrada original no setor",
-            variant: "destructive" 
-          });
-          return;
-        }
-
+      if (isRestricted) {
         // PASSO 2: Deletar TODOS os registros do setor
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
@@ -167,26 +166,30 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (opError) throw opError;
 
-        // PASSO 5: Adicionar ao histórico
+        // PASSO 4: Adicionar ao histórico
         await supabase.from("metal_op_history").insert({
           op_id: selectedOP.id,
           user_id: user.id,
-          acao: `Resetou fase no setor ${userSetor}`,
-          detalhes: `OP voltou ao estado inicial de quando chegou neste setor`
+          acao: "resetou fase",
+          detalhes: `Resetou a fase do setor ${userSetor}. OP retornou ao estado inicial do setor.`
         });
 
-        // PASSO 6: Atualizar estado local
+        // PASSO 5: Atualizar estado local
         setFormData({
           ...formData,
           status: "aguardando"
         });
 
+        await loadSetorFlows();
+        
+        // PASSO 6: Forçar atualização dos controles
+        setControlsRefresh(v => v + 1);
+
         toast({ 
           title: "✅ Fase resetada com sucesso", 
           description: `A OP voltou ao estado de quando chegou no ${userSetor}. Você pode iniciar novamente.` 
         });
-
-        await loadSetorFlows();
+        onSave();
       } else {
         // Para Programação: resetar completamente a OP
         const { error: deleteError } = await supabase
@@ -489,11 +492,12 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 
                 {/* Controles de setor */}
                 {!isCreating && selectedOP && (
-                  <SetorControls 
-                    selectedOP={selectedOP}
-                    userSetor={userSetor}
-                    onUpdate={onSave}
-                  />
+              <SetorControls
+                selectedOP={selectedOP}
+                userSetor={userSetor}
+                onUpdate={onSave}
+                refreshKey={controlsRefresh}
+              />
                 )}
 
                 <div className="flex flex-wrap gap-2 justify-center mt-6">
