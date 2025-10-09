@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { MetalOP, MetalSetorFlow } from "@/types/metal";
 import { SetorControls } from "./SetorControls";
 import { format } from "date-fns";
+import { MaterialSpecsInput } from "./MaterialSpecsInput";
+import { MaterialSpecsConfirmation } from "./MaterialSpecsConfirmation";
 
 interface MetalOPDetailsProps {
   selectedOP: MetalOP | null;
@@ -34,6 +36,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       data_entrada: new Date().toISOString().split('T')[0],
       quantidade: 1,
       status: "aguardando",
+      aco: [],
+      espessura: [],
+      quantidade_material: null,
     }
   );
 
@@ -46,6 +51,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         data_entrada: new Date().toISOString().split('T')[0],
         quantidade: 1,
         status: "aguardando",
+        aco: [],
+        espessura: [],
+        quantidade_material: null,
       });
       setRotation(0);
     } else if (selectedOP) {
@@ -360,6 +368,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           ficha_tecnica_rotation: rotation,
           status: formData.status || 'aguardando',
           created_by: user.id,
+          aco: formData.aco,
+          espessura: formData.espessura,
+          quantidade_material: formData.quantidade_material,
         }]);
         if (error) throw error;
       } else {
@@ -371,6 +382,9 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             data_entrada: formData.data_entrada,
             ficha_tecnica_url: formData.ficha_tecnica_url,
             ficha_tecnica_rotation: rotation,
+            aco: formData.aco,
+            espessura: formData.espessura,
+            quantidade_material: formData.quantidade_material,
           })
           .eq("id", selectedOP?.id);
         if (error) throw error;
@@ -590,6 +604,24 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 disabled={isRestrictedSetor() && !isCreating}
               />
             </div>
+
+            {/* Material Specs - Programação pode editar, Corte apenas confirma */}
+            {userSetor === "Programação" && (
+              <MaterialSpecsInput
+                aco={formData.aco || []}
+                espessura={formData.espessura || []}
+                quantidade={formData.quantidade_material}
+                onChange={(field, value) => setFormData({ ...formData, [field]: value })}
+              />
+            )}
+
+            {(userSetor === "Guilhotina" || userSetor === "Corte a laser") && !isCreating && (
+              <MaterialSpecsConfirmation
+                aco={formData.aco}
+                espessura={formData.espessura}
+                quantidade={formData.quantidade_material}
+              />
+            )}
           </div>
 
           <Button onClick={handleSave} className="w-full h-12 text-base" size="lg">

@@ -258,6 +258,16 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate }: SetorControls
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // Validação para setores de corte - verificar se material specs foram definidos
+      if (userSetor === "Guilhotina" || userSetor === "Corte a laser") {
+        if (!selectedOP.aco || selectedOP.aco.length === 0 || 
+            !selectedOP.espessura || selectedOP.espessura.length === 0) {
+          toast.error("É necessário confirmar as especificações de material antes de avançar");
+          setLoading(false);
+          return;
+        }
+      }
+
       const isLast = isLastSetor();
 
       if (isLast) {
