@@ -253,13 +253,6 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
   const handleAvancarOuConcluir = async () => {
     if (!userSetor) return;
 
-    // Programação pode enviar sem precisar pausar; demais setores precisam estar pausados
-    const mustBePaused = userSetor !== "Programação";
-    if (mustBePaused && !isPaused) {
-      toast.error("Você precisa pausar a OP antes de enviar");
-      return;
-    }
-
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -276,6 +269,25 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
       }
 
       const isLast = isLastSetor();
+
+      // Sempre fechar fluxo aberto do setor atual, se existir
+      const { data: openFlow } = await supabase
+        .from("metal_setor_flow")
+        .select("*")
+        .eq("op_id", selectedOP.id)
+        .eq("setor", userSetor)
+        .is("saida", null)
+        .maybeSingle();
+
+      if (openFlow) {
+        await supabase
+          .from("metal_setor_flow")
+          .update({
+            saida: new Date().toISOString(),
+            operador_saida_id: user.id
+          })
+          .eq("id", openFlow.id);
+      }
 
       if (isLast) {
         // CONCLUIR (setor Entrega)
@@ -303,31 +315,6 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
         // AVANÇAR (outros setores)
         const proximoSetor = getNextSetor();
         if (!proximoSetor) throw new Error("Próximo setor não encontrado");
-
-        // Se for Programação, fechar o registro atual antes de avançar
-        if (userSetor === "Programação") {
-          const { data: openFlow } = await supabase
-            .from("metal_setor_flow")
-            .select("*")
-            .eq("op_id", selectedOP.id)
-            .eq("setor", "Programação")
-            .is("saida", null)
-            .maybeSingle();
-
-          if (openFlow) {
-            const { error: flowError } = await supabase
-              .from("metal_setor_flow")
-              .update({
-                saida: new Date().toISOString(),
-                operador_saida_id: user.id
-              })
-              .eq("id", openFlow.id);
-
-            if (flowError) {
-              console.error("Erro ao fechar fluxo:", flowError);
-            }
-          }
-        }
 
         const { error: opError } = await supabase
           .from("metal_ops")
@@ -402,7 +389,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
 
       <Button
         onClick={handleAvancarOuConcluir}
-        disabled={loading || (!isProgramacao && !isPaused)}
+        disabled={loading}
         variant="default"
         className="flex-1"
       >
