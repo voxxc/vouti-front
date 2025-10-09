@@ -159,22 +159,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (deleteError) throw deleteError;
 
-        // PASSO 3: Recriar APENAS o registro de ENTRADA original (sem saída)
-        const { error: insertError } = await supabase
-          .from("metal_setor_flow")
-          .insert({
-            op_id: selectedOP.id,
-            setor: userSetor,
-            entrada: firstEntry.entrada,                    // Mantém timestamp original
-            operador_entrada_id: firstEntry.operador_entrada_id, // Mantém operador
-            saida: null,                                    // SEM saída
-            operador_saida_id: null,                        // SEM operador de saída
-            observacoes: firstEntry.observacoes             // Mantém observações originais
-          });
-
-        if (insertError) throw insertError;
-
-        // PASSO 4: Atualizar status da OP para "aguardando" no setor atual
+        // PASSO 3: Atualizar status da OP para "aguardando" no setor atual
         const { error: opError } = await supabase
           .from("metal_ops")
           .update({ status: "aguardando" })
