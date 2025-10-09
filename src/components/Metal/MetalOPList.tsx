@@ -59,9 +59,9 @@ export function MetalOPList({
     
     // Admin com filtro de setor ativo
     if (isAdmin && selectedSetorFilter) {
-      // Mostrar apenas OPs do setor selecionado com status aguardando ou em_andamento
+      // Mostrar apenas OPs do setor selecionado com status aguardando, em_andamento ou em_producao
       return op.setor_atual === selectedSetorFilter && 
-             (op.status === "aguardando" || op.status === "em_andamento");
+             (op.status === "aguardando" || op.status === "em_andamento" || op.status === "em_producao");
     }
     
     // Admin vê todas as OPs (exceto concluídas que vão para outra aba)
