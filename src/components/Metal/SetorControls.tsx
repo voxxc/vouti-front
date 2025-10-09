@@ -304,6 +304,31 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
         const proximoSetor = getNextSetor();
         if (!proximoSetor) throw new Error("Próximo setor não encontrado");
 
+        // Se for Programação, fechar o registro atual antes de avançar
+        if (userSetor === "Programação") {
+          const { data: openFlow } = await supabase
+            .from("metal_setor_flow")
+            .select("*")
+            .eq("op_id", selectedOP.id)
+            .eq("setor", "Programação")
+            .is("saida", null)
+            .maybeSingle();
+
+          if (openFlow) {
+            const { error: flowError } = await supabase
+              .from("metal_setor_flow")
+              .update({
+                saida: new Date().toISOString(),
+                operador_saida_id: user.id
+              })
+              .eq("id", openFlow.id);
+
+            if (flowError) {
+              console.error("Erro ao fechar fluxo:", flowError);
+            }
+          }
+        }
+
         const { error: opError } = await supabase
           .from("metal_ops")
           .update({

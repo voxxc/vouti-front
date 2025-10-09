@@ -406,7 +406,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       }
 
       if (isCreating) {
-        const { error } = await supabase.from("metal_ops").insert([{
+        // Criar a OP
+        const { data: newOP, error } = await supabase.from("metal_ops").insert([{
           numero_op: formData.numero_op,
           produto: formData.produto,
           cliente: formData.cliente || "",
@@ -414,13 +415,37 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           data_entrada: formData.data_entrada || new Date().toISOString().split('T')[0],
           ficha_tecnica_url: formData.ficha_tecnica_url,
           ficha_tecnica_rotation: rotation,
-          status: formData.status || 'aguardando',
+          status: 'em_producao',
+          setor_atual: 'Programação',
           created_by: user.id,
           aco: formData.aco,
           espessura: formData.espessura,
           quantidade_material: formData.quantidade_material,
-        }]);
+        }]).select().single();
+        
         if (error) throw error;
+
+        // Se o usuário for do setor Programação, já criar o registro de entrada no setor
+        if (userSetor === 'Programação' && newOP) {
+          const { error: flowError } = await supabase.from("metal_setor_flow").insert({
+            op_id: newOP.id,
+            setor: 'Programação',
+            entrada: new Date().toISOString(),
+            operador_entrada_id: user.id
+          });
+
+          if (flowError) {
+            console.error("Erro ao criar registro de setor:", flowError);
+          }
+
+          // Registrar no histórico
+          await supabase.from("metal_op_history").insert({
+            op_id: newOP.id,
+            user_id: user.id,
+            acao: "criou e iniciou",
+            detalhes: "OP criada e iniciada automaticamente no setor Programação"
+          });
+        }
       } else {
         const { error } = await supabase
           .from("metal_ops")
