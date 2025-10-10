@@ -169,12 +169,12 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (opError) throw opError;
 
-        // Registrar no histórico
+        // Registrar no histórico (o histórico anterior é MANTIDO)
         await supabase.from("metal_op_history").insert({
           op_id: selectedOP.id,
           user_id: user.id,
           acao: "resetou completamente (admin)",
-          detalhes: "Admin resetou toda a OP. Todo o progresso nos setores foi removido, permanecendo apenas o registro de criação."
+          detalhes: "Admin resetou a OP. Fluxos de setores removidos. Histórico de ações mantido com datas originais."
         });
 
         setFormData({
@@ -188,7 +188,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         toast({ 
           title: "✅ OP resetada com sucesso", 
-          description: "Todo o progresso foi removido. OP voltou ao estado inicial (criação)." 
+          description: "Fluxos de setores removidos. Todo o histórico de ações foi mantido com datas originais." 
         });
         onSave();
         return;
