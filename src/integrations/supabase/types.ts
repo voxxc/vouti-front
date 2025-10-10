@@ -55,6 +55,41 @@ export type Database = {
           },
         ]
       }
+      comarcas: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          tribunal_id: string | null
+          uf: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          tribunal_id?: string | null
+          uf: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          tribunal_id?: string | null
+          uf?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comarcas_tribunal_id_fkey"
+            columns: ["tribunal_id"]
+            isOneToOne: false
+            referencedRelation: "tribunais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       controladoria_processos: {
         Row: {
           assunto: string
@@ -137,6 +172,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      etiquetas: {
+        Row: {
+          cor: string | null
+          created_at: string | null
+          id: string
+          nome: string
+          user_id: string | null
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string | null
+          id?: string
+          nome: string
+          user_id?: string | null
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string | null
+          id?: string
+          nome?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      grupos_acoes: {
+        Row: {
+          cor: string | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       lead_comments: {
         Row: {
@@ -551,6 +637,325 @@ export type Database = {
         }
         Relationships: []
       }
+      processo_documentos: {
+        Row: {
+          created_at: string | null
+          documento_pai_id: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          is_public: boolean | null
+          mime_type: string | null
+          nome: string
+          ocr_text: string | null
+          processo_id: string
+          tags: string[] | null
+          tipo: Database["public"]["Enums"]["documento_tipo"]
+          updated_at: string | null
+          uploaded_by: string
+          versao: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          documento_pai_id?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_public?: boolean | null
+          mime_type?: string | null
+          nome: string
+          ocr_text?: string | null
+          processo_id: string
+          tags?: string[] | null
+          tipo: Database["public"]["Enums"]["documento_tipo"]
+          updated_at?: string | null
+          uploaded_by: string
+          versao?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          documento_pai_id?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_public?: boolean | null
+          mime_type?: string | null
+          nome?: string
+          ocr_text?: string | null
+          processo_id?: string
+          tags?: string[] | null
+          tipo?: Database["public"]["Enums"]["documento_tipo"]
+          updated_at?: string | null
+          uploaded_by?: string
+          versao?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_documentos_documento_pai_id_fkey"
+            columns: ["documento_pai_id"]
+            isOneToOne: false
+            referencedRelation: "processo_documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_documentos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processo_etiquetas: {
+        Row: {
+          created_at: string | null
+          etiqueta_id: string
+          id: string
+          processo_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          etiqueta_id: string
+          id?: string
+          processo_id: string
+        }
+        Update: {
+          created_at?: string | null
+          etiqueta_id?: string
+          id?: string
+          processo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_etiquetas_etiqueta_id_fkey"
+            columns: ["etiqueta_id"]
+            isOneToOne: false
+            referencedRelation: "etiquetas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_etiquetas_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processo_historico: {
+        Row: {
+          acao: string
+          campo_alterado: string | null
+          created_at: string | null
+          id: string
+          ip_address: unknown | null
+          processo_id: string
+          user_agent: string | null
+          user_id: string | null
+          valor_anterior: Json | null
+          valor_novo: Json | null
+        }
+        Insert: {
+          acao: string
+          campo_alterado?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          processo_id: string
+          user_agent?: string | null
+          user_id?: string | null
+          valor_anterior?: Json | null
+          valor_novo?: Json | null
+        }
+        Update: {
+          acao?: string
+          campo_alterado?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          processo_id?: string
+          user_agent?: string | null
+          user_id?: string | null
+          valor_anterior?: Json | null
+          valor_novo?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_historico_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processo_movimentacoes: {
+        Row: {
+          autor_id: string | null
+          created_at: string | null
+          data_movimentacao: string
+          descricao: string
+          documento_id: string | null
+          id: string
+          is_automated: boolean | null
+          metadata: Json | null
+          processo_id: string
+          tipo: Database["public"]["Enums"]["movimentacao_tipo"]
+          updated_at: string | null
+        }
+        Insert: {
+          autor_id?: string | null
+          created_at?: string | null
+          data_movimentacao: string
+          descricao: string
+          documento_id?: string | null
+          id?: string
+          is_automated?: boolean | null
+          metadata?: Json | null
+          processo_id: string
+          tipo: Database["public"]["Enums"]["movimentacao_tipo"]
+          updated_at?: string | null
+        }
+        Update: {
+          autor_id?: string | null
+          created_at?: string | null
+          data_movimentacao?: string
+          descricao?: string
+          documento_id?: string | null
+          id?: string
+          is_automated?: boolean | null
+          metadata?: Json | null
+          processo_id?: string
+          tipo?: Database["public"]["Enums"]["movimentacao_tipo"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_movimentacao_documento"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "processo_documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_movimentacoes_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos: {
+        Row: {
+          advogado_responsavel_id: string | null
+          advogados_partes: Json | null
+          comarca_id: string | null
+          cpf_cnpj_partes: Json | null
+          created_at: string | null
+          created_by: string
+          data_distribuicao: string | null
+          deleted_at: string | null
+          grupo_acao_id: string | null
+          id: string
+          is_draft: boolean | null
+          numero_processo: string
+          observacoes: string | null
+          parte_ativa: string
+          parte_passiva: string
+          prazo_proximo: string | null
+          prioridade: Database["public"]["Enums"]["processo_prioridade"] | null
+          representantes: Json | null
+          status: Database["public"]["Enums"]["processo_status"] | null
+          tipo_acao_id: string | null
+          tribunal_id: string | null
+          updated_at: string | null
+          valor_causa: number | null
+          valor_custas: number | null
+        }
+        Insert: {
+          advogado_responsavel_id?: string | null
+          advogados_partes?: Json | null
+          comarca_id?: string | null
+          cpf_cnpj_partes?: Json | null
+          created_at?: string | null
+          created_by: string
+          data_distribuicao?: string | null
+          deleted_at?: string | null
+          grupo_acao_id?: string | null
+          id?: string
+          is_draft?: boolean | null
+          numero_processo: string
+          observacoes?: string | null
+          parte_ativa: string
+          parte_passiva: string
+          prazo_proximo?: string | null
+          prioridade?: Database["public"]["Enums"]["processo_prioridade"] | null
+          representantes?: Json | null
+          status?: Database["public"]["Enums"]["processo_status"] | null
+          tipo_acao_id?: string | null
+          tribunal_id?: string | null
+          updated_at?: string | null
+          valor_causa?: number | null
+          valor_custas?: number | null
+        }
+        Update: {
+          advogado_responsavel_id?: string | null
+          advogados_partes?: Json | null
+          comarca_id?: string | null
+          cpf_cnpj_partes?: Json | null
+          created_at?: string | null
+          created_by?: string
+          data_distribuicao?: string | null
+          deleted_at?: string | null
+          grupo_acao_id?: string | null
+          id?: string
+          is_draft?: boolean | null
+          numero_processo?: string
+          observacoes?: string | null
+          parte_ativa?: string
+          parte_passiva?: string
+          prazo_proximo?: string | null
+          prioridade?: Database["public"]["Enums"]["processo_prioridade"] | null
+          representantes?: Json | null
+          status?: Database["public"]["Enums"]["processo_status"] | null
+          tipo_acao_id?: string | null
+          tribunal_id?: string | null
+          updated_at?: string | null
+          valor_causa?: number | null
+          valor_custas?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_comarca_id_fkey"
+            columns: ["comarca_id"]
+            isOneToOne: false
+            referencedRelation: "comarcas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_grupo_acao_id_fkey"
+            columns: ["grupo_acao_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_acoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_tipo_acao_id_fkey"
+            columns: ["tipo_acao_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_acao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_tribunal_id_fkey"
+            columns: ["tribunal_id"]
+            isOneToOne: false
+            referencedRelation: "tribunais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -684,6 +1089,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tipos_acao: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          grupo_acao_id: string | null
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          grupo_acao_id?: string | null
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          grupo_acao_id?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tipos_acao_grupo_acao_id_fkey"
+            columns: ["grupo_acao_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_acoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tribunais: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          sigla: string
+          tipo: string
+          uf: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          sigla: string
+          tipo: string
+          uf?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          sigla?: string
+          tipo?: string
+          uf?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -855,7 +1325,33 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "advogado" | "comercial" | "financeiro"
+      documento_tipo:
+        | "peticao"
+        | "contrato"
+        | "procuracao"
+        | "certidao"
+        | "sentenca"
+        | "acordao"
+        | "outros"
       metal_role: "admin" | "operador"
+      movimentacao_tipo:
+        | "peticionamento"
+        | "audiencia"
+        | "despacho"
+        | "sentenca"
+        | "recurso"
+        | "juntada"
+        | "intimacao"
+        | "publicacao"
+        | "outros"
+      processo_prioridade: "baixa" | "normal" | "alta" | "urgente"
+      processo_status:
+        | "em_andamento"
+        | "arquivado"
+        | "suspenso"
+        | "conciliacao"
+        | "sentenca"
+        | "transito_julgado"
       user_role_type: "admin" | "advogado" | "comercial" | "financeiro"
     }
     CompositeTypes: {
@@ -985,7 +1481,36 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "advogado", "comercial", "financeiro"],
+      documento_tipo: [
+        "peticao",
+        "contrato",
+        "procuracao",
+        "certidao",
+        "sentenca",
+        "acordao",
+        "outros",
+      ],
       metal_role: ["admin", "operador"],
+      movimentacao_tipo: [
+        "peticionamento",
+        "audiencia",
+        "despacho",
+        "sentenca",
+        "recurso",
+        "juntada",
+        "intimacao",
+        "publicacao",
+        "outros",
+      ],
+      processo_prioridade: ["baixa", "normal", "alta", "urgente"],
+      processo_status: [
+        "em_andamento",
+        "arquivado",
+        "suspenso",
+        "conciliacao",
+        "sentenca",
+        "transito_julgado",
+      ],
       user_role_type: ["admin", "advogado", "comercial", "financeiro"],
     },
   },
