@@ -34,6 +34,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [setorFlows, setSetorFlows] = useState<MetalSetorFlow[]>([]);
   const [controlsRefresh, setControlsRefresh] = useState(0);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
@@ -133,6 +134,60 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const handleRemoveImage = () => {
     setFormData({ ...formData, ficha_tecnica_url: null });
     setRotation(0);
+  };
+
+  const handleDeleteOP = async () => {
+    if (!selectedOP) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      setShowDeleteDialog(false);
+
+      // 1. Deletar fluxos de setores
+      await supabase
+        .from("metal_setor_flow")
+        .delete()
+        .eq("op_id", selectedOP.id);
+
+      // 2. Deletar histórico
+      await supabase
+        .from("metal_op_history")
+        .delete()
+        .eq("op_id", selectedOP.id);
+
+      // 3. Deletar imagem do storage (se existir)
+      if (selectedOP.ficha_tecnica_url) {
+        const filePath = selectedOP.ficha_tecnica_url.split('/').pop();
+        if (filePath) {
+          await supabase.storage
+            .from("op-fichas-tecnicas")
+            .remove([filePath]);
+        }
+      }
+
+      // 4. Deletar a OP
+      const { error } = await supabase
+        .from("metal_ops")
+        .delete()
+        .eq("id", selectedOP.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "✅ OP deletada com sucesso",
+        description: "A OP e todos os seus registros foram removidos permanentemente."
+      });
+      
+      onClose();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao deletar OP",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleResetOP = async () => {
@@ -624,6 +679,18 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                             Resetar
                           </Button>
 
+                          {(isAdmin || userSetor === "Programação") && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setShowDeleteDialog(true)}
+                              className="flex items-center gap-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Remover OP
+                            </Button>
+                          )}
+
                           <Button
                             variant="destructive"
                             size="sm"
@@ -631,7 +698,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                             className="flex items-center gap-2"
                           >
                             <Trash2 className="h-4 w-4" />
-                            Remover
+                            Remover Imagem
                           </Button>
                         </>
                       )}
@@ -914,6 +981,46 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Resetar Fase
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para deletar OP */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Deletar OP Permanentemente
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="font-semibold text-foreground">
+                Você está prestes a DELETAR PERMANENTEMENTE a OP <span className="text-destructive">"{selectedOP?.numero_op}"</span>.
+              </p>
+              <div className="text-sm space-y-1 bg-destructive/10 p-3 rounded-md border border-destructive/30">
+                <p className="font-medium text-destructive">⚠️ ATENÇÃO: Isso vai APAGAR:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>A OP completa do sistema</li>
+                  <li>Todo o histórico de ações</li>
+                  <li>Todos os registros de progresso nos setores</li>
+                  <li>A ficha técnica anexada</li>
+                </ul>
+              </div>
+              <p className="text-destructive font-bold pt-2 flex items-center gap-2">
+                <Trash2 className="h-4 w-4" />
+                Esta ação NÃO PODE ser desfeita!
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOP}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Confirmar Deleção
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
