@@ -133,7 +133,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   };
 
   const handleResetOP = async () => {
-    if (!selectedOP || !userSetor) return;
+    if (!selectedOP || (!isAdmin && !userSetor)) return;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
