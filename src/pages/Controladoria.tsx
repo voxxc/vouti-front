@@ -1,278 +1,228 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, FileText, TrendingUp, Clock, Search, AlertCircle, Eye } from "lucide-react";
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye } from "lucide-react";
+import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const Controladoria = () => {
-  const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [isPJEModalOpen, setIsPJEModalOpen] = useState(false);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProcesso, setSelectedProcesso] = useState<any>(null);
-  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-
-  // Estados dos contadores baseados em dados reais da controladoria
-  const [totalProcessos, setTotalProcessos] = useState(0);
-  const [processosAtivos, setProcessosAtivos] = useState(0);
-  const [processosAguardando, setProcessosAguardando] = useState(0);
-  const [processosVencidos, setProcessosVencidos] = useState(0);
-  
-  // Estados do formulário
-  const [formData, setFormData] = useState({
-    numero_processo: '',
-    cliente: '',
-    tribunal: '',
-    assunto: '',
-    status: 'ativo',
-    observacoes: '',
-    advogado_responsavel_id: ''
+  const [metrics, setMetrics] = useState({
+    total: 0,
+    emAndamento: 0,
+    arquivados: 0,
+    suspensos: 0
   });
-  const [advogados, setAdvogados] = useState<any[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
-    fetchControladoriaData();
-    fetchAdvogados();
+    fetchProcessos();
   }, []);
 
-  const fetchAdvogados = async () => {
+  const fetchProcessos = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, email')
-        .order('full_name', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar advogados:', error);
-        return;
-      }
-
-      setAdvogados(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar advogados:', error);
-    }
-  };
-
-  const fetchControladoriaData = async () => {
-    try {
-      setLoading(true);
-      
-      // Buscar dados específicos da controladoria
-      const { data: controladoriaProcessos, error } = await supabase
-        .from('controladoria_processos')
-        .select('*')
+        .from('processos')
+        .select(`
+          *,
+          tribunais(sigla),
+          grupos_acoes(nome)
+        `)
+        .or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Erro ao buscar dados da controladoria:', error);
-        return;
-      }
+      if (error) throw error;
 
-      setProcessos(controladoriaProcessos || []);
+      setProcessos(data || []);
       
-      // Calcular métricas baseadas nos dados reais
-      const total = controladoriaProcessos?.length || 0;
-      const ativos = controladoriaProcessos?.filter(p => p.status === 'ativo')?.length || 0;
-      const aguardando = controladoriaProcessos?.filter(p => p.status === 'aguardando')?.length || 0;
-      const vencidos = controladoriaProcessos?.filter(p => p.status === 'vencido')?.length || 0;
+      const total = data?.length || 0;
+      const emAndamento = data?.filter(p => p.status === 'em_andamento').length || 0;
+      const arquivados = data?.filter(p => p.status === 'arquivado').length || 0;
+      const suspensos = data?.filter(p => p.status === 'suspenso').length || 0;
 
-      setTotalProcessos(total);
-      setProcessosAtivos(ativos);
-      setProcessosAguardando(aguardando);
-      setProcessosVencidos(vencidos);
-
+      setMetrics({ total, emAndamento, arquivados, suspensos });
     } catch (error) {
-      console.error('Erro ao buscar dados da controladoria:', error);
+      console.error('Error fetching processos:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os processos.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'em_andamento': return 'default';
+      case 'arquivado': return 'secondary';
+      case 'suspenso': return 'outline';
+      default: return 'default';
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData.user) {
-        toast({
-          title: "Erro de autenticação",
-          description: "Você precisa estar logado para cadastrar processos.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { error } = await supabase
-        .from('controladoria_processos')
-        .insert([{
-          ...formData,
-          user_id: userData.user.id
-        }]);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Processo cadastrado",
-        description: "O processo foi cadastrado com sucesso!",
-      });
-
-      // Limpar formulário
-      setFormData({
-        numero_processo: '',
-        cliente: '',
-        tribunal: '',
-        assunto: '',
-        status: 'ativo',
-        observacoes: '',
-        advogado_responsavel_id: ''
-      });
-
-      // Recarregar dados
-      fetchControladoriaData();
-
-    } catch (error: any) {
-      console.error('Erro ao cadastrar processo:', error);
-      toast({
-        title: "Erro ao cadastrar",
-        description: error.message || "Erro ao cadastrar o processo. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      em_andamento: 'Em Andamento',
+      arquivado: 'Arquivado',
+      suspenso: 'Suspenso',
+      conciliacao: 'Conciliação',
+      sentenca: 'Sentença',
+      transito_julgado: 'Trânsito em Julgado'
+    };
+    return labels[status] || status;
   };
 
   return (
     <DashboardLayout currentPage="controladoria">
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => window.history.back()} className="gap-2">
-              <ArrowLeft size={16} />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Controladoria</h1>
-              <p className="text-muted-foreground">Gestão e controle de processos</p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold">Controladoria</h1>
+            <p className="text-muted-foreground mt-2">Gestão e controle de processos jurídicos</p>
           </div>
+          <Button onClick={() => navigate('/controladoria/novo')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Processo
+          </Button>
         </div>
 
-        {/* Métricas de Processos da Controladoria */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total de Processos</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {loading ? "..." : totalProcessos}
-                  </p>
-                  {totalProcessos === 0 && !loading && (
-                    <p className="text-xs text-muted-foreground mt-1">Nenhum processo cadastrado</p>
-                  )}
-                </div>
-                <div className="p-3 bg-law-blue/10 rounded-lg">
-                  <FileText className="h-6 w-6 text-law-blue" />
-                </div>
-              </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Processos</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.total}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Processos Ativos</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {loading ? "..." : processosAtivos}
-                  </p>
-                </div>
-                <div className="p-3 bg-green-500/10 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Em Andamento</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.emAndamento}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Aguardando</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {loading ? "..." : processosAguardando}
-                  </p>
-                </div>
-                <div className="p-3 bg-yellow-500/10 rounded-lg">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
-              </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Arquivados</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.arquivados}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Vencidos</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {loading ? "..." : processosVencidos}
-                  </p>
-                </div>
-                <div className="p-3 bg-red-500/10 rounded-lg">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Suspensos</CardTitle>
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.suspensos}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Aviso quando não há dados */}
-        {!loading && totalProcessos === 0 && (
-          <Card className="border-2 border-dashed border-muted-foreground/20">
-            <CardContent className="p-8 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Nenhum processo cadastrado
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Comece cadastrando processos na aba "Cadastro de Processos" para ver as métricas aparecerem aqui.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Tabs */}
-        <Tabs defaultValue="push" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="processos" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="processos">Processos</TabsTrigger>
             <TabsTrigger value="push">PUSH - Busca Processos</TabsTrigger>
-            <TabsTrigger value="cadastro">Cadastro de Processos</TabsTrigger>
-            <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="push" className="space-y-4">
-            <Card className="border-0 shadow-card">
+          <TabsContent value="processos">
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista de Processos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <p className="text-center text-muted-foreground py-8">Carregando...</p>
+                ) : processos.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Nenhum processo cadastrado</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Comece cadastrando seu primeiro processo
+                    </p>
+                    <Button onClick={() => navigate('/controladoria/novo')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo Processo
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Número do Processo</TableHead>
+                        <TableHead>Partes</TableHead>
+                        <TableHead>Tribunal</TableHead>
+                        <TableHead>Grupo</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {processos.map((processo) => (
+                        <TableRow key={processo.id}>
+                          <TableCell className="font-medium">{processo.numero_processo}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div>{processo.parte_ativa}</div>
+                              <div className="text-muted-foreground">vs {processo.parte_passiva}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{processo.tribunais?.sigla || '-'}</TableCell>
+                          <TableCell>{processo.grupos_acoes?.nome || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(processo.status)}>
+                              {getStatusLabel(processo.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(processo.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="push">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Search className="h-5 w-5" />
@@ -283,270 +233,21 @@ const Controladoria = () => {
                 <p className="text-muted-foreground">
                   Utilize o sistema PUSH para buscar e atualizar informações de processos no PJE.
                 </p>
-                <Button 
-                  onClick={() => setIsPushDialogOpen(true)}
-                  className="gap-2"
-                  variant="professional"
-                >
-                  <TrendingUp className="h-4 w-4" />
+                <Button onClick={() => setIsPJEModalOpen(true)}>
+                  <Search className="mr-2 h-4 w-4" />
                   Iniciar Busca PUSH
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="cadastro" className="space-y-4">
-            <Card className="border-0 shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Cadastro de Processos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">
-                  Cadastre novos processos no sistema para gerenciamento e controle.
-                </p>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Número do Processo</label>
-                        <input 
-                          type="text" 
-                          name="numero_processo"
-                          value={formData.numero_processo}
-                          onChange={handleInputChange}
-                          placeholder="Ex: 0001234-56.2024.8.26.0001"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Cliente</label>
-                        <input 
-                          type="text" 
-                          name="cliente"
-                          value={formData.cliente}
-                          onChange={handleInputChange}
-                          placeholder="Nome do cliente"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Assunto</label>
-                        <input 
-                          type="text" 
-                          name="assunto"
-                          value={formData.assunto}
-                          onChange={handleInputChange}
-                          placeholder="Assunto do processo"
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Advogado Responsável</label>
-                        <select 
-                          name="advogado_responsavel_id"
-                          value={formData.advogado_responsavel_id}
-                          onChange={handleInputChange}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">Selecione o advogado</option>
-                          {advogados.map((advogado) => (
-                            <option key={advogado.user_id} value={advogado.user_id}>
-                              {advogado.full_name || advogado.email}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Status</label>
-                        <select 
-                          name="status"
-                          value={formData.status}
-                          onChange={handleInputChange}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="ativo">Ativo</option>
-                          <option value="aguardando">Aguardando</option>
-                          <option value="arquivado">Arquivado</option>
-                          <option value="vencido">Vencido</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground">Observações</label>
-                        <textarea 
-                          name="observacoes"
-                          value={formData.observacoes}
-                          onChange={handleInputChange}
-                          placeholder="Observações adicionais (inclua Tribunal aqui se necessário)"
-                          rows={3}
-                          className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-6">
-                    <Button 
-                      type="submit"
-                      className="gap-2"
-                      variant="professional"
-                      disabled={isSubmitting}
-                    >
-                      <FileText className="h-4 w-4" />
-                      {isSubmitting ? "Cadastrando..." : "Cadastrar Processo"}
-                    </Button>
-                  </div>
-                </form>
-
-                {/* Lista de processos cadastrados */}
-                {processos.length > 0 && (
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4 text-foreground">Processos Cadastrados</h3>
-                    <ScrollArea className="h-[400px] rounded-md border border-border p-4">
-                      <div className="space-y-3">
-                        {processos.map((processo) => (
-                          <div 
-                            key={processo.id} 
-                            className="p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
-                            onClick={() => {
-                              setSelectedProcesso(processo);
-                              setIsDetailsDialogOpen(true);
-                            }}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <h4 className="font-medium text-foreground">{processo.numero_processo}</h4>
-                                <p className="text-sm text-muted-foreground">Cliente: {processo.cliente}</p>
-                                <p className="text-sm text-muted-foreground">Assunto: {processo.assunto}</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                                  processo.status === 'ativo' ? 'bg-green-100 text-green-800' :
-                                  processo.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
-                                  processo.status === 'vencido' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {processo.status === 'ativo' ? 'Ativo' :
-                                   processo.status === 'aguardando' ? 'Aguardando' :
-                                   processo.status === 'vencido' ? 'Vencido' : 'Arquivado'}
-                                </span>
-                                <Eye className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="relatorios" className="space-y-4">
-            <Card className="border-0 shadow-card">
-              <CardHeader>
-                <CardTitle>Relatórios de Processos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Seção em desenvolvimento - Relatórios detalhados dos processos serão exibidos aqui.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
-
-        {/* Modal de Atualização de Processos PJE */}
-        <PJEProcessUpdater
-          isOpen={isPushDialogOpen}
-          onClose={() => setIsPushDialogOpen(false)}
-          clientName=""
-        />
-
-        {/* Modal de Detalhes do Processo */}
-        <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-foreground">Detalhes do Processo</DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Informações completas do processo selecionado
-              </DialogDescription>
-            </DialogHeader>
-            {selectedProcesso && (
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Número do Processo</label>
-                    <p className="text-base font-medium text-foreground mt-1">{selectedProcesso.numero_processo}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Status</label>
-                    <p className="mt-1">
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                        selectedProcesso.status === 'ativo' ? 'bg-green-100 text-green-800' :
-                        selectedProcesso.status === 'aguardando' ? 'bg-yellow-100 text-yellow-800' :
-                        selectedProcesso.status === 'vencido' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {selectedProcesso.status === 'ativo' ? 'Ativo' :
-                         selectedProcesso.status === 'aguardando' ? 'Aguardando' :
-                         selectedProcesso.status === 'vencido' ? 'Vencido' : 'Arquivado'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Cliente</label>
-                  <p className="text-base text-foreground mt-1">{selectedProcesso.cliente}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Assunto</label>
-                  <p className="text-base text-foreground mt-1">{selectedProcesso.assunto}</p>
-                </div>
-
-                {selectedProcesso.observacoes && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Observações</label>
-                    <p className="text-base text-foreground mt-1 whitespace-pre-wrap">{selectedProcesso.observacoes}</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Data de Cadastro</label>
-                    <p className="text-base text-foreground mt-1">
-                      {new Date(selectedProcesso.created_at).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Última Atualização</label>
-                    <p className="text-base text-foreground mt-1">
-                      {new Date(selectedProcesso.updated_at).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
+
+      <PJEProcessUpdater
+        isOpen={isPJEModalOpen}
+        onClose={() => setIsPJEModalOpen(false)}
+        clientName=""
+      />
     </DashboardLayout>
   );
 };

@@ -14,6 +14,8 @@ import CRM from "@/pages/CRM";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
+import ControladoriaNovoProcesso from "@/pages/ControladoriaNovoProcesso";
+import ControladoriaProcessoDetalhes from "@/pages/ControladoriaProcessoDetalhes";
 import LandingPage2 from "@/pages/LandingPage2";
 import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
@@ -183,6 +185,27 @@ function App() {
                 <AuthProvider>
                   <ProtectedRoute>
                     <Controladoria />
+                  </ProtectedRoute>
+                </AuthProvider>
+              } />
+              <Route path="/controladoria/novo" element={
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <ControladoriaNovoProcesso />
+                  </ProtectedRoute>
+                </AuthProvider>
+              } />
+              <Route path="/controladoria/processo/:id" element={
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <ControladoriaProcessoDetalhes />
+                  </ProtectedRoute>
+                </AuthProvider>
+              } />
+              <Route path="/controladoria/processo/:id/editar" element={
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <ControladoriaNovoProcesso />
                   </ProtectedRoute>
                 </AuthProvider>
               } />
