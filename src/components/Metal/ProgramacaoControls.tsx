@@ -9,9 +9,10 @@ interface ProgramacaoControlsProps {
   selectedOP: MetalOP;
   userSetor: string | null;
   onUpdate: () => void;
+  hasUnsavedChanges: boolean;
 }
 
-export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: ProgramacaoControlsProps) {
+export function ProgramacaoControls({ selectedOP, userSetor, onUpdate, hasUnsavedChanges }: ProgramacaoControlsProps) {
   const { toast } = useToast();
   const [isInProgress, setIsInProgress] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -162,6 +163,15 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       return;
     }
 
+    if (hasUnsavedChanges) {
+      toast({
+        title: "⚠️ Alterações não salvas",
+        description: "Você deve salvar a OP antes de avançar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -242,11 +252,12 @@ export function ProgramacaoControls({ selectedOP, userSetor, onUpdate }: Program
       <Button
         variant="outline"
         onClick={handleAvancar}
-        disabled={loading || !isPaused}
+        disabled={loading || !isPaused || hasUnsavedChanges}
         className="flex-1 h-12"
+        title={hasUnsavedChanges ? "Salve a OP antes de avançar" : ""}
       >
         <ArrowRight className="h-4 w-4 mr-2" />
-        Avançar
+        Enviar
       </Button>
     </div>
   );

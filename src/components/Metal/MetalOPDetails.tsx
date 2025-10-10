@@ -34,6 +34,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
   const [setorFlows, setSetorFlows] = useState<MetalSetorFlow[]>([]);
   const [controlsRefresh, setControlsRefresh] = useState(0);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [formData, setFormData] = useState<Partial<MetalOP>>(
     selectedOP || {
       numero_op: "",
@@ -61,9 +62,11 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         quantidade_material: null,
       });
       setRotation(0);
+      setHasUnsavedChanges(false);
     } else if (selectedOP) {
       setFormData(selectedOP);
       setRotation(selectedOP.ficha_tecnica_rotation || 0);
+      setHasUnsavedChanges(false);
     }
   }, [selectedOP, isCreating]);
 
@@ -515,6 +518,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
       }
 
       toast({ title: isCreating ? "OP criada com sucesso!" : "OP atualizada com sucesso!" });
+      setHasUnsavedChanges(false);
       onSave();
       
       // Ao salvar, atualizar rotation no banco
@@ -567,6 +571,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 userSetor={userSetor}
                 onUpdate={onSave}
                 refreshKey={controlsRefresh}
+                hasUnsavedChanges={hasUnsavedChanges}
               />
                 )}
 
@@ -695,7 +700,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
               <Input
                 id="numero_op"
                 value={formData.numero_op}
-                onChange={(e) => setFormData({ ...formData, numero_op: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, numero_op: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
                 placeholder="Ex: 1938/25"
                 className="text-base h-12"
                 disabled={isRestrictedSetor() && !isCreating}
@@ -709,7 +717,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
               <Input
                 id="produto"
                 value={formData.produto}
-                onChange={(e) => setFormData({ ...formData, produto: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, produto: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
                 placeholder="Ex: Funil, Passa Pratos"
                 className="text-base h-12"
                 disabled={isRestrictedSetor() && !isCreating}
@@ -724,7 +735,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 id="data_entrada"
                 type="date"
                 value={formData.data_entrada}
-                onChange={(e) => setFormData({ ...formData, data_entrada: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, data_entrada: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
                 className="text-base h-12"
                 disabled={isRestrictedSetor() && !isCreating}
               />
@@ -736,7 +750,10 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
                 aco={formData.aco || []}
                 espessura={formData.espessura || []}
                 quantidade={formData.quantidade_material}
-                onChange={(field, value) => setFormData({ ...formData, [field]: value })}
+                onChange={(field, value) => {
+                  setFormData({ ...formData, [field]: value });
+                  setHasUnsavedChanges(true);
+                }}
               />
             )}
 

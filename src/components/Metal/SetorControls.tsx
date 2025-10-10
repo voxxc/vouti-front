@@ -10,6 +10,7 @@ interface SetorControlsProps {
   userSetor: string | null;
   onUpdate: () => void;
   refreshKey?: number;
+  hasUnsavedChanges?: boolean;
 }
 
 // Sequência de setores
@@ -23,7 +24,7 @@ const SETOR_SEQUENCE = [
   "Entrega"
 ];
 
-export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: SetorControlsProps) => {
+export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, hasUnsavedChanges = false }: SetorControlsProps) => {
   const [isInProgress, setIsInProgress] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -265,6 +266,12 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
   const handleAvancarOuConcluir = async () => {
     if (!userSetor) return;
 
+    // Validação para Programação: verificar se há alterações não salvas
+    if (userSetor === "Programação" && hasUnsavedChanges) {
+      toast.error("⚠️ Você deve salvar a OP antes de enviar");
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -401,9 +408,10 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
 
       <Button
         onClick={handleAvancarOuConcluir}
-        disabled={loading}
+        disabled={loading || (userSetor === "Programação" && hasUnsavedChanges)}
         variant="default"
         className="flex-1"
+        title={userSetor === "Programação" && hasUnsavedChanges ? "Salve a OP antes de enviar" : ""}
       >
         {isLastSetor() ? (
           <>
