@@ -148,28 +148,8 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
       setShowResetDialog(false);
 
-      // ADMIN: Resetar para o estado após Programação
+      // ADMIN: Resetar para Programação (funciona mesmo com OPs concluídas)
       if (isAdmin) {
-        // Buscar o registro de saída da Programação
-        const { data: programacaoFlow } = await supabase
-          .from("metal_setor_flow")
-          .select("*")
-          .eq("op_id", selectedOP.id)
-          .eq("setor", "Programação")
-          .not("saida", "is", null)
-          .order("saida", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (!programacaoFlow) {
-          toast({
-            title: "Erro",
-            description: "Não foi possível encontrar o registro de saída da Programação",
-            variant: "destructive"
-          });
-          return;
-        }
-
         // Deletar todos os registros EXCETO os da Programação
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
