@@ -98,6 +98,18 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey }: S
   const handleIniciarPausar = async () => {
     if (!userSetor) return;
 
+    // VALIDAÇÃO SETOR CORTE: Verificar se especificações estão completas
+    if (userSetor === "Corte a laser" && !isInProgress && !isPaused) {
+      const hasAco = selectedOP.aco && selectedOP.aco.length > 0;
+      const hasEspessura = selectedOP.espessura && selectedOP.espessura.length > 0;
+      const hasQuantidade = selectedOP.quantidade_material && selectedOP.quantidade_material > 0;
+
+      if (!hasAco || !hasEspessura || !hasQuantidade) {
+        toast.error("É necessário preencher tipo de aço, espessura e quantidade antes de iniciar.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();

@@ -179,11 +179,11 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         if (deleteError) throw deleteError;
 
-        // Atualizar OP para o próximo setor após Programação (Corte a laser)
+        // Resetar setor_atual para null (volta para Programação) e status para aguardando
         const { error: opError } = await supabase
           .from("metal_ops")
           .update({
-            setor_atual: "Corte a laser",
+            setor_atual: null,
             status: "aguardando"
           })
           .eq("id", selectedOP.id);
@@ -194,13 +194,13 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
         await supabase.from("metal_op_history").insert({
           op_id: selectedOP.id,
           user_id: user.id,
-          acao: "resetou (admin)",
-          detalhes: "Admin resetou a OP para o estado após Programação"
+          acao: "resetou completamente (admin)",
+          detalhes: "Admin resetou a OP até a entrada em Programação. Histórico mantido até a criação."
         });
 
         setFormData({
           ...formData,
-          setor_atual: "Corte a laser",
+          setor_atual: null,
           status: "aguardando"
         });
 
@@ -209,7 +209,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         toast({ 
           title: "✅ OP resetada com sucesso", 
-          description: "OP voltou ao estado de quando foi enviada da Programação para Corte a laser." 
+          description: "OP voltou ao estado inicial (Programação). Histórico mantido até a criação." 
         });
         onSave();
         return;
