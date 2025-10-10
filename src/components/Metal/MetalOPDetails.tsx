@@ -148,14 +148,13 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
       setShowResetDialog(false);
 
-      // ADMIN: Resetar para Programação (funciona mesmo com OPs concluídas)
+      // ADMIN: Resetar completamente TODO o progresso nos setores (funciona mesmo com OPs concluídas)
       if (isAdmin) {
-        // Deletar todos os registros EXCETO os da Programação
+        // Deletar TODOS os registros de fluxo de setores
         const { error: deleteError } = await supabase
           .from("metal_setor_flow")
           .delete()
-          .eq("op_id", selectedOP.id)
-          .neq("setor", "Programação");
+          .eq("op_id", selectedOP.id);
 
         if (deleteError) throw deleteError;
 
@@ -175,7 +174,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
           op_id: selectedOP.id,
           user_id: user.id,
           acao: "resetou completamente (admin)",
-          detalhes: "Admin resetou a OP até a entrada em Programação. Histórico mantido até a criação."
+          detalhes: "Admin resetou toda a OP. Todo o progresso nos setores foi removido, permanecendo apenas o registro de criação."
         });
 
         setFormData({
@@ -189,7 +188,7 @@ export function MetalOPDetails({ selectedOP, onClose, onSave, isCreating }: Meta
 
         toast({ 
           title: "✅ OP resetada com sucesso", 
-          description: "OP voltou ao estado inicial (Programação). Histórico mantido até a criação." 
+          description: "Todo o progresso foi removido. OP voltou ao estado inicial (criação)." 
         });
         onSave();
         return;
