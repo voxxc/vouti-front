@@ -1155,6 +1155,122 @@ export type Database = {
         }
         Relationships: []
       }
+      tribunal_credentials: {
+        Row: {
+          certificate_password_encrypted: string | null
+          certificate_path: string | null
+          config_metadata: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          login: string | null
+          oauth_refresh_token: string | null
+          oauth_token: string | null
+          password_encrypted: string | null
+          token_expires_at: string | null
+          tribunal_code: string
+          tribunal_name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          certificate_password_encrypted?: string | null
+          certificate_path?: string | null
+          config_metadata?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          login?: string | null
+          oauth_refresh_token?: string | null
+          oauth_token?: string | null
+          password_encrypted?: string | null
+          token_expires_at?: string | null
+          tribunal_code: string
+          tribunal_name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          certificate_password_encrypted?: string | null
+          certificate_path?: string | null
+          config_metadata?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          login?: string | null
+          oauth_refresh_token?: string | null
+          oauth_token?: string | null
+          password_encrypted?: string | null
+          token_expires_at?: string | null
+          tribunal_code?: string
+          tribunal_name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tribunal_sync_logs: {
+        Row: {
+          created_at: string | null
+          documentos_found: number | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          movimentacoes_imported: number | null
+          processo_id: string | null
+          response_metadata: Json | null
+          status: string
+          sync_type: string
+          tribunal_code: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          documentos_found?: number | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          movimentacoes_imported?: number | null
+          processo_id?: string | null
+          response_metadata?: Json | null
+          status: string
+          sync_type: string
+          tribunal_code: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          documentos_found?: number | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          movimentacoes_imported?: number | null
+          processo_id?: string | null
+          response_metadata?: Json | null
+          status?: string
+          sync_type?: string
+          tribunal_code?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tribunal_sync_logs_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1299,6 +1415,14 @@ export type Database = {
           triggered_by?: string
         }
         Returns: undefined
+      }
+      decrypt_credential: {
+        Args: { encrypted_text: string; key: string }
+        Returns: string
+      }
+      encrypt_credential: {
+        Args: { key: string; text_to_encrypt: string }
+        Returns: string
       }
       has_metal_role: {
         Args: {
