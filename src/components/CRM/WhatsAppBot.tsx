@@ -67,6 +67,9 @@ const WhatsAppBot: React.FC = () => {
     setConnectionStatus('connecting');
     
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
       // Verificar status da instância Z-API
       const { data: statusData } = await supabase.functions.invoke('whatsapp-connect', {
         body: { action: 'create_instance' }
@@ -109,6 +112,19 @@ const WhatsAppBot: React.FC = () => {
             setConnectionStatus('connected');
             setQrCode(null);
             clearInterval(statusInterval);
+            
+            // Atualizar status no banco
+            await supabase
+              .from('whatsapp_instances')
+              .update({
+                connection_status: 'connected',
+                last_update: new Date().toISOString()
+              })
+              .eq('instance_name', zapiConfig.instanceId)
+              .eq('user_id', userData.user.id);
+            
+            console.log('✅ Status da instância atualizado no banco');
+            
             setActiveTab('conversas');
             toast({
               title: "WhatsApp conectado!",
@@ -360,6 +376,23 @@ const WhatsAppBot: React.FC = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
+      // Salvar no banco de dados whatsapp_instances
+      const { error: instanceError } = await supabase
+        .from('whatsapp_instances')
+        .upsert({
+          instance_name: zapiConfig.instanceId,
+          user_id: userData.user.id,
+          connection_status: 'disconnected',
+          last_update: new Date().toISOString()
+        }, {
+          onConflict: 'instance_name'
+        });
+
+      if (instanceError) {
+        console.error('Erro ao salvar instância:', instanceError);
+        throw instanceError;
+      }
+
       // Salvar configurações via edge function
       const { data } = await supabase.functions.invoke('save-zapi-config', {
         body: {
@@ -372,21 +405,12 @@ const WhatsAppBot: React.FC = () => {
       if (data?.success) {
         toast({
           title: "Configuração salva",
-          description: "Use os dados abaixo para configurar os secrets no Supabase:",
+          description: "Credenciais salvas com sucesso! Agora você pode conectar.",
         });
         
-        // Mostrar instruções para o usuário
-        console.log('=== CONFIGURAÇÃO Z-API ===');
-        console.log('Por favor, configure os seguintes secrets no Supabase:');
-        console.log('Z_API_URL:', data.instructions.Z_API_URL);
-        console.log('Z_API_INSTANCE_ID:', data.instructions.Z_API_INSTANCE_ID);
-        console.log('Z_API_TOKEN:', data.instructions.Z_API_TOKEN);
-        console.log('========================');
-        
-        toast({
-          title: "Valores salvos no console",
-          description: "Verifique o console do navegador para os valores dos secrets",
-        });
+        console.log('✅ Instância registrada no banco de dados');
+        console.log('Instance ID:', zapiConfig.instanceId);
+        console.log('User ID:', userData.user.id);
         
         setActiveTab('conexao');
       } else {
