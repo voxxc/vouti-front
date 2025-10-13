@@ -377,6 +377,29 @@ const WhatsAppBot: React.FC = () => {
     loadAutomations();
   }, []);
 
+  // Verificar status da conexão ao carregar
+  useEffect(() => {
+    const checkConnectionStatus = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('whatsapp-connect', {
+          body: { action: 'get_status' }
+        });
+
+        console.log('🔍 Verificação inicial de status:', data);
+
+        if (data?.success && data?.data?.connected) {
+          setIsConnected(true);
+          setConnectionStatus('connected');
+          console.log('✅ WhatsApp já está conectado!');
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status:', error);
+      }
+    };
+
+    checkConnectionStatus();
+  }, []);
+
   // Mock de dados para contatos (em produção viriam da API)
   useEffect(() => {
     const mockContacts: WhatsAppContact[] = [
