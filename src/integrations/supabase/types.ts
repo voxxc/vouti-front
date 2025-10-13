@@ -1333,7 +1333,7 @@ export type Database = {
           instance_name: string
           last_update: string | null
           qr_code: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           connection_status?: string | null
@@ -1342,7 +1342,7 @@ export type Database = {
           instance_name: string
           last_update?: string | null
           qr_code?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           connection_status?: string | null
@@ -1351,7 +1351,7 @@ export type Database = {
           instance_name?: string
           last_update?: string | null
           qr_code?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -1362,13 +1362,14 @@ export type Database = {
           from_number: string
           id: string
           instance_name: string
+          is_read: boolean | null
           message_id: string
           message_text: string | null
           message_type: string | null
           raw_data: Json | null
           timestamp: string | null
           to_number: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string | null
@@ -1376,13 +1377,14 @@ export type Database = {
           from_number: string
           id?: string
           instance_name: string
+          is_read?: boolean | null
           message_id: string
           message_text?: string | null
           message_type?: string | null
           raw_data?: Json | null
           timestamp?: string | null
           to_number?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string | null
@@ -1390,13 +1392,14 @@ export type Database = {
           from_number?: string
           id?: string
           instance_name?: string
+          is_read?: boolean | null
           message_id?: string
           message_text?: string | null
           message_type?: string | null
           raw_data?: Json | null
           timestamp?: string | null
           to_number?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }

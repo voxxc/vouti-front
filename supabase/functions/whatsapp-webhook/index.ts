@@ -20,23 +20,22 @@ serve(async (req) => {
     const webhookData = await req.json();
     console.log('Received webhook data:', JSON.stringify(webhookData, null, 2));
 
-    const { type, instanceId } = webhookData;
+    const { type, instanceId, fromMe } = webhookData;
 
-    switch (type) {
-      case 'message':
+    // Z-API envia webhooks com type: 'ReceivedCallback' para mensagens
+    if (type === 'ReceivedCallback') {
+      // Se fromMe = false, é mensagem recebida de contato
+      if (!fromMe) {
         await handleIncomingMessage(webhookData);
-        break;
-        
-      case 'status':
-        await handleStatusUpdate(webhookData);
-        break;
-        
-      case 'qrcode':
-        await handleQRCodeUpdate(webhookData);
-        break;
-        
-      default:
-        console.log(`Unhandled webhook type: ${type}`);
+      }
+    } else if (type === 'message') {
+      await handleIncomingMessage(webhookData);
+    } else if (type === 'status') {
+      await handleStatusUpdate(webhookData);
+    } else if (type === 'qrcode') {
+      await handleQRCodeUpdate(webhookData);
+    } else {
+      console.log(`Unhandled webhook type: ${type}`);
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -56,29 +55,42 @@ serve(async (req) => {
 });
 
 async function handleIncomingMessage(data: any) {
-  const { instanceId, message } = data;
+  const { instanceId, phone, messageId, text, chatName, momment } = data;
   
-  if (!message) return;
+  // Buscar user_id da instância
+  const { data: instance, error: instanceError } = await supabase
+    .from('whatsapp_instances')
+    .select('user_id')
+    .eq('instance_name', instanceId)
+    .single();
 
-  // Save message to database
+  if (instanceError || !instance?.user_id) {
+    console.error('Instance not found or no user_id:', instanceError);
+    return;
+  }
+
+  // Salvar mensagem com user_id
   const { error: insertError } = await supabase
     .from('whatsapp_messages')
     .insert({
       instance_name: instanceId,
-      message_id: message.id || `msg_${Date.now()}`,
-      from_number: message.from,
-      to_number: message.to,
-      message_text: message.body,
-      message_type: message.type || 'text',
+      message_id: messageId || `msg_${Date.now()}`,
+      from_number: phone,
+      message_text: text?.message || '',
+      message_type: 'text',
       direction: 'received',
-      raw_data: message,
-      timestamp: new Date().toISOString(),
+      raw_data: data,
+      user_id: instance.user_id,
+      timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
+      is_read: false
     });
 
   if (insertError) {
     console.error('Error saving message:', insertError);
     return;
   }
+
+  console.log('✅ Mensagem salva:', { phone, text: text?.message });
 
   // Check for active automations
   const { data: automations, error: automationError } = await supabase

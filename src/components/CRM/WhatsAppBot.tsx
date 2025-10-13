@@ -52,6 +52,7 @@ const WhatsAppBot: React.FC = () => {
   const [newKeyword, setNewKeyword] = useState('');
   const [newResponse, setNewResponse] = useState('');
   const [instanceName] = useState('whatsapp-bot');
+  const [isResetting, setIsResetting] = useState(false);
   
   // Configurações Z-API
   const [zapiConfig, setZapiConfig] = useState({
@@ -173,6 +174,9 @@ const WhatsAppBot: React.FC = () => {
     if (!selectedContact || !newMessage.trim()) return;
 
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
       const { data } = await supabase.functions.invoke('whatsapp-send-message', {
         body: {
           phone: selectedContact.number,
@@ -182,6 +186,19 @@ const WhatsAppBot: React.FC = () => {
       });
 
       if (data?.success) {
+        // Salvar mensagem enviada no banco
+        await supabase.from('whatsapp_messages').insert({
+          instance_name: instanceName,
+          message_id: data.messageId || `msg_${Date.now()}`,
+          from_number: selectedContact.number,
+          to_number: selectedContact.number,
+          message_text: newMessage,
+          message_type: 'text',
+          direction: 'sent',
+          user_id: userData.user.id,
+          timestamp: new Date().toISOString()
+        });
+
         // Adicionar mensagem à lista local
         const newMsg: WhatsAppMessage = {
           id: data.messageId || Date.now().toString(),
@@ -292,6 +309,40 @@ const WhatsAppBot: React.FC = () => {
     }
   };
 
+  const handleReset = async () => {
+    setIsResetting(true);
+    
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      // Limpar estado local
+      setIsConnected(false);
+      setQrCode(null);
+      setConnectionStatus('disconnected');
+      setContacts([]);
+      setMessages([]);
+      
+      // Limpar do banco
+      await supabase.from('whatsapp_instances').delete().eq('user_id', userData.user.id);
+      await supabase.from('whatsapp_messages').delete().eq('user_id', userData.user.id);
+      
+      toast({
+        title: "Configurações resetadas",
+        description: "Você pode reconfigurar agora com novos dados",
+      });
+    } catch (error) {
+      console.error('Erro ao resetar:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao resetar configurações",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const saveZapiConfig = async () => {
     setIsSavingConfig(true);
     
@@ -305,6 +356,9 @@ const WhatsAppBot: React.FC = () => {
         });
         return;
       }
+
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
 
       // Salvar configurações via edge function
       const { data } = await supabase.functions.invoke('save-zapi-config', {
@@ -400,28 +454,69 @@ const WhatsAppBot: React.FC = () => {
     checkConnectionStatus();
   }, []);
 
-  // Mock de dados para contatos (em produção viriam da API)
+  // Carregar conversas reais do banco
   useEffect(() => {
-    const mockContacts: WhatsAppContact[] = [
-      {
-        id: '1',
-        name: 'João Silva',
-        number: '5511999887766',
-        lastMessage: 'Oi, preciso de ajuda com meu processo',
-        lastMessageTime: '14:30',
-        unreadCount: 2
-      },
-      {
-        id: '2', 
-        name: 'Maria Santos',
-        number: '5511888776655',
-        lastMessage: 'Obrigada pelo atendimento!',
-        lastMessageTime: '12:15',
-        unreadCount: 0
+    if (!isConnected) return;
+    
+    const loadConversations = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) return;
+
+        // Buscar todas as mensagens do usuário
+        const { data: messages, error } = await supabase
+          .from('whatsapp_messages')
+          .select('*')
+          .eq('user_id', userData.user.id)
+          .order('timestamp', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao carregar mensagens:', error);
+          return;
+        }
+
+        // Agrupar por número de telefone
+        const contactsMap = new Map<string, WhatsAppContact>();
+        
+        messages?.forEach((msg) => {
+          const number = msg.from_number;
+          if (!contactsMap.has(number)) {
+            const chatName = (msg.raw_data as any)?.chatName || number;
+            contactsMap.set(number, {
+              id: number,
+              name: chatName,
+              number: number,
+              lastMessage: msg.message_text || '',
+              lastMessageTime: new Date(msg.timestamp).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit'
+              }),
+              unreadCount: 0
+            });
+          }
+          
+          // Contar mensagens não lidas
+          if (msg.direction === 'received' && !msg.is_read) {
+            const contact = contactsMap.get(number);
+            if (contact) {
+              contact.unreadCount++;
+            }
+          }
+        });
+
+        setContacts(Array.from(contactsMap.values()));
+        console.log('📱 Conversas carregadas:', contactsMap.size);
+      } catch (error) {
+        console.error('Erro ao carregar conversas:', error);
       }
-    ];
-    setContacts(mockContacts);
-  }, []);
+    };
+
+    loadConversations();
+    
+    // Atualizar a cada 5 segundos
+    const interval = setInterval(loadConversations, 5000);
+    return () => clearInterval(interval);
+  }, [isConnected]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -627,6 +722,24 @@ const WhatsAppBot: React.FC = () => {
                     </>
                   )}
                 </Button>
+                <Button 
+                  onClick={handleReset} 
+                  disabled={isResetting}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {isResetting ? (
+                    <>
+                      <Clock size={16} className="mr-2 animate-spin" />
+                      Resetando...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} className="mr-2" />
+                      Resetar Tudo
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -709,10 +822,39 @@ const WhatsAppBot: React.FC = () => {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="space-y-2">
-                    {contacts.map((contact) => (
+                     {contacts.map((contact) => (
                       <div
                         key={contact.id}
-                        onClick={() => setSelectedContact(contact)}
+                        onClick={async () => {
+                          setSelectedContact(contact);
+                          // Carregar mensagens do contato
+                          const { data: userData } = await supabase.auth.getUser();
+                          if (!userData.user) return;
+                          
+                          const { data } = await supabase
+                            .from('whatsapp_messages')
+                            .select('*')
+                            .eq('user_id', userData.user.id)
+                            .eq('from_number', contact.number)
+                            .order('timestamp', { ascending: true });
+
+                          setMessages(data?.map(msg => ({
+                            id: msg.id,
+                            fromNumber: msg.from_number,
+                            messageText: msg.message_text,
+                            direction: msg.direction as 'sent' | 'received',
+                            timestamp: msg.timestamp
+                          })) || []);
+                          
+                          // Marcar mensagens como lidas
+                          await supabase
+                            .from('whatsapp_messages')
+                            .update({ is_read: true })
+                            .eq('user_id', userData.user.id)
+                            .eq('from_number', contact.number)
+                            .eq('direction', 'received')
+                            .eq('is_read', false);
+                        }}
                         className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
                           selectedContact?.id === contact.id ? 'bg-muted' : ''
                         }`}
