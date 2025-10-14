@@ -55,7 +55,13 @@ serve(async (req) => {
 });
 
 async function handleIncomingMessage(data: any) {
-  const { instanceId, phone, messageId, text, chatName, momment } = data;
+  const { instanceId, phone, messageId, text, chatName, momment, fromMe } = data;
+  
+  // ✅ Ignorar mensagens enviadas pelo próprio bot
+  if (fromMe) {
+    console.log('⏭️ Ignorando mensagem própria (fromMe: true)');
+    return;
+  }
   
   // Buscar user_id da instância
   const { data: instance, error: instanceError } = await supabase
@@ -130,12 +136,17 @@ async function handleIncomingMessage(data: any) {
 
       // Enviar resposta usando Z-API diretamente
       try {
-        const zapiUrl = `${instanceConfig.zapi_url}/send-text`;
+        // Construir URL corretamente: base_url/token/CLIENT_TOKEN/send-text
+        const zapiUrl = `${instanceConfig.zapi_url}/token/${instanceConfig.zapi_token}/send-text`;
+        
+        console.log('🔗 Enviando para Z-API:', zapiUrl.replace(instanceConfig.zapi_token, '***'));
+        console.log('📱 Telefone destino:', phone);
+        console.log('💬 Mensagem:', automation.response_message);
+        
         const response = await fetch(zapiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Client-Token': instanceConfig.zapi_token,
           },
           body: JSON.stringify({
             phone: phone,
@@ -143,11 +154,12 @@ async function handleIncomingMessage(data: any) {
           }),
         });
 
+        const responseData = await response.json();
+        
         if (response.ok) {
-          console.log(`✅ Resposta automática enviada para ${phone}`);
+          console.log(`✅ Resposta automática enviada:`, responseData);
         } else {
-          const errorText = await response.text();
-          console.error(`❌ Erro Z-API: ${response.status}`, errorText);
+          console.error(`❌ Erro Z-API: ${response.status}`, responseData);
         }
       } catch (error) {
         console.error('❌ Erro ao enviar resposta automática:', error);
