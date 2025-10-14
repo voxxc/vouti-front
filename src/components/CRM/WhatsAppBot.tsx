@@ -244,10 +244,29 @@ const WhatsAppBot: React.FC = () => {
   };
 
   const addAutomation = async () => {
-    if (!newKeyword.trim() || !newResponse.trim()) return;
+    // Validar que temos instanceId
+    if (!zapiConfig?.instanceId) {
+      toast({
+        title: "Erro",
+        description: "❌ Conecte ao WhatsApp primeiro!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newKeyword.trim() || !newResponse.trim()) {
+      toast({
+        title: "Erro",
+        description: "❌ Preencha todos os campos",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const { data: userData } = await supabase.auth.getUser();
+      
+      console.log('🔧 Criando automação com instance_name:', zapiConfig.instanceId);
       
       const { data, error } = await supabase
         .from('whatsapp_automations')
@@ -261,7 +280,12 @@ const WhatsAppBot: React.FC = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao criar automação:', error);
+        throw error;
+      }
+
+      console.log('✅ Automação criada:', data);
 
       const newAutomation: WhatsAppAutomation = {
         id: data.id,
