@@ -29,6 +29,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .not('email', 'like', '%@metalsystem.local%') // 🔒 Filtrar usuários do MetalSystem
         .order('created_at', { ascending: false });
 
       if (error) throw error;
