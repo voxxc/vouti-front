@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { QrCode, Smartphone, MessageCircle, Bot, BarChart3, Plus, Trash2, Edit, Send, CheckCircle2, Clock, Zap, Wifi, WifiOff, Users, Phone, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -322,6 +323,69 @@ const WhatsAppBot: React.FC = () => {
       );
     } catch (error) {
       console.error('Erro ao atualizar automação:', error);
+    }
+  };
+
+  const handleDeleteAllConversations = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { error } = await supabase
+        .from('whatsapp_messages')
+        .delete()
+        .eq('user_id', userData.user.id);
+
+      if (error) throw error;
+
+      setContacts([]);
+      setMessages([]);
+      setSelectedContact(null);
+
+      toast({
+        title: "Histórico deletado",
+        description: "Todo o histórico de conversas foi removido com sucesso",
+      });
+    } catch (error) {
+      console.error('Erro ao deletar histórico:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao deletar histórico de conversas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteContact = async (contactNumber: string) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const { error } = await supabase
+        .from('whatsapp_messages')
+        .delete()
+        .eq('user_id', userData.user.id)
+        .eq('from_number', contactNumber);
+
+      if (error) throw error;
+
+      setContacts(prev => prev.filter(c => c.number !== contactNumber));
+      if (selectedContact?.number === contactNumber) {
+        setSelectedContact(null);
+        setMessages([]);
+      }
+
+      toast({
+        title: "Conversa deletada",
+        description: "O histórico desta conversa foi removido",
+      });
+    } catch (error) {
+      console.error('Erro ao deletar conversa:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao deletar conversa",
+        variant: "destructive",
+      });
     }
   };
 
@@ -842,7 +906,31 @@ const WhatsAppBot: React.FC = () => {
             <div className="lg:col-span-1">
               <Card className="border-0 shadow-card">
                 <CardHeader>
-                  <CardTitle className="text-base">Contatos Recentes</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Contatos Recentes</CardTitle>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Deletar todo o histórico?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação irá deletar permanentemente todas as conversas do WhatsApp da base de dados.
+                            Isso ajuda a liberar espaço no sistema. Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteAllConversations} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Confirmar exclusão
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="space-y-2">
@@ -898,9 +986,44 @@ const WhatsAppBot: React.FC = () => {
                               {contact.lastMessage}
                             </p>
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {contact.lastMessageTime}
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              {contact.lastMessageTime}
+                            </span>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-6 w-6 p-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Deletar esta conversa?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação irá deletar permanentemente todas as mensagens desta conversa com {contact.name}.
+                                    Isso ajuda a liberar espaço no sistema. Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteContact(contact.number);
+                                    }}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Confirmar exclusão
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </div>
                     ))}
