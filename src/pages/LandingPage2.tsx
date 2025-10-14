@@ -73,9 +73,6 @@ const LandingPage2 = () => {
       } else if (code === 'metal') {
         await supabase.auth.signOut();
         navigate('/metal-auth');
-      } else if (code === 'dental') {
-        await supabase.auth.signOut();
-        navigate('/dental-auth');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);

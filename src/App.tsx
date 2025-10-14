@@ -3,7 +3,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
-import { DentalAuthProvider, useDentalAuth } from "@/contexts/DentalAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useState, useEffect } from 'react';
 import Auth from "@/pages/Auth";
@@ -22,8 +21,6 @@ import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
 import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import MetalReports from "@/pages/MetalReports";
-import DentalAuth from "@/pages/DentalAuth";
-import DentalDashboard from "@/pages/DentalDashboard";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -118,33 +115,6 @@ const MetalPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const DentalProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useDentalAuth();
-  
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-slate-900 dark:to-slate-800 text-foreground">Carregando...</div>;
-  }
-  
-  if (!user) {
-    return <Navigate to="/dental-auth" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-const DentalPublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useDentalAuth();
-  
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-slate-900 dark:to-slate-800 text-foreground">Carregando...</div>;
-  }
-  
-  if (user) {
-    return <Navigate to="/dental-dashboard" replace />;
-  }
-  
-  return <>{children}</>;
-};
 
 function App() {
   return (
@@ -269,22 +239,6 @@ function App() {
                 <MetalReports />
               </MetalProtectedRoute>
             </MetalAuthProvider>
-          } />
-          
-          {/* Dental System Routes */}
-          <Route path="/dental-auth" element={
-            <DentalAuthProvider>
-              <DentalPublicRoute>
-                <DentalAuth />
-              </DentalPublicRoute>
-            </DentalAuthProvider>
-          } />
-          <Route path="/dental-dashboard" element={
-            <DentalAuthProvider>
-              <DentalProtectedRoute>
-                <DentalDashboard />
-              </DentalProtectedRoute>
-            </DentalAuthProvider>
           } />
               
               {/* Redirect old landing routes to homepage */}
