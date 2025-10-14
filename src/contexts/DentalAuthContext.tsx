@@ -21,7 +21,6 @@ interface DentalAuthContextType {
   profile: DentalProfile | null;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, especialidade?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -108,31 +107,6 @@ export const DentalAuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, especialidade?: string) => {
-    const dentalEmail = email.includes('@dental.local') ? email : `${email.split('@')[0]}@dental.local`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email: dentalEmail,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          especialidade: especialidade
-        }
-      }
-    });
-
-    if (error) return { error };
-
-    if (data.user) {
-      await (supabase as any)
-        .from('dental_user_roles')
-        .insert({ user_id: data.user.id, role: 'dentista' });
-    }
-
-    return { error: null };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -148,7 +122,6 @@ export const DentalAuthProvider = ({ children }: { children: ReactNode }) => {
       profile,
       isAdmin,
       signIn,
-      signUp,
       signOut,
       loading
     }}>
