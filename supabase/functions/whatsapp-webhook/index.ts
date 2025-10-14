@@ -93,6 +93,7 @@ async function handleIncomingMessage(data: any) {
   console.log('✅ Mensagem salva:', { phone, text: text?.message });
 
   // Check for active automations
+  console.log('📥 Buscando automações para instance:', instanceId);
   const { data: automations, error: automationError } = await supabase
     .from('whatsapp_automations')
     .select('*')
@@ -104,27 +105,52 @@ async function handleIncomingMessage(data: any) {
     return;
   }
 
+  console.log('🔍 Automações encontradas:', automations?.length || 0);
+  console.log('💬 Texto da mensagem recebida:', text?.message);
+
   // Check if message matches any automation trigger
   for (const automation of automations || []) {
-    const messageText = (message.body || '').toLowerCase();
+    const messageText = (text?.message || '').toLowerCase();
     const triggerKeyword = automation.trigger_keyword.toLowerCase();
     
     if (messageText.includes(triggerKeyword)) {
-      console.log(`Automation triggered: ${automation.id}`);
+      console.log(`🤖 Automação disparada: ${automation.id} | Keyword: "${triggerKeyword}"`);
       
-      // Send automated response via whatsapp-send-message function
+      // Buscar configuração Z-API da instância
+      const { data: instanceConfig } = await supabase
+        .from('whatsapp_instances')
+        .select('zapi_url, zapi_token')
+        .eq('instance_name', instanceId)
+        .single();
+
+      if (!instanceConfig?.zapi_url || !instanceConfig?.zapi_token) {
+        console.error('❌ Z-API config not found for instance');
+        continue;
+      }
+
+      // Enviar resposta usando Z-API diretamente
       try {
-        await supabase.functions.invoke('whatsapp-send-message', {
-          body: {
-            phone: message.from,
+        const zapiUrl = `${instanceConfig.zapi_url}/send-text`;
+        const response = await fetch(zapiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Client-Token': instanceConfig.zapi_token,
+          },
+          body: JSON.stringify({
+            phone: phone,
             message: automation.response_message,
-            messageType: 'text'
-          }
+          }),
         });
-        
-        console.log(`Automated response sent to ${message.from}`);
+
+        if (response.ok) {
+          console.log(`✅ Resposta automática enviada para ${phone}`);
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ Erro Z-API: ${response.status}`, errorText);
+        }
       } catch (error) {
-        console.error('Error sending automated response:', error);
+        console.error('❌ Erro ao enviar resposta automática:', error);
       }
       
       break; // Only trigger first matching automation

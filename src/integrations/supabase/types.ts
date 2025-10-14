@@ -1334,6 +1334,8 @@ export type Database = {
           last_update: string | null
           qr_code: string | null
           user_id: string
+          zapi_token: string | null
+          zapi_url: string | null
         }
         Insert: {
           connection_status?: string | null
@@ -1343,6 +1345,8 @@ export type Database = {
           last_update?: string | null
           qr_code?: string | null
           user_id?: string
+          zapi_token?: string | null
+          zapi_url?: string | null
         }
         Update: {
           connection_status?: string | null
@@ -1352,6 +1356,8 @@ export type Database = {
           last_update?: string | null
           qr_code?: string | null
           user_id?: string
+          zapi_token?: string | null
+          zapi_url?: string | null
         }
         Relationships: []
       }

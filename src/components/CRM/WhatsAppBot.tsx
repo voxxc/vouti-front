@@ -252,7 +252,7 @@ const WhatsAppBot: React.FC = () => {
       const { data, error } = await supabase
         .from('whatsapp_automations')
         .insert({
-          instance_name: instanceName,
+          instance_name: zapiConfig.instanceId,
           trigger_keyword: newKeyword.toLowerCase(),
           response_message: newResponse,
           is_active: true,
