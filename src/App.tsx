@@ -17,6 +17,7 @@ import Controladoria from "@/pages/Controladoria";
 import ControladoriaNovoProcesso from "@/pages/ControladoriaNovoProcesso";
 import ControladoriaProcessoDetalhes from "@/pages/ControladoriaProcessoDetalhes";
 import LandingPage2 from "@/pages/LandingPage2";
+import LandingPage3 from "@/pages/LandingPage3";
 import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
 import MetalAdminUsers from "@/pages/MetalAdminUsers";
@@ -240,6 +241,9 @@ function App() {
               </MetalProtectedRoute>
             </MetalAuthProvider>
           } />
+              
+              {/* Landing Page 3 - Optional direct access */}
+              <Route path="/landing-page-3" element={<LandingPage3 />} />
               
               {/* Redirect old landing routes to homepage */}
               <Route path="/landing-page-1" element={<Navigate to="/" replace />} />
