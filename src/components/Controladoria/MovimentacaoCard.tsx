@@ -18,6 +18,7 @@ interface MovimentacaoCardProps {
 const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, isController }: MovimentacaoCardProps) => {
   const [observacoes, setObservacoes] = useState('');
   const [showObservacoes, setShowObservacoes] = useState(false);
+  const [showTextoCompleto, setShowTextoCompleto] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const getStatusIcon = () => {
@@ -92,8 +93,51 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
           </div>
 
           {/* Descrição */}
-          <div className="pl-8">
-            <p className="text-sm leading-relaxed">{movimentacao.descricao}</p>
+          <div className="pl-8 space-y-3">
+            <div>
+              <p className="text-sm leading-relaxed">{movimentacao.descricao}</p>
+            </div>
+            
+            {/* Texto Completo (se disponível) */}
+            {movimentacao.metadata?.texto_completo && (
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <strong className="text-sm font-semibold">Inteiro Teor</strong>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTextoCompleto(!showTextoCompleto)}
+                    className="h-7"
+                  >
+                    {showTextoCompleto ? (
+                      <>
+                        <ChevronUp className="h-3 w-3 mr-1" />
+                        Ocultar
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3 w-3 mr-1" />
+                        Ver Texto Completo
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                {showTextoCompleto && (
+                  <div className="p-3 bg-muted/50 rounded-md max-h-96 overflow-y-auto">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {movimentacao.metadata.texto_completo}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {!movimentacao.metadata?.texto_completo && movimentacao.is_automated && (
+              <div className="text-xs text-muted-foreground italic">
+                ℹ️ Texto completo não disponível para este andamento
+              </div>
+            )}
           </div>
 
           {/* Informações de conferência */}
