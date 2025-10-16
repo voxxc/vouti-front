@@ -96,6 +96,94 @@ export type Database = {
           },
         ]
       }
+      cliente_pagamento_comentarios: {
+        Row: {
+          comentario: string
+          created_at: string | null
+          id: string
+          parcela_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comentario: string
+          created_at?: string | null
+          id?: string
+          parcela_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comentario?: string
+          created_at?: string | null
+          id?: string
+          parcela_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_pagamento_comentarios_parcela_id_fkey"
+            columns: ["parcela_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_parcelas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_parcelas: {
+        Row: {
+          cliente_id: string
+          comprovante_url: string | null
+          created_at: string | null
+          data_pagamento: string | null
+          data_vencimento: string
+          id: string
+          metodo_pagamento: string | null
+          numero_parcela: number
+          observacoes: string | null
+          status: string
+          updated_at: string | null
+          valor_parcela: number
+        }
+        Insert: {
+          cliente_id: string
+          comprovante_url?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento: string
+          id?: string
+          metodo_pagamento?: string | null
+          numero_parcela: number
+          observacoes?: string | null
+          status?: string
+          updated_at?: string | null
+          valor_parcela: number
+        }
+        Update: {
+          cliente_id?: string
+          comprovante_url?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string
+          id?: string
+          metodo_pagamento?: string | null
+          numero_parcela?: number
+          observacoes?: string | null
+          status?: string
+          updated_at?: string | null
+          valor_parcela?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_parcelas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           classificacao: string | null
@@ -1774,6 +1862,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atualizar_status_parcelas: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       create_project_notification: {
         Args: {
           notification_content: string

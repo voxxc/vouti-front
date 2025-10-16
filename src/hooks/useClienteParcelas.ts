@@ -1,0 +1,213 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { ClienteParcela, ParcelaComentario, DadosBaixaPagamento } from '@/types/financeiro';
+import { toast } from '@/hooks/use-toast';
+
+export const useClienteParcelas = (clienteId: string | null) => {
+  const [parcelas, setParcelas] = useState<ClienteParcela[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchParcelas = async () => {
+    if (!clienteId) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('cliente_parcelas')
+        .select('*')
+        .eq('cliente_id', clienteId)
+        .order('numero_parcela', { ascending: true });
+
+      if (error) throw error;
+      setParcelas(data as ClienteParcela[] || []);
+    } catch (error) {
+      console.error('Erro ao buscar parcelas:', error);
+      toast({
+        title: 'Erro ao carregar parcelas',
+        description: 'Não foi possível carregar as parcelas do cliente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchParcelas();
+  }, [clienteId]);
+
+  const darBaixaParcela = async (parcelaId: string, dados: DadosBaixaPagamento) => {
+    try {
+      let comprovanteUrl = null;
+
+      // Upload de comprovante se fornecido
+      if (dados.comprovante) {
+        const fileExt = dados.comprovante.name.split('.').pop();
+        const fileName = `${parcelaId}_${Date.now()}.${fileExt}`;
+        const filePath = `${clienteId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('comprovantes-pagamento')
+          .upload(filePath, dados.comprovante);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('comprovantes-pagamento')
+          .getPublicUrl(filePath);
+
+        comprovanteUrl = publicUrl;
+      }
+
+      // Atualizar parcela
+      const { error: updateError } = await supabase
+        .from('cliente_parcelas')
+        .update({
+          status: 'pago',
+          data_pagamento: dados.data_pagamento,
+          metodo_pagamento: dados.metodo_pagamento,
+          comprovante_url: comprovanteUrl,
+          observacoes: dados.observacoes,
+        })
+        .eq('id', parcelaId);
+
+      if (updateError) throw updateError;
+
+      // Adicionar comentário automático
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('cliente_pagamento_comentarios')
+          .insert({
+            parcela_id: parcelaId,
+            user_id: user.id,
+            comentario: `Pagamento registrado via ${dados.metodo_pagamento}`,
+          });
+      }
+
+      toast({
+        title: 'Pagamento registrado',
+        description: 'A baixa da parcela foi registrada com sucesso.',
+      });
+
+      await fetchParcelas();
+      return true;
+    } catch (error) {
+      console.error('Erro ao dar baixa na parcela:', error);
+      toast({
+        title: 'Erro ao registrar pagamento',
+        description: 'Não foi possível registrar a baixa da parcela.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  return {
+    parcelas,
+    loading,
+    fetchParcelas,
+    darBaixaParcela,
+  };
+};
+
+export const useParcelaComentarios = (parcelaId: string | null) => {
+  const [comentarios, setComentarios] = useState<ParcelaComentario[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchComentarios = async () => {
+    if (!parcelaId) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('cliente_pagamento_comentarios')
+        .select(`
+          *,
+          autor:user_id(full_name, email)
+        `)
+        .eq('parcela_id', parcelaId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        autor: item.autor && typeof item.autor === 'object' ? {
+          full_name: (item.autor as any).full_name || '',
+          email: (item.autor as any).email || ''
+        } : undefined
+      }));
+      
+      setComentarios(formattedData as ParcelaComentario[]);
+    } catch (error) {
+      console.error('Erro ao buscar comentários:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComentarios();
+  }, [parcelaId]);
+
+  const addComentario = async (comentario: string) => {
+    if (!parcelaId) return false;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { error } = await supabase
+        .from('cliente_pagamento_comentarios')
+        .insert({
+          parcela_id: parcelaId,
+          user_id: user.id,
+          comentario,
+        });
+
+      if (error) throw error;
+
+      await fetchComentarios();
+      return true;
+    } catch (error) {
+      console.error('Erro ao adicionar comentário:', error);
+      toast({
+        title: 'Erro ao adicionar comentário',
+        description: 'Não foi possível adicionar o comentário.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  const deleteComentario = async (comentarioId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cliente_pagamento_comentarios')
+        .delete()
+        .eq('id', comentarioId);
+
+      if (error) throw error;
+
+      await fetchComentarios();
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar comentário:', error);
+      toast({
+        title: 'Erro ao deletar comentário',
+        description: 'Não foi possível deletar o comentário.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  return {
+    comentarios,
+    loading,
+    fetchComentarios,
+    addComentario,
+    deleteComentario,
+  };
+};

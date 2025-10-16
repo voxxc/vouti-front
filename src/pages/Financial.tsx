@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { differenceInDays, format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceiroDialog';
 
 
 interface ClienteFinanceiro extends Cliente {
@@ -34,6 +35,8 @@ const Financial = () => {
   const navigate = useNavigate();
   const [clientes, setClientes] = useState<ClienteFinanceiro[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCliente, setSelectedCliente] = useState<ClienteFinanceiro | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     loadClientes();
@@ -324,13 +327,16 @@ const Financial = () => {
                       </div>
 
                       <Button 
-                        variant="outline" 
+                        variant="default" 
                         size="sm" 
                         className="w-full gap-2"
-                        onClick={() => navigate('/crm')}
+                        onClick={() => {
+                          setSelectedCliente(cliente);
+                          setDialogOpen(true);
+                        }}
                       >
-                        <Edit size={14} />
-                        Ver no CRM
+                        <DollarSign size={14} />
+                        Ver Detalhes Financeiros
                       </Button>
                     </CardContent>
                   </Card>
@@ -410,6 +416,13 @@ const Financial = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ClienteFinanceiroDialog
+        cliente={selectedCliente}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onUpdate={loadClientes}
+      />
     </DashboardLayout>
   );
 };
