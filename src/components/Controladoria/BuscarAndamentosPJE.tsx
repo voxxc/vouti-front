@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Calendar as CalendarIcon, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface BuscarAndamentosPJEProps {
   processoId: string;
@@ -18,10 +23,24 @@ export const BuscarAndamentosPJE = ({
   onComplete
 }: BuscarAndamentosPJEProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [dataInicio, setDataInicio] = useState<Date | undefined>();
+  const [dataFim, setDataFim] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
 
   const handleBuscar = async () => {
+    // Validação de datas
+    if (dataInicio && dataFim && dataInicio > dataFim) {
+      toast({
+        title: 'Datas inválidas',
+        description: 'A data inicial não pode ser posterior à data final.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
+    setOpen(false);
     
     try {
       console.log('🔍 Iniciando busca de andamentos:', {
@@ -36,6 +55,8 @@ export const BuscarAndamentosPJE = ({
         body: {
           processos: [numeroProcesso],
           tribunal: tribunal,
+          dataInicio: dataInicio?.toISOString(),
+          dataFim: dataFim?.toISOString(),
         },
       });
 
@@ -123,10 +144,13 @@ export const BuscarAndamentosPJE = ({
       // Feedback detalhado
       const fonteNome = processo.fonte === 'datajud_api' ? 'DataJud API' : 'PJe Comunicações';
       const totalEncontradas = processo.movimentacoes.length;
+      const periodoTexto = dataInicio 
+        ? `de ${format(dataInicio, 'dd/MM/yyyy', { locale: ptBR })} até ${format(dataFim!, 'dd/MM/yyyy', { locale: ptBR })}`
+        : 'todo o período disponível';
       
       toast({
         title: 'Andamentos atualizados',
-        description: `${fonteNome}: ${totalEncontradas} movimentações encontradas. ${novasMovimentacoes.length} novas inseridas.`,
+        description: `${fonteNome}: ${totalEncontradas} movimentações encontradas (${periodoTexto}). ${novasMovimentacoes.length} novas inseridas.`,
       });
 
       if (onComplete) {
@@ -149,15 +173,91 @@ export const BuscarAndamentosPJE = ({
     }
   };
 
+  const limparFiltros = () => {
+    setDataInicio(undefined);
+    setDataFim(new Date());
+  };
+
   return (
-    <Button
-      onClick={handleBuscar}
-      disabled={isLoading}
-      variant="outline"
-      size="sm"
-    >
-      <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-      {isLoading ? 'Buscando...' : 'Buscar Andamentos PJE'}
-    </Button>
+    <div className="flex gap-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className={cn(
+              "gap-2",
+              dataInicio && "border-primary"
+            )}
+          >
+            <CalendarIcon className="h-4 w-4" />
+            {dataInicio ? (
+              <span className="text-xs">
+                {format(dataInicio, 'dd/MM/yy')} - {format(dataFim || new Date(), 'dd/MM/yy')}
+              </span>
+            ) : (
+              'Filtrar Período'
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-4" align="start">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold mb-2">Data Inicial</p>
+              <Calendar
+                mode="single"
+                selected={dataInicio}
+                onSelect={setDataInicio}
+                locale={ptBR}
+                disabled={(date) => date > new Date()}
+                className="pointer-events-auto"
+              />
+            </div>
+            
+            <div>
+              <p className="text-sm font-semibold mb-2">Data Final</p>
+              <Calendar
+                mode="single"
+                selected={dataFim}
+                onSelect={setDataFim}
+                locale={ptBR}
+                disabled={(date) => date > new Date() || (dataInicio && date < dataInicio)}
+                className="pointer-events-auto"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={limparFiltros}
+                className="flex-1"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Limpar
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setOpen(false)}
+                className="flex-1"
+              >
+                Aplicar
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <Button
+        onClick={handleBuscar}
+        disabled={isLoading}
+        variant="default"
+        size="sm"
+      >
+        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+        {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
+      </Button>
+    </div>
   );
 };

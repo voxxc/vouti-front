@@ -139,7 +139,12 @@ serve(async (req) => {
   }
 });
 
-async function buscarViaDatajud(numeroProcesso: string, tribunal: string): Promise<ProcessResult> {
+async function buscarViaDatajud(
+  numeroProcesso: string, 
+  tribunal: string,
+  dataInicio?: string,
+  dataFim?: string
+): Promise<ProcessResult> {
   const numeroLimpo = numeroProcesso.replace(/\D/g, '');
   const tribunalCod = TRIBUNAL_MAPPING[tribunal] || 'tjpr';
 
@@ -232,7 +237,12 @@ async function buscarViaDatajud(numeroProcesso: string, tribunal: string): Promi
   }
 }
 
-async function buscarViaPje(numeroProcesso: string, tribunal: string): Promise<ProcessResult> {
+async function buscarViaPje(
+  numeroProcesso: string, 
+  tribunal: string,
+  dataInicio?: string,
+  dataFim?: string
+): Promise<ProcessResult> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
