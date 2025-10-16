@@ -273,10 +273,21 @@ async function buscarViaPje(
       finalDataInicio.setDate(finalDataInicio.getDate() - 90);
     }
 
-    const url = `https://pje.${tribunal.toLowerCase()}.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/documentoSemLoginHTML.seam?ca=`
-      + `&idProcessoDoc=&idDocumento=&idProcesso=${numeroProcesso}`
-      + `&dataInicial=${finalDataInicio.toISOString().split('T')[0]}`
-      + `&dataFinal=${finalDataFim.toISOString().split('T')[0]}`;
+    // Construir URL baseado no tribunal
+    let url: string;
+    
+    if (tribunal === 'TJSP') {
+      // TJSP usa o PJe Comunicações
+      url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${tribunal}&meio=D&numeroProcesso=${numeroProcesso}`;
+    } else {
+      // Outros tribunais usam o padrão pje.{tribunal}.jus.br
+      url = `https://pje.${tribunal.toLowerCase()}.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/documentoSemLoginHTML.seam?ca=`
+        + `&idProcessoDoc=&idDocumento=&idProcesso=${numeroProcesso}`
+        + `&dataInicial=${finalDataInicio.toISOString().split('T')[0]}`
+        + `&dataFinal=${finalDataFim.toISOString().split('T')[0]}`;
+    }
+
+    console.log(`🔗 URL PJe para ${tribunal}:`, url);
 
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
