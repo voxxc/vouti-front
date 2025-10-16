@@ -98,6 +98,7 @@ export const BuscarAndamentosPJE = ({
           metadata: {
             fonte: processo.fonte,
             sequencia: mov.sequencia,
+            texto_completo: mov.texto_completo,
           },
         }));
 

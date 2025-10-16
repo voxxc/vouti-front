@@ -27,6 +27,7 @@ interface ProcessMovement {
   descricao: string;
   sequencia?: number;
   tipo: string;
+  texto_completo?: string;
 }
 
 interface ProcessResult {
@@ -177,12 +178,28 @@ async function buscarViaDatajud(numeroProcesso: string, tribunal: string): Promi
     }
 
     const processo = data.hits.hits[0]._source;
-    const movimentacoes: ProcessMovement[] = (processo.movimentos || []).map((mov: any) => ({
-      data: mov.dataHora,
-      descricao: mov.complementosTabelados?.[0]?.descricao || mov.nome || 'Movimentação',
-      sequencia: mov.sequencial,
-      tipo: detectarTipoMovimento(mov.nome || '')
-    }));
+    const movimentacoes: ProcessMovement[] = (processo.movimentos || []).map((mov: any) => {
+      // Capturar todo o texto disponível
+      const textos = [];
+      
+      if (mov.complementosTabelados) {
+        mov.complementosTabelados.forEach((comp: any) => {
+          if (comp.texto) textos.push(comp.texto);
+          if (comp.descricao && comp.descricao !== mov.nome) textos.push(comp.descricao);
+        });
+      }
+      
+      if (mov.complementos) textos.push(mov.complementos);
+      if (mov.observacao) textos.push(mov.observacao);
+      
+      return {
+        data: mov.dataHora,
+        descricao: mov.complementosTabelados?.[0]?.descricao || mov.nome || 'Movimentação',
+        sequencia: mov.sequencial,
+        tipo: detectarTipoMovimento(mov.nome || ''),
+        texto_completo: textos.length > 0 ? textos.join('\n\n') : undefined
+      };
+    });
 
     return {
       numero: numeroProcesso,
@@ -245,18 +262,29 @@ async function buscarViaPje(numeroProcesso: string, tribunal: string): Promise<P
 function parseMovimentacoesPje(html: string): ProcessMovement[] {
   const movimentacoes: ProcessMovement[] = [];
   
-  const intimacaoRegex = /<strong>(\d+)\s*-\s*Intimação<\/strong>[\s\S]*?Descrição:\s*([^<]+)[\s\S]*?Data:\s*(\d{2}\/\d{2}\/\d{4})/gi;
+  // Regex expandido para capturar também o conteúdo completo
+  const intimacaoRegex = /<strong>(\d+)\s*-\s*Intimação<\/strong>[\s\S]*?Descrição:\s*([^<]+)[\s\S]*?Data:\s*(\d{2}\/\d{2}\/\d{4})([\s\S]*?)(?=<strong>\d+\s*-|$)/gi;
   let match;
 
   while ((match = intimacaoRegex.exec(html)) !== null) {
-    const [, sequencia, descricao, data] = match;
+    const [, sequencia, descricao, data, conteudoHtml] = match;
     const [dia, mes, ano] = data.split('/');
+    
+    // Limpar o conteúdo HTML para extrair apenas o texto
+    const textoCompleto = conteudoHtml
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
+      .replace(/<[^>]+>/g, ' ') // Remove todas as tags HTML
+      .replace(/&nbsp;/g, ' ') // Remove &nbsp;
+      .replace(/\s+/g, ' ') // Normaliza espaços
+      .trim();
     
     movimentacoes.push({
       sequencia: parseInt(sequencia),
       descricao: descricao.trim(),
       data: `${ano}-${mes}-${dia}T00:00:00Z`,
-      tipo: 'intimacao'
+      tipo: 'intimacao',
+      texto_completo: textoCompleto.length > 20 ? textoCompleto : undefined // Só salva se tiver conteúdo relevante
     });
   }
 
