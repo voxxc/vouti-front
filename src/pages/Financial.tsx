@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -15,7 +17,9 @@ import {
   Download,
   Edit,
   AlertTriangle,
-  ArrowLeft
+  ArrowLeft,
+  Search,
+  Filter
 } from 'lucide-react';
 import { Cliente } from '@/types/cliente';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +30,7 @@ import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceir
 
 
 interface ClienteFinanceiro extends Cliente {
-  status: 'ativo' | 'inadimplente';
+  status: 'adimplente' | 'inadimplente' | 'contrato_encerrado' | 'inativo';
   diasAtraso?: number;
   proximoVencimento?: Date;
 }
@@ -37,6 +41,8 @@ const Financial = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCliente, setSelectedCliente] = useState<ClienteFinanceiro | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('todos');
 
   useEffect(() => {
     loadClientes();
@@ -58,13 +64,66 @@ const Financial = () => {
 
       if (error) throw error;
 
+      // Buscar parcelas de todos os clientes
+      const clienteIds = (data || []).map(c => c.id);
+      const { data: parcelasData } = await supabase
+        .from('cliente_parcelas')
+        .select('*')
+        .in('cliente_id', clienteIds);
+
+      const parcelasPorCliente = (parcelasData || []).reduce((acc, parcela) => {
+        if (!acc[parcela.cliente_id]) {
+          acc[parcela.cliente_id] = [];
+        }
+        acc[parcela.cliente_id].push(parcela);
+        return acc;
+      }, {} as Record<string, any[]>);
+
       const clientesComStatus: ClienteFinanceiro[] = (data || []).map((cliente: any) => {
         const hoje = new Date();
-        let status: 'ativo' | 'inadimplente' = 'ativo';
+        let status: 'adimplente' | 'inadimplente' | 'contrato_encerrado' | 'inativo' = 'adimplente';
         let diasAtraso = 0;
         let proximoVencimento: Date | undefined;
 
-        if (cliente.forma_pagamento === 'parcelado' && cliente.dia_vencimento) {
+        const parcelas = parcelasPorCliente[cliente.id] || [];
+
+        // Verificar se tem parcelas
+        if (parcelas.length > 0) {
+          const parcelasPagas = parcelas.filter(p => p.status === 'pago');
+          const parcelasAtrasadas = parcelas.filter(p => p.status === 'atrasado');
+          const parcelasPendentes = parcelas.filter(p => p.status === 'pendente');
+
+          // Contrato encerrado: todas parcelas pagas
+          if (parcelasPagas.length === parcelas.length) {
+            status = 'contrato_encerrado';
+          }
+          // Inadimplente: tem parcelas atrasadas
+          else if (parcelasAtrasadas.length > 0) {
+            const parcelaMaisAtrasada = parcelasAtrasadas.sort((a, b) => 
+              new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime()
+            )[0];
+            diasAtraso = differenceInDays(hoje, new Date(parcelaMaisAtrasada.data_vencimento));
+            
+            // Inativo: mais de 60 dias em atraso
+            if (diasAtraso > 60) {
+              status = 'inativo';
+            } else {
+              status = 'inadimplente';
+            }
+          }
+          // Adimplente: tem parcelas pendentes mas nenhuma atrasada
+          else if (parcelasPendentes.length > 0) {
+            status = 'adimplente';
+            const proximaParcela = parcelasPendentes.sort((a, b) => 
+              new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime()
+            )[0];
+            proximoVencimento = new Date(proximaParcela.data_vencimento);
+          }
+        } else if (cliente.forma_pagamento === 'a_vista') {
+          // Cliente à vista é considerado encerrado após pagamento
+          status = 'contrato_encerrado';
+        } else if (cliente.forma_pagamento === 'parcelado' && cliente.dia_vencimento) {
+          // Lógica antiga para clientes parcelados sem parcelas no sistema
           const diaVencimento = cliente.dia_vencimento;
           const mesAtual = hoje.getMonth();
           const anoAtual = hoje.getFullYear();
@@ -73,7 +132,9 @@ const Financial = () => {
           
           if (dataVencimento < hoje) {
             diasAtraso = differenceInDays(hoje, dataVencimento);
-            if (diasAtraso > 5) {
+            if (diasAtraso > 60) {
+              status = 'inativo';
+            } else if (diasAtraso > 5) {
               status = 'inadimplente';
             }
             proximoVencimento = new Date(anoAtual, mesAtual + 1, diaVencimento);
@@ -99,21 +160,47 @@ const Financial = () => {
     }
   };
 
-  const clientesAtivos = clientes.filter(c => c.status === 'ativo').length;
+  // Filtrar clientes
+  const clientesFiltrados = clientes.filter((cliente) => {
+    const matchesSearch = searchTerm === '' || 
+      getNomeCliente(cliente).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cliente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cliente.telefone?.includes(searchTerm);
+    
+    const matchesStatus = statusFilter === 'todos' || cliente.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const clientesAdimplentes = clientes.filter(c => c.status === 'adimplente').length;
   const clientesInadimplentes = clientes.filter(c => c.status === 'inadimplente').length;
+  const clientesEncerrados = clientes.filter(c => c.status === 'contrato_encerrado').length;
+  const clientesInativos = clientes.filter(c => c.status === 'inativo').length;
   
   const receitaMensal = clientes
-    .filter(c => c.status === 'ativo' && c.forma_pagamento === 'parcelado')
+    .filter(c => c.status === 'adimplente' && c.forma_pagamento === 'parcelado')
     .reduce((sum, c) => sum + (c.valor_parcela || 0), 0);
   
   const receitaPendente = clientes
     .filter(c => c.status === 'inadimplente')
     .reduce((sum, c) => sum + (c.valor_parcela || c.valor_contrato), 0);
 
-  const receitaTotal = clientes.reduce((sum, c) => sum + c.valor_contrato, 0);
+  const receitaTotal = clientes
+    .filter(c => c.status !== 'inativo')
+    .reduce((sum, c) => sum + c.valor_contrato, 0);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: any; label: string }> = {
+      adimplente: { variant: 'default', label: 'Adimplente' },
+      inadimplente: { variant: 'destructive', label: 'Inadimplente' },
+      contrato_encerrado: { variant: 'secondary', label: 'Encerrado' },
+      inativo: { variant: 'outline', label: 'Inativo' },
+    };
+    return variants[status] || variants.adimplente;
   };
 
   const getNomeCliente = (cliente: Cliente) => {
@@ -178,13 +265,13 @@ const Financial = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
+              <CardTitle className="text-sm font-medium">Adimplentes</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{clientesAtivos}</div>
+              <div className="text-2xl font-bold text-primary">{clientesAdimplentes}</div>
               <p className="text-xs text-muted-foreground">
-                Adimplentes
+                Em dia
               </p>
             </CardContent>
           </Card>
@@ -233,43 +320,79 @@ const Financial = () => {
           </Card>
         </div>
 
+        {/* Filtros e Pesquisa */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome, email ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Status</SelectItem>
+                <SelectItem value="adimplente">Adimplentes</SelectItem>
+                <SelectItem value="inadimplente">Inadimplentes</SelectItem>
+                <SelectItem value="contrato_encerrado">Contratos Encerrados</SelectItem>
+                <SelectItem value="inativo">Inativos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {/* Main Content */}
         <Tabs defaultValue="clients" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="clients">Clientes</TabsTrigger>
+            <TabsTrigger value="clients">
+              Clientes ({clientesFiltrados.length})
+            </TabsTrigger>
             <TabsTrigger value="contracts">Contratos</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="clients" className="space-y-4">
-            {clientes.length === 0 ? (
+            {clientesFiltrados.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
                   <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-2" />
-                  <p className="text-muted-foreground">Nenhum cliente cadastrado no CRM</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => navigate('/crm')}
-                  >
-                    Ir para CRM
-                  </Button>
+                  <p className="text-muted-foreground">
+                    {searchTerm || statusFilter !== 'todos' 
+                      ? 'Nenhum cliente encontrado com os filtros selecionados'
+                      : 'Nenhum cliente cadastrado no CRM'}
+                  </p>
+                  {!searchTerm && statusFilter === 'todos' && (
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => navigate('/crm')}
+                    >
+                      Ir para CRM
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {clientes.map((cliente) => (
-                  <Card key={cliente.id} className={cliente.status === 'inadimplente' ? 'border-destructive' : ''}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{getNomeCliente(cliente)}</CardTitle>
-                        <Badge 
-                          variant={cliente.status === 'ativo' ? 'default' : 'destructive'}
-                        >
-                          {cliente.status === 'ativo' ? 'Ativo' : 'Inadimplente'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
+                {clientesFiltrados.map((cliente) => {
+                  const statusConfig = getStatusBadge(cliente.status);
+                  return (
+                    <Card key={cliente.id} className={cliente.status === 'inadimplente' ? 'border-destructive' : ''}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">{getNomeCliente(cliente)}</CardTitle>
+                          <Badge variant={statusConfig.variant}>
+                            {statusConfig.label}
+                          </Badge>
+                        </div>
+                      </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Valor Contrato:</span>
@@ -340,7 +463,8 @@ const Financial = () => {
                       </Button>
                     </CardContent>
                   </Card>
-                ))}
+                );
+                })}
               </div>
             )}
           </TabsContent>
