@@ -10,6 +10,7 @@ import { UserPlus, Edit, Trash2, Search } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UserManagementProps {
   users: User[];
@@ -284,17 +285,20 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
               </div>
               <div>
                 <Label htmlFor="role">Perfil</Label>
-                <select
-                  id="role"
+                <Select
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'advogado' | 'comercial' | 'financeiro' })}
-                  className="w-full p-2 border border-border rounded-md"
+                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' })}
                 >
-                  <option value="advogado">Advogado</option>
-                  <option value="comercial">Comercial</option>
-                  <option value="financeiro">Financeiro</option>
-                  <option value="admin">Administrador</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um perfil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="advogado">Advogado</SelectItem>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Criando..." : "Criar Usuário"}
@@ -331,17 +335,20 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
               </div>
               <div>
                 <Label htmlFor="edit-role">Perfil</Label>
-                <select
-                  id="edit-role"
+                <Select
                   value={editFormData.role}
-                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as 'admin' | 'advogado' | 'comercial' | 'financeiro' })}
-                  className="w-full p-2 border border-border rounded-md"
+                  onValueChange={(value) => setEditFormData({ ...editFormData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' })}
                 >
-                  <option value="advogado">Advogado</option>
-                  <option value="comercial">Comercial</option>
-                  <option value="financeiro">Financeiro</option>
-                  <option value="admin">Administrador</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um perfil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="advogado">Advogado</SelectItem>
+                    <SelectItem value="comercial">Comercial</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Salvando..." : "Salvar Alterações"}
