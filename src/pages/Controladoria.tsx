@@ -31,6 +31,36 @@ const Controladoria = () => {
     fetchProcessos();
   }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('processos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'processos'
+        },
+        (payload) => {
+          // Remove o processo deletado da lista local
+          setProcessos(prev => prev.filter(p => p.id !== payload.old.id));
+          // Atualiza as métricas
+          setMetrics(prev => ({
+            ...prev,
+            total: prev.total - 1,
+            emAndamento: payload.old.status === 'em_andamento' ? prev.emAndamento - 1 : prev.emAndamento,
+            arquivados: payload.old.status === 'arquivado' ? prev.arquivados - 1 : prev.arquivados,
+            suspensos: payload.old.status === 'suspenso' ? prev.suspensos - 1 : prev.suspensos
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const fetchProcessos = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
