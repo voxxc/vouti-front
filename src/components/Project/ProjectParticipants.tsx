@@ -51,15 +51,24 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
 
   const fetchAllUsers = async () => {
     try {
+      console.log('[ProjectParticipants] Fetching all users...');
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .not('email', 'like', '%@metalsystem.local')
+        .not('email', 'like', '%@dental.local')
         .order('full_name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ProjectParticipants] Error fetching users:', error);
+        throw error;
+      }
+
+      console.log(`[ProjectParticipants] Fetched ${data?.length || 0} users`);
 
       const users: UserType[] = (data || []).map(profile => ({
-        id: profile.id,
+        id: profile.user_id,
         email: profile.email,
         name: profile.full_name || profile.email,
         avatar: profile.avatar_url,
@@ -70,7 +79,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
 
       setAllUsers(users);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('[ProjectParticipants] Error in fetchAllUsers:', error);
       toast({
         title: "Erro",
         description: "Erro ao carregar usuários.",
@@ -81,30 +90,49 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
 
   const fetchCollaborators = async () => {
     try {
+      console.log('[ProjectParticipants] Fetching collaborators for project:', projectId);
+      
       const { data, error } = await supabase
         .from('project_collaborators')
         .select('*')
         .eq('project_id', projectId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ProjectParticipants] Error fetching collaborators:', error);
+        throw error;
+      }
+
+      console.log(`[ProjectParticipants] Found ${data?.length || 0} collaborators`);
 
       // Fetch user profiles separately
       if (data && data.length > 0) {
         const userIds = data.map(c => c.user_id);
+        console.log('[ProjectParticipants] Fetching profiles for user IDs:', userIds);
+        
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, full_name, email, avatar_url')
           .in('user_id', userIds);
 
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error('[ProjectParticipants] Error fetching profiles:', profilesError);
+          throw profilesError;
+        }
+
+        console.log(`[ProjectParticipants] Found ${profiles?.length || 0} profiles`);
 
         const collaboratorsWithProfiles = data.map(collaborator => {
           const profile = profiles?.find(p => p.user_id === collaborator.user_id);
+          
+          if (!profile) {
+            console.warn(`[ProjectParticipants] No profile found for user_id: ${collaborator.user_id}`);
+          }
+          
           return {
             ...collaborator,
             user_profile: {
-              full_name: profile?.full_name || 'Usuário',
-              email: profile?.email || '',
+              full_name: profile?.full_name || 'Usuário Sem Perfil',
+              email: profile?.email || 'sem-email@example.com',
               avatar_url: profile?.avatar_url
             }
           };
@@ -115,7 +143,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
         setCollaborators([]);
       }
     } catch (error) {
-      console.error('Error fetching collaborators:', error);
+      console.error('[ProjectParticipants] Error in fetchCollaborators:', error);
       toast({
         title: "Erro",
         description: "Erro ao carregar participantes.",
@@ -127,6 +155,27 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
   const addCollaborator = async (userId: string) => {
     setLoading(true);
     try {
+      console.log(`[ProjectParticipants] Adding collaborator ${userId} to project ${projectId}`);
+      
+      // Verificar se o usuário existe na tabela profiles
+      const { data: profileCheck, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError || !profileCheck) {
+        console.error('[ProjectParticipants] User profile not found:', userId, profileError);
+        toast({
+          title: "Erro",
+          description: "Usuário não encontrado no sistema. Por favor, contate o administrador.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('[ProjectParticipants] User profile found:', profileCheck);
+
       const { error } = await supabase
         .from('project_collaborators')
         .insert({
@@ -135,16 +184,25 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
           role: 'editor'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ProjectParticipants] Error inserting collaborator:', error);
+        throw error;
+      }
+
+      console.log('[ProjectParticipants] Collaborator added successfully');
 
       toast({
-        title: "Sucesso",
-        description: "Participante adicionado com sucesso!",
+        title: "✓ Sucesso!",
+        description: `${profileCheck.full_name} foi adicionado como participante.`,
       });
 
-      fetchCollaborators();
+      // Refresh both lists
+      await Promise.all([fetchCollaborators(), fetchAllUsers()]);
+      
+      // Clear search
+      setSearchTerm('');
     } catch (error: any) {
-      console.error('Error adding collaborator:', error);
+      console.error('[ProjectParticipants] Error in addCollaborator:', error);
       
       if (error.code === '23505') {
         toast({
@@ -164,24 +222,32 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
     }
   };
 
-  const removeCollaborator = async (collaboratorId: string) => {
+  const removeCollaborator = async (collaboratorId: string, userName: string) => {
     setLoading(true);
     try {
+      console.log(`[ProjectParticipants] Removing collaborator ${collaboratorId}`);
+      
       const { error } = await supabase
         .from('project_collaborators')
         .delete()
         .eq('id', collaboratorId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ProjectParticipants] Error removing collaborator:', error);
+        throw error;
+      }
+
+      console.log('[ProjectParticipants] Collaborator removed successfully');
 
       toast({
-        title: "Sucesso",
-        description: "Participante removido com sucesso!",
+        title: "✓ Removido",
+        description: `${userName} foi removido do projeto.`,
       });
 
-      fetchCollaborators();
+      // Refresh both lists
+      await Promise.all([fetchCollaborators(), fetchAllUsers()]);
     } catch (error) {
-      console.error('Error removing collaborator:', error);
+      console.error('[ProjectParticipants] Error in removeCollaborator:', error);
       toast({
         title: "Erro",
         description: "Erro ao remover participante.",
@@ -263,7 +329,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeCollaborator(collaborator.id)}
+                          onClick={() => removeCollaborator(collaborator.id, collaborator.user_profile.full_name)}
                           disabled={loading}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
