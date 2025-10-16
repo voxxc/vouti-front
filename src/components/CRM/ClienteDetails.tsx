@@ -7,6 +7,7 @@ import { useClientes } from '@/hooks/useClientes';
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface ClienteDetailsProps {
   cliente: Cliente;
@@ -49,7 +50,19 @@ export const ClienteDetails = ({ cliente, onEdit }: ClienteDetailsProps) => {
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{nomeCliente}</CardTitle>
+          <div className="space-y-2">
+            <CardTitle>{nomeCliente}</CardTitle>
+            {cliente.classificacao && (
+              <span className={cn(
+                "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium",
+                cliente.classificacao === 'pf' 
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                  : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+              )}>
+                {cliente.classificacao === 'pf' ? '👤 Pessoa Física' : '🏢 Pessoa Jurídica'}
+              </span>
+            )}
+          </div>
           <Button onClick={onEdit} variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />
             Editar
@@ -182,6 +195,52 @@ export const ClienteDetails = ({ cliente, onEdit }: ClienteDetailsProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pessoas/Empresas Adicionais */}
+      {cliente.pessoas_adicionais && cliente.pessoas_adicionais.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pessoas/Empresas Adicionais</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {cliente.pessoas_adicionais.map((pessoa, index) => (
+                <div key={index} className="p-4 bg-muted rounded-lg space-y-2">
+                  <p className="font-semibold text-base">
+                    {pessoa.nome_pessoa_fisica || pessoa.nome_pessoa_juridica}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    {pessoa.telefone && (
+                      <div>
+                        <span className="text-muted-foreground">Telefone: </span>
+                        <span>{pessoa.telefone}</span>
+                      </div>
+                    )}
+                    {pessoa.email && (
+                      <div>
+                        <span className="text-muted-foreground">E-mail: </span>
+                        <span>{pessoa.email}</span>
+                      </div>
+                    )}
+                    {pessoa.data_nascimento && (
+                      <div>
+                        <span className="text-muted-foreground">Nascimento: </span>
+                        <span>{format(new Date(pessoa.data_nascimento), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                      </div>
+                    )}
+                    {pessoa.endereco && (
+                      <div className="md:col-span-2">
+                        <span className="text-muted-foreground">Endereço: </span>
+                        <span>{pessoa.endereco}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {documentos.length > 0 && (
         <Card>

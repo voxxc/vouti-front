@@ -1,5 +1,20 @@
 import { z } from 'zod';
 
+const pessoaAdicionalSchema = z.object({
+  nome_pessoa_fisica: z.string().optional(),
+  nome_pessoa_juridica: z.string().optional(),
+  telefone: z.string().optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  data_nascimento: z.string().optional().or(z.literal('')),
+  endereco: z.string().optional(),
+}).refine(
+  (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
+  {
+    message: 'Informe ao menos um nome para a pessoa adicional',
+    path: ['nome_pessoa_fisica'],
+  }
+);
+
 export const clienteSchema = z.object({
   nome_pessoa_fisica: z.string().optional(),
   nome_pessoa_juridica: z.string().optional(),
@@ -20,6 +35,10 @@ export const clienteSchema = z.object({
   origem_rede_social: z.string().optional(),
   origem_tipo: z.enum(['instagram', 'facebook', 'indicacao', 'outro']).optional(),
   observacoes: z.string().optional(),
+  classificacao: z.enum(['pf', 'pj'], {
+    required_error: 'Selecione a classificação do cliente'
+  }),
+  pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
 }).refine(
   (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
   {

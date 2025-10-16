@@ -98,6 +98,7 @@ export type Database = {
       }
       clientes: {
         Row: {
+          classificacao: string | null
           created_at: string | null
           data_cadastro: string | null
           data_fechamento: string
@@ -113,6 +114,7 @@ export type Database = {
           observacoes: string | null
           origem_rede_social: string | null
           origem_tipo: string | null
+          pessoas_adicionais: Json | null
           telefone: string | null
           updated_at: string | null
           user_id: string
@@ -122,6 +124,7 @@ export type Database = {
           vendedor: string | null
         }
         Insert: {
+          classificacao?: string | null
           created_at?: string | null
           data_cadastro?: string | null
           data_fechamento: string
@@ -137,6 +140,7 @@ export type Database = {
           observacoes?: string | null
           origem_rede_social?: string | null
           origem_tipo?: string | null
+          pessoas_adicionais?: Json | null
           telefone?: string | null
           updated_at?: string | null
           user_id: string
@@ -146,6 +150,7 @@ export type Database = {
           vendedor?: string | null
         }
         Update: {
+          classificacao?: string | null
           created_at?: string | null
           data_cadastro?: string | null
           data_fechamento?: string
@@ -161,6 +166,7 @@ export type Database = {
           observacoes?: string | null
           origem_rede_social?: string | null
           origem_tipo?: string | null
+          pessoas_adicionais?: Json | null
           telefone?: string | null
           updated_at?: string | null
           user_id?: string

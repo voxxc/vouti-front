@@ -1,3 +1,12 @@
+export interface PessoaAdicional {
+  nome_pessoa_fisica?: string;
+  nome_pessoa_juridica?: string;
+  telefone?: string;
+  email?: string;
+  data_nascimento?: string;
+  endereco?: string;
+}
+
 export interface Cliente {
   id: string;
   user_id: string;
@@ -19,6 +28,8 @@ export interface Cliente {
   origem_rede_social?: string;
   origem_tipo?: 'instagram' | 'facebook' | 'indicacao' | 'outro';
   observacoes?: string;
+  classificacao?: 'pf' | 'pj';
+  pessoas_adicionais?: PessoaAdicional[];
   created_at?: string;
   updated_at?: string;
 }

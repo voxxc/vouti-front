@@ -75,7 +75,7 @@ export const useClientes = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('clientes')
-        .update(clienteData)
+        .update(clienteData as any)
         .eq('id', id)
         .select()
         .single();
