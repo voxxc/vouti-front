@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, History, Clock, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, History, Clock, Trash2, CheckSquare } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +58,9 @@ const ControladoriaProcessoDetalhes = () => {
   const [loading, setLoading] = useState(true);
   const [isController, setIsController] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [modoSelecao, setModoSelecao] = useState(false);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [deletingMovimentacoes, setDeletingMovimentacoes] = useState(false);
   
   const { 
     movimentacoes, 
@@ -183,6 +187,65 @@ const ControladoriaProcessoDetalhes = () => {
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleDeleteAllMovimentacoes = async () => {
+    if (!id) return;
+    setDeletingMovimentacoes(true);
+    try {
+      const { error } = await supabase
+        .from('processo_movimentacoes')
+        .delete()
+        .eq('processo_id', id);
+      
+      if (error) throw error;
+
+      toast({
+        title: 'Movimentações excluídas',
+        description: 'Todas as movimentações foram excluídas com sucesso.',
+      });
+      fetchMovimentacoes();
+    } catch (error: any) {
+      console.error('Erro ao excluir movimentações:', error);
+      toast({
+        title: 'Erro ao excluir movimentações',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setDeletingMovimentacoes(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selecionados.size === 0) return;
+    
+    setDeletingMovimentacoes(true);
+    try {
+      const { error } = await supabase
+        .from('processo_movimentacoes')
+        .delete()
+        .in('id', Array.from(selecionados));
+      
+      if (error) throw error;
+
+      toast({
+        title: 'Movimentações excluídas',
+        description: `${selecionados.size} movimentação(ões) excluída(s) com sucesso.`,
+      });
+      setSelecionados(new Set());
+      setModoSelecao(false);
+      fetchMovimentacoes();
+    } catch (error: any) {
+      console.error('Erro ao excluir movimentações:', error);
+      toast({
+        title: 'Erro ao excluir movimentações',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setDeletingMovimentacoes(false);
     }
   };
 
@@ -358,12 +421,112 @@ const ControladoriaProcessoDetalhes = () => {
           <TabsContent value="movimentacoes">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5" />
-                    Movimentações
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-5 w-5" />
+                      Movimentações
+                      <Badge variant="outline">{movimentacoes.length}</Badge>
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      {pendentes > 0 && (
+                        <Badge variant="destructive" className="animate-pulse">
+                          {pendentes} Pendente{pendentes > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                      {conferidos > 0 && (
+                        <Badge variant="default" className="bg-green-600">
+                          {conferidos} Conferido{conferidos > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {!modoSelecao && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setModoSelecao(true)}
+                          disabled={movimentacoes.length === 0}
+                        >
+                          <CheckSquare className="h-4 w-4 mr-2" />
+                          Selecionar
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              disabled={movimentacoes.length === 0}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Apagar Todas
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja apagar TODAS as {movimentacoes.length} movimentações deste processo?
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDeleteAllMovimentacoes}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Apagar Todas
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
+                    
+                    {modoSelecao && (
+                      <>
+                        <Badge variant="secondary">
+                          {selecionados.size} selecionada(s)
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (selecionados.size === movimentacoes.length) {
+                              setSelecionados(new Set());
+                            } else {
+                              setSelecionados(new Set(movimentacoes.map(m => m.id)));
+                            }
+                          }}
+                        >
+                          {selecionados.size === movimentacoes.length ? 'Desmarcar' : 'Selecionar'} Todas
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDeleteSelected}
+                          disabled={selecionados.size === 0 || deletingMovimentacoes}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Apagar Selecionadas
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setModoSelecao(false);
+                            setSelecionados(new Set());
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+                    
                     <BuscarAndamentosPJE
                       processoId={processo.id}
                       numeroProcesso={processo.numero_processo}
@@ -376,16 +539,6 @@ const ControladoriaProcessoDetalhes = () => {
                     {!processo.tribunais?.sigla && (
                       <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
                         ⚠️ Tribunal extraído
-                      </Badge>
-                    )}
-                    {pendentes > 0 && (
-                      <Badge variant="destructive" className="animate-pulse">
-                        {pendentes} Pendente{pendentes > 1 ? 's' : ''}
-                      </Badge>
-                    )}
-                    {conferidos > 0 && (
-                      <Badge variant="default" className="bg-green-600">
-                        {conferidos} Conferido{conferidos > 1 ? 's' : ''}
                       </Badge>
                     )}
                   </div>
@@ -402,17 +555,30 @@ const ControladoriaProcessoDetalhes = () => {
                     Nenhuma movimentação registrada ainda.
                   </p>
                 ) : (
-                  <div className="space-y-4">
-                    {movimentacoes.map((movimentacao) => (
-                      <MovimentacaoCard
-                        key={movimentacao.id}
-                        movimentacao={movimentacao}
-                        onMarcarConferido={marcarConferido}
-                        onMarcarRevisao={marcarEmRevisao}
-                        isController={isController}
-                      />
-                    ))}
-                  </div>
+                  <ScrollArea className="h-[600px] pr-4">
+                    <div className="space-y-4">
+                      {movimentacoes.map((movimentacao) => (
+                        <MovimentacaoCard
+                          key={movimentacao.id}
+                          movimentacao={movimentacao}
+                          onMarcarConferido={marcarConferido}
+                          onMarcarRevisao={marcarEmRevisao}
+                          isController={isController}
+                          selectable={modoSelecao}
+                          isSelected={selecionados.has(movimentacao.id)}
+                          onSelect={(id) => {
+                            const newSet = new Set(selecionados);
+                            if (newSet.has(id)) {
+                              newSet.delete(id);
+                            } else {
+                              newSet.add(id);
+                            }
+                            setSelecionados(newSet);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </ScrollArea>
                 )}
               </CardContent>
             </Card>

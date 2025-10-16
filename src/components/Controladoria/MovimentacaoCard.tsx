@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Circle, AlertCircle, User, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MovimentacaoComConferencia } from '@/types/movimentacao';
@@ -13,9 +14,12 @@ interface MovimentacaoCardProps {
   onMarcarConferido: (id: string, observacoes?: string) => void;
   onMarcarRevisao: (id: string) => void;
   isController: boolean;
+  selectable?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: string) => void;
 }
 
-const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, isController }: MovimentacaoCardProps) => {
+const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, isController, selectable, isSelected, onSelect }: MovimentacaoCardProps) => {
   const [observacoes, setObservacoes] = useState('');
   const [showObservacoes, setShowObservacoes] = useState(false);
   const [showTextoCompleto, setShowTextoCompleto] = useState(false);
@@ -58,12 +62,19 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
   };
 
   return (
-    <Card className={`${movimentacao.status_conferencia === 'pendente' ? 'border-red-200 dark:border-red-900' : ''}`}>
+    <Card className={`${movimentacao.status_conferencia === 'pendente' ? 'border-red-200 dark:border-red-900' : ''} ${isSelected ? 'border-primary border-2' : ''}`}>
       <CardContent className="pt-6">
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
+              {selectable && (
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onSelect?.(movimentacao.id)}
+                  className="mt-1"
+                />
+              )}
               {getStatusIcon()}
               <div>
                 <div className="flex items-center gap-2 mb-1">
