@@ -1692,12 +1692,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_deadline_owner: {
+        Args: { _deadline_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_project_member: {
         Args: { project_id: string; uid?: string }
         Returns: boolean
       }
       is_project_owner: {
         Args: { project_id: string; uid?: string }
+        Returns: boolean
+      }
+      is_tagged_in_deadline: {
+        Args: { _deadline_id: string; _user_id: string }
         Returns: boolean
       }
     }
