@@ -68,9 +68,19 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
                 <div className="flex items-center gap-2 mb-1">
                   {getStatusBadge()}
                   {movimentacao.is_automated && (
-                    <Badge variant="outline" className="text-xs">
-                      Automático
-                    </Badge>
+                    <>
+                      <Badge variant="outline" className="text-xs">
+                        Automático
+                      </Badge>
+                      {movimentacao.metadata?.fonte && (
+                        <Badge variant="outline" className="text-xs">
+                          {movimentacao.metadata.fonte === 'datajud_api' 
+                            ? '📊 DataJud API' 
+                            : '🌐 PJe Comunicações'
+                          }
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
