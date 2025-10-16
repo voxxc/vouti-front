@@ -64,19 +64,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const fetchUserRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
 
-    if (error) {
-      console.error('Error fetching user role:', error);
-      setUserRole('advogado'); // default
-      return;
+      if (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole('advogado');
+        return;
+      }
+
+      // Se não há roles, usar default
+      if (!data || data.length === 0) {
+        setUserRole('advogado');
+        return;
+      }
+
+      // Se há múltiplos roles, pegar o de maior privilégio
+      const rolePriority: Record<string, number> = {
+        'admin': 4,
+        'financeiro': 3,
+        'comercial': 2,
+        'advogado': 1
+      };
+
+      const highestRole = data.reduce((prev, current) => {
+        const prevPriority = rolePriority[prev.role] || 0;
+        const currentPriority = rolePriority[current.role] || 0;
+        return currentPriority > prevPriority ? current : prev;
+      });
+
+      setUserRole(highestRole.role as UserRole);
+    } catch (error) {
+      console.error('Error in fetchUserRole:', error);
+      setUserRole('advogado');
     }
-
-    setUserRole(data?.role as UserRole || 'advogado');
   };
 
   const signIn = async (email: string, password: string) => {
@@ -104,7 +128,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('[AuthContext] Signing out...');
+      
+      // Limpar estado local primeiro
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
+      
+      // Fazer logout no Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('[AuthContext] Error signing out:', error);
+        throw error;
+      }
+      
+      console.log('[AuthContext] Signed out successfully');
+    } catch (error) {
+      console.error('[AuthContext] Error in signOut:', error);
+      // Mesmo com erro, limpar estado local
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
+    }
   };
 
   return (
