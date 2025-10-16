@@ -508,8 +508,8 @@ const LandingPage2 = () => {
             </div>
 
             <div>
-              <h3 className="text-lg font-bold mb-4 text-slate-100">Contato</h3>
-              <div className="space-y-3 text-sm">
+              <h3 className="text-lg font-bold mb-4 text-slate-100 text-center">Contato</h3>
+              <div className="space-y-3 text-sm flex flex-col items-center">
                 <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
                   <MapPin className="h-4 w-4 text-slate-400" />
                   <span className="text-slate-400">Av. Paulista, 1000 - São Paulo/SP</span>
