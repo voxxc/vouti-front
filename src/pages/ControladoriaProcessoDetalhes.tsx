@@ -8,7 +8,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, History, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, History, Clock, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import MovimentacaoCard from '@/components/Controladoria/MovimentacaoCard';
@@ -43,6 +54,7 @@ const ControladoriaProcessoDetalhes = () => {
   const [processo, setProcesso] = useState<Processo | null>(null);
   const [loading, setLoading] = useState(true);
   const [isController, setIsController] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   const { 
     movimentacoes, 
@@ -139,6 +151,36 @@ const ControladoriaProcessoDetalhes = () => {
     return labels[prioridade] || prioridade;
   };
 
+  const handleDeleteProcesso = async () => {
+    if (!id) return;
+    
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('processos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Processo excluído',
+        description: 'O processo foi excluído com sucesso.',
+      });
+
+      navigate('/controladoria');
+    } catch (error: any) {
+      console.error('Erro ao excluir processo:', error);
+      toast({
+        title: 'Erro ao excluir processo',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout currentPage="controladoria">
@@ -173,10 +215,38 @@ const ControladoriaProcessoDetalhes = () => {
               </p>
             </div>
           </div>
-          <Button onClick={() => navigate(`/controladoria/processo/${id}/editar`)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Editar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => navigate(`/controladoria/processo/${id}/editar`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={deleting}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Excluir
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir o processo <strong>{processo.numero_processo}</strong>?
+                    Esta ação não pode ser desfeita e todos os dados relacionados (movimentações, documentos, etc.) serão permanentemente removidos.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteProcesso}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Excluir Processo
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <Tabs defaultValue="visao-geral" className="space-y-6">
