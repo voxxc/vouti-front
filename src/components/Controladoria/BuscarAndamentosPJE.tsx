@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Calendar as CalendarIcon, X } from 'lucide-react';
@@ -24,13 +26,14 @@ export const BuscarAndamentosPJE = ({
 }: BuscarAndamentosPJEProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [scope, setScope] = useState<'all' | 'range'>('range');
   const [dataInicio, setDataInicio] = useState<Date | undefined>();
   const [dataFim, setDataFim] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
 
   const handleBuscar = async () => {
-    // Validação de datas
-    if (dataInicio && dataFim && dataInicio > dataFim) {
+    // Validação de datas apenas se scope === 'range'
+    if (scope === 'range' && dataInicio && dataFim && dataInicio > dataFim) {
       toast({
         title: 'Datas inválidas',
         description: 'A data inicial não pode ser posterior à data final.',
@@ -47,17 +50,26 @@ export const BuscarAndamentosPJE = ({
         processoId,
         numeroProcesso,
         tribunal,
+        scope,
+        dataInicio: scope === 'range' ? dataInicio?.toISOString() : undefined,
+        dataFim: scope === 'range' ? dataFim?.toISOString() : undefined,
         timestamp: new Date().toISOString()
       });
 
-      // Usar a edge function unificada que tenta DataJud primeiro e depois PJe
+      // Montar body condicionalmente
+      const body: any = {
+        processos: [numeroProcesso],
+        tribunal: tribunal,
+      };
+
+      // Só enviar datas se scope === 'range'
+      if (scope === 'range' && dataInicio && dataFim) {
+        body.dataInicio = dataInicio.toISOString();
+        body.dataFim = dataFim.toISOString();
+      }
+
       const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
-        body: {
-          processos: [numeroProcesso],
-          tribunal: tribunal,
-          dataInicio: dataInicio?.toISOString(),
-          dataFim: dataFim?.toISOString(),
-        },
+        body,
       });
 
       console.log('📦 Resposta da Edge Function recebida:', {
@@ -86,18 +98,34 @@ export const BuscarAndamentosPJE = ({
       }
 
       // Buscar movimentações existentes para evitar duplicatas
-      const { data: existentes } = await supabase
+      let query = supabase
         .from('processo_movimentacoes')
         .select('descricao, data_movimentacao')
         .eq('processo_id', processoId);
 
+      // Se scope === 'range', limitar consulta ao período
+      if (scope === 'range' && dataInicio && dataFim) {
+        const inicioDiaISO = new Date(dataInicio.setHours(0, 0, 0, 0)).toISOString();
+        const fimDiaISO = new Date(dataFim.setHours(23, 59, 59, 999)).toISOString();
+        query = query.gte('data_movimentacao', inicioDiaISO).lte('data_movimentacao', fimDiaISO);
+      }
+
+      const { data: existentes } = await query;
+
+      // Normalizar deduplicação: descrição + data (apenas YYYY-MM-DD)
       const existentesSet = new Set(
-        existentes?.map(m => `${m.descricao}|${m.data_movimentacao}`) || []
+        existentes?.map(m => {
+          const normDesc = m.descricao.trim().replace(/\s+/g, ' ').toLowerCase();
+          const dateKey = new Date(m.data_movimentacao).toISOString().slice(0, 10);
+          return `${normDesc}|${dateKey}`;
+        }) || []
       );
 
       // Filtrar apenas movimentações novas
       const novasMovimentacoes = processo.movimentacoes.filter(mov => {
-        const key = `${mov.descricao}|${new Date(mov.data).toISOString()}`;
+        const normDesc = mov.descricao.trim().replace(/\s+/g, ' ').toLowerCase();
+        const dateKey = new Date(mov.data).toISOString().slice(0, 10);
+        const key = `${normDesc}|${dateKey}`;
         return !existentesSet.has(key);
       });
 
@@ -144,9 +172,9 @@ export const BuscarAndamentosPJE = ({
       // Feedback detalhado
       const fonteNome = processo.fonte === 'datajud_api' ? 'DataJud API' : 'PJe Comunicações';
       const totalEncontradas = processo.movimentacoes.length;
-      const periodoTexto = dataInicio 
-        ? `de ${format(dataInicio, 'dd/MM/yyyy', { locale: ptBR })} até ${format(dataFim!, 'dd/MM/yyyy', { locale: ptBR })}`
-        : 'todo o período disponível';
+      const periodoTexto = scope === 'all'
+        ? 'todo o histórico'
+        : `de ${format(dataInicio!, 'dd/MM/yyyy', { locale: ptBR })} até ${format(dataFim!, 'dd/MM/yyyy', { locale: ptBR })}`;
       
       toast({
         title: 'Andamentos atualizados',
@@ -174,6 +202,7 @@ export const BuscarAndamentosPJE = ({
   };
 
   const limparFiltros = () => {
+    setScope('all');
     setDataInicio(undefined);
     setDataFim(new Date());
   };
@@ -188,13 +217,15 @@ export const BuscarAndamentosPJE = ({
             disabled={isLoading}
             className={cn(
               "gap-2",
-              dataInicio && "border-primary"
+              scope === 'range' && "border-primary"
             )}
           >
             <CalendarIcon className="h-4 w-4" />
-            {dataInicio ? (
+            {scope === 'all' ? (
+              'Todo o histórico'
+            ) : dataInicio && dataFim ? (
               <span className="text-xs">
-                {format(dataInicio, 'dd/MM/yy')} - {format(dataFim || new Date(), 'dd/MM/yy')}
+                {format(dataInicio, 'dd/MM/yy')} - {format(dataFim, 'dd/MM/yy')}
               </span>
             ) : (
               'Filtrar Período'
@@ -204,28 +235,46 @@ export const BuscarAndamentosPJE = ({
         <PopoverContent className="w-auto p-4" align="start">
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-semibold mb-2">Data Inicial</p>
-              <Calendar
-                mode="single"
-                selected={dataInicio}
-                onSelect={setDataInicio}
-                locale={ptBR}
-                disabled={(date) => date > new Date()}
-                className="pointer-events-auto"
-              />
+              <p className="text-sm font-semibold mb-3">Escopo da Busca</p>
+              <RadioGroup value={scope} onValueChange={(v) => setScope(v as 'all' | 'range')}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="all" />
+                  <Label htmlFor="all" className="cursor-pointer">Todo o histórico</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="range" id="range" />
+                  <Label htmlFor="range" className="cursor-pointer">Somente no período</Label>
+                </div>
+              </RadioGroup>
             </div>
-            
-            <div>
-              <p className="text-sm font-semibold mb-2">Data Final</p>
-              <Calendar
-                mode="single"
-                selected={dataFim}
-                onSelect={setDataFim}
-                locale={ptBR}
-                disabled={(date) => date > new Date() || (dataInicio && date < dataInicio)}
-                className="pointer-events-auto"
-              />
-            </div>
+
+            {scope === 'range' && (
+              <>
+                <div>
+                  <p className="text-sm font-semibold mb-2">Data Inicial</p>
+                  <Calendar
+                    mode="single"
+                    selected={dataInicio}
+                    onSelect={setDataInicio}
+                    locale={ptBR}
+                    disabled={(date) => date > new Date()}
+                    className="pointer-events-auto"
+                  />
+                </div>
+                
+                <div>
+                  <p className="text-sm font-semibold mb-2">Data Final</p>
+                  <Calendar
+                    mode="single"
+                    selected={dataFim}
+                    onSelect={setDataFim}
+                    locale={ptBR}
+                    disabled={(date) => date > new Date() || (dataInicio && date < dataInicio)}
+                    className="pointer-events-auto"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="flex gap-2">
               <Button

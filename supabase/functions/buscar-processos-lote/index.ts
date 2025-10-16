@@ -57,7 +57,7 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const { processos, tribunal = 'TJPR' } = await req.json();
+    const { processos, tribunal = 'TJPR', dataInicio, dataFim } = await req.json();
 
     if (!processos || !Array.isArray(processos)) {
       throw new Error('Lista de processos inválida');
@@ -66,6 +66,8 @@ serve(async (req) => {
     console.log('📥 Requisição recebida:', {
       totalProcessos: processos.length,
       tribunal,
+      dataInicio,
+      dataFim,
       primeiroProcesso: processos[0],
       timestamp: new Date().toISOString()
     });
@@ -74,11 +76,11 @@ serve(async (req) => {
     const resultados = await Promise.all(
       processos.map(async (numeroProcesso: string): Promise<ProcessResult> => {
         try {
-          console.log(`🔍 Processando: ${numeroProcesso}`);
+          console.log(`🔍 Processando: ${numeroProcesso}`, dataInicio ? `(${dataInicio} até ${dataFim})` : '(todo histórico)');
           
           // Tentar DataJud primeiro
           console.log(`📊 Tentando DataJud API para ${numeroProcesso}...`);
-          const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal);
+          const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
           
           if (resultDatajud.success) {
             console.log(`✅ Sucesso via DataJud: ${numeroProcesso}`, {
@@ -89,7 +91,7 @@ serve(async (req) => {
 
           // Fallback para scraping PJe
           console.log(`🌐 Fallback para PJe scraping: ${numeroProcesso}...`);
-          const resultPje = await buscarViaPje(numeroProcesso, tribunal);
+          const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
           
           console.log(`✅ Sucesso via PJe scraping: ${numeroProcesso}`, {
             movimentacoes: resultPje.movimentacoes.length
@@ -184,7 +186,18 @@ async function buscarViaDatajud(
 
     const processo = data.hits.hits[0]._source;
     
-    const movimentacoes: ProcessMovement[] = (processo.movimentos || []).map((mov: any) => {
+    // Filtrar movimentos por data se fornecido
+    let movimentos = processo.movimentos || [];
+    if (dataInicio || dataFim) {
+      movimentos = movimentos.filter((mov: any) => {
+        const dataMovimentacao = new Date(mov.dataHora);
+        if (dataInicio && dataMovimentacao < new Date(dataInicio)) return false;
+        if (dataFim && dataMovimentacao > new Date(dataFim)) return false;
+        return true;
+      });
+    }
+
+    const movimentacoes: ProcessMovement[] = movimentos.map((mov: any) => {
       // Capturar TODOS os dados disponíveis, organizados por tipo
       const dadosCompletos: any = {};
       
@@ -247,14 +260,23 @@ async function buscarViaPje(
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
   try {
-    const dataFim = new Date();
-    const dataInicio = new Date();
-    dataInicio.setDate(dataInicio.getDate() - 90);
+    // Usar datas fornecidas ou fallback para últimos 90 dias
+    let finalDataInicio: Date;
+    let finalDataFim: Date;
+
+    if (dataInicio && dataFim) {
+      finalDataInicio = new Date(dataInicio);
+      finalDataFim = new Date(dataFim);
+    } else {
+      finalDataFim = new Date();
+      finalDataInicio = new Date();
+      finalDataInicio.setDate(finalDataInicio.getDate() - 90);
+    }
 
     const url = `https://pje.${tribunal.toLowerCase()}.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/documentoSemLoginHTML.seam?ca=`
       + `&idProcessoDoc=&idDocumento=&idProcesso=${numeroProcesso}`
-      + `&dataInicial=${dataInicio.toISOString().split('T')[0]}`
-      + `&dataFinal=${dataFim.toISOString().split('T')[0]}`;
+      + `&dataInicial=${finalDataInicio.toISOString().split('T')[0]}`
+      + `&dataFinal=${finalDataFim.toISOString().split('T')[0]}`;
 
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
@@ -264,7 +286,17 @@ async function buscarViaPje(
     }
 
     const html = await response.text();
-    const movimentacoes = parseMovimentacoesPje(html);
+    let movimentacoes = parseMovimentacoesPje(html);
+
+    // Filtrar por data novamente para garantir
+    if (dataInicio || dataFim) {
+      movimentacoes = movimentacoes.filter(mov => {
+        const dataMovimentacao = new Date(mov.data);
+        if (dataInicio && dataMovimentacao < new Date(dataInicio)) return false;
+        if (dataFim && dataMovimentacao > new Date(dataFim)) return false;
+        return true;
+      });
+    }
 
     if (movimentacoes.length === 0) {
       throw new Error('Nenhuma movimentação encontrada no PJe');
