@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -689,17 +690,7 @@ const Agenda = () => {
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center justify-between">
-                Detalhes do Prazo
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => selectedDeadline && handleDeleteDeadline(selectedDeadline.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </DialogTitle>
+              <DialogTitle>Detalhes do Prazo</DialogTitle>
             </DialogHeader>
             {selectedDeadline && (
               <div className="space-y-4">
@@ -741,16 +732,50 @@ const Agenda = () => {
                   </Badge>
                 </div>
                 
-                {!selectedDeadline.completed && (
-                  <Button 
-                    onClick={() => handleCompleteDeadline(selectedDeadline)} 
-                    className="w-full"
-                    variant="professional"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Marcar como Concluído
-                  </Button>
-                )}
+                <div className="flex gap-2 pt-2">
+                  {!selectedDeadline.completed && (
+                    <Button 
+                      onClick={() => handleCompleteDeadline(selectedDeadline)} 
+                      className="flex-1"
+                      variant="professional"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Marcar como Concluído
+                    </Button>
+                  )}
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir Prazo
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            handleDeleteDeadline(selectedDeadline.id);
+                            setIsDetailDialogOpen(false);
+                          }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             )}
           </DialogContent>
