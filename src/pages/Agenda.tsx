@@ -9,7 +9,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "@/components/Agenda/UserTagSelector";
@@ -41,14 +42,25 @@ const Agenda = () => {
   });
   const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [filteredUserId, setFilteredUserId] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [filteredUserDeadlines, setFilteredUserDeadlines] = useState<Deadline[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
       fetchProjects();
       fetchDeadlines();
+      checkIfAdmin();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchAllUsers();
+    }
+  }, [isAdmin]);
 
   const fetchProjects = async () => {
     try {
@@ -388,6 +400,91 @@ const Agenda = () => {
     return deadlines.some(deadline => isSameDay(deadline.date, date));
   };
 
+  const checkIfAdmin = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    
+    setIsAdmin(!!data);
+  };
+
+  const fetchAllUsers = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, email')
+      .order('full_name');
+    
+    if (!error && data) {
+      setAllUsers(data.map(u => ({
+        id: u.user_id,
+        name: u.full_name || u.email,
+        email: u.email
+      })));
+    }
+  };
+
+  const fetchUserDeadlines = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('deadlines')
+        .select(`
+          *,
+          projects (
+            name,
+            client
+          ),
+          advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+            user_id,
+            full_name,
+            avatar_url
+          ),
+          deadline_tags (
+            tagged_user_id,
+            tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
+              user_id,
+              full_name,
+              avatar_url
+            )
+          )
+        `)
+        .eq('user_id', userId)
+        .order('date', { ascending: true });
+
+      if (!error && data) {
+        const mapped: Deadline[] = data.map(deadline => ({
+          id: deadline.id,
+          title: deadline.title,
+          description: deadline.description || '',
+          date: parseISO(deadline.date + 'T12:00:00'),
+          projectId: deadline.project_id,
+          projectName: deadline.projects?.name || 'Projeto não encontrado',
+          clientName: deadline.projects?.client || 'Cliente não encontrado',
+          completed: deadline.completed,
+          advogadoResponsavel: deadline.advogado ? {
+            userId: deadline.advogado.user_id,
+            name: deadline.advogado.full_name,
+            avatar: deadline.advogado.avatar_url
+          } : undefined,
+          taggedUsers: (deadline.deadline_tags || []).map((tag: any) => ({
+            userId: tag.tagged_user?.user_id,
+            name: tag.tagged_user?.full_name,
+            avatar: tag.tagged_user?.avatar_url
+          })),
+          createdAt: new Date(deadline.created_at),
+          updatedAt: new Date(deadline.updated_at)
+        }));
+        setFilteredUserDeadlines(mapped);
+      }
+    } catch (error) {
+      console.error('Error fetching user deadlines:', error);
+    }
+  };
+
   return (
     <DashboardLayout currentPage="agenda">
       <div className="space-y-6">
@@ -685,6 +782,110 @@ const Agenda = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Admin Filter Section */}
+        {isAdmin && (
+          <div className="mt-8 space-y-4">
+            <div className="border-t pt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Badge variant="destructive" className="gap-1">
+                  <Shield className="h-3 w-3" />
+                  ÁREA ADMINISTRATIVA
+                </Badge>
+                <h3 className="text-lg font-semibold">Visualizar Prazos de Outros Usuários</h3>
+              </div>
+              
+              <Select value={filteredUserId || ""} onValueChange={(value) => {
+                setFilteredUserId(value);
+                if (value) fetchUserDeadlines(value);
+                else setFilteredUserDeadlines([]);
+              }}>
+                <SelectTrigger className="max-w-md">
+                  <SelectValue placeholder="Selecione um usuário para filtrar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {filteredUserId && filteredUserDeadlines.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Prazos de {allUsers.find(u => u.id === filteredUserId)?.name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Título</TableHead>
+                          <TableHead>Projeto</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Responsável</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredUserDeadlines.map(deadline => (
+                          <TableRow key={deadline.id}>
+                            <TableCell className="font-medium">{deadline.title}</TableCell>
+                            <TableCell>{deadline.projectName}</TableCell>
+                            <TableCell>{deadline.clientName}</TableCell>
+                            <TableCell>{format(deadline.date, "dd/MM/yyyy")}</TableCell>
+                            <TableCell>
+                              <Badge variant={deadline.completed ? "default" : isPast(deadline.date) ? "destructive" : "secondary"}>
+                                {deadline.completed ? "Concluído" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {deadline.advogadoResponsavel ? (
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage src={deadline.advogadoResponsavel.avatar} />
+                                    <AvatarFallback className="text-xs">
+                                      {deadline.advogadoResponsavel.name?.charAt(0).toUpperCase() || 'A'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm">{deadline.advogadoResponsavel.name}</span>
+                                </div>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openDeadlineDetails(deadline)}
+                              >
+                                Detalhes
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {filteredUserId && filteredUserDeadlines.length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-muted-foreground">Este usuário não possui prazos cadastrados.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Modal de Detalhes do Prazo */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
