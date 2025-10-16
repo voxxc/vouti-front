@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
           processo_id: processo.id,
           data_movimentacao: new Date().toISOString(),
           descricao: `Andamento automático - Processo ${processo.numero_processo} verificado`,
-          tipo: 'movimentacao'
+          tipo: 'outros'
         });
       }
     }
