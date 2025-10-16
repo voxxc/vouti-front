@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Edit, FileText, History, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import MovimentacaoCard from '@/components/Controladoria/MovimentacaoCard';
+import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
 
 interface Processo {
   id: string;
@@ -40,12 +42,40 @@ const ControladoriaProcessoDetalhes = () => {
   const { toast } = useToast();
   const [processo, setProcesso] = useState<Processo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isController, setIsController] = useState(false);
+  
+  const { 
+    movimentacoes, 
+    loading: loadingMovimentacoes, 
+    pendentes,
+    conferidos,
+    marcarConferido, 
+    marcarEmRevisao 
+  } = useProcessoMovimentacoes(id);
 
   useEffect(() => {
     if (id) {
       fetchProcesso();
+      checkUserRole();
     }
   }, [id]);
+
+  const checkUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+
+      const hasControllerRole = roles?.some(r => r.role === 'controller' || r.role === 'admin');
+      setIsController(!!hasControllerRole);
+    } catch (error) {
+      console.error('Erro ao verificar role:', error);
+    }
+  };
 
   const fetchProcesso = async () => {
     try {
@@ -253,15 +283,48 @@ const ControladoriaProcessoDetalhes = () => {
           <TabsContent value="movimentacoes">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <History className="h-5 w-5" />
-                  Movimentações
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Movimentações
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {pendentes > 0 && (
+                      <Badge variant="destructive" className="animate-pulse">
+                        {pendentes} Pendente{pendentes > 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                    {conferidos > 0 && (
+                      <Badge variant="default" className="bg-green-600">
+                        {conferidos} Conferido{conferidos > 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  Nenhuma movimentação registrada ainda.
-                </p>
+                {loadingMovimentacoes ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-32" />
+                    <Skeleton className="h-32" />
+                  </div>
+                ) : movimentacoes.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    Nenhuma movimentação registrada ainda.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {movimentacoes.map((movimentacao) => (
+                      <MovimentacaoCard
+                        key={movimentacao.id}
+                        movimentacao={movimentacao}
+                        onMarcarConferido={marcarConferido}
+                        onMarcarRevisao={marcarEmRevisao}
+                        isController={isController}
+                      />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

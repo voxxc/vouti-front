@@ -7,9 +7,10 @@ export interface ProcessoMovimentacao {
   data_movimentacao: string;
   descricao: string;
   is_automated: boolean;
-  status_conferencia: StatusConferencia;
+  status_conferencia: StatusConferencia | string;
   autor_id?: string;
-  metadata?: Record<string, any>;
+  documento_id?: string;
+  metadata?: any;
   created_at: string;
   updated_at: string;
 }

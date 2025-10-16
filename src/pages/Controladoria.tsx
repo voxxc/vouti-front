@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye } from "lucide-react";
+import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye, RefreshCw } from "lucide-react";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
+import AtualizadorAndamentos from "@/components/Controladoria/AtualizadorAndamentos";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
@@ -147,6 +148,10 @@ const Controladoria = () => {
         <Tabs defaultValue="processos" className="space-y-6">
           <TabsList>
             <TabsTrigger value="processos">Processos</TabsTrigger>
+            <TabsTrigger value="atualizar">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar Andamentos
+            </TabsTrigger>
             <TabsTrigger value="push">PUSH - Busca Processos</TabsTrigger>
           </TabsList>
 
@@ -219,6 +224,10 @@ const Controladoria = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="atualizar">
+            <AtualizadorAndamentos onComplete={fetchProcessos} />
           </TabsContent>
 
           <TabsContent value="push">

@@ -30,3 +30,6 @@ verify_jwt = false
 
 [functions.save-zapi-config]
 verify_jwt = true
+
+[functions.atualizar-andamentos-processos]
+verify_jwt = true
