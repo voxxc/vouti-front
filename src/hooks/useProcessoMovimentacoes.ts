@@ -94,7 +94,7 @@ export const useProcessoMovimentacoes = (processoId?: string) => {
           conferido_por: user.id,
           conferido_em: new Date().toISOString(),
           observacoes_conferencia: observacoes || null
-        });
+        }, { onConflict: 'movimentacao_id' });
 
       if (confError) throw confError;
 
