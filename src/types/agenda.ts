@@ -1,3 +1,15 @@
+interface TaggedUser {
+  userId: string;
+  name: string;
+  avatar?: string;
+}
+
+interface AdvogadoResponsavel {
+  userId: string;
+  name: string;
+  avatar?: string;
+}
+
 export interface Deadline {
   id: string;
   title: string;
@@ -7,6 +19,8 @@ export interface Deadline {
   projectName: string;
   clientName: string;
   completed: boolean;
+  advogadoResponsavel?: AdvogadoResponsavel;
+  taggedUsers?: TaggedUser[];
   createdAt: Date;
   updatedAt: Date;
 }

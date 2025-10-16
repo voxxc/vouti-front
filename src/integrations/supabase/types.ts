@@ -129,8 +129,45 @@ export type Database = {
         }
         Relationships: []
       }
+      deadline_tags: {
+        Row: {
+          created_at: string | null
+          deadline_id: string
+          id: string
+          tagged_user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          deadline_id: string
+          id?: string
+          tagged_user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          deadline_id?: string
+          id?: string
+          tagged_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadline_tags_deadline_id_fkey"
+            columns: ["deadline_id"]
+            isOneToOne: false
+            referencedRelation: "deadlines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deadline_tags_tagged_user_id_fkey"
+            columns: ["tagged_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       deadlines: {
         Row: {
+          advogado_responsavel_id: string | null
           completed: boolean
           created_at: string
           date: string
@@ -142,6 +179,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          advogado_responsavel_id?: string | null
           completed?: boolean
           created_at?: string
           date: string
@@ -153,6 +191,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          advogado_responsavel_id?: string | null
           completed?: boolean
           created_at?: string
           date?: string
@@ -164,6 +203,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "deadlines_advogado_responsavel_id_fkey"
+            columns: ["advogado_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "deadlines_project_id_fkey"
             columns: ["project_id"]

@@ -7,8 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
+import UserTagSelector from "@/components/Agenda/UserTagSelector";
 import { Project } from "@/types/project";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
 import { format, isSameDay, isPast, isFuture } from "date-fns";
@@ -35,6 +38,8 @@ const Agenda = () => {
     date: new Date(),
     projectId: ""
   });
+  const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
+  const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,6 +92,8 @@ const Agenda = () => {
 
   const fetchDeadlines = async () => {
     try {
+      console.log('[Agenda] Fetching deadlines...');
+      
       const { data, error } = await supabase
         .from('deadlines')
         .select(`
@@ -94,12 +101,25 @@ const Agenda = () => {
           projects (
             name,
             client
+          ),
+          advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+            user_id,
+            full_name,
+            avatar_url
+          ),
+          deadline_tags (
+            tagged_user_id,
+            tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
+              user_id,
+              full_name,
+              avatar_url
+            )
           )
         `)
         .order('date', { ascending: true });
 
       if (error) {
-        console.error('Error fetching deadlines:', error);
+        console.error('[Agenda] Error fetching deadlines:', error);
         toast({
           title: "Erro",
           description: "Não foi possível carregar os prazos.",
@@ -107,6 +127,8 @@ const Agenda = () => {
         });
         return;
       }
+
+      console.log(`[Agenda] Loaded ${data?.length || 0} deadlines`);
 
       // Mapear os dados do Supabase para o formato Deadline
       const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
@@ -118,13 +140,23 @@ const Agenda = () => {
         projectName: deadline.projects?.name || 'Projeto não encontrado',
         clientName: deadline.projects?.client || 'Cliente não encontrado',
         completed: deadline.completed,
+        advogadoResponsavel: deadline.advogado ? {
+          userId: deadline.advogado.user_id,
+          name: deadline.advogado.full_name,
+          avatar: deadline.advogado.avatar_url
+        } : undefined,
+        taggedUsers: (deadline.deadline_tags || []).map((tag: any) => ({
+          userId: tag.tagged_user?.user_id,
+          name: tag.tagged_user?.full_name,
+          avatar: tag.tagged_user?.avatar_url
+        })),
         createdAt: new Date(deadline.created_at),
         updatedAt: new Date(deadline.updated_at)
       }));
 
       setDeadlines(mappedDeadlines);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('[Agenda] Error:', error);
       toast({
         title: "Erro",
         description: "Erro inesperado ao carregar prazos.",
@@ -156,26 +188,35 @@ const Agenda = () => {
     if (!formData.title.trim() || !formData.projectId || !user) return;
 
     try {
+      console.log('[Agenda] Creating deadline with tags:', taggedUsers);
+      
+      // Criar o deadline
       const { data, error } = await supabase
         .from('deadlines')
         .insert({
           user_id: user.id,
           title: formData.title,
           description: formData.description,
-          date: formData.date.toISOString().split('T')[0], // Formato YYYY-MM-DD
-          project_id: formData.projectId
+          date: formData.date.toISOString().split('T')[0],
+          project_id: formData.projectId,
+          advogado_responsavel_id: selectedAdvogado
         })
         .select(`
           *,
           projects (
             name,
             client
+          ),
+          advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+            user_id,
+            full_name,
+            avatar_url
           )
         `)
         .single();
 
       if (error) {
-        console.error('Error creating deadline:', error);
+        console.error('[Agenda] Error creating deadline:', error);
         toast({
           title: "Erro",
           description: "Não foi possível criar o prazo.",
@@ -184,35 +225,45 @@ const Agenda = () => {
         return;
       }
 
-      // Adicionar o novo prazo à lista local
-      const newDeadline: Deadline = {
-        id: data.id,
-        title: data.title,
-        description: data.description || '',
-        date: new Date(data.date),
-        projectId: data.project_id,
-        projectName: data.projects?.name || 'Projeto não encontrado',
-        clientName: data.projects?.client || 'Cliente não encontrado',
-        completed: data.completed,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at)
-      };
+      // Criar tags se houver usuários selecionados
+      if (taggedUsers.length > 0) {
+        const tags = taggedUsers.map(userId => ({
+          deadline_id: data.id,
+          tagged_user_id: userId
+        }));
 
-      setDeadlines([...deadlines, newDeadline]);
+        const { error: tagsError } = await supabase
+          .from('deadline_tags')
+          .insert(tags);
+
+        if (tagsError) {
+          console.error('[Agenda] Error creating tags:', tagsError);
+          // Continuar mesmo com erro nas tags
+        }
+      }
+
+      // Recarregar deadlines para pegar os dados completos com tags
+      await fetchDeadlines();
+
+      // Limpar formulário
       setFormData({
         title: "",
         description: "",
         date: new Date(),
         projectId: ""
       });
+      setSelectedAdvogado(null);
+      setTaggedUsers([]);
       setIsDialogOpen(false);
 
       toast({
-        title: "Prazo criado",
-        description: "Novo prazo adicionado à agenda com sucesso.",
+        title: "✓ Prazo criado",
+        description: taggedUsers.length > 0 
+          ? `Prazo criado e ${taggedUsers.length} usuário(s) foram marcados.`
+          : "Novo prazo adicionado à agenda com sucesso.",
       });
     } catch (error) {
-      console.error('Error:', error);
+      console.error('[Agenda] Error:', error);
       toast({
         title: "Erro",
         description: "Erro inesperado ao criar prazo.",
@@ -396,6 +447,19 @@ const Agenda = () => {
                   </Select>
                 </div>
                 <div>
+                  <AdvogadoSelector 
+                    value={selectedAdvogado} 
+                    onChange={setSelectedAdvogado}
+                  />
+                </div>
+                <div>
+                  <UserTagSelector
+                    selectedUsers={taggedUsers}
+                    onChange={setTaggedUsers}
+                    excludeCurrentUser
+                  />
+                </div>
+                <div>
                   <label className="text-sm font-medium">Data</label>
                   <Calendar
                     mode="single"
@@ -465,19 +529,60 @@ const Agenda = () => {
               <CardContent>
                 <div className="space-y-3">
                   {getDeadlinesForDate(selectedDate).map((deadline) => (
-                    <div key={deadline.id} className="border rounded-lg p-3 bg-card">
+                    <div 
+                      key={deadline.id} 
+                      className="border rounded-lg p-3 bg-card hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => openDeadlineDetails(deadline)}
+                    >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium text-sm">{deadline.title}</h4>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toggleDeadlineCompletion(deadline.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDeadlineCompletion(deadline.id);
+                          }}
                           className={deadline.completed ? "text-green-600" : "text-muted-foreground"}
                         >
                           <CheckCircle2 className="h-4 w-4" />
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">{deadline.description}</p>
+                      
+                      {/* Advogado Responsável */}
+                      {deadline.advogadoResponsavel && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <UserCheck className="h-3 w-3 text-primary" />
+                          <div className="flex items-center gap-1">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={deadline.advogadoResponsavel.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {deadline.advogadoResponsavel.name?.charAt(0).toUpperCase() || 'A'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground">
+                              {deadline.advogadoResponsavel.name}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Usuários Tagados */}
+                      {deadline.taggedUsers && deadline.taggedUsers.length > 0 && (
+                        <div className="flex items-center gap-1 mb-2 flex-wrap">
+                          <span className="text-xs text-muted-foreground">Tags:</span>
+                          {deadline.taggedUsers.map((tagged, idx) => (
+                            <Avatar key={idx} className="h-5 w-5">
+                              <AvatarImage src={tagged.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {tagged.name?.charAt(0).toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                        </div>
+                      )}
+                      
                       <div className="flex items-center justify-between">
                         <Badge variant="outline" className="text-xs">
                           {deadline.projectName}
