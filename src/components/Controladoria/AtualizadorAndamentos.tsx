@@ -17,7 +17,10 @@ const AtualizadorAndamentos = ({ onComplete }: AtualizadorAndamentosProps) => {
   const [progress, setProgress] = useState(0);
   const [resultado, setResultado] = useState<{
     processosVerificados: number;
+    processosComSucesso: number;
+    processosComErro: number;
     andamentosAdicionados: number;
+    erros?: string[];
   } | null>(null);
 
   const atualizarAndamentos = async () => {
@@ -55,15 +58,21 @@ const AtualizadorAndamentos = ({ onComplete }: AtualizadorAndamentosProps) => {
       if (error) throw error;
 
       if (data?.success) {
-        setResultado({
-          processosVerificados: data.processosVerificados || 0,
-          andamentosAdicionados: data.andamentosAdicionados || 0
-        });
+        const descricao = data.processosComErro > 0
+          ? `${data.processosComSucesso} sucesso, ${data.processosComErro} com erro. ${data.andamentosAdicionados} novos andamentos.`
+          : `${data.processosVerificados} processos verificados. ${data.andamentosAdicionados} novos andamentos adicionados.`;
 
         toast({
           title: 'Atualização concluída',
-          description: `${data.andamentosAdicionados} novo(s) andamento(s) encontrado(s)`,
-          variant: data.andamentosAdicionados > 0 ? 'default' : 'default'
+          description: descricao,
+        });
+
+        setResultado({
+          processosVerificados: data.processosVerificados,
+          processosComSucesso: data.processosComSucesso,
+          processosComErro: data.processosComErro,
+          andamentosAdicionados: data.andamentosAdicionados,
+          erros: data.erros
         });
 
         if (onComplete) {
@@ -111,25 +120,43 @@ const AtualizadorAndamentos = ({ onComplete }: AtualizadorAndamentosProps) => {
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <span>Atualização concluída com sucesso</span>
+              <span>Atualização concluída</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Processos Verificados</p>
-                <p className="text-2xl font-bold">{resultado.processosVerificados}</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="font-medium">Sucesso:</span>
+                <span>{resultado.processosComSucesso}</span>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Novos Andamentos</p>
+              {resultado.processosComErro > 0 && (
                 <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">{resultado.andamentosAdicionados}</p>
-                  {resultado.andamentosAdicionados > 0 && (
-                    <Badge variant="destructive" className="animate-pulse">
-                      Pendentes
-                    </Badge>
-                  )}
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <span className="font-medium">Com erro:</span>
+                  <span>{resultado.processosComErro}</span>
                 </div>
+              )}
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-blue-500" />
+                <span className="font-medium">Novos andamentos:</span>
+                <span>{resultado.andamentosAdicionados}</span>
+                {resultado.andamentosAdicionados > 0 && (
+                  <Badge variant="destructive" className="animate-pulse ml-1">
+                    Pendentes
+                  </Badge>
+                )}
               </div>
             </div>
+            
+            {resultado.erros && resultado.erros.length > 0 && (
+              <div className="border-t pt-3 mt-3">
+                <p className="font-medium text-yellow-600 mb-2 text-sm">Erros encontrados:</p>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  {resultado.erros.map((erro, idx) => (
+                    <li key={idx}>• {erro}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

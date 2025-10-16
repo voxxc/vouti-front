@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye, RefreshCw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
 import AtualizadorAndamentos from "@/components/Controladoria/AtualizadorAndamentos";
 import { Badge } from "@/components/ui/badge";
@@ -24,8 +26,10 @@ const Controladoria = () => {
     total: 0,
     emAndamento: 0,
     arquivados: 0,
-    suspensos: 0
+    suspensos: 0,
+    pendentesConferencia: 0
   });
+  const [filtroConferencia, setFiltroConferencia] = useState<'todos' | 'pendentes' | 'conferidos'>('todos');
 
   useEffect(() => {
     fetchProcessos();
@@ -78,14 +82,32 @@ const Controladoria = () => {
 
       if (error) throw error;
 
-      setProcessos(data || []);
+      // Buscar contagem de movimentações pendentes por processo
+      const { data: pendentesData } = await supabase
+        .from('processo_movimentacoes')
+        .select('processo_id, status_conferencia')
+        .eq('status_conferencia', 'pendente')
+        .in('processo_id', (data || []).map(p => p.id));
+
+      // Mapear processos com pendências
+      const processoComPendenciaSet = new Set(
+        pendentesData?.map(p => p.processo_id) || []
+      );
+
+      const processosComPendencia = (data || []).map(p => ({
+        ...p,
+        tem_pendencias: processoComPendenciaSet.has(p.id)
+      }));
+
+      setProcessos(processosComPendencia);
       
       const total = data?.length || 0;
       const emAndamento = data?.filter(p => p.status === 'em_andamento').length || 0;
       const arquivados = data?.filter(p => p.status === 'arquivado').length || 0;
       const suspensos = data?.filter(p => p.status === 'suspenso').length || 0;
+      const pendentesConferencia = processoComPendenciaSet.size;
 
-      setMetrics({ total, emAndamento, arquivados, suspensos });
+      setMetrics({ total, emAndamento, arquivados, suspensos, pendentesConferencia });
     } catch (error) {
       console.error('Error fetching processos:', error);
       toast({
@@ -133,7 +155,7 @@ const Controladoria = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Processos</CardTitle>
@@ -173,6 +195,18 @@ const Controladoria = () => {
               <div className="text-2xl font-bold">{loading ? "..." : metrics.suspensos}</div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pendentes Conferência</CardTitle>
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {loading ? "..." : metrics.pendentesConferencia}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="processos" className="space-y-6">
@@ -206,6 +240,27 @@ const Controladoria = () => {
                     </Button>
                   </div>
                 ) : (
+                  <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Label>Filtrar por conferência:</Label>
+                      <Select value={filtroConferencia} onValueChange={(v) => setFiltroConferencia(v as any)}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos os processos</SelectItem>
+                          <SelectItem value="pendentes">Com pendências</SelectItem>
+                          <SelectItem value="conferidos">Sem pendências</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {filtroConferencia !== 'todos' && (
+                        <Badge variant="secondary">
+                          {processos.filter(p => 
+                            filtroConferencia === 'pendentes' ? p.tem_pendencias : !p.tem_pendencias
+                          ).length} processo(s)
+                        </Badge>
+                      )}
+                    </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -214,12 +269,19 @@ const Controladoria = () => {
                         <TableHead>Tribunal</TableHead>
                         <TableHead>Grupo</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Conferência</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {processos.map((processo) => (
+                      {processos
+                        .filter(p => {
+                          if (filtroConferencia === 'pendentes') return p.tem_pendencias;
+                          if (filtroConferencia === 'conferidos') return !p.tem_pendencias;
+                          return true;
+                        })
+                        .map((processo) => (
                         <TableRow key={processo.id}>
                           <TableCell className="font-medium">{processo.numero_processo}</TableCell>
                           <TableCell>
@@ -234,6 +296,19 @@ const Controladoria = () => {
                             <Badge variant={getStatusBadgeVariant(processo.status)}>
                               {getStatusLabel(processo.status)}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {processo.tem_pendencias ? (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Pendente
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                OK
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             {format(new Date(processo.created_at), 'dd/MM/yyyy', { locale: ptBR })}
@@ -251,6 +326,7 @@ const Controladoria = () => {
                       ))}
                     </TableBody>
                   </Table>
+                  </>
                 )}
               </CardContent>
             </Card>

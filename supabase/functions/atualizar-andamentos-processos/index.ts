@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // Buscar processos do usuário
     const { data: processos, error: processosError } = await supabase
       .from('processos')
-      .select('id, numero_processo')
+      .select('id, numero_processo, tribunais(sigla)')
       .or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`);
 
     if (processosError) {
@@ -62,82 +62,123 @@ Deno.serve(async (req) => {
 
     console.log(`Verificando ${processos.length} processos`);
 
-    // Array para armazenar novos andamentos
-    const novosAndamentos: ProcessoAndamento[] = [];
+    let totalAndamentosInseridos = 0;
+    let processosComSucesso = 0;
+    let processosComErro = 0;
+    const erros: string[] = [];
 
-    // Simular busca de andamentos (aqui você integraria com API do PJE/tribunal)
-    // Por ora, vamos criar andamentos de exemplo para demonstração
-    for (const processo of processos) {
-      // IMPORTANTE: Aqui você deve integrar com a API do PJE ou tribunal
-      // Exemplo de integração futura:
-      // const andamentos = await buscarAndamentosPJE(processo.numero_processo);
-      
-      // Por enquanto, vamos simular verificando se há andamentos recentes
-      const { data: ultimaMovimentacao } = await supabase
-        .from('processo_movimentacoes')
-        .select('data_movimentacao')
-        .eq('processo_id', processo.id)
-        .order('data_movimentacao', { ascending: false })
-        .limit(1)
-        .single();
-
-      // Simulação: adicionar andamento apenas se não houver movimentação nas últimas 24h
-      // Em produção, isso seria substituído pela integração real com PJE
-      const agora = new Date();
-      const ultimaData = ultimaMovimentacao?.data_movimentacao 
-        ? new Date(ultimaMovimentacao.data_movimentacao)
-        : new Date(0);
-      
-      const diferencaHoras = (agora.getTime() - ultimaData.getTime()) / (1000 * 60 * 60);
-      
-      // Simular que há novos andamentos se passou mais de 24h
-      if (diferencaHoras > 24) {
-        novosAndamentos.push({
-          processo_id: processo.id,
-          data_movimentacao: new Date().toISOString(),
-          descricao: `Andamento automático - Processo ${processo.numero_processo} verificado`,
-          tipo: 'outros'
-        });
-      }
-    }
-
-    console.log(`${novosAndamentos.length} novos andamentos encontrados`);
-
-    // Inserir novos andamentos
-    let andamentosInseridos = 0;
+    // Processar em lotes de 5 para evitar timeout
+    const BATCH_SIZE = 5;
     
-    for (const andamento of novosAndamentos) {
-      const { error: insertError } = await supabase
-        .from('processo_movimentacoes')
-        .insert({
-          processo_id: andamento.processo_id,
-          tipo: andamento.tipo,
-          data_movimentacao: andamento.data_movimentacao,
-          descricao: andamento.descricao,
-          is_automated: true,
-          status_conferencia: 'pendente',
-          metadata: {
-            fonte: 'push_automatico',
-            atualizado_em: new Date().toISOString(),
-            user_id: user.id
-          }
-        });
+    for (let i = 0; i < processos.length; i += BATCH_SIZE) {
+      const lote = processos.slice(i, i + BATCH_SIZE);
+      
+      console.log(`Processando lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(processos.length / BATCH_SIZE)}`);
 
-      if (!insertError) {
-        andamentosInseridos++;
-      } else {
-        console.error('Erro ao inserir andamento:', insertError);
-      }
+      const resultados = await Promise.allSettled(
+        lote.map(async (processo) => {
+          try {
+            // Chamar buscar-processos-lote
+            const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
+              body: {
+                processos: [processo.numero_processo],
+                tribunal: processo.tribunais?.sigla || 'TJPR',
+              },
+            });
+
+            if (error) throw error;
+
+            const resultado = data?.processos?.[0];
+            if (!resultado || !resultado.success) {
+              throw new Error(resultado?.erro || 'Falha ao buscar andamentos');
+            }
+
+            // Buscar movimentações existentes
+            const { data: existentes } = await supabase
+              .from('processo_movimentacoes')
+              .select('descricao, data_movimentacao')
+              .eq('processo_id', processo.id);
+
+            // Deduplicação
+            const existentesSet = new Set(
+              existentes?.map(m => {
+                const normDesc = m.descricao.trim().replace(/\s+/g, ' ').toLowerCase();
+                const dateKey = new Date(m.data_movimentacao).toISOString().slice(0, 10);
+                return `${normDesc}|${dateKey}`;
+              }) || []
+            );
+
+            const novasMovimentacoes = resultado.movimentacoes.filter(mov => {
+              const normDesc = mov.descricao.trim().replace(/\s+/g, ' ').toLowerCase();
+              const dateKey = new Date(mov.data).toISOString().slice(0, 10);
+              const key = `${normDesc}|${dateKey}`;
+              return !existentesSet.has(key);
+            });
+
+            // Inserir novas movimentações
+            if (novasMovimentacoes.length > 0) {
+              const movimentacoesParaInserir = novasMovimentacoes.map(mov => ({
+                processo_id: processo.id,
+                tipo: mov.tipo || 'intimacao',
+                data_movimentacao: new Date(mov.data).toISOString(),
+                descricao: mov.descricao,
+                is_automated: true,
+                status_conferencia: 'pendente',
+                metadata: {
+                  fonte: resultado.fonte,
+                  sequencia: mov.sequencia,
+                  texto_completo: mov.texto_completo,
+                  atualizado_em: new Date().toISOString(),
+                },
+              }));
+
+              const { error: insertError } = await supabase
+                .from('processo_movimentacoes')
+                .insert(movimentacoesParaInserir);
+
+              if (insertError) throw insertError;
+            }
+
+            return {
+              processoId: processo.id,
+              numeroProcesso: processo.numero_processo,
+              novasMovimentacoes: novasMovimentacoes.length,
+              fonte: resultado.fonte
+            };
+          } catch (error) {
+            throw new Error(`${processo.numero_processo}: ${error.message}`);
+          }
+        })
+      );
+
+      // Processar resultados do lote
+      resultados.forEach((resultado, idx) => {
+        if (resultado.status === 'fulfilled') {
+          processosComSucesso++;
+          totalAndamentosInseridos += resultado.value.novasMovimentacoes;
+        } else {
+          processosComErro++;
+          erros.push(resultado.reason.message);
+        }
+      });
     }
 
-    console.log('Atualização concluída');
+    console.log('Atualização concluída:', {
+      processosVerificados: processos.length,
+      processosComSucesso,
+      processosComErro,
+      totalAndamentosInseridos
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Atualização concluída com sucesso`,
+        message: `Atualização concluída`,
         processosVerificados: processos.length,
-        andamentosAdicionados: andamentosInseridos
+        processosComSucesso,
+        processosComErro,
+        andamentosAdicionados: totalAndamentosInseridos,
+        erros: erros.length > 0 ? erros.slice(0, 5) : undefined // Máximo 5 erros
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
