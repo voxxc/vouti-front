@@ -78,49 +78,26 @@ serve(async (req) => {
         try {
           console.log(`🔍 Processando: ${numeroProcesso}`, dataInicio ? `(${dataInicio} até ${dataFim})` : '(todo histórico)');
           
-          // Para TJPR: usar PJe primeiro (dados completos de intimações)
-          if (tribunal === 'TJPR') {
-            console.log(`🌐 [TJPR] Tentando PJe Comunicações para ${numeroProcesso}...`);
-            const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
-            
-            if (resultPje.success) {
-              console.log(`✅ Sucesso via PJe: ${numeroProcesso}`, { movimentacoes: resultPje.movimentacoes.length });
-              return resultPje;
-            }
-            
-            // Fallback para DataJud
-            console.log(`⚠️ PJe falhou, tentando DataJud API para ${numeroProcesso}...`);
-            const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
-            
-            if (resultDatajud.success) {
-              console.log(`✅ Sucesso via DataJud (fallback): ${numeroProcesso}`, { movimentacoes: resultDatajud.movimentacoes.length });
-            } else {
-              console.log(`❌ Ambas as fontes falharam para ${numeroProcesso}`);
-            }
-            
-            return resultDatajud;
-          } else {
-            // Para outros tribunais: usar DataJud primeiro
-            console.log(`📊 [${tribunal}] Tentando DataJud API para ${numeroProcesso}...`);
-            const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
-            
-            if (resultDatajud.success) {
-              console.log(`✅ Sucesso via DataJud: ${numeroProcesso}`, { movimentacoes: resultDatajud.movimentacoes.length });
-              return resultDatajud;
-            }
-            
-            // Fallback para PJe
-            console.log(`⚠️ DataJud falhou, tentando PJe Comunicações para ${numeroProcesso}...`);
-            const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
-            
-            if (resultPje.success) {
-              console.log(`✅ Sucesso via PJe (fallback): ${numeroProcesso}`, { movimentacoes: resultPje.movimentacoes.length });
-            } else {
-              console.log(`❌ Ambas as fontes falharam para ${numeroProcesso}`);
-            }
-            
+          // Prioridade: PJe Comunicações (dados completos) → DataJud API (fallback)
+          console.log(`🌐 Tentando PJe Comunicações para ${numeroProcesso}...`);
+          const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
+          
+          if (resultPje.success) {
+            console.log(`✅ Sucesso via PJe: ${numeroProcesso}`, { movimentacoes: resultPje.movimentacoes.length });
             return resultPje;
           }
+          
+          // Fallback para DataJud
+          console.log(`⚠️ PJe falhou, tentando DataJud API para ${numeroProcesso}...`);
+          const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
+          
+          if (resultDatajud.success) {
+            console.log(`✅ Sucesso via DataJud (fallback): ${numeroProcesso}`, { movimentacoes: resultDatajud.movimentacoes.length });
+          } else {
+            console.log(`❌ Ambas as fontes falharam para ${numeroProcesso}`);
+          }
+          
+          return resultDatajud;
 
         } catch (error) {
           console.error(`❌ Erro ao buscar processo ${numeroProcesso}:`, {
