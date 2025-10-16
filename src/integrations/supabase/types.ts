@@ -55,6 +55,122 @@ export type Database = {
           },
         ]
       }
+      cliente_documentos: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_documentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clientes: {
+        Row: {
+          created_at: string | null
+          data_cadastro: string | null
+          data_fechamento: string
+          data_nascimento: string | null
+          dia_vencimento: number | null
+          email: string | null
+          endereco: string | null
+          forma_pagamento: string
+          id: string
+          nome_pessoa_fisica: string | null
+          nome_pessoa_juridica: string | null
+          numero_parcelas: number | null
+          observacoes: string | null
+          origem_rede_social: string | null
+          origem_tipo: string | null
+          telefone: string | null
+          updated_at: string | null
+          user_id: string
+          valor_contrato: number
+          valor_entrada: number | null
+          valor_parcela: number | null
+          vendedor: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_cadastro?: string | null
+          data_fechamento: string
+          data_nascimento?: string | null
+          dia_vencimento?: number | null
+          email?: string | null
+          endereco?: string | null
+          forma_pagamento: string
+          id?: string
+          nome_pessoa_fisica?: string | null
+          nome_pessoa_juridica?: string | null
+          numero_parcelas?: number | null
+          observacoes?: string | null
+          origem_rede_social?: string | null
+          origem_tipo?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+          user_id: string
+          valor_contrato: number
+          valor_entrada?: number | null
+          valor_parcela?: number | null
+          vendedor?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_cadastro?: string | null
+          data_fechamento?: string
+          data_nascimento?: string | null
+          dia_vencimento?: number | null
+          email?: string | null
+          endereco?: string | null
+          forma_pagamento?: string
+          id?: string
+          nome_pessoa_fisica?: string | null
+          nome_pessoa_juridica?: string | null
+          numero_parcelas?: number | null
+          observacoes?: string | null
+          origem_rede_social?: string | null
+          origem_tipo?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+          user_id?: string
+          valor_contrato?: number
+          valor_entrada?: number | null
+          valor_parcela?: number | null
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
       comarcas: {
         Row: {
           created_at: string | null
