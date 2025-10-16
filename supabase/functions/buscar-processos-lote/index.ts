@@ -78,26 +78,26 @@ serve(async (req) => {
         try {
           console.log(`🔍 Processando: ${numeroProcesso}`, dataInicio ? `(${dataInicio} até ${dataFim})` : '(todo histórico)');
           
-          // Prioridade: PJe Comunicações (dados completos) → DataJud API (fallback)
-          console.log(`🌐 Tentando PJe Comunicações para ${numeroProcesso}...`);
-          const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
-          
-          if (resultPje.success) {
-            console.log(`✅ Sucesso via PJe: ${numeroProcesso}`, { movimentacoes: resultPje.movimentacoes.length });
-            return resultPje;
-          }
-          
-          // Fallback para DataJud
-          console.log(`⚠️ PJe falhou, tentando DataJud API para ${numeroProcesso}...`);
+          // Tentar DataJud primeiro
+          console.log(`📊 Tentando DataJud API para ${numeroProcesso}...`);
           const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
           
           if (resultDatajud.success) {
-            console.log(`✅ Sucesso via DataJud (fallback): ${numeroProcesso}`, { movimentacoes: resultDatajud.movimentacoes.length });
-          } else {
-            console.log(`❌ Ambas as fontes falharam para ${numeroProcesso}`);
+            console.log(`✅ Sucesso via DataJud: ${numeroProcesso}`, {
+              movimentacoes: resultDatajud.movimentacoes.length
+            });
+            return resultDatajud;
           }
+
+          // Fallback para scraping PJe
+          console.log(`🌐 Fallback para PJe scraping: ${numeroProcesso}...`);
+          const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
           
-          return resultDatajud;
+          console.log(`✅ Sucesso via PJe scraping: ${numeroProcesso}`, {
+            movimentacoes: resultPje.movimentacoes.length
+          });
+          
+          return resultPje;
 
         } catch (error) {
           console.error(`❌ Erro ao buscar processo ${numeroProcesso}:`, {
