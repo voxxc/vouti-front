@@ -45,10 +45,21 @@ interface StatusGroup {
 }
 
 const TIPOS_CONFIG = {
+  // Tipos de Agronegócio (Landing Page 1)
   'empresario': { label: 'Empresário', color: 'bg-blue-500 text-white' },
   'agricultor': { label: 'Agricultor', color: 'bg-green-500 text-white' },
   'pecuarista': { label: 'Pecuarista', color: 'bg-orange-500 text-white' },
   'produtor rural': { label: 'Produtor Rural', color: 'bg-amber-600 text-white' },
+  
+  // Áreas de Advocacia (Landing Page 2)
+  'civil': { label: 'Direito Civil', color: 'bg-indigo-500 text-white' },
+  'trabalhista': { label: 'Direito Trabalhista', color: 'bg-violet-500 text-white' },
+  'familia': { label: 'Direito de Família', color: 'bg-pink-500 text-white' },
+  'empresarial': { label: 'Direito Empresarial', color: 'bg-blue-600 text-white' },
+  'tributario': { label: 'Direito Tributário', color: 'bg-emerald-600 text-white' },
+  'imobiliario': { label: 'Direito Imobiliário', color: 'bg-teal-500 text-white' },
+  'previdenciario': { label: 'Direito Previdenciário', color: 'bg-sky-500 text-white' },
+  'consumidor': { label: 'Direito do Consumidor', color: 'bg-rose-500 text-white' },
 };
 
 const STATUS_CONFIG = {

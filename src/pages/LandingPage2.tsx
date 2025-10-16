@@ -80,7 +80,7 @@ const LandingPage2 = () => {
         telefone: formData.telefone,
         tipo: formData.area,
         comentario: formData.mensagem,
-        origem: 'landing_page_3',
+        origem: 'landing_page_2',
         user_id: user.id
       });
 
