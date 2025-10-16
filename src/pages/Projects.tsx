@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Plus, FolderOpen, Calendar, User } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Search, Plus, FolderOpen, Calendar, User, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Project } from "@/types/project";
 import { format } from "date-fns";
@@ -21,6 +22,7 @@ const Projects = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [newProject, setNewProject] = useState({
     name: "",
     client: "",
@@ -29,7 +31,21 @@ const Projects = () => {
 
   useEffect(() => {
     fetchProjects();
+    checkIfAdmin();
   }, [user]);
+
+  const checkIfAdmin = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    
+    setIsAdmin(!!data);
+  };
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -140,6 +156,36 @@ const Projects = () => {
 
   const handleSelectProject = (project: Project) => {
     navigate(`/project/${project.id}`);
+  };
+
+  const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevenir navegação ao clicar no botão deletar
+    
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Projeto deletado com sucesso!",
+      });
+
+      // Atualizar lista de projetos
+      setProjects(projects.filter(p => p.id !== projectId));
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao deletar projeto.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredProjects = projects.filter(project =>
@@ -259,7 +305,7 @@ const Projects = () => {
               >
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1">
                       <div className="p-2 bg-law-blue/10 rounded-lg">
                         <FolderOpen className="h-5 w-5 text-law-blue" />
                       </div>
@@ -273,10 +319,43 @@ const Projects = () => {
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-muted-foreground">
-                        {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                    <div className="flex items-start gap-2">
+                      <div className="text-right">
+                        <div className="text-xs text-muted-foreground">
+                          {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                        </div>
                       </div>
+                      {isAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir o projeto "{project.name}"? Esta ação não pode ser desfeita e todas as tarefas associadas serão perdidas.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={(e) => handleDeleteProject(project.id, e)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
