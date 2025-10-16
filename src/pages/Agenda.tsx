@@ -198,7 +198,7 @@ const Agenda = () => {
           user_id: user.id,
           title: formData.title,
           description: formData.description,
-          date: formData.date.toISOString().split('T')[0],
+          date: format(formData.date, 'yyyy-MM-dd'),
           project_id: formData.projectId,
           advogado_responsavel_id: selectedAdvogado
         })
@@ -250,7 +250,7 @@ const Agenda = () => {
       setFormData({
         title: "",
         description: "",
-        date: new Date(),
+        date: selectedDate,
         projectId: ""
       });
       setSelectedAdvogado(null);
