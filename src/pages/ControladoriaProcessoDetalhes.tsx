@@ -25,6 +25,7 @@ import { ptBR } from 'date-fns/locale';
 import MovimentacaoCard from '@/components/Controladoria/MovimentacaoCard';
 import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
 import { BuscarAndamentosPJE } from '@/components/Controladoria/BuscarAndamentosPJE';
+import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
 
 interface Processo {
   id: string;
@@ -363,13 +364,19 @@ const ControladoriaProcessoDetalhes = () => {
                     Movimentações
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    {processo.tribunais?.sigla && (
-                      <BuscarAndamentosPJE
-                        processoId={processo.id}
-                        numeroProcesso={processo.numero_processo}
-                        tribunal={processo.tribunais.sigla}
-                        onComplete={fetchMovimentacoes}
-                      />
+                    <BuscarAndamentosPJE
+                      processoId={processo.id}
+                      numeroProcesso={processo.numero_processo}
+                      tribunal={
+                        processo.tribunais?.sigla || 
+                        extrairTribunalDoNumeroProcesso(processo.numero_processo)
+                      }
+                      onComplete={fetchMovimentacoes}
+                    />
+                    {!processo.tribunais?.sigla && (
+                      <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-600">
+                        ⚠️ Tribunal extraído
+                      </Badge>
                     )}
                     {pendentes > 0 && (
                       <Badge variant="destructive" className="animate-pulse">
