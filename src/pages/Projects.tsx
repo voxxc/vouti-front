@@ -35,15 +35,34 @@ const Projects = () => {
     if (!user) return;
 
     try {
+      console.log('[Projects] Fetching projects for user:', user.id);
+      
+      // Buscar IDs dos projetos onde o usuário é colaborador
+      const { data: collaboratorProjects } = await supabase
+        .from('project_collaborators')
+        .select('project_id')
+        .eq('user_id', user.id);
+
+      const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
+      
+      console.log('[Projects] User is collaborator in:', collaboratorProjectIds);
+
+      // Buscar projetos onde o usuário é criador OU colaborador
       const { data, error } = await supabase
         .from('projects')
         .select(`
           *,
           tasks (*)
         `)
+        .or(`created_by.eq.${user.id}${collaboratorProjectIds.length > 0 ? `,id.in.(${collaboratorProjectIds.join(',')})` : ''}`)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Projects] Error fetching projects:', error);
+        throw error;
+      }
+
+      console.log(`[Projects] Found ${data?.length || 0} projects`);
 
       const projectsWithTasks: Project[] = (data || []).map(project => ({
         id: project.id,
@@ -70,7 +89,7 @@ const Projects = () => {
 
       setProjects(projectsWithTasks);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      console.error('[Projects] Error in fetchProjects:', error);
       toast({
         title: "Erro",
         description: "Erro ao carregar projetos.",
