@@ -16,8 +16,9 @@ import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
 import ControladoriaNovoProcesso from "@/pages/ControladoriaNovoProcesso";
 import ControladoriaProcessoDetalhes from "@/pages/ControladoriaProcessoDetalhes";
+import HomePage from "@/pages/HomePage";
+import LandingPage1 from "@/pages/LandingPage1";
 import LandingPage2 from "@/pages/LandingPage2";
-import LandingPage3 from "@/pages/LandingPage3";
 import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
 import MetalAdminUsers from "@/pages/MetalAdminUsers";
@@ -123,8 +124,8 @@ function App() {
       <TooltipProvider>
         <BrowserRouter>
         <Routes>
-          {/* Landing Page - Public, no auth/theme providers */}
-          <Route path="/" element={<LandingPage2 />} />
+          {/* Homepage - Public, no auth/theme providers */}
+          <Route path="/" element={<HomePage />} />
           
           {/* Auth and Protected Routes - Wrapped with providers */}
           <Route path="/auth" element={
@@ -242,12 +243,9 @@ function App() {
             </MetalAuthProvider>
           } />
               
-              {/* Landing Page 3 - Optional direct access */}
-              <Route path="/landing-page-3" element={<LandingPage3 />} />
-              
-              {/* Redirect old landing routes to homepage */}
-              <Route path="/landing-page-1" element={<Navigate to="/" replace />} />
-              <Route path="/landing-page-2" element={<Navigate to="/" replace />} />
+              {/* Landing Pages - Marketing */}
+              <Route path="/landing-1" element={<LandingPage1 />} />
+              <Route path="/landing-2" element={<LandingPage2 />} />
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
