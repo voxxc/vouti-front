@@ -267,11 +267,17 @@ function parseMovimentacoesPje(html: string): ProcessMovement[] {
 
 function detectarTipoMovimento(nome: string): string {
   const lower = nome.toLowerCase();
-  if (lower.includes('intimação') || lower.includes('intimacao')) return 'intimacao';
-  if (lower.includes('despacho')) return 'despacho';
-  if (lower.includes('decisão') || lower.includes('decisao')) return 'decisao';
-  if (lower.includes('petição') || lower.includes('peticao')) return 'peticao';
-  if (lower.includes('audiência') || lower.includes('audiencia')) return 'audiencia';
+  
+  // Prioridade: verificar tipos mais específicos primeiro
   if (lower.includes('sentença') || lower.includes('sentenca')) return 'sentenca';
+  if (lower.includes('recurso')) return 'recurso';
+  if (lower.includes('audiência') || lower.includes('audiencia')) return 'audiencia';
+  if (lower.includes('intimação') || lower.includes('intimacao')) return 'intimacao';
+  if (lower.includes('publicação') || lower.includes('publicacao')) return 'publicacao';
+  if (lower.includes('juntada')) return 'juntada';
+  if (lower.includes('petição') || lower.includes('peticao')) return 'peticionamento';
+  if (lower.includes('decisão') || lower.includes('decisao')) return 'despacho';
+  if (lower.includes('despacho')) return 'despacho';
+  
   return 'outros';
 }
