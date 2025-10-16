@@ -731,6 +731,47 @@ const Agenda = () => {
                     {selectedDeadline.completed ? "Concluído" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
                   </Badge>
                 </div>
+
+                {selectedDeadline.advogadoResponsavel && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">Advogado Responsável:</label>
+                    <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={selectedDeadline.advogadoResponsavel.avatar} />
+                        <AvatarFallback className="text-xs">
+                          {selectedDeadline.advogadoResponsavel.name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-primary">
+                        {selectedDeadline.advogadoResponsavel.name}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {selectedDeadline.taggedUsers && selectedDeadline.taggedUsers.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium block mb-2">Usuários Tagados:</label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedDeadline.taggedUsers.map((user) => (
+                        <div 
+                          key={user.userId}
+                          className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-full border border-secondary"
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={user.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {user.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm">
+                            {user.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex gap-2 pt-2">
                   {!selectedDeadline.completed && (
