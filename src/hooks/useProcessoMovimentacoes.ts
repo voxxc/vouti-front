@@ -22,11 +22,7 @@ export const useProcessoMovimentacoes = (processoId?: string) => {
         .select(`
           *,
           processo_movimentacao_conferencia (
-            *,
-            usuario:profiles!processo_movimentacao_conferencia_conferido_por_fkey (
-              full_name,
-              email
-            )
+            *
           )
         `)
         .eq('processo_id', processoId)
@@ -34,7 +30,31 @@ export const useProcessoMovimentacoes = (processoId?: string) => {
 
       if (error) throw error;
 
-      const movimentacoesFormatadas: MovimentacaoComConferencia[] = (data || []).map(mov => ({
+      // Buscar dados dos usuários separadamente se necessário
+      const movimentacoesComUsuarios = await Promise.all((data || []).map(async (mov) => {
+        const conferencias = Array.isArray(mov.processo_movimentacao_conferencia) 
+          ? mov.processo_movimentacao_conferencia 
+          : [];
+          
+        if (conferencias[0]?.conferido_por) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('user_id', conferencias[0].conferido_por)
+            .single();
+          
+          return {
+            ...mov,
+            processo_movimentacao_conferencia: conferencias.map(conf => ({
+              ...conf,
+              usuario: profileData
+            }))
+          };
+        }
+        return mov;
+      }));
+
+      const movimentacoesFormatadas: MovimentacaoComConferencia[] = movimentacoesComUsuarios.map(mov => ({
         ...mov,
         conferencia: Array.isArray(mov.processo_movimentacao_conferencia) && mov.processo_movimentacao_conferencia.length > 0
           ? mov.processo_movimentacao_conferencia[0]
