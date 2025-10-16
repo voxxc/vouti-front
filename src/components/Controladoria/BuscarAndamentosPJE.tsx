@@ -31,9 +31,10 @@ export const BuscarAndamentosPJE = ({
         throw new Error('Usuário não autenticado');
       }
 
-      console.log('Buscando andamentos PJE...');
+      console.log('Buscando andamentos via DataJud API...');
 
-      const { data, error } = await supabase.functions.invoke('buscar-andamentos-pje', {
+      // Tentar DataJud API primeiro
+      let result = await supabase.functions.invoke('buscar-andamentos-datajud', {
         body: {
           processo_id: processoId,
           numero_processo: numeroProcesso,
@@ -41,12 +42,28 @@ export const BuscarAndamentosPJE = ({
         },
       });
 
-      if (error) throw error;
+      // Se DataJud falhar ou não encontrar dados, tentar scraping como fallback
+      if (result.error || !result.data?.success || result.data?.total_encontradas === 0) {
+        console.warn('DataJud falhou, tentando scraping como fallback...');
+        
+        result = await supabase.functions.invoke('buscar-andamentos-pje', {
+          body: {
+            processo_id: processoId,
+            numero_processo: numeroProcesso,
+            tribunal: tribunal,
+          },
+        });
+      }
+
+      if (result.error) throw result.error;
+
+      const { data } = result;
 
       if (data.success) {
+        const fonte = data.fonte === 'datajud_api' ? 'DataJud API' : 'PJe Comunicações';
         toast({
           title: 'Andamentos atualizados',
-          description: `Encontradas ${data.total_encontradas} movimentações. ${data.novas_inseridas} novas inseridas.`,
+          description: `${fonte}: ${data.total_encontradas} movimentações encontradas. ${data.novas_inseridas} novas inseridas.`,
         });
 
         if (onComplete) {
