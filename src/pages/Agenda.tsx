@@ -15,7 +15,7 @@ import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "@/components/Agenda/UserTagSelector";
 import { Project } from "@/types/project";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
-import { format, isSameDay, isPast, isFuture } from "date-fns";
+import { format, isSameDay, isPast, isFuture, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -136,7 +136,7 @@ const Agenda = () => {
         id: deadline.id,
         title: deadline.title,
         description: deadline.description || '',
-        date: new Date(deadline.date),
+        date: parseISO(deadline.date + 'T12:00:00'),
         projectId: deadline.project_id,
         projectName: deadline.projects?.name || 'Projeto não encontrado',
         clientName: deadline.projects?.client || 'Cliente não encontrado',
