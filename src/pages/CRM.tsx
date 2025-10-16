@@ -42,16 +42,6 @@ interface ClientHistory {
   projectName?: string;
 }
 
-interface Oportunidade {
-  id: string;
-  titulo: string;
-  cliente: string;
-  valor: number;
-  probabilidade: number;
-  estagio: 'qualificacao' | 'proposta' | 'negociacao' | 'fechamento';
-  dataFechamento: Date;
-  responsavel: string;
-}
 
 const CRM = () => {
   const { user } = useAuth();
@@ -145,28 +135,6 @@ const CRM = () => {
     }
   ]);
 
-  const [oportunidades] = useState<Oportunidade[]>([
-    {
-      id: '1',
-      titulo: 'Consultoria Trabalhista - Empresa ABC',
-      cliente: 'Maria Silva Santos',
-      valor: 15000,
-      probabilidade: 80,
-      estagio: 'negociacao',
-      dataFechamento: new Date('2024-03-15'),
-      responsavel: 'Dr. Eduardo Silva'
-    },
-    {
-      id: '2',
-      titulo: 'Regularização Empresarial - Tech Solutions',
-      cliente: 'João Pedro Oliveira',
-      valor: 25000,
-      probabilidade: 60,
-      estagio: 'proposta',
-      dataFechamento: new Date('2024-04-20'),
-      responsavel: 'Dra. Ana Costa'
-    }
-  ]);
 
   const filteredClientes = clientes.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -184,19 +152,9 @@ const CRM = () => {
     }
   };
 
-  const getEstagioColor = (estagio: string) => {
-    switch (estagio) {
-      case 'qualificacao': return 'bg-orange-100 text-orange-800';
-      case 'proposta': return 'bg-blue-100 text-blue-800';
-      case 'negociacao': return 'bg-purple-100 text-purple-800';
-      case 'fechamento': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const totalClientes = clientes.length;
   const clientesAtivos = clientes.filter(c => c.status === 'cliente').length;
-  const valorPipeline = oportunidades.reduce((acc, opp) => acc + opp.valor, 0);
   const taxaConversao = totalClientes > 0 ? Math.round((clientesAtivos / totalClientes) * 100) : 0;
 
   return (
@@ -232,7 +190,7 @@ const CRM = () => {
         </div>
 
         {/* Métricas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card className="border-0 shadow-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -261,21 +219,6 @@ const CRM = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Pipeline</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {valorPipeline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </p>
-                </div>
-                <div className="p-3 bg-purple-500/10 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card className="border-0 shadow-card">
             <CardContent className="p-6">
@@ -305,9 +248,8 @@ const CRM = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
-            <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
             <TabsTrigger value="captacao">CAPTAÇÃO</TabsTrigger>
             <TabsTrigger value="whatsapp">WhatsApp Bot</TabsTrigger>
           </TabsList>
@@ -389,51 +331,6 @@ const CRM = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="oportunidades" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {oportunidades.map((oportunidade) => (
-                <Card key={oportunidade.id} className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg font-semibold">{oportunidade.titulo}</CardTitle>
-                        <CardDescription>{oportunidade.cliente}</CardDescription>
-                      </div>
-                      <Badge className={getEstagioColor(oportunidade.estagio)}>
-                        {oportunidade.estagio.charAt(0).toUpperCase() + oportunidade.estagio.slice(1)}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-0 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-foreground">
-                        {oportunidade.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
-                      <span className="text-sm text-muted-foreground">{oportunidade.probabilidade}% prob.</span>
-                    </div>
-
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-gradient-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${oportunidade.probabilidade}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      Fechamento previsto: {format(oportunidade.dataFechamento, "dd/MM/yyyy", { locale: ptBR })}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      Responsável: {oportunidade.responsavel}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
 
           <TabsContent value="captacao">
             <CaptacaoSheet />
