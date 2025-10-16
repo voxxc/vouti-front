@@ -526,8 +526,8 @@ const LandingPage2 = () => {
             </div>
 
             <div>
-              <h3 className="text-lg font-bold mb-4 text-slate-100">Redes Sociais</h3>
-              <div className="flex gap-4">
+              <h3 className="text-lg font-bold mb-4 text-slate-100 text-center">Redes Sociais</h3>
+              <div className="flex gap-4 justify-center">
                 <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
                   <Facebook className="h-6 w-6 text-slate-400 hover:text-slate-300" />
                 </a>
