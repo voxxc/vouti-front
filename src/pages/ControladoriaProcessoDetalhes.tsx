@@ -24,6 +24,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import MovimentacaoCard from '@/components/Controladoria/MovimentacaoCard';
 import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
+import { BuscarAndamentosPJE } from '@/components/Controladoria/BuscarAndamentosPJE';
 
 interface Processo {
   id: string;
@@ -62,7 +63,8 @@ const ControladoriaProcessoDetalhes = () => {
     pendentes,
     conferidos,
     marcarConferido, 
-    marcarEmRevisao 
+    marcarEmRevisao,
+    refetch: fetchMovimentacoes
   } = useProcessoMovimentacoes(id);
 
   useEffect(() => {
@@ -361,6 +363,14 @@ const ControladoriaProcessoDetalhes = () => {
                     Movimentações
                   </CardTitle>
                   <div className="flex items-center gap-2">
+                    {processo.tribunais?.sigla && (
+                      <BuscarAndamentosPJE
+                        processoId={processo.id}
+                        numeroProcesso={processo.numero_processo}
+                        tribunal={processo.tribunais.sigla}
+                        onComplete={fetchMovimentacoes}
+                      />
+                    )}
                     {pendentes > 0 && (
                       <Badge variant="destructive" className="animate-pulse">
                         {pendentes} Pendente{pendentes > 1 ? 's' : ''}
