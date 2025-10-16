@@ -62,18 +62,6 @@ const LandingPage2 = () => {
     setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Erro de autenticação",
-          description: "Você precisa estar logado para enviar o formulário.",
-          variant: "destructive"
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
       const { error } = await supabase.from('leads_captacao').insert({
         nome: formData.nome,
         email: formData.email,
@@ -81,7 +69,7 @@ const LandingPage2 = () => {
         tipo: formData.area,
         comentario: formData.mensagem,
         origem: 'landing_page_2',
-        user_id: user.id
+        user_id: null
       });
 
       if (error) throw error;
