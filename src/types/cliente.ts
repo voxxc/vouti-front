@@ -1,0 +1,35 @@
+export interface Cliente {
+  id: string;
+  user_id: string;
+  nome_pessoa_fisica?: string;
+  nome_pessoa_juridica?: string;
+  telefone?: string;
+  email?: string;
+  data_nascimento?: string;
+  endereco?: string;
+  data_fechamento: string;
+  data_cadastro?: string;
+  valor_contrato: number;
+  forma_pagamento: 'a_vista' | 'parcelado';
+  valor_entrada?: number;
+  numero_parcelas?: number;
+  valor_parcela?: number;
+  dia_vencimento?: number;
+  vendedor?: string;
+  origem_rede_social?: string;
+  origem_tipo?: 'instagram' | 'facebook' | 'indicacao' | 'outro';
+  observacoes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ClienteDocumento {
+  id: string;
+  cliente_id: string;
+  file_name: string;
+  file_path: string;
+  file_size?: number;
+  mime_type?: string;
+  uploaded_by: string;
+  created_at: string;
+}
