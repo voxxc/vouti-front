@@ -30,7 +30,8 @@ export const clienteSchema = z.object({
   valor_entrada: z.string().optional(),
   numero_parcelas: z.string().optional(),
   valor_parcela: z.string().optional(),
-  dia_vencimento: z.string().optional(),
+  data_vencimento_inicial: z.string().optional(),
+  data_vencimento_final: z.string().optional(),
   vendedor: z.string().optional(),
   origem_rede_social: z.string().optional(),
   origem_tipo: z.enum(['instagram', 'facebook', 'indicacao', 'outro']).optional(),
@@ -55,6 +56,28 @@ export const clienteSchema = z.object({
   {
     message: 'Informe o número de parcelas',
     path: ['numero_parcelas'],
+  }
+).refine(
+  (data) => {
+    if (data.forma_pagamento === 'parcelado') {
+      return data.data_vencimento_inicial && data.data_vencimento_final;
+    }
+    return true;
+  },
+  {
+    message: 'Informe as datas de vencimento inicial e final para pagamento parcelado',
+    path: ['data_vencimento_inicial'],
+  }
+).refine(
+  (data) => {
+    if (data.data_vencimento_inicial && data.data_vencimento_final) {
+      return new Date(data.data_vencimento_final) >= new Date(data.data_vencimento_inicial);
+    }
+    return true;
+  },
+  {
+    message: 'Data de vencimento final deve ser maior ou igual à inicial',
+    path: ['data_vencimento_final'],
   }
 );
 

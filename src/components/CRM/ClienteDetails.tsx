@@ -152,10 +152,12 @@ export const ClienteDetails = ({ cliente, onEdit }: ClienteDetailsProps) => {
                   </div>
                 )}
 
-                {cliente.dia_vencimento && (
+                {cliente.data_vencimento_inicial && cliente.data_vencimento_final && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Dia do Vencimento</p>
-                    <p className="font-medium">Dia {cliente.dia_vencimento}</p>
+                    <p className="text-sm text-muted-foreground">Período de Vencimento</p>
+                    <p className="font-medium">
+                      {format(new Date(cliente.data_vencimento_inicial), 'dd/MM/yyyy')} até {format(new Date(cliente.data_vencimento_final), 'dd/MM/yyyy')}
+                    </p>
                   </div>
                 )}
               </>

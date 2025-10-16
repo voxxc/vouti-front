@@ -23,7 +23,8 @@ export interface Cliente {
   valor_entrada?: number;
   numero_parcelas?: number;
   valor_parcela?: number;
-  dia_vencimento?: number;
+  data_vencimento_inicial?: string;
+  data_vencimento_final?: string;
   vendedor?: string;
   origem_rede_social?: string;
   origem_tipo?: 'instagram' | 'facebook' | 'indicacao' | 'outro';

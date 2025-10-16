@@ -46,11 +46,12 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       data_fechamento: cliente.data_fechamento || '',
       valor_contrato: cliente.valor_contrato?.toString() || '',
       forma_pagamento: cliente.forma_pagamento || 'a_vista',
-      valor_entrada: cliente.valor_entrada?.toString() || '',
-      numero_parcelas: cliente.numero_parcelas?.toString() || '',
-      valor_parcela: cliente.valor_parcela?.toString() || '',
-      dia_vencimento: cliente.dia_vencimento?.toString() || '',
-      vendedor: cliente.vendedor || '',
+    valor_entrada: cliente.valor_entrada?.toString() || '',
+    numero_parcelas: cliente.numero_parcelas?.toString() || '',
+    valor_parcela: cliente.valor_parcela?.toString() || '',
+    data_vencimento_inicial: cliente.data_vencimento_inicial || '',
+    data_vencimento_final: cliente.data_vencimento_final || '',
+    vendedor: cliente.vendedor || '',
       origem_rede_social: cliente.origem_rede_social || '',
       origem_tipo: cliente.origem_tipo || undefined,
       observacoes: cliente.observacoes || '',
@@ -99,7 +100,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       valor_entrada: data.valor_entrada ? parseFloat(data.valor_entrada) : undefined,
       numero_parcelas: data.numero_parcelas ? parseInt(data.numero_parcelas) : undefined,
       valor_parcela: data.valor_parcela ? parseFloat(data.valor_parcela) : undefined,
-      dia_vencimento: data.dia_vencimento ? parseInt(data.dia_vencimento) : undefined,
+      data_vencimento_inicial: data.data_vencimento_inicial || undefined,
+      data_vencimento_final: data.data_vencimento_final || undefined,
       vendedor: data.vendedor || undefined,
       origem_rede_social: data.origem_rede_social || undefined,
       origem_tipo: data.origem_tipo || undefined,
@@ -364,8 +366,27 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="dia_vencimento">Dia do Vencimento</Label>
-                <Input id="dia_vencimento" type="number" min="1" max="31" {...register('dia_vencimento')} placeholder="10" />
+                <Label htmlFor="data_vencimento_inicial">Vencimento Inicial *</Label>
+                <Input 
+                  id="data_vencimento_inicial" 
+                  type="date" 
+                  {...register('data_vencimento_inicial')} 
+                />
+                {errors.data_vencimento_inicial && (
+                  <p className="text-sm text-destructive">{errors.data_vencimento_inicial.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="data_vencimento_final">Vencimento Final *</Label>
+                <Input 
+                  id="data_vencimento_final" 
+                  type="date" 
+                  {...register('data_vencimento_final')} 
+                />
+                {errors.data_vencimento_final && (
+                  <p className="text-sm text-destructive">{errors.data_vencimento_final.message}</p>
+                )}
               </div>
             </>
           )}

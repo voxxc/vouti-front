@@ -14,6 +14,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { DialogDescription } from '@/components/ui/dialog';
 
 interface ClienteFinanceiroDialogProps {
   cliente: any;
@@ -112,6 +115,21 @@ export const ClienteFinanceiroDialog = ({
             <DialogTitle className="text-2xl">
               Detalhes Financeiros - {getNomeCliente(cliente)}
             </DialogTitle>
+            <DialogDescription>
+              <div className="space-y-1">
+                <p>Contrato: {formatCurrency(cliente.valor_contrato)}</p>
+                
+                {cliente.forma_pagamento === 'parcelado' && 
+                 cliente.data_vencimento_inicial && 
+                 cliente.data_vencimento_final && (
+                  <p className="text-sm">
+                    <strong>Período:</strong> {format(new Date(cliente.data_vencimento_inicial), 'dd/MM/yyyy')}
+                    {' até '}
+                    {format(new Date(cliente.data_vencimento_final), 'dd/MM/yyyy')}
+                  </p>
+                )}
+              </div>
+            </DialogDescription>
           </DialogHeader>
 
           {loading ? (
@@ -122,6 +140,17 @@ export const ClienteFinanceiroDialog = ({
           ) : (
             <ScrollArea className="flex-1 pr-4">
               <div className="space-y-6">
+                {/* Barra de progresso temporal do contrato */}
+                {cliente.data_vencimento_inicial && cliente.data_vencimento_final && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                      <span>Início: {format(new Date(cliente.data_vencimento_inicial), 'MMM/yyyy', { locale: ptBR })}</span>
+                      <span>Fim: {format(new Date(cliente.data_vencimento_final), 'MMM/yyyy', { locale: ptBR })}</span>
+                    </div>
+                    <Progress value={progressoPagamento} className="h-2" />
+                  </div>
+                )}
+
                 {/* Estatísticas Gerais */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="p-4 rounded-lg border bg-card">
@@ -175,11 +204,23 @@ export const ClienteFinanceiroDialog = ({
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {parcelas.map((parcela) => (
-                        <div
-                          key={parcela.id}
-                          className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                        >
+                      {parcelas.map((parcela, index) => {
+                        const isProximoVencimento = parcela.status === 'pendente' && 
+                          index === parcelas.findIndex(p => p.status === 'pendente');
+                        
+                        return (
+                          <div
+                            key={parcela.id}
+                            className={cn(
+                              "p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative",
+                              isProximoVencimento && "border-primary bg-primary/5"
+                            )}
+                          >
+                            {isProximoVencimento && (
+                              <Badge variant="default" className="absolute -top-2 -right-2">
+                                Próximo Vencimento
+                              </Badge>
+                            )}
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 space-y-2">
                               <div className="flex items-center gap-3">
@@ -264,7 +305,8 @@ export const ClienteFinanceiroDialog = ({
                             </div>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

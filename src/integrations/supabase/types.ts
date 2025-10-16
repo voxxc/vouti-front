@@ -191,7 +191,8 @@ export type Database = {
           data_cadastro: string | null
           data_fechamento: string
           data_nascimento: string | null
-          dia_vencimento: number | null
+          data_vencimento_final: string | null
+          data_vencimento_inicial: string | null
           email: string | null
           endereco: string | null
           forma_pagamento: string
@@ -217,7 +218,8 @@ export type Database = {
           data_cadastro?: string | null
           data_fechamento: string
           data_nascimento?: string | null
-          dia_vencimento?: number | null
+          data_vencimento_final?: string | null
+          data_vencimento_inicial?: string | null
           email?: string | null
           endereco?: string | null
           forma_pagamento: string
@@ -243,7 +245,8 @@ export type Database = {
           data_cadastro?: string | null
           data_fechamento?: string
           data_nascimento?: string | null
-          dia_vencimento?: number | null
+          data_vencimento_final?: string | null
+          data_vencimento_inicial?: string | null
           email?: string | null
           endereco?: string | null
           forma_pagamento?: string
