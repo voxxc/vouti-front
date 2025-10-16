@@ -687,7 +687,7 @@ const Agenda = () => {
 
         {/* Modal de Detalhes do Prazo */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between">
                 Detalhes do Prazo
@@ -705,29 +705,29 @@ const Agenda = () => {
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium">Título</label>
-                  <p className="text-sm border rounded p-2 bg-muted">{selectedDeadline.title}</p>
+                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">{selectedDeadline.title}</p>
                 </div>
                 
                 <div>
                   <label className="text-sm font-medium">Descrição</label>
-                  <p className="text-sm border rounded p-2 bg-muted min-h-[60px]">
+                  <p className="text-sm border rounded p-2 bg-muted min-h-[100px] max-h-[200px] overflow-y-auto break-words whitespace-pre-wrap">
                     {selectedDeadline.description || 'Nenhuma descrição fornecida'}
                   </p>
                 </div>
                 
                 <div>
                   <label className="text-sm font-medium">Projeto</label>
-                  <p className="text-sm border rounded p-2 bg-muted">{selectedDeadline.projectName}</p>
+                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">{selectedDeadline.projectName}</p>
                 </div>
                 
                 <div>
                   <label className="text-sm font-medium">Cliente</label>
-                  <p className="text-sm border rounded p-2 bg-muted">{selectedDeadline.clientName}</p>
+                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">{selectedDeadline.clientName}</p>
                 </div>
                 
                 <div>
                   <label className="text-sm font-medium">Data do Prazo</label>
-                  <p className="text-sm border rounded p-2 bg-muted">
+                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
                     {format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}
                   </p>
                 </div>
