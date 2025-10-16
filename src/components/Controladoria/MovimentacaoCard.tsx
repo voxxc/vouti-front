@@ -109,46 +109,66 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
               <p className="text-sm leading-relaxed">{movimentacao.descricao}</p>
             </div>
             
-            {/* Texto Completo (se disponível) */}
-            {movimentacao.metadata?.texto_completo && (
-              <div className="border-t pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <strong className="text-sm font-semibold">Inteiro Teor</strong>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowTextoCompleto(!showTextoCompleto)}
-                    className="h-7"
-                  >
-                    {showTextoCompleto ? (
-                      <>
-                        <ChevronUp className="h-3 w-3 mr-1" />
-                        Ocultar
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-3 w-3 mr-1" />
-                        Ver Texto Completo
-                      </>
-                    )}
-                  </Button>
-                </div>
-                
-                {showTextoCompleto && (
-                  <div className="p-3 bg-muted/50 rounded-md max-h-96 overflow-y-auto">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {movimentacao.metadata.texto_completo}
-                    </p>
+            {/* Texto Completo (se disponível e útil) */}
+            {(() => {
+              const textoCompleto = movimentacao.metadata?.texto_completo;
+              
+              // Validar se o texto é útil
+              const isTextoUtil = (texto: string): boolean => {
+                if (!texto || texto.length < 10) return false;
+                if (texto.match(/^tipo_de_\w+$/i)) return false;
+                if (texto.match(/^\w+_\w+$/)) return false;
+                return true;
+              };
+              
+              const temTextoUtil = textoCompleto && isTextoUtil(textoCompleto);
+              
+              if (!temTextoUtil) {
+                if (movimentacao.is_automated) {
+                  return (
+                    <div className="text-xs text-muted-foreground italic flex items-center gap-2">
+                      <AlertCircle className="h-3 w-3" />
+                      <span>Inteiro teor não disponível para este andamento automático</span>
+                    </div>
+                  );
+                }
+                return null;
+              }
+              
+              return (
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <strong className="text-sm font-semibold">Inteiro Teor</strong>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowTextoCompleto(!showTextoCompleto)}
+                      className="h-7"
+                    >
+                      {showTextoCompleto ? (
+                        <>
+                          <ChevronUp className="h-3 w-3 mr-1" />
+                          Ocultar
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-3 w-3 mr-1" />
+                          Ver Texto Completo
+                        </>
+                      )}
+                    </Button>
                   </div>
-                )}
-              </div>
-            )}
-            
-            {!movimentacao.metadata?.texto_completo && movimentacao.is_automated && (
-              <div className="text-xs text-muted-foreground italic">
-                ℹ️ Texto completo não disponível para este andamento
-              </div>
-            )}
+                  
+                  {showTextoCompleto && (
+                    <div className="p-3 bg-muted/50 rounded-md max-h-96 overflow-y-auto">
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {textoCompleto}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Informações de conferência */}

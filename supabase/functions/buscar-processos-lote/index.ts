@@ -178,19 +178,36 @@ async function buscarViaDatajud(numeroProcesso: string, tribunal: string): Promi
     }
 
     const processo = data.hits.hits[0]._source;
+    
+    // Helper para validar se texto é útil (não é identificador técnico)
+    const isTextoUtil = (texto: string): boolean => {
+      if (!texto || texto.length < 10) return false;
+      if (texto.match(/^tipo_de_\w+$/i)) return false; // tipo_de_conclusao, tipo_de_peticao
+      if (texto.match(/^\w+_\w+$/)) return false; // identificadores simples com underscore
+      return true;
+    };
+    
     const movimentacoes: ProcessMovement[] = (processo.movimentos || []).map((mov: any) => {
-      // Capturar todo o texto disponível
+      // Capturar apenas textos úteis
       const textos = [];
       
       if (mov.complementosTabelados) {
         mov.complementosTabelados.forEach((comp: any) => {
-          if (comp.texto) textos.push(comp.texto);
-          if (comp.descricao && comp.descricao !== mov.nome) textos.push(comp.descricao);
+          if (comp.texto && isTextoUtil(comp.texto)) {
+            textos.push(comp.texto);
+          }
+          if (comp.descricao && comp.descricao !== mov.nome && isTextoUtil(comp.descricao)) {
+            textos.push(comp.descricao);
+          }
         });
       }
       
-      if (mov.complementos) textos.push(mov.complementos);
-      if (mov.observacao) textos.push(mov.observacao);
+      if (mov.complementos && isTextoUtil(mov.complementos)) {
+        textos.push(mov.complementos);
+      }
+      if (mov.observacao && isTextoUtil(mov.observacao)) {
+        textos.push(mov.observacao);
+      }
       
       return {
         data: mov.dataHora,
