@@ -495,14 +495,14 @@ const LandingPage2 = () => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Scale className="h-8 w-8 text-slate-400" />
-                <div className="flex flex-col">
+              <div className="flex flex-col items-center mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Scale className="h-8 w-8 text-slate-400" />
                   <span className="text-xl font-bold text-slate-100">MORA</span>
-                  <span className="text-xs text-slate-400">ADVOGADOS ASSOCIADOS</span>
                 </div>
+                <span className="text-xs text-slate-400">ADVOGADOS ASSOCIADOS</span>
               </div>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-400 text-sm text-center">
                 Tradição, excelência e compromisso com a justiça desde 2009.
               </p>
             </div>
