@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Search, Plus, FolderOpen, Calendar, User, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, Plus, FolderOpen, Calendar, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Project } from "@/types/project";
 import { format } from "date-fns";
@@ -313,10 +313,6 @@ const Projects = () => {
                         <CardTitle className="text-lg font-semibold leading-6">
                           {project.name}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-1 mt-1">
-                          <User className="h-3 w-3" />
-                          {project.client}
-                        </CardDescription>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
