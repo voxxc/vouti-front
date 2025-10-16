@@ -47,6 +47,127 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
     }
   };
 
+  const formatarTextoTecnico = (texto: string): string => {
+    if (!texto) return texto;
+    
+    // Transformar snake_case em Title Case
+    // tipo_de_conclusao → Tipo de Conclusão
+    return texto
+      .split('_')
+      .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const renderizarDadosCompletos = () => {
+    const metadataCompleta = movimentacao.metadata?.metadata_completa;
+    
+    if (!metadataCompleta || Object.keys(metadataCompleta).length === 0) {
+      if (movimentacao.is_automated) {
+        return (
+          <div className="border-t pt-3">
+            <div className="text-xs text-muted-foreground italic flex items-center gap-2">
+              <AlertCircle className="h-3 w-3" />
+              <span>Detalhes adicionais não disponíveis para este andamento automático</span>
+            </div>
+          </div>
+        );
+      }
+      return null;
+    }
+    
+    return (
+      <div className="border-t pt-3">
+        <div className="flex items-center justify-between mb-2">
+          <strong className="text-sm font-semibold">Detalhes Completos</strong>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowTextoCompleto(!showTextoCompleto)}
+            className="h-7"
+          >
+            {showTextoCompleto ? (
+              <>
+                <ChevronUp className="h-3 w-3 mr-1" />
+                Ocultar
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3 mr-1" />
+                Ver Detalhes
+              </>
+            )}
+          </Button>
+        </div>
+        
+        {showTextoCompleto && (
+          <div className="space-y-3">
+            {/* Complementos Tabelados */}
+            {metadataCompleta.complementos_tabelados && (
+              <div className="p-3 bg-muted/50 rounded-md">
+                <strong className="text-xs font-semibold text-muted-foreground uppercase">
+                  Informações Estruturadas
+                </strong>
+                <div className="mt-2 space-y-2">
+                  {metadataCompleta.complementos_tabelados.map((comp: any, idx: number) => (
+                    <div key={idx} className="text-sm">
+                      {comp.nome && (
+                        <div className="font-medium text-primary">
+                          {formatarTextoTecnico(comp.nome)}
+                        </div>
+                      )}
+                      {comp.descricao && comp.descricao !== movimentacao.descricao && (
+                        <div className="text-foreground">
+                          {formatarTextoTecnico(comp.descricao)}
+                        </div>
+                      )}
+                      {comp.texto && (
+                        <div className="mt-1 pl-3 border-l-2 border-primary/30">
+                          {formatarTextoTecnico(comp.texto)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Complementos (texto livre) */}
+            {metadataCompleta.complementos && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-900">
+                <strong className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase">
+                  Complementos
+                </strong>
+                <p className="text-sm mt-2 leading-relaxed whitespace-pre-wrap">
+                  {metadataCompleta.complementos}
+                </p>
+              </div>
+            )}
+            
+            {/* Observações */}
+            {metadataCompleta.observacao && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-900">
+                <strong className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase">
+                  Observações
+                </strong>
+                <p className="text-sm mt-2 leading-relaxed whitespace-pre-wrap">
+                  {metadataCompleta.observacao}
+                </p>
+              </div>
+            )}
+            
+            {/* Nome Original (apenas se diferente da descrição) */}
+            {metadataCompleta.nome_original && 
+             metadataCompleta.nome_original !== movimentacao.descricao && (
+              <div className="text-xs text-muted-foreground italic">
+                <strong>Classificação Original:</strong> {metadataCompleta.nome_original}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleMarcarConferido = async () => {
     setLoading(true);
     await onMarcarConferido(movimentacao.id, observacoes);
@@ -109,66 +230,8 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
               <p className="text-sm leading-relaxed">{movimentacao.descricao}</p>
             </div>
             
-            {/* Texto Completo (se disponível e útil) */}
-            {(() => {
-              const textoCompleto = movimentacao.metadata?.texto_completo;
-              
-              // Validar se o texto é útil
-              const isTextoUtil = (texto: string): boolean => {
-                if (!texto || texto.length < 10) return false;
-                if (texto.match(/^tipo_de_\w+$/i)) return false;
-                if (texto.match(/^\w+_\w+$/)) return false;
-                return true;
-              };
-              
-              const temTextoUtil = textoCompleto && isTextoUtil(textoCompleto);
-              
-              if (!temTextoUtil) {
-                if (movimentacao.is_automated) {
-                  return (
-                    <div className="text-xs text-muted-foreground italic flex items-center gap-2">
-                      <AlertCircle className="h-3 w-3" />
-                      <span>Inteiro teor não disponível para este andamento automático</span>
-                    </div>
-                  );
-                }
-                return null;
-              }
-              
-              return (
-                <div className="border-t pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <strong className="text-sm font-semibold">Inteiro Teor</strong>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowTextoCompleto(!showTextoCompleto)}
-                      className="h-7"
-                    >
-                      {showTextoCompleto ? (
-                        <>
-                          <ChevronUp className="h-3 w-3 mr-1" />
-                          Ocultar
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-3 w-3 mr-1" />
-                          Ver Texto Completo
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  
-                  {showTextoCompleto && (
-                    <div className="p-3 bg-muted/50 rounded-md max-h-96 overflow-y-auto">
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {textoCompleto}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {/* Detalhes Completos */}
+            {renderizarDadosCompletos()}
           </div>
 
           {/* Informações de conferência */}

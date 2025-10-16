@@ -179,34 +179,33 @@ async function buscarViaDatajud(numeroProcesso: string, tribunal: string): Promi
 
     const processo = data.hits.hits[0]._source;
     
-    // Helper para validar se texto é útil (não é identificador técnico)
-    const isTextoUtil = (texto: string): boolean => {
-      if (!texto || texto.length < 10) return false;
-      if (texto.match(/^tipo_de_\w+$/i)) return false; // tipo_de_conclusao, tipo_de_peticao
-      if (texto.match(/^\w+_\w+$/)) return false; // identificadores simples com underscore
-      return true;
-    };
-    
     const movimentacoes: ProcessMovement[] = (processo.movimentos || []).map((mov: any) => {
-      // Capturar apenas textos úteis
-      const textos = [];
+      // Capturar TODOS os dados disponíveis, organizados por tipo
+      const dadosCompletos: any = {};
       
-      if (mov.complementosTabelados) {
-        mov.complementosTabelados.forEach((comp: any) => {
-          if (comp.texto && isTextoUtil(comp.texto)) {
-            textos.push(comp.texto);
-          }
-          if (comp.descricao && comp.descricao !== mov.nome && isTextoUtil(comp.descricao)) {
-            textos.push(comp.descricao);
-          }
-        });
+      // 1. Complementos Tabelados (dados estruturados)
+      if (mov.complementosTabelados && mov.complementosTabelados.length > 0) {
+        dadosCompletos.complementos_tabelados = mov.complementosTabelados.map((comp: any) => ({
+          codigo: comp.codigo,
+          nome: comp.nome,
+          descricao: comp.descricao,
+          texto: comp.texto
+        }));
       }
       
-      if (mov.complementos && isTextoUtil(mov.complementos)) {
-        textos.push(mov.complementos);
+      // 2. Complementos (texto livre)
+      if (mov.complementos) {
+        dadosCompletos.complementos = mov.complementos;
       }
-      if (mov.observacao && isTextoUtil(mov.observacao)) {
-        textos.push(mov.observacao);
+      
+      // 3. Observações
+      if (mov.observacao) {
+        dadosCompletos.observacao = mov.observacao;
+      }
+      
+      // 4. Nome original do movimento
+      if (mov.nome) {
+        dadosCompletos.nome_original = mov.nome;
       }
       
       return {
@@ -214,7 +213,7 @@ async function buscarViaDatajud(numeroProcesso: string, tribunal: string): Promi
         descricao: mov.complementosTabelados?.[0]?.descricao || mov.nome || 'Movimentação',
         sequencia: mov.sequencial,
         tipo: detectarTipoMovimento(mov.nome || ''),
-        texto_completo: textos.length > 0 ? textos.join('\n\n') : undefined
+        metadata_completa: dadosCompletos
       };
     });
 
