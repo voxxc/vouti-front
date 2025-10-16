@@ -13,9 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, FileCheck, Loader2 } from 'lucide-react';
 import PartesInput from './PartesInput';
-import TribunalComarcaSelector from './TribunalComarcaSelector';
 import EtiquetasManager from './EtiquetasManager';
-import GrupoTipoSelector from './GrupoTipoSelector';
+import GrupoAcaoCombobox from './GrupoAcaoCombobox';
 import AdvogadoSelector from './AdvogadoSelector';
 
 interface ProcessoFormProps {
@@ -203,19 +202,42 @@ const ProcessoForm = ({ processoId }: ProcessoFormProps) => {
             errorsPassiva={errors.parte_passiva?.message}
           />
 
-          <TribunalComarcaSelector
-            tribunalId={watch('tribunal_id')}
-            comarcaId={watch('comarca_id')}
-            onChangeTribunal={(value) => setValue('tribunal_id', value)}
-            onChangeComarca={(value) => setValue('comarca_id', value)}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="tribunal_nome">Tribunal</Label>
+              <Input
+                id="tribunal_nome"
+                placeholder="Ex: TJSP, TJRJ, TRT 2ª Região..."
+                {...register('tribunal_nome')}
+              />
+            </div>
+            <div>
+              <Label htmlFor="comarca_nome">Comarca</Label>
+              <Input
+                id="comarca_nome"
+                placeholder="Ex: São Paulo - Capital, Rio de Janeiro..."
+                {...register('comarca_nome')}
+              />
+            </div>
+          </div>
 
-          <GrupoTipoSelector
-            grupoId={watch('grupo_acao_id')}
-            tipoId={watch('tipo_acao_id')}
-            onChangeGrupo={(value) => setValue('grupo_acao_id', value)}
-            onChangeTipo={(value) => setValue('tipo_acao_id', value)}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="grupo_acao">Grupo de Ação</Label>
+              <GrupoAcaoCombobox
+                value={watch('grupo_acao_id') || ''}
+                onChange={(value) => setValue('grupo_acao_id', value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="tipo_acao_nome">Tipo de Ação</Label>
+              <Input
+                id="tipo_acao_nome"
+                placeholder="Ex: Ação de Cobrança, Ação de Despejo..."
+                {...register('tipo_acao_nome')}
+              />
+            </div>
+          </div>
 
           <AdvogadoSelector
             value={watch('advogado_responsavel_id')}

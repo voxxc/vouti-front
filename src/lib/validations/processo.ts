@@ -31,6 +31,12 @@ export const processoSchema = z.object({
     passiva: z.string().optional()
   }).optional(),
   
+  // Campos de texto livre (novos)
+  tribunal_nome: z.string().optional().nullable(),
+  comarca_nome: z.string().optional().nullable(),
+  tipo_acao_nome: z.string().optional().nullable(),
+  
+  // Campos de referência (mantidos para compatibilidade, mas opcionais)
   tribunal_id: z.string().uuid().nullable().optional(),
   comarca_id: z.string().uuid().nullable().optional(),
   grupo_acao_id: z.string().uuid().nullable().optional(),

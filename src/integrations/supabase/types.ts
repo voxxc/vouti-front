@@ -1240,6 +1240,47 @@ export type Database = {
           },
         ]
       }
+      processo_movimentacao_conferencia: {
+        Row: {
+          conferido: boolean
+          conferido_em: string | null
+          conferido_por: string | null
+          created_at: string | null
+          id: string
+          movimentacao_id: string
+          observacoes_conferencia: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          conferido?: boolean
+          conferido_em?: string | null
+          conferido_por?: string | null
+          created_at?: string | null
+          id?: string
+          movimentacao_id: string
+          observacoes_conferencia?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          conferido?: boolean
+          conferido_em?: string | null
+          conferido_por?: string | null
+          created_at?: string | null
+          id?: string
+          movimentacao_id?: string
+          observacoes_conferencia?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_movimentacao_conferencia_movimentacao_id_fkey"
+            columns: ["movimentacao_id"]
+            isOneToOne: true
+            referencedRelation: "processo_movimentacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processo_movimentacoes: {
         Row: {
           autor_id: string | null
@@ -1251,6 +1292,7 @@ export type Database = {
           is_automated: boolean | null
           metadata: Json | null
           processo_id: string
+          status_conferencia: string | null
           tipo: Database["public"]["Enums"]["movimentacao_tipo"]
           updated_at: string | null
         }
@@ -1264,6 +1306,7 @@ export type Database = {
           is_automated?: boolean | null
           metadata?: Json | null
           processo_id: string
+          status_conferencia?: string | null
           tipo: Database["public"]["Enums"]["movimentacao_tipo"]
           updated_at?: string | null
         }
@@ -1277,6 +1320,7 @@ export type Database = {
           is_automated?: boolean | null
           metadata?: Json | null
           processo_id?: string
+          status_conferencia?: string | null
           tipo?: Database["public"]["Enums"]["movimentacao_tipo"]
           updated_at?: string | null
         }
@@ -1302,6 +1346,7 @@ export type Database = {
           advogado_responsavel_id: string | null
           advogados_partes: Json | null
           comarca_id: string | null
+          comarca_nome: string | null
           cpf_cnpj_partes: Json | null
           created_at: string | null
           created_by: string
@@ -1319,7 +1364,9 @@ export type Database = {
           representantes: Json | null
           status: Database["public"]["Enums"]["processo_status"] | null
           tipo_acao_id: string | null
+          tipo_acao_nome: string | null
           tribunal_id: string | null
+          tribunal_nome: string | null
           updated_at: string | null
           valor_causa: number | null
           valor_custas: number | null
@@ -1328,6 +1375,7 @@ export type Database = {
           advogado_responsavel_id?: string | null
           advogados_partes?: Json | null
           comarca_id?: string | null
+          comarca_nome?: string | null
           cpf_cnpj_partes?: Json | null
           created_at?: string | null
           created_by: string
@@ -1345,7 +1393,9 @@ export type Database = {
           representantes?: Json | null
           status?: Database["public"]["Enums"]["processo_status"] | null
           tipo_acao_id?: string | null
+          tipo_acao_nome?: string | null
           tribunal_id?: string | null
+          tribunal_nome?: string | null
           updated_at?: string | null
           valor_causa?: number | null
           valor_custas?: number | null
@@ -1354,6 +1404,7 @@ export type Database = {
           advogado_responsavel_id?: string | null
           advogados_partes?: Json | null
           comarca_id?: string | null
+          comarca_nome?: string | null
           cpf_cnpj_partes?: Json | null
           created_at?: string | null
           created_by?: string
@@ -1371,7 +1422,9 @@ export type Database = {
           representantes?: Json | null
           status?: Database["public"]["Enums"]["processo_status"] | null
           tipo_acao_id?: string | null
+          tipo_acao_nome?: string | null
           tribunal_id?: string | null
+          tribunal_nome?: string | null
           updated_at?: string | null
           valor_causa?: number | null
           valor_custas?: number | null
@@ -1927,7 +1980,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "advogado" | "comercial" | "financeiro"
+      app_role: "admin" | "advogado" | "comercial" | "financeiro" | "controller"
       dental_role: "admin" | "dentista" | "recepcionista" | "paciente"
       documento_tipo:
         | "peticao"
@@ -2084,7 +2137,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "advogado", "comercial", "financeiro"],
+      app_role: ["admin", "advogado", "comercial", "financeiro", "controller"],
       dental_role: ["admin", "dentista", "recepcionista", "paciente"],
       documento_tipo: [
         "peticao",

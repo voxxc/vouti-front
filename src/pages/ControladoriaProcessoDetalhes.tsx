@@ -25,6 +25,9 @@ interface Processo {
   prazo_proximo: string | null;
   created_at: string;
   updated_at: string;
+  tribunal_nome?: string | null;
+  comarca_nome?: string | null;
+  tipo_acao_nome?: string | null;
   tribunais?: { sigla: string; nome: string };
   comarcas?: { nome: string };
   grupos_acoes?: { nome: string };
@@ -199,12 +202,15 @@ const ControladoriaProcessoDetalhes = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Tribunal</p>
                     <p className="font-medium">
-                      {processo.tribunais ? `${processo.tribunais.sigla} - ${processo.tribunais.nome}` : 'Não informado'}
+                      {processo.tribunal_nome || 
+                       (processo.tribunais ? `${processo.tribunais.sigla} - ${processo.tribunais.nome}` : 'Não informado')}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Comarca</p>
-                    <p className="font-medium">{processo.comarcas?.nome || 'Não informado'}</p>
+                    <p className="font-medium">
+                      {processo.comarca_nome || processo.comarcas?.nome || 'Não informado'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Grupo de Ação</p>
@@ -212,7 +218,9 @@ const ControladoriaProcessoDetalhes = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Tipo de Ação</p>
-                    <p className="font-medium">{processo.tipos_acao?.nome || 'Não informado'}</p>
+                    <p className="font-medium">
+                      {processo.tipo_acao_nome || processo.tipos_acao?.nome || 'Não informado'}
+                    </p>
                   </div>
                   {processo.data_distribuicao && (
                     <div>
