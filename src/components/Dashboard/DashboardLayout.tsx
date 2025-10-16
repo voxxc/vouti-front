@@ -125,7 +125,7 @@ const DashboardLayout = ({
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    navigate('/auth');
   };
 
   const handleNavigation = (page: string) => {

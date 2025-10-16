@@ -130,8 +130,9 @@ const ProjectViewWrapper = () => {
     }
   };
 
-  const handleLogout = () => {
-    supabase.auth.signOut();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
   };
 
   const handleBack = () => {
