@@ -5,24 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Upload, RefreshCw, CheckCircle2, AlertCircle, FileText, Calendar } from "lucide-react";
+import { Search, Upload, RefreshCw, CheckCircle2, AlertCircle, FileText, Calendar, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProcessInfo {
   numero: string;
-  status: string;
-  ultimaMovimentacao: Date;
+  success: boolean;
   tribunal: string;
-  descricao: string;
-  andamentos: ProcessMovement[];
+  fonte: 'datajud_api' | 'pje_comunicacoes' | 'erro';
+  movimentacoes: ProcessMovement[];
+  ultima_movimentacao?: string;
+  erro?: string;
 }
 
 interface ProcessMovement {
-  data: Date;
+  data: string;
   descricao: string;
-  tipo: 'despacho' | 'decisao' | 'peticao' | 'audiencia' | 'sentenca';
+  sequencia?: number;
+  tipo: string;
 }
 
 interface PJEProcessUpdaterProps {
@@ -48,58 +51,59 @@ const PJEProcessUpdater = ({ isOpen, onClose, clientName }: PJEProcessUpdaterPro
       return;
     }
 
+    const processNumbers = processList
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    if (processNumbers.length > 50) {
+      toast({
+        title: "Limite excedido",
+        description: "Máximo de 50 processos por busca.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSearching(true);
     setSearchCompleted(false);
+    setProcessResults([]);
 
     try {
-      // Parse da lista de processos
-      const processNumbers = processList
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
 
-      // Simular busca no PJE (substituir por integração real)
-      const results: ProcessInfo[] = await Promise.all(
-        processNumbers.map(async (numero, index) => {
-          // Simular delay de busca
-          await new Promise(resolve => setTimeout(resolve, 1000 + (index * 500)));
+      if (!accessToken) {
+        throw new Error('Usuário não autenticado');
+      }
 
-          // Dados mockados - substituir por busca real no PJE
-          return {
-            numero,
-            status: Math.random() > 0.5 ? 'Em andamento' : 'Suspenso',
-            ultimaMovimentacao: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-            tribunal: 'TRT 2ª Região',
-            descricao: `Processo relacionado a ${clientName}`,
-            andamentos: [
-              {
-                data: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
-                descricao: 'Juntada de documentos',
-                tipo: 'peticao'
-              },
-              {
-                data: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000),
-                descricao: 'Despacho do juiz',
-                tipo: 'despacho'
-              }
-            ]
-          };
-        })
-      );
+      const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
+        body: { processos: processNumbers, tribunal: 'TJPR' },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
 
-      setProcessResults(results);
+      if (error) throw error;
+
+      setProcessResults(data.processos || []);
       setSearchCompleted(true);
+      
+      const sucessos = data.resumo?.sucesso || 0;
+      const falhas = data.resumo?.falhas || 0;
+      const fonteDatajud = data.resumo?.fonte_datajud || 0;
+      const fonteScraping = data.resumo?.fonte_scraping || 0;
 
       toast({
         title: "Busca concluída",
-        description: `${results.length} processos atualizados com sucesso.`,
+        description: `${sucessos} sucesso(s), ${falhas} falha(s). DataJud: ${fonteDatajud}, PJe: ${fonteScraping}.`,
       });
 
     } catch (error) {
       console.error('Error searching processes:', error);
       toast({
         title: "Erro na busca",
-        description: "Erro ao buscar processos no PJE. Tente novamente.",
+        description: error.message || "Erro ao buscar processos. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -107,14 +111,16 @@ const PJEProcessUpdater = ({ isOpen, onClose, clientName }: PJEProcessUpdaterPro
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'em andamento': return 'bg-green-100 text-green-800';
-      case 'suspenso': return 'bg-yellow-100 text-yellow-800';
-      case 'arquivado': return 'bg-gray-100 text-gray-800';
-      case 'sentenciado': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getFonteColor = (fonte: string) => {
+    if (fonte === 'datajud_api') return 'bg-blue-100 text-blue-800';
+    if (fonte === 'pje_comunicacoes') return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  const getFonteLabel = (fonte: string) => {
+    if (fonte === 'datajud_api') return 'DataJud API';
+    if (fonte === 'pje_comunicacoes') return 'PJe Scraping';
+    return 'Erro';
   };
 
   const getMovementIcon = (tipo: string) => {
@@ -205,51 +211,73 @@ const PJEProcessUpdater = ({ isOpen, onClose, clientName }: PJEProcessUpdaterPro
                   <Card key={processo.numero} className="border border-muted">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-base font-mono">
-                            {processo.numero}
-                          </CardTitle>
-                          <CardDescription>{processo.descricao}</CardDescription>
+                        <div className="flex items-center gap-2">
+                          {processo.success ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-600" />
+                          )}
+                          <div>
+                            <CardTitle className="text-base font-mono">
+                              {processo.numero}
+                            </CardTitle>
+                            <CardDescription>
+                              {processo.tribunal}
+                              {processo.erro && (
+                                <span className="text-red-600 block mt-1">Erro: {processo.erro}</span>
+                              )}
+                            </CardDescription>
+                          </div>
                         </div>
-                        <Badge className={getStatusColor(processo.status)}>
-                          {processo.status}
+                        <Badge className={getFonteColor(processo.fonte)}>
+                          {getFonteLabel(processo.fonte)}
                         </Badge>
                       </div>
                     </CardHeader>
 
-                    <CardContent className="pt-0">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <div className="text-sm">
-                            <span className="font-medium text-muted-foreground">Tribunal:</span>
-                            <p className="text-foreground">{processo.tribunal}</p>
+                    {processo.success && processo.movimentacoes.length > 0 && (
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <div className="text-sm">
+                              <span className="font-medium text-muted-foreground">Tribunal:</span>
+                              <p className="text-foreground">{processo.tribunal}</p>
+                            </div>
+                            <div className="text-sm">
+                              <span className="font-medium text-muted-foreground">Última movimentação:</span>
+                              <p className="text-foreground">
+                                {processo.ultima_movimentacao 
+                                  ? format(new Date(processo.ultima_movimentacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                                  : 'N/A'
+                                }
+                              </p>
+                            </div>
+                            <div className="text-sm">
+                              <span className="font-medium text-muted-foreground">Total de movimentações:</span>
+                              <p className="text-foreground">{processo.movimentacoes.length}</p>
+                            </div>
                           </div>
-                          <div className="text-sm">
-                            <span className="font-medium text-muted-foreground">Última movimentação:</span>
-                            <p className="text-foreground">
-                              {format(processo.ultimaMovimentacao, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                            </p>
-                          </div>
-                        </div>
 
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium text-muted-foreground">Últimos andamentos:</span>
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {processo.andamentos.slice(0, 3).map((andamento, index) => (
-                              <div key={index} className="flex items-start gap-2 text-xs">
-                                {getMovementIcon(andamento.tipo)}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-foreground line-clamp-1">{andamento.descricao}</p>
-                                  <p className="text-muted-foreground">
-                                    {format(andamento.data, "dd/MM/yyyy", { locale: ptBR })}
-                                  </p>
+                          <div className="space-y-2">
+                            <span className="text-sm font-medium text-muted-foreground">Últimos andamentos:</span>
+                            <div className="space-y-1 max-h-24 overflow-y-auto">
+                              {processo.movimentacoes.slice(0, 3).map((andamento, index) => (
+                                <div key={index} className="flex items-start gap-2 text-xs">
+                                  {getMovementIcon(andamento.tipo)}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-foreground line-clamp-1">{andamento.descricao}</p>
+                                    <p className="text-muted-foreground">
+                                      {format(new Date(andamento.data), "dd/MM/yyyy", { locale: ptBR })}
+                                      {andamento.sequencia && ` - Seq. ${andamento.sequencia}`}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
+                      </CardContent>
+                    )}
                   </Card>
                 ))}
               </div>
