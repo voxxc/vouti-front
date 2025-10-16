@@ -21,11 +21,13 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Agenda = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const handleBack = () => {
-    window.history.back();
+    navigate('/dashboard');
   };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState("");
