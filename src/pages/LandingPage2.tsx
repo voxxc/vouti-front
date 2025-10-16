@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { Scale, Users, Shield, Award, Phone, Mail, MapPin, Facebook, Instagram, Linkedin, Menu, X, CheckCircle, FileText, Home as HomeIcon, Briefcase, Heart, Building, Coins, Key, Calendar, ShoppingCart } from 'lucide-react';
 import heroImage from '@/assets/hero-law-office.jpg';
 import advogado1 from '@/assets/advogado-1.jpg';
@@ -141,45 +142,52 @@ const LandingPage2 = () => {
     { numero: "+1000", label: "Processos Concluídos" }
   ];
 
+  const heroRef = useScrollAnimation(0.1);
+  const aboutRef = useScrollAnimation(0.1);
+  const areasRef = useScrollAnimation(0.1);
+  const equipeRef = useScrollAnimation(0.1);
+  const diferenciaisRef = useScrollAnimation(0.1);
+  const contatoRef = useScrollAnimation(0.1);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header Fixo */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-2">
-              <Scale className="h-8 w-8 text-[#1e3a5f]" />
+              <Scale className="h-8 w-8 text-slate-400" />
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-[#1e3a5f]">MORA</span>
-                <span className="text-xs text-[#d4af37]">ADVOGADOS ASSOCIADOS</span>
+                <span className="text-xl font-bold text-slate-100">MORA</span>
+                <span className="text-xs text-slate-400">ADVOGADOS ASSOCIADOS</span>
               </div>
             </div>
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center gap-6">
-              <button onClick={() => scrollToSection('inicio')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors">
+              <button onClick={() => scrollToSection('inicio')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
                 Início
               </button>
-              <button onClick={() => scrollToSection('sobre')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors">
+              <button onClick={() => scrollToSection('sobre')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
                 Sobre
               </button>
-              <button onClick={() => scrollToSection('areas')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors">
+              <button onClick={() => scrollToSection('areas')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
                 Áreas
               </button>
-              <button onClick={() => scrollToSection('equipe')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors">
+              <button onClick={() => scrollToSection('equipe')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
                 Equipe
               </button>
-              <button onClick={() => scrollToSection('contato')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors">
+              <button onClick={() => scrollToSection('contato')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
                 Contato
               </button>
-              <Button onClick={() => scrollToSection('contato')} className="bg-[#d4af37] hover:bg-[#b8962f] text-white">
+              <Button onClick={() => scrollToSection('contato')} className="bg-slate-700 hover:bg-slate-600 hover:scale-105 text-slate-50 transition-all duration-300">
                 Fale Conosco
               </Button>
             </nav>
 
             {/* Mobile Menu Button */}
             <button 
-              className="md:hidden"
+              className="md:hidden text-slate-100"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -188,24 +196,24 @@ const LandingPage2 = () => {
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t">
+            <div className="md:hidden py-4 border-t border-slate-800">
               <nav className="flex flex-col gap-3">
-                <button onClick={() => scrollToSection('inicio')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors text-left">
+                <button onClick={() => scrollToSection('inicio')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
                   Início
                 </button>
-                <button onClick={() => scrollToSection('sobre')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors text-left">
+                <button onClick={() => scrollToSection('sobre')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
                   Sobre
                 </button>
-                <button onClick={() => scrollToSection('areas')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors text-left">
+                <button onClick={() => scrollToSection('areas')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
                   Áreas
                 </button>
-                <button onClick={() => scrollToSection('equipe')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors text-left">
+                <button onClick={() => scrollToSection('equipe')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
                   Equipe
                 </button>
-                <button onClick={() => scrollToSection('contato')} className="text-sm font-medium hover:text-[#1e3a5f] transition-colors text-left">
+                <button onClick={() => scrollToSection('contato')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
                   Contato
                 </button>
-                <Button onClick={() => scrollToSection('contato')} className="bg-[#d4af37] hover:bg-[#b8962f] text-white w-full">
+                <Button onClick={() => scrollToSection('contato')} className="bg-slate-700 hover:bg-slate-600 text-slate-50 w-full">
                   Fale Conosco
                 </Button>
               </nav>
@@ -215,25 +223,30 @@ const LandingPage2 = () => {
       </header>
 
       {/* Hero Section */}
-      <section id="inicio" className="relative h-screen flex items-center justify-center" style={{ marginTop: '80px' }}>
+      <section 
+        id="inicio" 
+        ref={heroRef.ref}
+        className="relative h-screen flex items-center justify-center" 
+        style={{ marginTop: '80px' }}
+      >
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${heroImage})` }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#1e3a5f]/90 to-[#1e3a5f]/70"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 to-slate-800/90"></div>
         </div>
         
-        <div className="relative z-10 container mx-auto px-4 text-center text-white">
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+        <div className={`relative z-10 container mx-auto px-4 text-center text-white transition-all duration-700 ${heroRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight hover:text-slate-200 transition-colors duration-300">
             Tradição, Excelência e<br />Compromisso com a Justiça
           </h1>
-          <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-gray-200">
+          <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-slate-200">
             Há mais de 15 anos protegendo seus direitos com ética e competência
           </p>
           <Button 
             onClick={() => scrollToSection('contato')} 
             size="lg"
-            className="bg-[#d4af37] hover:bg-[#b8962f] text-white text-lg px-8 py-6"
+            className="bg-slate-700 hover:bg-slate-600 hover:scale-105 text-slate-50 text-lg px-8 py-6 transition-all duration-300 shadow-lg hover:shadow-2xl"
           >
             Agende uma Consulta
           </Button>
@@ -241,12 +254,16 @@ const LandingPage2 = () => {
       </section>
 
       {/* Sobre Nós */}
-      <section id="sobre" className="py-20 bg-gray-50">
+      <section 
+        id="sobre" 
+        ref={aboutRef.ref}
+        className="py-20 bg-slate-100"
+      >
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#1e3a5f] mb-4">Sobre Nós</h2>
-            <div className="w-24 h-1 bg-[#d4af37] mx-auto mb-6"></div>
-            <p className="text-lg text-gray-700 max-w-3xl mx-auto">
+          <div className={`text-center mb-12 transition-all duration-700 ${aboutRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Sobre Nós</h2>
+            <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
+            <p className="text-lg text-slate-700 max-w-3xl mx-auto">
               O escritório MORA - Advogados Associados nasceu com o propósito de oferecer serviços jurídicos de excelência, 
               pautados na ética, transparência e compromisso com os resultados. Nossa equipe multidisciplinar está preparada 
               para atender demandas de pessoas físicas e jurídicas nas mais diversas áreas do Direito.
@@ -255,10 +272,14 @@ const LandingPage2 = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
             {metricas.map((metrica, index) => (
-              <Card key={index} className="text-center border-2 border-[#d4af37]/20 hover:border-[#d4af37] transition-colors">
+              <Card 
+                key={index} 
+                className={`text-center border-2 border-slate-300 hover:border-slate-500 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 ${aboutRef.isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
+                style={{ transitionDelay: `${index * 100}ms` }}
+              >
                 <CardContent className="p-6">
-                  <div className="text-4xl font-bold text-[#1e3a5f] mb-2">{metrica.numero}</div>
-                  <div className="text-sm text-gray-600 font-medium">{metrica.label}</div>
+                  <div className="text-4xl font-bold text-slate-700 mb-2 hover:text-slate-600 transition-colors duration-300">{metrica.numero}</div>
+                  <div className="text-sm text-slate-600 font-medium">{metrica.label}</div>
                 </CardContent>
               </Card>
             ))}
@@ -267,23 +288,31 @@ const LandingPage2 = () => {
       </section>
 
       {/* Áreas de Atuação */}
-      <section id="areas" className="py-20 bg-white">
+      <section 
+        id="areas" 
+        ref={areasRef.ref}
+        className="py-20 bg-white"
+      >
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#1e3a5f] mb-4">Áreas de Atuação</h2>
-            <div className="w-24 h-1 bg-[#d4af37] mx-auto mb-6"></div>
-            <p className="text-lg text-gray-700 max-w-3xl mx-auto">
+          <div className={`text-center mb-12 transition-all duration-700 ${areasRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Áreas de Atuação</h2>
+            <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
+            <p className="text-lg text-slate-700 max-w-3xl mx-auto">
               Oferecemos serviços especializados em diversas áreas do direito, sempre com foco em resultados efetivos.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {areasAtuacao.map((area, index) => (
-              <Card key={index} className="hover:border-[#1e3a5f] transition-all hover:shadow-lg">
+              <Card 
+                key={index} 
+                className={`border-slate-200 hover:border-slate-700 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 group ${areasRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                style={{ transitionDelay: `${index * 100}ms` }}
+              >
                 <CardContent className="p-6 text-center">
-                  <area.icon className="h-12 w-12 mx-auto mb-4 text-[#d4af37]" />
-                  <h3 className="text-lg font-bold text-[#1e3a5f] mb-2">{area.title}</h3>
-                  <p className="text-sm text-gray-600">{area.desc}</p>
+                  <area.icon className="h-12 w-12 mx-auto mb-4 text-slate-600 group-hover:scale-110 transition-transform duration-300" />
+                  <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-slate-700 transition-colors duration-300">{area.title}</h3>
+                  <p className="text-sm text-slate-600">{area.desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -292,28 +321,36 @@ const LandingPage2 = () => {
       </section>
 
       {/* Nossa Equipe */}
-      <section id="equipe" className="py-20 bg-gray-50">
+      <section 
+        id="equipe" 
+        ref={equipeRef.ref}
+        className="py-20 bg-slate-100"
+      >
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#1e3a5f] mb-4">Nossa Equipe</h2>
-            <div className="w-24 h-1 bg-[#d4af37] mx-auto mb-6"></div>
-            <p className="text-lg text-gray-700 max-w-3xl mx-auto">
+          <div className={`text-center mb-12 transition-all duration-700 ${equipeRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Nossa Equipe</h2>
+            <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
+            <p className="text-lg text-slate-700 max-w-3xl mx-auto">
               Profissionais altamente qualificados e comprometidos com a excelência jurídica.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {equipe.map((membro, index) => (
-              <Card key={index} className="text-center hover:shadow-xl transition-shadow">
+              <Card 
+                key={index} 
+                className={`text-center border-slate-300 hover:border-slate-500 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 ${equipeRef.isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
+                style={{ transitionDelay: `${index * 100}ms` }}
+              >
                 <CardContent className="p-6">
-                  <Avatar className="h-32 w-32 mx-auto mb-4 border-4 border-[#d4af37]">
-                    <AvatarImage src={membro.image} alt={membro.nome} />
+                  <Avatar className="h-32 w-32 mx-auto mb-4 border-4 border-slate-600 hover:border-slate-500 transition-colors duration-300">
+                    <AvatarImage src={membro.image} alt={membro.nome} className="hover:scale-110 transition-transform duration-300" />
                     <AvatarFallback>A{index + 1}</AvatarFallback>
                   </Avatar>
-                  <h3 className="text-xl font-bold text-[#1e3a5f] mb-1">{membro.nome}</h3>
-                  <p className="text-sm text-gray-600 mb-2">{membro.oab}</p>
-                  <p className="text-sm text-[#d4af37] font-medium">{membro.especialidade}</p>
-                  <Button variant="outline" className="mt-4 border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f] hover:text-white">
+                  <h3 className="text-xl font-bold text-slate-900 mb-1 hover:text-slate-700 transition-colors duration-300">{membro.nome}</h3>
+                  <p className="text-sm text-slate-600 mb-2">{membro.oab}</p>
+                  <p className="text-sm text-slate-700 font-medium">{membro.especialidade}</p>
+                  <Button variant="outline" className="mt-4 border-slate-700 text-slate-700 hover:bg-slate-800 hover:text-slate-50 transition-all duration-300">
                     Ver Perfil
                   </Button>
                 </CardContent>
@@ -324,19 +361,26 @@ const LandingPage2 = () => {
       </section>
 
       {/* Diferenciais */}
-      <section className="py-20 bg-gradient-to-r from-[#1e3a5f] to-[#2d5a8f] text-white">
+      <section 
+        ref={diferenciaisRef.ref}
+        className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 text-white"
+      >
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4">Por Que Escolher a MORA?</h2>
-            <div className="w-24 h-1 bg-[#d4af37] mx-auto mb-6"></div>
+          <div className={`text-center mb-12 transition-all duration-700 ${diferenciaisRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-4xl font-bold mb-4 hover:text-slate-200 transition-colors duration-300">Por Que Escolher a MORA?</h2>
+            <div className="w-24 h-1 bg-slate-400 mx-auto mb-6"></div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {diferenciais.map((diferencial, index) => (
-              <div key={index} className="text-center">
-                <diferencial.icon className="h-16 w-16 mx-auto mb-4 text-[#d4af37]" />
-                <h3 className="text-xl font-bold mb-2">{diferencial.title}</h3>
-                <p className="text-gray-200">{diferencial.desc}</p>
+              <div 
+                key={index} 
+                className={`text-center transition-all duration-600 ${diferenciaisRef.isVisible ? 'opacity-100 translate-x-0' : `opacity-0 ${index % 2 === 0 ? 'translate-x-[-100px]' : 'translate-x-[100px]'}`}`}
+                style={{ transitionDelay: `${index * 150}ms` }}
+              >
+                <diferencial.icon className="h-16 w-16 mx-auto mb-4 text-slate-400 hover:scale-110 transition-transform duration-300" />
+                <h3 className="text-xl font-bold mb-2 hover:text-slate-300 transition-colors duration-300">{diferencial.title}</h3>
+                <p className="text-slate-300">{diferencial.desc}</p>
               </div>
             ))}
           </div>
@@ -344,39 +388,45 @@ const LandingPage2 = () => {
       </section>
 
       {/* Formulário de Contato */}
-      <section id="contato" className="py-20 bg-white">
+      <section 
+        id="contato" 
+        ref={contatoRef.ref}
+        className="py-20 bg-slate-50"
+      >
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-[#1e3a5f] mb-4">Entre em Contato</h2>
-              <div className="w-24 h-1 bg-[#d4af37] mx-auto mb-6"></div>
-              <p className="text-lg text-gray-700">
+            <div className={`text-center mb-12 transition-all duration-700 ${contatoRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+              <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Entre em Contato</h2>
+              <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
+              <p className="text-lg text-slate-700">
                 Preencha o formulário abaixo e nossa equipe entrará em contato em breve.
               </p>
             </div>
 
-            <Card className="shadow-xl">
+            <Card className={`shadow-2xl border border-slate-200 transition-all duration-700 ${contatoRef.isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
               <CardContent className="p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label htmlFor="nome">Nome Completo *</Label>
+                      <Label htmlFor="nome" className="text-slate-700">Nome Completo *</Label>
                       <Input
                         id="nome"
                         value={formData.nome}
                         onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                         placeholder="Seu nome completo"
+                        className="border-slate-300 focus:border-slate-600"
                         required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email">Email *</Label>
+                      <Label htmlFor="email" className="text-slate-700">Email *</Label>
                       <Input
                         id="email"
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="seu@email.com"
+                        className="border-slate-300 focus:border-slate-600"
                         required
                       />
                     </div>
@@ -384,19 +434,20 @@ const LandingPage2 = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label htmlFor="telefone">Telefone *</Label>
+                      <Label htmlFor="telefone" className="text-slate-700">Telefone *</Label>
                       <Input
                         id="telefone"
                         value={formData.telefone}
                         onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
                         placeholder="(00) 00000-0000"
+                        className="border-slate-300 focus:border-slate-600"
                         required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="area">Área de Interesse *</Label>
+                      <Label htmlFor="area" className="text-slate-700">Área de Interesse *</Label>
                       <Select value={formData.area} onValueChange={(value) => setFormData({ ...formData, area: value })}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-slate-300 focus:border-slate-600">
                           <SelectValue placeholder="Selecione uma área" />
                         </SelectTrigger>
                         <SelectContent>
@@ -414,19 +465,20 @@ const LandingPage2 = () => {
                   </div>
 
                   <div>
-                    <Label htmlFor="mensagem">Mensagem</Label>
+                    <Label htmlFor="mensagem" className="text-slate-700">Mensagem</Label>
                     <Textarea
                       id="mensagem"
                       value={formData.mensagem}
                       onChange={(e) => setFormData({ ...formData, mensagem: e.target.value })}
                       placeholder="Descreva brevemente seu caso..."
+                      className="border-slate-300 focus:border-slate-600"
                       rows={5}
                     />
                   </div>
 
                   <Button 
                     type="submit" 
-                    className="w-full bg-[#d4af37] hover:bg-[#b8962f] text-white text-lg py-6"
+                    className="w-full bg-slate-800 hover:bg-slate-700 hover:scale-105 text-slate-50 text-lg py-6 transition-all duration-300 shadow-lg hover:shadow-2xl"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}
@@ -439,59 +491,59 @@ const LandingPage2 = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#1e3a5f] text-white py-12">
+      <footer className="bg-slate-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Scale className="h-8 w-8 text-[#d4af37]" />
+                <Scale className="h-8 w-8 text-slate-400" />
                 <div className="flex flex-col">
-                  <span className="text-xl font-bold">MORA</span>
-                  <span className="text-xs text-[#d4af37]">ADVOGADOS ASSOCIADOS</span>
+                  <span className="text-xl font-bold text-slate-100">MORA</span>
+                  <span className="text-xs text-slate-400">ADVOGADOS ASSOCIADOS</span>
                 </div>
               </div>
-              <p className="text-gray-300 text-sm">
+              <p className="text-slate-400 text-sm">
                 Tradição, excelência e compromisso com a justiça desde 2009.
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold mb-4 text-[#d4af37]">Contato</h3>
+              <h3 className="text-lg font-bold mb-4 text-slate-100">Contato</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-[#d4af37]" />
-                  <span>Av. Paulista, 1000 - São Paulo/SP</span>
+                <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  <span className="text-slate-400">Av. Paulista, 1000 - São Paulo/SP</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-[#d4af37]" />
-                  <span>(11) 3000-0000</span>
+                <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  <span className="text-slate-400">(11) 3000-0000</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[#d4af37]" />
-                  <span>contato@moraadvogados.com.br</span>
+                <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  <span className="text-slate-400">contato@moraadvogados.com.br</span>
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold mb-4 text-[#d4af37]">Redes Sociais</h3>
+              <h3 className="text-lg font-bold mb-4 text-slate-100">Redes Sociais</h3>
               <div className="flex gap-4">
-                <a href="#" className="hover:text-[#d4af37] transition-colors">
-                  <Facebook className="h-6 w-6" />
+                <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
+                  <Facebook className="h-6 w-6 text-slate-400 hover:text-slate-300" />
                 </a>
-                <a href="#" className="hover:text-[#d4af37] transition-colors">
-                  <Instagram className="h-6 w-6" />
+                <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
+                  <Instagram className="h-6 w-6 text-slate-400 hover:text-slate-300" />
                 </a>
-                <a href="#" className="hover:text-[#d4af37] transition-colors">
-                  <Linkedin className="h-6 w-6" />
+                <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
+                  <Linkedin className="h-6 w-6 text-slate-400 hover:text-slate-300" />
                 </a>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-700 pt-6 text-center text-sm text-gray-400">
-            <p>&copy; {new Date().getFullYear()} MORA - Advogados Associados. Todos os direitos reservados.</p>
-            <p className="mt-2">OAB/SP 12.345 | CNPJ: 00.000.000/0001-00</p>
+          <div className="border-t border-slate-800 pt-6 text-center text-sm">
+            <p className="text-slate-500">&copy; {new Date().getFullYear()} MORA - Advogados Associados. Todos os direitos reservados.</p>
+            <p className="mt-2 text-slate-500">OAB/SP 12.345 | CNPJ: 00.000.000/0001-00</p>
           </div>
         </div>
       </footer>
