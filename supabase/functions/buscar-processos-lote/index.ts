@@ -320,32 +320,119 @@ async function buscarViaPje(
 function parseMovimentacoesPje(html: string): ProcessMovement[] {
   const movimentacoes: ProcessMovement[] = [];
   
-  // Regex expandido para capturar também o conteúdo completo
-  const intimacaoRegex = /<strong>(\d+)\s*-\s*Intimação<\/strong>[\s\S]*?Descrição:\s*([^<]+)[\s\S]*?Data:\s*(\d{2}\/\d{2}\/\d{4})([\s\S]*?)(?=<strong>\d+\s*-|$)/gi;
+  // Pattern aprimorado para capturar intimações PJe com todos os detalhes estruturados
+  // Captura: órgão, data disponibilização, tipo, meio, partes, advogados, texto, prazo, inteiro teor
+  const intimacaoRegex = /<strong>(\d+)\s*-\s*Intimação<\/strong>([\s\S]*?)(?=<strong>\d+\s*-|$)/gi;
+  
   let match;
-
   while ((match = intimacaoRegex.exec(html)) !== null) {
-    const [, sequencia, descricao, data, conteudoHtml] = match;
-    const [dia, mes, ano] = data.split('/');
+    const sequencia = parseInt(match[1], 10);
+    const blocoIntimacao = match[2];
     
-    // Limpar o conteúdo HTML para extrair apenas o texto
-    const textoCompleto = conteudoHtml
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
-      .replace(/<[^>]+>/g, ' ') // Remove todas as tags HTML
-      .replace(/&nbsp;/g, ' ') // Remove &nbsp;
-      .replace(/\s+/g, ' ') // Normaliza espaços
+    // Extrair data principal
+    const dataMatch = blocoIntimacao.match(/Data:\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (!dataMatch) continue;
+    
+    const [dia, mes, ano] = dataMatch[1].split('/');
+    const data = `${ano}-${mes}-${dia}T00:00:00Z`;
+    
+    // Extrair descrição
+    const descricaoMatch = blocoIntimacao.match(/Descrição:\s*([^<\n]+)/i);
+    const descricao = descricaoMatch ? descricaoMatch[1].trim() : 'Intimação';
+    
+    // Extrair campos estruturados
+    const metadata: any = {
+      fonte_pje: true
+    };
+    
+    // Órgão
+    const orgaoMatch = blocoIntimacao.match(/Órgão:\s*<\/strong>\s*([^<\n]+)/i);
+    if (orgaoMatch) metadata.orgao = orgaoMatch[1].trim();
+    
+    // Data de disponibilização
+    const dataDispMatch = blocoIntimacao.match(/Data de disponibilização:\s*<\/strong>\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (dataDispMatch) metadata.data_disponibilizacao = dataDispMatch[1].trim();
+    
+    // Tipo de comunicação
+    const tipoMatch = blocoIntimacao.match(/Tipo de comunicação:\s*<\/strong>\s*([^<\n]+)/i);
+    if (tipoMatch) metadata.tipo_comunicacao = tipoMatch[1].trim();
+    
+    // Meio
+    const meioMatch = blocoIntimacao.match(/Meio:\s*<\/strong>\s*([^<\n]+)/i);
+    if (meioMatch) metadata.meio = meioMatch[1].trim();
+    
+    // Parte(s) - pode ter múltiplas linhas separadas por <br>
+    const partesMatch = blocoIntimacao.match(/Parte\(s\):\s*<\/strong>([\s\S]*?)(?=<strong>|Advogado\(s\):)/i);
+    if (partesMatch) {
+      metadata.partes = partesMatch[1]
+        .replace(/<br\s*\/?>/gi, '\n')
+        .split('\n')
+        .map((p: string) => p.replace(/<[^>]+>/g, '').trim())
+        .filter((p: string) => p.length > 0);
+    }
+    
+    // Advogado(s) - pode ter múltiplos separados por <br>
+    const advogadosMatch = blocoIntimacao.match(/Advogado\(s\):\s*<\/strong>([\s\S]*?)(?=<strong>|Texto da intimação:|$)/i);
+    if (advogadosMatch) {
+      metadata.advogados = advogadosMatch[1]
+        .replace(/<br\s*\/?>/gi, '\n')
+        .split('\n')
+        .map((a: string) => a.replace(/<[^>]+>/g, '').trim())
+        .filter((a: string) => a.length > 0);
+    }
+    
+    // Texto da intimação (preservar formatação básica)
+    const textoMatch = blocoIntimacao.match(/Texto da intimação:\s*<\/strong>\s*<div[^>]*>([\s\S]*?)<\/div>/i);
+    if (textoMatch) {
+      metadata.texto_intimacao = textoMatch[1]
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<p[^>]*>/gi, '\n')
+        .replace(/<\/p>/gi, '')
+        .replace(/<strong>/gi, '')
+        .replace(/<\/strong>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/\n\s+/g, '\n')
+        .trim();
+    }
+    
+    // Início do prazo
+    const prazoMatch = blocoIntimacao.match(/Início do prazo:\s*<\/strong>\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (prazoMatch) metadata.inicio_prazo = prazoMatch[1].trim();
+    
+    // Link inteiro teor
+    const inteiroTeorMatch = blocoIntimacao.match(/<a[^>]*href=["']([^"']+)["'][^>]*>.*?Inteiro teor/i);
+    if (inteiroTeorMatch) {
+      // Garantir URL absoluta
+      let link = inteiroTeorMatch[1].trim();
+      if (link.startsWith('/')) {
+        // Construir URL completa se for relativa
+        link = `https://www.tjpr.jus.br${link}`;
+      }
+      metadata.inteiro_teor_link = link;
+    }
+    
+    // Texto completo (fallback, menos formatado)
+    const textoCompleto = blocoIntimacao
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
     
     movimentacoes.push({
-      sequencia: parseInt(sequencia),
-      descricao: descricao.trim(),
-      data: `${ano}-${mes}-${dia}T00:00:00Z`,
       tipo: 'intimacao',
-      texto_completo: textoCompleto.length > 20 ? textoCompleto : undefined // Só salva se tiver conteúdo relevante
+      sequencia,
+      descricao,
+      data,
+      texto_completo: textoCompleto.length > 20 ? textoCompleto : undefined,
+      metadata_completa: metadata
     });
   }
-
+  
+  // Ordenar por data (mais recentes primeiro)
   return movimentacoes.sort((a, b) => 
     new Date(b.data).getTime() - new Date(a.data).getTime()
   );

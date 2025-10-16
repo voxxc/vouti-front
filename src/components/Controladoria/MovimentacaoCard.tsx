@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle, Circle, AlertCircle, User, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, Circle, AlertCircle, User, Calendar, ChevronDown, ChevronUp, FileText, Users, Scale, Clock, ExternalLink } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -74,7 +74,154 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
       }
       return null;
     }
+
+    // Layout especializado para intimações PJe
+    if (metadataCompleta.fonte_pje) {
+      return (
+        <div className="border-t pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              <strong className="text-sm font-semibold">Intimação PJe - Detalhes Completos</strong>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowTextoCompleto(!showTextoCompleto)}
+              className="h-7"
+            >
+              {showTextoCompleto ? (
+                <>
+                  <ChevronUp className="h-3 w-3 mr-1" />
+                  Ocultar
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                  Ver Detalhes
+                </>
+              )}
+            </Button>
+          </div>
+          
+          {showTextoCompleto && (
+            <div className="space-y-4">
+              {/* Órgão e Publicação */}
+              {(metadataCompleta.orgao || metadataCompleta.data_disponibilizacao || metadataCompleta.tipo_comunicacao || metadataCompleta.meio) && (
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Scale className="h-4 w-4 text-primary" />
+                    <strong className="text-sm font-semibold text-primary">Órgão e Publicação</strong>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    {metadataCompleta.orgao && (
+                      <div>
+                        <span className="font-medium text-muted-foreground">Órgão:</span>
+                        <p className="mt-1">{metadataCompleta.orgao}</p>
+                      </div>
+                    )}
+                    {metadataCompleta.data_disponibilizacao && (
+                      <div>
+                        <span className="font-medium text-muted-foreground">Data de Disponibilização:</span>
+                        <p className="mt-1">{metadataCompleta.data_disponibilizacao}</p>
+                      </div>
+                    )}
+                    {metadataCompleta.tipo_comunicacao && (
+                      <div>
+                        <span className="font-medium text-muted-foreground">Tipo:</span>
+                        <p className="mt-1">{metadataCompleta.tipo_comunicacao}</p>
+                      </div>
+                    )}
+                    {metadataCompleta.meio && (
+                      <div>
+                        <span className="font-medium text-muted-foreground">Meio:</span>
+                        <p className="mt-1">{metadataCompleta.meio}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Início do Prazo - DESTAQUE */}
+              {metadataCompleta.inicio_prazo && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border-2 border-amber-400 dark:border-amber-700">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <strong className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                        Início do Prazo
+                      </strong>
+                      <p className="text-lg font-bold text-amber-900 dark:text-amber-200 mt-1">
+                        {metadataCompleta.inicio_prazo}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Partes do Processo */}
+              {metadataCompleta.partes && metadataCompleta.partes.length > 0 && (
+                <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="h-4 w-4 text-foreground" />
+                    <strong className="text-sm font-semibold">Parte(s)</strong>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    {metadataCompleta.partes.map((parte: string, idx: number) => (
+                      <p key={idx} className="pl-3 border-l-2 border-primary/30">{parte}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Advogados */}
+              {metadataCompleta.advogados && metadataCompleta.advogados.length > 0 && (
+                <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <User className="h-4 w-4 text-foreground" />
+                    <strong className="text-sm font-semibold">Advogado(s)</strong>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    {metadataCompleta.advogados.map((advogado: string, idx: number) => (
+                      <p key={idx} className="pl-3 border-l-2 border-primary/30">{advogado}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Texto da Intimação */}
+              {metadataCompleta.texto_intimacao && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
+                  <strong className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2 block">
+                    Texto da Intimação
+                  </strong>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {metadataCompleta.texto_intimacao}
+                  </p>
+                </div>
+              )}
+
+              {/* Link Inteiro Teor */}
+              {metadataCompleta.inteiro_teor_link && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(metadataCompleta.inteiro_teor_link, '_blank')}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Ver Inteiro Teor
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
     
+    // Layout padrão para movimentações DataJud
     return (
       <div className="border-t pt-3">
         <div className="flex items-center justify-between mb-2">
