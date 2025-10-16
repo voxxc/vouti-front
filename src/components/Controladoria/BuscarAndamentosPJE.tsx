@@ -24,7 +24,12 @@ export const BuscarAndamentosPJE = ({
     setIsLoading(true);
     
     try {
-      console.log('Buscando andamentos via buscar-processos-lote...');
+      console.log('🔍 Iniciando busca de andamentos:', {
+        processoId,
+        numeroProcesso,
+        tribunal,
+        timestamp: new Date().toISOString()
+      });
 
       // Usar a edge function unificada que tenta DataJud primeiro e depois PJe
       const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
@@ -34,9 +39,26 @@ export const BuscarAndamentosPJE = ({
         },
       });
 
-      if (error) throw error;
+      console.log('📦 Resposta da Edge Function recebida:', {
+        sucesso: !error,
+        temDados: !!data,
+        erro: error?.message
+      });
+
+      if (error) {
+        console.error('❌ Erro na chamada da Edge Function:', error);
+        throw error;
+      }
 
       const processo = data?.processos?.[0];
+      
+      console.log('📋 Processo retornado:', {
+        encontrado: !!processo,
+        sucesso: processo?.success,
+        fonte: processo?.fonte,
+        totalMovimentacoes: processo?.movimentacoes?.length || 0,
+        erro: processo?.erro
+      });
       
       if (!processo || !processo.success) {
         throw new Error(processo?.erro || 'Não foi possível buscar andamentos do processo');
@@ -58,6 +80,12 @@ export const BuscarAndamentosPJE = ({
         return !existentesSet.has(key);
       });
 
+      console.log('🔄 Deduplicação concluída:', {
+        totalEncontradas: processo.movimentacoes.length,
+        existentes: existentes?.length || 0,
+        novas: novasMovimentacoes.length
+      });
+
       // Inserir novas movimentações
       if (novasMovimentacoes.length > 0) {
         const movimentacoesParaInserir = novasMovimentacoes.map(mov => ({
@@ -77,7 +105,18 @@ export const BuscarAndamentosPJE = ({
           .from('processo_movimentacoes')
           .insert(movimentacoesParaInserir);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('❌ Erro ao inserir movimentações:', insertError);
+          throw insertError;
+        }
+
+        console.log('✅ Movimentações inseridas com sucesso:', {
+          quantidade: novasMovimentacoes.length,
+          statusConferencia: 'pendente',
+          fonte: processo.fonte
+        });
+      } else {
+        console.log('ℹ️ Nenhuma movimentação nova para inserir');
       }
 
       // Feedback detalhado
@@ -94,7 +133,11 @@ export const BuscarAndamentosPJE = ({
       }
 
     } catch (error) {
-      console.error('Erro ao buscar andamentos:', error);
+      console.error('💥 Erro completo na busca de andamentos:', {
+        mensagem: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       toast({
         title: 'Erro ao buscar andamentos',
         description: error.message,

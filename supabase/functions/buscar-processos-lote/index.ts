@@ -62,24 +62,45 @@ serve(async (req) => {
       throw new Error('Lista de processos inválida');
     }
 
-    console.log(`Buscando ${processos.length} processos no tribunal ${tribunal}`);
+    console.log('📥 Requisição recebida:', {
+      totalProcessos: processos.length,
+      tribunal,
+      primeiroProcesso: processos[0],
+      timestamp: new Date().toISOString()
+    });
 
     // Processar cada processo em paralelo
     const resultados = await Promise.all(
       processos.map(async (numeroProcesso: string): Promise<ProcessResult> => {
         try {
+          console.log(`🔍 Processando: ${numeroProcesso}`);
+          
           // Tentar DataJud primeiro
+          console.log(`📊 Tentando DataJud API para ${numeroProcesso}...`);
           const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal);
+          
           if (resultDatajud.success) {
+            console.log(`✅ Sucesso via DataJud: ${numeroProcesso}`, {
+              movimentacoes: resultDatajud.movimentacoes.length
+            });
             return resultDatajud;
           }
 
           // Fallback para scraping PJe
+          console.log(`🌐 Fallback para PJe scraping: ${numeroProcesso}...`);
           const resultPje = await buscarViaPje(numeroProcesso, tribunal);
+          
+          console.log(`✅ Sucesso via PJe scraping: ${numeroProcesso}`, {
+            movimentacoes: resultPje.movimentacoes.length
+          });
+          
           return resultPje;
 
         } catch (error) {
-          console.error(`Erro ao buscar processo ${numeroProcesso}:`, error);
+          console.error(`❌ Erro ao buscar processo ${numeroProcesso}:`, {
+            erro: error.message,
+            stack: error.stack
+          });
           return {
             numero: numeroProcesso,
             success: false,
@@ -100,6 +121,8 @@ serve(async (req) => {
       fonte_datajud: resultados.filter(r => r.fonte === 'datajud_api').length,
       fonte_scraping: resultados.filter(r => r.fonte === 'pje_comunicacoes').length
     };
+
+    console.log('📊 Resumo final:', resumo);
 
     return new Response(
       JSON.stringify({ processos: resultados, resumo }),
