@@ -47,7 +47,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
             backgroundClip: 'text'
           }}
         >
-          MORA
+          VOUTI
         </span>
         <span 
           className="text-xs font-normal tracking-[0.2em] mt-1"

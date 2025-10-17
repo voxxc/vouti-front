@@ -36,7 +36,7 @@ const HomePage = () => {
     "Growth Business é a união de estratégia, tecnologia e dados para transformar empresas em potências escaláveis.",
     "No mercado atual, quem não escala fica para trás. Métodos de crescimento acelerado são essenciais para se manter competitivo.",
     "Dar o máximo hoje é construir os resultados que todos irão admirar amanhã.",
-    "DE MORAIS, é a confiança no alicerce que transforma parcerias em crescimento real.",
+    "VOUTI, é a confiança no alicerce que transforma parcerias em crescimento real.",
     "A hora de evoluir é agora. Seu negócio merece mais."
   ];
 
@@ -119,7 +119,7 @@ const HomePage = () => {
       <header className="fixed top-0 left-0 right-0 z-50 py-8 bg-black">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-5xl md:text-7xl font-cormorant font-bold tracking-widest text-accent">
-            DE MORAIS<span className="text-red-600">.</span>
+            VOUTI<span className="text-red-600">.</span>
           </h1>
         </div>
       </header>
@@ -367,7 +367,7 @@ const HomePage = () => {
             <div className="grid md:grid-cols-3 gap-12 mb-12">
               <div>
                 <h3 className="text-2xl font-cormorant font-bold bg-gradient-premium bg-clip-text text-transparent mb-4">
-                  DE MORAIS<span className="text-red-600">.</span>
+                  VOUTI<span className="text-red-600">.</span>
                 </h3>
                 <p className="text-muted-foreground text-sm">
                   Crescimento exponencial através de tecnologia e estratégia
@@ -394,7 +394,7 @@ const HomePage = () => {
             </div>
 
             <div className="pt-8 border-t border-border text-center text-muted-foreground text-sm">
-              <p>&copy; 2024 DE MORAIS | Soluções Digitais. Todos os direitos reservados.</p>
+              <p>&copy; 2024 VOUTI | Soluções Digitais. Todos os direitos reservados.</p>
             </div>
           </div>
         </div>
