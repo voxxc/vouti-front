@@ -456,9 +456,9 @@ const ControladoriaProcessoDetalhes = () => {
                             sideOffset={8}
                           >
                             <ScrollArea className="h-full max-h-[80vh]">
-                              <div className="p-4 flex flex-col md:flex-row gap-4">
+                              <div className="p-4 flex flex-row gap-6">
                                 <div className="space-y-2">
-                                  <label className="text-sm font-medium">Data Inicial</label>
+                                  <label className="text-sm font-semibold text-foreground">Data Inicial</label>
                                   <Calendar
                                     mode="single"
                                     selected={dateRange.from}
@@ -468,7 +468,7 @@ const ControladoriaProcessoDetalhes = () => {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-sm font-medium">Data Final</label>
+                                  <label className="text-sm font-semibold text-foreground">Data Final</label>
                                   <Calendar
                                     mode="single"
                                     selected={dateRange.to}
