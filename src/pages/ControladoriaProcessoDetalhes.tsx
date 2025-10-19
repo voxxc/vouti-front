@@ -432,46 +432,59 @@ const ControladoriaProcessoDetalhes = () => {
                       <Badge variant="outline">{movimentacoes.length}</Badge>
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-2">
-                            <CalendarIcon className="h-4 w-4" />
-                            {dateRange.from ? (
-                              dateRange.to ? (
-                                <>
-                                  {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
-                                </>
+                      <div className="flex items-center gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2">
+                              <CalendarIcon className="h-4 w-4" />
+                              {dateRange.from ? (
+                                dateRange.to ? (
+                                  <>
+                                    {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                                  </>
+                                ) : (
+                                  format(dateRange.from, "dd/MM/yy")
+                                )
                               ) : (
-                                format(dateRange.from, "dd/MM/yy")
-                              )
-                            ) : (
-                              "Filtrar período"
-                            )}
+                                "Filtrar período"
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="end">
+                            <div className="flex gap-4 p-4">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Data Inicial</label>
+                                <Calendar
+                                  mode="single"
+                                  selected={dateRange.from}
+                                  onSelect={(date) => setDateRange({ ...dateRange, from: date })}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Data Final</label>
+                                <Calendar
+                                  mode="single"
+                                  selected={dateRange.to}
+                                  onSelect={(date) => setDateRange({ ...dateRange, to: date })}
+                                  className="pointer-events-auto"
+                                />
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        
+                        {(dateRange.from || dateRange.to) && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setDateRange({})}
+                          >
+                            <X className="h-4 w-4" />
                           </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <div className="flex">
-                            <Calendar
-                              mode="range"
-                              selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
-                              onSelect={(range) => setDateRange(range || {})}
-                              numberOfMonths={2}
-                              initialFocus
-                              className="pointer-events-auto"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      
-                      {(dateRange.from || dateRange.to) && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setDateRange({})}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                        )}
+                      </div>
                       
                       {pendentes > 0 && (
                         <Badge variant="destructive" className="animate-pulse">
