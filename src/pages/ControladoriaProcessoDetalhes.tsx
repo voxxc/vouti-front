@@ -450,13 +450,16 @@ const ControladoriaProcessoDetalhes = () => {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="range"
-                            selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
-                            onSelect={(range) => setDateRange(range || {})}
-                            numberOfMonths={2}
-                            initialFocus
-                          />
+                          <div className="flex">
+                            <Calendar
+                              mode="range"
+                              selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
+                              onSelect={(range) => setDateRange(range || {})}
+                              numberOfMonths={2}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </div>
                         </PopoverContent>
                       </Popover>
                       
