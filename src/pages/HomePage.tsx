@@ -64,7 +64,7 @@ const HomePage = () => {
   const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       const code = easterEggInput.toLowerCase();
-      if (code === 'mora') {
+      if (code === 'jusvouti') {
         // Force logout to ensure authentication screen shows
         await supabase.auth.signOut();
         // Mark explicit intent to open the auth page

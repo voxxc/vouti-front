@@ -18,9 +18,9 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
 
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      {/* Logo Icon - M */}
+      {/* Logo Icon - V */}
       <div className="relative mb-1 mr-2">
-        {/* Main M Letter with gradient gold */}
+        {/* Main V Letter with gradient gold */}
         <div 
           className={`font-black ${logoSizes[size].main} leading-none tracking-wide relative`}
           style={{
@@ -32,7 +32,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
             fontWeight: 900
           }}
         >
-          M
+          V
         </div>
       </div>
       
