@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MovimentacaoComConferencia } from '@/types/movimentacao';
 
-export const useProcessoMovimentacoes = (processoId?: string) => {
+export const useProcessoMovimentacoes = (processoId?: string, dataInicio?: Date, dataFim?: Date) => {
   const { toast } = useToast();
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoComConferencia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,7 @@ export const useProcessoMovimentacoes = (processoId?: string) => {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('processo_movimentacoes')
         .select(`
           *,
@@ -25,8 +25,20 @@ export const useProcessoMovimentacoes = (processoId?: string) => {
             *
           )
         `)
-        .eq('processo_id', processoId)
-        .order('data_movimentacao', { ascending: false });
+        .eq('processo_id', processoId);
+
+      // Aplicar filtros de data se fornecidos
+      if (dataInicio) {
+        query = query.gte('data_movimentacao', dataInicio.toISOString());
+      }
+      if (dataFim) {
+        // Adicionar 23:59:59 ao dia final para incluir todo o dia
+        const fimDoDia = new Date(dataFim);
+        fimDoDia.setHours(23, 59, 59, 999);
+        query = query.lte('data_movimentacao', fimDoDia.toISOString());
+      }
+
+      const { data, error } = await query.order('data_movimentacao', { ascending: false });
 
       if (error) throw error;
 
@@ -172,7 +184,7 @@ export const useProcessoMovimentacoes = (processoId?: string) => {
         supabase.removeChannel(channel);
       };
     }
-  }, [processoId]);
+  }, [processoId, dataInicio, dataFim]);
 
   return {
     movimentacoes,

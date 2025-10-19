@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, History, Clock, Trash2, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, History, Clock, Trash2, CheckSquare, CalendarIcon, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
@@ -27,6 +27,8 @@ import MovimentacaoCard from '@/components/Controladoria/MovimentacaoCard';
 import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
 import { BuscarAndamentosPJE } from '@/components/Controladoria/BuscarAndamentosPJE';
 import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 interface Processo {
   id: string;
@@ -61,6 +63,7 @@ const ControladoriaProcessoDetalhes = () => {
   const [modoSelecao, setModoSelecao] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [deletingMovimentacoes, setDeletingMovimentacoes] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   
   const { 
     movimentacoes, 
@@ -70,7 +73,7 @@ const ControladoriaProcessoDetalhes = () => {
     marcarConferido, 
     marcarEmRevisao,
     refetch: fetchMovimentacoes
-  } = useProcessoMovimentacoes(id);
+  } = useProcessoMovimentacoes(id, dateRange.from, dateRange.to);
 
   useEffect(() => {
     if (id) {
@@ -429,6 +432,44 @@ const ControladoriaProcessoDetalhes = () => {
                       <Badge variant="outline">{movimentacoes.length}</Badge>
                     </CardTitle>
                     <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-2">
+                            <CalendarIcon className="h-4 w-4" />
+                            {dateRange.from ? (
+                              dateRange.to ? (
+                                <>
+                                  {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                                </>
+                              ) : (
+                                format(dateRange.from, "dd/MM/yy")
+                              )
+                            ) : (
+                              "Filtrar período"
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="range"
+                            selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
+                            onSelect={(range) => setDateRange(range || {})}
+                            numberOfMonths={2}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      
+                      {(dateRange.from || dateRange.to) && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setDateRange({})}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
                       {pendentes > 0 && (
                         <Badge variant="destructive" className="animate-pulse">
                           {pendentes} Pendente{pendentes > 1 ? 's' : ''}
