@@ -450,28 +450,34 @@ const ControladoriaProcessoDetalhes = () => {
                               )}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="end">
-                            <div className="flex gap-4 p-4">
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">Data Inicial</label>
-                                <Calendar
-                                  mode="single"
-                                  selected={dateRange.from}
-                                  onSelect={(date) => setDateRange({ ...dateRange, from: date })}
-                                  initialFocus
-                                  className="pointer-events-auto"
-                                />
+                          <PopoverContent 
+                            className="w-[680px] max-w-[95vw] p-0 max-h-[80vh] overflow-hidden" 
+                            align="end"
+                            sideOffset={8}
+                          >
+                            <ScrollArea className="h-full max-h-[80vh]">
+                              <div className="p-4 flex flex-col md:flex-row gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Data Inicial</label>
+                                  <Calendar
+                                    mode="single"
+                                    selected={dateRange.from}
+                                    onSelect={(date) => setDateRange({ ...dateRange, from: date })}
+                                    initialFocus
+                                    className="pointer-events-auto"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Data Final</label>
+                                  <Calendar
+                                    mode="single"
+                                    selected={dateRange.to}
+                                    onSelect={(date) => setDateRange({ ...dateRange, to: date })}
+                                    className="pointer-events-auto"
+                                  />
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">Data Final</label>
-                                <Calendar
-                                  mode="single"
-                                  selected={dateRange.to}
-                                  onSelect={(date) => setDateRange({ ...dateRange, to: date })}
-                                  className="pointer-events-auto"
-                                />
-                              </div>
-                            </div>
+                            </ScrollArea>
                           </PopoverContent>
                         </Popover>
                         
