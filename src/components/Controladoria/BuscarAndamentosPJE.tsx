@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, Calendar as CalendarIcon, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { RefreshCw } from 'lucide-react';
 
 interface BuscarAndamentosPJEProps {
   processoId: string;
@@ -25,48 +18,23 @@ export const BuscarAndamentosPJE = ({
   onComplete
 }: BuscarAndamentosPJEProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<'all' | 'range'>('range');
-  const [dataInicio, setDataInicio] = useState<Date | undefined>();
-  const [dataFim, setDataFim] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
 
   const handleBuscar = async () => {
-    // Validação de datas apenas se scope === 'range'
-    if (scope === 'range' && dataInicio && dataFim && dataInicio > dataFim) {
-      toast({
-        title: 'Datas inválidas',
-        description: 'A data inicial não pode ser posterior à data final.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsLoading(true);
-    setOpen(false);
     
     try {
-      console.log('🔍 Iniciando busca de andamentos:', {
+      console.log('🔍 Iniciando busca de andamentos (todo o histórico):', {
         processoId,
         numeroProcesso,
         tribunal,
-        scope,
-        dataInicio: scope === 'range' ? dataInicio?.toISOString() : undefined,
-        dataFim: scope === 'range' ? dataFim?.toISOString() : undefined,
         timestamp: new Date().toISOString()
       });
 
-      // Montar body condicionalmente
-      const body: any = {
+      const body = {
         processos: [numeroProcesso],
         tribunal: tribunal,
       };
-
-      // Só enviar datas se scope === 'range'
-      if (scope === 'range' && dataInicio && dataFim) {
-        body.dataInicio = dataInicio.toISOString();
-        body.dataFim = dataFim.toISOString();
-      }
 
       const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
         body,
@@ -98,19 +66,10 @@ export const BuscarAndamentosPJE = ({
       }
 
       // Buscar movimentações existentes para evitar duplicatas
-      let query = supabase
+      const { data: existentes } = await supabase
         .from('processo_movimentacoes')
         .select('descricao, data_movimentacao')
         .eq('processo_id', processoId);
-
-      // Se scope === 'range', limitar consulta ao período
-      if (scope === 'range' && dataInicio && dataFim) {
-        const inicioDiaISO = new Date(dataInicio.setHours(0, 0, 0, 0)).toISOString();
-        const fimDiaISO = new Date(dataFim.setHours(23, 59, 59, 999)).toISOString();
-        query = query.gte('data_movimentacao', inicioDiaISO).lte('data_movimentacao', fimDiaISO);
-      }
-
-      const { data: existentes } = await query;
 
       // Normalizar deduplicação: descrição + data (apenas YYYY-MM-DD)
       const existentesSet = new Set(
@@ -172,13 +131,10 @@ export const BuscarAndamentosPJE = ({
       // Feedback detalhado
       const fonteNome = processo.fonte === 'datajud_api' ? 'DataJud API' : 'PJe Comunicações';
       const totalEncontradas = processo.movimentacoes.length;
-      const periodoTexto = scope === 'all'
-        ? 'todo o histórico'
-        : `de ${format(dataInicio!, 'dd/MM/yyyy', { locale: ptBR })} até ${format(dataFim!, 'dd/MM/yyyy', { locale: ptBR })}`;
       
       toast({
         title: 'Andamentos atualizados',
-        description: `${fonteNome}: ${totalEncontradas} movimentações encontradas (${periodoTexto}). ${novasMovimentacoes.length} novas inseridas.`,
+        description: `${fonteNome}: ${totalEncontradas} movimentações encontradas (todo o histórico). ${novasMovimentacoes.length} novas inseridas.`,
       });
 
       if (onComplete) {
@@ -201,112 +157,15 @@ export const BuscarAndamentosPJE = ({
     }
   };
 
-  const limparFiltros = () => {
-    setScope('all');
-    setDataInicio(undefined);
-    setDataFim(new Date());
-  };
-
   return (
-    <div className="flex gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className={cn(
-              "gap-2",
-              scope === 'range' && "border-primary"
-            )}
-          >
-            <CalendarIcon className="h-4 w-4" />
-            {scope === 'all' ? (
-              'Todo o histórico'
-            ) : dataInicio && dataFim ? (
-              <span className="text-xs">
-                {format(dataInicio, 'dd/MM/yy')} - {format(dataFim, 'dd/MM/yy')}
-              </span>
-            ) : (
-              'Filtrar Período'
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-4" align="start">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-semibold mb-3">Escopo da Busca</p>
-              <RadioGroup value={scope} onValueChange={(v) => setScope(v as 'all' | 'range')}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="all" id="all" />
-                  <Label htmlFor="all" className="cursor-pointer">Todo o histórico</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="range" id="range" />
-                  <Label htmlFor="range" className="cursor-pointer">Somente no período</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {scope === 'range' && (
-              <>
-                <div>
-                  <p className="text-sm font-semibold mb-2">Data Inicial</p>
-                  <Calendar
-                    mode="single"
-                    selected={dataInicio}
-                    onSelect={setDataInicio}
-                    locale={ptBR}
-                    disabled={(date) => date > new Date()}
-                    className="pointer-events-auto"
-                  />
-                </div>
-                
-                <div>
-                  <p className="text-sm font-semibold mb-2">Data Final</p>
-                  <Calendar
-                    mode="single"
-                    selected={dataFim}
-                    onSelect={setDataFim}
-                    locale={ptBR}
-                    disabled={(date) => date > new Date() || (dataInicio && date < dataInicio)}
-                    className="pointer-events-auto"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={limparFiltros}
-                className="flex-1"
-              >
-                <X className="h-3 w-3 mr-1" />
-                Limpar
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setOpen(false)}
-                className="flex-1"
-              >
-                Aplicar
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <Button
-        onClick={handleBuscar}
-        disabled={isLoading}
-        variant="default"
-        size="sm"
-      >
-        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-        {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
-      </Button>
-    </div>
+    <Button
+      onClick={handleBuscar}
+      disabled={isLoading}
+      variant="default"
+      size="sm"
+    >
+      <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+      {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
+    </Button>
   );
 };
