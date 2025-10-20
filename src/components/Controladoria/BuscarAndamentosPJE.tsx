@@ -3,6 +3,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Calendar } from '@/components/ui/calendar';
 
 interface BuscarAndamentosPJEProps {
   processoId: string;
@@ -18,23 +21,47 @@ export const BuscarAndamentosPJE = ({
   onComplete
 }: BuscarAndamentosPJEProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [scope, setScope] = useState<'all' | 'period'>('all');
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
+
+  const isDateRangeValid = () => {
+    if (scope === 'all') return true;
+    if (!dataInicio || !dataFim) return false;
+    return dataInicio <= dataFim;
+  };
 
   const handleBuscar = async () => {
     setIsLoading(true);
     
     try {
-      console.log('🔍 Iniciando busca de andamentos (todo o histórico):', {
-        processoId,
-        numeroProcesso,
-        tribunal,
-        timestamp: new Date().toISOString()
-      });
-
-      const body = {
+      const body: any = {
         processos: [numeroProcesso],
         tribunal: tribunal,
       };
+
+      // Adicionar filtro de data se selecionado
+      if (scope === 'period' && dataInicio && dataFim) {
+        body.dataInicio = dataInicio.toISOString().split('T')[0];
+        body.dataFim = dataFim.toISOString().split('T')[0];
+        console.log('🔍 Iniciando busca de andamentos com filtro de período:', {
+          processoId,
+          numeroProcesso,
+          tribunal,
+          dataInicio: body.dataInicio,
+          dataFim: body.dataFim,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.log('🔍 Iniciando busca de andamentos (todo o histórico):', {
+          processoId,
+          numeroProcesso,
+          tribunal,
+          timestamp: new Date().toISOString()
+        });
+      }
 
       const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
         body,
@@ -132,9 +159,17 @@ export const BuscarAndamentosPJE = ({
       const fonteNome = processo.fonte === 'datajud_api' ? 'DataJud API' : 'PJe Comunicações';
       const totalEncontradas = processo.movimentacoes.length;
       
+      let descricao = `${fonteNome}: ${totalEncontradas} movimentações encontradas`;
+      if (scope === 'period' && dataInicio && dataFim) {
+        descricao += ` (período: ${dataInicio.toLocaleDateString('pt-BR')} - ${dataFim.toLocaleDateString('pt-BR')})`;
+      } else {
+        descricao += ' (todo o histórico)';
+      }
+      descricao += `. ${novasMovimentacoes.length} novas inseridas.`;
+      
       toast({
         title: 'Andamentos atualizados',
-        description: `${fonteNome}: ${totalEncontradas} movimentações encontradas (todo o histórico). ${novasMovimentacoes.length} novas inseridas.`,
+        description: descricao,
       });
 
       if (onComplete) {
@@ -158,14 +193,107 @@ export const BuscarAndamentosPJE = ({
   };
 
   return (
-    <Button
-      onClick={handleBuscar}
-      disabled={isLoading}
-      variant="default"
-      size="sm"
-    >
-      <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-      {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
-    </Button>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          disabled={isLoading}
+          variant="default"
+          size="sm"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-auto max-w-[95vw] p-0" 
+        align="start"
+        sideOffset={8}
+      >
+        <div className="p-4 space-y-4">
+          {/* Opções de escopo */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold">Período de busca</label>
+            <RadioGroup value={scope} onValueChange={(v) => setScope(v as 'all' | 'period')}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="all" id="all" />
+                <label htmlFor="all" className="text-sm cursor-pointer">
+                  Todo o histórico
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="period" id="period" />
+                <label htmlFor="period" className="text-sm cursor-pointer">
+                  Filtrar por data
+                </label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Calendários (apenas se period selecionado) */}
+          {scope === 'period' && (
+            <div className="flex flex-row gap-4 justify-center">
+              <div className="space-y-2 w-[280px]">
+                <label className="text-sm font-semibold">Data Inicial</label>
+                <Calendar
+                  mode="single"
+                  selected={dataInicio}
+                  onSelect={setDataInicio}
+                  initialFocus
+                  className="pointer-events-auto rounded-md border"
+                />
+              </div>
+              <div className="space-y-2 w-[280px]">
+                <label className="text-sm font-semibold">Data Final</label>
+                <Calendar
+                  mode="single"
+                  selected={dataFim}
+                  onSelect={setDataFim}
+                  className="pointer-events-auto rounded-md border"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Mensagem de validação */}
+          {scope === 'period' && (!dataInicio || !dataFim) && (
+            <p className="text-xs text-muted-foreground">
+              Selecione ambas as datas para continuar
+            </p>
+          )}
+          {scope === 'period' && dataInicio && dataFim && dataInicio > dataFim && (
+            <p className="text-xs text-destructive">
+              Data inicial deve ser anterior à data final
+            </p>
+          )}
+
+          {/* Botões de ação */}
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setScope('all');
+                setDataInicio(undefined);
+                setDataFim(undefined);
+              }}
+            >
+              Limpar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (isDateRangeValid()) {
+                  handleBuscar();
+                  setOpen(false);
+                }
+              }}
+              disabled={!isDateRangeValid()}
+            >
+              Buscar
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
