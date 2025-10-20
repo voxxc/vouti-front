@@ -347,9 +347,23 @@ function parseMovimentacoesPje(html: string): ProcessMovement[] {
     const [dia, mes, ano] = dataMatch[1].split('/');
     const data = `${ano}-${mes}-${dia}T00:00:00Z`;
     
-    // Extrair descrição
-    const descricaoMatch = blocoIntimacao.match(/Descrição:\s*([^<\n]+)/i);
-    const descricao = descricaoMatch ? descricaoMatch[1].trim() : 'Intimação';
+    // Extrair o resumo/texto curto que aparece após o título da intimação
+    const blocoDepoisTitulo = blocoIntimacao.replace(/^[\s\S]*?<\/strong>/i, '');
+    const resumoBrutoMatch = blocoDepoisTitulo.match(/^([\s\S]*?)(?=<strong>(?:Órgão|Data de disponibilização|Tipo de comunicação|Meio|Parte\(s\)|Advogado\(s\)):)/i);
+    
+    let descricao = 'Intimação';
+    if (resumoBrutoMatch) {
+      const resumo = resumoBrutoMatch[1]
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      if (resumo.length > 10) {
+        descricao = resumo;
+      }
+    }
     
     // Extrair campos estruturados
     const metadata: any = {
