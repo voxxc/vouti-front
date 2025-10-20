@@ -377,7 +377,8 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
               <p className="text-sm leading-relaxed">{movimentacao.descricao}</p>
               {/* Badge indicando fonte dos dados */}
               <div className="flex gap-2 mt-2 flex-wrap">
-                {movimentacao.metadata?.fonte === 'pje_scraping' && (
+                {(movimentacao.metadata?.fonte === 'pje_scraping' || 
+                  movimentacao.metadata?.metadata_completa?.fonte_pje === true) && (
                   <Badge variant="outline" className="text-xs">
                     🔍 PJE - Detalhes Completos
                   </Badge>
