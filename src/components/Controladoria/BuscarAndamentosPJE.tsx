@@ -134,6 +134,7 @@ export const BuscarAndamentosPJE = ({
             fonte: processo.fonte,
             sequencia: mov.sequencia,
             texto_completo: mov.texto_completo,
+            metadata_completa: mov.metadata_completa,
           },
         }));
 
