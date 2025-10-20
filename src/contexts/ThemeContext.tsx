@@ -65,15 +65,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     loadUserTheme();
   }, [user]);
 
-  // Apply theme to document only when user is authenticated
+  // Apply theme to document for all users
   useEffect(() => {
-    if (user) {
-      const root = window.document.documentElement;
-      root.classList.remove('light', 'dark');
-      root.classList.add(theme);
-      localStorage.setItem('theme', theme);
-    }
-  }, [theme, user]);
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
