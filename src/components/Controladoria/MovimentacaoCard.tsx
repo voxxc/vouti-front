@@ -60,6 +60,7 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
 
   const renderizarDadosCompletos = () => {
     const metadataCompleta = movimentacao.metadata?.metadata_completa;
+    const fonte = movimentacao.metadata?.fonte;
     
     if (!metadataCompleta || Object.keys(metadataCompleta).length === 0) {
       if (movimentacao.is_automated) {
@@ -67,7 +68,16 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
           <div className="border-t pt-3">
             <div className="text-xs text-muted-foreground italic flex items-center gap-2">
               <AlertCircle className="h-3 w-3" />
-              <span>Detalhes adicionais não disponíveis para este andamento automático</span>
+              {fonte === 'datajud_api' ? (
+                <div className="flex flex-col gap-1">
+                  <p>Detalhes estruturados não disponíveis neste andamento.</p>
+                  <p className="text-primary font-medium">
+                    💡 Clique em <strong>"Buscar Andamentos"</strong> (no topo da página) para obter detalhes completos do PJE.
+                  </p>
+                </div>
+              ) : (
+                <span>Detalhes adicionais não disponíveis para este andamento automático</span>
+              )}
             </div>
           </div>
         );
@@ -375,6 +385,24 @@ const MovimentacaoCard = ({ movimentacao, onMarcarConferido, onMarcarRevisao, is
           <div className="pl-8 space-y-3">
             <div>
               <p className="text-sm leading-relaxed">{movimentacao.descricao}</p>
+              {/* Badge indicando fonte dos dados */}
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {movimentacao.metadata?.fonte === 'pje_scraping' && (
+                  <Badge variant="outline" className="text-xs">
+                    🔍 PJE - Detalhes Completos
+                  </Badge>
+                )}
+                {movimentacao.metadata?.fonte === 'datajud_api' && (
+                  <Badge variant="secondary" className="text-xs">
+                    📊 DataJud
+                  </Badge>
+                )}
+                {movimentacao.metadata?.metadata_completa?.texto_intimacao && (
+                  <Badge variant="outline" className="text-xs">
+                    📄 Contém texto da intimação
+                  </Badge>
+                )}
+              </div>
             </div>
             
             {/* Detalhes Completos */}
