@@ -120,97 +120,120 @@ const MetalPublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <TooltipProvider>
-        <BrowserRouter>
+    <TooltipProvider>
+      <BrowserRouter>
         <Routes>
-          {/* Homepage - Public, no auth/theme providers */}
+          {/* Homepage - Always dark mode, isolated from ThemeProvider */}
           <Route path="/" element={<HomePage />} />
           
-          {/* Auth and Protected Routes - Wrapped with providers */}
+          {/* Auth and Protected Routes - Wrapped with ThemeProvider for individual user themes */}
           <Route path="/auth" element={
-            <AuthProvider>
-              <PublicRoute>
-                <Auth />
-              </PublicRoute>
-            </AuthProvider>
+            <ThemeProvider>
+              <AuthProvider>
+                <PublicRoute>
+                  <Auth />
+                </PublicRoute>
+              </AuthProvider>
+            </ThemeProvider>
           } />
               <Route path="/dashboard" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/projects" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <Projects />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <Projects />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/project/:id" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <ProjectViewWrapper />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <ProjectViewWrapper />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/project/:id/acordos" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <AcordosViewWrapper />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <AcordosViewWrapper />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/agenda" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <Agenda />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <Agenda />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/crm" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <CRM />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <CRM />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/financial" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <Financial />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <Financial />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/controladoria" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <Controladoria />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <Controladoria />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/controladoria/novo" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <ControladoriaNovoProcesso />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <ControladoriaNovoProcesso />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/controladoria/processo/:id" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <ControladoriaProcessoDetalhes />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <ControladoriaProcessoDetalhes />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               <Route path="/controladoria/processo/:id/editar" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <ControladoriaNovoProcesso />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ThemeProvider>
+                  <AuthProvider>
+                    <ProtectedRoute>
+                      <ControladoriaNovoProcesso />
+                    </ProtectedRoute>
+                  </AuthProvider>
+                </ThemeProvider>
               } />
               
               {/* MetalSystem Routes - Completely separate from Mora */}
@@ -243,7 +266,7 @@ function App() {
             </MetalAuthProvider>
           } />
               
-              {/* Landing Pages - Marketing */}
+              {/* Landing Pages - Marketing - Always dark mode, isolated from ThemeProvider */}
               <Route path="/landing-1" element={<LandingPage1 />} />
               <Route path="/landing-2" element={<LandingPage2 />} />
               
@@ -253,7 +276,6 @@ function App() {
             <Toaster />
           </BrowserRouter>
         </TooltipProvider>
-      </ThemeProvider>
   );
 }
 

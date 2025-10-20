@@ -16,20 +16,11 @@ const HomePage = () => {
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggInput, setEasterEggInput] = useState("");
 
-  // Force theme for landing page (uses design system, not user theme)
+  // Force dark mode for landing page - isolated from user theme preferences
   useEffect(() => {
-    // Clear any session storage that might cause redirects
     sessionStorage.removeItem('transition_completed');
-    
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add('dark');
-    
-    return () => {
-      // Restore theme when leaving
-      const storedTheme = localStorage.getItem('theme') || 'dark';
-      document.documentElement.classList.remove('light', 'dark');
-      document.documentElement.classList.add(storedTheme);
-    };
   }, []);
 
   const phrases = [
