@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
                   fonte: resultado.fonte,
                   sequencia: mov.sequencia,
                   texto_completo: mov.texto_completo,
+                  metadata_completa: mov.metadata_completa,
                   atualizado_em: new Date().toISOString(),
                 },
               }));
