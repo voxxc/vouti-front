@@ -78,26 +78,26 @@ serve(async (req) => {
         try {
           console.log(`🔍 Processando: ${numeroProcesso}`, dataInicio ? `(${dataInicio} até ${dataFim})` : '(todo histórico)');
           
-          // Tentar DataJud primeiro
-          console.log(`📊 Tentando DataJud API para ${numeroProcesso}...`);
-          const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
-          
-          if (resultDatajud.success) {
-            console.log(`✅ Sucesso via DataJud: ${numeroProcesso}`, {
-              movimentacoes: resultDatajud.movimentacoes.length
-            });
-            return resultDatajud;
-          }
-
-          // Fallback para scraping PJe
-          console.log(`🌐 Fallback para PJe scraping: ${numeroProcesso}...`);
+          // Tentar PJe scraping primeiro (dados mais confiáveis e atualizados)
+          console.log(`🌐 Tentando PJe scraping para ${numeroProcesso}...`);
           const resultPje = await buscarViaPje(numeroProcesso, tribunal, dataInicio, dataFim);
           
-          console.log(`✅ Sucesso via PJe scraping: ${numeroProcesso}`, {
-            movimentacoes: resultPje.movimentacoes.length
+          if (resultPje.success) {
+            console.log(`✅ Sucesso via PJe scraping: ${numeroProcesso}`, {
+              movimentacoes: resultPje.movimentacoes.length
+            });
+            return resultPje;
+          }
+
+          // Fallback para DataJud API
+          console.log(`📊 Fallback para DataJud API: ${numeroProcesso}...`);
+          const resultDatajud = await buscarViaDatajud(numeroProcesso, tribunal, dataInicio, dataFim);
+          
+          console.log(`✅ Sucesso via DataJud: ${numeroProcesso}`, {
+            movimentacoes: resultDatajud.movimentacoes.length
           });
           
-          return resultPje;
+          return resultDatajud;
 
         } catch (error) {
           console.error(`❌ Erro ao buscar processo ${numeroProcesso}:`, {
