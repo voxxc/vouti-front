@@ -764,6 +764,107 @@ export type Database = {
         }
         Relationships: []
       }
+      link_items: {
+        Row: {
+          clicks: number | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          position: number | null
+          profile_id: string
+          title: string
+          url: string
+        }
+        Insert: {
+          clicks?: number | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          profile_id: string
+          title: string
+          url: string
+        }
+        Update: {
+          clicks?: number | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          profile_id?: string
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_items_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "link_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      link_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          theme_color: string | null
+          updated_at: string | null
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          theme_color?: string | null
+          updated_at?: string | null
+          user_id: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          theme_color?: string | null
+          updated_at?: string | null
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      link_user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["link_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["link_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["link_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       message_attachments: {
         Row: {
           created_at: string
@@ -1948,6 +2049,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_link_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["link_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_metal_role: {
         Args: {
           _role: Database["public"]["Enums"]["metal_role"]
@@ -1990,6 +2098,7 @@ export type Database = {
         | "sentenca"
         | "acordao"
         | "outros"
+      link_role: "admin" | "user"
       metal_role: "admin" | "operador"
       movimentacao_tipo:
         | "peticionamento"
@@ -2148,6 +2257,7 @@ export const Constants = {
         "acordao",
         "outros",
       ],
+      link_role: ["admin", "user"],
       metal_role: ["admin", "operador"],
       movimentacao_tipo: [
         "peticionamento",
