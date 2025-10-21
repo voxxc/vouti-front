@@ -275,10 +275,18 @@ async function buscarViaPje(
 
     // Construir URL baseado no tribunal
     let url: string;
+    const numeroLimpo = numeroProcesso.replace(/\D/g, ''); // Remove pontos e hífens
     
-    if (tribunal === 'TJSP') {
-      // TJSP usa o PJe Comunicações
-      url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${tribunal}&meio=D&numeroProcesso=${numeroProcesso}`;
+    // Verificar se é processo do TJPR (contém 8.16 = Justiça do Paraná)
+    const isTJPR = numeroProcesso.includes('8.16');
+    
+    if (tribunal === 'TJSP' || isTJPR) {
+      // TJSP e TJPR usam o PJe Comunicações com filtros de data
+      const siglaTribunal = isTJPR ? 'TJPR' : 'TJSP';
+      url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${siglaTribunal}`
+        + `&dataDisponibilizacaoInicio=${finalDataInicio.toISOString().split('T')[0]}`
+        + `&dataDisponibilizacaoFim=${finalDataFim.toISOString().split('T')[0]}`
+        + `&numeroProcesso=${numeroLimpo}`;
     } else {
       // Outros tribunais usam o padrão pje.{tribunal}.jus.br
       url = `https://pje.${tribunal.toLowerCase()}.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/documentoSemLoginHTML.seam?ca=`
