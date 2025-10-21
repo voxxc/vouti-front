@@ -25,6 +25,7 @@ import MetalDashboard from "@/pages/MetalDashboard";
 import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import MetalReports from "@/pages/MetalReports";
 import LinkAuth from "@/pages/LinkAuth";
+import LinkDashboard from "@/pages/LinkDashboard";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -278,9 +279,7 @@ function App() {
                 <LinkAuthProvider>
                   <ThemeProvider>
                     <LinkProtectedRoute>
-                      <div className="min-h-screen flex items-center justify-center">
-                        <h1 className="text-4xl font-bold">Vouti.bio Dashboard</h1>
-                      </div>
+                      <LinkDashboard />
                     </LinkProtectedRoute>
                   </ThemeProvider>
                 </LinkAuthProvider>
