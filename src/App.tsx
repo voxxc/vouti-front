@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
+import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useState, useEffect } from 'react';
 import Auth from "@/pages/Auth";
@@ -23,6 +24,7 @@ import MetalAuth from "@/pages/MetalAuth";
 import MetalDashboard from "@/pages/MetalDashboard";
 import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import MetalReports from "@/pages/MetalReports";
+import LinkAuth from "@/pages/LinkAuth";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -112,6 +114,34 @@ const MetalPublicRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (user) {
     return <Navigate to="/metal-dashboard" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const LinkProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useLinkAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+  
+  if (!user) {
+    return <Navigate to="/link-auth" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const LinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useLinkAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+  
+  if (user) {
+    return <Navigate to="/link-dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -234,6 +264,26 @@ function App() {
                     </ProtectedRoute>
                   </ThemeProvider>
                 </AuthProvider>
+              } />
+              
+              {/* Vouti.bio Routes - Isolated Link in Bio System */}
+              <Route path="/link-auth" element={
+                <LinkAuthProvider>
+                  <LinkPublicRoute>
+                    <LinkAuth />
+                  </LinkPublicRoute>
+                </LinkAuthProvider>
+              } />
+              <Route path="/link-dashboard" element={
+                <LinkAuthProvider>
+                  <ThemeProvider>
+                    <LinkProtectedRoute>
+                      <div className="min-h-screen flex items-center justify-center">
+                        <h1 className="text-4xl font-bold">Vouti.bio Dashboard</h1>
+                      </div>
+                    </LinkProtectedRoute>
+                  </ThemeProvider>
+                </LinkAuthProvider>
               } />
               
               {/* MetalSystem Routes - Completely separate from Mora */}
