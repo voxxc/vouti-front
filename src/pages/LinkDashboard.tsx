@@ -1,52 +1,34 @@
 import { useState, useEffect } from "react";
 import { useLinkAuth } from "@/contexts/LinkAuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { LinkItem, LinkProfile } from "@/types/link";
+import { LinkDashboardSidebar } from "@/components/Link/LinkDashboardSidebar";
+import { DashboardProBanner } from "@/components/Link/DashboardProBanner";
+import { DashboardPagePreview } from "@/components/Link/DashboardPagePreview";
+import { DashboardTipsCarousel } from "@/components/Link/DashboardTipsCarousel";
+import { LinkCard } from "@/components/Link/LinkCard";
+import { StatsCard } from "@/components/Link/StatsCard";
+import { EditLinkDialog } from "@/components/Link/EditLinkDialog";
+import { EditProfileDialog } from "@/components/Link/EditProfileDialog";
+import { ProfilePreview } from "@/components/Link/ProfilePreview";
+import { Link2, BarChart3, Eye, Plus, Palette, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { 
-  Link2, 
-  LogOut, 
-  Plus, 
-  Trash2, 
-  Eye, 
-  Edit2, 
-  BarChart3,
-  User,
-  Palette,
-  Save,
-  ExternalLink,
-  Crown
-} from "lucide-react";
-import { LinkItem } from "@/types/link";
+import { cn } from "@/lib/utils";
 
 const LinkDashboard = () => {
-  const { user, profile, isAdmin, signOut } = useLinkAuth();
+  const { profile, isAdmin, signOut } = useLinkAuth();
+  const [activeTab, setActiveTab] = useState("home");
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingProfile, setEditingProfile] = useState(false);
-  
-  // Profile form states
-  const [fullName, setFullName] = useState(profile?.full_name || "");
-  const [bio, setBio] = useState(profile?.bio || "");
-  const [themeColor, setThemeColor] = useState(profile?.theme_color || "#8B5CF6");
-
-  // New link form states
-  const [newLinkTitle, setNewLinkTitle] = useState("");
-  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem }>({ open: false });
+  const [editProfileDialog, setEditProfileDialog] = useState(false);
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name || "");
-      setBio(profile.bio || "");
-      setThemeColor(profile.theme_color || "#8B5CF6");
       loadLinks();
     }
   }, [profile]);
@@ -71,55 +53,6 @@ const LinkDashboard = () => {
     }
   };
 
-  const handleUpdateProfile = async () => {
-    if (!profile) return;
-
-    try {
-      const { error } = await supabase
-        .from('link_profiles')
-        .update({
-          full_name: fullName,
-          bio: bio,
-          theme_color: themeColor,
-        })
-        .eq('id', profile.id);
-
-      if (error) throw error;
-      toast.success('Perfil atualizado!');
-      setEditingProfile(false);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Erro ao atualizar perfil');
-    }
-  };
-
-  const handleAddLink = async () => {
-    if (!profile || !newLinkTitle || !newLinkUrl) {
-      toast.error('Preencha título e URL');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('link_items')
-        .insert({
-          profile_id: profile.id,
-          title: newLinkTitle,
-          url: newLinkUrl,
-          position: links.length,
-        });
-
-      if (error) throw error;
-      toast.success('Link adicionado!');
-      setNewLinkTitle('');
-      setNewLinkUrl('');
-      loadLinks();
-    } catch (error) {
-      console.error('Error adding link:', error);
-      toast.error('Erro ao adicionar link');
-    }
-  };
-
   const handleDeleteLink = async (linkId: string) => {
     try {
       const { error } = await supabase
@@ -136,15 +69,15 @@ const LinkDashboard = () => {
     }
   };
 
-  const handleToggleActive = async (link: LinkItem) => {
+  const handleToggleActive = async (linkId: string, newIsActive: boolean) => {
     try {
       const { error } = await supabase
         .from('link_items')
-        .update({ is_active: !link.is_active })
-        .eq('id', link.id);
+        .update({ is_active: newIsActive })
+        .eq('id', linkId);
 
       if (error) throw error;
-      toast.success(link.is_active ? 'Link desativado' : 'Link ativado');
+      toast.success(newIsActive ? 'Link ativado' : 'Link desativado');
       loadLinks();
     } catch (error) {
       console.error('Error toggling link:', error);
@@ -152,8 +85,73 @@ const LinkDashboard = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut();
+  const handleSaveLink = async (linkData: Partial<LinkItem>) => {
+    if (!profile) return;
+
+    try {
+      if (linkData.id) {
+        // Update existing link
+        const { error } = await supabase
+          .from('link_items')
+          .update({
+            title: linkData.title,
+            url: linkData.url,
+            is_active: linkData.is_active,
+          })
+          .eq('id', linkData.id);
+
+        if (error) throw error;
+        toast.success('Link atualizado!');
+      } else {
+        // Create new link
+        const { error } = await supabase
+          .from('link_items')
+          .insert({
+            profile_id: profile.id,
+            title: linkData.title,
+            url: linkData.url,
+            is_active: linkData.is_active ?? true,
+            position: links.length,
+          });
+
+        if (error) throw error;
+        toast.success('Link adicionado!');
+      }
+      loadLinks();
+    } catch (error) {
+      console.error('Error saving link:', error);
+      toast.error('Erro ao salvar link');
+      throw error;
+    }
+  };
+
+  const handleSaveProfile = async (profileData: Partial<LinkProfile>) => {
+    if (!profile) return;
+
+    try {
+      const { error } = await supabase
+        .from('link_profiles')
+        .update(profileData)
+        .eq('id', profile.id);
+
+      if (error) throw error;
+      toast.success('Perfil atualizado!');
+      
+      // Reload profile
+      const { data } = await supabase
+        .from('link_profiles')
+        .select('*')
+        .eq('id', profile.id)
+        .single();
+        
+      if (data) {
+        // Update profile in context if needed
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast.error('Erro ao salvar perfil');
+      throw error;
+    }
   };
 
   const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0);
@@ -168,373 +166,279 @@ const LinkDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                <Link2 className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Vouti.bio</h1>
-                <p className="text-sm text-muted-foreground">@{profile?.username}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <Badge variant="default" className="gap-1">
-                  <Crown className="h-3 w-3" />
-                  Admin
-                </Badge>
-              )}
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar */}
+      <LinkDashboardSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onLogout={signOut}
+        isAdmin={isAdmin}
+        username={profile?.username}
+      />
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="links" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="links">
-              <Link2 className="h-4 w-4 mr-2" />
-              Links
-            </TabsTrigger>
-            <TabsTrigger value="profile">
-              <User className="h-4 w-4 mr-2" />
-              Perfil
-            </TabsTrigger>
-            <TabsTrigger value="stats">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Stats
-            </TabsTrigger>
-          </TabsList>
+      <main className={cn("flex-1 transition-all duration-300", "ml-64")}>
+        <div className="container mx-auto px-8 py-8 max-w-7xl">
+          {/* Home Tab */}
+          {activeTab === "home" && (
+            <div className="space-y-8">
+              <DashboardProBanner />
+              <DashboardPagePreview profile={profile} />
+              <DashboardTipsCarousel />
+            </div>
+          )}
 
-          {/* Links Tab */}
-          <TabsContent value="links" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Add New Link */}
+          {/* Edit Page Tab */}
+          {activeTab === "edit" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold">Editar página</h1>
+                  <p className="text-muted-foreground mt-1">
+                    Gerencie seus links e conteúdo
+                  </p>
+                </div>
+                <Button onClick={() => setEditLinkDialog({ open: true })}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Link
+                </Button>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatsCard
+                  icon={Link2}
+                  title="Total de Links"
+                  value={links.length.toString()}
+                  description={`${activeLinks} ativos`}
+                />
+                <StatsCard
+                  icon={BarChart3}
+                  title="Total de Cliques"
+                  value={totalClicks.toString()}
+                  description="Todos os links"
+                />
+                <StatsCard
+                  icon={Eye}
+                  title="Visualizações"
+                  value="0"
+                  description="Últimos 30 dias"
+                />
+              </div>
+
+              {/* Links List */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Plus className="h-5 w-5" />
-                    Adicionar Link
-                  </CardTitle>
+                  <CardTitle>Seus Links</CardTitle>
                   <CardDescription>
-                    Crie um novo link para seu perfil
+                    Arraste para reordenar, clique para editar
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Título</Label>
-                    <Input
-                      id="title"
-                      placeholder="Meu Instagram"
-                      value={newLinkTitle}
-                      onChange={(e) => setNewLinkTitle(e.target.value)}
-                    />
+                <CardContent>
+                  <div className="space-y-3">
+                    {links.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Link2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                        <p className="text-muted-foreground mb-4">
+                          Nenhum link criado ainda
+                        </p>
+                        <Button onClick={() => setEditLinkDialog({ open: true })}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Criar primeiro link
+                        </Button>
+                      </div>
+                    ) : (
+                      links.map((link) => (
+                        <LinkCard
+                          key={link.id}
+                          link={link}
+                          onEdit={(link) => setEditLinkDialog({ open: true, link })}
+                          onDelete={handleDeleteLink}
+                          onToggleActive={handleToggleActive}
+                        />
+                      ))
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="url">URL</Label>
-                    <Input
-                      id="url"
-                      placeholder="https://instagram.com/..."
-                      value={newLinkUrl}
-                      onChange={(e) => setNewLinkUrl(e.target.value)}
-                    />
-                  </div>
-                  <Button onClick={handleAddLink} className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar
-                  </Button>
                 </CardContent>
               </Card>
+            </div>
+          )}
 
-              {/* Preview */}
-              <Card className="bg-gradient-to-br from-card to-card/50">
+          {/* Customize Tab */}
+          {activeTab === "customize" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold">Customize</h1>
+                  <p className="text-muted-foreground mt-1">
+                    Personalize a aparência da sua página
+                  </p>
+                </div>
+                <Button onClick={() => setEditProfileDialog(true)}>
+                  <Palette className="h-4 w-4 mr-2" />
+                  Editar Perfil
+                </Button>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Settings Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configurações de Aparência</CardTitle>
+                    <CardDescription>
+                      Ajuste as cores e estilo da sua página
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Cor do Tema</Label>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="h-10 w-10 rounded-lg border-2 border-border"
+                          style={{ backgroundColor: profile?.theme_color || "#8B5CF6" }}
+                        />
+                        <Input
+                          value={profile?.theme_color || "#8B5CF6"}
+                          disabled
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Preview Card */}
+                <ProfilePreview profile={profile} links={links.filter(l => l.is_active)} />
+              </div>
+            </div>
+          )}
+
+          {/* Analytics Tab */}
+          {activeTab === "analytics" && (
+            <div className="space-y-6">
+              <h1 className="text-3xl font-bold">Analytics</h1>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatsCard
+                  icon={Eye}
+                  title="Visualizações"
+                  value="0"
+                  description="Total de visitas"
+                />
+                <StatsCard
+                  icon={BarChart3}
+                  title="Cliques"
+                  value={totalClicks.toString()}
+                  description="Total de cliques"
+                />
+                <StatsCard
+                  icon={Link2}
+                  title="Links Ativos"
+                  value={activeLinks.toString()}
+                  description={`de ${links.length} total`}
+                />
+              </div>
+
+              <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Eye className="h-5 w-5" />
-                    Preview
-                  </CardTitle>
+                  <CardTitle>Desempenho dos Links</CardTitle>
                   <CardDescription>
-                    Como seu perfil aparecerá
+                    Veja quais links têm mais cliques
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex flex-col items-center gap-3">
-                      <Avatar className="h-20 w-20">
-                        <AvatarImage src={profile?.avatar_url || undefined} />
-                        <AvatarFallback className="text-2xl" style={{ backgroundColor: themeColor }}>
-                          {profile?.username?.[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="text-center">
-                        <h3 className="font-bold text-lg">{fullName || profile?.username}</h3>
-                        {bio && <p className="text-sm text-muted-foreground">{bio}</p>}
-                      </div>
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="space-y-2">
-                      {links.filter(l => l.is_active).slice(0, 3).map((link) => (
-                        <Button
-                          key={link.id}
-                          variant="outline"
-                          className="w-full"
-                          style={{ borderColor: themeColor }}
-                        >
-                          {link.title}
-                        </Button>
-                      ))}
-                      {links.filter(l => l.is_active).length === 0 && (
-                        <p className="text-center text-sm text-muted-foreground py-4">
-                          Nenhum link ativo
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Links List */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Meus Links</CardTitle>
-                <CardDescription>
-                  Gerencie seus links
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {links.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhum link criado ainda
-                    </p>
-                  ) : (
-                    links.map((link) => (
-                      <div
-                        key={link.id}
-                        className="flex items-center justify-between p-4 rounded-lg border bg-card/50"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium">{link.title}</h4>
-                            {!link.is_active && (
-                              <Badge variant="secondary" className="text-xs">Inativo</Badge>
-                            )}
+                    {links.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        Nenhum dado disponível
+                      </p>
+                    ) : (
+                      links
+                        .sort((a, b) => b.clicks - a.clicks)
+                        .map((link) => (
+                          <div key={link.id} className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{link.title}</p>
+                              <p className="text-sm text-muted-foreground">{link.url}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold">{link.clicks}</p>
+                              <p className="text-xs text-muted-foreground">cliques</p>
+                            </div>
                           </div>
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
-                          >
-                            {link.url}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {link.clicks} cliques
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleActive(link)}
-                          >
-                            <Eye className={`h-4 w-4 ${link.is_active ? '' : 'opacity-50'}`} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteLink(link.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Editar Perfil
-                  </span>
-                  {editingProfile ? (
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setEditingProfile(false)}>
-                        Cancelar
-                      </Button>
-                      <Button size="sm" onClick={handleUpdateProfile}>
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvar
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" onClick={() => setEditingProfile(true)}>
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Editar
-                    </Button>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Username</Label>
-                  <Input value={profile?.username} disabled />
-                  <p className="text-xs text-muted-foreground">
-                    Username não pode ser alterado
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Nome Completo</Label>
-                  <Input
-                    id="fullName"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    disabled={!editingProfile}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    disabled={!editingProfile}
-                    placeholder="Conte um pouco sobre você..."
-                    rows={4}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="themeColor" className="flex items-center gap-2">
-                    <Palette className="h-4 w-4" />
-                    Cor do Tema
-                  </Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="themeColor"
-                      type="color"
-                      value={themeColor}
-                      onChange={(e) => setThemeColor(e.target.value)}
-                      disabled={!editingProfile}
-                      className="w-20 h-10"
-                    />
-                    <Input
-                      value={themeColor}
-                      onChange={(e) => setThemeColor(e.target.value)}
-                      disabled={!editingProfile}
-                      className="flex-1"
-                    />
+                        ))
+                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Stats Tab */}
-          <TabsContent value="stats" className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total de Links
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{links.length}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {activeLinks} ativos
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total de Cliques
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{totalClicks}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Em todos os links
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Média de Cliques
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">
-                    {links.length > 0 ? Math.round(totalClicks / links.length) : 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Por link
-                  </p>
                 </CardContent>
               </Card>
             </div>
+          )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Links Mais Clicados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {links
-                    .sort((a, b) => b.clicks - a.clicks)
-                    .slice(0, 5)
-                    .map((link) => (
-                      <div key={link.id} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div>
-                          <h4 className="font-medium">{link.title}</h4>
-                          <p className="text-sm text-muted-foreground truncate max-w-xs">
-                            {link.url}
-                          </p>
-                        </div>
-                        <Badge variant="secondary">{link.clicks} cliques</Badge>
-                      </div>
-                    ))}
-                  {links.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhum dado disponível
+          {/* Preview Tab */}
+          {activeTab === "preview" && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h1 className="text-3xl font-bold mb-2">Preview da Página</h1>
+                <p className="text-muted-foreground">
+                  Veja como sua página aparece para os visitantes
+                </p>
+              </div>
+
+              <div className="max-w-md mx-auto">
+                <ProfilePreview profile={profile} links={links.filter(l => l.is_active)} />
+              </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === "settings" && (
+            <div className="space-y-6">
+              <h1 className="text-3xl font-bold">Ajustes</h1>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configurações da Conta</CardTitle>
+                  <CardDescription>
+                    Gerencie suas preferências
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Username</Label>
+                    <Input value={profile?.username || ""} disabled />
+                    <p className="text-xs text-muted-foreground">
+                      O username não pode ser alterado
                     </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>URL da sua página</Label>
+                    <Input 
+                      value={`https://vouti.bio/${profile?.username || ""}`} 
+                      disabled 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Dialogs */}
+      <EditLinkDialog
+        open={editLinkDialog.open}
+        link={editLinkDialog.link || null}
+        onOpenChange={(open) => setEditLinkDialog({ open })}
+        onSave={handleSaveLink}
+      />
+
+      <EditProfileDialog
+        open={editProfileDialog}
+        profile={profile}
+        onOpenChange={setEditProfileDialog}
+        onSave={handleSaveProfile}
+      />
     </div>
   );
 };
