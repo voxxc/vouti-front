@@ -83,10 +83,19 @@ const LinkAuth = () => {
       if (error) {
         toast.error(error.message || "Erro ao criar conta");
       } else {
-        toast.success("Conta criada com sucesso!");
-        setSignUpUsername("");
-        setSignUpPassword("");
-        setSignUpFullName("");
+        toast.success("Conta criada! Fazendo login...");
+        
+        // Auto-login após cadastro bem-sucedido
+        const { error: signInError } = await signIn(signUpUsername, signUpPassword);
+        
+        if (signInError) {
+          toast.error("Conta criada, mas erro ao fazer login. Tente fazer login manualmente.");
+        } else {
+          setShowTransition(true);
+          setTimeout(() => {
+            navigate("/link-dashboard");
+          }, 500);
+        }
       }
     } catch (error) {
       toast.error("Erro inesperado ao criar conta");
