@@ -17,11 +17,11 @@ const LinkAuth = () => {
   const [showTransition, setShowTransition] = useState(false);
 
   // Sign in states
-  const [signInEmail, setSignInEmail] = useState("");
+  const [signInUsername, setSignInUsername] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
   // Sign up states
-  const [signUpEmail, setSignUpEmail] = useState("");
+  const [signUpUsername, setSignUpUsername] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpFullName, setSignUpFullName] = useState("");
 
@@ -34,14 +34,14 @@ const LinkAuth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signInEmail || !signInPassword) {
+    if (!signInUsername || !signInPassword) {
       toast.error("Preencha todos os campos");
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await signIn(signInEmail, signInPassword);
+      const { error } = await signIn(signInUsername, signInPassword);
       
       if (error) {
         toast.error(error.message || "Erro ao fazer login");
@@ -61,8 +61,13 @@ const LinkAuth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signUpEmail || !signUpPassword) {
+    if (!signUpUsername || !signUpPassword) {
       toast.error("Preencha todos os campos");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(signUpUsername)) {
+      toast.error("Username deve conter apenas letras, números e underscore");
       return;
     }
 
@@ -73,13 +78,13 @@ const LinkAuth = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await signUp(signUpEmail, signUpPassword, signUpFullName);
+      const { error } = await signUp(signUpUsername, signUpPassword, signUpFullName);
       
       if (error) {
         toast.error(error.message || "Erro ao criar conta");
       } else {
-        toast.success("Conta criada! Verifique seu email para confirmar.");
-        setSignUpEmail("");
+        toast.success("Conta criada com sucesso!");
+        setSignUpUsername("");
         setSignUpPassword("");
         setSignUpFullName("");
       }
@@ -123,13 +128,13 @@ const LinkAuth = () => {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email (@vouti.bio)</Label>
+                  <Label htmlFor="signin-username">Username</Label>
                   <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="usuario@vouti.bio"
-                    value={signInEmail}
-                    onChange={(e) => setSignInEmail(e.target.value)}
+                    id="signin-username"
+                    type="text"
+                    placeholder="seu_username"
+                    value={signInUsername}
+                    onChange={(e) => setSignInUsername(e.target.value)}
                     disabled={isLoading}
                     required
                   />
@@ -155,7 +160,19 @@ const LinkAuth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome Completo</Label>
+                  <Label htmlFor="signup-username">Username</Label>
+                  <Input
+                    id="signup-username"
+                    type="text"
+                    placeholder="seu_username"
+                    value={signUpUsername}
+                    onChange={(e) => setSignUpUsername(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Nome Completo (opcional)</Label>
                   <Input
                     id="signup-name"
                     type="text"
@@ -163,18 +180,6 @@ const LinkAuth = () => {
                     value={signUpFullName}
                     onChange={(e) => setSignUpFullName(e.target.value)}
                     disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email (@vouti.bio)</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="usuario@vouti.bio"
-                    value={signUpEmail}
-                    onChange={(e) => setSignUpEmail(e.target.value)}
-                    disabled={isLoading}
-                    required
                   />
                 </div>
                 <div className="space-y-2">

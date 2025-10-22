@@ -9,8 +9,8 @@ interface LinkAuthContextType {
   profile: LinkProfile | null;
   isAdmin: boolean;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: any }>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error?: any }>;
+  signIn: (username: string, password: string) => Promise<{ error?: any }>;
+  signUp: (username: string, password: string, fullName?: string) => Promise<{ error?: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -88,16 +88,10 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (username: string, password: string) => {
     try {
-      // Validate email domain
-      if (!email.endsWith('@vouti.bio')) {
-        return { 
-          error: { 
-            message: 'Acesso restrito ao domínio @vouti.bio' 
-          } 
-        };
-      }
+      // Convert username to email format for Supabase Auth
+      const email = `${username}@vouti.bio`;
 
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -110,17 +104,10 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = async (username: string, password: string, fullName?: string) => {
     try {
-      // Validate email domain
-      if (!email.endsWith('@vouti.bio')) {
-        return { 
-          error: { 
-            message: 'Cadastro restrito ao domínio @vouti.bio' 
-          } 
-        };
-      }
-
+      // Convert username to email format for Supabase Auth
+      const email = `${username}@vouti.bio`;
       const redirectUrl = `${window.location.origin}/link-dashboard`;
 
       const { error } = await supabase.auth.signUp({
@@ -130,6 +117,7 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
+            username: username,
           },
         },
       });
