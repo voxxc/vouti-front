@@ -242,72 +242,80 @@ const LinkDashboard = () => {
         <div className="container mx-auto px-8 py-8 max-w-7xl">
           {/* Home Tab */}
           {activeTab === "home" && (
-            <div className="max-w-2xl mx-auto space-y-6">
-              {/* Header */}
-              <LinksPageHeader
-                onDesignClick={() => setActiveTab("customize")}
-                onSettingsClick={() => setActiveTab("settings")}
-              />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Side - Editing Area */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Header */}
+                <LinksPageHeader
+                  onDesignClick={() => setActiveTab("customize")}
+                  onSettingsClick={() => setActiveTab("settings")}
+                />
 
-              {/* Profile Edit Header */}
-              <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
+                {/* Profile Edit Header */}
+                <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
 
-              {/* Add Button */}
-              <Button 
-                onClick={() => setEditLinkDialog({ open: true })}
-                className="w-full h-14 text-lg bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white"
-                size="lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add
-              </Button>
-
-              {/* Actions Row */}
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  onClick={() => setAddCollectionDialog(true)}
-                  className="text-sm"
+                {/* Add Button */}
+                <Button 
+                  onClick={() => setEditLinkDialog({ open: true })}
+                  className="w-full h-14 text-lg bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white"
+                  size="lg"
                 >
-                  <LayoutList className="h-4 w-4 mr-2" />
-                  Add collection
+                  <Plus className="h-5 w-5 mr-2" />
+                  Add
                 </Button>
-                <Button variant="ghost" className="text-sm">
-                  <Archive className="h-4 w-4 mr-2" />
-                  View archive →
-                </Button>
+
+                {/* Actions Row */}
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setAddCollectionDialog(true)}
+                    className="text-sm"
+                  >
+                    <LayoutList className="h-4 w-4 mr-2" />
+                    Add collection
+                  </Button>
+                  <Button variant="ghost" className="text-sm">
+                    <Archive className="h-4 w-4 mr-2" />
+                    View archive →
+                  </Button>
+                </div>
+
+                {/* Empty State or Links */}
+                {links.length === 0 ? (
+                  <EmptyLinksState />
+                ) : (
+                  <div className="space-y-3">
+                    {unCollectedLinks.map((link) => (
+                      <LinkCard
+                        key={link.id}
+                        link={link}
+                        onEdit={() => setEditLinkDialog({ open: true, link })}
+                        onDelete={() => handleDeleteLink(link.id)}
+                        onToggleActive={() => handleToggleActive(link.id)}
+                      />
+                    ))}
+                    
+                    {/* Collections */}
+                    {collections.map((collection) => (
+                      <CollectionCard
+                        key={collection.id}
+                        collection={collection}
+                        links={links}
+                        onUpdateCollection={handleUpdateCollection}
+                        onDeleteCollection={handleDeleteCollection}
+                        onEditLink={(link) => setEditLinkDialog({ open: true, link })}
+                        onDeleteLink={handleDeleteLink}
+                        onToggleLink={handleToggleActive}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Empty State or Links */}
-              {links.length === 0 ? (
-                <EmptyLinksState />
-              ) : (
-                <div className="space-y-3">
-                  {unCollectedLinks.map((link) => (
-                    <LinkCard
-                      key={link.id}
-                      link={link}
-                      onEdit={() => setEditLinkDialog({ open: true, link })}
-                      onDelete={() => handleDeleteLink(link.id)}
-                      onToggleActive={() => handleToggleActive(link.id)}
-                    />
-                  ))}
-                  
-                  {/* Collections */}
-                  {collections.map((collection) => (
-                    <CollectionCard
-                      key={collection.id}
-                      collection={collection}
-                      links={links}
-                      onUpdateCollection={handleUpdateCollection}
-                      onDeleteCollection={handleDeleteCollection}
-                      onEditLink={(link) => setEditLinkDialog({ open: true, link })}
-                      onDeleteLink={handleDeleteLink}
-                      onToggleLink={handleToggleActive}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Right Side - Mobile Preview */}
+              <div className="lg:col-span-1">
+                <MobilePreview profile={profile!} links={links} collections={collections} />
+              </div>
             </div>
           )}
 
