@@ -23,61 +23,75 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
   return (
     <div className="sticky top-6">
       <div className="flex flex-col items-center">
-        <p className="text-sm text-muted-foreground mb-4">Preview</p>
+        <p className="text-sm font-medium text-muted-foreground mb-6">Preview ao Vivo</p>
         
         {/* Mobile Mockup */}
-        <div className="relative w-[320px] h-[640px] bg-background border-8 border-border rounded-[2.5rem] shadow-2xl overflow-hidden">
+        <div className="relative w-[320px] h-[640px] bg-gradient-to-br from-background via-background to-muted/20 border-[12px] border-sidebar-border rounded-[3rem] shadow-elegant overflow-hidden">
           {/* Notch */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-border rounded-b-2xl z-10" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-7 bg-sidebar-border rounded-b-3xl z-10 shadow-sm">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-muted rounded-full" />
+          </div>
+          
+          {/* Screen Glow Effect */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[hsl(var(--vouti-purple))]/5 via-transparent to-transparent pointer-events-none" />
           
           {/* Content */}
-          <div className="h-full overflow-y-auto p-6 pt-10 scrollbar-hide">
-            <div className="flex flex-col items-center space-y-4">
+          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide bg-gradient-to-b from-background/95 to-background">
+            <div className="flex flex-col items-center space-y-5 animate-fade-in">
               {/* Avatar */}
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={profile.avatar_url || undefined} />
-                <AvatarFallback className="text-xl bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] text-white">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] rounded-full opacity-75 blur group-hover:opacity-100 transition-opacity" />
+                <Avatar className="h-24 w-24 relative border-4 border-background shadow-lg">
+                  <AvatarImage src={profile.avatar_url || undefined} />
+                  <AvatarFallback className="text-2xl bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] text-white font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
 
               {/* Name */}
               {profile.full_name && (
-                <h1 className="text-lg font-semibold text-foreground">
+                <h1 className="text-xl font-bold text-foreground tracking-tight">
                   {profile.full_name}
                 </h1>
               )}
 
               {/* Username */}
-              <p className="text-sm text-muted-foreground">@{profile.username}</p>
+              <p className="text-sm font-medium text-muted-foreground -mt-2">@{profile.username}</p>
 
               {/* Bio */}
               {profile.bio && (
-                <p className="text-sm text-center text-foreground max-w-xs whitespace-pre-wrap">
+                <p className="text-sm text-center text-foreground/80 max-w-xs whitespace-pre-wrap leading-relaxed px-2">
                   {profile.bio}
                 </p>
               )}
 
               {/* Links sem coleção */}
               {unCollectedLinks.length > 0 && (
-                <div className="w-full space-y-3 mt-4">
-                  {unCollectedLinks.map((link) => (
-                    <Button
+                <div className="w-full space-y-3 mt-6">
+                  {unCollectedLinks.map((link, index) => (
+                    <div
                       key={link.id}
-                      variant="outline"
-                      className="w-full h-auto py-4 justify-start"
-                      asChild
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
                     >
-                      <div>
-                        <span className="truncate">{link.title}</span>
-                      </div>
-                    </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vouti-purple))]/50 group"
+                        asChild
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
+                          <span className="truncate font-medium">{link.title}</span>
+                        </div>
+                      </Button>
+                    </div>
                   ))}
                 </div>
               )}
 
               {/* Coleções */}
-              {activeCollections.map((collection) => {
+              {activeCollections.map((collection, collectionIndex) => {
                 const collectionLinks = activeLinks.filter(
                   link => link.collection_id === collection.id
                 );
@@ -85,31 +99,48 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
                 if (collectionLinks.length === 0) return null;
 
                 return (
-                  <div key={collection.id} className="w-full space-y-3 mt-6">
-                    <h2 className="text-sm font-semibold text-foreground">
-                      {collection.title}
-                    </h2>
-                    {collectionLinks.map((link) => (
-                      <Button
+                  <div 
+                    key={collection.id} 
+                    className="w-full space-y-3 mt-8 animate-fade-in"
+                    style={{ animationDelay: `${(collectionIndex + unCollectedLinks.length) * 50}ms` }}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+                      <h2 className="text-xs font-bold text-foreground/70 uppercase tracking-wider px-2">
+                        {collection.title}
+                      </h2>
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+                    </div>
+                    {collectionLinks.map((link, linkIndex) => (
+                      <div
                         key={link.id}
-                        variant="outline"
-                        className="w-full h-auto py-4 justify-start"
-                        asChild
+                        className="animate-fade-in"
+                        style={{ animationDelay: `${(collectionIndex + unCollectedLinks.length + linkIndex) * 50}ms` }}
                       >
-                        <div>
-                          <span className="truncate">{link.title}</span>
-                        </div>
-                      </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vouti-purple))]/50 group"
+                          asChild
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
+                            <span className="truncate font-medium">{link.title}</span>
+                          </div>
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 );
               })}
 
               {/* Footer */}
-              <div className="mt-8 text-center">
-                <p className="text-xs text-muted-foreground">
-                  Junte-se a {profile.username} no <span className="font-semibold">Vouti</span>
-                </p>
+              <div className="mt-12 mb-6 text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[hsl(var(--vouti-purple))]/10 to-[hsl(var(--vouti-purple-light))]/10 border border-[hsl(var(--vouti-purple))]/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] animate-pulse" />
+                  <p className="text-xs text-muted-foreground">
+                    Junte-se a <span className="font-semibold text-foreground">{profile.username}</span> no <span className="font-bold bg-gradient-to-r from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] bg-clip-text text-transparent">Vouti</span>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
