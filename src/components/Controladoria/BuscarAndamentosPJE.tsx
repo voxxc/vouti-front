@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Key } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ProjudiCredentialsSetup from './ProjudiCredentialsSetup';
 
 interface BuscarAndamentosPJEProps {
   processoId: string;
@@ -25,7 +27,37 @@ export const BuscarAndamentosPJE = ({
   const [scope, setScope] = useState<'all' | 'period'>('all');
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+  const [hasCredentials, setHasCredentials] = useState(false);
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
+  const [checkingCredentials, setCheckingCredentials] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    checkProjudiCredentials();
+  }, []);
+
+  const checkProjudiCredentials = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('projudi_credentials')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('tribunal', 'TJPR')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!error && data) {
+        setHasCredentials(true);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar credenciais:', error);
+    } finally {
+      setCheckingCredentials(false);
+    }
+  };
 
   const isDateRangeValid = () => {
     if (scope === 'all') return true;
@@ -194,26 +226,48 @@ export const BuscarAndamentosPJE = ({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          disabled={isLoading}
-          variant="default"
-          size="sm"
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            disabled={isLoading || checkingCredentials}
+            variant="default"
+            size="sm"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
+            {hasCredentials && tribunal === 'TJPR' && (
+              <span className="ml-1 text-xs">🔐</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent 
+          className="w-auto max-w-[95vw] p-0" 
+          align="start"
+          sideOffset={8}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? 'Buscando...' : 'Buscar Andamentos'}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent 
-        className="w-auto max-w-[95vw] p-0" 
-        align="start"
-        sideOffset={8}
-      >
-        <div className="p-4 space-y-4">
-          {/* Opções de escopo */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold">Período de busca</label>
+          <div className="p-4 space-y-4">
+            {/* Alert para configurar credenciais Projudi */}
+            {!hasCredentials && tribunal === 'TJPR' && (
+              <div className="bg-muted p-3 rounded-md space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Configure suas credenciais do Projudi para buscar andamentos completos automaticamente.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowCredentialsDialog(true)}
+                  className="w-full"
+                >
+                  <Key className="w-4 h-4 mr-2" />
+                  Configurar Acesso Projudi
+                </Button>
+              </div>
+            )}
+
+            {/* Opções de escopo */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Período de busca</label>
             <RadioGroup value={scope} onValueChange={(v) => setScope(v as 'all' | 'period')}>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="all" id="all" />
@@ -292,9 +346,29 @@ export const BuscarAndamentosPJE = ({
             >
               Buscar
             </Button>
+            </div>
           </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+
+      {/* Dialog para configurar credenciais */}
+      <Dialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Configurar Acesso ao Projudi TJPR</DialogTitle>
+          </DialogHeader>
+          <ProjudiCredentialsSetup 
+            onSuccess={() => {
+              setShowCredentialsDialog(false);
+              checkProjudiCredentials();
+              toast({
+                title: 'Credenciais configuradas!',
+                description: 'Agora você pode buscar andamentos automaticamente.',
+              });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

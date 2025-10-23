@@ -1504,6 +1504,45 @@ export type Database = {
         }
         Relationships: []
       }
+      projudi_credentials: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_validated: string | null
+          login_encrypted: string
+          password_encrypted: string
+          totp_secret_encrypted: string
+          tribunal: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_validated?: string | null
+          login_encrypted: string
+          password_encrypted: string
+          totp_secret_encrypted: string
+          tribunal?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_validated?: string | null
+          login_encrypted?: string
+          password_encrypted?: string
+          totp_secret_encrypted?: string
+          tribunal?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           card_color: string | null

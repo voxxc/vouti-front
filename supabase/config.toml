@@ -33,3 +33,6 @@ verify_jwt = true
 
 [functions.atualizar-andamentos-processos]
 verify_jwt = true
+
+[functions.validar-credenciais-projudi]
+verify_jwt = true
