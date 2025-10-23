@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye, RefreshCw } from "lucide-react";
+import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye, RefreshCw, Settings, XCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ProjudiCredentialsSetup from "@/components/Controladoria/ProjudiCredentialsSetup";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Controladoria = () => {
   const { toast } = useToast();
@@ -30,9 +32,33 @@ const Controladoria = () => {
     pendentesConferencia: 0
   });
   const [filtroConferencia, setFiltroConferencia] = useState<'todos' | 'pendentes' | 'conferidos'>('todos');
+  const [hasCredentials, setHasCredentials] = useState(false);
+  const [checkingCredentials, setCheckingCredentials] = useState(true);
+
+  const checkProjudiCredentials = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('projudi_credentials')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('tribunal', 'TJPR')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      setHasCredentials(!!data && !error);
+    } catch (error) {
+      console.error('Erro ao verificar credenciais:', error);
+    } finally {
+      setCheckingCredentials(false);
+    }
+  };
 
   useEffect(() => {
     fetchProcessos();
+    checkProjudiCredentials();
   }, []);
 
   useEffect(() => {
@@ -217,6 +243,10 @@ const Controladoria = () => {
               Atualizar Andamentos
             </TabsTrigger>
             <TabsTrigger value="push">PUSH - Busca Processos</TabsTrigger>
+            <TabsTrigger value="configuracoes">
+              <Settings className="h-4 w-4 mr-2" />
+              Configurações
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="processos">
@@ -354,6 +384,45 @@ const Controladoria = () => {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="configuracoes" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações do Sistema</CardTitle>
+                <CardDescription>
+                  Configure integrações e credenciais de acesso aos tribunais
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {!checkingCredentials && (
+              <Alert variant={hasCredentials ? "default" : "destructive"}>
+                <AlertDescription className="flex items-center gap-2">
+                  {hasCredentials ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Credenciais do Projudi TJPR configuradas e ativas</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4" />
+                      <span>Credenciais do Projudi TJPR não configuradas. Configure abaixo para buscar andamentos automaticamente.</span>
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <ProjudiCredentialsSetup 
+              onSuccess={() => {
+                toast({
+                  title: 'Credenciais configuradas!',
+                  description: 'Agora você pode buscar andamentos automaticamente do Projudi TJPR.',
+                });
+                checkProjudiCredentials();
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
