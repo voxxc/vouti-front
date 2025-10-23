@@ -25,6 +25,12 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
 
   const extractSecretFromQRCode = async (file: File): Promise<string | null> => {
     return new Promise((resolve) => {
+      console.log('🔍 Iniciando leitura do QR Code:', {
+        fileName: file.name,
+        fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+        fileType: file.type
+      });
+
       const reader = new FileReader();
       
       reader.onload = (e) => {
@@ -34,6 +40,7 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
           const ctx = canvas.getContext('2d');
           
           if (!ctx) {
+            console.error('❌ Erro ao criar contexto do canvas');
             resolve(null);
             return;
           }
@@ -42,27 +49,58 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
 
+          console.log('📐 Dimensões da imagem:', {
+            width: img.width,
+            height: img.height
+          });
+
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, imageData.width, imageData.height);
 
           if (code) {
+            console.log('📋 QR Code detectado:', code.data.substring(0, 50) + '...');
+            
+            // Validar formato otpauth
+            if (!code.data.startsWith('otpauth://totp/')) {
+              console.error('❌ QR Code inválido. Esperado formato: otpauth://totp/...');
+              console.error('Recebido:', code.data.substring(0, 100));
+              toast.error('QR Code não é do Google Authenticator');
+              resolve(null);
+              return;
+            }
+
             // QR code format: otpauth://totp/Projudi:email?secret=XXXXX&issuer=Projudi
             const match = code.data.match(/secret=([A-Z2-7]+)/i);
             if (match && match[1]) {
+              console.log('✅ Secret extraído com sucesso:', {
+                secretLength: match[1].length,
+                secretPreview: match[1].substring(0, 8) + '...'
+              });
               resolve(match[1]);
             } else {
+              console.error('❌ Secret não encontrado no QR Code');
+              console.error('Conteúdo do QR:', code.data);
+              toast.error('QR Code não contém o código secreto esperado');
               resolve(null);
             }
           } else {
+            console.error('❌ Nenhum QR Code detectado na imagem');
+            console.error('Verifique se a imagem está clara e completa');
             resolve(null);
           }
         };
         
-        img.onerror = () => resolve(null);
+        img.onerror = () => {
+          console.error('❌ Erro ao carregar a imagem');
+          resolve(null);
+        };
         img.src = e.target?.result as string;
       };
 
-      reader.onerror = () => resolve(null);
+      reader.onerror = () => {
+        console.error('❌ Erro ao ler o arquivo');
+        resolve(null);
+      };
       reader.readAsDataURL(file);
     });
   };
@@ -70,6 +108,24 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validar tamanho máximo (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Tamanho máximo: 5MB');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, envie uma imagem válida (PNG, JPG, etc.)');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     setQrCodeFile(file);
     setIsProcessing(true);
@@ -84,12 +140,12 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
         toast.success('QR Code lido com sucesso!');
       } else {
         setQrCodeStatus('error');
-        toast.error('Não foi possível ler o QR Code. Tente outra imagem.');
+        toast.error('Não foi possível ler o QR Code. Use o campo manual abaixo.');
       }
     } catch (error) {
       console.error('Erro ao processar QR code:', error);
       setQrCodeStatus('error');
-      toast.error('Erro ao processar QR Code');
+      toast.error('Erro ao processar QR Code. Use o campo manual abaixo.');
     } finally {
       setIsProcessing(false);
     }
@@ -220,11 +276,50 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
               <Loader2 className="w-5 h-5 text-muted-foreground mt-2 animate-spin" />
             )}
           </div>
+          
+          {/* Preview da imagem */}
+          {qrCodeFile && (
+            <div className="border rounded-lg p-2 bg-muted/50">
+              <p className="text-xs text-muted-foreground mb-2">Preview do QR Code:</p>
+              <img 
+                src={URL.createObjectURL(qrCodeFile)} 
+                alt="QR Code Preview"
+                className="max-w-[200px] mx-auto rounded"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Campo Manual para Secret (Fallback) */}
+        <div className="space-y-2">
+          <Label htmlFor="manual-secret" className="flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Código Secreto (Alternativa Manual)
+          </Label>
+          <Input
+            id="manual-secret"
+            type="text"
+            placeholder="Digite o código secreto (16-32 caracteres): ABCD1234..."
+            value={totpSecret}
+            onChange={(e) => {
+              const value = e.target.value.toUpperCase().replace(/[^A-Z2-7]/g, '');
+              setTotpSecret(value);
+              if (value.length >= 16) {
+                setQrCodeStatus('success');
+              }
+            }}
+            disabled={isSaving}
+            maxLength={32}
+            className="font-mono"
+          />
           {totpSecret && (
             <p className="text-xs text-muted-foreground">
-              ✅ Segredo TOTP detectado: {totpSecret.substring(0, 8)}...
+              ✅ Segredo TOTP: {totpSecret.length} caracteres ({totpSecret.substring(0, 8)}...)
             </p>
           )}
+          <p className="text-xs text-muted-foreground">
+            💡 Use este campo se o upload do QR Code não funcionar. Cole o código secreto exibido no Projudi.
+          </p>
         </div>
 
         {/* Instruções */}
