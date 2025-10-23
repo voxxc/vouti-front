@@ -243,10 +243,8 @@ const LinkDashboard = () => {
         <div className="container mx-auto px-8 py-8 max-w-7xl">
           {/* Home Tab */}
           {activeTab === "home" && (
-            <div className="space-y-8">
-              <DashboardProBanner />
-              <DashboardPagePreview profile={profile} />
-              <DashboardTipsCarousel />
+            <div className="space-y-6">
+              {/* Página limpa */}
             </div>
           )}
 
