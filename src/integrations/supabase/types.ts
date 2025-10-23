@@ -1300,7 +1300,7 @@ export type Database = {
           campo_alterado: string | null
           created_at: string | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           processo_id: string
           user_agent: string | null
           user_id: string | null
@@ -1312,7 +1312,7 @@ export type Database = {
           campo_alterado?: string | null
           created_at?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           processo_id: string
           user_agent?: string | null
           user_id?: string | null
@@ -1324,7 +1324,7 @@ export type Database = {
           campo_alterado?: string | null
           created_at?: string | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           processo_id?: string
           user_agent?: string | null
           user_id?: string | null
@@ -2019,10 +2019,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      atualizar_status_parcelas: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      atualizar_status_parcelas: { Args: never; Returns: undefined }
       create_project_notification: {
         Args: {
           notification_content: string

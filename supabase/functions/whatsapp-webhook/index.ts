@@ -6,6 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Validate webhook data structure
+function validateWebhookData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  if (!data.type || typeof data.type !== 'string') return false;
+  if (!data.instanceId || typeof data.instanceId !== 'string') return false;
+  if (data.instanceId.length > 100) return false;
+  
+  // Validate based on type
+  if (data.type === 'ReceivedCallback' || data.type === 'message') {
+    if (!data.phone || typeof data.phone !== 'string') return false;
+    if (!/^\d{10,15}$/.test(data.phone)) return false; // Valid phone format
+    if (data.text?.message && data.text.message.length > 10000) return false;
+  }
+  
+  return true;
+}
+
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -18,6 +35,16 @@ serve(async (req) => {
 
   try {
     const webhookData = await req.json();
+    
+    // Validate input data
+    if (!validateWebhookData(webhookData)) {
+      console.error('Invalid webhook data received');
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook data format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log('Received webhook data:', JSON.stringify(webhookData, null, 2));
 
     const { type, instanceId, fromMe } = webhookData;
