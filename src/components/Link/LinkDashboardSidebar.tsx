@@ -46,7 +46,7 @@ export const LinkDashboardSidebar = ({
           </div>
           {!isMinimized && (
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold truncate">Vouti.bio</h1>
+              <h1 className="text-xl font-bold truncate">Vouti</h1>
               {username && (
                 <p className="text-xs text-muted-foreground truncate">@{username}</p>
               )}
@@ -87,12 +87,12 @@ export const LinkDashboardSidebar = ({
       <div className="p-4 space-y-3">
         {!isMinimized && (
           <>
-            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-4 space-y-2">
-              <p className="text-sm font-medium">Use o Vouti.bio Pro</p>
+            <div className="bg-gradient-to-br from-[hsl(var(--vouti-purple))]/10 to-[hsl(var(--vouti-purple))]/5 rounded-lg p-4 space-y-2">
+              <p className="text-sm font-medium">Use o Vouti Pro</p>
               <p className="text-xs text-muted-foreground">
                 Explore as novidades e acelerar seu crescimento
               </p>
-              <Button size="sm" className="w-full gap-2">
+              <Button size="sm" className="w-full gap-2 bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white">
                 <Crown className="h-4 w-4" />
                 Teste o Pro Grátis ⚡
               </Button>

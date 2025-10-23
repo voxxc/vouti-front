@@ -20,7 +20,7 @@ export const DashboardPagePreview = ({ profile }: DashboardPagePreviewProps) => 
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: `Vouti.bio - ${profile?.full_name || profile?.username}`,
+        title: `Vouti - ${profile?.full_name || profile?.username}`,
         url: `https://${pageUrl}`,
       });
     } else {

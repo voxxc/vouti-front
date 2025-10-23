@@ -119,8 +119,8 @@ const LinkAuth = () => {
               <Link2 className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-3xl text-center font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Vouti.bio
+          <CardTitle className="text-3xl text-center font-bold bg-gradient-to-r from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] bg-clip-text text-transparent">
+            Vouti
           </CardTitle>
           <CardDescription className="text-center text-base">
             Sistema de Links na Bio

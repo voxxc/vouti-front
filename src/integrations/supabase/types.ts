@@ -432,198 +432,6 @@ export type Database = {
           },
         ]
       }
-      dental_consultas: {
-        Row: {
-          created_at: string | null
-          data_hora: string
-          dentista_id: string | null
-          id: string
-          observacoes: string | null
-          paciente_id: string | null
-          status: string | null
-          tipo: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          data_hora: string
-          dentista_id?: string | null
-          id?: string
-          observacoes?: string | null
-          paciente_id?: string | null
-          status?: string | null
-          tipo?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          data_hora?: string
-          dentista_id?: string | null
-          id?: string
-          observacoes?: string | null
-          paciente_id?: string | null
-          status?: string | null
-          tipo?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dental_consultas_dentista_id_fkey"
-            columns: ["dentista_id"]
-            isOneToOne: false
-            referencedRelation: "dental_profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "dental_consultas_paciente_id_fkey"
-            columns: ["paciente_id"]
-            isOneToOne: false
-            referencedRelation: "dental_pacientes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dental_pacientes: {
-        Row: {
-          convenio: string | null
-          cpf: string | null
-          created_at: string | null
-          data_nascimento: string | null
-          endereco: string | null
-          id: string
-          telefone: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          convenio?: string | null
-          cpf?: string | null
-          created_at?: string | null
-          data_nascimento?: string | null
-          endereco?: string | null
-          id?: string
-          telefone?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          convenio?: string | null
-          cpf?: string | null
-          created_at?: string | null
-          data_nascimento?: string | null
-          endereco?: string | null
-          id?: string
-          telefone?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      dental_profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string | null
-          crm: string | null
-          email: string
-          especialidade: string | null
-          full_name: string | null
-          id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string | null
-          crm?: string | null
-          email: string
-          especialidade?: string | null
-          full_name?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string | null
-          crm?: string | null
-          email?: string
-          especialidade?: string | null
-          full_name?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      dental_prontuarios: {
-        Row: {
-          anamnese: string | null
-          created_at: string | null
-          data_consulta: string
-          dentista_id: string | null
-          diagnostico: string | null
-          id: string
-          paciente_id: string | null
-          proximas_etapas: string | null
-          tratamento_realizado: string | null
-        }
-        Insert: {
-          anamnese?: string | null
-          created_at?: string | null
-          data_consulta: string
-          dentista_id?: string | null
-          diagnostico?: string | null
-          id?: string
-          paciente_id?: string | null
-          proximas_etapas?: string | null
-          tratamento_realizado?: string | null
-        }
-        Update: {
-          anamnese?: string | null
-          created_at?: string | null
-          data_consulta?: string
-          dentista_id?: string | null
-          diagnostico?: string | null
-          id?: string
-          paciente_id?: string | null
-          proximas_etapas?: string | null
-          tratamento_realizado?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dental_prontuarios_dentista_id_fkey"
-            columns: ["dentista_id"]
-            isOneToOne: false
-            referencedRelation: "dental_profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "dental_prontuarios_paciente_id_fkey"
-            columns: ["paciente_id"]
-            isOneToOne: false
-            referencedRelation: "dental_pacientes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dental_user_roles: {
-        Row: {
-          created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["dental_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          role: Database["public"]["Enums"]["dental_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["dental_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
       etiquetas: {
         Row: {
           cor: string | null
@@ -764,9 +572,45 @@ export type Database = {
         }
         Relationships: []
       }
+      link_collections: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          position: number | null
+          profile_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          profile_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          profile_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_collections_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "link_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       link_items: {
         Row: {
           clicks: number | null
+          collection_id: string | null
           created_at: string | null
           icon: string | null
           id: string
@@ -778,6 +622,7 @@ export type Database = {
         }
         Insert: {
           clicks?: number | null
+          collection_id?: string | null
           created_at?: string | null
           icon?: string | null
           id?: string
@@ -789,6 +634,7 @@ export type Database = {
         }
         Update: {
           clicks?: number | null
+          collection_id?: string | null
           created_at?: string | null
           icon?: string | null
           id?: string
@@ -799,6 +645,13 @@ export type Database = {
           url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "link_items_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "link_collections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "link_items_profile_id_fkey"
             columns: ["profile_id"]

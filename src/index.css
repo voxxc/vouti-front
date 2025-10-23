@@ -60,6 +60,11 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 222 47% 11%;
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 221 83% 53%;
+    
+    /* Vouti specific colors */
+    --vouti-purple: 262 83% 58%;
+    --vouti-purple-light: 262 83% 68%;
+    --vouti-purple-dark: 262 83% 48%;
   }
 
   .dark {

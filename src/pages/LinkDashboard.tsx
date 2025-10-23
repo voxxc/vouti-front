@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLinkAuth } from "@/contexts/LinkAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LinkItem, LinkProfile } from "@/types/link";
+import { LinkItem, LinkProfile, LinkCollection } from "@/types/link";
 import { LinkDashboardSidebar } from "@/components/Link/LinkDashboardSidebar";
 import { DashboardProBanner } from "@/components/Link/DashboardProBanner";
 import { DashboardPagePreview } from "@/components/Link/DashboardPagePreview";
@@ -12,42 +12,57 @@ import { StatsCard } from "@/components/Link/StatsCard";
 import { EditLinkDialog } from "@/components/Link/EditLinkDialog";
 import { EditProfileDialog } from "@/components/Link/EditProfileDialog";
 import { ProfilePreview } from "@/components/Link/ProfilePreview";
-import { Link2, BarChart3, Eye, Plus, Palette, Settings } from "lucide-react";
+import { ProfileEditHeader } from "@/components/Link/ProfileEditHeader";
+import { MobilePreview } from "@/components/Link/MobilePreview";
+import { CollectionCard } from "@/components/Link/CollectionCard";
+import { AddCollectionDialog } from "@/components/Link/AddCollectionDialog";
+import { Link2, BarChart3, Eye, Plus, Palette, Settings, LayoutList, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const LinkDashboard = () => {
   const { profile, isAdmin, signOut } = useLinkAuth();
   const [activeTab, setActiveTab] = useState("home");
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [collections, setCollections] = useState<LinkCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
+  const [addCollectionDialog, setAddCollectionDialog] = useState(false);
 
   useEffect(() => {
     if (profile) {
-      loadLinks();
+      loadData();
     }
   }, [profile]);
 
-  const loadLinks = async () => {
+  const loadData = async () => {
     if (!profile) return;
     
     try {
-      const { data, error } = await supabase
+      // Load links
+      const { data: linksData, error: linksError } = await supabase
         .from('link_items')
         .select('*')
         .eq('profile_id', profile.id)
         .order('position');
 
-      if (error) throw error;
-      setLinks(data || []);
+      if (linksError) throw linksError;
+      setLinks(linksData || []);
+
+      // Load collections
+      const { data: collectionsData, error: collectionsError } = await supabase
+        .from('link_collections')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('position');
+
+      if (collectionsError) throw collectionsError;
+      setCollections(collectionsData || []);
     } catch (error) {
-      console.error('Error loading links:', error);
-      toast.error('Erro ao carregar links');
+      console.error('Error loading data:', error);
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -62,23 +77,26 @@ const LinkDashboard = () => {
 
       if (error) throw error;
       toast.success('Link removido!');
-      loadLinks();
+      loadData();
     } catch (error) {
       console.error('Error deleting link:', error);
       toast.error('Erro ao remover link');
     }
   };
 
-  const handleToggleActive = async (linkId: string, newIsActive: boolean) => {
+  const handleToggleActive = async (linkId: string) => {
     try {
+      const link = links.find(l => l.id === linkId);
+      if (!link) return;
+
       const { error } = await supabase
         .from('link_items')
-        .update({ is_active: newIsActive })
+        .update({ is_active: !link.is_active })
         .eq('id', linkId);
 
       if (error) throw error;
-      toast.success(newIsActive ? 'Link ativado' : 'Link desativado');
-      loadLinks();
+      toast.success(!link.is_active ? 'Link ativado' : 'Link desativado');
+      loadData();
     } catch (error) {
       console.error('Error toggling link:', error);
       toast.error('Erro ao atualizar link');
@@ -117,7 +135,7 @@ const LinkDashboard = () => {
         if (error) throw error;
         toast.success('Link adicionado!');
       }
-      loadLinks();
+      loadData();
     } catch (error) {
       console.error('Error saving link:', error);
       toast.error('Erro ao salvar link');
@@ -136,17 +154,7 @@ const LinkDashboard = () => {
 
       if (error) throw error;
       toast.success('Perfil atualizado!');
-      
-      // Reload profile
-      const { data } = await supabase
-        .from('link_profiles')
-        .select('*')
-        .eq('id', profile.id)
-        .single();
-        
-      if (data) {
-        // Update profile in context if needed
-      }
+      window.location.reload();
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Erro ao salvar perfil');
@@ -154,8 +162,62 @@ const LinkDashboard = () => {
     }
   };
 
+  const handleSaveCollection = async (title: string) => {
+    if (!profile) return;
+
+    try {
+      const { error } = await supabase
+        .from('link_collections')
+        .insert({
+          profile_id: profile.id,
+          title,
+          position: collections.length,
+        });
+
+      if (error) throw error;
+      toast.success('Coleção criada!');
+      loadData();
+    } catch (error) {
+      console.error('Error creating collection:', error);
+      toast.error('Erro ao criar coleção');
+    }
+  };
+
+  const handleUpdateCollection = async (id: string, updates: Partial<LinkCollection>) => {
+    try {
+      const { error } = await supabase
+        .from('link_collections')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Coleção atualizada!');
+      loadData();
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      toast.error('Erro ao atualizar coleção');
+    }
+  };
+
+  const handleDeleteCollection = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('link_collections')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Coleção removida!');
+      loadData();
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      toast.error('Erro ao remover coleção');
+    }
+  };
+
   const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0);
   const activeLinks = links.filter(l => l.is_active).length;
+  const unCollectedLinks = links.filter(l => !l.collection_id);
 
   if (loading) {
     return (
@@ -188,20 +250,120 @@ const LinkDashboard = () => {
             </div>
           )}
 
-          {/* Edit Page Tab */}
+          {/* Edit Page Tab - NOVO LAYOUT */}
           {activeTab === "edit" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Side - Editing Area */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Header */}
                 <div>
-                  <h1 className="text-3xl font-bold">Editar página</h1>
+                  <h1 className="text-3xl font-bold">Editar Perfil</h1>
                   <p className="text-muted-foreground mt-1">
-                    Gerencie seus links e conteúdo
+                    Personalize seu perfil e organize seus links
                   </p>
                 </div>
-                <Button onClick={() => setEditLinkDialog({ open: true })}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Link
+
+                {/* Profile Edit Header */}
+                <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
+
+                {/* Add Button */}
+                <Button 
+                  onClick={() => setEditLinkDialog({ open: true })}
+                  className="w-full h-14 text-lg bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Add
                 </Button>
+
+                {/* Links sem coleção */}
+                {unCollectedLinks.length > 0 && (
+                  <div className="space-y-3">
+                    {unCollectedLinks.map((link) => (
+                      <LinkCard
+                        key={link.id}
+                        link={link}
+                        onEdit={() => setEditLinkDialog({ open: true, link })}
+                        onDelete={() => handleDeleteLink(link.id)}
+                        onToggleActive={() => handleToggleActive(link.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Collections */}
+                {collections.map((collection) => (
+                  <CollectionCard
+                    key={collection.id}
+                    collection={collection}
+                    links={links}
+                    onUpdateCollection={handleUpdateCollection}
+                    onDeleteCollection={handleDeleteCollection}
+                    onEditLink={(link) => setEditLinkDialog({ open: true, link })}
+                    onDeleteLink={handleDeleteLink}
+                    onToggleLink={handleToggleActive}
+                  />
+                ))}
+
+                {/* Add Collection Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setAddCollectionDialog(true)}
+                  className="w-full border-dashed"
+                >
+                  <LayoutList className="h-4 w-4 mr-2" />
+                  Adicionar Coleção
+                </Button>
+
+                {/* View Archive Button */}
+                <Button variant="ghost" className="w-full">
+                  <Archive className="h-4 w-4 mr-2" />
+                  Ver Arquivados ({links.filter(l => !l.is_active).length})
+                </Button>
+              </div>
+
+              {/* Right Side - Mobile Preview */}
+              <div className="lg:col-span-1">
+                <MobilePreview profile={profile!} links={links} collections={collections} />
+              </div>
+            </div>
+          )}
+
+          {/* Customize Tab */}
+          {activeTab === "customize" && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold">Customize</h1>
+                <p className="text-muted-foreground mt-1">
+                  Personalize a aparência do seu perfil
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Perfil</CardTitle>
+                  <CardDescription>
+                    Atualize suas informações de perfil
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => setEditProfileDialog(true)}>
+                    <Palette className="h-4 w-4 mr-2" />
+                    Editar Perfil
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Analytics Tab */}
+          {activeTab === "analytics" && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold">Analytics</h1>
+                <p className="text-muted-foreground mt-1">
+                  Acompanhe o desempenho dos seus links
+                </p>
               </div>
 
               {/* Stats Cards */}
@@ -226,147 +388,34 @@ const LinkDashboard = () => {
                 />
               </div>
 
-              {/* Links List */}
+              {/* Links Performance */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Seus Links</CardTitle>
+                  <CardTitle>Performance dos Links</CardTitle>
                   <CardDescription>
-                    Arraste para reordenar, clique para editar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {links.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Link2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                        <p className="text-muted-foreground mb-4">
-                          Nenhum link criado ainda
-                        </p>
-                        <Button onClick={() => setEditLinkDialog({ open: true })}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Criar primeiro link
-                        </Button>
-                      </div>
-                    ) : (
-                      links.map((link) => (
-                        <LinkCard
-                          key={link.id}
-                          link={link}
-                          onEdit={(link) => setEditLinkDialog({ open: true, link })}
-                          onDelete={handleDeleteLink}
-                          onToggleActive={handleToggleActive}
-                        />
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Customize Tab */}
-          {activeTab === "customize" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold">Customize</h1>
-                  <p className="text-muted-foreground mt-1">
-                    Personalize a aparência da sua página
-                  </p>
-                </div>
-                <Button onClick={() => setEditProfileDialog(true)}>
-                  <Palette className="h-4 w-4 mr-2" />
-                  Editar Perfil
-                </Button>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Settings Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Configurações de Aparência</CardTitle>
-                    <CardDescription>
-                      Ajuste as cores e estilo da sua página
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Cor do Tema</Label>
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="h-10 w-10 rounded-lg border-2 border-border"
-                          style={{ backgroundColor: profile?.theme_color || "#8B5CF6" }}
-                        />
-                        <Input
-                          value={profile?.theme_color || "#8B5CF6"}
-                          disabled
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Preview Card */}
-                <ProfilePreview profile={profile} links={links.filter(l => l.is_active)} />
-              </div>
-            </div>
-          )}
-
-          {/* Analytics Tab */}
-          {activeTab === "analytics" && (
-            <div className="space-y-6">
-              <h1 className="text-3xl font-bold">Analytics</h1>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatsCard
-                  icon={Eye}
-                  title="Visualizações"
-                  value="0"
-                  description="Total de visitas"
-                />
-                <StatsCard
-                  icon={BarChart3}
-                  title="Cliques"
-                  value={totalClicks.toString()}
-                  description="Total de cliques"
-                />
-                <StatsCard
-                  icon={Link2}
-                  title="Links Ativos"
-                  value={activeLinks.toString()}
-                  description={`de ${links.length} total`}
-                />
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Desempenho dos Links</CardTitle>
-                  <CardDescription>
-                    Veja quais links têm mais cliques
+                    Cliques por link
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {links.length === 0 ? (
+                    {links.map((link) => (
+                      <div key={link.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{link.title}</p>
+                          <p className="text-sm text-muted-foreground truncate max-w-xs">
+                            {link.url}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">{link.clicks}</p>
+                          <p className="text-xs text-muted-foreground">cliques</p>
+                        </div>
+                      </div>
+                    ))}
+                    {links.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">
-                        Nenhum dado disponível
+                        Nenhum link para analisar
                       </p>
-                    ) : (
-                      links
-                        .sort((a, b) => b.clicks - a.clicks)
-                        .map((link) => (
-                          <div key={link.id} className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{link.title}</p>
-                              <p className="text-sm text-muted-foreground">{link.url}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold">{link.clicks}</p>
-                              <p className="text-xs text-muted-foreground">cliques</p>
-                            </div>
-                          </div>
-                        ))
                     )}
                   </div>
                 </CardContent>
@@ -376,47 +425,33 @@ const LinkDashboard = () => {
 
           {/* Preview Tab */}
           {activeTab === "preview" && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h1 className="text-3xl font-bold mb-2">Preview da Página</h1>
-                <p className="text-muted-foreground">
-                  Veja como sua página aparece para os visitantes
-                </p>
-              </div>
-
-              <div className="max-w-md mx-auto">
-                <ProfilePreview profile={profile} links={links.filter(l => l.is_active)} />
-              </div>
+            <div className="max-w-md mx-auto">
+              <ProfilePreview profile={profile!} links={links.filter(l => l.is_active)} />
             </div>
           )}
 
           {/* Settings Tab */}
           {activeTab === "settings" && (
             <div className="space-y-6">
-              <h1 className="text-3xl font-bold">Ajustes</h1>
-              
+              <div>
+                <h1 className="text-3xl font-bold">Ajustes</h1>
+                <p className="text-muted-foreground mt-1">
+                  Gerencie suas configurações de conta
+                </p>
+              </div>
+
               <Card>
                 <CardHeader>
-                  <CardTitle>Configurações da Conta</CardTitle>
-                  <CardDescription>
-                    Gerencie suas preferências
-                  </CardDescription>
+                  <CardTitle>Informações da Conta</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Username</Label>
-                    <Input value={profile?.username || ""} disabled />
-                    <p className="text-xs text-muted-foreground">
-                      O username não pode ser alterado
-                    </p>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Username</p>
+                    <p className="font-medium">@{profile?.username}</p>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label>URL da sua página</Label>
-                    <Input 
-                      value={`https://vouti.bio/${profile?.username || ""}`} 
-                      disabled 
-                    />
+                  <div>
+                    <p className="text-sm text-muted-foreground">URL do Perfil</p>
+                    <p className="font-medium">vouti.bio/{profile?.username}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -427,17 +462,23 @@ const LinkDashboard = () => {
 
       {/* Dialogs */}
       <EditLinkDialog
-        open={editLinkDialog.open}
         link={editLinkDialog.link || null}
+        open={editLinkDialog.open}
         onOpenChange={(open) => setEditLinkDialog({ open })}
         onSave={handleSaveLink}
       />
 
       <EditProfileDialog
+        profile={profile!}
         open={editProfileDialog}
-        profile={profile}
         onOpenChange={setEditProfileDialog}
         onSave={handleSaveProfile}
+      />
+
+      <AddCollectionDialog
+        open={addCollectionDialog}
+        onOpenChange={setAddCollectionDialog}
+        onSave={handleSaveCollection}
       />
     </div>
   );

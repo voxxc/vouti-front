@@ -12,6 +12,15 @@ export interface LinkProfile {
   updated_at: string;
 }
 
+export interface LinkCollection {
+  id: string;
+  profile_id: string;
+  title: string;
+  is_active: boolean;
+  position: number;
+  created_at: string;
+}
+
 export interface LinkItem {
   id: string;
   profile_id: string;
@@ -22,6 +31,7 @@ export interface LinkItem {
   position: number;
   clicks: number;
   created_at: string;
+  collection_id: string | null;
 }
 
 export interface LinkUserRole {
