@@ -152,8 +152,11 @@ const LinkDashboard = () => {
         .eq('id', profile.id);
 
       if (error) throw error;
+      
+      // Atualizar profile localmente para preview em tempo real
+      await loadData();
+      
       toast.success('Perfil atualizado!');
-      window.location.reload();
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Erro ao salvar perfil');
