@@ -30,6 +30,7 @@ export const BuscarAndamentosPJE = ({
   const [hasCredentials, setHasCredentials] = useState(false);
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
   const [checkingCredentials, setCheckingCredentials] = useState(true);
+  const [fonte, setFonte] = useState<'pje' | 'projudi'>('pje');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,33 +70,38 @@ export const BuscarAndamentosPJE = ({
     setIsLoading(true);
     
     try {
-      const body: any = {
-        processos: [numeroProcesso],
-        tribunal: tribunal,
-      };
+      // Escolher função baseada na fonte selecionada
+      const functionName = fonte === 'projudi' && hasCredentials && tribunal === 'TJPR'
+        ? 'buscar-andamentos-projudi'
+        : 'buscar-processos-lote';
 
-      // Adicionar filtro de data se selecionado
-      if (scope === 'period' && dataInicio && dataFim) {
-        body.dataInicio = dataInicio.toISOString().split('T')[0];
-        body.dataFim = dataFim.toISOString().split('T')[0];
-        console.log('🔍 Iniciando busca de andamentos com filtro de período:', {
-          processoId,
-          numeroProcesso,
-          tribunal,
-          dataInicio: body.dataInicio,
-          dataFim: body.dataFim,
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        console.log('🔍 Iniciando busca de andamentos (todo o histórico):', {
-          processoId,
-          numeroProcesso,
-          tribunal,
-          timestamp: new Date().toISOString()
-        });
-      }
+      const body: any = fonte === 'projudi' 
+        ? {
+            processoId,
+            numeroProcesso,
+            ...(scope === 'period' && dataInicio && dataFim && {
+              dataInicio: dataInicio.toISOString().split('T')[0],
+              dataFim: dataFim.toISOString().split('T')[0],
+            })
+          }
+        : {
+            processos: [numeroProcesso],
+            tribunal: tribunal,
+            ...(scope === 'period' && dataInicio && dataFim && {
+              dataInicio: dataInicio.toISOString().split('T')[0],
+              dataFim: dataFim.toISOString().split('T')[0],
+            })
+          };
 
-      const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
+      console.log(`🔍 Iniciando busca via ${functionName}:`, {
+        processoId,
+        numeroProcesso,
+        tribunal,
+        fonte,
+        timestamp: new Date().toISOString()
+      });
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body,
       });
 
@@ -110,7 +116,8 @@ export const BuscarAndamentosPJE = ({
         throw error;
       }
 
-      const processo = data?.processos?.[0];
+      // Processar resposta baseado na fonte
+      const processo = fonte === 'projudi' ? data?.processo : data?.processos?.[0];
       
       console.log('📋 Processo retornado:', {
         encontrado: !!processo,
@@ -189,7 +196,11 @@ export const BuscarAndamentosPJE = ({
       }
 
       // Feedback detalhado
-      const fonteNome = processo.fonte === 'datajud_api' ? 'DataJud API' : 'PJe Comunicações';
+      const fonteNome = processo.fonte === 'projudi_autenticado' 
+        ? 'Projudi (Autenticado) 🔐' 
+        : processo.fonte === 'datajud_api' 
+          ? 'DataJud API' 
+          : 'PJe Comunicações';
       const totalEncontradas = processo.movimentacoes.length;
       
       let descricao = `${fonteNome}: ${totalEncontradas} movimentações encontradas`;
@@ -262,6 +273,27 @@ export const BuscarAndamentosPJE = ({
                   <Key className="w-4 h-4 mr-2" />
                   Configurar Acesso Projudi
                 </Button>
+              </div>
+            )}
+
+            {/* Seletor de fonte (apenas para TJPR com credenciais) */}
+            {hasCredentials && tribunal === 'TJPR' && (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Fonte de dados</label>
+                <RadioGroup value={fonte} onValueChange={(v) => setFonte(v as 'pje' | 'projudi')}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="pje" id="pje" />
+                    <label htmlFor="pje" className="text-sm cursor-pointer">
+                      PJe / DataJud (Público)
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="projudi" id="projudi" />
+                    <label htmlFor="projudi" className="text-sm cursor-pointer">
+                      Projudi (Autenticado) 🔐
+                    </label>
+                  </div>
+                </RadioGroup>
               </div>
             )}
 

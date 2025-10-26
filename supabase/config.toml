@@ -36,3 +36,6 @@ verify_jwt = true
 
 [functions.validar-credenciais-projudi]
 verify_jwt = true
+
+[functions.buscar-andamentos-projudi]
+verify_jwt = true
