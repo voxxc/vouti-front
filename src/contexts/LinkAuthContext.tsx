@@ -91,7 +91,7 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const signIn = async (username: string, password: string) => {
     try {
       // Convert username to email format for Supabase Auth
-      const email = `${username}@vouti.bio`;
+      const email = `${username}@vlink.bio`;
 
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -107,7 +107,7 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const signUp = async (username: string, password: string, fullName?: string) => {
     try {
       // Convert username to email format for Supabase Auth
-      const email = `${username}@vouti.bio`;
+      const email = `${username}@vlink.bio`;
       const redirectUrl = `${window.location.origin}/link-dashboard`;
 
       const { error } = await supabase.auth.signUp({

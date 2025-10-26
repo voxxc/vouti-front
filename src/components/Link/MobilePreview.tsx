@@ -33,17 +33,17 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
           </div>
           
           {/* Screen Glow Effect */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[hsl(var(--vouti-purple))]/5 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[hsl(var(--vlink-purple))]/5 via-transparent to-transparent pointer-events-none" />
           
           {/* Content */}
           <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide bg-gradient-to-b from-background/95 to-background">
             <div className="flex flex-col items-center space-y-5 animate-fade-in">
               {/* Avatar */}
               <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] rounded-full opacity-75 blur group-hover:opacity-100 transition-opacity" />
+                <div className="absolute -inset-1 bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] rounded-full opacity-75 blur group-hover:opacity-100 transition-opacity" />
                 <Avatar className="h-24 w-24 relative border-4 border-background shadow-lg">
                   <AvatarImage src={profile.avatar_url || undefined} />
-                  <AvatarFallback className="text-2xl bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] text-white font-semibold">
+                  <AvatarFallback className="text-2xl bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] text-white font-semibold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -77,11 +77,11 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
                     >
                       <Button
                         variant="outline"
-                        className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vouti-purple))]/50 group"
+                        className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vlink-purple))]/50 group"
                         asChild
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
+                          <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
                           <span className="truncate font-medium">{link.title}</span>
                         </div>
                       </Button>
@@ -119,11 +119,11 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
                       >
                         <Button
                           variant="outline"
-                          className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vouti-purple))]/50 group"
+                          className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vlink-purple))]/50 group"
                           asChild
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
+                            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
                             <span className="truncate font-medium">{link.title}</span>
                           </div>
                         </Button>
@@ -135,10 +135,10 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
 
               {/* Footer */}
               <div className="mt-12 mb-6 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[hsl(var(--vouti-purple))]/10 to-[hsl(var(--vouti-purple-light))]/10 border border-[hsl(var(--vouti-purple))]/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] animate-pulse" />
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[hsl(var(--vlink-purple))]/10 to-[hsl(var(--vlink-purple-light))]/10 border border-[hsl(var(--vlink-purple))]/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] animate-pulse" />
                   <p className="text-xs text-muted-foreground">
-                    Junte-se a <span className="font-semibold text-foreground">{profile.username}</span> no <span className="font-bold bg-gradient-to-r from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] bg-clip-text text-transparent">Vouti</span>
+                    Junte-se a <span className="font-semibold text-foreground">{profile.username}</span> no <span className="font-bold bg-gradient-to-r from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] bg-clip-text text-transparent">Vouti</span>
                   </p>
                 </div>
               </div>

@@ -87,12 +87,12 @@ export const LinkDashboardSidebar = ({
       <div className="p-4 space-y-3">
         {!isMinimized && (
           <>
-            <div className="bg-gradient-to-br from-[hsl(var(--vouti-purple))]/10 to-[hsl(var(--vouti-purple))]/5 rounded-lg p-4 space-y-2">
+            <div className="bg-gradient-to-br from-[hsl(var(--vlink-purple))]/10 to-[hsl(var(--vlink-purple))]/5 rounded-lg p-4 space-y-2">
               <p className="text-sm font-medium">Use o Vouti Pro</p>
               <p className="text-xs text-muted-foreground">
                 Explore as novidades e acelerar seu crescimento
               </p>
-              <Button size="sm" className="w-full gap-2 bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white">
+              <Button size="sm" className="w-full gap-2 bg-[hsl(var(--vlink-purple))] hover:bg-[hsl(var(--vlink-purple-dark))] text-white">
                 <Crown className="h-4 w-4" />
                 Teste o Pro Grátis ⚡
               </Button>

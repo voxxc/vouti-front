@@ -61,10 +61,10 @@ All colors MUST be HSL.
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 221 83% 53%;
     
-    /* Vouti specific colors */
-    --vouti-purple: 262 83% 58%;
-    --vouti-purple-light: 262 83% 68%;
-    --vouti-purple-dark: 262 83% 48%;
+    /* vlink specific colors */
+    --vlink-purple: 262 83% 58%;
+    --vlink-purple-light: 262 83% 68%;
+    --vlink-purple-dark: 262 83% 48%;
   }
 
   .dark {

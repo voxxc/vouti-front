@@ -42,7 +42,7 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
         <div className="relative group">
           <Avatar className="h-16 w-16">
             <AvatarImage src={profile.avatar_url || undefined} />
-            <AvatarFallback className="text-lg bg-gradient-to-br from-[hsl(var(--vouti-purple))] to-[hsl(var(--vouti-purple-light))] text-white">
+            <AvatarFallback className="text-lg bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] text-white">
               {initials}
             </AvatarFallback>
           </Avatar>

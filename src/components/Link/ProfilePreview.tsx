@@ -84,7 +84,7 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
           {/* Footer */}
           <div className="p-4 text-center bg-muted/50 border-t">
             <p className="text-xs text-muted-foreground">
-              vouti.bio/{profile.username}
+              vlink.bio/{profile.username}
             </p>
           </div>
         </div>

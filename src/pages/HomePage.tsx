@@ -64,9 +64,9 @@ const HomePage = () => {
       } else if (code === 'metal') {
         await supabase.auth.signOut();
         navigate('/metal-auth');
-      } else if (code === 'vouti') {
-        await supabase.auth.signOut();
-        navigate('/link-auth');
+    } else if (code === 'vlink') {
+      await supabase.auth.signOut();
+      navigate('/link-auth');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);

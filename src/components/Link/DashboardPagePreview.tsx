@@ -10,7 +10,7 @@ interface DashboardPagePreviewProps {
 }
 
 export const DashboardPagePreview = ({ profile }: DashboardPagePreviewProps) => {
-  const pageUrl = `vouti.bio/${profile?.username || "username"}`;
+  const pageUrl = `vlink.bio/${profile?.username || "username"}`;
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(`https://${pageUrl}`);

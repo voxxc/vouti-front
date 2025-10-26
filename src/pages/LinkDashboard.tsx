@@ -260,7 +260,7 @@ const LinkDashboard = () => {
                 {/* Add Button */}
                 <Button 
                   onClick={() => setEditLinkDialog({ open: true })}
-                  className="w-full h-14 text-lg bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white"
+                  className="w-full h-14 text-lg bg-[hsl(var(--vlink-purple))] hover:bg-[hsl(var(--vlink-purple-dark))] text-white"
                   size="lg"
                 >
                   <Plus className="h-5 w-5 mr-2" />
@@ -341,7 +341,7 @@ const LinkDashboard = () => {
                 {/* Add Button */}
                 <Button 
                   onClick={() => setEditLinkDialog({ open: true })}
-                  className="w-full h-14 text-lg bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))] text-white"
+                  className="w-full h-14 text-lg bg-[hsl(var(--vlink-purple))] hover:bg-[hsl(var(--vlink-purple-dark))] text-white"
                   size="lg"
                 >
                   <Plus className="h-5 w-5 mr-2" />
@@ -523,7 +523,7 @@ const LinkDashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">URL do Perfil</p>
-                    <p className="font-medium">vouti.bio/{profile?.username}</p>
+                    <p className="font-medium">vlink.bio/{profile?.username}</p>
                   </div>
                 </CardContent>
               </Card>

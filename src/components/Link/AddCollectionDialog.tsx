@@ -68,7 +68,7 @@ export const AddCollectionDialog = ({
           <Button
             onClick={handleSave}
             disabled={!title.trim() || isLoading}
-            className="bg-[hsl(var(--vouti-purple))] hover:bg-[hsl(var(--vouti-purple-dark))]"
+            className="bg-[hsl(var(--vlink-purple))] hover:bg-[hsl(var(--vlink-purple-dark))]"
           >
             {isLoading ? "Criando..." : "Criar Coleção"}
           </Button>
