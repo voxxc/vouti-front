@@ -1474,6 +1474,47 @@ export type Database = {
         }
         Relationships: []
       }
+      project_columns: {
+        Row: {
+          color: string
+          column_order: number
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          column_order: number
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          column_order?: number
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           client: string
@@ -1546,6 +1587,7 @@ export type Database = {
       tasks: {
         Row: {
           card_color: string | null
+          column_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -1557,6 +1599,7 @@ export type Database = {
         }
         Insert: {
           card_color?: string | null
+          column_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1568,6 +1611,7 @@ export type Database = {
         }
         Update: {
           card_color?: string | null
+          column_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1578,6 +1622,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "project_columns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_project_id_fkey"
             columns: ["project_id"]

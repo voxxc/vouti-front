@@ -1,8 +1,20 @@
 import { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, GripVertical } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
+import EditableColumnName from "./EditableColumnName";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface KanbanColumnProps {
   id: string;
@@ -10,42 +22,101 @@ interface KanbanColumnProps {
   children: ReactNode;
   onAddTask: () => void;
   taskCount: number;
+  color?: string;
+  isDefault?: boolean;
+  onUpdateName?: (newName: string) => void;
+  onDeleteColumn?: () => void;
+  isDraggingColumn?: boolean;
 }
 
-const KanbanColumn = ({ id, title, children, onAddTask, taskCount }: KanbanColumnProps) => {
-  const getColumnStyle = (status: string) => {
-    switch (status) {
-      case 'waiting':
-        return 'border-l-4 border-l-yellow-400 bg-status-waiting/20';
-      case 'todo':
-        return 'border-l-4 border-l-blue-400 bg-status-todo/20';
-      case 'progress':
-        return 'border-l-4 border-l-orange-400 bg-status-progress/20';
-      case 'done':
-        return 'border-l-4 border-l-green-400 bg-status-done/20';
-      default:
-        return '';
-    }
-  };
+const KanbanColumn = ({ 
+  id, 
+  title, 
+  children, 
+  onAddTask, 
+  taskCount,
+  color = '#6366f1',
+  isDefault = false,
+  onUpdateName,
+  onDeleteColumn,
+  isDraggingColumn = false
+}: KanbanColumnProps) => {
+  const borderColor = color;
+  const bgColor = `${color}20`;
 
   return (
-    <Card className={`shadow-card border-0 ${getColumnStyle(id)} min-h-[500px]`}>
+    <Card 
+      className={`shadow-card border-0 min-h-[500px] min-w-[280px] transition-opacity ${
+        isDraggingColumn ? 'opacity-50' : ''
+      }`}
+      style={{
+        borderLeft: `4px solid ${borderColor}`,
+        backgroundColor: bgColor
+      }}
+    >
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            {title}
-            <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {!isDefault && (
+              <div className="cursor-grab active:cursor-grabbing">
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+              </div>
+            )}
+            {onUpdateName ? (
+              <EditableColumnName
+                columnName={title}
+                onUpdateName={onUpdateName}
+                isDefault={isDefault}
+              />
+            ) : (
+              <span className="text-sm font-semibold">{title}</span>
+            )}
+            <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs shrink-0">
               {taskCount}
             </span>
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onAddTask}
-            className="h-6 w-6"
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onAddTask}
+              className="h-6 w-6"
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+            {!isDefault && onDeleteColumn && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir coluna?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. A coluna será excluída permanentemente.
+                      {taskCount > 0 && (
+                        <span className="block mt-2 text-destructive font-medium">
+                          Atenção: Esta coluna possui {taskCount} tarefa(s).
+                        </span>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDeleteColumn}>
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
       </CardHeader>
       

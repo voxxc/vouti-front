@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { DragDropContext, Draggable, DropResult } from "@hello-pangea/dnd";
+import { useState, useEffect } from "react";
+import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, Plus, Users } from "lucide-react";
@@ -9,10 +9,12 @@ import TaskCard from "@/components/Project/TaskCard";
 import TaskModal from "@/components/Project/TaskModal";
 import ProjectParticipants from "@/components/Project/ProjectParticipants";
 import EditableProjectName from "@/components/Project/EditableProjectName";
-import { Project, Task, TASK_STATUSES } from "@/types/project";
+import AddColumnButton from "@/components/Project/AddColumnButton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Project, Task, KanbanColumn as KanbanColumnType } from "@/types/project";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
-import { notifyTaskMovement, notifyTaskCreated, notifyCommentAdded } from "@/utils/notificationHelpers";
+import { notifyTaskMovement, notifyTaskCreated } from "@/utils/notificationHelpers";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectViewProps {
@@ -40,7 +42,41 @@ const ProjectView = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const { toast } = useToast();
+
+  // Load columns from database
+  useEffect(() => {
+    loadColumns();
+  }, [project.id]);
+
+  const loadColumns = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_columns')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('column_order');
+
+      if (error) throw error;
+
+      if (data) {
+        const loadedColumns: KanbanColumnType[] = data.map(col => ({
+          id: col.id,
+          projectId: col.project_id,
+          name: col.name,
+          columnOrder: col.column_order,
+          color: col.color,
+          isDefault: col.is_default,
+          createdAt: new Date(col.created_at),
+          updatedAt: new Date(col.updated_at)
+        }));
+        setColumns(loadedColumns);
+      }
+    } catch (error) {
+      console.error('Error loading columns:', error);
+    }
+  };
 
   const regularTasks = project.tasks.filter(task => task.type !== 'acordo');
   
@@ -55,12 +91,12 @@ const ProjectView = ({
     );
   });
 
-  const getTasksByStatus = (status: string) => {
-    return filteredTasks.filter(task => task.status === status);
+  const getTasksByColumn = (columnId: string) => {
+    return filteredTasks.filter(task => task.columnId === columnId);
   };
 
   const handleDragEnd = async (result: DropResult) => {
-    const { destination, source, draggableId } = result;
+    const { destination, source, draggableId, type } = result;
 
     if (!destination) return;
 
@@ -71,15 +107,43 @@ const ProjectView = ({
       return;
     }
 
+    // Handle column reordering
+    if (type === 'COLUMN') {
+      const reorderedColumns = Array.from(columns);
+      const [movedColumn] = reorderedColumns.splice(source.index, 1);
+      reorderedColumns.splice(destination.index, 0, movedColumn);
+
+      const updatedColumns = reorderedColumns.map((col, index) => ({
+        ...col,
+        columnOrder: index
+      }));
+
+      setColumns(updatedColumns);
+
+      // Update column orders in database
+      try {
+        for (const col of updatedColumns) {
+          await supabase
+            .from('project_columns')
+            .update({ column_order: col.columnOrder })
+            .eq('id', col.id);
+        }
+      } catch (error) {
+        console.error('Error updating column order:', error);
+        loadColumns(); // Reload on error
+      }
+      return;
+    }
+
+    // Handle task movement
     const task = project.tasks.find(t => t.id === draggableId);
     if (!task) return;
 
     try {
-      // Update task status in Supabase
       const { error } = await supabase
         .from('tasks')
         .update({ 
-          status: destination.droppableId,
+          column_id: destination.droppableId,
           updated_at: new Date().toISOString()
         })
         .eq('id', draggableId);
@@ -88,7 +152,7 @@ const ProjectView = ({
 
       const updatedTask = {
         ...task,
-        status: destination.droppableId as Task['status'],
+        columnId: destination.droppableId,
         updatedAt: new Date()
       };
 
@@ -96,31 +160,31 @@ const ProjectView = ({
         t.id === draggableId ? updatedTask : t
       );
 
-      const updatedProject = {
+      onUpdateProject({
         ...project,
         tasks: updatedTasks,
         updatedAt: new Date()
-      };
+      });
 
-      onUpdateProject(updatedProject);
+      const sourceColumn = columns.find(c => c.id === source.droppableId);
+      const destColumn = columns.find(c => c.id === destination.droppableId);
 
-      // Send notification about task movement
-      if (currentUser) {
+      if (currentUser && sourceColumn && destColumn) {
         await notifyTaskMovement(
           project.id,
           task.title,
-          source.droppableId,
-          destination.droppableId,
+          sourceColumn.name,
+          destColumn.name,
           currentUser.name
         );
       }
 
       toast({
         title: "Tarefa movida",
-        description: `"${task.title}" foi movida para ${TASK_STATUSES[destination.droppableId as keyof typeof TASK_STATUSES]}`,
+        description: `"${task.title}" foi movida para ${destColumn?.name}`,
       });
     } catch (error) {
-      console.error('Error updating task status:', error);
+      console.error('Error moving task:', error);
       toast({
         title: "Erro",
         description: "Erro ao mover tarefa.",
@@ -208,7 +272,7 @@ const ProjectView = ({
     }
   };
 
-  const handleAddTask = async (status: Task['status']) => {
+  const handleAddTask = async (columnId: string) => {
     if (!currentUser) return;
 
     try {
@@ -217,7 +281,8 @@ const ProjectView = ({
         .insert({
           title: "Nova Tarefa",
           description: "Clique para editar a descrição",
-          status,
+          status: 'todo',
+          column_id: columnId,
           project_id: project.id,
           task_type: 'regular'
         })
@@ -231,6 +296,7 @@ const ProjectView = ({
         title: data.title,
         description: data.description || '',
         status: data.status as Task['status'],
+        columnId: data.column_id,
         comments: [],
         files: [],
         history: [{
@@ -245,15 +311,12 @@ const ProjectView = ({
         updatedAt: new Date(data.updated_at)
       };
 
-      const updatedProject = {
+      onUpdateProject({
         ...project,
         tasks: [...project.tasks, newTask],
         updatedAt: new Date()
-      };
+      });
 
-      onUpdateProject(updatedProject);
-
-      // Send notification about task creation
       if (currentUser) {
         await notifyTaskCreated(
           project.id,
@@ -271,6 +334,114 @@ const ProjectView = ({
       toast({
         title: "Erro",
         description: "Erro ao criar tarefa.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddColumn = async (name: string, color: string) => {
+    try {
+      const maxOrder = Math.max(...columns.map(c => c.columnOrder), -1);
+      
+      const { data, error } = await supabase
+        .from('project_columns')
+        .insert({
+          project_id: project.id,
+          name,
+          color,
+          column_order: maxOrder + 1,
+          is_default: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newColumn: KanbanColumnType = {
+        id: data.id,
+        projectId: data.project_id,
+        name: data.name,
+        columnOrder: data.column_order,
+        color: data.color,
+        isDefault: data.is_default,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
+
+      setColumns([...columns, newColumn]);
+
+      toast({
+        title: "Coluna criada",
+        description: `Coluna "${name}" adicionada com sucesso!`,
+      });
+    } catch (error) {
+      console.error('Error creating column:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar coluna.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateColumnName = async (columnId: string, newName: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_columns')
+        .update({ name: newName })
+        .eq('id', columnId);
+
+      if (error) throw error;
+
+      setColumns(columns.map(col => 
+        col.id === columnId ? { ...col, name: newName } : col
+      ));
+
+      toast({
+        title: "Coluna atualizada",
+        description: "Nome da coluna atualizado com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error updating column name:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar nome da coluna.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    try {
+      const tasksInColumn = project.tasks.filter(t => t.columnId === columnId);
+      
+      if (tasksInColumn.length > 0) {
+        toast({
+          title: "Erro",
+          description: "Não é possível excluir uma coluna com tarefas. Mova ou delete as tarefas primeiro.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('project_columns')
+        .delete()
+        .eq('id', columnId);
+
+      if (error) throw error;
+
+      setColumns(columns.filter(col => col.id !== columnId));
+
+      toast({
+        title: "Coluna excluída",
+        description: "Coluna removida com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error deleting column:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir coluna.",
         variant: "destructive",
       });
     }
@@ -366,40 +537,73 @@ const ProjectView = ({
 
         {/* Kanban Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Object.entries(TASK_STATUSES).map(([status, title]) => {
-              const tasks = getTasksByStatus(status);
-              return (
-                <KanbanColumn
-                  key={status}
-                  id={status}
-                  title={title}
-                  taskCount={tasks.length}
-                  onAddTask={() => handleAddTask(status as Task['status'])}
+          <ScrollArea className="w-full">
+            <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="flex gap-6 pb-4"
                 >
-                  {tasks.map((task, index) => (
-                    <Draggable key={task.id} draggableId={task.id} index={index}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          className={snapshot.isDragging ? 'opacity-50' : ''}
-                        >
-                           <TaskCard 
-                            task={task} 
-                            onClick={handleTaskClick}
-                            onDelete={handleDeleteTask}
-                            onUpdateTask={handleUpdateTask}
-                          />
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                </KanbanColumn>
-              );
-            })}
-          </div>
+                  {columns.map((column, columnIndex) => {
+                    const tasks = getTasksByColumn(column.id);
+                    return (
+                      <Draggable
+                        key={column.id}
+                        draggableId={column.id}
+                        index={columnIndex}
+                        isDragDisabled={column.isDefault}
+                      >
+                        {(columnProvided, columnSnapshot) => (
+                          <div
+                            ref={columnProvided.innerRef}
+                            {...columnProvided.draggableProps}
+                          >
+                            <div {...columnProvided.dragHandleProps}>
+                              <KanbanColumn
+                                id={column.id}
+                                title={column.name}
+                                taskCount={tasks.length}
+                                color={column.color}
+                                isDefault={column.isDefault}
+                                isDraggingColumn={columnSnapshot.isDragging}
+                                onAddTask={() => handleAddTask(column.id)}
+                                onUpdateName={(newName) => handleUpdateColumnName(column.id, newName)}
+                                onDeleteColumn={() => handleDeleteColumn(column.id)}
+                              >
+                                {tasks.map((task, index) => (
+                                  <Draggable key={task.id} draggableId={task.id} index={index}>
+                                    {(provided, snapshot) => (
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        className={snapshot.isDragging ? 'opacity-50' : ''}
+                                      >
+                                        <TaskCard 
+                                          task={task} 
+                                          onClick={handleTaskClick}
+                                          onDelete={handleDeleteTask}
+                                          onUpdateTask={handleUpdateTask}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                              </KanbanColumn>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                  <AddColumnButton onAddColumn={handleAddColumn} />
+                </div>
+              )}
+            </Droppable>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </DragDropContext>
 
         <TaskModal

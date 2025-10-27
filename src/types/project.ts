@@ -1,3 +1,14 @@
+export interface KanbanColumn {
+  id: string;
+  projectId: string;
+  name: string;
+  columnOrder: number;
+  color: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Comment {
   id: string;
   text: string;
@@ -43,6 +54,7 @@ export interface Task {
   title: string;
   description: string;
   status: 'waiting' | 'todo' | 'progress' | 'done';
+  columnId?: string;
   comments: Comment[];
   files: TaskFile[];
   history: TaskHistoryEntry[];
@@ -60,6 +72,7 @@ export interface Project {
   description: string;
   tasks: Task[];
   acordoTasks: Task[];
+  columns?: KanbanColumn[];
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
