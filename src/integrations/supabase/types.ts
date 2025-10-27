@@ -1586,6 +1586,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          acordo_details: Json | null
           card_color: string | null
           column_id: string | null
           created_at: string
@@ -1598,6 +1599,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acordo_details?: Json | null
           card_color?: string | null
           column_id?: string | null
           created_at?: string
@@ -1610,6 +1612,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acordo_details?: Json | null
           card_color?: string | null
           column_id?: string | null
           created_at?: string

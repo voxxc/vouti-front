@@ -126,6 +126,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           title: updatedTask.title,
           description: updatedTask.description,
           status: updatedTask.status,
+          acordo_details: updatedTask.type === 'acordo' ? (updatedTask.acordoDetails as any) : null,
           updated_at: new Date().toISOString()
         })
         .eq('id', updatedTask.id);
@@ -199,7 +200,8 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           description: "Clique para editar os detalhes",
           status: 'todo',
           project_id: project.id,
-          task_type: 'acordo'
+          task_type: 'acordo',
+          acordo_details: {}
         })
         .select()
         .single();

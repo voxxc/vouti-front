@@ -67,6 +67,7 @@ const AcordosViewWrapper = () => {
             files: [],
             history: [],
             type: task.task_type === 'acordo' ? 'acordo' : 'regular',
+            acordoDetails: (task.acordo_details as any) || {},
             createdAt: new Date(task.created_at),
             updatedAt: new Date(task.updated_at)
           })),
