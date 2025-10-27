@@ -9,9 +9,20 @@ import { ParcelaComentarios } from './ParcelaComentarios';
 import { ClienteDivida, ClienteParcela, DadosBaixaPagamento } from '@/types/financeiro';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface DividaContentProps {
   divida: ClienteDivida;
@@ -20,12 +31,13 @@ interface DividaContentProps {
   onDelete: (dividaId: string) => Promise<void>;
 }
 
-export const DividaContent = ({ divida, clienteId, onUpdate }: DividaContentProps) => {
+export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaContentProps) => {
   const { parcelas, loading, darBaixaParcela, fetchParcelas } = useClienteParcelas(clienteId, divida.id);
   const [selectedParcela, setSelectedParcela] = useState<ClienteParcela | null>(null);
   const [baixaDialogOpen, setBaixaDialogOpen] = useState(false);
   const [selectedParcelaForComments, setSelectedParcelaForComments] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -89,6 +101,15 @@ export const DividaContent = ({ divida, clienteId, onUpdate }: DividaContentProp
     return success;
   };
 
+  const handleDeleteDivida = async () => {
+    setIsDeleting(true);
+    try {
+      await onDelete(divida.id);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-4 text-center text-muted-foreground">Carregando...</div>;
   }
@@ -96,6 +117,55 @@ export const DividaContent = ({ divida, clienteId, onUpdate }: DividaContentProp
   return (
     <>
       <div className="space-y-6 py-4">
+        {/* Header com título da dívida e botão de exclusão */}
+        <div className="flex items-center justify-between border-b pb-4">
+          <div>
+            <h2 className="text-xl font-bold">{divida.titulo}</h2>
+            <p className="text-sm text-muted-foreground">
+              Criada em {format(new Date(divida.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+            </p>
+          </div>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={isDeleting}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isDeleting ? 'Excluindo...' : 'Excluir Dívida'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>⚠️ Confirmar Exclusão de Dívida</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>Tem certeza que deseja excluir a dívida <strong>"{divida.titulo}"</strong>?</p>
+                  
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
+                    <p className="font-semibold text-destructive">⚠️ Esta ação é IRREVERSÍVEL e causará:</p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li>Exclusão de todas as <strong>{divida.numero_parcelas} parcelas</strong></li>
+                      <li>Remoção de todo o histórico de pagamentos</li>
+                      <li>Perda de todos os comentários associados</li>
+                      <li><strong>Notificação automática por email</strong> para os administradores</li>
+                    </ul>
+                  </div>
+                  
+                  <p className="text-sm">Deseja realmente continuar?</p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDeleteDivida}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? 'Excluindo...' : 'Sim, Excluir Dívida'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+
         {/* Informações da Dívida */}
         {divida.descricao && (
           <div className="p-4 rounded-lg bg-muted/50 border">
