@@ -168,7 +168,10 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => onDelete(task.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(task.id);
+                    }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     Excluir
