@@ -132,6 +132,37 @@ export const ClienteFinanceiroDialog = ({
     onUpdate();
   };
 
+  const handleDeleteDivida = async (dividaId: string) => {
+    try {
+      const divida = dividas.find(d => d.id === dividaId);
+      if (!divida) return;
+
+      const { deleteDivida } = useClienteDividas(cliente.id);
+      const success = await deleteDivida(dividaId);
+      if (!success) return;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.functions.invoke('notify-divida-deleted', {
+          body: {
+            cliente_id: cliente.id,
+            cliente_nome: getNomeCliente(cliente),
+            divida_titulo: divida.titulo,
+            divida_valor: divida.valor_total,
+            deleted_by_user_id: user?.id,
+          },
+        });
+      } catch (emailError) {
+        console.error('Erro ao enviar email:', emailError);
+      }
+
+      await fetchDividas();
+      onUpdate();
+    } catch (error) {
+      console.error('Erro ao excluir dívida:', error);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -370,6 +401,7 @@ export const ClienteFinanceiroDialog = ({
                       divida={divida}
                       clienteId={cliente.id}
                       onUpdate={handleDividaUpdate}
+                      onDelete={handleDeleteDivida}
                     />
                   </TabsContent>
                 ))}
