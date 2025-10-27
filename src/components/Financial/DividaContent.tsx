@@ -17,6 +17,7 @@ interface DividaContentProps {
   divida: ClienteDivida;
   clienteId: string;
   onUpdate: () => void;
+  onDelete: (dividaId: string) => Promise<void>;
 }
 
 export const DividaContent = ({ divida, clienteId, onUpdate }: DividaContentProps) => {
