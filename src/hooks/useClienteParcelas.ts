@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ClienteParcela, ParcelaComentario, DadosBaixaPagamento } from '@/types/financeiro';
 import { toast } from '@/hooks/use-toast';
 
-export const useClienteParcelas = (clienteId: string | null) => {
+export const useClienteParcelas = (clienteId: string | null, dividaId?: string | null) => {
   const [parcelas, setParcelas] = useState<ClienteParcela[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -12,11 +12,23 @@ export const useClienteParcelas = (clienteId: string | null) => {
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('cliente_parcelas')
         .select('*')
-        .eq('cliente_id', clienteId)
-        .order('numero_parcela', { ascending: true });
+        .eq('cliente_id', clienteId);
+
+      // Filtrar por divida_id se fornecido
+      if (dividaId !== undefined) {
+        if (dividaId === null) {
+          // Buscar apenas parcelas do contrato original (sem divida_id)
+          query = query.is('divida_id', null);
+        } else {
+          // Buscar apenas parcelas da dívida específica
+          query = query.eq('divida_id', dividaId);
+        }
+      }
+
+      const { data, error } = await query.order('numero_parcela', { ascending: true });
 
       if (error) throw error;
       setParcelas(data as ClienteParcela[] || []);
@@ -34,7 +46,7 @@ export const useClienteParcelas = (clienteId: string | null) => {
 
   useEffect(() => {
     fetchParcelas();
-  }, [clienteId]);
+  }, [clienteId, dividaId]);
 
   const darBaixaParcela = async (parcelaId: string, dados: DadosBaixaPagamento) => {
     try {

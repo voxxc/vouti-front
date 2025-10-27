@@ -33,3 +33,26 @@ export interface DadosBaixaPagamento {
   comprovante?: File;
   observacoes?: string;
 }
+
+export interface ClienteDivida {
+  id: string;
+  cliente_id: string;
+  titulo: string;
+  descricao?: string;
+  valor_total: number;
+  numero_parcelas: number;
+  valor_parcela: number;
+  data_inicio: string;
+  data_vencimento_final?: string;
+  status: 'ativo' | 'quitado' | 'cancelado';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDividaData {
+  titulo: string;
+  descricao?: string;
+  valor_total: number;
+  numero_parcelas: number;
+  data_inicio: string;
+}

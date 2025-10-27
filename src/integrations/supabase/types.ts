@@ -55,6 +55,59 @@ export type Database = {
           },
         ]
       }
+      cliente_dividas: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          data_inicio: string
+          data_vencimento_final: string | null
+          descricao: string | null
+          id: string
+          numero_parcelas: number
+          status: string
+          titulo: string
+          updated_at: string | null
+          valor_parcela: number
+          valor_total: number
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          data_inicio: string
+          data_vencimento_final?: string | null
+          descricao?: string | null
+          id?: string
+          numero_parcelas?: number
+          status?: string
+          titulo: string
+          updated_at?: string | null
+          valor_parcela: number
+          valor_total: number
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          data_inicio?: string
+          data_vencimento_final?: string | null
+          descricao?: string | null
+          id?: string
+          numero_parcelas?: number
+          status?: string
+          titulo?: string
+          updated_at?: string | null
+          valor_parcela?: number
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_dividas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cliente_documentos: {
         Row: {
           cliente_id: string
@@ -138,6 +191,7 @@ export type Database = {
           created_at: string | null
           data_pagamento: string | null
           data_vencimento: string
+          divida_id: string | null
           id: string
           metodo_pagamento: string | null
           numero_parcela: number
@@ -152,6 +206,7 @@ export type Database = {
           created_at?: string | null
           data_pagamento?: string | null
           data_vencimento: string
+          divida_id?: string | null
           id?: string
           metodo_pagamento?: string | null
           numero_parcela: number
@@ -166,6 +221,7 @@ export type Database = {
           created_at?: string | null
           data_pagamento?: string | null
           data_vencimento?: string
+          divida_id?: string | null
           id?: string
           metodo_pagamento?: string | null
           numero_parcela?: number
@@ -180,6 +236,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_parcelas_divida_id_fkey"
+            columns: ["divida_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_dividas"
             referencedColumns: ["id"]
           },
         ]
