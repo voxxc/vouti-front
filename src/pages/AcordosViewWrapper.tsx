@@ -53,25 +53,27 @@ const AcordosViewWrapper = () => {
         }
 
         // Transform data to match Project interface
+        const allTasks = (tasksData || []).map((task): Task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description || '',
+          status: task.status as 'waiting' | 'todo' | 'progress' | 'done',
+          comments: [],
+          files: [],
+          history: [],
+          type: task.task_type === 'acordo' ? 'acordo' : 'regular',
+          acordoDetails: (task.acordo_details as any) || {},
+          createdAt: new Date(task.created_at),
+          updatedAt: new Date(task.updated_at)
+        }));
+
         const transformedProject: Project = {
           id: projectData.id,
           name: projectData.name,
           client: projectData.client,
           description: projectData.description || '',
-          tasks: (tasksData || []).map((task): Task => ({
-            id: task.id,
-            title: task.title,
-            description: task.description || '',
-            status: task.status as 'waiting' | 'todo' | 'progress' | 'done',
-            comments: [],
-            files: [],
-            history: [],
-            type: task.task_type === 'acordo' ? 'acordo' : 'regular',
-            acordoDetails: (task.acordo_details as any) || {},
-            createdAt: new Date(task.created_at),
-            updatedAt: new Date(task.updated_at)
-          })),
-          acordoTasks: [],
+          tasks: allTasks.filter(t => t.type !== 'acordo'),
+          acordoTasks: allTasks.filter(t => t.type === 'acordo'),
           createdBy: projectData.created_by,
           createdAt: new Date(projectData.created_at),
           updatedAt: new Date(projectData.updated_at)
