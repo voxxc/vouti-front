@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,22 @@ const Auth = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
+
+  // Force dark theme on auth page
+  useEffect(() => {
+    const root = document.documentElement;
+    const hadLightTheme = root.classList.contains('light');
+    
+    root.classList.remove('light');
+    root.classList.add('dark');
+    
+    return () => {
+      root.classList.remove('dark');
+      if (hadLightTheme) {
+        root.classList.add('light');
+      }
+    };
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
