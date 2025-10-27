@@ -63,6 +63,7 @@ const ProjectViewWrapper = () => {
             title: task.title,
             description: task.description || '',
             status: task.status as 'waiting' | 'todo' | 'progress' | 'done',
+            columnId: task.column_id || undefined,
             comments: [],
             files: [],
             history: [],
