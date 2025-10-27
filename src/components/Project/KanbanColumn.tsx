@@ -27,6 +27,7 @@ interface KanbanColumnProps {
   onUpdateName?: (newName: string) => void;
   onDeleteColumn?: () => void;
   isDraggingColumn?: boolean;
+  isColumnsLocked?: boolean;
 }
 
 const KanbanColumn = ({ 
@@ -39,7 +40,8 @@ const KanbanColumn = ({
   isDefault = false,
   onUpdateName,
   onDeleteColumn,
-  isDraggingColumn = false
+  isDraggingColumn = false,
+  isColumnsLocked = false
 }: KanbanColumnProps) => {
   const borderColor = color;
   const bgColor = `${color}20`;
@@ -58,8 +60,8 @@ const KanbanColumn = ({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {!isDefault && (
-              <div className="cursor-grab active:cursor-grabbing">
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
+              <div className={isColumnsLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
+                <GripVertical className={`h-4 w-4 ${isColumnsLocked ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
               </div>
             )}
             {onUpdateName ? (

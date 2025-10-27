@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Plus, Users } from "lucide-react";
+import { ArrowLeft, Search, Plus, Users, Lock, LockOpen } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
@@ -43,6 +43,7 @@ const ProjectView = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
+  const [isColumnsLocked, setIsColumnsLocked] = useState(false);
   const { toast } = useToast();
 
   // Load columns from database
@@ -515,6 +516,14 @@ const ProjectView = ({
             >
               Acordos
             </Button>
+            <Button 
+              variant={isColumnsLocked ? "default" : "outline"}
+              onClick={() => setIsColumnsLocked(!isColumnsLocked)}
+              className="gap-2"
+            >
+              {isColumnsLocked ? <Lock size={16} /> : <LockOpen size={16} />}
+              {isColumnsLocked ? "Desbloquear" : "Bloquear"} Colunas
+            </Button>
           </div>
         </div>
 
@@ -552,7 +561,7 @@ const ProjectView = ({
                         key={column.id}
                         draggableId={column.id}
                         index={columnIndex}
-                        isDragDisabled={column.isDefault}
+                        isDragDisabled={isColumnsLocked || column.isDefault}
                       >
                         {(columnProvided, columnSnapshot) => (
                           <div
@@ -567,6 +576,7 @@ const ProjectView = ({
                                 color={column.color}
                                 isDefault={column.isDefault}
                                 isDraggingColumn={columnSnapshot.isDragging}
+                                isColumnsLocked={isColumnsLocked}
                                 onAddTask={() => handleAddTask(column.id)}
                                 onUpdateName={(newName) => handleUpdateColumnName(column.id, newName)}
                                 onDeleteColumn={() => handleDeleteColumn(column.id)}
