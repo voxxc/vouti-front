@@ -405,6 +405,41 @@ export type Database = {
         }
         Relationships: []
       }
+      deadline_comentarios: {
+        Row: {
+          comentario: string
+          created_at: string | null
+          deadline_id: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comentario: string
+          created_at?: string | null
+          deadline_id: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comentario?: string
+          created_at?: string | null
+          deadline_id?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadline_comentarios_deadline_id_fkey"
+            columns: ["deadline_id"]
+            isOneToOne: false
+            referencedRelation: "deadlines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deadline_tags: {
         Row: {
           created_at: string | null

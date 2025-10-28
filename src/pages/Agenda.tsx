@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DeadlineComentarios } from "@/components/Agenda/DeadlineComentarios";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "@/components/Agenda/UserTagSelector";
@@ -723,15 +725,21 @@ const Agenda = () => {
                 {getOverdueDeadlines().map((deadline) => (
                   <div key={deadline.id} className="border rounded p-2 bg-red-50 border-red-200">
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-sm">{deadline.title}</p>
                         <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
-                      </div>
-                      <div className="text-right">
                         <p className="text-xs text-red-600">
                           {format(deadline.date, "dd/MM/yyyy", { locale: ptBR })}
                         </p>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDeadlineDetails(deadline)}
+                        className="ml-2"
+                      >
+                        Detalhes
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -896,131 +904,157 @@ const Agenda = () => {
               <DialogTitle>Detalhes do Prazo</DialogTitle>
             </DialogHeader>
             {selectedDeadline && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Título</label>
-                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">{selectedDeadline.title}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Descrição</label>
-                  <p className="text-sm border rounded p-2 bg-muted min-h-[100px] max-h-[200px] overflow-y-auto break-words whitespace-pre-wrap">
-                    {selectedDeadline.description || 'Nenhuma descrição fornecida'}
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Projeto</label>
-                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">{selectedDeadline.projectName}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Cliente</label>
-                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">{selectedDeadline.clientName}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Data do Prazo</label>
-                  <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
-                    {format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}
-                  </p>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium">Status:</label>
-                  <Badge 
-                    variant={selectedDeadline.completed ? "default" : isPast(selectedDeadline.date) ? "destructive" : "secondary"}
-                  >
-                    {selectedDeadline.completed ? "Concluído" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
-                  </Badge>
-                </div>
+              <Tabs defaultValue="detalhes" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="detalhes" className="gap-2">
+                    <Info className="h-4 w-4" />
+                    Detalhes
+                  </TabsTrigger>
+                  <TabsTrigger value="comentarios" className="gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Comentários
+                  </TabsTrigger>
+                </TabsList>
 
-                {selectedDeadline.advogadoResponsavel && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium">Advogado Responsável:</label>
-                    <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={selectedDeadline.advogadoResponsavel.avatar} />
-                        <AvatarFallback className="text-xs">
-                          {selectedDeadline.advogadoResponsavel.name.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium text-primary">
-                        {selectedDeadline.advogadoResponsavel.name}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {selectedDeadline.taggedUsers && selectedDeadline.taggedUsers.length > 0 && (
+                <TabsContent value="detalhes" className="space-y-4 mt-4">
                   <div>
-                    <label className="text-sm font-medium block mb-2">Usuários Tagados:</label>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedDeadline.taggedUsers.map((user) => (
-                        <div 
-                          key={user.userId}
-                          className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-full border border-secondary"
-                        >
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={user.avatar} />
-                            <AvatarFallback className="text-xs">
-                              {user.name.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm">
-                            {user.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    <label className="text-sm font-medium">Título</label>
+                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
+                      {selectedDeadline.title}
+                    </p>
                   </div>
-                )}
-                
-                <div className="flex gap-2 pt-2">
-                  {!selectedDeadline.completed && (
-                    <Button 
-                      onClick={() => handleCompleteDeadline(selectedDeadline)} 
-                      className="flex-1"
-                      variant="professional"
+                  
+                  <div>
+                    <label className="text-sm font-medium">Descrição</label>
+                    <p className="text-sm border rounded p-2 bg-muted min-h-[100px] max-h-[200px] overflow-y-auto break-words whitespace-pre-wrap">
+                      {selectedDeadline.description || 'Nenhuma descrição fornecida'}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Projeto</label>
+                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
+                      {selectedDeadline.projectName}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Cliente</label>
+                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
+                      {selectedDeadline.clientName}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Data do Prazo</label>
+                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
+                      {format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">Status:</label>
+                    <Badge 
+                      variant={selectedDeadline.completed ? "default" : isPast(selectedDeadline.date) ? "destructive" : "secondary"}
                     >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Marcar como Concluído
-                    </Button>
+                      {selectedDeadline.completed ? "Concluído" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
+                    </Badge>
+                  </div>
+
+                  {selectedDeadline.advogadoResponsavel && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">Advogado Responsável:</label>
+                      <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={selectedDeadline.advogadoResponsavel.avatar} />
+                          <AvatarFallback className="text-xs">
+                            {selectedDeadline.advogadoResponsavel.name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-primary">
+                          {selectedDeadline.advogadoResponsavel.name}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedDeadline.taggedUsers && selectedDeadline.taggedUsers.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium block mb-2">Usuários Tagados:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedDeadline.taggedUsers.map((user) => (
+                          <div 
+                            key={user.userId}
+                            className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-full border border-secondary"
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={user.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {user.name.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">
+                              {user.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                  <div className="flex gap-2 pt-2">
+                    {!selectedDeadline.completed && (
+                      <Button 
+                        onClick={() => handleCompleteDeadline(selectedDeadline)} 
+                        className="flex-1"
+                        variant="professional"
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Prazo
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Marcar como Concluído
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => {
-                            handleDeleteDeadline(selectedDeadline.id);
-                            setIsDetailDialogOpen(false);
-                          }}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    )}
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
                         >
-                          Excluir
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir Prazo
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita e todos os comentários serão perdidos.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              handleDeleteDeadline(selectedDeadline.id);
+                              setIsDetailDialogOpen(false);
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="comentarios" className="mt-4">
+                  <DeadlineComentarios 
+                    deadlineId={selectedDeadline.id}
+                    currentUserId={user?.id || ''}
+                  />
+                </TabsContent>
+              </Tabs>
             )}
           </DialogContent>
         </Dialog>
