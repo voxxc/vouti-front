@@ -41,10 +41,20 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validações
     if (!formData.login || !formData.password || !formData.full_name) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha login, senha e nome completo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast({
+        title: "Senha inválida",
+        description: "A senha deve ter no mínimo 6 caracteres.",
         variant: "destructive",
       });
       return;
@@ -55,6 +65,13 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão não encontrada");
+
+      console.log('Enviando requisição para criar usuário:', {
+        login: formData.login,
+        full_name: formData.full_name,
+        setor: formData.setor,
+        is_admin: formData.is_admin
+      });
 
       const response = await fetch(
         `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/create-metal-user`,
@@ -75,8 +92,8 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       }
 
       toast({
-        title: "Usuário criado!",
-        description: "O usuário foi criado com sucesso.",
+        title: "✅ Usuário criado com sucesso!",
+        description: `${formData.full_name} foi adicionado como ${formData.is_admin ? 'Administrador' : 'Operador'}.`,
       });
 
       setFormData({
@@ -90,10 +107,22 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error creating user:", error);
+      console.error("Erro ao criar usuário:", error);
+      
+      let errorMessage = error.message;
+      
+      // Mensagens de erro mais amigáveis
+      if (error.message.includes('já existe') || error.message.includes('already exists')) {
+        errorMessage = 'Já existe um usuário com este login';
+      } else if (error.message.includes('permissão') || error.message.includes('permission')) {
+        errorMessage = 'Você não tem permissão para criar usuários';
+      } else if (error.message.includes('senha') || error.message.includes('password')) {
+        errorMessage = 'Senha inválida ou muito fraca';
+      }
+      
       toast({
-        title: "Erro ao criar usuário",
-        description: error.message,
+        title: "❌ Erro ao criar usuário",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
