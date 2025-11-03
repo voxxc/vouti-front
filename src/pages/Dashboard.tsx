@@ -199,8 +199,37 @@ const Dashboard = () => {
       isAdmin={currentUserRole === 'admin'}
       onCreateUser={() => setShowUserManagement(true)}
     >
-      <div className="space-y-6">
-        <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
+      <div className="flex gap-6 h-full">
+        {/* Área Central - Painel de Métricas */}
+        <div className="flex-1 space-y-6">
+          <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
+        </div>
+
+        {/* Menu Lateral Direito */}
+        <div className="w-20 border-l border-border bg-card">
+          <div className="flex flex-col gap-2 p-2">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const hasAccessToItem = hasAccess(item.id);
+              
+              if (!hasAccessToItem) return null;
+
+              return (
+                <Button
+                  key={item.id}
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate(item.route)}
+                  className="w-full h-14 flex flex-col items-center justify-center gap-1 text-xs hover:bg-accent"
+                  title={item.label}
+                >
+                  <Icon size={20} />
+                  <span className="text-[10px] leading-tight text-center">{item.label}</span>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
