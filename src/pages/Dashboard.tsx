@@ -178,18 +178,18 @@ const Dashboard = () => {
   // Função para verificar se o usuário tem acesso a uma seção
   const hasAccess = (section: string) => {
     if (currentUserRole === 'admin') return true;
-    if (section === 'clientes' && (currentUserRole === 'advogado')) return true;
+    if (section === 'projetos' && (currentUserRole === 'advogado')) return true;
     if (section === 'agenda' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
-    if (section === 'crm' && (currentUserRole === 'comercial')) return true;
+    if (section === 'clientes' && (currentUserRole === 'comercial')) return true;
     if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
     if (section === 'controladoria' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
     return false;
   };
 
   const menuItems = [
-    { id: 'clientes', icon: FolderOpen, label: 'Clientes', route: '/projects' },
+    { id: 'projetos', icon: FolderOpen, label: 'Projetos', route: '/projects' },
     { id: 'agenda', icon: Calendar, label: 'Agenda', route: '/agenda' },
-    { id: 'crm', icon: Users, label: 'CRM', route: '/crm' },
+    { id: 'clientes', icon: Users, label: 'Clientes', route: '/crm' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
   ];
@@ -199,37 +199,8 @@ const Dashboard = () => {
       isAdmin={currentUserRole === 'admin'}
       onCreateUser={() => setShowUserManagement(true)}
     >
-      <div className="flex gap-6 h-full">
-        {/* Área Central - Painel de Métricas Personalizado */}
-        <div className="flex-1 space-y-6">
-          <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
-        </div>
-
-        {/* Menu Lateral Direito */}
-        <div className="w-20 border-l border-border bg-card">
-          <div className="flex flex-col gap-2 p-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const hasItemAccess = hasAccess(item.id);
-              
-              return hasItemAccess ? (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate(item.route)}
-                  className="h-16 w-16 flex flex-col items-center justify-center gap-1 hover:bg-accent group"
-                  title={item.label}
-                >
-                  <Icon className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                  <span className="text-[10px] text-muted-foreground group-hover:text-primary transition-colors">
-                    {item.label}
-                  </span>
-                </Button>
-              ) : null;
-            })}
-          </div>
-        </div>
+      <div className="space-y-6">
+        <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
       </div>
     </DashboardLayout>
   );

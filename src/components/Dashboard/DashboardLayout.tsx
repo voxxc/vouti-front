@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings } from "lucide-react";
+import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings, FileCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
@@ -162,7 +162,57 @@ const DashboardLayout = ({
           <Logo size="sm" />
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              {/* Ícones de Acesso Rápido */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/projects')}
+                title="Projetos"
+              >
+                <FolderOpen size={18} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/agenda')}
+                title="Agenda"
+              >
+                <Calendar size={18} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/crm')}
+                title="Clientes"
+              >
+                <Users size={18} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/financial')}
+                title="Financeiro"
+              >
+                <DollarSign size={18} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/controladoria')}
+                title="Controladoria"
+              >
+                <FileCheck size={18} />
+              </Button>
+
+              {/* Separador Visual */}
+              <div className="h-6 w-px bg-border mx-2" />
+
+              {/* Botão Dashboard */}
               <Button
                 variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
                 onClick={() => handleNavigation('dashboard')}
