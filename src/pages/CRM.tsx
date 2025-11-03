@@ -488,7 +488,7 @@ const CRM = () => {
                   variant="outline"
                   className="h-24 flex flex-col gap-2"
                   onClick={() => {
-                    navigate('/landing-2');
+                    navigate('/office');
                     setIsLandingPagesDialogOpen(false);
                   }}
                 >
