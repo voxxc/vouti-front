@@ -620,7 +620,9 @@ const ProjectView = ({
             
             <SetoresDropdown
               sectors={sectors}
+              projectId={project.id}
               onNavigateToSector={handleNavigateToSector}
+              onNavigateToAcordos={onNavigateToAcordos || (() => {})}
               onCreateSector={() => setIsCreateSectorOpen(true)}
             />
             

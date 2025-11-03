@@ -11,15 +11,26 @@ import { ProjectSector } from "@/types/project";
 
 interface SetoresDropdownProps {
   sectors: ProjectSector[];
+  projectId: string;
   onNavigateToSector: (sectorId: string) => void;
+  onNavigateToAcordos: () => void;
   onCreateSector: () => void;
 }
 
 const SetoresDropdown = ({ 
   sectors, 
+  projectId,
   onNavigateToSector,
+  onNavigateToAcordos,
   onCreateSector 
 }: SetoresDropdownProps) => {
+  const handleSectorClick = (sector: ProjectSector) => {
+    if (sector.isDefault && sector.name === 'Acordos') {
+      onNavigateToAcordos();
+    } else {
+      onNavigateToSector(sector.id);
+    }
+  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -33,10 +44,9 @@ const SetoresDropdown = ({
         {sectors.map((sector) => (
           <DropdownMenuItem
             key={sector.id}
-            onClick={() => onNavigateToSector(sector.id)}
-            className={`cursor-pointer ${sector.isDefault ? 'font-semibold' : ''}`}
+            onClick={() => handleSectorClick(sector)}
+            className="cursor-pointer"
           >
-            {sector.isDefault && '📋 '}
             {sector.name}
           </DropdownMenuItem>
         ))}
