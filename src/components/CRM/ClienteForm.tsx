@@ -206,37 +206,33 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             <Input id="nome_pessoa_juridica" {...register('nome_pessoa_juridica')} />
           </div>
 
-          {/* Campo CPF - Apenas para Pessoa Física */}
-          {classificacao === 'pf' && (
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input 
-                id="cpf" 
-                {...register('cpf')} 
-                placeholder="000.000.000-00"
-                maxLength={14}
-              />
-              {errors.cpf && (
-                <p className="text-sm text-destructive">{errors.cpf.message}</p>
-              )}
-            </div>
-          )}
+          {/* CPF - sempre visível */}
+          <div className="space-y-2">
+            <Label htmlFor="cpf">CPF</Label>
+            <Input 
+              id="cpf" 
+              {...register('cpf')} 
+              placeholder="000.000.000-00"
+              maxLength={14}
+            />
+            {errors.cpf && (
+              <p className="text-sm text-destructive">{errors.cpf.message}</p>
+            )}
+          </div>
 
-          {/* Campo CNPJ - Apenas para Pessoa Jurídica */}
-          {classificacao === 'pj' && (
-            <div className="space-y-2">
-              <Label htmlFor="cnpj">CNPJ</Label>
-              <Input 
-                id="cnpj" 
-                {...register('cnpj')} 
-                placeholder="00.000.000/0000-00"
-                maxLength={18}
-              />
-              {errors.cnpj && (
-                <p className="text-sm text-destructive">{errors.cnpj.message}</p>
-              )}
-            </div>
-          )}
+          {/* CNPJ - sempre visível */}
+          <div className="space-y-2">
+            <Label htmlFor="cnpj">CNPJ</Label>
+            <Input 
+              id="cnpj" 
+              {...register('cnpj')} 
+              placeholder="00.000.000/0000-00"
+              maxLength={18}
+            />
+            {errors.cnpj && (
+              <p className="text-sm text-destructive">{errors.cnpj.message}</p>
+            )}
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="telefone">Telefone</Label>
@@ -254,21 +250,22 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-            <Input id="data_nascimento" type="date" {...register('data_nascimento')} />
-          </div>
-
           {classificacao === 'pf' && (
             <div className="space-y-2">
-              <Label htmlFor="profissao">Profissão</Label>
-              <Input 
-                id="profissao" 
-                {...register('profissao')} 
-                placeholder="Ex: Advogado, Médico, Empresário..."
-              />
+              <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+              <Input id="data_nascimento" type="date" {...register('data_nascimento')} />
             </div>
           )}
+
+          {/* Profissão - sempre visível para PF e PJ */}
+          <div className="space-y-2">
+            <Label htmlFor="profissao">Profissão</Label>
+            <Input 
+              id="profissao" 
+              {...register('profissao')} 
+              placeholder="Ex: Empresário, Advogado, Contador..."
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="uf">Estado (UF)</Label>
@@ -367,7 +364,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
                 </div>
 
                 <div className="space-y-2">
-                  <Label>CPF (se Pessoa Física)</Label>
+                  <Label>CPF</Label>
                   <Input
                     value={pessoa.cpf || ''}
                     onChange={(e) => updatePessoaAdicional(index, 'cpf', e.target.value)}
@@ -377,7 +374,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
                 </div>
 
                 <div className="space-y-2">
-                  <Label>CNPJ (se Pessoa Jurídica)</Label>
+                  <Label>CNPJ</Label>
                   <Input
                     value={pessoa.cnpj || ''}
                     onChange={(e) => updatePessoaAdicional(index, 'cnpj', e.target.value)}
