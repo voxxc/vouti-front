@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 
 const Agenda = () => {
   const { user } = useAuth();
@@ -110,6 +111,12 @@ const Agenda = () => {
   const fetchDeadlines = async () => {
     try {
       console.log('[Agenda] Fetching deadlines...');
+      
+      // Verificar se é admin para log
+      if (user) {
+        const isAdminUser = await checkIfUserIsAdminOrController(user.id);
+        console.log('[Agenda] User is admin/controller:', isAdminUser);
+      }
       
       const { data, error } = await supabase
         .from('deadlines')

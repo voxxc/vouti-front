@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -96,15 +97,27 @@ const Controladoria = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Verificar se o usuário é admin ou controller
+      const isAdminUser = await checkIfUserIsAdminOrController(user.id);
+      console.log('[Controladoria] User is admin/controller:', isAdminUser);
+
+      let query = supabase
         .from('processos')
         .select(`
           *,
           tribunais(sigla),
           grupos_acoes(nome)
         `)
-        .or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
+
+      // Se NÃO for admin/controller, filtrar por created_by ou advogado_responsavel
+      if (!isAdminUser) {
+        query = query.or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`);
+      } else {
+        console.log('[Controladoria] Admin access: fetching ALL processos');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 

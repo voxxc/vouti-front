@@ -13,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
 
 const Projects = () => {
   const navigate = useNavigate();
@@ -53,25 +54,35 @@ const Projects = () => {
     try {
       console.log('[Projects] Fetching projects for user:', user.id);
       
-      // Buscar IDs dos projetos onde o usuário é colaborador
-      const { data: collaboratorProjects } = await supabase
-        .from('project_collaborators')
-        .select('project_id')
-        .eq('user_id', user.id);
-
-      const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
+      // Verificar se o usuário é admin
+      const isAdminUser = await checkIfUserIsAdmin(user.id);
+      console.log('[Projects] User is admin:', isAdminUser);
       
-      console.log('[Projects] User is collaborator in:', collaboratorProjectIds);
-
-      // Buscar projetos onde o usuário é criador OU colaborador
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select(`
           *,
           tasks (*)
         `)
-        .or(`created_by.eq.${user.id}${collaboratorProjectIds.length > 0 ? `,id.in.(${collaboratorProjectIds.join(',')})` : ''}`)
         .order('created_at', { ascending: false });
+
+      // Se NÃO for admin, filtrar por criador ou colaborador
+      if (!isAdminUser) {
+        const { data: collaboratorProjects } = await supabase
+          .from('project_collaborators')
+          .select('project_id')
+          .eq('user_id', user.id);
+
+        const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
+        
+        console.log('[Projects] User is collaborator in:', collaboratorProjectIds);
+        
+        query = query.or(`created_by.eq.${user.id}${collaboratorProjectIds.length > 0 ? `,id.in.(${collaboratorProjectIds.join(',')})` : ''}`);
+      } else {
+        console.log('[Projects] Admin access: fetching ALL projects');
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error('[Projects] Error fetching projects:', error);
