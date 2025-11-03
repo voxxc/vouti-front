@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import EditableColumnName from "./EditableColumnName";
 import {
   AlertDialog,
@@ -48,7 +49,7 @@ const KanbanColumn = ({
 
   return (
     <Card 
-      className={`shadow-card border-0 min-h-[500px] w-[320px] flex-shrink-0 transition-opacity ${
+      className={`shadow-card border-0 h-[calc(100vh-200px)] w-[320px] flex-shrink-0 transition-opacity ${
         isDraggingColumn ? 'opacity-50' : ''
       }`}
       style={{
@@ -120,21 +121,23 @@ const KanbanColumn = ({
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
-        <Droppable droppableId={id}>
-          {(provided, snapshot) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className={`space-y-3 min-h-[400px] p-2 rounded-md transition-colors ${
-                snapshot.isDraggingOver ? 'bg-muted/50' : ''
-              }`}
-            >
-              {children}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
+      <CardContent className="pt-0 pb-0 h-[calc(100vh-280px)]">
+        <ScrollArea className="h-full pr-2">
+          <Droppable droppableId={id}>
+            {(provided, snapshot) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className={`space-y-3 min-h-[400px] p-2 rounded-md transition-colors ${
+                  snapshot.isDraggingOver ? 'bg-muted/50' : ''
+                }`}
+              >
+                {children}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </ScrollArea>
       </CardContent>
     </Card>
   );
