@@ -1682,6 +1682,7 @@ export type Database = {
       projects: {
         Row: {
           client: string
+          cliente_id: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -1691,6 +1692,7 @@ export type Database = {
         }
         Insert: {
           client: string
+          cliente_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1700,6 +1702,7 @@ export type Database = {
         }
         Update: {
           client?: string
+          cliente_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -1707,7 +1710,15 @@ export type Database = {
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projudi_credentials: {
         Row: {

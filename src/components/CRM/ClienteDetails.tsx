@@ -12,9 +12,10 @@ import { cn } from '@/lib/utils';
 interface ClienteDetailsProps {
   cliente: Cliente;
   onEdit: () => void;
+  readOnly?: boolean;
 }
 
-export const ClienteDetails = ({ cliente, onEdit }: ClienteDetailsProps) => {
+export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDetailsProps) => {
   const { fetchDocumentos, downloadDocumento, deleteDocumento } = useClientes();
   const [documentos, setDocumentos] = useState<ClienteDocumento[]>([]);
 
@@ -63,10 +64,12 @@ export const ClienteDetails = ({ cliente, onEdit }: ClienteDetailsProps) => {
               </span>
             )}
           </div>
-          <Button onClick={onEdit} variant="outline" size="sm">
-            <Edit className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
+          {!readOnly && (
+            <Button onClick={onEdit} variant="outline" size="sm">
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

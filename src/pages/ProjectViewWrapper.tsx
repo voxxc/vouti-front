@@ -73,6 +73,7 @@ const ProjectViewWrapper = () => {
           id: projectData.id,
           name: projectData.name,
           client: projectData.client,
+          clienteId: projectData.cliente_id,
           description: projectData.description || '',
           tasks: (tasksData || []).map((task): Task => ({
             id: task.id,
@@ -129,6 +130,7 @@ const ProjectViewWrapper = () => {
         .update({
           name: updatedProject.name,
           client: updatedProject.client,
+          cliente_id: updatedProject.clienteId,
           description: updatedProject.description,
           updated_at: new Date().toISOString()
         })

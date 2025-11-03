@@ -83,6 +83,7 @@ export interface Project {
   id: string;
   name: string;
   client: string;
+  clienteId?: string | null;
   description: string;
   tasks: Task[];
   acordoTasks: Task[];

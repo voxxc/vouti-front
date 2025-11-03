@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Plus, Users, Lock, LockOpen } from "lucide-react";
+import { ArrowLeft, Search, Plus, Users, Lock, LockOpen, FileText } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
@@ -14,6 +14,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Project, Task, KanbanColumn as KanbanColumnType, ProjectSector } from "@/types/project";
 import SetoresDropdown from "@/components/Project/SetoresDropdown";
 import CreateSectorDialog from "@/components/Project/CreateSectorDialog";
+import { ProjectClientDataDialog } from "@/components/Project/ProjectClientDataDialog";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTaskMovement, notifyTaskCreated } from "@/utils/notificationHelpers";
@@ -44,6 +45,7 @@ const ProjectView = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isClientDataOpen, setIsClientDataOpen] = useState(false);
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [isColumnsLocked, setIsColumnsLocked] = useState(false);
   const [sectors, setSectors] = useState<ProjectSector[]>([]);
@@ -617,6 +619,15 @@ const ProjectView = ({
               <Users size={16} />
               Participantes
             </Button>
+
+            <Button 
+              variant="outline" 
+              onClick={() => setIsClientDataOpen(true)}
+              className="gap-2"
+            >
+              <FileText size={16} />
+              Dados
+            </Button>
             
             <SetoresDropdown
               sectors={sectors}
@@ -746,6 +757,19 @@ const ProjectView = ({
           isOpen={isCreateSectorOpen}
           onClose={() => setIsCreateSectorOpen(false)}
           onCreateSector={handleCreateSector}
+        />
+
+        <ProjectClientDataDialog
+          open={isClientDataOpen}
+          onOpenChange={setIsClientDataOpen}
+          projectId={project.id}
+          clienteId={project.clienteId}
+          onClienteLinked={(clienteId) => {
+            onUpdateProject({
+              ...project,
+              clienteId
+            });
+          }}
         />
       </div>
     </DashboardLayout>
