@@ -159,7 +159,13 @@ const DashboardLayout = ({
       {/* Header */}
       <header className="border-b border-border bg-card shadow-card relative z-10">
         <div className="flex items-center justify-between px-6 py-4">
-          <Logo size="sm" />
+          <button 
+            onClick={() => handleNavigation('dashboard')}
+            className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-lg"
+            aria-label="Ir para Dashboard"
+          >
+            <Logo size="sm" />
+          </button>
           
           <div className="flex items-center gap-4">
             <div className="flex items-center space-x-2">
