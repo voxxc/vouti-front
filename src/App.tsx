@@ -317,7 +317,7 @@ function App() {
               
               {/* Landing Pages - Marketing - Always dark mode, isolated from ThemeProvider */}
               <Route path="/landing-1" element={<LandingPage1 />} />
-              <Route path="/landing-2" element={<LandingPage2 />} />
+              <Route path="/office" element={<LandingPage2 />} />
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
