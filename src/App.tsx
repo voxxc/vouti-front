@@ -203,6 +203,15 @@ function App() {
                   </ThemeProvider>
                 </AuthProvider>
               } />
+              <Route path="/project/:id/sector/:sectorId" element={
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <ProjectViewWrapper />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
+              } />
               <Route path="/agenda" element={
                 <AuthProvider>
                   <ThemeProvider>
