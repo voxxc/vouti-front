@@ -15,11 +15,26 @@ export const useClientes = () => {
         throw new Error('Usuário não autenticado');
       }
 
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
+      // Verificar se o usuário é admin
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('role')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq('role', 'admin');
+
+      const isAdmin = rolesData && rolesData.length > 0;
+
+      // Construir query base
+      let query = supabase
+        .from('clientes')
+        .select('*');
+
+      // Se não for admin, filtrar por user_id
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       return (data || []) as Cliente[];
