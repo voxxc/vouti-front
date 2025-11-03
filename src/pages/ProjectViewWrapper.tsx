@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Project, Task } from '@/types/project';
+import { Project, Task, ProjectSector } from '@/types/project';
 import { useToast } from '@/hooks/use-toast';
 import ProjectView from './ProjectView';
+import SectorView from './SectorView';
 
 const ProjectViewWrapper = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const isSectorView = location.pathname.includes('/sector/');
+  const sectorId = isSectorView ? location.pathname.split('/sector/')[1] : null;
 
   useEffect(() => {
     if (!id || !user) return;
@@ -52,6 +57,17 @@ const ProjectViewWrapper = () => {
           });
         }
 
+        // Fetch project sectors
+        const { data: sectorsData, error: sectorsError } = await supabase
+          .from('project_sectors')
+          .select('*')
+          .eq('project_id', id)
+          .order('sector_order');
+
+        if (sectorsError) {
+          console.error('Error fetching sectors:', sectorsError);
+        }
+
         // Transform data to match Project interface
         const transformedProject: Project = {
           id: projectData.id,
@@ -64,6 +80,7 @@ const ProjectViewWrapper = () => {
             description: task.description || '',
             status: task.status as 'waiting' | 'todo' | 'progress' | 'done',
             columnId: task.column_id || undefined,
+            sectorId: task.sector_id || undefined,
             comments: [],
             files: [],
             history: [],
@@ -72,6 +89,17 @@ const ProjectViewWrapper = () => {
             updatedAt: new Date(task.updated_at)
           })),
           acordoTasks: [],
+          sectors: (sectorsData || []).map((sector): ProjectSector => ({
+            id: sector.id,
+            projectId: sector.project_id,
+            name: sector.name,
+            description: sector.description,
+            sectorOrder: sector.sector_order,
+            isDefault: sector.is_default,
+            createdBy: sector.created_by,
+            createdAt: new Date(sector.created_at),
+            updatedAt: new Date(sector.updated_at)
+          })),
           createdBy: projectData.created_by,
           createdAt: new Date(projectData.created_at),
           updatedAt: new Date(projectData.updated_at)
@@ -144,6 +172,10 @@ const ProjectViewWrapper = () => {
     navigate(`/project/${id}/acordos`);
   };
 
+  const handleProjectNavigation = (path: string) => {
+    navigate(`/project/${path}`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -160,6 +192,37 @@ const ProjectViewWrapper = () => {
     );
   }
 
+  const currentUser = {
+    id: user?.id || '',
+    email: user?.email || '',
+    name: user?.user_metadata?.full_name || user?.email || '',
+    role: 'advogado' as const,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  if (isSectorView && sectorId) {
+    const sector = project.sectors?.find(s => s.id === sectorId);
+    
+    if (!sector) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div>Setor não encontrado</div>
+        </div>
+      );
+    }
+
+    return (
+      <SectorView
+        onBack={handleBack}
+        project={project}
+        sector={sector}
+        onUpdateProject={handleUpdateProject}
+        currentUser={currentUser}
+      />
+    );
+  }
+
   return (
     <ProjectView
       onLogout={handleLogout}
@@ -167,14 +230,8 @@ const ProjectViewWrapper = () => {
       project={project}
       onUpdateProject={handleUpdateProject}
       onNavigateToAcordos={handleNavigateToAcordos}
-      currentUser={{
-        id: user?.id || '',
-        email: user?.email || '',
-        name: user?.user_metadata?.full_name || user?.email || '',
-        role: 'advogado',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }}
+      currentUser={currentUser}
+      onProjectNavigation={handleProjectNavigation}
     />
   );
 };

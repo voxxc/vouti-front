@@ -1593,6 +1593,7 @@ export type Database = {
           is_default: boolean
           name: string
           project_id: string
+          sector_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1603,6 +1604,7 @@ export type Database = {
           is_default?: boolean
           name: string
           project_id: string
+          sector_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1613,11 +1615,63 @@ export type Database = {
           is_default?: boolean
           name?: string
           project_id?: string
+          sector_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "project_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_columns_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "project_sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_sectors: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          project_id: string
+          sector_order: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          project_id: string
+          sector_order?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          project_id?: string
+          sector_order?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_sectors_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -1703,6 +1757,7 @@ export type Database = {
           description: string | null
           id: string
           project_id: string
+          sector_id: string | null
           status: string
           task_type: string | null
           title: string
@@ -1716,6 +1771,7 @@ export type Database = {
           description?: string | null
           id?: string
           project_id: string
+          sector_id?: string | null
           status?: string
           task_type?: string | null
           title: string
@@ -1729,6 +1785,7 @@ export type Database = {
           description?: string | null
           id?: string
           project_id?: string
+          sector_id?: string | null
           status?: string
           task_type?: string | null
           title?: string
@@ -1747,6 +1804,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "project_sectors"
             referencedColumns: ["id"]
           },
         ]

@@ -1,6 +1,19 @@
+export interface ProjectSector {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  sectorOrder: number;
+  isDefault: boolean;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface KanbanColumn {
   id: string;
   projectId: string;
+  sectorId?: string;
   name: string;
   columnOrder: number;
   color: string;
@@ -55,6 +68,7 @@ export interface Task {
   description: string;
   status: 'waiting' | 'todo' | 'progress' | 'done';
   columnId?: string;
+  sectorId?: string;
   comments: Comment[];
   files: TaskFile[];
   history: TaskHistoryEntry[];
@@ -73,6 +87,7 @@ export interface Project {
   tasks: Task[];
   acordoTasks: Task[];
   columns?: KanbanColumn[];
+  sectors?: ProjectSector[];
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
