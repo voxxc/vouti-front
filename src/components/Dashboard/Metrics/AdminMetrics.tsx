@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FolderKanban, UserCheck, Calendar, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
+import { ClienteAnalytics } from "../ClienteAnalytics";
 
 interface AdminMetricsProps {
   userId: string;
@@ -127,6 +128,8 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
           </CardContent>
         </Card>
       </div>
+
+      <ClienteAnalytics />
 
       <OverviewSection users={[]} projects={[]} />
     </div>

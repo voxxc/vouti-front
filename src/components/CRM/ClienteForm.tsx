@@ -43,6 +43,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       email: cliente.email || '',
       data_nascimento: cliente.data_nascimento || '',
       endereco: cliente.endereco || '',
+      profissao: cliente.profissao || '',
+      uf: cliente.uf || '',
       data_fechamento: cliente.data_fechamento || '',
       valor_contrato: cliente.valor_contrato?.toString() || '',
       forma_pagamento: cliente.forma_pagamento || 'a_vista',
@@ -61,6 +63,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       forma_pagamento: 'a_vista',
       classificacao: 'pf',
       status_cliente: 'ativo',
+      profissao: '',
+      uf: '',
     },
   });
 
@@ -75,6 +79,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       email: '',
       data_nascimento: '',
       endereco: '',
+      profissao: '',
+      uf: '',
     }]);
   };
 
@@ -96,6 +102,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       email: data.email || undefined,
       data_nascimento: data.data_nascimento || undefined,
       endereco: data.endereco || undefined,
+      profissao: data.profissao || undefined,
+      uf: data.uf || undefined,
       data_fechamento: data.data_fechamento,
       valor_contrato: parseFloat(data.valor_contrato),
       forma_pagamento: data.forma_pagamento,
@@ -211,6 +219,58 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             <Input id="data_nascimento" type="date" {...register('data_nascimento')} />
           </div>
 
+          {classificacao === 'pf' && (
+            <div className="space-y-2">
+              <Label htmlFor="profissao">Profissão</Label>
+              <Input 
+                id="profissao" 
+                {...register('profissao')} 
+                placeholder="Ex: Advogado, Médico, Empresário..."
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="uf">Estado (UF)</Label>
+            <Select
+              value={watch('uf')}
+              onValueChange={(value) => setValue('uf', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="AC">Acre</SelectItem>
+                <SelectItem value="AL">Alagoas</SelectItem>
+                <SelectItem value="AP">Amapá</SelectItem>
+                <SelectItem value="AM">Amazonas</SelectItem>
+                <SelectItem value="BA">Bahia</SelectItem>
+                <SelectItem value="CE">Ceará</SelectItem>
+                <SelectItem value="DF">Distrito Federal</SelectItem>
+                <SelectItem value="ES">Espírito Santo</SelectItem>
+                <SelectItem value="GO">Goiás</SelectItem>
+                <SelectItem value="MA">Maranhão</SelectItem>
+                <SelectItem value="MT">Mato Grosso</SelectItem>
+                <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                <SelectItem value="MG">Minas Gerais</SelectItem>
+                <SelectItem value="PA">Pará</SelectItem>
+                <SelectItem value="PB">Paraíba</SelectItem>
+                <SelectItem value="PR">Paraná</SelectItem>
+                <SelectItem value="PE">Pernambuco</SelectItem>
+                <SelectItem value="PI">Piauí</SelectItem>
+                <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                <SelectItem value="RO">Rondônia</SelectItem>
+                <SelectItem value="RR">Roraima</SelectItem>
+                <SelectItem value="SC">Santa Catarina</SelectItem>
+                <SelectItem value="SP">São Paulo</SelectItem>
+                <SelectItem value="SE">Sergipe</SelectItem>
+                <SelectItem value="TO">Tocantins</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="endereco">Endereço</Label>
             <Input id="endereco" {...register('endereco')} />
@@ -290,6 +350,25 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
                     type="date"
                     value={pessoa.data_nascimento || ''}
                     onChange={(e) => updatePessoaAdicional(index, 'data_nascimento', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Profissão</Label>
+                  <Input
+                    value={pessoa.profissao || ''}
+                    onChange={(e) => updatePessoaAdicional(index, 'profissao', e.target.value)}
+                    placeholder="Ex: Advogado, Médico..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Estado (UF)</Label>
+                  <Input
+                    value={pessoa.uf || ''}
+                    onChange={(e) => updatePessoaAdicional(index, 'uf', e.target.value.toUpperCase())}
+                    placeholder="Ex: SP, RJ, PR..."
+                    maxLength={2}
                   />
                 </div>
                 

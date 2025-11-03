@@ -5,6 +5,8 @@ export interface PessoaAdicional {
   email?: string;
   data_nascimento?: string;
   endereco?: string;
+  profissao?: string;
+  uf?: string;
 }
 
 export interface Cliente {
@@ -16,6 +18,8 @@ export interface Cliente {
   email?: string;
   data_nascimento?: string;
   endereco?: string;
+  profissao?: string;
+  uf?: string;
   data_fechamento: string;
   data_cadastro?: string;
   valor_contrato: number;

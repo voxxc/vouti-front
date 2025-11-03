@@ -7,6 +7,8 @@ const pessoaAdicionalSchema = z.object({
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   data_nascimento: z.string().optional().or(z.literal('')),
   endereco: z.string().optional(),
+  profissao: z.string().optional(),
+  uf: z.string().length(2, 'UF deve ter 2 caracteres').optional().or(z.literal('')),
 }).refine(
   (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
   {
@@ -22,6 +24,8 @@ export const clienteSchema = z.object({
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   data_nascimento: z.string().optional().or(z.literal('')),
   endereco: z.string().optional(),
+  profissao: z.string().optional(),
+  uf: z.string().length(2, 'UF deve ter 2 caracteres').toUpperCase().optional().or(z.literal('')),
   data_fechamento: z.string().min(1, 'Data de fechamento é obrigatória'),
   valor_contrato: z.string().min(1, 'Valor do contrato é obrigatório'),
   forma_pagamento: z.enum(['a_vista', 'parcelado'], {
