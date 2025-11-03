@@ -39,6 +39,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
     defaultValues: cliente ? {
       nome_pessoa_fisica: cliente.nome_pessoa_fisica || '',
       nome_pessoa_juridica: cliente.nome_pessoa_juridica || '',
+      cpf: cliente.cpf || '',
+      cnpj: cliente.cnpj || '',
       telefone: cliente.telefone || '',
       email: cliente.email || '',
       data_nascimento: cliente.data_nascimento || '',
@@ -63,6 +65,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       forma_pagamento: 'a_vista',
       classificacao: 'pf',
       status_cliente: 'ativo',
+      cpf: '',
+      cnpj: '',
       profissao: '',
       uf: '',
     },
@@ -75,6 +79,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
     setPessoasAdicionais([...pessoasAdicionais, {
       nome_pessoa_fisica: '',
       nome_pessoa_juridica: '',
+      cpf: '',
+      cnpj: '',
       telefone: '',
       email: '',
       data_nascimento: '',
@@ -98,6 +104,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
     const clienteData: Partial<Cliente> = {
       nome_pessoa_fisica: data.nome_pessoa_fisica || undefined,
       nome_pessoa_juridica: data.nome_pessoa_juridica || undefined,
+      cpf: data.cpf || undefined,
+      cnpj: data.cnpj || undefined,
       telefone: data.telefone || undefined,
       email: data.email || undefined,
       data_nascimento: data.data_nascimento || undefined,
@@ -197,6 +205,38 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             <Label htmlFor="nome_pessoa_juridica">Nome Pessoa Jurídica</Label>
             <Input id="nome_pessoa_juridica" {...register('nome_pessoa_juridica')} />
           </div>
+
+          {/* Campo CPF - Apenas para Pessoa Física */}
+          {classificacao === 'pf' && (
+            <div className="space-y-2">
+              <Label htmlFor="cpf">CPF</Label>
+              <Input 
+                id="cpf" 
+                {...register('cpf')} 
+                placeholder="000.000.000-00"
+                maxLength={14}
+              />
+              {errors.cpf && (
+                <p className="text-sm text-destructive">{errors.cpf.message}</p>
+              )}
+            </div>
+          )}
+
+          {/* Campo CNPJ - Apenas para Pessoa Jurídica */}
+          {classificacao === 'pj' && (
+            <div className="space-y-2">
+              <Label htmlFor="cnpj">CNPJ</Label>
+              <Input 
+                id="cnpj" 
+                {...register('cnpj')} 
+                placeholder="00.000.000/0000-00"
+                maxLength={18}
+              />
+              {errors.cnpj && (
+                <p className="text-sm text-destructive">{errors.cnpj.message}</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="telefone">Telefone</Label>
@@ -323,6 +363,26 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
                   <Input
                     value={pessoa.nome_pessoa_juridica || ''}
                     onChange={(e) => updatePessoaAdicional(index, 'nome_pessoa_juridica', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>CPF (se Pessoa Física)</Label>
+                  <Input
+                    value={pessoa.cpf || ''}
+                    onChange={(e) => updatePessoaAdicional(index, 'cpf', e.target.value)}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>CNPJ (se Pessoa Jurídica)</Label>
+                  <Input
+                    value={pessoa.cnpj || ''}
+                    onChange={(e) => updatePessoaAdicional(index, 'cnpj', e.target.value)}
+                    placeholder="00.000.000/0000-00"
+                    maxLength={18}
                   />
                 </div>
                 

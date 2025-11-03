@@ -1,6 +1,8 @@
 export interface PessoaAdicional {
   nome_pessoa_fisica?: string;
   nome_pessoa_juridica?: string;
+  cpf?: string;
+  cnpj?: string;
   telefone?: string;
   email?: string;
   data_nascimento?: string;
@@ -14,6 +16,8 @@ export interface Cliente {
   user_id: string;
   nome_pessoa_fisica?: string;
   nome_pessoa_juridica?: string;
+  cpf?: string;
+  cnpj?: string;
   telefone?: string;
   email?: string;
   data_nascimento?: string;
