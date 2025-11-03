@@ -20,8 +20,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Unlink, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ProjectClientDataDialogProps {
   open: boolean;
@@ -42,6 +52,7 @@ export const ProjectClientDataDialog = ({
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [comboOpen, setComboOpen] = useState(false);
+  const [showUnlinkAlert, setShowUnlinkAlert] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,8 +105,6 @@ export const ProjectClientDataDialog = ({
   };
 
   const handleDesvincular = async () => {
-    if (!confirm('Deseja realmente desvincular este cliente do projeto?')) return;
-
     const { error } = await supabase
       .from('projects')
       .update({ cliente_id: null })
@@ -104,9 +113,10 @@ export const ProjectClientDataDialog = ({
     if (!error) {
       onClienteLinked(null);
       setSelectedCliente(null);
+      setShowUnlinkAlert(false);
       toast({
-        title: "Sucesso",
-        description: "Cliente desvinculado com sucesso!",
+        title: "✓ Desvinculado",
+        description: "Cliente desvinculado do projeto com sucesso!",
       });
     } else {
       toast({
@@ -118,7 +128,8 @@ export const ProjectClientDataDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Dados do Cliente</DialogTitle>
@@ -181,17 +192,58 @@ export const ProjectClientDataDialog = ({
               readOnly={true}
             />
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-4 border-t">
               <Button 
-                variant="outline" 
-                onClick={handleDesvincular}
+                variant="destructive" 
+                onClick={() => setShowUnlinkAlert(true)}
+                className="gap-2"
               >
+                <Unlink size={16} />
                 Desvincular Cliente
               </Button>
             </div>
           </div>
         )}
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      {/* AlertDialog de Confirmação de Desvinculamento */}
+      <AlertDialog open={showUnlinkAlert} onOpenChange={setShowUnlinkAlert}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 rounded-full bg-orange-100 dark:bg-orange-900/20">
+              <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-500" />
+            </div>
+            <AlertDialogTitle className="text-xl">
+              Desvincular Cliente?
+            </AlertDialogTitle>
+          </div>
+          <AlertDialogDescription className="text-base leading-relaxed pt-2">
+            Tem certeza que deseja desvincular{" "}
+            <span className="font-semibold text-foreground">
+              {selectedCliente?.nome_pessoa_fisica || selectedCliente?.nome_pessoa_juridica}
+            </span>{" "}
+            deste projeto?
+            <div className="mt-3 p-3 bg-muted rounded-md text-sm">
+              💡 <strong>Importante:</strong> Os dados do cliente não serão excluídos, 
+              apenas a vinculação com este projeto será removida.
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2 sm:gap-2">
+          <AlertDialogCancel className="mt-0">
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDesvincular}
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+          >
+            Sim, Desvincular
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
