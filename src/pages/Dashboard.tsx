@@ -26,50 +26,20 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          *,
-          user_roles (
-            role
-          )
-        `)
-        .not('email', 'like', '%@metalsystem.local%')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('get_users_with_roles');
 
       if (error) throw error;
 
-      const mappedUsers: User[] = (data || []).map(profile => {
-        // Buscar role de maior privilégio da tabela user_roles
-        const roles = (profile as any).user_roles || [];
-        
-        const rolePriority: Record<string, number> = {
-          'admin': 4,
-          'financeiro': 3,
-          'comercial': 2,
-          'advogado': 1
-        };
-
-        let highestRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' = 'advogado';
-        
-        if (roles.length > 0) {
-          const sortedRoles = roles.sort((a: any, b: any) => 
-            (rolePriority[b.role] || 0) - (rolePriority[a.role] || 0)
-          );
-          highestRole = sortedRoles[0].role as 'admin' | 'advogado' | 'comercial' | 'financeiro';
-        }
-
-        return {
-          id: profile.user_id,
-          email: profile.email,
-          name: profile.full_name || profile.email,
-          avatar: profile.avatar_url,
-          role: highestRole,
-          personalInfo: {},
-          createdAt: new Date(profile.created_at),
-          updatedAt: new Date(profile.updated_at)
-        };
-      });
+      const mappedUsers: User[] = (data || []).map((user: any) => ({
+        id: user.user_id,
+        email: user.email,
+        name: user.full_name || user.email,
+        avatar: user.avatar_url,
+        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro',
+        personalInfo: {},
+        createdAt: new Date(user.created_at),
+        updatedAt: new Date(user.updated_at)
+      }));
 
       setSystemUsers(mappedUsers);
     } catch (error) {

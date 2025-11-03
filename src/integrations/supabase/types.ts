@@ -2089,6 +2089,18 @@ export type Database = {
         Args: { key: string; text_to_encrypt: string }
         Returns: string
       }
+      get_users_with_roles: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          full_name: string
+          highest_role: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       has_dental_role: {
         Args: {
           _role: Database["public"]["Enums"]["dental_role"]
