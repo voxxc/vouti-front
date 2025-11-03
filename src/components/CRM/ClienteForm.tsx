@@ -50,15 +50,17 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
     numero_parcelas: cliente.numero_parcelas?.toString() || '',
     valor_parcela: cliente.valor_parcela?.toString() || '',
     data_vencimento_inicial: cliente.data_vencimento_inicial || '',
-    data_vencimento_final: cliente.data_vencimento_final || '',
-    vendedor: cliente.vendedor || '',
+      data_vencimento_final: cliente.data_vencimento_final || '',
+      vendedor: cliente.vendedor || '',
       origem_rede_social: cliente.origem_rede_social || '',
       origem_tipo: cliente.origem_tipo || undefined,
       observacoes: cliente.observacoes || '',
       classificacao: cliente.classificacao || 'pf',
+      status_cliente: cliente.status_cliente || 'ativo',
     } : {
       forma_pagamento: 'a_vista',
       classificacao: 'pf',
+      status_cliente: 'ativo',
     },
   });
 
@@ -107,6 +109,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       origem_tipo: data.origem_tipo || undefined,
       observacoes: data.observacoes || undefined,
       classificacao: data.classificacao,
+      status_cliente: data.status_cliente || 'ativo',
       pessoas_adicionais: pessoasAdicionais.filter(p => 
         p.nome_pessoa_fisica || p.nome_pessoa_juridica
       ),
@@ -417,6 +420,23 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
           <div className="space-y-2">
             <Label htmlFor="origem_rede_social">Origem (Rede Social)</Label>
             <Input id="origem_rede_social" {...register('origem_rede_social')} placeholder="@usuario ou nome da página" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status_cliente">Status do Cliente</Label>
+            <Select
+              value={watch('status_cliente')}
+              onValueChange={(value) => setValue('status_cliente', value as any)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ativo">✅ Ativo</SelectItem>
+                <SelectItem value="inativo">⏸️ Inativo</SelectItem>
+                <SelectItem value="contrato_encerrado">🔒 Contrato Encerrado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2 md:col-span-2">

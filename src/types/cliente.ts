@@ -30,6 +30,7 @@ export interface Cliente {
   origem_tipo?: 'instagram' | 'facebook' | 'indicacao' | 'outro';
   observacoes?: string;
   classificacao?: 'pf' | 'pj';
+  status_cliente?: 'ativo' | 'inativo' | 'contrato_encerrado';
   pessoas_adicionais?: PessoaAdicional[];
   created_at?: string;
   updated_at?: string;

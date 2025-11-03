@@ -267,6 +267,7 @@ export type Database = {
           origem_rede_social: string | null
           origem_tipo: string | null
           pessoas_adicionais: Json | null
+          status_cliente: string
           telefone: string | null
           updated_at: string | null
           user_id: string
@@ -294,6 +295,7 @@ export type Database = {
           origem_rede_social?: string | null
           origem_tipo?: string | null
           pessoas_adicionais?: Json | null
+          status_cliente?: string
           telefone?: string | null
           updated_at?: string | null
           user_id: string
@@ -321,6 +323,7 @@ export type Database = {
           origem_rede_social?: string | null
           origem_tipo?: string | null
           pessoas_adicionais?: Json | null
+          status_cliente?: string
           telefone?: string | null
           updated_at?: string | null
           user_id?: string

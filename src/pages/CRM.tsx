@@ -6,7 +6,25 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Layout, Edit } from "lucide-react";
+import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Layout, Edit, Trash2, AlertCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import WhatsAppBot from "@/components/CRM/WhatsAppBot";
 import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
@@ -51,8 +69,9 @@ const CRM = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { fetchClientes } = useClientes();
+  const { fetchClientes, deleteCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [activeTab, setActiveTab] = useState("clientes");
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [selectedClientHistory, setSelectedClientHistory] = useState<ClientHistory[]>([]);
@@ -130,15 +149,32 @@ const CRM = () => {
   const handleFormSuccess = () => {
     setIsClientFormOpen(false);
     setIsClientDetailsOpen(false);
+    setSelectedCliente(null);
     loadClientes();
   };
 
+  const handleDeleteCliente = async (clienteId: string, nomeCliente: string) => {
+    const success = await deleteCliente(clienteId);
+    
+    if (success) {
+      toast({
+        title: "Cliente excluído com sucesso",
+        description: `${nomeCliente} e todos os registros financeiros foram removidos.`,
+      });
+      loadClientes();
+    }
+  };
 
   const filteredClientes = clientes.filter(cliente => {
     const nome = cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || '';
     const email = cliente.email || '';
-    return nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'todos' || 
+      (cliente.status_cliente || 'ativo') === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
 
   const formatCurrency = (value?: number) => {
@@ -232,15 +268,29 @@ const CRM = () => {
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar clientes, emails, empresas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+          <div className="flex gap-4 items-center flex-1">
+            <div className="relative max-w-md flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Buscar clientes, emails, empresas..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="ativo">✅ Ativos</SelectItem>
+                <SelectItem value="inativo">⏸️ Inativos</SelectItem>
+                <SelectItem value="contrato_encerrado">🔒 Contrato Encerrado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -268,27 +318,44 @@ const CRM = () => {
                       className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer"
                       onClick={() => handleViewCliente(cliente)}
                     >
-                      <CardHeader className="pb-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-law-blue/10 rounded-lg">
-                              <User className="h-5 w-5 text-law-blue" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg font-semibold">{nomeCliente}</CardTitle>
-                              {cliente.email && (
-                                <CardDescription className="flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {cliente.email}
-                                </CardDescription>
-                              )}
-                            </div>
-                          </div>
-                          <Badge variant={cliente.forma_pagamento === 'a_vista' ? 'default' : 'secondary'}>
-                            {cliente.forma_pagamento === 'a_vista' ? 'À Vista' : 'Parcelado'}
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-law-blue/10 rounded-lg">
+                        <User className="h-5 w-5 text-law-blue" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg font-semibold">{nomeCliente}</CardTitle>
+                          <Badge 
+                            variant={
+                              (cliente.status_cliente || 'ativo') === 'ativo' ? 'default' :
+                              cliente.status_cliente === 'inativo' ? 'secondary' : 'outline'
+                            }
+                            className={
+                              cliente.status_cliente === 'contrato_encerrado' 
+                                ? 'bg-red-100 text-red-800 border-red-300' 
+                                : ''
+                            }
+                          >
+                            {cliente.status_cliente === 'ativo' || !cliente.status_cliente ? '✅ Ativo' :
+                             cliente.status_cliente === 'inativo' ? '⏸️ Inativo' :
+                             '🔒 Encerrado'}
                           </Badge>
                         </div>
-                      </CardHeader>
+                        {cliente.email && (
+                          <CardDescription className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {cliente.email}
+                          </CardDescription>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={cliente.forma_pagamento === 'a_vista' ? 'default' : 'secondary'}>
+                      {cliente.forma_pagamento === 'a_vista' ? 'À Vista' : 'Parcelado'}
+                    </Badge>
+                  </div>
+                </CardHeader>
 
                       <CardContent className="pt-0 space-y-3">
                         {cliente.telefone && (
@@ -327,6 +394,58 @@ const CRM = () => {
                             <Edit className="h-3 w-3 mr-1" />
                             Editar
                           </Button>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Excluir
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="flex items-center gap-2">
+                                  <AlertCircle className="h-5 w-5 text-destructive" />
+                                  ⚠️ Confirmar Exclusão Permanente
+                                </AlertDialogTitle>
+                                <AlertDialogDescription className="space-y-3 text-left">
+                                  <p>Tem certeza que deseja excluir <strong>{nomeCliente}</strong>?</p>
+                                  
+                                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
+                                    <p className="font-semibold text-destructive text-sm">⚠️ Esta ação é IRREVERSÍVEL e causará:</p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                      <li>Exclusão permanente do cadastro do cliente</li>
+                                      <li>Remoção de <strong>TODAS as parcelas</strong> (pagas e pendentes)</li>
+                                      <li>Remoção de <strong>TODAS as dívidas extras</strong></li>
+                                      <li>Exclusão de <strong>TODOS os comentários</strong> de pagamentos</li>
+                                      <li>Remoção de <strong>TODOS os documentos</strong> anexados</li>
+                                    </ul>
+                                  </div>
+                                  
+                                  <p className="text-sm font-medium">Deseja realmente continuar?</p>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                                  Cancelar
+                                </AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCliente(cliente.id, nomeCliente);
+                                  }}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Sim, Excluir Permanentemente
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </CardContent>
                     </Card>

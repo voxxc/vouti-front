@@ -39,6 +39,7 @@ export const clienteSchema = z.object({
   classificacao: z.enum(['pf', 'pj'], {
     required_error: 'Selecione a classificação do cliente'
   }),
+  status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
 }).refine(
   (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
