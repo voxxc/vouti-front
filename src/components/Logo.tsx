@@ -17,9 +17,9 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
   };
 
   const shieldSizes = {
-    sm: { width: "60", height: "72" },
-    md: { width: "80", height: "96" },
-    lg: { width: "120", height: "144" }
+    sm: { width: "50", height: "60" },
+    md: { width: "65", height: "78" },
+    lg: { width: "90", height: "108" }
   };
 
   return (
@@ -32,7 +32,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
           viewBox="0 0 100 120" 
           xmlns="http://www.w3.org/2000/svg"
           style={{
-            filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6))'
+            filter: 'drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3))'
           }}
         >
           <defs>
@@ -45,19 +45,19 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
           {/* Shield Shape (Pentagon/Diamond) */}
           <path 
             d="M 50 5 L 95 35 L 85 95 L 50 115 L 15 95 L 5 35 Z" 
-            fill="url(#goldGradient)"
-            stroke="hsl(43 90% 35%)"
-            strokeWidth="2"
+            fill="none"
+            stroke="url(#goldGradient)"
+            strokeWidth="3"
           />
           
           {/* Letter S */}
           <text 
             x="50" 
-            y="80" 
+            y="75" 
             fontFamily="Arial, sans-serif" 
-            fontSize="70" 
+            fontSize="60" 
             fontWeight="900" 
-            fill="hsl(0 0% 5%)"
+            fill="url(#goldGradient)"
             textAnchor="middle"
             dominantBaseline="middle"
           >

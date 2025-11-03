@@ -453,5 +453,220 @@ Navegue para `/auth` e observe:
 ---
 
 **Última Atualização**: 2025-11-03  
-**Templates Disponíveis**: LogoVouti v1.0, LogoSolvenza v1.0  
-**Template Ativo**: ✅ LogoSolvenza
+**Templates Disponíveis**: LogoVouti v1.0, LogoSolvenza v1.0, LogoSolvenzaMinimal v1.0  
+**Template Ativo**: ✅ LogoSolvenzaMinimal
+
+---
+
+# Template: LogoSolvenzaMinimal
+
+**Created:** 2025-11-03  
+**Status:** ✅ Ativo (Current)
+
+## Descrição Visual
+
+**LogoSolvenzaMinimal** é uma versão elegante e minimalista do LogoSolvenza:
+
+### Componentes:
+1. **Escudo Outline (SVG):**
+   - Formato pentagonal/diamante estilo Superman
+   - **Apenas contorno em gradiente dourado** (sem preenchimento)
+   - Espessura da linha: 3px
+   - Drop shadow sutil para profundidade
+
+2. **Letra "S" (Dentro do Escudo):**
+   - **Preenchimento em gradiente dourado** (combinando com o contorno)
+   - Fonte: Arial, negrito (peso 900)
+   - Centralizada dentro do escudo
+
+3. **Nome da Marca "SOLVENZA":**
+   - Texto em gradiente dourado
+   - Letter spacing largo (tracking: 0.4em)
+   - Peso bold
+
+4. **Slogan "GROUP":**
+   - Texto em gradiente dourado
+   - Tamanho menor com tracking moderado (0.2em)
+   - Peso normal
+
+### Cores:
+- **Gradiente Dourado:** `hsl(43 90% 65%)` → `hsl(43 90% 45%)`
+- **Fundo:** Transparente (sem preenchimento no escudo)
+- **Sombra:** `0 1px 4px rgba(0, 0, 0, 0.3)` (sutil)
+
+### Dimensões do Escudo (reduzidas em ~30% para melhor proporção):
+- **sm:** 50px × 60px
+- **md:** 65px × 78px  
+- **lg:** 90px × 108px
+
+### Tamanhos de Texto:
+- **Letra S:** fontSize 60 (dentro do escudo)
+- **SOLVENZA (sm):** text-xs
+- **SOLVENZA (md):** text-sm
+- **SOLVENZA (lg):** text-lg
+- **GROUP:** Sempre text-xs
+
+---
+
+## Código Completo dos Componentes
+
+### `src/components/Logo.tsx` (LogoSolvenzaMinimal)
+
+```tsx
+interface LogoProps {
+  className?: string;
+  size?: "sm" | "md" | "lg";
+}
+
+const Logo = ({ className = "", size = "md" }: LogoProps) => {
+  const sizeClasses = {
+    sm: "text-lg",
+    md: "text-xl", 
+    lg: "text-3xl"
+  };
+
+  const logoSizes = {
+    sm: { main: "text-4xl", sub: "text-xs" },
+    md: { main: "text-5xl", sub: "text-sm" },
+    lg: { main: "text-7xl", sub: "text-lg" }
+  };
+
+  const shieldSizes = {
+    sm: { width: "50", height: "60" },
+    md: { width: "65", height: "78" },
+    lg: { width: "90", height: "108" }
+  };
+
+  return (
+    <div className={`flex flex-col items-center ${className}`}>
+      {/* Logo Icon - S Shield (Superman style - Minimal) */}
+      <div className="relative mb-2">
+        <svg 
+          width={shieldSizes[size].width} 
+          height={shieldSizes[size].height} 
+          viewBox="0 0 100 120" 
+          xmlns="http://www.w3.org/2000/svg"
+          style={{
+            filter: 'drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3))'
+          }}
+        >
+          <defs>
+            <linearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style={{ stopColor: 'hsl(43 90% 65%)', stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: 'hsl(43 90% 45%)', stopOpacity: 1 }} />
+            </linearGradient>
+          </defs>
+          
+          {/* Shield Shape (Pentagon/Diamond) - Outline Only */}
+          <path 
+            d="M 50 5 L 95 35 L 85 95 L 50 115 L 15 95 L 5 35 Z" 
+            fill="none"
+            stroke="url(#goldGradient)"
+            strokeWidth="3"
+          />
+          
+          {/* Letter S - Gold */}
+          <text 
+            x="50" 
+            y="75" 
+            fontFamily="Arial, sans-serif" 
+            fontSize="60" 
+            fontWeight="900" 
+            fill="url(#goldGradient)"
+            textAnchor="middle"
+            dominantBaseline="middle"
+          >
+            S
+          </text>
+        </svg>
+      </div>
+      
+      {/* Text */}
+      <div className="flex flex-col items-center text-center">
+        <span 
+          className={`font-bold tracking-[0.4em] ${logoSizes[size].sub} leading-none`}
+          style={{
+            background: 'linear-gradient(180deg, hsl(43 90% 65%) 0%, hsl(43 90% 45%) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}
+        >
+          SOLVENZA
+        </span>
+        <span 
+          className="text-xs font-normal tracking-[0.2em] mt-1"
+          style={{
+            background: 'linear-gradient(180deg, hsl(43 90% 65%) 0%, hsl(43 90% 45%) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}
+        >
+          GROUP
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default Logo;
+```
+
+### `src/components/LoadingTransition.tsx`
+(Mesmo componente do LogoVouti e LogoSolvenza - reutilizar)
+
+---
+
+## Uso
+
+Importar e usar normalmente:
+
+```tsx
+import Logo from '@/components/Logo';
+
+// No seu componente
+<Logo size="lg" />
+```
+
+---
+
+## Como Restaurar Este Template
+
+### Passo 1: Restaurar o componente Logo
+Copie o código da seção "Código Completo dos Componentes" acima e substitua o conteúdo de `src/components/Logo.tsx`
+
+### Passo 2: Componente LoadingTransition
+O LoadingTransition permanece inalterado (importa automaticamente o Logo atualizado)
+
+### Passo 3: Verificar
+Navegue para `/auth` e observe:
+- ✅ Logo deve aparecer com fade-in suave
+- ✅ Escudo pentagonal apenas com contorno dourado
+- ✅ Letra S em gradiente dourado centralizada
+- ✅ Texto "SOLVENZA" espaçado
+- ✅ Slogan "GROUP" abaixo
+
+---
+
+## Notas de Design
+
+### Características Visuais:
+- **Elegância Máxima**: Abordagem minimalista cria aparência sofisticada e high-end
+- **Profissionalismo Premium**: Apenas contorno dourado transmite exclusividade
+- **Proporção Perfeita**: Escudo reduzido em 30% equilibra todos os elementos
+- **Modernidade**: Design clean e contemporâneo
+- **Hierarquia Clara**: Escudo > Nome > Slogan
+
+### Considerações Técnicas:
+- **SVG Inline Otimizado**: Renderização nítida em qualquer resolução
+- **Transparência**: Ausência de preenchimento cria leveza visual
+- **Responsividade**: Três tamanhos adaptativos (sm, md, lg)
+- **Performance**: Componente leve sem dependências externas
+- **Compatibilidade**: Funciona em todos os navegadores modernos
+
+### Por Que Esta Versão é Superior:
+- **Visual mais equilibrado**: Proporções ajustadas eliminam sensação de "pesado"
+- **Mais versátil**: Funciona melhor em fundos claros e escuros
+- **Maior impacto**: Menos elementos criam foco visual mais forte
+- **Premium branding**: Design minimalista é associado a marcas de luxo
