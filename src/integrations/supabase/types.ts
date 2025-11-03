@@ -1645,6 +1645,7 @@ export type Database = {
           name: string
           project_id: string
           sector_order: number
+          template_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1656,6 +1657,7 @@ export type Database = {
           name: string
           project_id: string
           sector_order?: number
+          template_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1667,6 +1669,7 @@ export type Database = {
           name?: string
           project_id?: string
           sector_order?: number
+          template_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1675,6 +1678,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_sectors_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "sector_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1756,6 +1766,33 @@ export type Database = {
           tribunal?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      sector_templates: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

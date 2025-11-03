@@ -526,61 +526,192 @@ const ProjectView = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const newSectorOrder = sectors.length;
+      // 1. Criar ou buscar template
+      let templateId: string;
+      
+      const { data: existingTemplate } = await supabase
+        .from('sector_templates')
+        .select('id')
+        .eq('name', name)
+        .eq('created_by', user.id)
+        .maybeSingle();
+      
+      if (existingTemplate) {
+        templateId = existingTemplate.id;
+      } else {
+        // Criar novo template
+        const { data: newTemplate, error: templateError } = await supabase
+          .from('sector_templates')
+          .insert({
+            name,
+            description,
+            created_by: user.id
+          })
+          .select()
+          .single();
+        
+        if (templateError) throw templateError;
+        templateId = newTemplate.id;
+      }
 
-      const { data, error } = await supabase
+      // 2. Buscar TODOS os projetos do usuário
+      const { data: userProjects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('created_by', user.id);
+      
+      if (projectsError) throw projectsError;
+
+      // 3. Criar setor em TODOS os projetos do usuário
+      const sectorsToCreate = userProjects.map((proj, idx) => ({
+        project_id: proj.id,
+        template_id: templateId,
+        name,
+        description,
+        sector_order: 999 + idx,
+        is_default: false,
+        created_by: user.id
+      }));
+      
+      const { data: newSectors, error: sectorsError } = await supabase
         .from('project_sectors')
-        .insert({
-          project_id: project.id,
-          name,
-          description,
-          sector_order: newSectorOrder,
-          is_default: false,
-          created_by: user.id
-        })
-        .select()
-        .single();
+        .insert(sectorsToCreate)
+        .select();
+      
+      if (sectorsError) throw sectorsError;
 
-      if (error) throw error;
-
-      // Criar 2 colunas padrão para o novo setor
+      // 4. Criar colunas padrão para cada setor criado
+      const columnsToCreate = newSectors.flatMap(sector => [
+        {
+          project_id: sector.project_id,
+          sector_id: sector.id,
+          name: 'Em Espera',
+          column_order: 0,
+          color: '#eab308',
+          is_default: true
+        },
+        {
+          project_id: sector.project_id,
+          sector_id: sector.id,
+          name: 'A Fazer',
+          column_order: 1,
+          color: '#3b82f6',
+          is_default: true
+        },
+        {
+          project_id: sector.project_id,
+          sector_id: sector.id,
+          name: 'Andamento',
+          column_order: 2,
+          color: '#f97316',
+          is_default: true
+        },
+        {
+          project_id: sector.project_id,
+          sector_id: sector.id,
+          name: 'Concluído',
+          column_order: 3,
+          color: '#22c55e',
+          is_default: true
+        }
+      ]);
+      
       const { error: columnsError } = await supabase
         .from('project_columns')
-        .insert([
-          {
-            project_id: project.id,
-            sector_id: data.id,
-            name: 'A Fazer',
-            column_order: 0,
-            color: '#f59e0b',
-            is_default: true
-          },
-          {
-            project_id: project.id,
-            sector_id: data.id,
-            name: 'Concluído',
-            column_order: 1,
-            color: '#10b981',
-            is_default: true
-          }
-        ]);
-
+        .insert(columnsToCreate);
+      
       if (columnsError) throw columnsError;
 
+      // 5. Recarregar setores do projeto atual
       await loadSectors();
 
       toast({
-        title: "Setor criado",
-        description: `Setor "${name}" criado com sucesso!`,
+        title: "Setor criado em todos os projetos!",
+        description: `"${name}" foi adicionado a todos os seus projetos.`,
       });
 
-      // Navegar para o novo setor
-      handleNavigateToSector(data.id);
+      setIsCreateSectorOpen(false);
+
+      // Navegar para o novo setor do projeto atual
+      const currentProjectSector = newSectors.find(s => s.project_id === project.id);
+      if (currentProjectSector) {
+        handleNavigateToSector(currentProjectSector.id);
+      }
     } catch (error) {
       console.error('Error creating sector:', error);
       toast({
         title: "Erro",
         description: "Erro ao criar setor.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteSector = async (sectorId: string) => {
+    try {
+      // Buscar template_id do setor
+      const { data: sector, error: sectorError } = await supabase
+        .from('project_sectors')
+        .select('template_id, name')
+        .eq('id', sectorId)
+        .single();
+
+      if (sectorError) throw sectorError;
+      
+      if (!sector?.template_id) {
+        // Setor sem template, deletar apenas deste projeto
+        // 1. Deletar todas as tarefas do setor
+        const { error: tasksError } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('sector_id', sectorId);
+        
+        if (tasksError) throw tasksError;
+        
+        // 2. Deletar colunas do setor
+        const { error: columnsError } = await supabase
+          .from('project_columns')
+          .delete()
+          .eq('sector_id', sectorId);
+        
+        if (columnsError) throw columnsError;
+        
+        // 3. Deletar o setor
+        const { error: deleteSectorError } = await supabase
+          .from('project_sectors')
+          .delete()
+          .eq('id', sectorId);
+        
+        if (deleteSectorError) throw deleteSectorError;
+
+        await loadSectors();
+        
+        toast({
+          title: "Setor excluído",
+          description: "Setor e todas as suas tarefas foram removidos.",
+        });
+        return;
+      }
+      
+      // Deletar template (CASCADE vai deletar todos os setores vinculados)
+      const { error: deleteTemplateError } = await supabase
+        .from('sector_templates')
+        .delete()
+        .eq('id', sector.template_id);
+      
+      if (deleteTemplateError) throw deleteTemplateError;
+
+      await loadSectors();
+      
+      toast({
+        title: "Setor excluído de todos os projetos",
+        description: `O setor "${sector.name}" foi removido de todos os seus projetos.`,
+      });
+    } catch (error) {
+      console.error('Error deleting sector:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir setor.",
         variant: "destructive",
       });
     }
@@ -635,6 +766,7 @@ const ProjectView = ({
               onNavigateToSector={handleNavigateToSector}
               onNavigateToAcordos={onNavigateToAcordos || (() => {})}
               onCreateSector={() => setIsCreateSectorOpen(true)}
+              onDeleteSector={handleDeleteSector}
             />
             
             <Button 
