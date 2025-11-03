@@ -18,7 +18,7 @@ interface UserWithRoles {
 
 const roleLabels: Record<AppRole, string> = {
   admin: 'Administrador',
-  controller: 'Controller',
+  controller: 'Controlador',
   advogado: 'Advogado',
   comercial: 'Comercial',
   financeiro: 'Financeiro',
@@ -26,7 +26,7 @@ const roleLabels: Record<AppRole, string> = {
 
 const roleVariants: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
   admin: 'destructive',
-  controller: 'default',
+  controller: 'secondary',
   advogado: 'outline',
   comercial: 'secondary',
   financeiro: 'secondary',

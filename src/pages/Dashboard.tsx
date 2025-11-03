@@ -35,7 +35,7 @@ const Dashboard = () => {
         email: user.email,
         name: user.full_name || user.email,
         avatar: user.avatar_url,
-        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro',
+        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller',
         personalInfo: {},
         createdAt: new Date(user.created_at),
         updatedAt: new Date(user.updated_at)
@@ -173,16 +173,16 @@ const Dashboard = () => {
   }
 
   // Obter role do usuário atual do AuthContext
-  const currentUserRole = userRole || 'advogado';
+  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' = (userRole as any) || 'advogado';
 
   // Função para verificar se o usuário tem acesso a uma seção
   const hasAccess = (section: string) => {
     if (currentUserRole === 'admin') return true;
     if (section === 'clientes' && (currentUserRole === 'advogado')) return true;
-    if (section === 'agenda' && (currentUserRole === 'advogado')) return true;
+    if (section === 'agenda' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
     if (section === 'crm' && (currentUserRole === 'comercial')) return true;
     if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
-    if (section === 'controladoria' && (currentUserRole === 'advogado')) return true;
+    if (section === 'controladoria' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
     return false;
   };
 
