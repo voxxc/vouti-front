@@ -5,6 +5,9 @@ import { Users, FolderKanban, UserCheck, Calendar, TrendingUp } from "lucide-rea
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
 import { ClienteAnalytics } from "../ClienteAnalytics";
+import { ProcessosMetrics } from "../ProcessosMetrics";
+import { TasksMetrics } from "../TasksMetrics";
+import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 
 interface AdminMetricsProps {
   userId: string;
@@ -130,6 +133,12 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
       </div>
 
       <ClienteAnalytics />
+
+      <ProcessosMetrics />
+
+      <TasksMetrics />
+
+      <ClienteTasksMetrics />
 
       <OverviewSection users={[]} projects={[]} />
     </div>
