@@ -16,24 +16,54 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
     lg: { main: "text-7xl", sub: "text-lg" }
   };
 
+  const shieldSizes = {
+    sm: { width: "60", height: "72" },
+    md: { width: "80", height: "96" },
+    lg: { width: "120", height: "144" }
+  };
+
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      {/* Logo Icon - V */}
-      <div className="relative mb-1 mr-2">
-        {/* Main V Letter with gradient gold */}
-        <div 
-          className={`font-black ${logoSizes[size].main} leading-none tracking-wide relative`}
+      {/* Logo Icon - S Shield (Superman style) */}
+      <div className="relative mb-2">
+        <svg 
+          width={shieldSizes[size].width} 
+          height={shieldSizes[size].height} 
+          viewBox="0 0 100 120" 
+          xmlns="http://www.w3.org/2000/svg"
           style={{
-            background: 'linear-gradient(180deg, hsl(43 90% 65%) 0%, hsl(43 90% 45%) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6))',
-            fontWeight: 900
+            filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6))'
           }}
         >
-          V
-        </div>
+          <defs>
+            <linearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style={{ stopColor: 'hsl(43 90% 65%)', stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: 'hsl(43 90% 45%)', stopOpacity: 1 }} />
+            </linearGradient>
+          </defs>
+          
+          {/* Shield Shape (Pentagon/Diamond) */}
+          <path 
+            d="M 50 5 L 95 35 L 85 95 L 50 115 L 15 95 L 5 35 Z" 
+            fill="url(#goldGradient)"
+            stroke="hsl(43 90% 35%)"
+            strokeWidth="2"
+          />
+          
+          {/* Letter S */}
+          <text 
+            x="50" 
+            y="80" 
+            fontFamily="Arial, sans-serif" 
+            fontSize="70" 
+            fontWeight="900" 
+            fill="hsl(0 0% 5%)"
+            textAnchor="middle"
+            dominantBaseline="middle"
+          >
+            S
+          </text>
+        </svg>
       </div>
       
       {/* Text */}
@@ -47,7 +77,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
             backgroundClip: 'text'
           }}
         >
-          VOUTI
+          SOLVENZA
         </span>
         <span 
           className="text-xs font-normal tracking-[0.2em] mt-1"
@@ -58,7 +88,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
             backgroundClip: 'text'
           }}
         >
-          GESTÃO JURÍDICA
+          GROUP
         </span>
       </div>
     </div>
