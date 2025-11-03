@@ -72,7 +72,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
         email: profile.email,
         name: profile.full_name || profile.email,
         avatar: profile.avatar_url,
-        role: profile.role as UserType['role'],
+        role: 'advogado', // Default role, actual role is in user_roles table
         createdAt: new Date(profile.created_at),
         updatedAt: new Date(profile.updated_at)
       }));

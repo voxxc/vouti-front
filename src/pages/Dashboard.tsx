@@ -14,7 +14,7 @@ import RoleMetricsPanel from "@/components/Dashboard/RoleMetricsPanel";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [showOverview, setShowOverview] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
@@ -28,22 +28,48 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
-        .not('email', 'like', '%@metalsystem.local%') // 🔒 Filtrar usuários do MetalSystem
+        .select(`
+          *,
+          user_roles (
+            role
+          )
+        `)
+        .not('email', 'like', '%@metalsystem.local%')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const mappedUsers: User[] = (data || []).map(profile => ({
-        id: profile.user_id,
-        email: profile.email,
-        name: profile.full_name || profile.email,
-        avatar: profile.avatar_url,
-        role: profile.role as 'admin' | 'advogado' | 'comercial' | 'financeiro',
-        personalInfo: {},
-        createdAt: new Date(profile.created_at),
-        updatedAt: new Date(profile.updated_at)
-      }));
+      const mappedUsers: User[] = (data || []).map(profile => {
+        // Buscar role de maior privilégio da tabela user_roles
+        const roles = (profile as any).user_roles || [];
+        
+        const rolePriority: Record<string, number> = {
+          'admin': 4,
+          'financeiro': 3,
+          'comercial': 2,
+          'advogado': 1
+        };
+
+        let highestRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' = 'advogado';
+        
+        if (roles.length > 0) {
+          const sortedRoles = roles.sort((a: any, b: any) => 
+            (rolePriority[b.role] || 0) - (rolePriority[a.role] || 0)
+          );
+          highestRole = sortedRoles[0].role as 'admin' | 'advogado' | 'comercial' | 'financeiro';
+        }
+
+        return {
+          id: profile.user_id,
+          email: profile.email,
+          name: profile.full_name || profile.email,
+          avatar: profile.avatar_url,
+          role: highestRole,
+          personalInfo: {},
+          createdAt: new Date(profile.created_at),
+          updatedAt: new Date(profile.updated_at)
+        };
+      });
 
       setSystemUsers(mappedUsers);
     } catch (error) {
@@ -64,28 +90,46 @@ const Dashboard = () => {
 
   const handleEditUser = async (userId: string, userData: Partial<User>) => {
     try {
-      const { error } = await supabase
+      // Atualizar informações do perfil (sem role)
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: userData.name,
-          role: userData.role,
           avatar_url: userData.avatar,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      setSystemUsers(systemUsers.map(user => 
-        user.id === userId 
-          ? { ...user, ...userData, updatedAt: new Date() }
-          : user
-      ));
+      // Se a role foi alterada, atualizar na tabela user_roles
+      if (userData.role) {
+        // Primeiro, remover todas as roles antigas do usuário
+        const { error: deleteError } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId);
+
+        if (deleteError) throw deleteError;
+
+        // Inserir a nova role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: userId,
+            role: userData.role
+          });
+
+        if (roleError) throw roleError;
+      }
 
       toast({
         title: "Sucesso",
         description: "Usuário atualizado com sucesso!",
       });
+
+      // Recarregar lista de usuários para refletir mudanças
+      fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
       toast({
@@ -158,8 +202,8 @@ const Dashboard = () => {
     );
   }
 
-  // Obter role do usuário atual
-  const currentUserRole = systemUsers.find(u => u.id === user?.id)?.role || 'advogado';
+  // Obter role do usuário atual do AuthContext
+  const currentUserRole = userRole || 'advogado';
 
   // Função para verificar se o usuário tem acesso a uma seção
   const hasAccess = (section: string) => {
