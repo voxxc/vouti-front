@@ -250,12 +250,11 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             )}
           </div>
 
-          {classificacao === 'pf' && (
-            <div className="space-y-2">
-              <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-              <Input id="data_nascimento" type="date" {...register('data_nascimento')} />
-            </div>
-          )}
+          {/* Data de Nascimento - sempre visível para PF e PJ */}
+          <div className="space-y-2">
+            <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+            <Input id="data_nascimento" type="date" {...register('data_nascimento')} />
+          </div>
 
           {/* Profissão - sempre visível para PF e PJ */}
           <div className="space-y-2">
