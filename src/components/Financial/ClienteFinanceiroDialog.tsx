@@ -40,7 +40,7 @@ export const ClienteFinanceiroDialog = ({
   );
   
   // Hook para dívidas adicionais
-  const { dividas, loading: dividasLoading, createDivida, fetchDividas } = useClienteDividas(
+  const { dividas, loading: dividasLoading, createDivida, deleteDivida, fetchDividas } = useClienteDividas(
     cliente?.id || null
   );
 
@@ -137,7 +137,6 @@ export const ClienteFinanceiroDialog = ({
       const divida = dividas.find(d => d.id === dividaId);
       if (!divida) return;
 
-      const { deleteDivida } = useClienteDividas(cliente.id);
       const success = await deleteDivida(dividaId);
       if (!success) return;
 

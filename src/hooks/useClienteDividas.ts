@@ -67,9 +67,20 @@ export const useClienteDividas = (clienteId: string | null) => {
 
       if (dividaError) throw dividaError;
 
+      // Buscar o maior numero_parcela existente para este cliente
+      const { data: maxParcela } = await supabase
+        .from('cliente_parcelas')
+        .select('numero_parcela')
+        .eq('cliente_id', clienteId)
+        .order('numero_parcela', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const startingNumber = (maxParcela?.numero_parcela || 0) + 1;
+
       // Gerar parcelas
       const parcelas = [];
-      for (let i = 1; i <= dados.numero_parcelas; i++) {
+      for (let i = 0; i < dados.numero_parcelas; i++) {
         const dataVencimento = new Date(dataInicio);
         dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
         
@@ -83,7 +94,7 @@ export const useClienteDividas = (clienteId: string | null) => {
         parcelas.push({
           cliente_id: clienteId,
           divida_id: dividaData.id,
-          numero_parcela: i,
+          numero_parcela: startingNumber + i,
           valor_parcela: valorParcela,
           data_vencimento: dataVencimento.toISOString().split('T')[0],
           status: status,
