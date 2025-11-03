@@ -561,7 +561,7 @@ const ProjectView = ({
                         key={column.id}
                         draggableId={column.id}
                         index={columnIndex}
-                        isDragDisabled={isColumnsLocked || column.isDefault}
+                        isDragDisabled={isColumnsLocked}
                       >
                         {(columnProvided, columnSnapshot) => (
                           <div

@@ -48,7 +48,7 @@ const KanbanColumn = ({
 
   return (
     <Card 
-      className={`shadow-card border-0 min-h-[500px] min-w-[280px] transition-opacity ${
+      className={`shadow-card border-0 min-h-[500px] w-[320px] flex-shrink-0 transition-opacity ${
         isDraggingColumn ? 'opacity-50' : ''
       }`}
       style={{
@@ -59,11 +59,9 @@ const KanbanColumn = ({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            {!isDefault && (
-              <div className={isColumnsLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
-                <GripVertical className={`h-4 w-4 ${isColumnsLocked ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
-              </div>
-            )}
+            <div className={isColumnsLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
+              <GripVertical className={`h-4 w-4 ${isColumnsLocked ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
+            </div>
             {onUpdateName ? (
               <EditableColumnName
                 columnName={title}

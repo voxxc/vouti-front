@@ -69,16 +69,14 @@ const EditableColumnName = ({ columnName, onUpdateName, isDefault }: EditableCol
   return (
     <div className="flex items-center gap-2 group">
       <span className="text-sm font-semibold">{columnName}</span>
-      {!isDefault && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => setIsEditing(true)}
-        >
-          <Pencil className="h-3 w-3" />
-        </Button>
-      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={() => setIsEditing(true)}
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
     </div>
   );
 };
