@@ -44,7 +44,7 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
           
           {/* Shield Shape (Pentagon/Diamond) */}
           <path 
-            d="M 50 5 L 95 35 L 85 95 L 50 115 L 15 95 L 5 35 Z" 
+            d="M 50 15 L 95 40 L 85 95 L 50 115 L 15 95 L 5 40 Z" 
             fill="none"
             stroke="url(#goldGradient)"
             strokeWidth="3"
