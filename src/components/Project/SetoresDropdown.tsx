@@ -34,8 +34,9 @@ const SetoresDropdown = ({
           <DropdownMenuItem
             key={sector.id}
             onClick={() => onNavigateToSector(sector.id)}
-            className="cursor-pointer"
+            className={`cursor-pointer ${sector.isDefault ? 'font-semibold' : ''}`}
           >
+            {sector.isDefault && '📋 '}
             {sector.name}
           </DropdownMenuItem>
         ))}

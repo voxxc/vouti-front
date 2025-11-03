@@ -1,170 +1,120 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Project, Task } from '@/types/project';
 import { useToast } from '@/hooks/use-toast';
-import AcordosView from './AcordosView';
 
 const AcordosViewWrapper = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id || !user) return;
 
-    const fetchProject = async () => {
+    const redirectToAcordosSector = async () => {
       try {
-        // Fetch project details
-        const { data: projectData, error: projectError } = await supabase
+        // Buscar setor "Acordos" do projeto
+        const { data: sector, error: sectorError } = await supabase
+          .from('project_sectors')
+          .select('id')
+          .eq('project_id', id)
+          .eq('name', 'Acordos')
+          .eq('is_default', true)
+          .maybeSingle();
+
+        if (sectorError) {
+          console.error('Error fetching sector:', sectorError);
+        }
+
+        if (sector) {
+          // Redirecionar para o setor
+          navigate(`/project/${id}/sector/${sector.id}`, { replace: true });
+          return;
+        }
+
+        // Se não existe, criar o setor
+        const { data: projectData } = await supabase
           .from('projects')
-          .select('*')
+          .select('created_by')
           .eq('id', id)
           .single();
 
-        if (projectError) {
-          console.error('Error fetching project:', projectError);
+        if (!projectData) {
           toast({
             title: "Erro",
-            description: "Erro ao carregar projeto",
+            description: "Projeto não encontrado",
             variant: "destructive",
           });
           navigate('/projects');
           return;
         }
 
-        // Fetch project tasks
-        const { data: tasksData, error: tasksError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('project_id', id);
+        const { data: newSector, error: createError } = await supabase
+          .from('project_sectors')
+          .insert({
+            project_id: id,
+            name: 'Acordos',
+            description: 'Setor de Acordos - Processos e Dívidas',
+            is_default: true,
+            sector_order: 0,
+            created_by: projectData.created_by
+          })
+          .select()
+          .single();
 
-        if (tasksError) {
-          console.error('Error fetching tasks:', tasksError);
+        if (createError || !newSector) {
+          console.error('Error creating sector:', createError);
           toast({
             title: "Erro",
-            description: "Erro ao carregar tarefas",
+            description: "Erro ao criar setor de Acordos",
             variant: "destructive",
           });
+          navigate('/projects');
+          return;
         }
 
-        // Transform data to match Project interface
-        const allTasks = (tasksData || []).map((task): Task => ({
-          id: task.id,
-          title: task.title,
-          description: task.description || '',
-          status: task.status as 'waiting' | 'todo' | 'progress' | 'done',
-          comments: [],
-          files: [],
-          history: [],
-          type: task.task_type === 'acordo' ? 'acordo' : 'regular',
-          acordoDetails: (task.acordo_details as any) || {},
-          createdAt: new Date(task.created_at),
-          updatedAt: new Date(task.updated_at)
-        }));
+        // Criar colunas padrão
+        await supabase.from('project_columns').insert([
+          {
+            project_id: id,
+            sector_id: newSector.id,
+            name: 'Processos/Dívidas',
+            column_order: 0,
+            color: '#f59e0b',
+            is_default: true
+          },
+          {
+            project_id: id,
+            sector_id: newSector.id,
+            name: 'Acordos Feitos',
+            column_order: 1,
+            color: '#10b981',
+            is_default: true
+          }
+        ]);
 
-        const transformedProject: Project = {
-          id: projectData.id,
-          name: projectData.name,
-          client: projectData.client,
-          description: projectData.description || '',
-          tasks: allTasks.filter(t => t.type !== 'acordo'),
-          acordoTasks: allTasks.filter(t => t.type === 'acordo'),
-          createdBy: projectData.created_by,
-          createdAt: new Date(projectData.created_at),
-          updatedAt: new Date(projectData.updated_at)
-        };
-
-        setProject(transformedProject);
+        // Redirecionar para o novo setor
+        navigate(`/project/${id}/sector/${newSector.id}`, { replace: true });
       } catch (error) {
         console.error('Error:', error);
         toast({
           title: "Erro",
-          description: "Erro ao carregar projeto",
+          description: "Erro ao acessar Acordos",
           variant: "destructive",
         });
         navigate('/projects');
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchProject();
+    redirectToAcordosSector();
   }, [id, user, toast, navigate]);
 
-  const handleUpdateProject = async (updatedProject: Project) => {
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          name: updatedProject.name,
-          client: updatedProject.client,
-          description: updatedProject.description,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', updatedProject.id);
-
-      if (error) {
-        console.error('Error updating project:', error);
-        toast({
-          title: "Erro",
-          description: "Erro ao atualizar projeto",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setProject(updatedProject);
-      toast({
-        title: "Sucesso",
-        description: "Projeto atualizado com sucesso",
-      });
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar projeto",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
-  };
-
-  const handleBack = () => {
-    navigate(`/project/${id}`);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div>Carregando acordos...</div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div>Projeto não encontrado</div>
-      </div>
-    );
-  }
-
   return (
-    <AcordosView
-      onLogout={handleLogout}
-      onBack={handleBack}
-      project={project}
-      onUpdateProject={handleUpdateProject}
-    />
+    <div className="min-h-screen flex items-center justify-center">
+      <div>Redirecionando para Acordos...</div>
+    </div>
   );
 };
 

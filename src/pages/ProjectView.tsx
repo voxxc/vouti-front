@@ -92,6 +92,7 @@ const ProjectView = ({
         .from('project_sectors')
         .select('*')
         .eq('project_id', project.id)
+        .order('is_default', { ascending: false })
         .order('sector_order');
 
       if (error) throw error;
