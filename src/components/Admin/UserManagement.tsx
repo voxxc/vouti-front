@@ -35,7 +35,8 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
-    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda'
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
+    password: '' // Optional - only update if provided
   });
 
   // Set up realtime subscription for profiles
@@ -141,7 +142,8 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     setEditFormData({
       name: user.name,
       email: user.email,
-      role: user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda'
+      role: user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
+      password: '' // Reset password field
     });
     setIsEditOpen(true);
   };
@@ -171,6 +173,19 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (roleError) throw roleError;
 
+      // Update password if provided
+      if (editFormData.password && editFormData.password.trim() !== '') {
+        const { data, error: passwordError } = await supabase.functions.invoke('update-user-password', {
+          body: {
+            user_id: editingUser.id,
+            new_password: editFormData.password
+          }
+        });
+
+        if (passwordError) throw passwordError;
+        if (data?.error) throw new Error(data.error);
+      }
+
       onEditUser(editingUser.id, {
         name: editFormData.name,
         email: editFormData.email,
@@ -179,17 +194,23 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       toast({
         title: "Sucesso",
-        description: "Usuário atualizado com sucesso!",
+        description: editFormData.password ? "Usuário e senha atualizados com sucesso!" : "Usuário atualizado com sucesso!",
       });
 
       setIsEditOpen(false);
       setEditingUser(null);
     } catch (error: any) {
       console.error('Error updating user:', error);
+      
+      let errorMessage = error.message || 'Erro ao atualizar usuário';
+      
+      if (errorMessage.includes('Senha deve ter')) {
+        errorMessage = 'A senha deve ter no mínimo 6 caracteres';
+      }
+
       toast({
-        title: "Erro",
-        description: error.message || "Erro ao atualizar usuário.",
-        variant: "destructive",
+        title: "Erro ao atualizar",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -334,6 +355,19 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                   onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                   required
                 />
+              </div>
+              <div>
+                <Label htmlFor="edit-password">Nova Senha (opcional)</Label>
+                <Input
+                  id="edit-password"
+                  type="password"
+                  value={editFormData.password}
+                  onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                  placeholder="Deixe em branco para manter a senha atual"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Mínimo de 6 caracteres. Deixe vazio para não alterar.
+                </p>
               </div>
               <div>
                 <Label htmlFor="edit-role">Perfil</Label>
