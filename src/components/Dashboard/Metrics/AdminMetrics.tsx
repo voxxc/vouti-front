@@ -8,6 +8,7 @@ import { ClienteAnalytics } from "../ClienteAnalytics";
 import { ProcessosMetrics } from "../ProcessosMetrics";
 import { TasksMetrics } from "../TasksMetrics";
 import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
+import AgendaMetrics from "./AgendaMetrics";
 
 interface AdminMetricsProps {
   userId: string;
@@ -141,6 +142,13 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
       <ClienteTasksMetrics />
 
       <OverviewSection users={[]} projects={[]} />
+
+      {/* Métricas de Reuniões */}
+      <Card>
+        <CardContent className="pt-6">
+          <AgendaMetrics userId={userId} userName="Admin" isAdminView={true} />
+        </CardContent>
+      </Card>
     </div>
   );
 };

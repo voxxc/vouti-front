@@ -3,6 +3,7 @@ import AdminMetrics from "./Metrics/AdminMetrics";
 import AdvogadoMetrics from "./Metrics/AdvogadoMetrics";
 import ComercialMetrics from "./Metrics/ComercialMetrics";
 import FinanceiroMetrics from "./Metrics/FinanceiroMetrics";
+import AgendaMetrics from "./Metrics/AgendaMetrics";
 
 interface RoleMetricsPanelProps {
   currentUser: User | null;
@@ -31,11 +32,7 @@ const RoleMetricsPanel = ({ currentUser }: RoleMetricsPanelProps) => {
     case 'financeiro':
       return <FinanceiroMetrics userId={currentUser.id} userName={currentUser.name} />;
     case 'agenda':
-      return (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Acesse a seção de Reuniões para gerenciar sua agenda.</p>
-        </div>
-      );
+      return <AgendaMetrics userId={currentUser.id} userName={currentUser.name} />;
     default:
       return <AdvogadoMetrics userId={currentUser.id} userName={currentUser.name} />;
   }
