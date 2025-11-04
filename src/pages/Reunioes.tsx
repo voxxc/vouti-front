@@ -4,6 +4,16 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +37,7 @@ export default function Reunioes() {
   const [selectedReuniao, setSelectedReuniao] = useState<Reuniao | null>(null);
   const [selectedHorario, setSelectedHorario] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { reunioes, loading, createReuniao, updateReuniao, deleteReuniao } = useReunioes(selectedDate);
 
@@ -70,13 +81,16 @@ export default function Reunioes() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!selectedReuniao) return;
-    if (confirm('Deseja realmente excluir esta reunião?')) {
-      await deleteReuniao(selectedReuniao.id);
-      setShowDetailsDialog(false);
-      setSelectedReuniao(null);
-    }
+    await deleteReuniao(selectedReuniao.id);
+    setShowDeleteDialog(false);
+    setShowDetailsDialog(false);
+    setSelectedReuniao(null);
   };
 
   const getReuniaoByHorario = (horario: string) => {
@@ -255,7 +269,7 @@ export default function Reunioes() {
                 <Button variant="outline" size="icon" onClick={handleEdit}>
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon" onClick={handleDelete}>
+                <Button variant="outline" size="icon" onClick={handleDeleteClick}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -323,6 +337,27 @@ export default function Reunioes() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação de Exclusão */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Reunião</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta reunião? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

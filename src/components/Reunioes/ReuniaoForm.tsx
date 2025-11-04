@@ -101,6 +101,7 @@ export const ReuniaoForm = ({ initialData, onSubmit, onCancel, isSubmitting }: R
                       onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
                       locale={ptBR}
                       initialFocus
+                      className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
                 </Popover>
