@@ -96,24 +96,26 @@ Deno.serve(async (req) => {
     console.log('User created:', newUser.user.id)
 
     try {
-      // Create profile
+      // Wait a moment for the trigger to create the profile
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Update the profile created by the trigger with the correct data
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
-        .insert({
-          user_id: newUser.user.id,
-          email: email,
+        .update({
           full_name: full_name,
-          avatar_url: null
+          email: email
         })
+        .eq('user_id', newUser.user.id)
 
       if (profileError) {
-        console.error('Error creating profile:', profileError)
+        console.error('Error updating profile:', profileError)
         // Rollback: delete the user
         await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-        throw new Error('Erro ao criar perfil: ' + profileError.message)
+        throw new Error('Erro ao atualizar perfil: ' + profileError.message)
       }
 
-      console.log('Profile created')
+      console.log('Profile updated')
 
       // Assign role
       const { error: roleError } = await supabaseAdmin
