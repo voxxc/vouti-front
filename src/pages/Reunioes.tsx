@@ -74,6 +74,15 @@ export default function Reunioes() {
       } else {
         await createReuniao(data);
       }
+
+      // Navegar para o dia escolhido no formulário
+      if (data.data) {
+        const selectedFormDate = new Date(data.data);
+        if (!Number.isNaN(selectedFormDate.getTime())) {
+          setSelectedDate(selectedFormDate);
+        }
+      }
+
       setShowFormDialog(false);
       setSelectedReuniao(null);
     } finally {
