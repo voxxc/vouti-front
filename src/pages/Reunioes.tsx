@@ -102,9 +102,15 @@ export default function Reunioes() {
     setSelectedReuniao(null);
   };
 
-  const getReuniaoByHorario = (horario: string) => {
-    return filteredReunioes.find((r) => r.horario.slice(0, 5) === horario);
+  const getReunioesByHorario = (horario: string) => {
+    return filteredReunioes.filter((r) => r.horario.slice(0, 5) === horario);
   };
+
+  // Identifica quais dias têm reuniões (para o calendário)
+  const diasComReunioes = reunioes.map((r) => {
+    const [year, month, day] = r.data.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  });
 
   return (
     <DashboardLayout currentPage="reunioes">
@@ -121,6 +127,10 @@ export default function Reunioes() {
               onSelect={(date) => date && setSelectedDate(date)}
               locale={ptBR}
               className="rounded-md border"
+              modifiers={{ comReunioes: diasComReunioes }}
+              modifiersClassNames={{
+                comReunioes: 'relative after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-primary after:rounded-full'
+              }}
             />
             <div className="mt-4 space-y-2">
               <p className="text-sm font-medium">Legenda:</p>
@@ -139,6 +149,26 @@ export default function Reunioes() {
                     <span>{status}</span>
                   </div>
                 ))}
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* Resumo do dia selecionado */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Reuniões:</span>
+                  <Badge variant="secondary">
+                    {filteredReunioes.length} agendada{filteredReunioes.length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                {filteredReunioes.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    Primeira: {filteredReunioes[0]?.horario.slice(0, 5)}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -197,18 +227,21 @@ export default function Reunioes() {
                     </p>
                   ) : (
                     HORARIOS_DISPONIVEIS.map((horario) => {
-                      const reuniao = getReuniaoByHorario(horario);
+                      const reunioesNoHorario = getReunioesByHorario(horario);
                       return (
                         <div key={horario} className="flex items-start gap-3">
                           <div className="w-16 text-sm font-medium text-muted-foreground pt-3">
                             {horario}
                           </div>
-                          {reuniao ? (
-                            <div className="flex-1">
-                              <ReuniaoCard
-                                reuniao={reuniao}
-                                onClick={() => handleViewDetails(reuniao)}
-                              />
+                          {reunioesNoHorario.length > 0 ? (
+                            <div className="flex-1 space-y-2">
+                              {reunioesNoHorario.map((reuniao) => (
+                                <ReuniaoCard
+                                  key={reuniao.id}
+                                  reuniao={reuniao}
+                                  onClick={() => handleViewDetails(reuniao)}
+                                />
+                              ))}
                             </div>
                           ) : (
                             <Button
