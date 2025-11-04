@@ -6,15 +6,15 @@ import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings, FileCheck } from "lucide-react";
+import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings, FileCheck, Video } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria';
-  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria') => void;
+  currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria' | 'reunioes';
+  onNavigate?: (page: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria' | 'reunioes') => void;
   projects?: any[];
   onCreateUser?: () => void;
   isAdmin?: boolean;
@@ -213,6 +213,15 @@ const DashboardLayout = ({
                 title="Controladoria"
               >
                 <FileCheck size={18} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/reunioes')}
+                title="Reuniões"
+              >
+                <Video size={18} />
               </Button>
 
               {/* Separador Visual */}

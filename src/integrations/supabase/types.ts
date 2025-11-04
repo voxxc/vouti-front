@@ -1769,6 +1769,92 @@ export type Database = {
         }
         Relationships: []
       }
+      reuniao_comentarios: {
+        Row: {
+          comentario: string
+          created_at: string | null
+          id: string
+          reuniao_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comentario: string
+          created_at?: string | null
+          id?: string
+          reuniao_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comentario?: string
+          created_at?: string | null
+          id?: string
+          reuniao_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reuniao_comentarios_reuniao_id_fkey"
+            columns: ["reuniao_id"]
+            isOneToOne: false
+            referencedRelation: "reunioes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reunioes: {
+        Row: {
+          cliente_email: string | null
+          cliente_nome: string | null
+          cliente_telefone: string | null
+          created_at: string | null
+          data: string
+          descricao: string | null
+          duracao_minutos: number | null
+          horario: string
+          id: string
+          observacoes: string | null
+          status: string
+          titulo: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cliente_email?: string | null
+          cliente_nome?: string | null
+          cliente_telefone?: string | null
+          created_at?: string | null
+          data: string
+          descricao?: string | null
+          duracao_minutos?: number | null
+          horario: string
+          id?: string
+          observacoes?: string | null
+          status?: string
+          titulo: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cliente_email?: string | null
+          cliente_nome?: string | null
+          cliente_telefone?: string | null
+          created_at?: string | null
+          data?: string
+          descricao?: string | null
+          duracao_minutos?: number | null
+          horario?: string
+          id?: string
+          observacoes?: string | null
+          status?: string
+          titulo?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       sector_templates: {
         Row: {
           created_at: string | null

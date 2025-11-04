@@ -17,6 +17,7 @@ import Financial from "@/pages/Financial";
 import Controladoria from "@/pages/Controladoria";
 import ControladoriaNovoProcesso from "@/pages/ControladoriaNovoProcesso";
 import ControladoriaProcessoDetalhes from "@/pages/ControladoriaProcessoDetalhes";
+import Reunioes from "@/pages/Reunioes";
 import HomePage from "@/pages/HomePage";
 import LandingPage1 from "@/pages/LandingPage1";
 import LandingPage2 from "@/pages/LandingPage2";
@@ -271,6 +272,15 @@ function App() {
                   <ThemeProvider>
                     <ProtectedRoute>
                       <ControladoriaNovoProcesso />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
+              } />
+              <Route path="/reunioes" element={
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <Reunioes />
                     </ProtectedRoute>
                   </ThemeProvider>
                 </AuthProvider>
