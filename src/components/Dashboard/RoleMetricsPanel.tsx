@@ -30,6 +30,12 @@ const RoleMetricsPanel = ({ currentUser }: RoleMetricsPanelProps) => {
       return <ComercialMetrics userId={currentUser.id} userName={currentUser.name} />;
     case 'financeiro':
       return <FinanceiroMetrics userId={currentUser.id} userName={currentUser.name} />;
+    case 'agenda':
+      return (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Acesse a seção de Reuniões para gerenciar sua agenda.</p>
+        </div>
+      );
     default:
       return <AdvogadoMetrics userId={currentUser.id} userName={currentUser.name} />;
   }

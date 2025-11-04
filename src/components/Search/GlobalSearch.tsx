@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface SearchResult {
   id: string;
-  type: 'task' | 'comment' | 'file' | 'project' | 'cliente' | 'processo' | 'lead' | 'divida' | 'parcela' | 'movimentacao' | 'documento' | 'message' | 'deadline_comment' | 'task_comment' | 'deadline';
+  type: 'task' | 'comment' | 'file' | 'project' | 'cliente' | 'processo' | 'lead' | 'divida' | 'parcela' | 'movimentacao' | 'documento' | 'message' | 'deadline_comment' | 'task_comment' | 'deadline' | 'reuniao' | 'reuniao_comment';
   title: string;
   content: string;
   projectName?: string;
@@ -329,6 +329,42 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
         });
       });
 
+      // Search in reunioes
+      const { data: reunioes } = await supabase
+        .from('reunioes')
+        .select('*')
+        .or(`titulo.ilike.%${term}%,descricao.ilike.%${term}%,cliente_nome.ilike.%${term}%,observacoes.ilike.%${term}%`)
+        .limit(5);
+
+      reunioes?.forEach(reuniao => {
+        searchResults.push({
+          id: `reuniao-${reuniao.id}`,
+          type: 'reuniao',
+          title: `Reunião: ${reuniao.titulo}`,
+          content: `${reuniao.cliente_nome ? `Cliente: ${reuniao.cliente_nome} - ` : ''}${reuniao.data} às ${reuniao.horario.slice(0, 5)} - Status: ${reuniao.status}`,
+          metadata: { reuniaoId: reuniao.id },
+          date: new Date(reuniao.updated_at)
+        });
+      });
+
+      // Search in reuniao comentarios
+      const { data: reuniaoComments } = await supabase
+        .from('reuniao_comentarios')
+        .select('*, reunioes(titulo, cliente_nome)')
+        .ilike('comentario', `%${term}%`)
+        .limit(5);
+
+      reuniaoComments?.forEach(comment => {
+        searchResults.push({
+          id: `reuniao-comment-${comment.id}`,
+          type: 'reuniao_comment',
+          title: `Comentário na reunião: ${comment.reunioes?.titulo || 'Reunião'}`,
+          content: comment.comentario,
+          metadata: { reuniaoId: comment.reuniao_id },
+          date: new Date(comment.created_at)
+        });
+      });
+
       // Search in profiles
       const { data: profiles } = await supabase
         .from('profiles')
@@ -370,6 +406,8 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
       case 'documento': return 'bg-gray-500 text-white';
       case 'movimentacao': return 'bg-indigo-500 text-white';
       case 'message': return 'bg-pink-500 text-white';
+      case 'reuniao': return 'bg-violet-500 text-white';
+      case 'reuniao_comment': return 'bg-violet-300 text-white';
       case 'file': return 'bg-secondary text-secondary-foreground';
       default: return 'bg-muted text-muted-foreground';
     }
@@ -392,6 +430,8 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
       case 'divida': return 'Dívida';
       case 'parcela': return 'Parcela';
       case 'message': return 'Mensagem';
+      case 'reuniao': return 'Reunião';
+      case 'reuniao_comment': return 'Comentário de Reunião';
       default: return 'Item';
     }
   };
@@ -455,6 +495,10 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
       case 'deadline_comment':
         window.location.href = `/agenda`;
         break;
+      case 'reuniao':
+      case 'reuniao_comment':
+        window.location.href = `/reunioes`;
+        break;
       case 'message':
         // Stay on current page, could open chat modal if available
         break;
@@ -483,7 +527,7 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Buscar em todo o sistema: clientes, processos, tarefas, comentários, documentos..."
+              placeholder="Buscar em todo o sistema: clientes, processos, tarefas, reuniões, comentários, documentos..."
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-10"

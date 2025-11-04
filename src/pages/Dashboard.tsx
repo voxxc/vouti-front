@@ -35,7 +35,7 @@ const Dashboard = () => {
         email: user.email,
         name: user.full_name || user.email,
         avatar: user.avatar_url,
-        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller',
+        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
         personalInfo: {},
         createdAt: new Date(user.created_at),
         updatedAt: new Date(user.updated_at)
@@ -173,11 +173,18 @@ const Dashboard = () => {
   }
 
   // Obter role do usuário atual do AuthContext
-  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' = (userRole as any) || 'advogado';
+  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' = (userRole as any) || 'advogado';
 
   // Função para verificar se o usuário tem acesso a uma seção
   const hasAccess = (section: string) => {
+    if (!currentUserRole) return false;
     if (currentUserRole === 'admin') return true;
+    
+    // Perfil Agenda só tem acesso a Reuniões
+    if (currentUserRole === 'agenda') {
+      return section === 'reunioes';
+    }
+    
     if (section === 'projetos' && (currentUserRole === 'advogado')) return true;
     if (section === 'agenda' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
     if (section === 'clientes' && (currentUserRole === 'comercial')) return true;
