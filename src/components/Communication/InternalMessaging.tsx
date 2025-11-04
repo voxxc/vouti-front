@@ -133,7 +133,6 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{user.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                           </div>
                           {unreadCount > 0 && (
                             <Badge variant="destructive" className="h-5 text-xs">
@@ -164,7 +163,6 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
                     </Avatar>
                     <div>
                       <p className="font-medium">{selectedUser.name}</p>
-                      <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                     </div>
                   </div>
                 </div>
