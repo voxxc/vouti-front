@@ -91,27 +91,78 @@ const Projects = () => {
 
       console.log(`[Projects] Found ${data?.length || 0} projects`);
 
-      const projectsWithTasks: Project[] = (data || []).map(project => ({
-        id: project.id,
-        name: project.name,
-        client: project.client,
-        description: project.description || '',
-        createdBy: project.created_by,
-        createdAt: new Date(project.created_at),
-        updatedAt: new Date(project.updated_at),
-        tasks: (project.tasks || []).map((task: any) => ({
-          id: task.id,
-          title: task.title,
-          description: task.description || '',
-          status: task.status,
-          type: task.task_type || 'regular',
-          comments: [],
-          files: [],
-          history: [],
-          createdAt: new Date(task.created_at),
-          updatedAt: new Date(task.updated_at)
-        })),
-        acordoTasks: []
+      const projectsWithTasks: Project[] = await Promise.all((data || []).map(async (project) => {
+        // Fetch tasks with their comments, files, and history
+        const tasks = await Promise.all((project.tasks || []).map(async (task: any) => {
+          // Fetch comments
+          const { data: comments } = await supabase
+            .from('task_comments')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: true });
+
+          // Fetch files
+          const { data: files } = await supabase
+            .from('task_files')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: true });
+
+          // Fetch history
+          const { data: history } = await supabase
+            .from('task_history')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: false });
+
+          return {
+            id: task.id,
+            title: task.title,
+            description: task.description || '',
+            status: task.status,
+            type: task.task_type || 'regular',
+            columnId: task.column_id,
+            cardColor: task.card_color || 'default',
+            comments: (comments || []).map(c => ({
+              id: c.id,
+              text: c.comment_text,
+              author: 'Usuário',
+              createdAt: new Date(c.created_at),
+              updatedAt: new Date(c.updated_at)
+            })),
+            files: (files || []).map(f => ({
+              id: f.id,
+              name: f.file_name,
+              url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
+              size: f.file_size,
+              type: f.file_type || '',
+              uploadedBy: 'Usuário',
+              uploadedAt: new Date(f.created_at)
+            })),
+            history: (history || []).map(h => ({
+              id: h.id,
+              action: h.action as any,
+              details: h.details,
+              user: 'Sistema',
+              timestamp: new Date(h.created_at)
+            })),
+            createdAt: new Date(task.created_at),
+            updatedAt: new Date(task.updated_at)
+          };
+        }));
+
+        return {
+          id: project.id,
+          name: project.name,
+          client: project.client,
+          clienteId: project.cliente_id,
+          description: project.description || '',
+          createdBy: project.created_by,
+          createdAt: new Date(project.created_at),
+          updatedAt: new Date(project.updated_at),
+          tasks: tasks,
+          acordoTasks: []
+        };
       }));
 
       setProjects(projectsWithTasks);

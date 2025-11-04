@@ -28,6 +28,7 @@ import TaskFilePanel from "./TaskFilePanel";
 import TaskHistoryPanel from "./TaskHistoryPanel";
 import CardColorPicker from "./CardColorPicker";
 import { notifyCommentAdded } from "@/utils/notificationHelpers";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TaskModalProps {
   task: Task | null;
@@ -55,6 +56,78 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       setEditedAcordoDetails(task.acordoDetails || {});
     }
   }, [task]);
+
+  // Load comments, files and history from database
+  useEffect(() => {
+    if (task && isOpen) {
+      loadTaskData();
+    }
+  }, [task?.id, isOpen]);
+
+  const loadTaskData = async () => {
+    if (!task) return;
+
+    try {
+      // Load comments
+      const { data: comments, error: commentsError } = await supabase
+        .from('task_comments')
+        .select('*')
+        .eq('task_id', task.id)
+        .order('created_at', { ascending: true });
+
+      if (commentsError) throw commentsError;
+
+      // Load files
+      const { data: files, error: filesError } = await supabase
+        .from('task_files')
+        .select('*')
+        .eq('task_id', task.id)
+        .order('created_at', { ascending: true });
+
+      if (filesError) throw filesError;
+
+      // Load history
+      const { data: history, error: historyError } = await supabase
+        .from('task_history')
+        .select('*')
+        .eq('task_id', task.id)
+        .order('created_at', { ascending: false });
+
+      if (historyError) throw historyError;
+
+      // Update task with loaded data
+      const updatedTask = {
+        ...task,
+        comments: (comments || []).map(c => ({
+          id: c.id,
+          text: c.comment_text,
+          author: 'Usuário',
+          createdAt: new Date(c.created_at),
+          updatedAt: new Date(c.updated_at)
+        })),
+        files: (files || []).map(f => ({
+          id: f.id,
+          name: f.file_name,
+          url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
+          size: f.file_size,
+          type: f.file_type || '',
+          uploadedBy: 'Usuário',
+          uploadedAt: new Date(f.created_at)
+        })),
+        history: (history || []).map(h => ({
+          id: h.id,
+          action: h.action as any,
+          details: h.details,
+          user: 'Sistema',
+          timestamp: new Date(h.created_at)
+        }))
+      };
+
+      onUpdateTask(updatedTask);
+    } catch (error) {
+      console.error('Error loading task data:', error);
+    }
+  };
 
   if (!task) return null;
 
@@ -102,109 +175,217 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
   };
 
   const handleAddComment = async () => {
-    if (newComment.trim() && task) {
-      const comment: Comment = {
-        id: `comment-${Date.now()}`,
-        text: newComment.trim(),
-        author: currentUser?.name || "Usuário Atual",
-        createdAt: new Date(),
-        updatedAt: new Date()
+    if (newComment.trim() && task && currentUser) {
+      try {
+        // Insert comment into database
+        const { data: insertedComment, error } = await supabase
+          .from('task_comments')
+          .insert({
+            task_id: task.id,
+            user_id: currentUser.id,
+            comment_text: newComment.trim()
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Create comment object for local state
+        const comment: Comment = {
+          id: insertedComment.id,
+          text: insertedComment.comment_text,
+          author: currentUser.name || "Usuário Atual",
+          createdAt: new Date(insertedComment.created_at),
+          updatedAt: new Date(insertedComment.updated_at)
+        };
+
+        // Add history entry
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            user_id: currentUser.id,
+            action: 'comment_added',
+            details: `Comentário adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`
+          });
+
+        // Update local state
+        const updatedTask = {
+          ...task,
+          comments: [...task.comments, comment],
+          updatedAt: new Date()
+        };
+
+        onUpdateTask(updatedTask);
+        setNewComment("");
+
+        // Send notification about comment
+        if (projectId) {
+          await notifyCommentAdded(
+            projectId,
+            task.title,
+            currentUser.name,
+            task.id
+          );
+        }
+
+        toast({
+          title: "Comentário adicionado",
+          description: "Seu comentário foi salvo com sucesso!",
+        });
+      } catch (error) {
+        console.error('Error adding comment:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao adicionar comentário.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleUploadFile = async (file: File) => {
+    if (!task || !currentUser) return;
+
+    try {
+      // Generate unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUser.id}/${task.id}/${Date.now()}.${fileExt}`;
+
+      // Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('task-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('task-attachments')
+        .getPublicUrl(fileName);
+
+      // Insert file metadata into database
+      const { data: insertedFile, error: dbError } = await supabase
+        .from('task_files')
+        .insert({
+          task_id: task.id,
+          file_name: file.name,
+          file_path: fileName,
+          file_size: file.size,
+          file_type: file.type,
+          uploaded_by: currentUser.id
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Create file object for local state
+      const taskFile: TaskFile = {
+        id: insertedFile.id,
+        name: insertedFile.file_name,
+        url: urlData.publicUrl,
+        size: insertedFile.file_size,
+        type: insertedFile.file_type || '',
+        uploadedBy: currentUser.name || "Usuário Atual",
+        uploadedAt: new Date(insertedFile.created_at)
       };
-      
-      const historyEntry: TaskHistoryEntry = {
-        id: `history-${Date.now()}`,
-        action: 'comment_added',
-        details: `Comentário adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
-        user: currentUser?.name || "Usuário Atual",
-        timestamp: new Date()
-      };
-      
+
+      // Add history entry
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: task.id,
+          user_id: currentUser.id,
+          action: 'file_uploaded',
+          details: `Arquivo enviado: ${file.name}`
+        });
+
+      // Update local state
       const updatedTask = {
         ...task,
-        comments: [...task.comments, comment],
-        history: [...task.history, historyEntry],
+        files: [...task.files, taskFile],
         updatedAt: new Date()
       };
-      
-      onUpdateTask(updatedTask);
-      setNewComment("");
 
-      // Send notification about comment
-      if (currentUser && projectId) {
-        await notifyCommentAdded(
-          projectId,
-          task.title,
-          currentUser.name,
-          task.id
-        );
-      }
-      
+      onUpdateTask(updatedTask);
+
       toast({
-        title: "Comentário adicionado",
-        description: "Seu comentário foi salvo com sucesso!",
+        title: "Arquivo enviado",
+        description: `${file.name} foi adicionado com sucesso!`,
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar arquivo.",
+        variant: "destructive",
       });
     }
   };
 
-  const handleUploadFile = (file: File) => {
-    const taskFile: TaskFile = {
-      id: `file-${Date.now()}`,
-      name: file.name,
-      url: URL.createObjectURL(file), // In real app, upload to server
-      size: file.size,
-      type: file.type,
-      uploadedBy: "Usuário Atual",
-      uploadedAt: new Date()
-    };
+  const handleDeleteFile = async (fileId: string) => {
+    if (!task || !currentUser) return;
 
-    const historyEntry: TaskHistoryEntry = {
-      id: `history-${Date.now()}`,
-      action: 'file_uploaded',
-      details: `Arquivo enviado: ${file.name}`,
-      user: "Usuário Atual",
-      timestamp: new Date()
-    };
-
-    const updatedTask = {
-      ...task,
-      files: [...task.files, taskFile],
-      history: [...task.history, historyEntry],
-      updatedAt: new Date()
-    };
-
-    onUpdateTask(updatedTask);
-
-    toast({
-      title: "Arquivo enviado",
-      description: `${file.name} foi adicionado com sucesso!`,
-    });
-  };
-
-  const handleDeleteFile = (fileId: string) => {
     const file = task.files.find(f => f.id === fileId);
     if (!file) return;
 
-    const historyEntry: TaskHistoryEntry = {
-      id: `history-${Date.now()}`,
-      action: 'file_deleted',
-      details: `Arquivo excluído: ${file.name}`,
-      user: "Usuário Atual",
-      timestamp: new Date()
-    };
+    try {
+      // Get file path from database
+      const { data: fileData, error: fetchError } = await supabase
+        .from('task_files')
+        .select('file_path, file_name')
+        .eq('id', fileId)
+        .single();
 
-    const updatedTask = {
-      ...task,
-      files: task.files.filter(f => f.id !== fileId),
-      history: [...task.history, historyEntry],
-      updatedAt: new Date()
-    };
+      if (fetchError) throw fetchError;
 
-    onUpdateTask(updatedTask);
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('task-attachments')
+        .remove([fileData.file_path]);
 
-    toast({
-      title: "Arquivo excluído",
-      description: `${file.name} foi removido com sucesso!`,
-    });
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('task_files')
+        .delete()
+        .eq('id', fileId);
+
+      if (dbError) throw dbError;
+
+      // Add history entry
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: task.id,
+          user_id: currentUser.id,
+          action: 'file_deleted',
+          details: `Arquivo excluído: ${fileData.file_name}`
+        });
+
+      // Update local state
+      const updatedTask = {
+        ...task,
+        files: task.files.filter(f => f.id !== fileId),
+        updatedAt: new Date()
+      };
+
+      onUpdateTask(updatedTask);
+
+      toast({
+        title: "Arquivo excluído",
+        description: `${fileData.file_name} foi removido com sucesso!`,
+      });
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir arquivo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditComment = (commentId: string) => {
@@ -215,64 +396,108 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     }
   };
 
-  const handleSaveComment = (commentId: string) => {
-    if (editedCommentText.trim()) {
+  const handleSaveComment = async (commentId: string) => {
+    if (!editedCommentText.trim() || !currentUser) return;
+
+    try {
+      // Update comment in database
+      const { error } = await supabase
+        .from('task_comments')
+        .update({
+          comment_text: editedCommentText.trim(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      // Update local state
       const updatedComments = task.comments.map(comment =>
         comment.id === commentId
           ? { ...comment, text: editedCommentText.trim(), updatedAt: new Date() }
           : comment
       );
 
-      const historyEntry: TaskHistoryEntry = {
-        id: `history-${Date.now()}`,
-        action: 'comment_edited',
-        details: `Comentário editado`,
-        user: "Usuário Atual",
-        timestamp: new Date()
-      };
-      
+      // Add history entry
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: task.id,
+          user_id: currentUser.id,
+          action: 'comment_edited',
+          details: 'Comentário editado'
+        });
+
       const updatedTask = {
         ...task,
         comments: updatedComments,
-        history: [...task.history, historyEntry],
         updatedAt: new Date()
       };
-      
+
       onUpdateTask(updatedTask);
       setEditingCommentId(null);
       setEditedCommentText("");
-      
+
       toast({
         title: "Comentário atualizado",
         description: "As alterações foram salvas!",
       });
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar comentário.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDeleteComment = (commentId: string) => {
-    const historyEntry: TaskHistoryEntry = {
-      id: `history-${Date.now()}`,
-      action: 'comment_deleted',
-      details: `Comentário excluído`,
-      user: "Usuário Atual",
-      timestamp: new Date()
-    };
+  const handleDeleteComment = async (commentId: string) => {
+    if (!task || !currentUser) return;
 
-    const updatedComments = task.comments.filter(comment => comment.id !== commentId);
-    
-    const updatedTask = {
-      ...task,
-      comments: updatedComments,
-      history: [...task.history, historyEntry],
-      updatedAt: new Date()
-    };
-    
-    onUpdateTask(updatedTask);
-    
-    toast({
-      title: "Comentário excluído",
-      description: "O comentário foi removido!",
-    });
+    const comment = task.comments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    try {
+      // Delete from database
+      const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      // Add history entry
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: task.id,
+          user_id: currentUser.id,
+          action: 'comment_deleted',
+          details: `Comentário excluído: "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`
+        });
+
+      // Update local state
+      const updatedTask = {
+        ...task,
+        comments: task.comments.filter(c => c.id !== commentId),
+        updatedAt: new Date()
+      };
+
+      onUpdateTask(updatedTask);
+
+      toast({
+        title: "Comentário excluído",
+        description: "O comentário foi removido com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir comentário.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleColorChange = (color: string) => {
