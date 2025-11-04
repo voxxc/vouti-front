@@ -11,11 +11,14 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface SearchResult {
   id: string;
-  type: 'task' | 'comment' | 'file' | 'project';
+  type: 'task' | 'comment' | 'file' | 'project' | 'cliente' | 'processo' | 'lead' | 'divida' | 'parcela' | 'movimentacao' | 'documento' | 'message' | 'deadline_comment' | 'task_comment' | 'deadline';
   title: string;
   content: string;
   projectName?: string;
+  clienteName?: string;
+  processoNumero?: string;
   date: Date;
+  metadata?: any;
 }
 
 interface GlobalSearchProps {
@@ -94,33 +97,244 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
       }
     });
 
-    // Search in deadlines
     try {
+      // Search in deadlines
       const { data: deadlines } = await supabase
         .from('deadlines')
         .select('*, projects(name)')
-        .or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+        .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
+        .limit(5);
 
       deadlines?.forEach(deadline => {
         searchResults.push({
           id: `deadline-${deadline.id}`,
-          type: 'task',
+          type: 'deadline',
           title: `Prazo: ${deadline.title}`,
           content: deadline.description || '',
           projectName: deadline.projects?.name,
           date: new Date(deadline.updated_at)
         });
       });
-    } catch (error) {
-      console.error('Error searching deadlines:', error);
-    }
 
-    // Search in profiles
-    try {
+      // Search in clientes
+      const { data: clientes } = await supabase
+        .from('clientes')
+        .select('*')
+        .or(`nome_pessoa_fisica.ilike.%${term}%,nome_pessoa_juridica.ilike.%${term}%,cpf.ilike.%${term}%,cnpj.ilike.%${term}%,telefone.ilike.%${term}%,email.ilike.%${term}%,observacoes.ilike.%${term}%`)
+        .limit(5);
+
+      clientes?.forEach(cliente => {
+        searchResults.push({
+          id: `cliente-${cliente.id}`,
+          type: 'cliente',
+          title: cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || 'Cliente sem nome',
+          content: `${cliente.cpf || cliente.cnpj || ''} - ${cliente.telefone || ''}`,
+          clienteName: cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica,
+          date: new Date(cliente.updated_at || cliente.created_at)
+        });
+      });
+
+      // Search in processos
+      const { data: processos } = await supabase
+        .from('processos')
+        .select('id, numero_processo, tribunal_nome, observacoes, updated_at')
+        .or(`numero_processo.ilike.%${term}%,observacoes.ilike.%${term}%`)
+        .limit(5);
+
+      processos?.forEach(processo => {
+        searchResults.push({
+          id: `processo-${processo.id}`,
+          type: 'processo',
+          title: `Processo: ${processo.numero_processo}`,
+          content: `${processo.tribunal_nome || ''} - ${processo.observacoes || ''}`,
+          processoNumero: processo.numero_processo,
+          date: new Date(processo.updated_at)
+        });
+      });
+
+      // Search in leads
+      const { data: leads } = await supabase
+        .from('leads_captacao')
+        .select('*')
+        .or(`nome.ilike.%${term}%,email.ilike.%${term}%,telefone.ilike.%${term}%,comentario.ilike.%${term}%`)
+        .limit(5);
+
+      leads?.forEach(lead => {
+        searchResults.push({
+          id: `lead-${lead.id}`,
+          type: 'lead',
+          title: `Lead: ${lead.nome}`,
+          content: `${lead.email || ''} - ${lead.status} - ${lead.prioridade}`,
+          date: new Date(lead.updated_at)
+        });
+      });
+
+      // Task comments are stored in task history, skip for now to avoid complexity
+
+      // Search in deadline comments
+      const { data: deadlineComments } = await supabase
+        .from('deadline_comentarios')
+        .select('*, deadlines(title, project_id, projects(name))')
+        .ilike('comentario', `%${term}%`)
+        .limit(5);
+
+      deadlineComments?.forEach(comment => {
+        searchResults.push({
+          id: `deadline-comment-${comment.id}`,
+          type: 'deadline_comment',
+          title: `Comentário no prazo: ${comment.deadlines?.title || 'Prazo'}`,
+          content: comment.comentario,
+          projectName: comment.deadlines?.projects?.name,
+          date: new Date(comment.created_at)
+        });
+      });
+
+      // Search in processo movimentacoes
+      const { data: movimentacoes } = await supabase
+        .from('processo_movimentacoes')
+        .select('*, processos(numero_processo)')
+        .or(`tipo.ilike.%${term}%,descricao.ilike.%${term}%`)
+        .limit(5);
+
+      movimentacoes?.forEach(mov => {
+        searchResults.push({
+          id: `movimentacao-${mov.id}`,
+          type: 'movimentacao',
+          title: `Movimentação: ${mov.tipo}`,
+          content: mov.descricao || '',
+          processoNumero: mov.processos?.numero_processo,
+          metadata: { processoId: mov.processo_id },
+          date: new Date(mov.data_movimentacao)
+        });
+      });
+
+      // Search in processo documentos
+      const { data: processoDocs } = await supabase
+        .from('processo_documentos')
+        .select('*, processos(numero_processo)')
+        .or(`nome.ilike.%${term}%,ocr_text.ilike.%${term}%`)
+        .limit(5);
+
+      processoDocs?.forEach(doc => {
+        searchResults.push({
+          id: `doc-processo-${doc.id}`,
+          type: 'documento',
+          title: `Documento: ${doc.nome}`,
+          content: `Processo: ${doc.processos?.numero_processo || ''}`,
+          processoNumero: doc.processos?.numero_processo,
+          metadata: { processoId: doc.processo_id },
+          date: new Date(doc.created_at)
+        });
+      });
+
+      // Search in cliente documentos
+      const { data: clienteDocs } = await supabase
+        .from('cliente_documentos')
+        .select('*, clientes(nome_pessoa_fisica, nome_pessoa_juridica)')
+        .ilike('file_name', `%${term}%`)
+        .limit(5);
+
+      clienteDocs?.forEach(doc => {
+        searchResults.push({
+          id: `doc-cliente-${doc.id}`,
+          type: 'documento',
+          title: `Documento: ${doc.file_name}`,
+          content: `Cliente: ${doc.clientes?.nome_pessoa_fisica || doc.clientes?.nome_pessoa_juridica || ''}`,
+          clienteName: doc.clientes?.nome_pessoa_fisica || doc.clientes?.nome_pessoa_juridica,
+          metadata: { clienteId: doc.cliente_id },
+          date: new Date(doc.created_at)
+        });
+      });
+
+      // Search in dividas
+      const { data: dividas } = await supabase
+        .from('cliente_dividas')
+        .select('*, clientes(nome_pessoa_fisica, nome_pessoa_juridica)')
+        .or(`titulo.ilike.%${term}%,descricao.ilike.%${term}%`)
+        .limit(5);
+
+      dividas?.forEach(divida => {
+        searchResults.push({
+          id: `divida-${divida.id}`,
+          type: 'divida',
+          title: `Dívida: ${divida.titulo}`,
+          content: `R$ ${divida.valor_total} - Cliente: ${divida.clientes?.nome_pessoa_fisica || divida.clientes?.nome_pessoa_juridica || ''}`,
+          clienteName: divida.clientes?.nome_pessoa_fisica || divida.clientes?.nome_pessoa_juridica,
+          metadata: { clienteId: divida.cliente_id },
+          date: new Date(divida.created_at)
+        });
+      });
+
+      // Search in parcela comments
+      const { data: parcelaComments } = await supabase
+        .from('cliente_pagamento_comentarios')
+        .select('*, cliente_parcelas(numero_parcela, cliente_id, clientes(nome_pessoa_fisica, nome_pessoa_juridica))')
+        .ilike('comentario', `%${term}%`)
+        .limit(5);
+
+      parcelaComments?.forEach(comment => {
+        searchResults.push({
+          id: `parcela-comment-${comment.id}`,
+          type: 'comment',
+          title: `Comentário na parcela ${comment.cliente_parcelas?.numero_parcela || ''}`,
+          content: comment.comentario,
+          clienteName: comment.cliente_parcelas?.clientes?.nome_pessoa_fisica || comment.cliente_parcelas?.clientes?.nome_pessoa_juridica,
+          metadata: { clienteId: comment.cliente_parcelas?.cliente_id },
+          date: new Date(comment.created_at)
+        });
+      });
+
+      // Search in messages
+      const { data: msgs } = await supabase
+        .from('messages')
+        .select('id, content, sender_id, receiver_id, created_at')
+        .ilike('content', `%${term}%`)
+        .limit(5);
+
+      if (msgs && msgs.length > 0) {
+        const userIds = [...new Set([...msgs.map(m => m.sender_id), ...msgs.map(m => m.receiver_id)])];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+
+        msgs?.forEach(msg => {
+          const sender = profiles?.find(p => p.id === msg.sender_id);
+          const receiver = profiles?.find(p => p.id === msg.receiver_id);
+          searchResults.push({
+            id: `message-${msg.id}`,
+            type: 'message',
+            title: `Mensagem: ${sender?.full_name || 'Usuário'} → ${receiver?.full_name || 'Usuário'}`,
+            content: msg.content,
+            date: new Date(msg.created_at)
+          });
+        });
+      }
+
+      // Search in lead comments
+      const { data: leadComments } = await supabase
+        .from('lead_comments')
+        .select('*, leads_captacao(nome)')
+        .ilike('content', `%${term}%`)
+        .limit(5);
+
+      leadComments?.forEach(comment => {
+        searchResults.push({
+          id: `lead-comment-${comment.id}`,
+          type: 'comment',
+          title: `Comentário no lead: ${comment.leads_captacao?.nome || 'Lead'}`,
+          content: comment.content,
+          metadata: { leadId: comment.lead_id },
+          date: new Date(comment.created_at)
+        });
+      });
+
+      // Search in profiles
       const { data: profiles } = await supabase
         .from('profiles')
         .select('*')
-        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
+        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+        .limit(5);
 
       profiles?.forEach(profile => {
         searchResults.push({
@@ -131,20 +345,31 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
           date: new Date(profile.updated_at)
         });
       });
+
     } catch (error) {
-      console.error('Error searching profiles:', error);
+      console.error('Error performing search:', error);
     }
 
     // Sort by date (most recent first)
     searchResults.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setResults(searchResults.slice(0, 20)); // Limit to 20 results
+    setResults(searchResults.slice(0, 50)); // Limit to 50 results
   };
 
   const getTypeColor = (type: SearchResult['type']) => {
     switch (type) {
       case 'project': return 'bg-law-blue text-white';
       case 'task': return 'bg-law-gold text-black';
-      case 'comment': return 'bg-accent text-accent-foreground';
+      case 'deadline': return 'bg-law-gold/80 text-black';
+      case 'cliente': return 'bg-green-500 text-white';
+      case 'processo': return 'bg-purple-500 text-white';
+      case 'lead': return 'bg-orange-500 text-white';
+      case 'divida': return 'bg-red-500 text-white';
+      case 'comment': return 'bg-blue-400 text-white';
+      case 'task_comment': return 'bg-blue-300 text-white';
+      case 'deadline_comment': return 'bg-blue-200 text-black';
+      case 'documento': return 'bg-gray-500 text-white';
+      case 'movimentacao': return 'bg-indigo-500 text-white';
+      case 'message': return 'bg-pink-500 text-white';
       case 'file': return 'bg-secondary text-secondary-foreground';
       default: return 'bg-muted text-muted-foreground';
     }
@@ -152,31 +377,89 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
 
   const getTypeLabel = (type: SearchResult['type']) => {
     switch (type) {
-      case 'project': return 'Cliente';
+      case 'project': return 'Projeto';
       case 'task': return 'Tarefa';
+      case 'deadline': return 'Prazo';
       case 'comment': return 'Comentário';
+      case 'task_comment': return 'Comentário de Tarefa';
+      case 'deadline_comment': return 'Comentário de Prazo';
       case 'file': return 'Arquivo';
+      case 'documento': return 'Documento';
+      case 'cliente': return 'Cliente';
+      case 'processo': return 'Processo';
+      case 'movimentacao': return 'Movimentação';
+      case 'lead': return 'Lead';
+      case 'divida': return 'Dívida';
+      case 'parcela': return 'Parcela';
+      case 'message': return 'Mensagem';
       default: return 'Item';
     }
   };
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    performSearch(value);
+    // Debounce search with 300ms delay
+    const timeoutId = setTimeout(() => {
+      performSearch(value);
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
   };
 
   const handleSelectResult = (result: SearchResult) => {
     // Navigate based on result type
-    if (result.type === 'project') {
-      const projectId = result.id.replace('project-', '');
-      window.location.href = `/project/${projectId}`;
-    } else if (result.type === 'task') {
-      const taskId = result.id.replace('task-', '');
-      // Find the project for this task
-      const task = allTasks.find(t => t.id === taskId);
-      if (task) {
-        window.location.href = `/project/${task.project_id}`;
-      }
+    switch (result.type) {
+      case 'project':
+        window.location.href = `/project/${result.id.replace('project-', '')}`;
+        break;
+      case 'task':
+        const taskId = result.id.replace('task-', '');
+        const task = allTasks.find(t => t.id === taskId);
+        if (task) {
+          window.location.href = `/project/${task.project_id}`;
+        }
+        break;
+      case 'deadline':
+        window.location.href = `/agenda`;
+        break;
+      case 'task_comment':
+        if (result.metadata?.projectId) {
+          window.location.href = `/project/${result.metadata.projectId}`;
+        }
+        break;
+      case 'cliente':
+        window.location.href = `/crm`;
+        break;
+      case 'processo':
+        window.location.href = `/controladoria/processo/${result.id.replace('processo-', '')}`;
+        break;
+      case 'movimentacao':
+        if (result.metadata?.processoId) {
+          window.location.href = `/controladoria/processo/${result.metadata.processoId}`;
+        }
+        break;
+      case 'documento':
+        if (result.metadata?.processoId) {
+          window.location.href = `/controladoria/processo/${result.metadata.processoId}`;
+        } else if (result.metadata?.clienteId) {
+          window.location.href = `/crm`;
+        }
+        break;
+      case 'lead':
+      case 'comment':
+        window.location.href = `/crm`;
+        break;
+      case 'divida':
+        window.location.href = `/financial`;
+        break;
+      case 'deadline_comment':
+        window.location.href = `/agenda`;
+        break;
+      case 'message':
+        // Stay on current page, could open chat modal if available
+        break;
+      default:
+        break;
     }
     
     onSelectResult?.(result);
@@ -200,7 +483,7 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Buscar em todos os clientes, tarefas, comentários e arquivos..."
+              placeholder="Buscar em todo o sistema: clientes, processos, tarefas, comentários, documentos..."
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-10"
