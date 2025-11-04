@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OverviewSection } from "@/components/Dashboard/OverviewSection";
 import UserManagement from "@/components/Admin/UserManagement";
-import { FolderOpen, Calendar, Users, DollarSign, FileCheck } from "lucide-react";
+import { FolderOpen, Calendar, Users, DollarSign, FileCheck, Video } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -183,6 +183,7 @@ const Dashboard = () => {
     if (section === 'clientes' && (currentUserRole === 'comercial')) return true;
     if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
     if (section === 'controladoria' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
+    if (section === 'reunioes' && (currentUserRole === 'advogado' || currentUserRole === 'comercial' || currentUserRole === 'controller')) return true;
     return false;
   };
 
@@ -192,6 +193,7 @@ const Dashboard = () => {
     { id: 'clientes', icon: Users, label: 'Clientes', route: '/crm' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
+    { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
   ];
 
   return (
