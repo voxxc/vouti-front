@@ -165,11 +165,21 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (profileError) throw profileError;
 
-      // Update role in user_roles table
+      // Delete existing roles for this user
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', editingUser.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert the new role
       const { error: roleError } = await supabase
         .from('user_roles')
-        .update({ role: editFormData.role })
-        .eq('user_id', editingUser.id);
+        .insert({ 
+          user_id: editingUser.id, 
+          role: editFormData.role 
+        });
 
       if (roleError) throw roleError;
 
