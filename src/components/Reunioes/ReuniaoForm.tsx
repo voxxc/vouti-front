@@ -10,7 +10,7 @@ import { ReuniaoFormData, REUNIAO_STATUS_OPTIONS, HORARIOS_DISPONIVEIS } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -75,7 +75,7 @@ export const ReuniaoForm = ({ initialData, onSubmit, onCancel, isSubmitting }: R
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Data *</FormLabel>
-                <Popover>
+                <Popover modal={false}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -86,7 +86,7 @@ export const ReuniaoForm = ({ initialData, onSubmit, onCancel, isSubmitting }: R
                         )}
                       >
                         {field.value ? (
-                          format(new Date(field.value), 'dd/MM/yyyy', { locale: ptBR })
+                          format(parse(field.value, 'yyyy-MM-dd', new Date()), 'dd/MM/yyyy', { locale: ptBR })
                         ) : (
                           <span>Selecionar data</span>
                         )}
@@ -94,11 +94,11 @@ export const ReuniaoForm = ({ initialData, onSubmit, onCancel, isSubmitting }: R
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-[60]" align="start">
                     <Calendar
                       mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                      selected={field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined}
+                      onSelect={(date) => date && field.onChange(format(date, 'yyyy-MM-dd'))}
                       locale={ptBR}
                       initialFocus
                       className={cn("p-3 pointer-events-auto")}
