@@ -29,13 +29,13 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     name: '',
     email: '',
     password: '',
-    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller'
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda'
   });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
-    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller'
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda'
   });
 
   // Set up realtime subscription for profiles
@@ -141,7 +141,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     setEditFormData({
       name: user.name,
       email: user.email,
-      role: user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller'
+      role: user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda'
     });
     setIsEditOpen(true);
   };
@@ -287,7 +287,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                 <Label htmlFor="role">Perfil</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' })}
+                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um perfil" />
@@ -297,6 +297,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                     <SelectItem value="comercial">Comercial</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="controller">Controlador</SelectItem>
+                    <SelectItem value="agenda">Agenda</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
@@ -338,7 +339,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                 <Label htmlFor="edit-role">Perfil</Label>
                 <Select
                   value={editFormData.role}
-                  onValueChange={(value) => setEditFormData({ ...editFormData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' })}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um perfil" />
@@ -348,6 +349,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                     <SelectItem value="comercial">Comercial</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="controller">Controlador</SelectItem>
+                    <SelectItem value="agenda">Agenda</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
