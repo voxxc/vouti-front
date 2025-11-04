@@ -69,67 +69,67 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     setLoading(true);
 
     try {
-      // Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name
-          }
+      console.log("Creating user with email:", formData.email);
+      
+      // Call edge function to create user without logging out admin
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.name,
+          role: formData.role
         }
       });
 
-      if (authError) throw authError;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw error;
+      }
 
-      if (authData.user) {
-        console.log('User created in auth:', authData.user.id);
-        
-        // Update the profile with full name
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: formData.name })
-          .eq('user_id', authData.user.id);
+      if (data?.error) {
+        console.error("Response error:", data.error);
+        throw new Error(data.error);
+      }
 
-        if (profileError) {
-          console.error('Error updating profile:', profileError);
-          throw profileError;
-        }
+      console.log("User created successfully:", data.user);
 
-        // Insert role in user_roles table (secure)
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            role: formData.role
-          });
+      // Create the new user object
+      const newUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.full_name,
+        role: data.user.role,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-        if (roleError) {
-          console.error('Error assigning role:', roleError);
-          throw roleError;
-        }
+      // Add to parent's list
+      onAddUser(newUser);
 
-        console.log('User created and role assigned successfully');
+      toast({
+        title: "Usuário criado",
+        description: "O novo usuário foi criado com sucesso.",
+      });
 
-        onAddUser({
-          ...formData,
-          personalInfo: {}
-        });
+      setIsOpen(false);
+      setFormData({ name: '', email: '', password: '', role: 'advogado' });
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      
+      // Handle specific error messages
+      let errorMessage = error.message || 'Erro ao criar usuário';
+      
+      if (errorMessage.includes('Email já cadastrado')) {
+        errorMessage = 'Este email já está cadastrado no sistema';
+      } else if (errorMessage.includes('Senha deve ter')) {
+        errorMessage = 'A senha deve ter no mínimo 6 caracteres';
+      } else if (errorMessage.includes('Sem permissão')) {
+        errorMessage = 'Você não tem permissão para criar usuários';
       }
 
       toast({
-        title: "Sucesso",
-        description: "Usuário criado com sucesso!",
-      });
-
-      setFormData({ name: '', email: '', password: '', role: 'advogado' });
-      setIsOpen(false);
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao criar usuário.",
-        variant: "destructive",
+        title: "Não foi possível criar o usuário",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);

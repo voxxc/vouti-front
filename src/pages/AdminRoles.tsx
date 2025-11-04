@@ -45,6 +45,10 @@ export default function AdminRoles() {
               <p className="font-medium">⚪ Financeiro</p>
               <p className="text-sm text-muted-foreground">Gestão financeira e pagamentos</p>
             </div>
+            <div>
+              <p className="font-medium">⚪ Agenda</p>
+              <p className="text-sm text-muted-foreground">Acesso exclusivo à seção de Reuniões para gerenciamento de agenda</p>
+            </div>
           </CardContent>
         </Card>
 
