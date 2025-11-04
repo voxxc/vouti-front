@@ -28,10 +28,6 @@ export const useReunioes = (selectedDate?: Date) => {
         .select('*')
         .order('horario', { ascending: true });
 
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
-
       if (selectedDate) {
         const dateStr = selectedDate.toISOString().split('T')[0];
         query = query.eq('data', dateStr);

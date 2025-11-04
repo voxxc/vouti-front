@@ -80,7 +80,7 @@ export default function Reunioes() {
   };
 
   const getReuniaoByHorario = (horario: string) => {
-    return filteredReunioes.find((r) => r.horario === horario);
+    return filteredReunioes.find((r) => r.horario.slice(0, 5) === horario);
   };
 
   return (
