@@ -56,11 +56,27 @@ const Financial = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      // Verificar se o usuário é admin
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      const isAdmin = !!userRole;
+
+      // Query condicional: admins veem todos, usuários normais veem apenas seus clientes
+      let query = supabase
         .from('clientes')
         .select('*')
-        .eq('user_id', user.id)
         .order('data_fechamento', { ascending: false });
+
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
