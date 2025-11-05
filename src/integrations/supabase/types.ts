@@ -1769,6 +1769,45 @@ export type Database = {
         }
         Relationships: []
       }
+      reuniao_clientes: {
+        Row: {
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          origem: string | null
+          telefone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          origem?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          origem?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reuniao_comentarios: {
         Row: {
           comentario: string
@@ -1807,6 +1846,7 @@ export type Database = {
       reunioes: {
         Row: {
           cliente_email: string | null
+          cliente_id: string | null
           cliente_nome: string | null
           cliente_telefone: string | null
           created_at: string | null
@@ -1823,6 +1863,7 @@ export type Database = {
         }
         Insert: {
           cliente_email?: string | null
+          cliente_id?: string | null
           cliente_nome?: string | null
           cliente_telefone?: string | null
           created_at?: string | null
@@ -1839,6 +1880,7 @@ export type Database = {
         }
         Update: {
           cliente_email?: string | null
+          cliente_id?: string | null
           cliente_nome?: string | null
           cliente_telefone?: string | null
           created_at?: string | null
@@ -1853,7 +1895,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reunioes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "reuniao_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sector_templates: {
         Row: {

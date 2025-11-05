@@ -13,6 +13,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ClienteSelector } from './ClienteSelector';
 
 const formSchema = z.object({
   titulo: z.string().min(1, 'Título é obrigatório'),
@@ -20,6 +21,7 @@ const formSchema = z.object({
   data: z.string().min(1, 'Data é obrigatória'),
   horario: z.string().min(1, 'Horário é obrigatório'),
   duracao_minutos: z.number().min(15).max(240),
+  cliente_id: z.string().optional(),
   cliente_nome: z.string().optional(),
   cliente_telefone: z.string().optional(),
   cliente_email: z.string().email('Email inválido').optional().or(z.literal('')),
@@ -43,6 +45,7 @@ export const ReuniaoForm = ({ initialData, onSubmit, onCancel, isSubmitting }: R
       data: initialData?.data || new Date().toISOString().split('T')[0],
       horario: initialData?.horario || '09:00',
       duracao_minutos: initialData?.duracao_minutos || 30,
+      cliente_id: initialData?.cliente_id || undefined,
       cliente_nome: initialData?.cliente_nome || '',
       cliente_telefone: initialData?.cliente_telefone || '',
       cliente_email: initialData?.cliente_email || '',
@@ -201,6 +204,33 @@ export const ReuniaoForm = ({ initialData, onSubmit, onCancel, isSubmitting }: R
         <div className="space-y-4 p-4 border rounded-lg">
           <h4 className="font-semibold text-sm">Informações do Cliente</h4>
           
+          <FormField
+            control={form.control}
+            name="cliente_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <FormControl>
+                  <ClienteSelector
+                    value={field.value}
+                    onChange={(clienteId, cliente) => {
+                      field.onChange(clienteId);
+                      if (cliente) {
+                        form.setValue('cliente_nome', cliente.nome);
+                        form.setValue('cliente_telefone', cliente.telefone || '');
+                        form.setValue('cliente_email', cliente.email || '');
+                      }
+                    }}
+                    onClienteNomeChange={(nome) => form.setValue('cliente_nome', nome)}
+                    onClienteTelefoneChange={(telefone) => form.setValue('cliente_telefone', telefone)}
+                    onClienteEmailChange={(email) => form.setValue('cliente_email', email)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="cliente_nome"

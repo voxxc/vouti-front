@@ -50,9 +50,34 @@ export const useReunioes = (selectedDate?: Date) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      let clienteId = formData.cliente_id;
+
+      // Se não foi selecionado cliente mas tem nome, criar novo
+      if (!clienteId && formData.cliente_nome) {
+        const { data: novoCliente, error: clienteError } = await supabase
+          .from('reuniao_clientes')
+          .insert({
+            user_id: user.id,
+            created_by: user.id,
+            nome: formData.cliente_nome,
+            telefone: formData.cliente_telefone,
+            email: formData.cliente_email,
+            origem: 'reuniao'
+          })
+          .select()
+          .single();
+
+        if (clienteError) throw clienteError;
+        clienteId = novoCliente.id;
+      }
+
       const { data, error } = await supabase
         .from('reunioes')
-        .insert([{ ...formData, user_id: user.id }])
+        .insert([{
+          ...formData,
+          user_id: user.id,
+          cliente_id: clienteId
+        }])
         .select()
         .single();
 

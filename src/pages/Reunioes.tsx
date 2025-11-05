@@ -17,7 +17,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useReunioes } from '@/hooks/useReunioes';
 import { ReuniaoForm } from '@/components/Reunioes/ReuniaoForm';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
@@ -29,6 +30,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
 export default function Reunioes() {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -182,10 +184,16 @@ export default function Reunioes() {
                 <CardTitle>
                   Reuniões - {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                 </CardTitle>
-                <Button onClick={() => handleCreateNew('09:00')}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Reunião
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => navigate('/reuniao-clientes')}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Gerenciar Clientes
+                  </Button>
+                  <Button onClick={() => handleCreateNew('09:00')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Reunião
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">

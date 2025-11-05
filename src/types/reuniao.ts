@@ -1,8 +1,31 @@
 export type ReuniaoStatus = '1ª reunião' | 'em contato' | 'inviável' | 'fechado';
 
+export interface ReuniaoCliente {
+  id: string;
+  user_id: string;
+  nome: string;
+  telefone?: string;
+  email?: string;
+  observacoes?: string;
+  origem?: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  total_reunioes?: number;
+  ultima_reuniao?: string;
+}
+
+export interface ReuniaoClienteFormData {
+  nome: string;
+  telefone?: string;
+  email?: string;
+  observacoes?: string;
+}
+
 export interface Reuniao {
   id: string;
   user_id: string;
+  cliente_id?: string;
   titulo: string;
   descricao?: string;
   data: string;
@@ -15,6 +38,7 @@ export interface Reuniao {
   observacoes?: string;
   created_at: string;
   updated_at: string;
+  cliente?: ReuniaoCliente;
 }
 
 export interface ReuniaoComentario {
@@ -31,6 +55,7 @@ export interface ReuniaoComentario {
 }
 
 export interface ReuniaoFormData {
+  cliente_id?: string;
   titulo: string;
   descricao?: string;
   data: string;
