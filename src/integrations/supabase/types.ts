@@ -1769,6 +1769,82 @@ export type Database = {
         }
         Relationships: []
       }
+      reuniao_cliente_arquivos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string | null
+          id: string
+          uploaded_by: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type?: string | null
+          id?: string
+          uploaded_by: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          file_type?: string | null
+          id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reuniao_cliente_arquivos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "reuniao_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reuniao_cliente_comentarios: {
+        Row: {
+          cliente_id: string
+          comentario: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id: string
+          comentario: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string
+          comentario?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reuniao_cliente_comentarios_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "reuniao_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reuniao_clientes: {
         Row: {
           created_at: string
