@@ -85,3 +85,27 @@ export const REUNIAO_STATUS_OPTIONS: ReuniaoStatus[] = [
   'inviável',
   'fechado'
 ];
+
+export interface ReuniaoClienteComentario {
+  id: string;
+  cliente_id: string;
+  user_id: string;
+  comentario: string;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    full_name: string;
+    avatar_url?: string;
+  };
+}
+
+export interface ReuniaoClienteArquivo {
+  id: string;
+  cliente_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  file_type?: string;
+  uploaded_by: string;
+  created_at: string;
+}

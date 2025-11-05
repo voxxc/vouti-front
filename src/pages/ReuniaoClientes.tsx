@@ -3,21 +3,18 @@ import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Calendar, Phone, Mail, MessageSquare } from 'lucide-react';
+import { Search, Calendar, Phone, Mail, MessageSquare, Eye } from 'lucide-react';
 import { useReuniaoClientes } from '@/hooks/useReuniaoClientes';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ClienteDetalhesDialog } from '@/components/Reunioes/ClienteDetalhesDialog';
 
 export default function ReuniaoClientes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
-  const [historicoReunioes, setHistoricoReunioes] = useState<any[]>([]);
-  const [showHistoricoDialog, setShowHistoricoDialog] = useState(false);
+  const [showDetalhesDialog, setShowDetalhesDialog] = useState(false);
   
-  const { clientes, loading, obterHistoricoReunioesCliente } = useReuniaoClientes();
+  const { clientes, loading, fetchClientes } = useReuniaoClientes();
 
   const clientesFiltrados = clientes.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -25,11 +22,9 @@ export default function ReuniaoClientes() {
     cliente.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleVerHistorico = async (clienteId: string) => {
+  const handleVerDetalhes = (clienteId: string) => {
     setSelectedClienteId(clienteId);
-    const historico = await obterHistoricoReunioesCliente(clienteId);
-    setHistoricoReunioes(historico);
-    setShowHistoricoDialog(true);
+    setShowDetalhesDialog(true);
   };
 
   const selectedCliente = clientes.find(c => c.id === selectedClienteId);
@@ -112,9 +107,10 @@ export default function ReuniaoClientes() {
                         </div>
                         <Button
                           variant="outline"
-                          onClick={() => handleVerHistorico(cliente.id)}
+                          onClick={() => handleVerDetalhes(cliente.id)}
                         >
-                          Ver Histórico
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Detalhes
                         </Button>
                       </div>
                     </CardContent>
@@ -126,60 +122,12 @@ export default function ReuniaoClientes() {
         </Card>
       </div>
 
-      <Dialog open={showHistoricoDialog} onOpenChange={setShowHistoricoDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>
-              Histórico de Reuniões - {selectedCliente?.nome}
-            </DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="h-[60vh] pr-4">
-            {historicoReunioes.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">
-                Nenhuma reunião encontrada
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {historicoReunioes.map((reuniao) => (
-                  <Card key={reuniao.id}>
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold">{reuniao.titulo}</h4>
-                          <Badge variant="secondary">{reuniao.status}</Badge>
-                        </div>
-                        <div className="flex gap-4 text-sm text-muted-foreground">
-                          <span>
-                            {format(new Date(reuniao.data + ' ' + reuniao.horario), "dd/MM/yyyy 'às' HH:mm", {
-                              locale: ptBR
-                            })}
-                          </span>
-                          <span>{reuniao.duracao_minutos} minutos</span>
-                        </div>
-                        {reuniao.descricao && (
-                          <p className="text-sm">{reuniao.descricao}</p>
-                        )}
-                        {reuniao.reuniao_comentarios?.length > 0 && (
-                          <div className="mt-3 pt-3 border-t space-y-2">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Comentários ({reuniao.reuniao_comentarios.length})
-                            </p>
-                            {reuniao.reuniao_comentarios.slice(0, 2).map((comentario: any) => (
-                              <div key={comentario.id} className="text-sm pl-4 border-l-2">
-                                {comentario.comentario}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+      <ClienteDetalhesDialog
+        cliente={selectedCliente || null}
+        open={showDetalhesDialog}
+        onOpenChange={setShowDetalhesDialog}
+        onUpdate={fetchClientes}
+      />
     </DashboardLayout>
   );
 }
