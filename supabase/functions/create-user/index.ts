@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
       throw new Error('Senha deve ter no mínimo 6 caracteres')
     }
 
+    // SECURITY: Prevent creation of users from other systems
+    const restrictedDomains = ['@metalsystem.local', '@dental.local', '@vouti.bio', '@vlink.bio']
+    if (restrictedDomains.some(domain => email.toLowerCase().includes(domain))) {
+      throw new Error('Este domínio de email é reservado para outro sistema')
+    }
+
     const validRoles = ['admin', 'advogado', 'comercial', 'financeiro', 'controller', 'agenda']
     if (!validRoles.includes(role)) {
       throw new Error('Perfil inválido')
