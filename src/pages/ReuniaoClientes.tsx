@@ -14,7 +14,7 @@ export default function ReuniaoClientes() {
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [showDetalhesDialog, setShowDetalhesDialog] = useState(false);
   
-  const { clientes, loading, fetchClientes } = useReuniaoClientes();
+  const { clientes, loading, fetchClientes, deletarCliente } = useReuniaoClientes();
 
   const clientesFiltrados = clientes.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -27,10 +27,13 @@ export default function ReuniaoClientes() {
     setShowDetalhesDialog(true);
   };
 
-  const handleClienteDeleted = () => {
-    setShowDetalhesDialog(false);
-    setSelectedClienteId(null);
-    fetchClientes();
+  const handleClienteDeleted = async (clienteId: string) => {
+    const sucesso = await deletarCliente(clienteId);
+    if (sucesso) {
+      setShowDetalhesDialog(false);
+      setSelectedClienteId(null);
+      await fetchClientes();
+    }
   };
 
   const selectedCliente = clientes.find(c => c.id === selectedClienteId);

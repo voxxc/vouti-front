@@ -20,7 +20,7 @@ import {
 interface ClienteInfoTabProps {
   cliente: ReuniaoCliente;
   onUpdate: () => void;
-  onDelete?: () => void;
+  onDelete?: (id: string) => void;
 }
 
 export const ClienteInfoTab = ({ cliente, onUpdate, onDelete }: ClienteInfoTabProps) => {
@@ -33,7 +33,7 @@ export const ClienteInfoTab = ({ cliente, onUpdate, onDelete }: ClienteInfoTabPr
     observacoes: cliente.observacoes || '',
   });
   
-  const { atualizarCliente, deletarCliente } = useReuniaoClientes();
+  const { atualizarCliente } = useReuniaoClientes();
 
   const handleSave = async () => {
     await atualizarCliente(cliente.id, formData);
@@ -51,10 +51,11 @@ export const ClienteInfoTab = ({ cliente, onUpdate, onDelete }: ClienteInfoTabPr
     setEditing(false);
   };
 
-  const handleDelete = async () => {
-    await deletarCliente(cliente.id);
+  const handleDelete = () => {
     setShowDeleteDialog(false);
-    if (onDelete) onDelete();
+    if (onDelete) {
+      onDelete(cliente.id);
+    }
   };
 
   return (

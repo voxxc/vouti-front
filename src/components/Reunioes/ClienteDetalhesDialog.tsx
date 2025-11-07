@@ -18,7 +18,7 @@ interface ClienteDetalhesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
-  onDelete?: () => void;
+  onDelete?: (id: string) => void;
 }
 
 export const ClienteDetalhesDialog = ({
@@ -30,9 +30,10 @@ export const ClienteDetalhesDialog = ({
 }: ClienteDetalhesDialogProps) => {
   const [activeTab, setActiveTab] = useState('info');
 
-  const handleDelete = () => {
-    onOpenChange(false);
-    if (onDelete) onDelete();
+  const handleDelete = (id: string) => {
+    if (onDelete) {
+      onDelete(id);
+    }
   };
 
   if (!cliente) return null;

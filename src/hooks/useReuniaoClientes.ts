@@ -149,20 +149,25 @@ export const useReuniaoClientes = () => {
     }
   };
 
-  const deletarCliente = async (id: string) => {
+  const deletarCliente = async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('reuniao_clientes')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao deletar cliente:', error);
+        toast.error(`Erro ao deletar cliente: ${error.message}`);
+        return false;
+      }
 
       toast.success('Cliente deletado com sucesso');
-      await fetchClientes();
+      return true;
     } catch (error: any) {
       console.error('Erro ao deletar cliente:', error);
-      toast.error('Erro ao deletar cliente');
+      toast.error(`Erro ao deletar cliente: ${error.message || 'Erro desconhecido'}`);
+      return false;
     }
   };
 
