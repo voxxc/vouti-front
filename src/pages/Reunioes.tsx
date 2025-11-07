@@ -424,6 +424,7 @@ export default function Reunioes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </DashboardLayout>
   );
 }
