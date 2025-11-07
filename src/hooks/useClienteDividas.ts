@@ -107,7 +107,7 @@ export const useClienteDividas = (clienteId: string | null) => {
 
       if (parcelasError) throw parcelasError;
 
-      toast.success('Dívida criada com sucesso!');
+      
       await fetchDividas();
       return true;
     } catch (error) {
@@ -126,7 +126,7 @@ export const useClienteDividas = (clienteId: string | null) => {
 
       if (error) throw error;
 
-      toast.success('Dívida atualizada com sucesso!');
+      
       await fetchDividas();
       return true;
     } catch (error) {
@@ -145,7 +145,7 @@ export const useClienteDividas = (clienteId: string | null) => {
 
       if (error) throw error;
 
-      toast.success('Dívida excluída com sucesso!');
+      
       await fetchDividas();
       return true;
     } catch (error) {

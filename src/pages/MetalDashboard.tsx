@@ -149,7 +149,7 @@ const MetalDashboard = () => {
           acao: `Finalizado no setor ${setor}`,
         });
 
-        toast.success(`OP finalizada no setor ${setor}`);
+        
       } else {
         // Open new flow
         const { error } = await supabase
@@ -179,7 +179,7 @@ const MetalDashboard = () => {
           acao: `Iniciado no setor ${setor}`,
         });
 
-        toast.success(`OP iniciada no setor ${setor}`);
+        
       }
     } catch (error: any) {
       toast.error('Erro ao atualizar setor', {

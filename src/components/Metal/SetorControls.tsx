@@ -130,7 +130,6 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, has
           // Já existe fluxo aberto, apenas sincronizar estado
           setIsInProgress(true);
           setIsPaused(false);
-          toast.success("Produção já estava iniciada neste setor");
           await checkStatus();
           onUpdate();
           return;
@@ -168,7 +167,6 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, has
 
         setIsInProgress(true);
         setIsPaused(false);
-        toast.success("Produção iniciada");
         await checkStatus();
 
       } else if (isPaused) {
@@ -204,7 +202,6 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, has
 
         setIsInProgress(true);
         setIsPaused(false);
-        toast.success("Produção retomada");
         await checkStatus();
 
       } else if (isInProgress) {
@@ -250,7 +247,6 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, has
 
         setIsInProgress(false);
         setIsPaused(true);
-        toast.success("Produção pausada");
         await checkStatus();
       }
 
@@ -329,7 +325,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, has
           detalhes: `OP concluída no setor ${userSetor}`
         });
 
-        toast.success("OP concluída com sucesso!");
+        
       } else {
         // AVANÇAR (outros setores)
         const proximoSetor = getNextSetor();
@@ -355,7 +351,7 @@ export const SetorControls = ({ selectedOP, userSetor, onUpdate, refreshKey, has
           detalhes: `Avançou do setor ${userSetor} para ${proximoSetor}`
         });
 
-        toast.success(`OP avançada para ${proximoSetor}`);
+        
       }
 
       setIsInProgress(false);

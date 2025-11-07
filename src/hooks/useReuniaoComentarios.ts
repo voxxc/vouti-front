@@ -60,7 +60,7 @@ export const useReuniaoComentarios = (reuniaoId: string) => {
 
       if (error) throw error;
 
-      toast.success('Comentário adicionado');
+      
       await fetchComentarios();
     } catch (error: any) {
       console.error('Erro ao adicionar comentário:', error);
@@ -78,7 +78,7 @@ export const useReuniaoComentarios = (reuniaoId: string) => {
 
       if (error) throw error;
 
-      toast.success('Comentário removido');
+      
       await fetchComentarios();
     } catch (error: any) {
       console.error('Erro ao remover comentário:', error);

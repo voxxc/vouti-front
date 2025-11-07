@@ -83,7 +83,7 @@ export const useReunioes = (selectedDate?: Date) => {
 
       if (error) throw error;
 
-      toast.success('Reunião agendada com sucesso');
+      
       await fetchReunioes();
       return data;
     } catch (error: any) {
@@ -102,7 +102,7 @@ export const useReunioes = (selectedDate?: Date) => {
 
       if (error) throw error;
 
-      toast.success('Reunião atualizada com sucesso');
+      
       await fetchReunioes();
     } catch (error: any) {
       console.error('Erro ao atualizar reunião:', error);
@@ -120,7 +120,7 @@ export const useReunioes = (selectedDate?: Date) => {
 
       if (error) throw error;
 
-      toast.success('Reunião excluída com sucesso');
+      
       await fetchReunioes();
     } catch (error: any) {
       console.error('Erro ao excluir reunião:', error);

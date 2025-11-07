@@ -83,7 +83,6 @@ const LinkAuth = () => {
       if (error) {
         toast.error(error.message || "Erro ao criar conta");
       } else {
-        toast.success("Conta criada! Fazendo login...");
         
         // Auto-login após cadastro bem-sucedido
         const { error: signInError } = await signIn(signUpUsername, signUpPassword);

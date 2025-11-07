@@ -60,7 +60,7 @@ export const useReuniaoClienteArquivos = (clienteId: string) => {
 
       if (dbError) throw dbError;
 
-      toast.success(`${file.name} enviado com sucesso!`);
+      
       await fetchArquivos();
     } catch (error: any) {
       console.error('Erro ao enviar arquivo:', error);
@@ -97,7 +97,7 @@ export const useReuniaoClienteArquivos = (clienteId: string) => {
 
       if (dbError) throw dbError;
 
-      toast.success(`${fileData.file_name} removido com sucesso!`);
+      
       await fetchArquivos();
     } catch (error: any) {
       console.error('Erro ao remover arquivo:', error);

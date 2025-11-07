@@ -137,7 +137,6 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
       if (secret) {
         setTotpSecret(secret);
         setQrCodeStatus('success');
-        toast.success('QR Code lido com sucesso!');
       } else {
         setQrCodeStatus('error');
         toast.error('Não foi possível ler o QR Code. Use o campo manual abaixo.');
@@ -181,7 +180,6 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
       }
 
       if (response.data?.success) {
-        toast.success('Credenciais configuradas com sucesso! ✅');
         
         // Reset form
         setLogin('');

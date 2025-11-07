@@ -75,7 +75,6 @@ const LinkDashboard = () => {
         .eq('id', linkId);
 
       if (error) throw error;
-      toast.success('Link removido!');
       loadData();
     } catch (error) {
       console.error('Error deleting link:', error);
@@ -94,7 +93,6 @@ const LinkDashboard = () => {
         .eq('id', linkId);
 
       if (error) throw error;
-      toast.success(!link.is_active ? 'Link ativado' : 'Link desativado');
       loadData();
     } catch (error) {
       console.error('Error toggling link:', error);
@@ -118,7 +116,6 @@ const LinkDashboard = () => {
           .eq('id', linkData.id);
 
         if (error) throw error;
-        toast.success('Link atualizado!');
       } else {
         // Create new link
         const { error } = await supabase
@@ -132,7 +129,6 @@ const LinkDashboard = () => {
           });
 
         if (error) throw error;
-        toast.success('Link adicionado!');
       }
       loadData();
     } catch (error) {
@@ -155,8 +151,6 @@ const LinkDashboard = () => {
       
       // Atualizar profile localmente para preview em tempo real
       await loadData();
-      
-      toast.success('Perfil atualizado!');
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Erro ao salvar perfil');
@@ -177,7 +171,6 @@ const LinkDashboard = () => {
         });
 
       if (error) throw error;
-      toast.success('Coleção criada!');
       loadData();
     } catch (error) {
       console.error('Error creating collection:', error);
@@ -193,7 +186,6 @@ const LinkDashboard = () => {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Coleção atualizada!');
       loadData();
     } catch (error) {
       console.error('Error updating collection:', error);
@@ -209,7 +201,6 @@ const LinkDashboard = () => {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Coleção removida!');
       loadData();
     } catch (error) {
       console.error('Error deleting collection:', error);

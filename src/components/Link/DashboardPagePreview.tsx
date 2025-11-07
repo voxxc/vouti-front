@@ -14,7 +14,6 @@ export const DashboardPagePreview = ({ profile }: DashboardPagePreviewProps) => 
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(`https://${pageUrl}`);
-    toast.success("URL copiada!");
   };
 
   const handleShare = () => {

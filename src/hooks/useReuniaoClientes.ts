@@ -86,7 +86,7 @@ export const useReuniaoClientes = () => {
 
       if (error) throw error;
 
-      toast.success('Cliente cadastrado com sucesso');
+      
       await fetchClientes();
       return data;
     } catch (error: any) {
@@ -105,7 +105,7 @@ export const useReuniaoClientes = () => {
 
       if (error) throw error;
 
-      toast.success('Cliente atualizado com sucesso');
+      
       await fetchClientes();
     } catch (error: any) {
       console.error('Erro ao atualizar cliente:', error);

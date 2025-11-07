@@ -100,7 +100,7 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, user }: EditUser
         throw new Error(result.error || "Erro ao atualizar usuário");
       }
 
-      toast.success("Usuário atualizado com sucesso!");
+      
 
       onSuccess();
       onOpenChange(false);
