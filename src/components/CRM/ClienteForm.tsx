@@ -120,11 +120,12 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       data_fechamento: data.data_fechamento,
       valor_contrato: parseFloat(data.valor_contrato),
       forma_pagamento: data.forma_pagamento,
-      valor_entrada: data.valor_entrada ? parseFloat(data.valor_entrada) : undefined,
-      numero_parcelas: data.numero_parcelas ? parseInt(data.numero_parcelas) : undefined,
-      valor_parcela: data.valor_parcela ? parseFloat(data.valor_parcela) : undefined,
-      data_vencimento_inicial: data.data_vencimento_inicial || undefined,
-      data_vencimento_final: data.data_vencimento_final || undefined,
+      // Só incluir campos do modelo simples se NÃO estiver usando grupos personalizados
+      valor_entrada: !usarGruposParcelas && data.valor_entrada ? parseFloat(data.valor_entrada) : undefined,
+      numero_parcelas: !usarGruposParcelas && data.numero_parcelas ? parseInt(data.numero_parcelas) : undefined,
+      valor_parcela: !usarGruposParcelas && data.valor_parcela ? parseFloat(data.valor_parcela) : undefined,
+      data_vencimento_inicial: !usarGruposParcelas ? data.data_vencimento_inicial : undefined,
+      data_vencimento_final: !usarGruposParcelas ? data.data_vencimento_final : undefined,
       vendedor: data.vendedor || undefined,
       origem_rede_social: data.origem_rede_social || undefined,
       origem_tipo: data.origem_tipo || undefined,
@@ -275,7 +276,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
           <div className="space-y-2">
             <Label htmlFor="uf">Estado (UF)</Label>
             <Select
-              value={watch('uf')}
+              value={watch('uf') || ''}
               onValueChange={(value) => setValue('uf', value)}
             >
               <SelectTrigger>

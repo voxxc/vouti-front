@@ -126,6 +126,7 @@ export const clienteSchema = z.object({
   }),
   status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
+  grupos_parcelas: z.any().optional(), // JSONB field
 }).refine(
   (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
   {
@@ -134,24 +135,32 @@ export const clienteSchema = z.object({
   }
 ).refine(
   (data) => {
-    if (data.forma_pagamento === 'parcelado') {
-      return data.numero_parcelas && parseInt(data.numero_parcelas) > 0;
+    // Se forma_pagamento é 'parcelado' e está usando o modelo simples (não tem grupos_parcelas)
+    // então valida os campos do parcelamento simples
+    if (data.forma_pagamento === 'parcelado' && !data.grupos_parcelas) {
+      // Se algum campo do modelo simples foi preenchido, valida numero_parcelas
+      if (data.numero_parcelas || data.data_vencimento_inicial || data.data_vencimento_final) {
+        return data.numero_parcelas && parseInt(data.numero_parcelas) > 0;
+      }
     }
     return true;
   },
   {
-    message: 'Informe o número de parcelas',
+    message: 'Informe o número de parcelas para parcelamento simples',
     path: ['numero_parcelas'],
   }
 ).refine(
   (data) => {
-    if (data.forma_pagamento === 'parcelado') {
-      return data.data_vencimento_inicial && data.data_vencimento_final;
+    // Mesma lógica para datas do parcelamento simples
+    if (data.forma_pagamento === 'parcelado' && !data.grupos_parcelas) {
+      if (data.numero_parcelas || data.data_vencimento_inicial || data.data_vencimento_final) {
+        return data.data_vencimento_inicial && data.data_vencimento_final;
+      }
     }
     return true;
   },
   {
-    message: 'Informe as datas de vencimento inicial e final para pagamento parcelado',
+    message: 'Informe as datas de vencimento para parcelamento simples',
     path: ['data_vencimento_inicial'],
   }
 ).refine(
