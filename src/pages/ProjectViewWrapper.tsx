@@ -57,6 +57,57 @@ const ProjectViewWrapper = () => {
           });
         }
 
+        // Fetch comments, files, and history for each task
+        const tasksWithData = await Promise.all((tasksData || []).map(async (task) => {
+          // Fetch comments
+          const { data: comments } = await supabase
+            .from('task_comments')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: true });
+
+          // Fetch files
+          const { data: files } = await supabase
+            .from('task_files')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: true });
+
+          // Fetch history
+          const { data: history } = await supabase
+            .from('task_history')
+            .select('*')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: false });
+
+          return {
+            ...task,
+            comments: (comments || []).map(c => ({
+              id: c.id,
+              text: c.comment_text,
+              author: 'Usuário',
+              createdAt: new Date(c.created_at),
+              updatedAt: new Date(c.updated_at)
+            })),
+            files: (files || []).map(f => ({
+              id: f.id,
+              name: f.file_name,
+              url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
+              size: f.file_size,
+              type: f.file_type || '',
+              uploadedBy: 'Usuário',
+              uploadedAt: new Date(f.created_at)
+            })),
+            history: (history || []).map(h => ({
+              id: h.id,
+              action: h.action as any,
+              details: h.details,
+              user: 'Sistema',
+              timestamp: new Date(h.created_at)
+            }))
+          };
+        }));
+
         // Fetch project sectors
         const { data: sectorsData, error: sectorsError } = await supabase
           .from('project_sectors')
@@ -75,17 +126,18 @@ const ProjectViewWrapper = () => {
           client: projectData.client,
           clienteId: projectData.cliente_id,
           description: projectData.description || '',
-          tasks: (tasksData || []).map((task): Task => ({
+          tasks: tasksWithData.map((task): Task => ({
             id: task.id,
             title: task.title,
             description: task.description || '',
             status: task.status as 'waiting' | 'todo' | 'progress' | 'done',
             columnId: task.column_id || undefined,
             sectorId: task.sector_id || undefined,
-            comments: [],
-            files: [],
-            history: [],
+            comments: task.comments,
+            files: task.files,
+            history: task.history,
             type: task.task_type === 'acordo' ? 'acordo' : 'regular',
+            cardColor: (task.card_color as Task['cardColor']) || 'default',
             createdAt: new Date(task.created_at),
             updatedAt: new Date(task.updated_at)
           })),
