@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
+import { calculateProjectProgress } from "@/utils/projectHelpers";
+import { KanbanColumn } from "@/types/project";
 
 const Projects = () => {
   const navigate = useNavigate();
@@ -151,6 +153,26 @@ const Projects = () => {
           };
         }));
 
+        // Carregar colunas do projeto
+        const { data: columnsData } = await supabase
+          .from('project_columns')
+          .select('*')
+          .eq('project_id', project.id)
+          .is('sector_id', null)
+          .order('column_order');
+        
+        const columns: KanbanColumn[] = (columnsData || []).map(col => ({
+          id: col.id,
+          projectId: col.project_id,
+          sectorId: col.sector_id,
+          name: col.name,
+          columnOrder: col.column_order,
+          color: col.color,
+          isDefault: col.is_default,
+          createdAt: new Date(col.created_at),
+          updatedAt: new Date(col.updated_at)
+        }));
+
         return {
           id: project.id,
           name: project.name,
@@ -161,7 +183,8 @@ const Projects = () => {
           createdAt: new Date(project.created_at),
           updatedAt: new Date(project.updated_at),
           tasks: tasks,
-          acordoTasks: []
+          acordoTasks: [],
+          columns: columns
         };
       }));
 
@@ -260,7 +283,12 @@ const Projects = () => {
     const total = project.tasks.length;
     const done = project.tasks.filter(t => t.status === 'done').length;
     const progress = project.tasks.filter(t => t.status === 'progress').length;
-    return { total, done, progress };
+    
+    // Calcular progresso baseado na posição das colunas
+    const columns = project.columns || [];
+    const progressPercentage = calculateProjectProgress(project.tasks, columns);
+    
+    return { total, done, progress, progressPercentage };
   };
 
   if (loading) {
@@ -357,7 +385,7 @@ const Projects = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
             const stats = getProjectStats(project);
-            const completionRate = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+            const completionRate = stats.progressPercentage;
             
             return (
               <Card 
