@@ -26,10 +26,7 @@ export const useReuniaoClientes = () => {
       // Construir query com filtro condicional
       let query = supabase
         .from('reuniao_clientes')
-        .select(`
-          *,
-          creator:profiles!created_by(full_name, email)
-        `);
+        .select('*');
       
       // Se não for admin/agenda, filtrar por user_id
       if (!isAdminOrAgenda) {
@@ -40,7 +37,7 @@ export const useReuniaoClientes = () => {
 
       if (error) throw error;
 
-      // Buscar contagem de reuniões para cada cliente
+      // Buscar contagem de reuniões e informações do criador para cada cliente
       const clientesComStats = await Promise.all((data || []).map(async (cliente) => {
         const { count } = await supabase
           .from('reunioes')
@@ -55,10 +52,27 @@ export const useReuniaoClientes = () => {
           .limit(1)
           .maybeSingle();
 
+        // Buscar informações do criador
+        let creatorName = 'Desconhecido';
+        let creatorEmail = '';
+        
+        if (cliente.created_by) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('user_id', cliente.created_by)
+            .maybeSingle();
+          
+          if (profile) {
+            creatorName = profile.full_name || 'Desconhecido';
+            creatorEmail = profile.email || '';
+          }
+        }
+
         return {
           ...cliente,
-          creator_name: (cliente as any).creator?.full_name || 'Desconhecido',
-          creator_email: (cliente as any).creator?.email || '',
+          creator_name: creatorName,
+          creator_email: creatorEmail,
           total_reunioes: count || 0,
           ultima_reuniao: ultimaReuniao?.data || null
         };
