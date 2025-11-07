@@ -78,7 +78,7 @@ export const ProjectClientDataDialog = ({
       .single();
 
     if (!error && data) {
-      setSelectedCliente(data as Cliente);
+      setSelectedCliente(data as unknown as Cliente);
     }
   };
 

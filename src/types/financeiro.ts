@@ -9,6 +9,7 @@ export interface ClienteParcela {
   metodo_pagamento?: string;
   comprovante_url?: string;
   observacoes?: string;
+  grupo_descricao?: string;
   created_at: string;
   updated_at: string;
 }

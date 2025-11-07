@@ -37,7 +37,7 @@ export const useClientes = () => {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Cliente[];
+      return (data || []) as unknown as Cliente[];
     } catch (error: any) {
       toast({
         title: 'Erro ao buscar clientes',
@@ -72,7 +72,7 @@ export const useClientes = () => {
         description: `${clienteData.nome_pessoa_fisica || clienteData.nome_pessoa_juridica} foi adicionado.`,
       });
 
-      return data as Cliente;
+      return data as unknown as Cliente;
     } catch (error: any) {
       toast({
         title: 'Erro ao criar cliente',
@@ -101,7 +101,7 @@ export const useClientes = () => {
         title: 'Cliente atualizado com sucesso!',
       });
 
-      return data as Cliente;
+      return data as unknown as Cliente;
     } catch (error: any) {
       toast({
         title: 'Erro ao atualizar cliente',

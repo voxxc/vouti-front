@@ -192,6 +192,7 @@ export type Database = {
           data_pagamento: string | null
           data_vencimento: string
           divida_id: string | null
+          grupo_descricao: string | null
           id: string
           metodo_pagamento: string | null
           numero_parcela: number
@@ -207,6 +208,7 @@ export type Database = {
           data_pagamento?: string | null
           data_vencimento: string
           divida_id?: string | null
+          grupo_descricao?: string | null
           id?: string
           metodo_pagamento?: string | null
           numero_parcela: number
@@ -222,6 +224,7 @@ export type Database = {
           data_pagamento?: string | null
           data_vencimento?: string
           divida_id?: string | null
+          grupo_descricao?: string | null
           id?: string
           metodo_pagamento?: string | null
           numero_parcela?: number
@@ -261,6 +264,7 @@ export type Database = {
           email: string | null
           endereco: string | null
           forma_pagamento: string
+          grupos_parcelas: Json | null
           id: string
           nome_pessoa_fisica: string | null
           nome_pessoa_juridica: string | null
@@ -293,6 +297,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           forma_pagamento: string
+          grupos_parcelas?: Json | null
           id?: string
           nome_pessoa_fisica?: string | null
           nome_pessoa_juridica?: string | null
@@ -325,6 +330,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           forma_pagamento?: string
+          grupos_parcelas?: Json | null
           id?: string
           nome_pessoa_fisica?: string | null
           nome_pessoa_juridica?: string | null

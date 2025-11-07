@@ -1,3 +1,19 @@
+export interface GrupoParcela {
+  ordem: number;
+  descricao?: string;
+  quantidade: number;
+  valor_parcela: number;
+  data_inicio: string;
+}
+
+export interface GruposParcelasConfig {
+  entrada?: {
+    valor: number;
+    data_vencimento: string;
+  };
+  grupos: GrupoParcela[];
+}
+
 export interface PessoaAdicional {
   nome_pessoa_fisica?: string;
   nome_pessoa_juridica?: string;
@@ -40,6 +56,7 @@ export interface Cliente {
   classificacao?: 'pf' | 'pj';
   status_cliente?: 'ativo' | 'inativo' | 'contrato_encerrado';
   pessoas_adicionais?: PessoaAdicional[];
+  grupos_parcelas?: GruposParcelasConfig;
   created_at?: string;
   updated_at?: string;
 }

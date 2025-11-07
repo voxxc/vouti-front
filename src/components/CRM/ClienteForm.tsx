@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { clienteSchema, ClienteFormData } from '@/lib/validations/cliente';
-import { Cliente, PessoaAdicional } from '@/types/cliente';
+import { Cliente, PessoaAdicional, GruposParcelasConfig } from '@/types/cliente';
 import { useClientes } from '@/hooks/useClientes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Upload, X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { GruposParcelasManager } from './GruposParcelasManager';
 
 interface ClienteFormProps {
   cliente?: Cliente;
@@ -26,6 +27,10 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
   const [pessoasAdicionais, setPessoasAdicionais] = useState<PessoaAdicional[]>(
     cliente?.pessoas_adicionais || []
   );
+  const [gruposParcelas, setGruposParcelas] = useState<GruposParcelasConfig>(
+    cliente?.grupos_parcelas || { grupos: [] }
+  );
+  const [usarGruposParcelas, setUsarGruposParcelas] = useState(!!cliente?.grupos_parcelas);
   const isEditing = !!cliente;
 
   const {
@@ -129,6 +134,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       pessoas_adicionais: pessoasAdicionais.filter(p => 
         p.nome_pessoa_fisica || p.nome_pessoa_juridica
       ),
+      grupos_parcelas: usarGruposParcelas ? gruposParcelas : undefined,
     };
 
     let result;
@@ -484,49 +490,80 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
           </div>
 
           {formaPagamento === 'parcelado' && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="valor_entrada">Valor de Entrada</Label>
-                <Input id="valor_entrada" type="number" step="0.01" {...register('valor_entrada')} placeholder="0.00" />
+            <div className="md:col-span-2 space-y-4">
+              <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                <Label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!usarGruposParcelas}
+                    onChange={() => setUsarGruposParcelas(false)}
+                    className="cursor-pointer"
+                  />
+                  <span>Parcelamento Simples</span>
+                </Label>
+                <Label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={usarGruposParcelas}
+                    onChange={() => setUsarGruposParcelas(true)}
+                    className="cursor-pointer"
+                  />
+                  <span>Parcelamento Personalizado</span>
+                </Label>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="numero_parcelas">Número de Parcelas *</Label>
-                <Input id="numero_parcelas" type="number" {...register('numero_parcelas')} placeholder="12" />
-                {errors.numero_parcelas && (
-                  <p className="text-sm text-destructive">{errors.numero_parcelas.message}</p>
-                )}
-              </div>
+              {!usarGruposParcelas ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="valor_entrada">Valor de Entrada</Label>
+                    <Input id="valor_entrada" type="number" step="0.01" {...register('valor_entrada')} placeholder="0.00" />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="valor_parcela">Valor da Parcela</Label>
-                <Input id="valor_parcela" type="number" step="0.01" {...register('valor_parcela')} placeholder="0.00" />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numero_parcelas">Número de Parcelas *</Label>
+                    <Input id="numero_parcelas" type="number" {...register('numero_parcelas')} placeholder="12" />
+                    {errors.numero_parcelas && (
+                      <p className="text-sm text-destructive">{errors.numero_parcelas.message}</p>
+                    )}
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="data_vencimento_inicial">Vencimento Inicial *</Label>
-                <Input 
-                  id="data_vencimento_inicial" 
-                  type="date" 
-                  {...register('data_vencimento_inicial')} 
+                  <div className="space-y-2">
+                    <Label htmlFor="valor_parcela">Valor da Parcela</Label>
+                    <Input id="valor_parcela" type="number" step="0.01" {...register('valor_parcela')} placeholder="0.00" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="data_vencimento_inicial">Vencimento Inicial *</Label>
+                    <Input 
+                      id="data_vencimento_inicial" 
+                      type="date" 
+                      {...register('data_vencimento_inicial')} 
+                    />
+                    {errors.data_vencimento_inicial && (
+                      <p className="text-sm text-destructive">{errors.data_vencimento_inicial.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="data_vencimento_final">Vencimento Final *</Label>
+                    <Input 
+                      id="data_vencimento_final" 
+                      type="date" 
+                      {...register('data_vencimento_final')} 
+                    />
+                    {errors.data_vencimento_final && (
+                      <p className="text-sm text-destructive">{errors.data_vencimento_final.message}</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <GruposParcelasManager
+                  value={gruposParcelas}
+                  onChange={setGruposParcelas}
+                  valorContrato={parseFloat(watch('valor_contrato')) || 0}
                 />
-                {errors.data_vencimento_inicial && (
-                  <p className="text-sm text-destructive">{errors.data_vencimento_inicial.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="data_vencimento_final">Vencimento Final *</Label>
-                <Input 
-                  id="data_vencimento_final" 
-                  type="date" 
-                  {...register('data_vencimento_final')} 
-                />
-                {errors.data_vencimento_final && (
-                  <p className="text-sm text-destructive">{errors.data_vencimento_final.message}</p>
-                )}
-              </div>
-            </>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">
