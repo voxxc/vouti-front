@@ -1925,6 +1925,39 @@ export type Database = {
           },
         ]
       }
+      reuniao_status: {
+        Row: {
+          ativo: boolean | null
+          cor: string
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          nome: string
+          ordem: number
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cor?: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          nome: string
+          ordem?: number
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cor?: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          nome?: string
+          ordem?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       reunioes: {
         Row: {
           cliente_email: string | null
@@ -1939,6 +1972,7 @@ export type Database = {
           id: string
           observacoes: string | null
           status: string
+          status_id: string | null
           titulo: string
           updated_at: string | null
           user_id: string
@@ -1956,6 +1990,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           status?: string
+          status_id?: string | null
           titulo: string
           updated_at?: string | null
           user_id: string
@@ -1973,6 +2008,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           status?: string
+          status_id?: string | null
           titulo?: string
           updated_at?: string | null
           user_id?: string
@@ -1983,6 +2019,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "reuniao_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reunioes_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "reuniao_status"
             referencedColumns: ["id"]
           },
         ]

@@ -19,6 +19,8 @@ import ControladoriaNovoProcesso from "@/pages/ControladoriaNovoProcesso";
 import ControladoriaProcessoDetalhes from "@/pages/ControladoriaProcessoDetalhes";
 import Reunioes from "@/pages/Reunioes";
 import ReuniaoClientes from "@/pages/ReuniaoClientes";
+import ReuniaoMetricas from "@/pages/ReuniaoMetricas";
+import ReuniaoRelatorios from "@/pages/ReuniaoRelatorios";
 import HomePage from "@/pages/HomePage";
 import LandingPage1 from "@/pages/LandingPage1";
 import LandingPage2 from "@/pages/LandingPage2";
@@ -282,6 +284,24 @@ function App() {
                   <ThemeProvider>
                     <ProtectedRoute>
                       <Reunioes />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
+              } />
+              <Route path="/reunioes/metricas" element={
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <ReuniaoMetricas />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
+              } />
+              <Route path="/reunioes/relatorios" element={
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <ReuniaoRelatorios />
                     </ProtectedRoute>
                   </ThemeProvider>
                 </AuthProvider>

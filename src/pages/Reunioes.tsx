@@ -17,10 +17,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, Edit, Trash2, Users } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Users, BarChart3, FileText, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useReunioes } from '@/hooks/useReunioes';
-import { ReuniaoForm } from '@/components/Reunioes/ReuniaoForm';
+import { ReuniaoFormWrapper } from '@/components/Reunioes/ReuniaoFormWrapper';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
 import { ReuniaoComentarios } from '@/components/Reunioes/ReuniaoComentarios';
 import { Reuniao, ReuniaoFormData, HORARIOS_DISPONIVEIS, REUNIAO_STATUS_OPTIONS } from '@/types/reuniao';
@@ -116,7 +116,23 @@ export default function Reunioes() {
 
   return (
     <DashboardLayout currentPage="reunioes">
-      <div className="h-full flex gap-6 p-6">
+      <div className="space-y-4 p-6">
+        {/* Header com botões de navegação */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Reuniões</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/reunioes/metricas')}>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Minhas Métricas
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/reunioes/relatorios')}>
+              <FileText className="h-4 w-4 mr-2" />
+              Relatórios
+            </Button>
+          </div>
+        </div>
+        
+      <div className="h-full flex gap-6">
         {/* Calendário - Lado Esquerdo */}
         <Card className="w-80 shrink-0">
           <CardHeader>
@@ -280,7 +296,7 @@ export default function Reunioes() {
               {selectedReuniao ? 'Editar Reunião' : 'Nova Reunião'}
             </DialogTitle>
           </DialogHeader>
-          <ReuniaoForm
+          <ReuniaoFormWrapper
             initialData={
               selectedReuniao
                 ? {
