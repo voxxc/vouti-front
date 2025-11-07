@@ -3,9 +3,20 @@ import { ReuniaoStatusManager } from '@/components/Reunioes/ReuniaoStatusManager
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const AdminReuniaoStatus = () => {
   const navigate = useNavigate();
+  const { userRole } = useAuth();
+
+  useEffect(() => {
+    if (userRole && !['admin', 'agenda'].includes(userRole)) {
+      toast.error('Você não tem permissão para acessar esta página');
+      navigate('/dashboard');
+    }
+  }, [userRole, navigate]);
 
   return (
     <DashboardLayout>

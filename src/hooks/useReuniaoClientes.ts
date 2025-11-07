@@ -15,7 +15,10 @@ export const useReuniaoClientes = () => {
 
       const { data, error } = await supabase
         .from('reuniao_clientes')
-        .select('*')
+        .select(`
+          *,
+          creator:profiles!created_by(full_name, email)
+        `)
         .order('nome', { ascending: true });
 
       if (error) throw error;
@@ -37,6 +40,8 @@ export const useReuniaoClientes = () => {
 
         return {
           ...cliente,
+          creator_name: (cliente as any).creator?.full_name || 'Desconhecido',
+          creator_email: (cliente as any).creator?.email || '',
           total_reunioes: count || 0,
           ultima_reuniao: ultimaReuniao?.data || null
         };

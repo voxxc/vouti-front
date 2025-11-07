@@ -24,6 +24,8 @@ export interface ReuniaoCliente {
   created_by: string;
   total_reunioes?: number;
   ultima_reuniao?: string;
+  creator_name?: string;
+  creator_email?: string;
 }
 
 export interface ReuniaoClienteFormData {

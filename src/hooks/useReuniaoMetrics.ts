@@ -20,7 +20,8 @@ export interface UserMetrics extends ReuniaoMetrics {
 export const useReuniaoMetrics = (
   userId?: string,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  statusIds?: string[]
 ) => {
   const [metrics, setMetrics] = useState<ReuniaoMetrics | null>(null);
   const [userMetrics, setUserMetrics] = useState<UserMetrics[]>([]);
@@ -68,6 +69,11 @@ export const useReuniaoMetrics = (
       }
       if (endDate) {
         reunioesQuery = reunioesQuery.lte('created_at', endDate.toISOString());
+      }
+
+      // Filtrar por status
+      if (statusIds && statusIds.length > 0) {
+        reunioesQuery = reunioesQuery.in('status_id', statusIds);
       }
 
       const { data: reunioes, error } = await reunioesQuery;
@@ -220,7 +226,7 @@ export const useReuniaoMetrics = (
 
   useEffect(() => {
     fetchMetrics();
-  }, [userId, startDate, endDate]);
+  }, [userId, startDate, endDate, statusIds]);
 
   return {
     metrics,

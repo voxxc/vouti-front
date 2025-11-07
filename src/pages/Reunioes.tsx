@@ -29,8 +29,11 @@ import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
+import { useAuth } from '@/contexts/AuthContext';
+
 export default function Reunioes() {
   const navigate = useNavigate();
+  const { userRole } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -129,6 +132,12 @@ export default function Reunioes() {
               <FileText className="h-4 w-4 mr-2" />
               Relatórios
             </Button>
+            {(userRole && ['admin', 'agenda'].includes(userRole)) && (
+              <Button variant="outline" onClick={() => navigate('/admin/reuniao-status')}>
+                <Settings className="h-4 w-4 mr-2" />
+                Gerenciar Etiquetas
+              </Button>
+            )}
           </div>
         </div>
         

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, CalendarClock, Phone, X, CheckCircle2 } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Reuniao } from "@/types/reuniao";
+import { useReuniaoStatus } from "@/hooks/useReuniaoStatus";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AgendaMetricsProps {
   userId: string;
@@ -11,54 +13,46 @@ interface AgendaMetricsProps {
   isAdminView?: boolean;
 }
 
-interface Metrics {
-  totalReunioes: number;
-  primeiraReuniao: number;
-  emContato: number;
-  inviavel: number;
-  fechado: number;
-}
-
 const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsProps) => {
-  const [metrics, setMetrics] = useState<Metrics>({
-    totalReunioes: 0,
-    primeiraReuniao: 0,
-    emContato: 0,
-    inviavel: 0,
-    fechado: 0,
-  });
+  const [metrics, setMetrics] = useState<{ [statusId: string]: number }>({});
   const [loading, setLoading] = useState(true);
+  const [filtroStatus, setFiltroStatus] = useState<string>('todos');
+  const { status } = useReuniaoStatus();
 
   useEffect(() => {
     fetchMetrics();
-  }, [userId, isAdminView]);
+  }, [userId, isAdminView, filtroStatus]);
 
   const fetchMetrics = async () => {
     try {
       setLoading(true);
 
       // Build query
-      let query = supabase.from('reunioes').select('*');
+      let query = supabase.from('reunioes').select('status_id');
 
       // If not admin view, filter by user_id
       if (!isAdminView) {
         query = query.eq('user_id', userId);
       }
 
+      // Aplicar filtro de status se selecionado
+      if (filtroStatus !== 'todos') {
+        query = query.eq('status_id', filtroStatus);
+      }
+
       const { data: reunioes, error } = await query;
 
       if (error) throw error;
 
-      const reunioesData = (reunioes || []) as Reuniao[];
-
-      // Calculate metrics
-      setMetrics({
-        totalReunioes: reunioesData.length,
-        primeiraReuniao: reunioesData.filter(r => r.status === '1ª reunião').length,
-        emContato: reunioesData.filter(r => r.status === 'em contato').length,
-        inviavel: reunioesData.filter(r => r.status === 'inviável').length,
-        fechado: reunioesData.filter(r => r.status === 'fechado').length,
+      // Agrupar por status_id
+      const metricsMap: { [statusId: string]: number } = {};
+      reunioes?.forEach(r => {
+        if (r.status_id) {
+          metricsMap[r.status_id] = (metricsMap[r.status_id] || 0) + 1;
+        }
       });
+
+      setMetrics(metricsMap);
     } catch (error) {
       console.error('Error fetching agenda metrics:', error);
     } finally {
@@ -82,6 +76,8 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
     );
   }
 
+  const totalReunioes = Object.values(metrics).reduce((acc, val) => acc + val, 0);
+
   return (
     <div className="space-y-6">
       <div>
@@ -95,71 +91,62 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Filtro de Status */}
+      <div className="flex gap-2 items-center">
+        <span className="text-sm text-muted-foreground">Filtrar por Status:</span>
+        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os Status</SelectItem>
+            {status.filter(s => s.ativo).map(s => (
+              <SelectItem key={s.id} value={s.id}>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.cor }} />
+                  {s.nome}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Reuniões</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalReunioes}</div>
+            <div className="text-2xl font-bold">{totalReunioes}</div>
             <p className="text-xs text-muted-foreground">
-              Todas as reuniões
+              {filtroStatus === 'todos' ? 'Todas as reuniões' : 'Do status selecionado'}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">1ª Reunião</CardTitle>
-            <CalendarClock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.primeiraReuniao}</div>
-            <p className="text-xs text-muted-foreground">
-              Aguardando primeira reunião
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Em Contato</CardTitle>
-            <Phone className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.emContato}</div>
-            <p className="text-xs text-muted-foreground">
-              Em processo de negociação
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inviável</CardTitle>
-            <X className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.inviavel}</div>
-            <p className="text-xs text-muted-foreground">
-              Reuniões não viáveis
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fechado</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.fechado}</div>
-            <p className="text-xs text-muted-foreground">
-              Negócios concluídos
-            </p>
-          </CardContent>
-        </Card>
+        {status.filter(s => s.ativo).map(s => {
+          const count = metrics[s.id] || 0;
+          return (
+            <Card key={s.id}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{s.nome}</CardTitle>
+                <div 
+                  className="w-4 h-4 rounded-full" 
+                  style={{ backgroundColor: s.cor }}
+                />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{count}</div>
+                <p className="text-xs text-muted-foreground">
+                  {count === 1 ? 'reunião' : 'reuniões'}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

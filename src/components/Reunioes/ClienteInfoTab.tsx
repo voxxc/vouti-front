@@ -104,11 +104,36 @@ export const ClienteInfoTab = ({ cliente, onUpdate }: ClienteInfoTabProps) => {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-          <div>
-            <Label className="text-muted-foreground">Total de Reuniões</Label>
-            <p className="font-semibold text-lg">{cliente.total_reunioes || 0}</p>
+        <div className="space-y-4 pt-4 border-t">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-muted-foreground">Criado por</Label>
+              <p className="font-semibold">{cliente.creator_name || 'Desconhecido'}</p>
+              {cliente.creator_email && (
+                <p className="text-xs text-muted-foreground">{cliente.creator_email}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Data de Criação</Label>
+              <p className="font-semibold">
+                {new Date(cliente.created_at).toLocaleString('pt-BR')}
+              </p>
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-muted-foreground">Total de Reuniões</Label>
+              <p className="font-semibold text-lg">{cliente.total_reunioes || 0}</p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Última Atualização</Label>
+              <p className="font-semibold">
+                {new Date(cliente.updated_at).toLocaleString('pt-BR')}
+              </p>
+            </div>
+          </div>
+
           <div>
             <Label className="text-muted-foreground">Origem</Label>
             <p className="font-semibold">{cliente.origem || 'Manual'}</p>
