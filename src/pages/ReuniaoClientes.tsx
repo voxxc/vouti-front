@@ -27,6 +27,12 @@ export default function ReuniaoClientes() {
     setShowDetalhesDialog(true);
   };
 
+  const handleClienteDeleted = () => {
+    setShowDetalhesDialog(false);
+    setSelectedClienteId(null);
+    fetchClientes();
+  };
+
   const selectedCliente = clientes.find(c => c.id === selectedClienteId);
 
   return (
@@ -127,6 +133,7 @@ export default function ReuniaoClientes() {
         open={showDetalhesDialog}
         onOpenChange={setShowDetalhesDialog}
         onUpdate={fetchClientes}
+        onDelete={handleClienteDeleted}
       />
     </DashboardLayout>
   );

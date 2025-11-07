@@ -149,6 +149,23 @@ export const useReuniaoClientes = () => {
     }
   };
 
+  const deletarCliente = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('reuniao_clientes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Cliente deletado com sucesso');
+      await fetchClientes();
+    } catch (error: any) {
+      console.error('Erro ao deletar cliente:', error);
+      toast.error('Erro ao deletar cliente');
+    }
+  };
+
   const obterHistoricoReunioesCliente = async (clienteId: string) => {
     try {
       const { data, error } = await supabase
@@ -180,6 +197,7 @@ export const useReuniaoClientes = () => {
     buscarCliente,
     criarCliente,
     atualizarCliente,
+    deletarCliente,
     obterHistoricoReunioesCliente
   };
 };

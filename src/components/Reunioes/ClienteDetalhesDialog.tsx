@@ -18,15 +18,22 @@ interface ClienteDetalhesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
+  onDelete?: () => void;
 }
 
 export const ClienteDetalhesDialog = ({
   cliente,
   open,
   onOpenChange,
-  onUpdate
+  onUpdate,
+  onDelete
 }: ClienteDetalhesDialogProps) => {
   const [activeTab, setActiveTab] = useState('info');
+
+  const handleDelete = () => {
+    onOpenChange(false);
+    if (onDelete) onDelete();
+  };
 
   if (!cliente) return null;
 
@@ -58,7 +65,7 @@ export const ClienteDetalhesDialog = ({
           </TabsList>
 
           <TabsContent value="info" className="mt-4">
-            <ClienteInfoTab cliente={cliente} onUpdate={onUpdate} />
+            <ClienteInfoTab cliente={cliente} onUpdate={onUpdate} onDelete={handleDelete} />
           </TabsContent>
 
           <TabsContent value="comentarios" className="mt-4">
