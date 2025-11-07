@@ -13,13 +13,30 @@ export const useReuniaoClientes = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { data, error } = await supabase
+      // Verificar se é admin ou agenda
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      
+      const isAdminOrAgenda = roles?.some(r => 
+        r.role === 'admin' || r.role === 'agenda'
+      );
+
+      // Construir query com filtro condicional
+      let query = supabase
         .from('reuniao_clientes')
         .select(`
           *,
           creator:profiles!created_by(full_name, email)
-        `)
-        .order('nome', { ascending: true });
+        `);
+      
+      // Se não for admin/agenda, filtrar por user_id
+      if (!isAdminOrAgenda) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query.order('nome', { ascending: true });
 
       if (error) throw error;
 

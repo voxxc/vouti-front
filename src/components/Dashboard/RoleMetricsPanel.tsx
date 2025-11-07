@@ -32,7 +32,7 @@ const RoleMetricsPanel = ({ currentUser }: RoleMetricsPanelProps) => {
     case 'financeiro':
       return <FinanceiroMetrics userId={currentUser.id} userName={currentUser.name} />;
     case 'agenda':
-      return <AgendaMetrics userId={currentUser.id} userName={currentUser.name} />;
+      return <AgendaMetrics userId={currentUser.id} userName={currentUser.name} isAdminView={false} />;
     default:
       return <AdvogadoMetrics userId={currentUser.id} userName={currentUser.name} />;
   }
