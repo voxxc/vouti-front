@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useClienteParcelas } from '@/hooks/useClienteParcelas';
 import { BaixaPagamentoDialog } from './BaixaPagamentoDialog';
 import { ParcelaComentarios } from './ParcelaComentarios';
@@ -116,7 +117,8 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
 
   return (
     <>
-      <div className="space-y-6 py-4">
+      <ScrollArea className="h-[calc(90vh-150px)] pr-4">
+        <div className="space-y-6 py-4 pb-6">
         {/* Header com título da dívida e botão de exclusão */}
         <div className="flex items-center justify-between border-b pb-4">
           <div>
@@ -343,7 +345,8 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </ScrollArea>
 
       <BaixaPagamentoDialog
         parcela={selectedParcela}

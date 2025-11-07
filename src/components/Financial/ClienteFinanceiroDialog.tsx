@@ -165,7 +165,7 @@ export const ClienteFinanceiroDialog = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-2xl">
               Detalhes Financeiros - {getNomeCliente(cliente)}
@@ -218,7 +218,7 @@ export const ClienteFinanceiroDialog = ({
                 </Button>
               </div>
 
-              <ScrollArea className="flex-1 pr-4">
+              <ScrollArea className="flex-1 h-[calc(90vh-200px)] pr-4">
                 <TabsContent value="contratual" className="mt-0">
                   <div className="space-y-6">
                     {/* Barra de progresso temporal do contrato */}
