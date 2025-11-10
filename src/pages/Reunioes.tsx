@@ -24,6 +24,7 @@ import { ReuniaoFormWrapper } from '@/components/Reunioes/ReuniaoFormWrapper';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
 import { AlterarSituacaoDialog } from '@/components/Reunioes/AlterarSituacaoDialog';
 import { ReuniaoComentarios } from '@/components/Reunioes/ReuniaoComentarios';
+import { ReuniaoArquivos } from '@/components/Reunioes/ReuniaoArquivos';
 import { Reuniao, ReuniaoFormData, HORARIOS_DISPONIVEIS, REUNIAO_STATUS_OPTIONS } from '@/types/reuniao';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -428,6 +429,11 @@ export default function Reunioes() {
                   </div>
                 )}
               </div>
+
+              <Separator />
+
+              {/* Sistema de Arquivos */}
+              <ReuniaoArquivos reuniaoId={selectedReuniao.id} />
 
               <Separator />
 

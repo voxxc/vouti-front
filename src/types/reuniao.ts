@@ -128,3 +128,14 @@ export interface ReuniaoClienteArquivo {
   uploaded_by: string;
   created_at: string;
 }
+
+export interface ReuniaoArquivo {
+  id: string;
+  reuniao_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  file_type?: string;
+  uploaded_by: string;
+  created_at: string;
+}
