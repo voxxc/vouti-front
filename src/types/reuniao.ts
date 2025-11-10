@@ -1,4 +1,5 @@
 export type ReuniaoStatus = '1ª reunião' | 'em contato' | 'inviável' | 'fechado';
+export type SituacaoAgenda = 'ativa' | 'desmarcada' | 'remarcada';
 
 export interface ReuniaoStatusType {
   id: string;
@@ -50,6 +51,9 @@ export interface Reuniao {
   status: ReuniaoStatus;
   status_id?: string;
   observacoes?: string;
+  situacao_agenda?: SituacaoAgenda;
+  data_alteracao_situacao?: string;
+  motivo_alteracao?: string;
   created_at: string;
   updated_at: string;
   cliente?: ReuniaoCliente;

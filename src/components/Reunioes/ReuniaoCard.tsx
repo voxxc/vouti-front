@@ -1,12 +1,15 @@
 import { Reuniao } from '@/types/reuniao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Clock, User, Phone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, User, Phone, X, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ReuniaoCardProps {
   reuniao: Reuniao;
   onClick: () => void;
+  onDesmarcar?: (reuniao: Reuniao) => void;
+  onRemarcar?: (reuniao: Reuniao) => void;
 }
 
 const getStatusColor = (status: Reuniao['status']) => {
@@ -19,7 +22,7 @@ const getStatusColor = (status: Reuniao['status']) => {
   return colors[status];
 };
 
-export const ReuniaoCard = ({ reuniao, onClick }: ReuniaoCardProps) => {
+export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar }: ReuniaoCardProps) => {
   return (
     <Card
       className="p-3 cursor-pointer hover:shadow-md transition-shadow border-l-4"
@@ -61,6 +64,39 @@ export const ReuniaoCard = ({ reuniao, onClick }: ReuniaoCardProps) => {
           <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
             {reuniao.descricao}
           </p>
+        )}
+
+        {(onDesmarcar || onRemarcar) && (
+          <div className="flex items-center gap-2 mt-3 pt-2 border-t">
+            {onDesmarcar && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDesmarcar(reuniao);
+                }}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Desmarcada
+              </Button>
+            )}
+            {onRemarcar && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemarcar(reuniao);
+                }}
+              >
+                <CalendarClock className="h-3 w-3 mr-1" />
+                Remarcada
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </Card>

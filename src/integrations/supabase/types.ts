@@ -1966,11 +1966,14 @@ export type Database = {
           cliente_telefone: string | null
           created_at: string | null
           data: string
+          data_alteracao_situacao: string | null
           descricao: string | null
           duracao_minutos: number | null
           horario: string
           id: string
+          motivo_alteracao: string | null
           observacoes: string | null
+          situacao_agenda: string | null
           status: string
           status_id: string | null
           titulo: string
@@ -1984,11 +1987,14 @@ export type Database = {
           cliente_telefone?: string | null
           created_at?: string | null
           data: string
+          data_alteracao_situacao?: string | null
           descricao?: string | null
           duracao_minutos?: number | null
           horario: string
           id?: string
+          motivo_alteracao?: string | null
           observacoes?: string | null
+          situacao_agenda?: string | null
           status?: string
           status_id?: string | null
           titulo: string
@@ -2002,11 +2008,14 @@ export type Database = {
           cliente_telefone?: string | null
           created_at?: string | null
           data?: string
+          data_alteracao_situacao?: string | null
           descricao?: string | null
           duracao_minutos?: number | null
           horario?: string
           id?: string
+          motivo_alteracao?: string | null
           observacoes?: string | null
+          situacao_agenda?: string | null
           status?: string
           status_id?: string | null
           titulo?: string

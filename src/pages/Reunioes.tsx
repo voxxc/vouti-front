@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { useReunioes } from '@/hooks/useReunioes';
 import { ReuniaoFormWrapper } from '@/components/Reunioes/ReuniaoFormWrapper';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
+import { AlterarSituacaoDialog } from '@/components/Reunioes/AlterarSituacaoDialog';
 import { ReuniaoComentarios } from '@/components/Reunioes/ReuniaoComentarios';
 import { Reuniao, ReuniaoFormData, HORARIOS_DISPONIVEIS, REUNIAO_STATUS_OPTIONS } from '@/types/reuniao';
 import { format } from 'date-fns';
@@ -43,8 +44,10 @@ export default function Reunioes() {
   const [selectedHorario, setSelectedHorario] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSituacaoDialog, setShowSituacaoDialog] = useState(false);
+  const [situacaoAction, setSituacaoAction] = useState<'desmarcada' | 'remarcada'>('desmarcada');
 
-  const { reunioes, loading, createReuniao, updateReuniao, deleteReuniao } = useReunioes(selectedDate);
+  const { reunioes, loading, createReuniao, updateReuniao, deleteReuniao, alterarSituacaoReuniao } = useReunioes(selectedDate);
 
   const filteredReunioes = reunioes.filter((reuniao) => {
     const matchesSearch = searchTerm
@@ -103,6 +106,26 @@ export default function Reunioes() {
     if (!selectedReuniao) return;
     await deleteReuniao(selectedReuniao.id);
     setShowDeleteDialog(false);
+    setShowDetailsDialog(false);
+    setSelectedReuniao(null);
+  };
+
+  const handleDesmarcar = (reuniao: Reuniao) => {
+    setSelectedReuniao(reuniao);
+    setSituacaoAction('desmarcada');
+    setShowSituacaoDialog(true);
+  };
+
+  const handleRemarcar = (reuniao: Reuniao) => {
+    setSelectedReuniao(reuniao);
+    setSituacaoAction('remarcada');
+    setShowSituacaoDialog(true);
+  };
+
+  const handleConfirmSituacao = async (motivo?: string) => {
+    if (!selectedReuniao) return;
+    await alterarSituacaoReuniao(selectedReuniao.id, situacaoAction, motivo);
+    setShowSituacaoDialog(false);
     setShowDetailsDialog(false);
     setSelectedReuniao(null);
   };
@@ -273,6 +296,8 @@ export default function Reunioes() {
                                   key={reuniao.id}
                                   reuniao={reuniao}
                                   onClick={() => handleViewDetails(reuniao)}
+                                  onDesmarcar={handleDesmarcar}
+                                  onRemarcar={handleRemarcar}
                                 />
                               ))}
                             </div>
@@ -433,6 +458,15 @@ export default function Reunioes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Alterar Situação */}
+      <AlterarSituacaoDialog
+        open={showSituacaoDialog}
+        onOpenChange={setShowSituacaoDialog}
+        reuniao={selectedReuniao}
+        situacao={situacaoAction}
+        onConfirm={handleConfirmSituacao}
+      />
       </div>
     </DashboardLayout>
   );

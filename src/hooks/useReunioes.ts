@@ -26,6 +26,7 @@ export const useReunioes = (selectedDate?: Date) => {
       let query = supabase
         .from('reunioes')
         .select('*')
+        .eq('situacao_agenda', 'ativa')
         .order('horario', { ascending: true });
 
       if (selectedDate) {
@@ -129,6 +130,32 @@ export const useReunioes = (selectedDate?: Date) => {
     }
   };
 
+  const alterarSituacaoReuniao = async (
+    id: string, 
+    situacao: 'desmarcada' | 'remarcada', 
+    motivo?: string
+  ) => {
+    try {
+      const { error } = await supabase
+        .from('reunioes')
+        .update({
+          situacao_agenda: situacao,
+          data_alteracao_situacao: new Date().toISOString(),
+          motivo_alteracao: motivo || null
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success(`Reunião ${situacao === 'desmarcada' ? 'desmarcada' : 'remarcada'} com sucesso`);
+      await fetchReunioes();
+    } catch (error: any) {
+      console.error('Erro ao alterar situação da reunião:', error);
+      toast.error('Erro ao alterar situação da reunião');
+      throw error;
+    }
+  };
+
   useEffect(() => {
     fetchReunioes();
   }, [selectedDate]);
@@ -139,6 +166,7 @@ export const useReunioes = (selectedDate?: Date) => {
     fetchReunioes,
     createReuniao,
     updateReuniao,
-    deleteReuniao
+    deleteReuniao,
+    alterarSituacaoReuniao
   };
 };
