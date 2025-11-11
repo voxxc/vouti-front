@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEscavadorMonitoramento } from '@/hooks/useEscavadorMonitoramento';
 import { 
   Search, 
@@ -11,7 +12,9 @@ import {
   Eye,
   Calendar,
   DollarSign,
-  FileText
+  FileText,
+  History,
+  Zap
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -45,6 +48,8 @@ export const EscavadorMonitoramento = ({
   };
 
   const atualizacoesNaoLidas = atualizacoes.filter(a => !a.lida).length;
+  const movimentacoesHistoricas = atualizacoes.filter(a => a.tipo_atualizacao === 'importacao_historica');
+  const atualizacoesNovas = atualizacoes.filter(a => a.tipo_atualizacao !== 'importacao_historica');
 
   return (
     <div className="space-y-6">
@@ -214,7 +219,7 @@ export const EscavadorMonitoramento = ({
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Atualizações Recebidas
+                Movimentações do Processo
               </CardTitle>
               {atualizacoesNaoLidas > 0 && (
                 <Badge variant="destructive">
@@ -224,39 +229,127 @@ export const EscavadorMonitoramento = ({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {atualizacoes.slice(0, 10).map((atualizacao) => (
-                <div
-                  key={atualizacao.id}
-                  className={`border rounded-lg p-4 space-y-2 ${
-                    !atualizacao.lida ? 'bg-primary/5 border-primary/20' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          {atualizacao.tipo_atualizacao}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(atualizacao.data_evento), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                        </span>
+            <Tabs defaultValue="todas" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="todas" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Todas ({atualizacoes.length})
+                </TabsTrigger>
+                <TabsTrigger value="historicas" className="gap-2">
+                  <History className="h-4 w-4" />
+                  Históricas ({movimentacoesHistoricas.length})
+                </TabsTrigger>
+                <TabsTrigger value="novas" className="gap-2">
+                  <Zap className="h-4 w-4" />
+                  Novas ({atualizacoesNovas.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="todas" className="space-y-3 mt-4">
+                {atualizacoes.map((atualizacao) => (
+                  <div
+                    key={atualizacao.id}
+                    className={`border rounded-lg p-4 space-y-2 ${
+                      !atualizacao.lida ? 'bg-primary/5 border-primary/20' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={atualizacao.tipo_atualizacao === 'importacao_historica' ? 'secondary' : 'default'} className="text-xs">
+                            {atualizacao.tipo_atualizacao === 'importacao_historica' ? 'Histórica' : atualizacao.tipo_atualizacao}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(atualizacao.data_evento), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                          </span>
+                        </div>
+                        <p className="text-sm">{atualizacao.descricao}</p>
                       </div>
-                      <p className="text-sm">{atualizacao.descricao}</p>
+                      {!atualizacao.lida && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => marcarAtualizacaoLida(atualizacao.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    {!atualizacao.lida && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => marcarAtualizacaoLida(atualizacao.id)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="historicas" className="space-y-3 mt-4">
+                {movimentacoesHistoricas.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <History className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Nenhuma movimentação histórica importada</p>
+                  </div>
+                ) : (
+                  movimentacoesHistoricas.map((atualizacao) => (
+                    <div
+                      key={atualizacao.id}
+                      className="border rounded-lg p-4 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="text-xs">
+                              Histórica
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(atualizacao.data_evento), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                            </span>
+                          </div>
+                          <p className="text-sm">{atualizacao.descricao}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent value="novas" className="space-y-3 mt-4">
+                {atualizacoesNovas.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Zap className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Nenhuma atualização nova recebida</p>
+                  </div>
+                ) : (
+                  atualizacoesNovas.map((atualizacao) => (
+                    <div
+                      key={atualizacao.id}
+                      className={`border rounded-lg p-4 space-y-2 ${
+                        !atualizacao.lida ? 'bg-primary/5 border-primary/20' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="default" className="text-xs">
+                              {atualizacao.tipo_atualizacao}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(atualizacao.data_evento), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                            </span>
+                          </div>
+                          <p className="text-sm">{atualizacao.descricao}</p>
+                        </div>
+                        {!atualizacao.lida && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => marcarAtualizacaoLida(atualizacao.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}

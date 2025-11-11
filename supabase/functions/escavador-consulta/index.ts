@@ -85,6 +85,52 @@ serve(async (req) => {
       throw upsertError;
     }
 
+    // Importar movimentações históricas
+    if (processoEscavador.movimentacoes && Array.isArray(processoEscavador.movimentacoes) && processoEscavador.movimentacoes.length > 0) {
+      console.log(`[Escavador] Importando ${processoEscavador.movimentacoes.length} movimentações históricas`);
+      
+      // Buscar o ID do monitoramento recém criado
+      const { data: monitoramentoData } = await supabaseClient
+        .from('processo_monitoramento_escavador')
+        .select('id')
+        .eq('processo_id', processoId)
+        .single();
+
+      if (monitoramentoData) {
+        // Preparar movimentações para inserção em lote
+        const movimentacoesParaInserir = processoEscavador.movimentacoes.map((mov: any) => ({
+          processo_id: processoId,
+          monitoramento_id: monitoramentoData.id,
+          tipo_atualizacao: 'importacao_historica',
+          descricao: mov.descricao || mov.texto || mov.conteudo || 'Movimentação sem descrição',
+          data_evento: mov.data || mov.data_movimentacao || new Date().toISOString(),
+          dados_completos: mov,
+          lida: true, // Marcar como lida pois são históricas
+          notificacao_enviada: false
+        }));
+
+        // Inserir em lote
+        const { error: insertError } = await supabaseClient
+          .from('processo_atualizacoes_escavador')
+          .insert(movimentacoesParaInserir);
+
+        if (insertError) {
+          console.error('[Escavador] Erro ao importar movimentações:', insertError);
+        } else {
+          console.log(`[Escavador] ${movimentacoesParaInserir.length} movimentações importadas com sucesso`);
+          
+          // Atualizar contador total
+          await supabaseClient
+            .from('processo_monitoramento_escavador')
+            .update({ 
+              total_atualizacoes: movimentacoesParaInserir.length,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', monitoramentoData.id);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
