@@ -7,22 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, AlertCircle, Clock, CheckCircle, Search, Eye, RefreshCw, Settings, XCircle } from "lucide-react";
+import { FileText, Plus, AlertCircle, Clock, CheckCircle, Eye, Bell, Activity } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import PJEProcessUpdater from "@/components/CRM/PJEProcessUpdater";
-import AtualizadorAndamentos from "@/components/Controladoria/AtualizadorAndamentos";
+import EscavadorDashboard from "@/components/Controladoria/EscavadorDashboard";
+import { MonitoramentoStatusBadge } from "@/components/Controladoria/MonitoramentoStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import ProjudiCredentialsSetup from "@/components/Controladoria/ProjudiCredentialsSetup";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Controladoria = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isPJEModalOpen, setIsPJEModalOpen] = useState(false);
   const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
@@ -30,36 +27,12 @@ const Controladoria = () => {
     emAndamento: 0,
     arquivados: 0,
     suspensos: 0,
-    pendentesConferencia: 0
+    processosMonitorados: 0
   });
-  const [filtroConferencia, setFiltroConferencia] = useState<'todos' | 'pendentes' | 'conferidos'>('todos');
-  const [hasCredentials, setHasCredentials] = useState(false);
-  const [checkingCredentials, setCheckingCredentials] = useState(true);
-
-  const checkProjudiCredentials = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('projudi_credentials')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('tribunal', 'TJPR')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      setHasCredentials(!!data && !error);
-    } catch (error) {
-      console.error('Erro ao verificar credenciais:', error);
-    } finally {
-      setCheckingCredentials(false);
-    }
-  };
+  const [filtroMonitoramento, setFiltroMonitoramento] = useState<'todos' | 'monitorados' | 'nao_monitorados'>('todos');
 
   useEffect(() => {
     fetchProcessos();
-    checkProjudiCredentials();
   }, []);
 
   useEffect(() => {
@@ -121,32 +94,31 @@ const Controladoria = () => {
 
       if (error) throw error;
 
-      // Buscar contagem de movimentações pendentes por processo
-      const { data: pendentesData } = await supabase
-        .from('processo_movimentacoes')
-        .select('processo_id, status_conferencia')
-        .eq('status_conferencia', 'pendente')
-        .in('processo_id', (data || []).map(p => p.id));
+      // Buscar monitoramento Escavador para cada processo
+      const processosIds = (data || []).map(p => p.id);
+      const { data: monitoramentoData } = await supabase
+        .from('processo_monitoramento_escavador')
+        .select('processo_id, monitoramento_ativo')
+        .in('processo_id', processosIds);
 
-      // Mapear processos com pendências
-      const processoComPendenciaSet = new Set(
-        pendentesData?.map(p => p.processo_id) || []
+      const monitoramentoMap = new Map(
+        monitoramentoData?.map(m => [m.processo_id, m.monitoramento_ativo]) || []
       );
 
-      const processosComPendencia = (data || []).map(p => ({
+      const processosComMonitoramento = (data || []).map(p => ({
         ...p,
-        tem_pendencias: processoComPendenciaSet.has(p.id)
+        monitoramento_ativo: monitoramentoMap.get(p.id) || false
       }));
 
-      setProcessos(processosComPendencia);
+      setProcessos(processosComMonitoramento);
       
       const total = data?.length || 0;
       const emAndamento = data?.filter(p => p.status === 'em_andamento').length || 0;
       const arquivados = data?.filter(p => p.status === 'arquivado').length || 0;
       const suspensos = data?.filter(p => p.status === 'suspenso').length || 0;
-      const pendentesConferencia = processoComPendenciaSet.size;
+      const processosMonitorados = Array.from(monitoramentoMap.values()).filter(ativo => ativo).length;
 
-      setMetrics({ total, emAndamento, arquivados, suspensos, pendentesConferencia });
+      setMetrics({ total, emAndamento, arquivados, suspensos, processosMonitorados });
     } catch (error) {
       console.error('Error fetching processos:', error);
       toast({
@@ -237,12 +209,12 @@ const Controladoria = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pendentes Conferência</CardTitle>
-              <AlertCircle className="h-4 w-4 text-yellow-500" />
+              <CardTitle className="text-sm font-medium">Monitorados (Escavador)</CardTitle>
+              <Bell className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {loading ? "..." : metrics.pendentesConferencia}
+              <div className="text-2xl font-bold text-green-600">
+                {loading ? "..." : metrics.processosMonitorados}
               </div>
             </CardContent>
           </Card>
@@ -251,14 +223,9 @@ const Controladoria = () => {
         <Tabs defaultValue="processos" className="space-y-6">
           <TabsList>
             <TabsTrigger value="processos">Processos</TabsTrigger>
-            <TabsTrigger value="atualizar">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar Andamentos
-            </TabsTrigger>
-            <TabsTrigger value="push">PUSH - Busca Processos</TabsTrigger>
-            <TabsTrigger value="configuracoes">
-              <Settings className="h-4 w-4 mr-2" />
-              Configurações
+            <TabsTrigger value="monitoramento">
+              <Bell className="h-4 w-4 mr-2" />
+              Monitoramento Escavador
             </TabsTrigger>
           </TabsList>
 
@@ -285,21 +252,21 @@ const Controladoria = () => {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 mb-4">
-                      <Label>Filtrar por conferência:</Label>
-                      <Select value={filtroConferencia} onValueChange={(v) => setFiltroConferencia(v as any)}>
+                      <Label>Filtrar por monitoramento:</Label>
+                      <Select value={filtroMonitoramento} onValueChange={(v) => setFiltroMonitoramento(v as any)}>
                         <SelectTrigger className="w-48">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="todos">Todos os processos</SelectItem>
-                          <SelectItem value="pendentes">Com pendências</SelectItem>
-                          <SelectItem value="conferidos">Sem pendências</SelectItem>
+                          <SelectItem value="monitorados">Monitorados</SelectItem>
+                          <SelectItem value="nao_monitorados">Não Monitorados</SelectItem>
                         </SelectContent>
                       </Select>
-                      {filtroConferencia !== 'todos' && (
+                      {filtroMonitoramento !== 'todos' && (
                         <Badge variant="secondary">
                           {processos.filter(p => 
-                            filtroConferencia === 'pendentes' ? p.tem_pendencias : !p.tem_pendencias
+                            filtroMonitoramento === 'monitorados' ? p.monitoramento_ativo : !p.monitoramento_ativo
                           ).length} processo(s)
                         </Badge>
                       )}
@@ -312,7 +279,7 @@ const Controladoria = () => {
                         <TableHead>Tribunal</TableHead>
                         <TableHead>Grupo</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Conferência</TableHead>
+                        <TableHead>Monitoramento</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
@@ -320,8 +287,8 @@ const Controladoria = () => {
                     <TableBody>
                       {processos
                         .filter(p => {
-                          if (filtroConferencia === 'pendentes') return p.tem_pendencias;
-                          if (filtroConferencia === 'conferidos') return !p.tem_pendencias;
+                          if (filtroMonitoramento === 'monitorados') return p.monitoramento_ativo;
+                          if (filtroMonitoramento === 'nao_monitorados') return !p.monitoramento_ativo;
                           return true;
                         })
                         .map((processo) => (
@@ -341,17 +308,7 @@ const Controladoria = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {processo.tem_pendencias ? (
-                              <Badge variant="destructive" className="gap-1">
-                                <AlertCircle className="h-3 w-3" />
-                                Pendente
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                OK
-                              </Badge>
-                            )}
+                            <MonitoramentoStatusBadge ativo={processo.monitoramento_ativo} size="sm" />
                           </TableCell>
                           <TableCell>
                             {format(new Date(processo.created_at), 'dd/MM/yyyy', { locale: ptBR })}
@@ -375,76 +332,11 @@ const Controladoria = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="atualizar">
-            <AtualizadorAndamentos onComplete={fetchProcessos} />
-          </TabsContent>
-
-          <TabsContent value="push">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  Sistema PUSH - Atualização de Processos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">
-                  Utilize o sistema PUSH para buscar e atualizar informações de processos no PJE.
-                </p>
-                <Button onClick={() => setIsPJEModalOpen(true)}>
-                  <Search className="mr-2 h-4 w-4" />
-                  Iniciar Busca PUSH
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="configuracoes" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
-                <CardDescription>
-                  Configure integrações e credenciais de acesso aos tribunais
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            {!checkingCredentials && (
-              <Alert variant={hasCredentials ? "default" : "destructive"}>
-                <AlertDescription className="flex items-center gap-2">
-                  {hasCredentials ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Credenciais do Projudi TJPR configuradas e ativas</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-4 w-4" />
-                      <span>Credenciais do Projudi TJPR não configuradas. Configure abaixo para buscar andamentos automaticamente.</span>
-                    </>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <ProjudiCredentialsSetup 
-              onSuccess={() => {
-                toast({
-                  title: 'Credenciais configuradas!',
-                  description: 'Agora você pode buscar andamentos automaticamente do Projudi TJPR.',
-                });
-                checkProjudiCredentials();
-              }}
-            />
+          <TabsContent value="monitoramento">
+            <EscavadorDashboard />
           </TabsContent>
         </Tabs>
       </div>
-
-      <PJEProcessUpdater
-        isOpen={isPJEModalOpen}
-        onClose={() => setIsPJEModalOpen(false)}
-        clientName=""
-      />
     </DashboardLayout>
   );
 };
