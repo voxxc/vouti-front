@@ -1161,6 +1161,60 @@ export type Database = {
         }
         Relationships: []
       }
+      processo_atualizacoes_escavador: {
+        Row: {
+          created_at: string | null
+          dados_completos: Json | null
+          data_evento: string | null
+          descricao: string | null
+          id: string
+          lida: boolean | null
+          monitoramento_id: string | null
+          notificacao_enviada: boolean | null
+          processo_id: string
+          tipo_atualizacao: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_evento?: string | null
+          descricao?: string | null
+          id?: string
+          lida?: boolean | null
+          monitoramento_id?: string | null
+          notificacao_enviada?: boolean | null
+          processo_id: string
+          tipo_atualizacao?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_evento?: string | null
+          descricao?: string | null
+          id?: string
+          lida?: boolean | null
+          monitoramento_id?: string | null
+          notificacao_enviada?: boolean | null
+          processo_id?: string
+          tipo_atualizacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_atualizacoes_escavador_monitoramento_id_fkey"
+            columns: ["monitoramento_id"]
+            isOneToOne: false
+            referencedRelation: "processo_monitoramento_escavador"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_atualizacoes_escavador_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processo_documentos: {
         Row: {
           created_at: string | null
@@ -1308,6 +1362,74 @@ export type Database = {
             foreignKeyName: "processo_historico_processo_id_fkey"
             columns: ["processo_id"]
             isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processo_monitoramento_escavador: {
+        Row: {
+          area: string | null
+          assunto: string | null
+          callback_id: string | null
+          classe: string | null
+          created_at: string | null
+          data_distribuicao: string | null
+          escavador_data: Json | null
+          escavador_id: string | null
+          id: string
+          monitoramento_ativo: boolean | null
+          processo_id: string
+          total_atualizacoes: number | null
+          tribunal: string | null
+          ultima_atualizacao: string | null
+          ultima_consulta: string | null
+          updated_at: string | null
+          valor_causa: number | null
+        }
+        Insert: {
+          area?: string | null
+          assunto?: string | null
+          callback_id?: string | null
+          classe?: string | null
+          created_at?: string | null
+          data_distribuicao?: string | null
+          escavador_data?: Json | null
+          escavador_id?: string | null
+          id?: string
+          monitoramento_ativo?: boolean | null
+          processo_id: string
+          total_atualizacoes?: number | null
+          tribunal?: string | null
+          ultima_atualizacao?: string | null
+          ultima_consulta?: string | null
+          updated_at?: string | null
+          valor_causa?: number | null
+        }
+        Update: {
+          area?: string | null
+          assunto?: string | null
+          callback_id?: string | null
+          classe?: string | null
+          created_at?: string | null
+          data_distribuicao?: string | null
+          escavador_data?: Json | null
+          escavador_id?: string | null
+          id?: string
+          monitoramento_ativo?: boolean | null
+          processo_id?: string
+          total_atualizacoes?: number | null
+          tribunal?: string | null
+          ultima_atualizacao?: string | null
+          ultima_consulta?: string | null
+          updated_at?: string | null
+          valor_causa?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_monitoramento_escavador_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: true
             referencedRelation: "processos"
             referencedColumns: ["id"]
           },

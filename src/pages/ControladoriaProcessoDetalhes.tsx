@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Edit, FileText, History, Clock, Trash2, CheckSquare, CalendarIcon, X } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, History, Clock, Trash2, CheckSquare, CalendarIcon, X, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
@@ -29,6 +29,7 @@ import { BuscarAndamentosPJE } from '@/components/Controladoria/BuscarAndamentos
 import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { EscavadorMonitoramento } from '@/components/Controladoria/EscavadorMonitoramento';
 
 interface Processo {
   id: string;
@@ -325,6 +326,10 @@ const ControladoriaProcessoDetalhes = () => {
             <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
             <TabsTrigger value="movimentacoes">Movimentações</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="monitoramento">
+              <Bell className="h-4 w-4 mr-2" />
+              Monitoramento
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="visao-geral" className="space-y-6">
@@ -659,6 +664,13 @@ const ControladoriaProcessoDetalhes = () => {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="monitoramento">
+            <EscavadorMonitoramento 
+              processoId={processo.id}
+              numeroProcesso={processo.numero_processo}
+            />
           </TabsContent>
         </Tabs>
       </div>
