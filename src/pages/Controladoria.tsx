@@ -232,7 +232,33 @@ const Controladoria = () => {
           <TabsContent value="processos">
             <Card>
               <CardHeader>
-                <CardTitle>Lista de Processos</CardTitle>
+                <div className="space-y-4">
+                  <CardTitle>Lista de Processos</CardTitle>
+                  
+                  <div className="rounded-lg border bg-primary/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold mb-1 flex items-center gap-2">
+                          <Activity className="h-4 w-4" />
+                          Como visualizar andamentos processuais salvos
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Para ver os andamentos já salvos no banco de dados, clique no ícone <Eye className="h-3 w-3 inline mx-1" /> 
+                          de qualquer processo da lista abaixo e navegue até a aba <strong>"Monitoramento"</strong>.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          💡 <strong>Dica:</strong> Após consultar um processo no Escavador, TODOS os andamentos históricos 
+                          ficam salvos e visíveis na aba Monitoramento, organizados em "Históricas" e "Novas".
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {loading ? (

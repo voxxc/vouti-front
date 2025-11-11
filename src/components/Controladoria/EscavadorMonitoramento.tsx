@@ -227,12 +227,22 @@ export const EscavadorMonitoramento = ({
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Movimentações do Processo
-              </CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Andamentos Processuais Salvos
+                </CardTitle>
+                <CardDescription className="mt-1.5">
+                  {atualizacoes.length} andamento{atualizacoes.length > 1 ? 's' : ''} registrado{atualizacoes.length > 1 ? 's' : ''} no banco de dados
+                  {atualizacoesNaoLidas > 0 && (
+                    <span className="ml-2 text-primary font-medium">
+                      • {atualizacoesNaoLidas} não lido{atualizacoesNaoLidas > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </CardDescription>
+              </div>
               {atualizacoesNaoLidas > 0 && (
-                <Badge variant="destructive">
+                <Badge variant="destructive" className="text-sm">
                   {atualizacoesNaoLidas} nova{atualizacoesNaoLidas > 1 ? 's' : ''}
                 </Badge>
               )}
