@@ -61,9 +61,13 @@ export const useEscavadorMonitoramento = (processoId: string) => {
       if (data.success) {
         toast.success('Processo consultado com sucesso!');
         await fetchMonitoramento();
+        await fetchAtualizacoes(); // Buscar atualizações também
         return data.data;
       } else {
-        toast.error(data.message || 'Processo não encontrado');
+        toast.error(data.message || 'Erro ao consultar processo', {
+          description: data.details?.sugestao || 'Verifique se o processo existe no Escavador',
+          duration: 6000
+        });
         return null;
       }
     } catch (error: any) {

@@ -73,7 +73,7 @@ export const EscavadorMonitoramento = ({
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -81,10 +81,20 @@ export const EscavadorMonitoramento = ({
           ) : !monitoramento ? (
             <div className="text-center py-8 space-y-4">
               <Search className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">
-                Processo ainda não consultado no Escavador
-              </p>
-              <Button onClick={handleConsultar} disabled={consultando}>
+              <div className="space-y-2">
+                <p className="text-muted-foreground font-medium">
+                  Processo ainda não consultado no Escavador
+                </p>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>⚠️ Nem todos os processos estão indexados no Escavador</p>
+                  <p>✅ Funciona melhor com tribunais superiores e processos mais antigos</p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleConsultar} 
+                disabled={consultando}
+                size="lg"
+              >
                 {consultando ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -26,40 +26,74 @@ serve(async (req) => {
 
     console.log(`[Escavador] Consultando processo: ${numeroProcesso}`);
 
-    // Consulta à API Escavador
-    const url = new URL('https://api.escavador.com/api/v1/busca');
-    url.searchParams.append('q', numeroProcesso);
-    url.searchParams.append('qo', 'processos');
-    url.searchParams.append('limit', '1');
+    // Função para tentar múltiplos formatos do número
+    const formatarNumeroProcesso = (numero: string): string[] => {
+      const limpo = numero.replace(/\D/g, '');
+      return [
+        numero, // Original (0002532-58.2025.8.16.0192)
+        limpo, // Sem formatação (00025325820258160192)
+        numero.replace(/-/g, '.'), // Com pontos
+      ];
+    };
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${escavadorToken}`,
-        'Content-Type': 'application/json'
+    // Tentar múltiplos formatos
+    const formatos = formatarNumeroProcesso(numeroProcesso);
+    let processoEncontrado = null;
+    let formatoUtilizado = '';
+
+    for (const formato of formatos) {
+      console.log(`[Escavador] Tentando formato: ${formato}`);
+      
+      const url = new URL('https://api.escavador.com/api/v1/busca');
+      url.searchParams.append('q', formato);
+      url.searchParams.append('qo', 'processos');
+      url.searchParams.append('limit', '1');
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${escavadorToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`[Escavador] Erro na API (${response.status}):`, await response.text());
+        continue;
       }
-    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Escavador] Erro na API:', errorText);
-      throw new Error(`Erro ao consultar Escavador: ${response.status}`);
+      const data = await response.json();
+      console.log(`[Escavador] Resposta (formato ${formato}):`, JSON.stringify(data).substring(0, 300));
+      console.log(`[Escavador] Total items:`, data.items?.length || 0);
+      console.log(`[Escavador] Paginator total:`, data.paginator?.total || 0);
+
+      if (data.items && data.items.length > 0) {
+        processoEncontrado = data.items[0];
+        formatoUtilizado = formato;
+        console.log(`[Escavador] ✅ Processo encontrado com formato: ${formato}`);
+        break;
+      }
     }
 
-    const data = await response.json();
-    console.log('[Escavador] Resposta recebida:', JSON.stringify(data).substring(0, 500));
-
-    if (!data.processos || data.processos.length === 0) {
+    // Se nenhum formato funcionou
+    if (!processoEncontrado) {
+      console.log('[Escavador] ❌ Processo não encontrado em nenhum formato');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Processo não encontrado no Escavador' 
+          message: 'Processo não encontrado na base de dados do Escavador',
+          details: {
+            numeroConsultado: numeroProcesso,
+            formatosTentados: formatos,
+            sugestao: 'Tente processos de tribunais maiores (STF, STJ, TJSP) ou processos mais antigos'
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const processoEscavador = data.processos[0];
+    const processoEscavador = processoEncontrado;
+    console.log(`[Escavador] Processando dados do processo encontrado (formato: ${formatoUtilizado})`);
 
     // Salvar/Atualizar no banco
     const { error: upsertError } = await supabaseClient
