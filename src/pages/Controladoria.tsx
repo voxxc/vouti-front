@@ -340,21 +340,51 @@ const Controladoria = () => {
                               {getStatusLabel(processo.status)}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <MonitoramentoStatusBadge ativo={processo.monitoramento_ativo} size="sm" />
-                          </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={processo.monitoramento_ativo}
+                            onCheckedChange={() => handleToggleMonitoramento(processo)}
+                            disabled={ativando === processo.id}
+                          />
+                          {ativando === processo.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                          {processo.monitoramento_ativo && (
+                            <Badge variant="default" className="text-xs">
+                              <Bell className="h-3 w-3 mr-1" /> Ativo
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                           <TableCell>
                             {format(new Date(processo.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {processo.monitoramento_ativo && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => abrirMovimentacoes(processo)}
                             >
-                              <Eye className="h-4 w-4" />
+                              <FileText className="h-4 w-4 mr-2" />
+                              Ver Movimentações
+                              {processo.movimentacoesNaoLidas > 0 && (
+                                <Badge className="ml-2" variant="destructive">
+                                  {processo.movimentacoesNaoLidas}
+                                </Badge>
+                              )}
                             </Button>
-                          </TableCell>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
+                            title="Ver detalhes do processo"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
