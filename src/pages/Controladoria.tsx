@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Eye, Bell, BarChart, Loader2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { FileText, Plus, Eye, BarChart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
@@ -42,9 +40,7 @@ const Controladoria = () => {
           table: 'processos'
         },
         (payload) => {
-          // Remove o processo deletado da lista local
           setProcessos(prev => prev.filter(p => p.id !== payload.old.id));
-          // Atualiza as métricas
           setMetrics(prev => ({
             ...prev,
             total: prev.total - 1,
@@ -66,9 +62,7 @@ const Controladoria = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Verificar se o usuário é admin ou controller
       const isAdminUser = await checkIfUserIsAdminOrController(user.id);
-      console.log('[Controladoria] User is admin/controller:', isAdminUser);
 
       let query = supabase
         .from('processos')
@@ -79,11 +73,8 @@ const Controladoria = () => {
         `)
         .order('created_at', { ascending: false });
 
-      // Se NÃO for admin/controller, filtrar por created_by ou advogado_responsavel
       if (!isAdminUser) {
         query = query.or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`);
-      } else {
-        console.log('[Controladoria] Admin access: fetching ALL processos');
       }
 
       const { data, error } = await query;
@@ -150,7 +141,7 @@ const Controladoria = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Processos</CardTitle>
@@ -163,95 +154,36 @@ const Controladoria = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monitoramento Ativo</CardTitle>
-              <Bell className="h-4 w-4 text-green-500" />
+              <CardTitle className="text-sm font-medium">Em Andamento</CardTitle>
+              <BarChart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {loading ? "..." : metrics.processosMonitorados}
-              </div>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.emAndamento}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sem Monitoramento</CardTitle>
+              <CardTitle className="text-sm font-medium">Arquivados</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {loading ? "..." : metrics.total - metrics.processosMonitorados}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Novas Movimentações</CardTitle>
-              <Bell className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {loading ? "..." : metrics.movimentacoesNaoLidas}
-              </div>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.arquivados}</div>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="processos" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="processos">
-              <FileText className="h-4 w-4 mr-2" />
-              Processos
-            </TabsTrigger>
-            <TabsTrigger value="relatorios">
-              <BarChart className="h-4 w-4 mr-2" />
-              Relatórios
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="processos">
-            <Card>
-              <CardHeader>
-                <CardTitle>Lista de Processos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <p className="text-center text-muted-foreground py-8">Carregando...</p>
-                ) : processos.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Nenhum processo cadastrado</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Comece cadastrando seu primeiro processo
-                    </p>
-                    <Button onClick={() => navigate('/controladoria/novo')}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo Processo
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Label>Filtrar por monitoramento:</Label>
-                      <Select value={filtroMonitoramento} onValueChange={(v) => setFiltroMonitoramento(v as any)}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todos">Todos os processos</SelectItem>
-                          <SelectItem value="monitorados">Monitorados</SelectItem>
-                          <SelectItem value="nao_monitorados">Não Monitorados</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {filtroMonitoramento !== 'todos' && (
-                        <Badge variant="secondary">
-                          {processos.filter(p => 
-                            filtroMonitoramento === 'monitorados' ? p.monitoramento_ativo : !p.monitoramento_ativo
-                          ).length} processo(s)
-                        </Badge>
-                      )}
-                    </div>
+        <div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Processos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="processos">
+                <TabsList>
+                  <TabsTrigger value="processos">Todos os Processos</TabsTrigger>
+                </TabsList>
+                <TabsContent value="processos" className="space-y-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -260,19 +192,12 @@ const Controladoria = () => {
                         <TableHead>Tribunal</TableHead>
                         <TableHead>Grupo</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Monitoramento</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {processos
-                        .filter(p => {
-                          if (filtroMonitoramento === 'monitorados') return p.monitoramento_ativo;
-                          if (filtroMonitoramento === 'nao_monitorados') return !p.monitoramento_ativo;
-                          return true;
-                        })
-                        .map((processo) => (
+                      {processos.map((processo) => (
                         <TableRow key={processo.id}>
                           <TableCell className="font-medium">{processo.numero_processo}</TableCell>
                           <TableCell>
@@ -288,81 +213,29 @@ const Controladoria = () => {
                               {getStatusLabel(processo.status)}
                             </Badge>
                           </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={processo.monitoramento_ativo}
-                            onCheckedChange={() => handleToggleMonitoramento(processo)}
-                            disabled={ativando === processo.id}
-                          />
-                          {ativando === processo.id && <Loader2 className="h-4 w-4 animate-spin" />}
-                          {processo.monitoramento_ativo && (
-                            <Badge variant="default" className="text-xs">
-                              <Bell className="h-3 w-3 mr-1" /> Ativo
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
                           <TableCell>
                             {format(new Date(processo.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                           </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {processo.monitoramento_ativo && (
+                          <TableCell className="text-right">
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => abrirMovimentacoes(processo)}
+                              onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
                             >
-                              <FileText className="h-4 w-4 mr-2" />
-                              Ver Movimentações
-                              {processo.movimentacoesNaoLidas > 0 && (
-                                <Badge className="ml-2" variant="destructive">
-                                  {processo.movimentacoesNaoLidas}
-                                </Badge>
-                              )}
+                              <Eye className="h-4 w-4 mr-2" />
+                              Visualizar
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
-                            title="Ver detalhes do processo"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="relatorios">
-            <Card>
-              <CardHeader>
-                <CardTitle>Relatórios</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Métricas e relatórios em desenvolvimento
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      <MovimentacoesDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        processo={processoSelecionado}
-      />
     </DashboardLayout>
   );
 };
