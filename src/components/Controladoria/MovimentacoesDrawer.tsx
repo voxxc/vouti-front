@@ -217,7 +217,7 @@ export const MovimentacoesDrawer = ({ open, onOpenChange, processo }: Movimentac
                     <FileX className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
                     <p className="font-semibold text-foreground mb-2">Nenhuma movimentação encontrada</p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      {processo.monitoramento_ativo 
+                      {processo?.monitoramento_ativo 
                         ? "Este processo está sendo monitorado, mas ainda não possui movimentações indexadas no Escavador."
                         : "Ative o monitoramento para buscar movimentações."}
                     </p>
