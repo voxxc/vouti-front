@@ -10,14 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { FileText, Plus, Eye, Bell, BarChart, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MonitoramentoStatusBadge } from "@/components/Controladoria/MonitoramentoStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useToggleMonitoramento } from "@/hooks/useToggleMonitoramento";
-import { MovimentacoesDrawer } from "@/components/Controladoria/MovimentacoesDrawer";
-import { Switch } from "@/components/ui/switch";
 
 const Controladoria = () => {
   const { toast } = useToast();
@@ -28,14 +24,8 @@ const Controladoria = () => {
     total: 0,
     emAndamento: 0,
     arquivados: 0,
-    suspensos: 0,
-    processosMonitorados: 0,
-    movimentacoesNaoLidas: 0
+    suspensos: 0
   });
-  const [filtroMonitoramento, setFiltroMonitoramento] = useState<'todos' | 'monitorados' | 'nao_monitorados'>('todos');
-  const { toggleMonitoramento, ativando } = useToggleMonitoramento();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [processoSelecionado, setProcessoSelecionado] = useState<any>(null);
 
   useEffect(() => {
     fetchProcessos();
@@ -100,44 +90,18 @@ const Controladoria = () => {
 
       if (error) throw error;
 
-      // Buscar monitoramento Escavador para cada processo
-      const processosIds = (data || []).map(p => p.id);
-      const { data: monitoramentoData } = await supabase
-        .from('processo_monitoramento_escavador')
-        .select('processo_id, monitoramento_ativo')
-        .in('processo_id', processosIds);
-
-      const monitoramentoMap = new Map(
-        monitoramentoData?.map(m => [m.processo_id, m.monitoramento_ativo]) || []
-      );
-
-      const processosComMonitoramento = (data || []).map(p => ({
-        ...p,
-        monitoramento_ativo: monitoramentoMap.get(p.id) || false
-      }));
-
-      setProcessos(processosComMonitoramento);
+      setProcessos(data || []);
       
       const total = data?.length || 0;
       const emAndamento = data?.filter(p => p.status === 'em_andamento').length || 0;
       const arquivados = data?.filter(p => p.status === 'arquivado').length || 0;
       const suspensos = data?.filter(p => p.status === 'suspenso').length || 0;
-      const processosMonitorados = Array.from(monitoramentoMap.values()).filter(ativo => ativo).length;
-      
-      // Contar movimentações não lidas
-      const { count: naoLidasCount } = await supabase
-        .from('processo_atualizacoes_escavador')
-        .select('*', { count: 'exact', head: true })
-        .eq('lida', false)
-        .in('processo_id', processosIds);
 
       setMetrics({ 
         total, 
         emAndamento, 
         arquivados, 
-        suspensos, 
-        processosMonitorados,
-        movimentacoesNaoLidas: naoLidasCount || 0
+        suspensos
       });
     } catch (error) {
       console.error('Error fetching processos:', error);
@@ -149,16 +113,6 @@ const Controladoria = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleToggleMonitoramento = async (processo: any) => {
-    const success = await toggleMonitoramento(processo);
-    if (success) fetchProcessos();
-  };
-
-  const abrirMovimentacoes = (processo: any) => {
-    setProcessoSelecionado(processo);
-    setDrawerOpen(true);
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -181,12 +135,6 @@ const Controladoria = () => {
     };
     return labels[status] || status;
   };
-
-  const processosFiltrados = processos.filter(p => {
-    if (filtroMonitoramento === 'monitorados') return p.monitoramento_ativo === true;
-    if (filtroMonitoramento === 'nao_monitorados') return p.monitoramento_ativo === false;
-    return true;
-  });
 
   return (
     <DashboardLayout currentPage="controladoria">
