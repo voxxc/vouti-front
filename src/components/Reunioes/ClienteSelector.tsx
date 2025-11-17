@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ClienteSelectorProps {
   value?: string;
@@ -130,33 +131,36 @@ export const ClienteSelector = ({
                   setShowNewClienteDialog(true);
                   setOpen(false);
                 }}
-                className="border-b"
+                className="border-b sticky top-0 bg-background z-10"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 <span className="font-medium">Cadastrar Novo Cliente</span>
               </CommandItem>
-              {clientesFiltrados.map((cliente) => (
-                <CommandItem
-                  key={cliente.id}
-                  onSelect={() => handleSelectCliente(cliente)}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      value === cliente.id ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">{cliente.nome}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {cliente.telefone}
-                      {cliente.total_reunioes && (
-                        <span className="ml-2">• {cliente.total_reunioes} reuniões</span>
+              
+              <ScrollArea className="h-[300px]">
+                {clientesFiltrados.map((cliente) => (
+                  <CommandItem
+                    key={cliente.id}
+                    onSelect={() => handleSelectCliente(cliente)}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        value === cliente.id ? 'opacity-100' : 'opacity-0'
                       )}
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{cliente.nome}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {cliente.telefone}
+                        {cliente.total_reunioes && (
+                          <span className="ml-2">• {cliente.total_reunioes} reuniões</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CommandItem>
-              ))}
+                  </CommandItem>
+                ))}
+              </ScrollArea>
             </CommandGroup>
           </Command>
         </PopoverContent>
