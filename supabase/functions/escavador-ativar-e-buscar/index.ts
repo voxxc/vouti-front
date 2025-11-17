@@ -58,7 +58,12 @@ serve(async (req) => {
         const data = await response.json();
         if (data.items && data.items.length > 0) {
           processoEncontrado = data.items[0];
-          console.log(`[Ativar+Buscar] ✅ Encontrado (formato: ${formato})`);
+          console.log(`[Ativar+Buscar] ✅ Processo encontrado:`, {
+            id: processoEncontrado.id,
+            classe: processoEncontrado.classe,
+            tribunal: processoEncontrado.tribunal,
+            totalMovimentacoes: processoEncontrado.movimentacoes?.length || 0
+          });
           break;
         }
       }
