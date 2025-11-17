@@ -1,0 +1,235 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Search, History, Loader2 } from "lucide-react";
+import { ESTADOS_BRASIL } from "@/types/busca-oab";
+import { useBuscaOAB } from "@/hooks/useBuscaOAB";
+import { ProcessoOABCard } from "./ProcessoOABCard";
+import { ImportarProcessoDialog } from "./ImportarProcessoDialog";
+import { AndamentosDrawer } from "./AndamentosDrawer";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import type { ProcessoOAB } from "@/types/busca-oab";
+
+export const BuscarPorOABTab = () => {
+  const [oabNumero, setOabNumero] = useState("");
+  const [oabUf, setOabUf] = useState("PR");
+  const [processoSelecionado, setProcessoSelecionado] = useState<ProcessoOAB | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [detalhesDrawerOpen, setDetalhesDrawerOpen] = useState(false);
+  const [showHistorico, setShowHistorico] = useState(false);
+
+  const {
+    buscarPorOAB,
+    resultados,
+    buscando,
+    ultimaBusca,
+    carregarHistorico,
+    historicoBuscas,
+    carregarBuscaAnterior
+  } = useBuscaOAB();
+
+  useEffect(() => {
+    carregarHistorico();
+  }, []);
+
+  const handleBuscar = () => {
+    if (!oabNumero.trim()) return;
+    buscarPorOAB(oabNumero, oabUf);
+  };
+
+  const handleImportar = (processo: ProcessoOAB) => {
+    setProcessoSelecionado(processo);
+    setImportDialogOpen(true);
+  };
+
+  const handleVerDetalhes = (processo: ProcessoOAB) => {
+    // Converter ProcessoOAB para formato esperado pelo AndamentosDrawer
+    const processoParaDrawer = {
+      id: processo.numero_cnj,
+      numero_processo: processo.numero_cnj,
+      tribunal_nome: processo.tribunal,
+      parte_ativa: '-',
+      parte_passiva: '-',
+      status: processo.status_processual
+    };
+    
+    setProcessoSelecionado(processo);
+    setDetalhesDrawerOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Formulário de Busca */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Buscar Processos por OAB
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 space-y-2">
+              <Label htmlFor="oab-numero">Número da OAB</Label>
+              <Input
+                id="oab-numero"
+                placeholder="Digite o número da OAB (ex: 123456)"
+                value={oabNumero}
+                onChange={(e) => setOabNumero(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+                disabled={buscando}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oab-uf">UF</Label>
+              <Select value={oabUf} onValueChange={setOabUf} disabled={buscando}>
+                <SelectTrigger id="oab-uf">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADOS_BRASIL.map((estado) => (
+                    <SelectItem key={estado.value} value={estado.value}>
+                      {estado.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={handleBuscar}
+              disabled={buscando || !oabNumero.trim()}
+              className="flex-1 md:flex-initial"
+            >
+              {buscando ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Buscar Processos
+                </>
+              )}
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowHistorico(!showHistorico)}
+              disabled={buscando}
+            >
+              <History className="mr-2 h-4 w-4" />
+              Histórico
+            </Button>
+          </div>
+
+          {buscando && (
+            <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              ⏳ Buscando processos na API Judit... isso pode levar até 60 segundos
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Histórico de Buscas */}
+      {showHistorico && historicoBuscas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Histórico de Buscas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {historicoBuscas.map((busca) => (
+              <div
+                key={busca.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                onClick={() => {
+                  carregarBuscaAnterior(busca);
+                  setShowHistorico(false);
+                }}
+              >
+                <div>
+                  <div className="font-medium">
+                    OAB {busca.oab_numero}/{busca.oab_uf}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {busca.total_processos_encontrados} processo(s) •{' '}
+                    {format(new Date(busca.data_busca), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm">
+                  Ver Resultados
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resultados */}
+      {ultimaBusca && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">
+                📊 {resultados.length} processo(s) encontrado(s)
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Última busca: {format(ultimaBusca, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+            </div>
+          </div>
+
+          {resultados.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">
+                  Nenhum processo encontrado para esta OAB
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {resultados.map((processo) => (
+                <ProcessoOABCard
+                  key={processo.numero_cnj}
+                  processo={processo}
+                  onImportar={() => handleImportar(processo)}
+                  onVerDetalhes={() => handleVerDetalhes(processo)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Dialogs */}
+      <ImportarProcessoDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        processo={processoSelecionado}
+      />
+
+      {processoSelecionado && (
+        <AndamentosDrawer
+          open={detalhesDrawerOpen}
+          onOpenChange={setDetalhesDrawerOpen}
+          processo={{
+            id: processoSelecionado.numero_cnj,
+            numero_processo: processoSelecionado.numero_cnj,
+            tribunal_nome: processoSelecionado.tribunal,
+            parte_ativa: '-',
+            parte_passiva: '-',
+            status: processoSelecionado.status_processual
+          }}
+        />
+      )}
+    </div>
+  );
+};

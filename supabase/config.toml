@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.judit-webhook]
 verify_jwt = false
+
+[functions.judit-buscar-por-oab]
+verify_jwt = true
