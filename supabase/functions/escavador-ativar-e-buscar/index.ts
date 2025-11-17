@@ -14,6 +14,8 @@ serve(async (req) => {
   try {
     const { processoId, numeroProcesso } = await req.json();
     
+    console.log('[Ativar+Buscar] 🔧 Usando SERVICE_ROLE_KEY para bypass RLS');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
