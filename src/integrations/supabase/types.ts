@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      busca_processos_oab: {
+        Row: {
+          created_at: string
+          data_busca: string
+          id: string
+          oab_numero: string
+          oab_uf: string
+          resultado_completo: Json | null
+          total_processos_encontrados: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_busca?: string
+          id?: string
+          oab_numero: string
+          oab_uf: string
+          resultado_completo?: Json | null
+          total_processos_encontrados?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data_busca?: string
+          id?: string
+          oab_numero?: string
+          oab_uf?: string
+          resultado_completo?: Json | null
+          total_processos_encontrados?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_history: {
         Row: {
           action_type: string

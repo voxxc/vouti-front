@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Eye, BarChart, Bell, FileSearch } from "lucide-react";
+import { FileText, Plus, Eye, BarChart, Bell, FileSearch, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { MonitoramentoJuditBadge } from "@/components/Controladoria/MonitoramentoJuditBadge";
 import { AndamentosDrawer } from "@/components/Controladoria/AndamentosDrawer";
 import { useMonitoramentoJudit } from "@/hooks/useMonitoramentoJudit";
+import { BuscarPorOABTab } from "@/components/Controladoria/BuscarPorOABTab";
 
 const Controladoria = () => {
   const { toast } = useToast();
@@ -242,7 +243,14 @@ const Controladoria = () => {
               <Tabs defaultValue="processos">
                 <TabsList>
                   <TabsTrigger value="processos">Todos os Processos</TabsTrigger>
+                  <TabsTrigger value="buscar-oab">
+                    <Search className="mr-2 h-4 w-4" />
+                    Buscar por OAB
+                  </TabsTrigger>
                 </TabsList>
+                <TabsContent value="buscar-oab">
+                  <BuscarPorOABTab />
+                </TabsContent>
                 <TabsContent value="processos" className="space-y-4">
                   <Table>
                     <TableHeader>
