@@ -56,7 +56,11 @@ Deno.serve(async (req) => {
     console.log('[Judit OAB] 📝 Search key:', searchKey);
 
     // Buscar na API Judit
-    const JUDIT_API_KEY = '393d8ece-7925-4554-8d39-d514956d12b2';
+    const JUDIT_API_KEY = Deno.env.get('JUDIT_API_KEY');
+    
+    if (!JUDIT_API_KEY) {
+      throw new Error('JUDIT_API_KEY não configurada');
+    }
     
     console.log('[Judit OAB] 📡 Chamando API Judit...');
     
