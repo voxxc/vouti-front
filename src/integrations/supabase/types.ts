@@ -1161,6 +1161,57 @@ export type Database = {
         }
         Relationships: []
       }
+      processo_andamentos_judit: {
+        Row: {
+          created_at: string | null
+          dados_completos: Json | null
+          data_movimentacao: string | null
+          descricao: string
+          id: string
+          lida: boolean | null
+          monitoramento_id: string | null
+          processo_id: string
+          tipo_movimentacao: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_movimentacao?: string | null
+          descricao: string
+          id?: string
+          lida?: boolean | null
+          monitoramento_id?: string | null
+          processo_id: string
+          tipo_movimentacao?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_movimentacao?: string | null
+          descricao?: string
+          id?: string
+          lida?: boolean | null
+          monitoramento_id?: string | null
+          processo_id?: string
+          tipo_movimentacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_andamentos_judit_monitoramento_id_fkey"
+            columns: ["monitoramento_id"]
+            isOneToOne: false
+            referencedRelation: "processo_monitoramento_judit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_andamentos_judit_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processo_atualizacoes_escavador: {
         Row: {
           created_at: string | null
@@ -1428,6 +1479,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "processo_monitoramento_escavador_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: true
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processo_monitoramento_judit: {
+        Row: {
+          created_at: string | null
+          id: string
+          judit_data: Json | null
+          monitoramento_ativo: boolean | null
+          processo_id: string
+          recurrence: number | null
+          total_movimentacoes: number | null
+          tracking_id: string | null
+          ultima_atualizacao: string | null
+          ultimo_request_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          judit_data?: Json | null
+          monitoramento_ativo?: boolean | null
+          processo_id: string
+          recurrence?: number | null
+          total_movimentacoes?: number | null
+          tracking_id?: string | null
+          ultima_atualizacao?: string | null
+          ultimo_request_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          judit_data?: Json | null
+          monitoramento_ativo?: boolean | null
+          processo_id?: string
+          recurrence?: number | null
+          total_movimentacoes?: number | null
+          tracking_id?: string | null
+          ultima_atualizacao?: string | null
+          ultimo_request_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_monitoramento_judit_processo_id_fkey"
             columns: ["processo_id"]
             isOneToOne: true
             referencedRelation: "processos"
