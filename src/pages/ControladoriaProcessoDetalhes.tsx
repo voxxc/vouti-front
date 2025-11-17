@@ -29,7 +29,7 @@ import { BuscarAndamentosPJE } from '@/components/Controladoria/BuscarAndamentos
 import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { EscavadorMonitoramento } from '@/components/Controladoria/EscavadorMonitoramento';
+
 
 interface Processo {
   id: string;
@@ -326,10 +326,6 @@ const ControladoriaProcessoDetalhes = () => {
             <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
             <TabsTrigger value="movimentacoes">Movimentações</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
-            <TabsTrigger value="monitoramento">
-              <Bell className="h-4 w-4 mr-2" />
-              Monitoramento
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="visao-geral" className="space-y-6">
@@ -666,12 +662,6 @@ const ControladoriaProcessoDetalhes = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="monitoramento">
-            <EscavadorMonitoramento 
-              processoId={processo.id}
-              numeroProcesso={processo.numero_processo}
-            />
-          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>

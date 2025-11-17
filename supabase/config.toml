@@ -1,9 +1,6 @@
 project_id = "ietjmyrelhijxyozcequ"
 
-[functions.escavador-consulta]
-verify_jwt = true
-
-[functions.escavador-ativar-monitoramento]
+[functions.escavador-ativar-e-buscar]
 verify_jwt = true
 
 [functions.escavador-webhook]

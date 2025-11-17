@@ -4,18 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, AlertCircle, Clock, CheckCircle, Eye, Bell, Activity } from "lucide-react";
+import { FileText, Plus, Eye, Bell, BarChart, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import EscavadorDashboard from "@/components/Controladoria/EscavadorDashboard";
 import { MonitoramentoStatusBadge } from "@/components/Controladoria/MonitoramentoStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToggleMonitoramento } from "@/hooks/useToggleMonitoramento";
+import { MovimentacoesDrawer } from "@/components/Controladoria/MovimentacoesDrawer";
+import { Switch } from "@/components/ui/switch";
 
 const Controladoria = () => {
   const { toast } = useToast();
@@ -27,9 +29,13 @@ const Controladoria = () => {
     emAndamento: 0,
     arquivados: 0,
     suspensos: 0,
-    processosMonitorados: 0
+    processosMonitorados: 0,
+    movimentacoesNaoLidas: 0
   });
   const [filtroMonitoramento, setFiltroMonitoramento] = useState<'todos' | 'monitorados' | 'nao_monitorados'>('todos');
+  const { toggleMonitoramento, ativando } = useToggleMonitoramento();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [processoSelecionado, setProcessoSelecionado] = useState<any>(null);
 
   useEffect(() => {
     fetchProcessos();
@@ -117,8 +123,22 @@ const Controladoria = () => {
       const arquivados = data?.filter(p => p.status === 'arquivado').length || 0;
       const suspensos = data?.filter(p => p.status === 'suspenso').length || 0;
       const processosMonitorados = Array.from(monitoramentoMap.values()).filter(ativo => ativo).length;
+      
+      // Contar movimentações não lidas
+      const { count: naoLidasCount } = await supabase
+        .from('processo_atualizacoes_escavador')
+        .select('*', { count: 'exact', head: true })
+        .eq('lida', false)
+        .in('processo_id', processosIds);
 
-      setMetrics({ total, emAndamento, arquivados, suspensos, processosMonitorados });
+      setMetrics({ 
+        total, 
+        emAndamento, 
+        arquivados, 
+        suspensos, 
+        processosMonitorados,
+        movimentacoesNaoLidas: naoLidasCount || 0
+      });
     } catch (error) {
       console.error('Error fetching processos:', error);
       toast({
@@ -129,6 +149,16 @@ const Controladoria = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleMonitoramento = async (processo: any) => {
+    const success = await toggleMonitoramento(processo);
+    if (success) fetchProcessos();
+  };
+
+  const abrirMovimentacoes = (processo: any) => {
+    setProcessoSelecionado(processo);
+    setDrawerOpen(true);
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -152,6 +182,12 @@ const Controladoria = () => {
     return labels[status] || status;
   };
 
+  const processosFiltrados = processos.filter(p => {
+    if (filtroMonitoramento === 'monitorados') return p.monitoramento_ativo === true;
+    if (filtroMonitoramento === 'nao_monitorados') return p.monitoramento_ativo === false;
+    return true;
+  });
+
   return (
     <DashboardLayout currentPage="controladoria">
       <div className="space-y-6">
@@ -166,7 +202,7 @@ const Controladoria = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Processos</CardTitle>
@@ -179,37 +215,7 @@ const Controladoria = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Em Andamento</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.emAndamento}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Arquivados</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.arquivados}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Suspensos</CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.suspensos}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monitorados (Escavador)</CardTitle>
+              <CardTitle className="text-sm font-medium">Monitoramento Ativo</CardTitle>
               <Bell className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -218,47 +224,48 @@ const Controladoria = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Sem Monitoramento</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {loading ? "..." : metrics.total - metrics.processosMonitorados}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Novas Movimentações</CardTitle>
+              <Bell className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {loading ? "..." : metrics.movimentacoesNaoLidas}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="processos" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="processos">Processos</TabsTrigger>
-            <TabsTrigger value="monitoramento">
-              <Bell className="h-4 w-4 mr-2" />
-              Monitoramento Escavador
+            <TabsTrigger value="processos">
+              <FileText className="h-4 w-4 mr-2" />
+              Processos
+            </TabsTrigger>
+            <TabsTrigger value="relatorios">
+              <BarChart className="h-4 w-4 mr-2" />
+              Relatórios
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="processos">
             <Card>
               <CardHeader>
-                <div className="space-y-4">
-                  <CardTitle>Lista de Processos</CardTitle>
-                  
-                  <div className="rounded-lg border bg-primary/5 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-primary" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold mb-1 flex items-center gap-2">
-                          <Activity className="h-4 w-4" />
-                          Como visualizar andamentos processuais salvos
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Para ver os andamentos já salvos no banco de dados, clique no ícone <Eye className="h-3 w-3 inline mx-1" /> 
-                          de qualquer processo da lista abaixo e navegue até a aba <strong>"Monitoramento"</strong>.
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          💡 <strong>Dica:</strong> Após consultar um processo no Escavador, TODOS os andamentos históricos 
-                          ficam salvos e visíveis na aba Monitoramento, organizados em "Históricas" e "Novas".
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <CardTitle>Lista de Processos</CardTitle>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -358,11 +365,26 @@ const Controladoria = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="monitoramento">
-            <EscavadorDashboard />
+          <TabsContent value="relatorios">
+            <Card>
+              <CardHeader>
+                <CardTitle>Relatórios</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Métricas e relatórios em desenvolvimento
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      <MovimentacoesDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        processo={processoSelecionado}
+      />
     </DashboardLayout>
   );
 };
