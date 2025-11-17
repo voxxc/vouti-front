@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, FileX, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -30,13 +30,32 @@ export const MovimentacoesDrawer = ({ open, onOpenChange, processo }: Movimentac
   const { toast } = useToast();
   const [atualizacoes, setAtualizacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dadosProcesso, setDadosProcesso] = useState<any>(null);
 
   useEffect(() => {
     if (open && processo?.id) {
       fetchAtualizacoes();
+      fetchDadosProcesso();
       setupRealtimeSubscription();
     }
   }, [open, processo?.id]);
+
+  const fetchDadosProcesso = async () => {
+    if (!processo?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('processo_monitoramento_escavador')
+        .select('*')
+        .eq('processo_id', processo.id)
+        .single();
+
+      if (error) throw error;
+      setDadosProcesso(data);
+    } catch (error) {
+      console.error('[Drawer] Erro ao buscar dados do processo:', error);
+    }
+  };
 
   const fetchAtualizacoes = async () => {
     if (!processo?.id) return;
@@ -132,6 +151,45 @@ export const MovimentacoesDrawer = ({ open, onOpenChange, processo }: Movimentac
         </DrawerHeader>
         
         <div className="px-4">
+          {dadosProcesso && (
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-sm">Informações do Processo</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {dadosProcesso.classe && (
+                  <p><strong>Classe:</strong> {dadosProcesso.classe}</p>
+                )}
+                {dadosProcesso.assunto && (
+                  <p><strong>Assunto:</strong> {dadosProcesso.assunto}</p>
+                )}
+                {dadosProcesso.tribunal && (
+                  <p><strong>Tribunal:</strong> {dadosProcesso.tribunal}</p>
+                )}
+                {dadosProcesso.area && (
+                  <p><strong>Área:</strong> {dadosProcesso.area}</p>
+                )}
+                {dadosProcesso.data_distribuicao && (
+                  <p>
+                    <strong>Data Distribuição:</strong>{' '}
+                    {format(new Date(dadosProcesso.data_distribuicao), 'dd/MM/yyyy', { locale: ptBR })}
+                  </p>
+                )}
+                {dadosProcesso.valor_causa && (
+                  <p>
+                    <strong>Valor da Causa:</strong>{' '}
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dadosProcesso.valor_causa)}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  {dadosProcesso.ultima_consulta && (
+                    <>Última consulta: {format(new Date(dadosProcesso.ultima_consulta), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          
           <Tabs defaultValue="todas">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="todas">
@@ -155,8 +213,23 @@ export const MovimentacoesDrawer = ({ open, onOpenChange, processo }: Movimentac
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
                   </div>
                 ) : atualizacoes.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhuma movimentação encontrada
+                  <div className="text-center py-12 px-6">
+                    <FileX className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="font-semibold text-foreground mb-2">Nenhuma movimentação encontrada</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {processo.monitoramento_ativo 
+                        ? "Este processo está sendo monitorado, mas ainda não possui movimentações indexadas no Escavador."
+                        : "Ative o monitoramento para buscar movimentações."}
+                    </p>
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mt-4">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-yellow-700 dark:text-yellow-500 text-left">
+                          <strong>💡 Importante:</strong> Processos muito recentes (2025) podem demorar alguns dias ou semanas 
+                          para serem indexados pela API Escavador. Processos mais antigos geralmente têm movimentações disponíveis.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3 pr-4">
@@ -171,8 +244,12 @@ export const MovimentacoesDrawer = ({ open, onOpenChange, processo }: Movimentac
             <TabsContent value="historicas" className="mt-4">
               <ScrollArea className="h-[calc(100vh-250px)]">
                 {historicas.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhuma movimentação histórica
+                  <div className="text-center py-12 px-6">
+                    <FileX className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="font-semibold text-foreground mb-2">Nenhuma movimentação histórica</p>
+                    <p className="text-sm text-muted-foreground">
+                      Movimentações importadas na consulta inicial aparecerão aqui.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3 pr-4">
@@ -187,8 +264,12 @@ export const MovimentacoesDrawer = ({ open, onOpenChange, processo }: Movimentac
             <TabsContent value="novas" className="mt-4">
               <ScrollArea className="h-[calc(100vh-250px)]">
                 {novas.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhuma movimentação nova
+                  <div className="text-center py-12 px-6">
+                    <FileX className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="font-semibold text-foreground mb-2">Nenhuma movimentação nova</p>
+                    <p className="text-sm text-muted-foreground">
+                      Novas movimentações recebidas via webhook aparecerão aqui.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3 pr-4">
