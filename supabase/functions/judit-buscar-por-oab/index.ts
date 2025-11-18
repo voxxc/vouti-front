@@ -150,23 +150,43 @@ Deno.serve(async (req) => {
     const lawsuits = responseData.lawsuits || [];
     console.log(`[Judit OAB] 📊 Total processos encontrados: ${lawsuits.length}`);
 
-    const processos = lawsuits.map((lawsuit: any) => ({
-      numero_cnj: lawsuit.code,
-      tribunal: lawsuit.tribunal_name || lawsuit.tribunal_acronym,
-      tribunal_acronym: lawsuit.tribunal_acronym,
-      parte_tipo: lawsuit.party_type || 'advogado',
-      status_processual: lawsuit.status || 'em_andamento',
-      fase_processual: lawsuit.phase,
-      data_distribuicao: lawsuit.distribution_date,
-      valor_causa: lawsuit.value,
-      ultimos_andamentos: (lawsuit.steps || []).slice(-5).reverse().map((step: any) => ({
-        data_movimentacao: step.date,
-        tipo_movimentacao: step.type,
-        descricao: step.description,
+    // Processar resultados com mapeamento completo
+    const processos = lawsuits.map((lawsuit: any) => {
+      // Extrair partes do processo
+      const partes = lawsuit.parties?.map((party: any) => ({
+        nome: party.name || '',
+        tipo: party.type || '',
+        papel: party.role || party.party_type,
+        principal: party.is_main_party || false
+      })) || [];
+
+      // Extrair todos os andamentos (não apenas os últimos 5)
+      const andamentos = (lawsuit.steps || []).reverse().map((step: any) => ({
+        data_movimentacao: step.date || step.step_date,
+        tipo_movimentacao: step.type || step.step_type,
+        descricao: step.description || step.step_description || '',
         dados_completos: step
-      })),
-      dados_completos: lawsuit
-    }));
+      }));
+
+      return {
+        numero_cnj: lawsuit.code || lawsuit.lawsuit_code || '',
+        tribunal: lawsuit.tribunal_name || lawsuit.tribunal_acronym || '',
+        tribunal_acronym: lawsuit.tribunal_acronym || '',
+        parte_tipo: lawsuit.party_type || 'advogado',
+        status_processual: lawsuit.status || 'Ativo',
+        fase_processual: lawsuit.phase || lawsuit.lawsuit_phase,
+        data_distribuicao: lawsuit.distribution_date || lawsuit.lawsuit_distribution_date,
+        data_criacao: lawsuit.created_at || lawsuit.lawsuit_created_at,
+        valor_causa: lawsuit.value || lawsuit.lawsuit_value,
+        valor_condenacao: lawsuit.condemnation_value,
+        juizo: lawsuit.court || lawsuit.lawsuit_court,
+        link_tribunal: lawsuit.lawsuit_url || lawsuit.url,
+        acao: lawsuit.lawsuit_type || lawsuit.class || lawsuit.lawsuit_class,
+        partes: partes,
+        ultimos_andamentos: andamentos,
+        dados_completos: lawsuit
+      };
+    });
 
     // Salvar histórico da busca
     console.log('[Judit OAB] 💾 Salvando histórico...');

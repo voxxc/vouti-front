@@ -9,7 +9,7 @@ import { ESTADOS_BRASIL } from "@/types/busca-oab";
 import { useBuscaOAB } from "@/hooks/useBuscaOAB";
 import { ProcessoOABCard } from "./ProcessoOABCard";
 import { ImportarProcessoDialog } from "./ImportarProcessoDialog";
-import { AndamentosDrawer } from "./AndamentosDrawer";
+import { ProcessoDetalhesDrawer } from "./ProcessoDetalhesDrawer";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ProcessoOAB } from "@/types/busca-oab";
@@ -47,16 +47,6 @@ export const BuscarPorOABTab = () => {
   };
 
   const handleVerDetalhes = (processo: ProcessoOAB) => {
-    // Converter ProcessoOAB para formato esperado pelo AndamentosDrawer
-    const processoParaDrawer = {
-      id: processo.numero_cnj,
-      numero_processo: processo.numero_cnj,
-      tribunal_nome: processo.tribunal,
-      parte_ativa: '-',
-      parte_passiva: '-',
-      status: processo.status_processual
-    };
-    
     setProcessoSelecionado(processo);
     setDetalhesDrawerOpen(true);
   };
@@ -216,20 +206,11 @@ export const BuscarPorOABTab = () => {
         processo={processoSelecionado}
       />
 
-      {processoSelecionado && (
-        <AndamentosDrawer
-          open={detalhesDrawerOpen}
-          onOpenChange={setDetalhesDrawerOpen}
-          processo={{
-            id: processoSelecionado.numero_cnj,
-            numero_processo: processoSelecionado.numero_cnj,
-            tribunal_nome: processoSelecionado.tribunal,
-            parte_ativa: '-',
-            parte_passiva: '-',
-            status: processoSelecionado.status_processual
-          }}
-        />
-      )}
+      <ProcessoDetalhesDrawer
+        processo={processoSelecionado}
+        open={detalhesDrawerOpen}
+        onOpenChange={setDetalhesDrawerOpen}
+      />
     </div>
   );
 };
