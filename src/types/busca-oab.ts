@@ -1,3 +1,10 @@
+export interface ParteProcesso {
+  nome: string;
+  tipo: string;
+  papel?: string;
+  principal?: boolean;
+}
+
 export interface ProcessoOAB {
   numero_cnj: string;
   tribunal: string;
@@ -7,6 +14,12 @@ export interface ProcessoOAB {
   fase_processual?: string;
   data_distribuicao?: string;
   valor_causa?: number;
+  valor_condenacao?: number;
+  juizo?: string;
+  link_tribunal?: string;
+  acao?: string;
+  data_criacao?: string;
+  partes?: ParteProcesso[];
   ultimos_andamentos: AndamentoOAB[];
   dados_completos: any;
 }
