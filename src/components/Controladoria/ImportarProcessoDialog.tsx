@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import type { ProcessoOAB } from "@/types/busca-oab";
 import { extrairTribunalDoNumeroProcesso } from "@/utils/processoHelpers";
+import { extrairPartesDoProcesso } from "@/utils/processoOABHelpers";
 
 interface ImportarProcessoDialogProps {
   open: boolean;
@@ -48,19 +49,30 @@ export const ImportarProcessoDialog = ({
         .eq('sigla', tribunalSigla)
         .single();
 
-      // 1. Criar processo
+      // Extrair partes do processo
+      const partesExtraidas = extrairPartesDoProcesso(processo);
+
+      // 1. Criar processo com todos os dados importados
       const { data: novoProcesso, error: processoError } = await supabase
         .from('processos')
         .insert({
           numero_processo: processo.numero_cnj,
-          parte_ativa: 'A definir',
-          parte_passiva: 'A definir',
+          parte_ativa: partesExtraidas.parte_ativa,
+          parte_passiva: partesExtraidas.parte_passiva,
+          advogados_partes: partesExtraidas.advogados_partes,
           tribunal_id: tribunalData?.id || null,
           tribunal_nome: processo.tribunal,
+          tipo_acao_nome: processo.acao || null,
+          juizo: processo.juizo || null,
+          fase_processual: processo.fase_processual || null,
+          link_tribunal: processo.link_tribunal || null,
+          valor_causa: processo.valor_causa || null,
+          valor_condenacao: processo.valor_condenacao || null,
+          tipo_parte_oab: processo.parte_tipo,
+          status_processual: processo.status_processual || null,
           created_by: user.id,
           status: 'em_andamento',
-          data_distribuicao: processo.data_distribuicao || null,
-          valor_causa: processo.valor_causa || null
+          data_distribuicao: processo.data_distribuicao || null
         })
         .select()
         .single();

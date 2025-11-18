@@ -335,6 +335,70 @@ const ProcessoForm = ({ processoId }: ProcessoFormProps) => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="valor_causa">Valor da Causa (R$)</Label>
+              <Input
+                id="valor_causa"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                {...register('valor_causa', { valueAsNumber: true })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="valor_condenacao">Valor da Condenação (R$)</Label>
+              <Input
+                id="valor_condenacao"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                {...register('valor_condenacao', { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="juizo">Juízo</Label>
+              <Input
+                id="juizo"
+                placeholder="Ex: 1ª Vara Cível"
+                {...register('juizo')}
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <Label htmlFor="fase_processual">Fase Processual</Label>
+              <Input
+                id="fase_processual"
+                placeholder="Ex: Conhecimento, Execução"
+                {...register('fase_processual')}
+                maxLength={100}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="link_tribunal">Link do Tribunal</Label>
+            <Input
+              id="link_tribunal"
+              type="url"
+              placeholder="https://"
+              {...register('link_tribunal')}
+            />
+            {watch('link_tribunal') && (
+              <a 
+                href={watch('link_tribunal')} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline mt-1 inline-block"
+              >
+                Abrir no tribunal →
+              </a>
+            )}
+          </div>
+
           <EtiquetasManager
             selectedEtiquetas={watch('etiquetas') || []}
             onChange={(etiquetas) => setValue('etiquetas', etiquetas)}

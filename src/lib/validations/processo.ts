@@ -44,6 +44,13 @@ export const processoSchema = z.object({
   
   valor_causa: z.number().positive().optional().nullable(),
   valor_custas: z.number().positive().optional().nullable(),
+  valor_condenacao: z.number().positive().optional().nullable(),
+  
+  juizo: z.string().max(200).optional().nullable(),
+  fase_processual: z.string().max(100).optional().nullable(),
+  link_tribunal: z.string().url().optional().nullable().or(z.literal('')),
+  tipo_parte_oab: z.string().optional().nullable(),
+  status_processual: z.string().optional().nullable(),
   
   advogado_responsavel_id: z.string().uuid().nullable().optional(),
   

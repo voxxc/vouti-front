@@ -1681,9 +1681,12 @@ export type Database = {
           created_by: string
           data_distribuicao: string | null
           deleted_at: string | null
+          fase_processual: string | null
           grupo_acao_id: string | null
           id: string
           is_draft: boolean | null
+          juizo: string | null
+          link_tribunal: string | null
           numero_processo: string
           observacoes: string | null
           parte_ativa: string
@@ -1694,10 +1697,12 @@ export type Database = {
           status: Database["public"]["Enums"]["processo_status"] | null
           tipo_acao_id: string | null
           tipo_acao_nome: string | null
+          tipo_parte_oab: string | null
           tribunal_id: string | null
           tribunal_nome: string | null
           updated_at: string | null
           valor_causa: number | null
+          valor_condenacao: number | null
           valor_custas: number | null
         }
         Insert: {
@@ -1710,9 +1715,12 @@ export type Database = {
           created_by: string
           data_distribuicao?: string | null
           deleted_at?: string | null
+          fase_processual?: string | null
           grupo_acao_id?: string | null
           id?: string
           is_draft?: boolean | null
+          juizo?: string | null
+          link_tribunal?: string | null
           numero_processo: string
           observacoes?: string | null
           parte_ativa: string
@@ -1723,10 +1731,12 @@ export type Database = {
           status?: Database["public"]["Enums"]["processo_status"] | null
           tipo_acao_id?: string | null
           tipo_acao_nome?: string | null
+          tipo_parte_oab?: string | null
           tribunal_id?: string | null
           tribunal_nome?: string | null
           updated_at?: string | null
           valor_causa?: number | null
+          valor_condenacao?: number | null
           valor_custas?: number | null
         }
         Update: {
@@ -1739,9 +1749,12 @@ export type Database = {
           created_by?: string
           data_distribuicao?: string | null
           deleted_at?: string | null
+          fase_processual?: string | null
           grupo_acao_id?: string | null
           id?: string
           is_draft?: boolean | null
+          juizo?: string | null
+          link_tribunal?: string | null
           numero_processo?: string
           observacoes?: string | null
           parte_ativa?: string
@@ -1752,10 +1765,12 @@ export type Database = {
           status?: Database["public"]["Enums"]["processo_status"] | null
           tipo_acao_id?: string | null
           tipo_acao_nome?: string | null
+          tipo_parte_oab?: string | null
           tribunal_id?: string | null
           tribunal_nome?: string | null
           updated_at?: string | null
           valor_causa?: number | null
+          valor_condenacao?: number | null
           valor_custas?: number | null
         }
         Relationships: [
