@@ -71,7 +71,6 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: {
         'api-key': JUDIT_API_KEY,
-        'x-api-key': JUDIT_API_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -122,7 +121,7 @@ Deno.serve(async (req) => {
       const statusResponse = await fetch(
         `https://requests.prod.judit.io/requests/${requestId}`,
         {
-          headers: { 'api-key': JUDIT_API_KEY, 'x-api-key': JUDIT_API_KEY }
+          headers: { 'api-key': JUDIT_API_KEY }
         }
       );
 
