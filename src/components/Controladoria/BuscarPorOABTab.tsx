@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, History, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, History, Loader2, Activity } from "lucide-react";
 import { ESTADOS_BRASIL } from "@/types/busca-oab";
 import { useBuscaOAB } from "@/hooks/useBuscaOAB";
 import { ProcessoOABCard } from "./ProcessoOABCard";
@@ -13,6 +14,7 @@ import { ProcessoDetalhesDrawer } from "./ProcessoDetalhesDrawer";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ProcessoOAB } from "@/types/busca-oab";
+import { supabase } from "@/integrations/supabase/client";
 
 export const BuscarPorOABTab = () => {
   const [oabNumero, setOabNumero] = useState("");
@@ -21,6 +23,8 @@ export const BuscarPorOABTab = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [detalhesDrawerOpen, setDetalhesDrawerOpen] = useState(false);
   const [showHistorico, setShowHistorico] = useState(false);
+  const [juditHealth, setJuditHealth] = useState<{ ok: boolean; message: string; status: number } | null>(null);
+  const [checkingHealth, setCheckingHealth] = useState(false);
 
   const {
     buscarPorOAB,
@@ -34,7 +38,22 @@ export const BuscarPorOABTab = () => {
 
   useEffect(() => {
     carregarHistorico();
+    checkJuditHealth();
   }, []);
+
+  const checkJuditHealth = async () => {
+    setCheckingHealth(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-health');
+      if (!error && data) {
+        setJuditHealth(data);
+      }
+    } catch (err) {
+      console.error('[BuscarPorOABTab] Erro ao verificar saúde da Judit:', err);
+    } finally {
+      setCheckingHealth(false);
+    }
+  };
 
   const handleBuscar = () => {
     if (!oabNumero.trim()) return;
@@ -56,10 +75,31 @@ export const BuscarPorOABTab = () => {
       {/* Formulário de Busca */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Buscar Processos por OAB
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Buscar Processos por OAB
+            </CardTitle>
+            
+            {/* Health Badge */}
+            <div className="flex items-center gap-2">
+              {checkingHealth ? (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Verificando...
+                </Badge>
+              ) : juditHealth ? (
+                <Badge 
+                  variant={juditHealth.ok ? "default" : "destructive"}
+                  className="gap-1 cursor-pointer"
+                  onClick={checkJuditHealth}
+                >
+                  <Activity className="h-3 w-3" />
+                  Judit: {juditHealth.ok ? 'OK' : 'Instável'}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
