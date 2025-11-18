@@ -13,6 +13,8 @@ export const useBuscaOAB = () => {
   const buscarPorOAB = async (oabNumero: string, oabUf: string) => {
     console.log('[useBuscaOAB] 🔍 Iniciando busca:', { oabNumero, oabUf });
     setBuscando(true);
+    setResultados([]);
+    setUltimaBusca(null);
     
     try {
       const { data, error } = await supabase.functions.invoke('judit-buscar-por-oab', {
@@ -26,8 +28,17 @@ export const useBuscaOAB = () => {
         throw new Error(error.message || 'Erro ao buscar processos');
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || 'Falha ao buscar processos');
+      // Verificar se a resposta indica falha upstream
+      if (data.success === false) {
+        console.error('[useBuscaOAB] ⚠️ Erro upstream da Judit:', data);
+        console.log('[useBuscaOAB] 📋 Tentativas:', data.attempts);
+        
+        toast({
+          title: "Serviço da Judit instável",
+          description: `A Judit está retornando erro ${data.upstream_status}. Tentamos ${data.attempts?.length || 4} variações de payload. Tente novamente em alguns minutos.`,
+          variant: "destructive"
+        });
+        return;
       }
 
       setResultados(data.processos || []);

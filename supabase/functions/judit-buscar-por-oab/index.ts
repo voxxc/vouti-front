@@ -139,10 +139,13 @@ Deno.serve(async (req) => {
     let juditResponse: Response | null = null;
     let successVariant: string = '';
     let lastError: any = null;
+    const retryAttempts: Array<{ variant: string; status: number }> = [];
     
     for (let i = 0; i < variants.length; i++) {
       try {
         const { response, payloadVariant } = await makeJuditRequest(i + 1, variants[i]);
+        
+        retryAttempts.push({ variant: payloadVariant, status: response.status });
         
         if (response.ok) {
           juditResponse = response;
@@ -179,11 +182,28 @@ Deno.serve(async (req) => {
       }
     }
     
-    // Se nenhuma variante funcionou
+    // Se todas as tentativas falharam com 500, retornar 200 com success: false
     if (!juditResponse) {
       console.error('[Judit OAB] 💥 Todas as tentativas falharam');
-      const errorMsg = lastError?.text || lastError?.message || 'Erro desconhecido';
-      throw new Error(`API Judit indisponível após ${variants.length} tentativas: ${errorMsg}`);
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error_code: 'judit_internal_error',
+          error: 'Serviço da Judit retornou INTERNAL_SERVER_ERROR em todas as tentativas',
+          upstream_status: lastError?.status || 500,
+          attempts: retryAttempts,
+          oab: { numero: numeroLimpo, uf: ufUpper }
+        }),
+        { 
+          status: 200, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'x-upstream-status': String(lastError?.status || 500)
+          } 
+        }
+      );
     }
 
     const initialData = await juditResponse.json();
@@ -309,7 +329,7 @@ Deno.serve(async (req) => {
         processos,
         oab: { numero: numeroLimpo, uf: ufUpper }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
