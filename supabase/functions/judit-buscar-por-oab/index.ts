@@ -48,19 +48,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Remover caracteres especiais e formatar search_key
+    // Remover caracteres especiais e formatar search_key (SEM prefixo "OAB")
     const numeroLimpo = oabNumero.replace(/\D/g, '');
     const ufUpper = oabUf.toUpperCase();
-    const searchKey = `OAB${numeroLimpo}${ufUpper}`;
+    const searchKey = `${numeroLimpo}${ufUpper}`;
     
     console.log('[Judit OAB] 📝 Search key:', searchKey);
 
-    // Buscar na API Judit
+    // Validar e buscar API Key
     const JUDIT_API_KEY = Deno.env.get('JUDIT_API_KEY');
     
-    if (!JUDIT_API_KEY) {
-      throw new Error('JUDIT_API_KEY não configurada');
+    if (!JUDIT_API_KEY || JUDIT_API_KEY.length < 30) {
+      console.error('[Judit OAB] ❌ API Key inválida ou não configurada');
+      throw new Error('JUDIT_API_KEY não configurada ou inválida');
     }
+    
+    console.log('[Judit OAB] 🔑 API Key configurada:', JUDIT_API_KEY.substring(0, 8) + '...');
     
     console.log('[Judit OAB] 📡 Chamando API Judit...');
     
@@ -71,14 +74,31 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        search_type: 'lawsuit_oab',
-        search_key: searchKey
+        search_type: 'oab',
+        search_key: searchKey,
+        search_params: {
+          on_demand: true,
+          masked_response: false
+        }
       })
     });
 
     if (!juditResponse.ok) {
       const errorText = await juditResponse.text();
       console.error('[Judit OAB] ❌ Erro na API:', errorText);
+      
+      if (juditResponse.status === 401) {
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.data === 'USER_NOT_FOUND') {
+            throw new Error('❌ API Key inválida. Verifique a chave JUDIT_API_KEY no Supabase.');
+          }
+        } catch (e) {
+          // Se não conseguir parsear, retorna erro genérico 401
+        }
+        throw new Error('❌ Não autorizado. Verifique a API Key da Judit.');
+      }
+      
       throw new Error(`API Judit retornou erro: ${juditResponse.status} - ${errorText}`);
     }
 
