@@ -55,15 +55,26 @@ Deno.serve(async (req) => {
     
     console.log('[Judit OAB] 📝 Search key:', searchKey);
 
-    // Validar e buscar API Key
-    const JUDIT_API_KEY = Deno.env.get('JUDIT_API_KEY');
+    // Validar e sanitizar API Key
+    const rawApiKey = Deno.env.get('JUDIT_API_KEY') ?? '';
+    const JUDIT_API_KEY = rawApiKey
+      .trim()
+      .replace(/^api[-_\s]*key[\s:]+/i, '') // Remove "API-KEY ", "api_key:", etc.
+      .trim();
     
-    if (!JUDIT_API_KEY || JUDIT_API_KEY.length < 30) {
-      console.error('[Judit OAB] ❌ API Key inválida ou não configurada');
-      throw new Error('JUDIT_API_KEY não configurada ou inválida');
+    if (!JUDIT_API_KEY) {
+      console.error('[Judit OAB] ❌ API Key não configurada');
+      throw new Error('JUDIT_API_KEY não configurada');
     }
     
-    console.log('[Judit OAB] 🔑 API Key configurada:', JUDIT_API_KEY.substring(0, 8) + '...');
+    // Validar formato UUID (básico)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(JUDIT_API_KEY)) {
+      console.error('[Judit OAB] ⚠️ API Key não parece ser um UUID válido. Primeiros 20 chars:', JUDIT_API_KEY.substring(0, 20));
+      throw new Error('❌ JUDIT_API_KEY com formato inválido. Verifique se é um UUID puro sem prefixos.');
+    }
+    
+    console.log('[Judit OAB] 🔑 API Key sanitizada e validada (UUID)');
     
     console.log('[Judit OAB] 📡 Chamando API Judit...');
     
