@@ -71,7 +71,8 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: {
         'api-key': JUDIT_API_KEY,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
         search_type: 'oab',
