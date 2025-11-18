@@ -76,48 +76,121 @@ Deno.serve(async (req) => {
     
     console.log('[Judit OAB] 🔑 API Key sanitizada e validada (UUID)');
     
-    console.log('[Judit OAB] 📡 Chamando API Judit...');
-    
-    const juditResponse = await fetch('https://requests.prod.judit.io/requests', {
-      method: 'POST',
-      headers: {
-        'api-key': JUDIT_API_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        search_type: 'oab',
-        search_key: searchKey,
-        search_params: {
-          on_demand: true,
-          masked_response: false
-        }
-      })
-    });
-
-    if (!juditResponse.ok) {
-      const errorText = await juditResponse.text();
-      console.error('[Judit OAB] ❌ Erro na API:', errorText);
+    // Função auxiliar para fazer a requisição com retry
+    const makeJuditRequest = async (attempt: number, payloadVariant: string) => {
+      let requestPayload: any;
       
-      if (juditResponse.status === 401) {
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.error?.data === 'USER_NOT_FOUND') {
-            throw new Error('❌ API Key inválida. Verifique a chave JUDIT_API_KEY no Supabase.');
-          }
-        } catch (e) {
-          // Se não conseguir parsear, retorna erro genérico 401
-        }
-        throw new Error('❌ Não autorizado. Verifique a API Key da Judit.');
+      // Definir variantes de payload para retry
+      switch (payloadVariant) {
+        case 'default':
+          requestPayload = {
+            search_type: 'oab',
+            search_key: searchKey,
+            search_params: {
+              on_demand: true,
+              masked_response: false
+            }
+          };
+          break;
+        case 'masked':
+          requestPayload = {
+            search_type: 'oab',
+            search_key: searchKey,
+            search_params: {
+              on_demand: true,
+              masked_response: true
+            }
+          };
+          break;
+        case 'no_ondemand':
+          requestPayload = {
+            search_type: 'oab',
+            search_key: searchKey,
+            search_params: {
+              masked_response: false
+            }
+          };
+          break;
+        default:
+          requestPayload = {
+            search_type: 'oab',
+            search_key: searchKey
+          };
       }
       
-      throw new Error(`API Judit retornou erro: ${juditResponse.status} - ${errorText}`);
+      console.log(`[Judit OAB] 📡 Tentativa ${attempt} com variante '${payloadVariant}'`);
+      console.log(`[Judit OAB] 📤 Payload:`, JSON.stringify(requestPayload, null, 2));
+      
+      const response = await fetch('https://requests.prod.judit.io/requests', {
+        method: 'POST',
+        headers: {
+          'api-key': JUDIT_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestPayload)
+      });
+      
+      return { response, payloadVariant };
+    };
+    
+    // Tentar com diferentes variantes de payload
+    const variants = ['default', 'masked', 'no_ondemand', 'minimal'];
+    let juditResponse: Response | null = null;
+    let successVariant: string = '';
+    let lastError: any = null;
+    
+    for (let i = 0; i < variants.length; i++) {
+      try {
+        const { response, payloadVariant } = await makeJuditRequest(i + 1, variants[i]);
+        
+        if (response.ok) {
+          juditResponse = response;
+          successVariant = payloadVariant;
+          console.log(`[Judit OAB] ✅ Sucesso com variante '${payloadVariant}'`);
+          break;
+        } else {
+          const errorText = await response.text();
+          console.error(`[Judit OAB] ⚠️ Tentativa ${i + 1} falhou (${response.status}):`, errorText);
+          lastError = { status: response.status, text: errorText };
+          
+          // Se for 401, não tentar outras variantes
+          if (response.status === 401) {
+            try {
+              const errorData = JSON.parse(errorText);
+              if (errorData.error?.data === 'USER_NOT_FOUND') {
+                throw new Error('❌ API Key inválida. Verifique a chave JUDIT_API_KEY no Supabase.');
+              }
+            } catch (e) {
+              if (e instanceof Error && e.message.includes('API Key inválida')) throw e;
+            }
+            throw new Error('❌ Não autorizado. Verifique a API Key da Judit.');
+          }
+          
+          // Aguardar 2 segundos antes da próxima tentativa (exceto na última)
+          if (i < variants.length - 1) {
+            console.log(`[Judit OAB] ⏳ Aguardando 2s antes da próxima tentativa...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+      } catch (error) {
+        console.error(`[Judit OAB] 💥 Erro na tentativa ${i + 1}:`, error);
+        lastError = error;
+      }
+    }
+    
+    // Se nenhuma variante funcionou
+    if (!juditResponse) {
+      console.error('[Judit OAB] 💥 Todas as tentativas falharam');
+      const errorMsg = lastError?.text || lastError?.message || 'Erro desconhecido';
+      throw new Error(`API Judit indisponível após ${variants.length} tentativas: ${errorMsg}`);
     }
 
     const initialData = await juditResponse.json();
     const requestId = initialData.request_id;
     
     console.log('[Judit OAB] ✅ Request criado:', requestId);
+    console.log('[Judit OAB] 📋 Variante de payload usada:', successVariant);
     console.log('[Judit OAB] ⏳ Aguardando processamento (até 60 segundos)...');
 
     // Polling para obter resultado (até 60 segundos)
@@ -150,12 +223,14 @@ Deno.serve(async (req) => {
         console.log('[Judit OAB] ✅ Processamento completo!');
         break;
       } else if (statusData.status === 'error') {
-        throw new Error('API Judit retornou erro no processamento');
+        console.error('[Judit OAB] ❌ Processamento falhou. Request ID:', requestId);
+        throw new Error(`API Judit retornou erro no processamento (Request ID: ${requestId})`);
       }
     }
 
     if (!responseData) {
-      throw new Error('Timeout: API Judit não respondeu em 60 segundos');
+      console.error('[Judit OAB] ⏱️ Timeout. Request ID:', requestId);
+      throw new Error(`Timeout: API Judit não respondeu em 60 segundos (Request ID: ${requestId}). Tente novamente em alguns minutos.`);
     }
 
     // Processar resultados
@@ -223,10 +298,13 @@ Deno.serve(async (req) => {
     // Retornar resultados
     console.log('[Judit OAB] 🎉 Busca concluída com sucesso!');
     
+    console.log(`[Judit OAB] 🎉 Busca finalizada com sucesso! ${processos.length} processos retornados.`);
+    
     return new Response(
       JSON.stringify({
         success: true,
         requestId,
+        payloadVariant: successVariant,
         totalProcessos: processos.length,
         processos,
         oab: { numero: numeroLimpo, uf: ufUpper }
