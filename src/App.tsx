@@ -22,6 +22,7 @@ import ReuniaoClientes from "@/pages/ReuniaoClientes";
 import ReuniaoMetricas from "@/pages/ReuniaoMetricas";
 import ReuniaoRelatorios from "@/pages/ReuniaoRelatorios";
 import AdminReuniaoStatus from "@/pages/AdminReuniaoStatus";
+import AdminBackendCode from "@/pages/AdminBackendCode";
 import HomePage from "@/pages/HomePage";
 import LandingPage1 from "@/pages/LandingPage1";
 import LandingPage2 from "@/pages/LandingPage2";
@@ -321,6 +322,15 @@ function App() {
                   <ThemeProvider>
                     <ProtectedRoute>
                       <AdminReuniaoStatus />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
+              } />
+              <Route path="/admin/backend-code" element={
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <AdminBackendCode />
                     </ProtectedRoute>
                   </ThemeProvider>
                 </AuthProvider>
