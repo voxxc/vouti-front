@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test-and-build:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
       run: npm run build
 
   docker-build-and-deploy:
-    needs: test-and-build
+    needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
@@ -44,32 +44,17 @@ jobs:
     - name: Build Docker image
       run: |
         docker build -t jusoffice-front:latest .
-        docker save jusoffice-front:latest | gzip > jusoffice-front.tar.gz
-
-    - name: Copy image to VPS
-      uses: appleboy/scp-action@v0.1.7
+        
+    - name: Deploy to Hostinger
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOSTINGER_HOST }}
         username: ${{ secrets.HOSTINGER_USERNAME }}
-        key: ${{ secrets.HOSTINGER_SSH_KEY }}
-        source: "jusoffice-front.tar.gz"
-        target: "/tmp/"
-
-    - name: Deploy on VPS
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.HOSTINGER_HOST }}
-        username: ${{ secrets.HOSTINGER_USERNAME }}
-        key: ${{ secrets.HOSTINGER_SSH_KEY }}
+        password: ${{ secrets.HOSTINGER_PASSWORD }}
         script: |
-          cd /tmp
-          docker load < jusoffice-front.tar.gz
-          docker stop jusoffice-front || true
-          docker rm jusoffice-front || true
-          docker run -d \
-            --name jusoffice-front \
-            --restart unless-stopped \
-            -p 80:80 \
-            jusoffice-front:latest
-          docker image prune -f
-          rm -f jusoffice-front.tar.gz
+          echo "Stopping and removing old container..."
+          docker stop trampozap-front || true
+          docker rm trampozap-front || true
+
+          echo "Pulling latest Docker image..."
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/front:latest
