@@ -326,6 +326,15 @@ function App() {
                   </ThemeProvider>
                 </AuthProvider>
               } />
+              <Route path="/admin/backend-code" element={
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ProtectedRoute>
+                      <AdminBackendCode />
+                    </ProtectedRoute>
+                  </ThemeProvider>
+                </AuthProvider>
+              } />
               
               {/* Vouti.bio Routes - Isolated Link in Bio System */}
               <Route path="/link-auth" element={
