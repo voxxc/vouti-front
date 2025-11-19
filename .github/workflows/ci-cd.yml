@@ -23,8 +23,53 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Run lint
+      run: npm run lint
+
     - name: Build application
       run: npm run build
 
-    - name: Run build
-      run: npm run dev
+  docker-build-and-deploy:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t jusoffice-front:latest .
+        docker save jusoffice-front:latest | gzip > jusoffice-front.tar.gz
+
+    - name: Copy image to VPS
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.HOSTINGER_HOST }}
+        username: ${{ secrets.HOSTINGER_USERNAME }}
+        key: ${{ secrets.HOSTINGER_SSH_KEY }}
+        source: "jusoffice-front.tar.gz"
+        target: "/tmp/"
+
+    - name: Deploy on VPS
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.HOSTINGER_HOST }}
+        username: ${{ secrets.HOSTINGER_USERNAME }}
+        key: ${{ secrets.HOSTINGER_SSH_KEY }}
+        script: |
+          cd /tmp
+          docker load < jusoffice-front.tar.gz
+          docker stop jusoffice-front || true
+          docker rm jusoffice-front || true
+          docker run -d \
+            --name jusoffice-front \
+            --restart unless-stopped \
+            -p 80:80 \
+            jusoffice-front:latest
+          docker image prune -f
+          rm -f jusoffice-front.tar.gz
