@@ -32,4 +32,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=5 \
   CMD wget -qO- http://localhost:8000/ || exit 1
 
 EXPOSE 8000
+RUN nginx -t
 CMD ["nginx", "-g", "daemon off;"]
