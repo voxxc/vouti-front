@@ -1,3 +1,4 @@
+# Force rebuild - port 8000 configuration
 # Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
