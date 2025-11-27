@@ -14,31 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
+      batink_audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown
+          user_id?: string
+        }
+        Relationships: []
+      }
       batink_profiles: {
         Row: {
+          apelido: string | null
           cargo: string | null
           created_at: string | null
           empresa: string | null
-          full_name: string | null
           id: string
+          nome_completo: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          apelido?: string | null
           cargo?: string | null
           created_at?: string | null
           empresa?: string | null
-          full_name?: string | null
           id?: string
+          nome_completo?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          apelido?: string | null
           cargo?: string | null
           created_at?: string | null
           empresa?: string | null
-          full_name?: string | null
           id?: string
+          nome_completo?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -47,6 +77,8 @@ export type Database = {
       batink_time_entries: {
         Row: {
           created_at: string | null
+          entry_date: string | null
+          entry_time: string | null
           entry_type: string
           id: string
           notes: string | null
@@ -55,6 +87,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          entry_date?: string | null
+          entry_time?: string | null
           entry_type: string
           id?: string
           notes?: string | null
@@ -63,6 +97,8 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          entry_date?: string | null
+          entry_time?: string | null
           entry_type?: string
           id?: string
           notes?: string | null
@@ -3642,6 +3678,12 @@ export type Database = {
         | "financeiro"
         | "controller"
         | "agenda"
+      batink_entry_type_v2:
+        | "entrada"
+        | "pausa"
+        | "almoco"
+        | "retorno_almoco"
+        | "saida"
       batink_role: "admin" | "gestor" | "funcionario"
       documento_tipo:
         | "peticao"
@@ -3806,6 +3848,13 @@ export const Constants = {
         "financeiro",
         "controller",
         "agenda",
+      ],
+      batink_entry_type_v2: [
+        "entrada",
+        "pausa",
+        "almoco",
+        "retorno_almoco",
+        "saida",
       ],
       batink_role: ["admin", "gestor", "funcionario"],
       documento_tipo: [

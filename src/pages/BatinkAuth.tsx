@@ -15,19 +15,16 @@ const BatinkAuth = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   
-  // Login form
   const [loginData, setLoginData] = useState({ login: '', password: '' });
   
-  // Signup form
   const [signupData, setSignupData] = useState({
     login: '',
     password: '',
     confirmPassword: '',
-    fullName: '',
-    empresa: '',
+    nomeCompleto: '',
+    apelido: '',
   });
 
-  // Redirect if already logged in
   if (user && !authLoading) {
     navigate('/batink/dashboard');
     return null;
@@ -47,7 +44,6 @@ const BatinkAuth = () => {
 
     setIsLoading(true);
     
-    // Normalize login to email format
     const email = loginData.login.includes('@') 
       ? loginData.login 
       : `${loginData.login}@batink.local`;
@@ -70,7 +66,7 @@ const BatinkAuth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signupData.login || !signupData.password || !signupData.fullName) {
+    if (!signupData.login || !signupData.password || !signupData.nomeCompleto) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -99,12 +95,11 @@ const BatinkAuth = () => {
 
     setIsLoading(true);
     
-    // Normalize login to email format
     const email = signupData.login.includes('@') 
       ? signupData.login 
       : `${signupData.login}@batink.local`;
 
-    const { error } = await signUp(email, signupData.password, signupData.fullName, signupData.empresa);
+    const { error } = await signUp(email, signupData.password, signupData.nomeCompleto, signupData.apelido);
     
     if (error) {
       toast({
@@ -129,7 +124,6 @@ const BatinkAuth = () => {
 
   return (
     <div className="min-h-screen bg-[#1a1625] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
           backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
@@ -137,7 +131,6 @@ const BatinkAuth = () => {
         }} />
       </div>
       
-      {/* Gradient Orbs */}
       <div className="absolute top-1/4 -left-32 w-64 h-64 bg-[#9333EA]/30 rounded-full blur-[100px]" />
       <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-[#EC4899]/20 rounded-full blur-[100px]" />
       
@@ -169,7 +162,6 @@ const BatinkAuth = () => {
               </TabsTrigger>
             </TabsList>
             
-            {/* Login Tab */}
             <TabsContent value="login">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
@@ -214,7 +206,6 @@ const BatinkAuth = () => {
               </form>
             </TabsContent>
             
-            {/* Signup Tab */}
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
@@ -222,20 +213,20 @@ const BatinkAuth = () => {
                   <Input
                     id="signup-name"
                     placeholder="Seu nome"
-                    value={signupData.fullName}
-                    onChange={(e) => setSignupData(prev => ({ ...prev, fullName: e.target.value }))}
+                    value={signupData.nomeCompleto}
+                    onChange={(e) => setSignupData(prev => ({ ...prev, nomeCompleto: e.target.value }))}
                     className="bg-[#1a1625] border-white/20 text-white placeholder:text-white/40 focus:border-[#9333EA]"
                     disabled={isLoading}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-empresa" className="text-white/80">Empresa</Label>
+                  <Label htmlFor="signup-apelido" className="text-white/80">Apelido</Label>
                   <Input
-                    id="signup-empresa"
-                    placeholder="Nome da empresa"
-                    value={signupData.empresa}
-                    onChange={(e) => setSignupData(prev => ({ ...prev, empresa: e.target.value }))}
+                    id="signup-apelido"
+                    placeholder="Como prefere ser chamado"
+                    value={signupData.apelido}
+                    onChange={(e) => setSignupData(prev => ({ ...prev, apelido: e.target.value }))}
                     className="bg-[#1a1625] border-white/20 text-white placeholder:text-white/40 focus:border-[#9333EA]"
                     disabled={isLoading}
                   />
@@ -297,7 +288,6 @@ const BatinkAuth = () => {
             </TabsContent>
           </Tabs>
           
-          {/* Back to landing link */}
           <div className="mt-6 text-center">
             <button
               onClick={() => navigate('/batink')}
