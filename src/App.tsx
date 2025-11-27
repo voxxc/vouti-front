@@ -36,6 +36,7 @@ import LinkDashboard from "@/pages/LinkDashboard";
 import BatinkLanding from "@/pages/BatinkLanding";
 import BatinkAuth from "@/pages/BatinkAuth";
 import BatinkDashboard from "@/pages/BatinkDashboard";
+import BatinkAdmin from "@/pages/BatinkAdmin";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
@@ -515,6 +516,13 @@ function App() {
             <BatinkAuthProvider>
               <BatinkProtectedRoute>
                 <BatinkDashboard />
+              </BatinkProtectedRoute>
+            </BatinkAuthProvider>
+          } />
+          <Route path="/batink/admin" element={
+            <BatinkAuthProvider>
+              <BatinkProtectedRoute>
+                <BatinkAdmin />
               </BatinkProtectedRoute>
             </BatinkAuthProvider>
           } />
