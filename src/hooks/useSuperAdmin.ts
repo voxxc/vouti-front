@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { toast } from '@/hooks/use-toast';
+import { Session, AuthError } from '@supabase/supabase-js';
 
 export function useSuperAdmin() {
   const [systemTypes, setSystemTypes] = useState<SystemType[]>([]);
@@ -10,6 +11,7 @@ export function useSuperAdmin() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [noSuperAdminsExist, setNoSuperAdminsExist] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   const checkSuperAdmin = useCallback(async () => {
     try {
@@ -18,30 +20,31 @@ export function useSuperAdmin() {
         .from('super_admins')
         .select('*', { count: 'exact', head: true });
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
       
       if (count === 0) {
         // No super admins exist - allow bootstrap
         setNoSuperAdminsExist(true);
-        setCurrentUserEmail(user?.email || null);
+        setCurrentUserEmail(currentSession?.user?.email || null);
         setIsSuperAdmin(false);
         return false;
       }
 
       setNoSuperAdminsExist(false);
 
-      if (!user) {
+      if (!currentSession?.user) {
         setIsSuperAdmin(false);
         setCurrentUserEmail(null);
         return false;
       }
 
-      setCurrentUserEmail(user.email || null);
+      setCurrentUserEmail(currentSession.user.email || null);
 
       const { data, error } = await supabase
         .from('super_admins')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', currentSession.user.id)
         .maybeSingle();
 
       if (error) {
@@ -84,6 +87,77 @@ export function useSuperAdmin() {
       toast({ title: 'Erro', description: 'Não foi possível se tornar Super Admin.', variant: 'destructive' });
       return false;
     }
+  };
+
+  // Auth functions
+  const signInSuperAdmin = async (email: string, password: string): Promise<{ error: AuthError | null }> => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (!error && data.session) {
+      setSession(data.session);
+      setCurrentUserEmail(data.session.user.email || null);
+      
+      // Check if user is super admin
+      const { data: adminData } = await supabase
+        .from('super_admins')
+        .select('id')
+        .eq('user_id', data.session.user.id)
+        .maybeSingle();
+
+      setIsSuperAdmin(!!adminData);
+    }
+
+    return { error };
+  };
+
+  const signUpSuperAdmin = async (email: string, password: string, name: string): Promise<{ error: AuthError | null }> => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+        emailRedirectTo: `${window.location.origin}/super-admin`,
+      },
+    });
+
+    if (error) {
+      return { error };
+    }
+
+    // If signup successful and we have a user, register as super admin
+    if (data.user) {
+      const { error: insertError } = await supabase
+        .from('super_admins')
+        .insert({
+          user_id: data.user.id,
+          email: email,
+        });
+
+      if (insertError) {
+        console.error('Error registering super admin:', insertError);
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setCurrentUserEmail(email);
+        setIsSuperAdmin(true);
+        setNoSuperAdminsExist(false);
+      }
+    }
+
+    return { error: null };
+  };
+
+  const signOutSuperAdmin = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setIsSuperAdmin(false);
+    setCurrentUserEmail(null);
   };
 
   const fetchSystemTypes = useCallback(async () => {
@@ -209,11 +283,31 @@ export function useSuperAdmin() {
   };
 
   useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        setSession(newSession);
+        setCurrentUserEmail(newSession?.user?.email || null);
+        
+        // Defer the super admin check to avoid deadlock
+        if (newSession) {
+          setTimeout(() => {
+            checkSuperAdmin();
+          }, 0);
+        } else {
+          setIsSuperAdmin(false);
+        }
+      }
+    );
+
+    // Initial load
     const init = async () => {
       await checkSuperAdmin();
       await loadData();
     };
     init();
+
+    return () => subscription.unsubscribe();
   }, [checkSuperAdmin, loadData]);
 
   return {
@@ -223,11 +317,15 @@ export function useSuperAdmin() {
     isSuperAdmin,
     noSuperAdminsExist,
     currentUserEmail,
+    session,
     createTenant,
     updateTenant,
     toggleTenantStatus,
     getTenantsBySystemType,
     becomeSuperAdmin,
+    signInSuperAdmin,
+    signUpSuperAdmin,
+    signOutSuperAdmin,
     refetch: loadData,
   };
 }
