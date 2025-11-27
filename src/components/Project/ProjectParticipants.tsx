@@ -57,7 +57,6 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
         .from('profiles')
         .select('*')
         .not('email', 'like', '%@metalsystem.local')
-        .not('email', 'like', '%@dental.local')
         .order('full_name');
 
       if (error) {

@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     }
 
     // SECURITY: Prevent creation of users from other systems
-    const restrictedDomains = ['@metalsystem.local', '@dental.local', '@vouti.bio', '@vlink.bio']
+    const restrictedDomains = ['@metalsystem.local', '@vouti.bio', '@vlink.bio']
     if (restrictedDomains.some(domain => email.toLowerCase().includes(domain))) {
       throw new Error('Este domínio de email é reservado para outro sistema')
     }
