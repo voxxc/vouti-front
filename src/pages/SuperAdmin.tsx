@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Shield, Loader2, ShieldCheck, Eye, EyeOff, LogOut } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
 import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
+import { SuperAdminThemeToggle } from '@/components/SuperAdmin/SuperAdminThemeToggle';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -330,6 +330,7 @@ export default function SuperAdmin() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">{currentUserEmail}</span>
+              <SuperAdminThemeToggle />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Sair
