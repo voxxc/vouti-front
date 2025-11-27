@@ -95,8 +95,8 @@ const BatinkLanding = () => {
         <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/batink" className="flex items-center gap-2 group">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] blur-sm opacity-50 group-hover:opacity-75 transition-opacity" />
-              <div className="relative bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] p-2 rounded-lg">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#ec4899] to-[#db2777] blur-sm opacity-50 group-hover:opacity-75 transition-opacity" />
+              <div className="relative bg-gradient-to-br from-[#ec4899] to-[#db2777] p-2 rounded-lg">
                 <Fingerprint className="w-6 h-6 text-white" />
               </div>
             </div>
@@ -157,11 +157,11 @@ const BatinkLanding = () => {
       <section className="pt-32 pb-20 px-4">
         <div className="container mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 leading-tight">
-            <span className="text-[#8b5cf6]">BATINK</span>
+            <span className="text-[#ec4899]">BATINK</span>
             <br />
             <span className="text-white">Gestão de Ponto</span>
             <br />
-            <span className="text-white/50">Digital</span>
+            <span className="text-[#facc15]">Digital</span>
           </h1>
           <p className="text-lg sm:text-xl text-white/60 mb-10 max-w-md mx-auto">
             O ponto certo para sua equipe.
@@ -180,16 +180,16 @@ const BatinkLanding = () => {
       <section className="py-20 px-4 bg-white/[0.02]">
         <div className="container mx-auto">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-12">
-            Por que escolher o <span className="text-[#8b5cf6]">BATINK</span>?
+            Por que escolher o <span className="text-[#ec4899]">BATINK</span>?
           </h2>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/[0.06] hover:border-[#8b5cf6]/30 transition-all duration-300 group"
+                className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/[0.06] hover:border-[#ec4899]/30 transition-all duration-300 group"
               >
-                <div className="w-12 h-12 bg-[#8b5cf6]/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#8b5cf6]/20 transition-colors">
-                  <feature.icon className="w-6 h-6 text-[#8b5cf6]" />
+                <div className="w-12 h-12 bg-[#ec4899]/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#ec4899]/20 transition-colors">
+                  <feature.icon className="w-6 h-6 text-[#ec4899]" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2 text-white">
                   {feature.title}
@@ -232,7 +232,7 @@ const BatinkLanding = () => {
         <DialogContent className="bg-[#141416] border-white/10 text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
-              <Fingerprint className="w-5 h-5 text-[#8b5cf6]" />
+              <Fingerprint className="w-5 h-5 text-[#ec4899]" />
               Solicitar Demonstração
             </DialogTitle>
             <DialogDescription className="text-white/50">
@@ -248,7 +248,7 @@ const BatinkLanding = () => {
                 value={formData.nome}
                 onChange={handleInputChange}
                 placeholder="Seu nome"
-                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#8b5cf6]"
+                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#ec4899]"
               />
             </div>
             <div className="space-y-2">
@@ -259,7 +259,7 @@ const BatinkLanding = () => {
                 value={formData.telefone}
                 onChange={handleInputChange}
                 placeholder="(00) 00000-0000"
-                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#8b5cf6]"
+                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#ec4899]"
               />
             </div>
             <div className="space-y-2">
@@ -271,7 +271,7 @@ const BatinkLanding = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="seu@email.com"
-                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#8b5cf6]"
+                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#ec4899]"
               />
             </div>
             <div className="space-y-2">
@@ -282,7 +282,7 @@ const BatinkLanding = () => {
                 value={formData.cidade}
                 onChange={handleInputChange}
                 placeholder="Sua cidade"
-                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#8b5cf6]"
+                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#ec4899]"
               />
             </div>
             <div className="space-y-2">
@@ -293,7 +293,7 @@ const BatinkLanding = () => {
                 value={formData.funcionarios}
                 onChange={handleInputChange}
                 placeholder="Ex: 10"
-                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#8b5cf6]"
+                className="bg-[#0a0a0b] border-white/20 text-white placeholder:text-white/30 focus:border-[#ec4899]"
               />
             </div>
             <Button
