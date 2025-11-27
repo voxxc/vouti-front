@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      batink_profiles: {
+        Row: {
+          cargo: string | null
+          created_at: string | null
+          empresa: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cargo?: string | null
+          created_at?: string | null
+          empresa?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cargo?: string | null
+          created_at?: string | null
+          empresa?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      batink_user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["batink_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["batink_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["batink_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       busca_processos_oab: {
         Row: {
           created_at: string
@@ -3509,6 +3560,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      has_batink_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["batink_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_link_role: {
         Args: {
           _role: Database["public"]["Enums"]["link_role"]
@@ -3557,6 +3615,7 @@ export type Database = {
         | "financeiro"
         | "controller"
         | "agenda"
+      batink_role: "admin" | "gestor" | "funcionario"
       documento_tipo:
         | "peticao"
         | "contrato"
@@ -3721,6 +3780,7 @@ export const Constants = {
         "controller",
         "agenda",
       ],
+      batink_role: ["admin", "gestor", "funcionario"],
       documento_tipo: [
         "peticao",
         "contrato",

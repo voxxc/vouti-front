@@ -33,6 +33,10 @@ import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import MetalReports from "@/pages/MetalReports";
 import LinkAuth from "@/pages/LinkAuth";
 import LinkDashboard from "@/pages/LinkDashboard";
+import BatinkLanding from "@/pages/BatinkLanding";
+import BatinkAuth from "@/pages/BatinkAuth";
+import BatinkDashboard from "@/pages/BatinkDashboard";
+import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
@@ -236,6 +240,34 @@ const LinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (user) {
     return <Navigate to="/link-dashboard" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const BatinkProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useBatinkAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#1a1625] text-white">Carregando...</div>;
+  }
+  
+  if (!user) {
+    return <Navigate to="/batink/auth" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+const BatinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useBatinkAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#1a1625] text-white">Carregando...</div>;
+  }
+  
+  if (user) {
+    return <Navigate to="/batink/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -468,6 +500,23 @@ function App() {
                 <MetalReports />
               </MetalProtectedRoute>
             </MetalAuthProvider>
+          } />
+          
+          {/* BATINK Routes - Digital Time Clock System */}
+          <Route path="/batink" element={<BatinkLanding />} />
+          <Route path="/batink/auth" element={
+            <BatinkAuthProvider>
+              <BatinkPublicRoute>
+                <BatinkAuth />
+              </BatinkPublicRoute>
+            </BatinkAuthProvider>
+          } />
+          <Route path="/batink/dashboard" element={
+            <BatinkAuthProvider>
+              <BatinkProtectedRoute>
+                <BatinkDashboard />
+              </BatinkProtectedRoute>
+            </BatinkAuthProvider>
           } />
           
           {/* Landing Pages - Marketing - Tenant Dynamic */}
