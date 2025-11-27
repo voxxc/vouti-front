@@ -297,6 +297,32 @@ export function useSuperAdmin() {
     }
   };
 
+  const deleteTenant = async (id: string, tenantName: string) => {
+    try {
+      const { error } = await supabase
+        .from('tenants')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Cliente excluído',
+        description: `${tenantName} foi excluído com sucesso.`,
+      });
+
+      await fetchTenants();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast({
+        title: 'Erro ao excluir cliente',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   const getTenantsBySystemType = (systemTypeId: string) => {
     return tenants.filter(t => t.system_type_id === systemTypeId);
   };
@@ -339,6 +365,7 @@ export function useSuperAdmin() {
     session,
     createTenant,
     updateTenant,
+    deleteTenant,
     toggleTenantStatus,
     getTenantsBySystemType,
     becomeSuperAdmin,

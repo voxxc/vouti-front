@@ -1,24 +1,46 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tenant } from '@/types/superadmin';
 import { TenantStatsDialog } from './TenantStatsDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface TenantCardProps {
   tenant: Tenant;
   systemColor: string | null;
   onEdit: () => void;
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
+  onDelete: (tenantId: string, tenantName: string) => void;
 }
 
-export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus }: TenantCardProps) {
+export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleOpenAuth = () => {
     window.open(`/${tenant.slug}/auth`, '_blank');
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDelete(tenant.id, tenant.name);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -88,6 +110,37 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus }: Tena
           >
             <ExternalLink className="h-4 w-4" />
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                title="Excluir cliente"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir <strong>{tenant.name}</strong>? 
+                  Esta ação não pode ser desfeita e todos os dados associados serão perdidos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? 'Excluindo...' : 'Excluir'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </Card>
 
