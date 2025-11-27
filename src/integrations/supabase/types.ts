@@ -3013,13 +3013,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      has_dental_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["dental_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
       has_link_role: {
         Args: {
           _role: Database["public"]["Enums"]["link_role"]
@@ -3067,7 +3060,6 @@ export type Database = {
         | "financeiro"
         | "controller"
         | "agenda"
-      dental_role: "admin" | "dentista" | "recepcionista" | "paciente"
       documento_tipo:
         | "peticao"
         | "contrato"
@@ -3232,7 +3224,6 @@ export const Constants = {
         "controller",
         "agenda",
       ],
-      dental_role: ["admin", "dentista", "recepcionista", "paciente"],
       documento_tipo: [
         "peticao",
         "contrato",

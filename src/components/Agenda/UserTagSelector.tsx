@@ -39,7 +39,6 @@ const UserTagSelector = ({ selectedUsers, onChange, excludeCurrentUser = false }
         .from('profiles')
         .select('user_id, full_name, email, avatar_url')
         .not('email', 'like', '%@metalsystem.local')
-        .not('email', 'like', '%@dental.local')
         .order('full_name');
 
       if (excludeCurrentUser) {
