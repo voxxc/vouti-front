@@ -64,9 +64,12 @@ const HomePage = () => {
       } else if (code === 'metal') {
         await supabase.auth.signOut();
         navigate('/metal-auth');
-    } else if (code === 'vlink') {
-      await supabase.auth.signOut();
-      navigate('/link-auth');
+      } else if (code === 'vlink') {
+        await supabase.auth.signOut();
+        navigate('/link-auth');
+      } else if (code === 'adm1nvouti') {
+        // Super Admin panel - no logout needed
+        navigate('/super-admin');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);

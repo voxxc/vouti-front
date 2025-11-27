@@ -32,6 +32,7 @@ import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import MetalReports from "@/pages/MetalReports";
 import LinkAuth from "@/pages/LinkAuth";
 import LinkDashboard from "@/pages/LinkDashboard";
+import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
@@ -387,6 +388,9 @@ function App() {
               {/* Landing Pages - Marketing - Always dark mode, isolated from ThemeProvider */}
               <Route path="/landing-1" element={<LandingPage1 />} />
               <Route path="/office" element={<LandingPage2 />} />
+              
+              {/* Super Admin Panel */}
+              <Route path="/super-admin" element={<SuperAdmin />} />
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
