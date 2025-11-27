@@ -13,27 +13,30 @@ export function useSuperAdmin() {
 
   const checkSuperAdmin = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsSuperAdmin(false);
-        return false;
-      }
-
-      setCurrentUserEmail(user.email || null);
-
-      // Check if any super admins exist
+      // First check if any super admins exist (regardless of auth)
       const { count } = await supabase
         .from('super_admins')
         .select('*', { count: 'exact', head: true });
 
+      const { data: { user } } = await supabase.auth.getUser();
+      
       if (count === 0) {
         // No super admins exist - allow bootstrap
         setNoSuperAdminsExist(true);
+        setCurrentUserEmail(user?.email || null);
         setIsSuperAdmin(false);
         return false;
       }
 
       setNoSuperAdminsExist(false);
+
+      if (!user) {
+        setIsSuperAdmin(false);
+        setCurrentUserEmail(null);
+        return false;
+      }
+
+      setCurrentUserEmail(user.email || null);
 
       const { data, error } = await supabase
         .from('super_admins')
@@ -207,12 +210,8 @@ export function useSuperAdmin() {
 
   useEffect(() => {
     const init = async () => {
-      const isAdmin = await checkSuperAdmin();
-      if (isAdmin) {
-        await loadData();
-      } else {
-        setLoading(false);
-      }
+      await checkSuperAdmin();
+      await loadData();
     };
     init();
   }, [checkSuperAdmin, loadData]);
