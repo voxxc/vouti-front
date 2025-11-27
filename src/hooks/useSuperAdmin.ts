@@ -196,26 +196,45 @@ export function useSuperAdmin() {
 
   const createTenant = async (formData: TenantFormData) => {
     try {
-      const { data, error } = await supabase
-        .from('tenants')
-        .insert({
-          name: formData.name,
-          slug: formData.slug,
-          email_domain: formData.email_domain || null,
-          system_type_id: formData.system_type_id,
-        })
-        .select()
-        .single();
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession?.access_token) {
+        throw new Error('Você precisa estar autenticado para criar um cliente');
+      }
 
-      if (error) throw error;
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-tenant-with-admin`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`,
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            slug: formData.slug,
+            email_domain: formData.email_domain || null,
+            system_type_id: formData.system_type_id,
+            admin_email: formData.admin_email,
+            admin_password: formData.admin_password,
+            admin_name: formData.admin_name,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao criar cliente');
+      }
 
       toast({
-        title: 'Cliente criado',
-        description: `${formData.name} foi criado com sucesso.`,
+        title: 'Cliente criado com sucesso!',
+        description: `${formData.name} foi criado com o administrador ${formData.admin_name} (${formData.admin_email}).`,
       });
 
       await fetchTenants();
-      return data;
+      return result.tenant;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({

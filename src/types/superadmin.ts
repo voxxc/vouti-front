@@ -36,4 +36,8 @@ export interface TenantFormData {
   slug: string;
   email_domain: string;
   system_type_id: string;
+  // Campos do primeiro administrador
+  admin_email: string;
+  admin_password: string;
+  admin_name: string;
 }
