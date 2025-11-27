@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
 import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -37,14 +38,100 @@ import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
 import "./App.css";
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+// Protected Route for tenant-based auth
+const TenantProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading: authLoading } = useAuth();
+  const { tenant, loading: tenantLoading, error: tenantError, tenantSlug } = useTenant();
+  const [showTransition, setShowTransition] = useState(false);
+  const [transitionComplete, setTransitionComplete] = useState(false);
+  
+  useEffect(() => {
+    if (user && !authLoading) {
+      const shouldShowTransition = !sessionStorage.getItem('transition_completed');
+      setShowTransition(shouldShowTransition);
+      
+      if (!shouldShowTransition) {
+        setTransitionComplete(true);
+      }
+    }
+  }, [user, authLoading]);
+
+  const handleTransitionComplete = () => {
+    setTransitionComplete(true);
+    sessionStorage.setItem('transition_completed', 'true');
+  };
+
+  if (tenantLoading || authLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
+  if (tenantError || !tenant) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive mb-2">Erro</h1>
+          <p className="text-muted-foreground">{tenantError || 'Sistema não encontrado'}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to={`/${tenantSlug}/auth`} replace />;
+  }
+
+  if (showTransition && !transitionComplete) {
+    return <LoadingTransition onComplete={handleTransitionComplete} />;
+  }
+  
+  return <div className="animate-fade-in">{children}</div>;
+};
+
+// Public Route for tenant-based auth
+const TenantPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading: authLoading } = useAuth();
+  const { tenant, loading: tenantLoading, error: tenantError, tenantSlug } = useTenant();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname.includes('/auth') && typeof window !== 'undefined') {
+      const intent = localStorage.getItem('auth_intent');
+      if (intent === '1') {
+        localStorage.removeItem('auth_intent');
+      }
+    }
+  }, [location.pathname]);
+
+  if (tenantLoading || authLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
+  if (tenantError || !tenant) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive mb-2">Erro</h1>
+          <p className="text-muted-foreground">{tenantError || 'Sistema não encontrado'}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to={`/${tenantSlug}/dashboard`} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Legacy routes support - redirect old routes to solvenza
+const LegacyProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const [showTransition, setShowTransition] = useState(false);
   const [transitionComplete, setTransitionComplete] = useState(false);
   
   useEffect(() => {
     if (user && !loading) {
-      // Check if we just logged in (transition should show)
       const shouldShowTransition = !sessionStorage.getItem('transition_completed');
       setShowTransition(shouldShowTransition);
       
@@ -64,7 +151,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/solvenza/auth" replace />;
   }
 
   if (showTransition && !transitionComplete) {
@@ -74,7 +161,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <div className="animate-fade-in">{children}</div>;
 };
 
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+const LegacyPublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -92,10 +179,9 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/solvenza/dashboard" replace />;
   }
 
-  
   return <>{children}</>;
 };
 
@@ -155,6 +241,22 @@ const LinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Helper component for tenant routes
+const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.ReactNode; isPublic?: boolean }) => {
+  return (
+    <TenantProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          {isPublic ? (
+            <TenantPublicRoute>{children}</TenantPublicRoute>
+          ) : (
+            <TenantProtectedRoute>{children}</TenantProtectedRoute>
+          )}
+        </ThemeProvider>
+      </AuthProvider>
+    </TenantProvider>
+  );
+};
 
 function App() {
   return (
@@ -164,205 +266,188 @@ function App() {
           {/* Homepage - Always dark mode, isolated from ThemeProvider */}
           <Route path="/" element={<HomePage />} />
           
-          {/* Auth and Protected Routes - Wrapped with ThemeProvider for individual user themes */}
-          <Route path="/auth" element={
-            <AuthProvider>
-              <ThemeProvider>
-                <PublicRoute>
-                  <Auth />
-                </PublicRoute>
-              </ThemeProvider>
-            </AuthProvider>
+          {/* ============================================== */}
+          {/* ROTAS DINÂMICAS POR TENANT (/:tenant/*)       */}
+          {/* ============================================== */}
+          
+          {/* Auth - Tenant Dynamic */}
+          <Route path="/:tenant/auth" element={
+            <TenantRouteWrapper isPublic>
+              <Auth />
+            </TenantRouteWrapper>
           } />
-              <Route path="/dashboard" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/projects" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Projects />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/project/:id" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ProjectViewWrapper />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/project/:id/acordos" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <AcordosViewWrapper />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/project/:id/sector/:sectorId" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ProjectViewWrapper />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/agenda" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Agenda />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/crm" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <CRM />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/financial" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Financial />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/controladoria" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Controladoria />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/controladoria/novo" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ControladoriaNovoProcesso />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/controladoria/processo/:id" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ControladoriaProcessoDetalhes />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/controladoria/processo/:id/editar" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ControladoriaNovoProcesso />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/reunioes" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <Reunioes />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/reunioes/metricas" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ReuniaoMetricas />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/reunioes/relatorios" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ReuniaoRelatorios />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/reuniao-clientes" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <ReuniaoClientes />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/admin/reuniao-status" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <AdminReuniaoStatus />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              <Route path="/admin/backend-code" element={
-                <AuthProvider>
-                  <ThemeProvider>
-                    <ProtectedRoute>
-                      <AdminBackendCode />
-                    </ProtectedRoute>
-                  </ThemeProvider>
-                </AuthProvider>
-              } />
-              
-              {/* Vouti.bio Routes - Isolated Link in Bio System */}
-              <Route path="/link-auth" element={
-                <LinkAuthProvider>
-                  <LinkPublicRoute>
-                    <LinkAuth />
-                  </LinkPublicRoute>
-                </LinkAuthProvider>
-              } />
-              <Route path="/link-dashboard" element={
-                <LinkAuthProvider>
-                  <ThemeProvider>
-                    <LinkProtectedRoute>
-                      <LinkDashboard />
-                    </LinkProtectedRoute>
-                  </ThemeProvider>
-                </LinkAuthProvider>
-              } />
-              
-              {/* MetalSystem Routes - Completely separate from Mora */}
-              <Route path="/metal-auth" element={
-                <MetalAuthProvider>
-                  <MetalPublicRoute>
-                    <MetalAuth />
-                  </MetalPublicRoute>
-                </MetalAuthProvider>
-              } />
+          
+          {/* Dashboard - Tenant Dynamic */}
+          <Route path="/:tenant/dashboard" element={
+            <TenantRouteWrapper>
+              <Dashboard />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* Projects - Tenant Dynamic */}
+          <Route path="/:tenant/projects" element={
+            <TenantRouteWrapper>
+              <Projects />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/project/:id" element={
+            <TenantRouteWrapper>
+              <ProjectViewWrapper />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/project/:id/acordos" element={
+            <TenantRouteWrapper>
+              <AcordosViewWrapper />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/project/:id/sector/:sectorId" element={
+            <TenantRouteWrapper>
+              <ProjectViewWrapper />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* Agenda - Tenant Dynamic */}
+          <Route path="/:tenant/agenda" element={
+            <TenantRouteWrapper>
+              <Agenda />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* CRM - Tenant Dynamic */}
+          <Route path="/:tenant/crm" element={
+            <TenantRouteWrapper>
+              <CRM />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* Financial - Tenant Dynamic */}
+          <Route path="/:tenant/financial" element={
+            <TenantRouteWrapper>
+              <Financial />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* Controladoria - Tenant Dynamic */}
+          <Route path="/:tenant/controladoria" element={
+            <TenantRouteWrapper>
+              <Controladoria />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/controladoria/novo" element={
+            <TenantRouteWrapper>
+              <ControladoriaNovoProcesso />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/controladoria/processo/:id" element={
+            <TenantRouteWrapper>
+              <ControladoriaProcessoDetalhes />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/controladoria/processo/:id/editar" element={
+            <TenantRouteWrapper>
+              <ControladoriaNovoProcesso />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* Reuniões - Tenant Dynamic */}
+          <Route path="/:tenant/reunioes" element={
+            <TenantRouteWrapper>
+              <Reunioes />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/reunioes/metricas" element={
+            <TenantRouteWrapper>
+              <ReuniaoMetricas />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/reunioes/relatorios" element={
+            <TenantRouteWrapper>
+              <ReuniaoRelatorios />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/reuniao-clientes" element={
+            <TenantRouteWrapper>
+              <ReuniaoClientes />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* Admin - Tenant Dynamic */}
+          <Route path="/:tenant/admin/reuniao-status" element={
+            <TenantRouteWrapper>
+              <AdminReuniaoStatus />
+            </TenantRouteWrapper>
+          } />
+          
+          <Route path="/:tenant/admin/backend-code" element={
+            <TenantRouteWrapper>
+              <AdminBackendCode />
+            </TenantRouteWrapper>
+          } />
+          
+          {/* ============================================== */}
+          {/* ROTAS LEGADAS (redirect para /solvenza/*)     */}
+          {/* Mantidas para compatibilidade temporária       */}
+          {/* ============================================== */}
+          
+          <Route path="/auth" element={<Navigate to="/solvenza/auth" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/solvenza/dashboard" replace />} />
+          <Route path="/projects" element={<Navigate to="/solvenza/projects" replace />} />
+          <Route path="/project/:id" element={<Navigate to="/solvenza/project/:id" replace />} />
+          <Route path="/project/:id/acordos" element={<Navigate to="/solvenza/project/:id/acordos" replace />} />
+          <Route path="/project/:id/sector/:sectorId" element={<Navigate to="/solvenza/project/:id/sector/:sectorId" replace />} />
+          <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
+          <Route path="/crm" element={<Navigate to="/solvenza/crm" replace />} />
+          <Route path="/financial" element={<Navigate to="/solvenza/financial" replace />} />
+          <Route path="/controladoria" element={<Navigate to="/solvenza/controladoria" replace />} />
+          <Route path="/controladoria/novo" element={<Navigate to="/solvenza/controladoria/novo" replace />} />
+          <Route path="/controladoria/processo/:id" element={<Navigate to="/solvenza/controladoria/processo/:id" replace />} />
+          <Route path="/controladoria/processo/:id/editar" element={<Navigate to="/solvenza/controladoria/processo/:id/editar" replace />} />
+          <Route path="/reunioes" element={<Navigate to="/solvenza/reunioes" replace />} />
+          <Route path="/reunioes/metricas" element={<Navigate to="/solvenza/reunioes/metricas" replace />} />
+          <Route path="/reunioes/relatorios" element={<Navigate to="/solvenza/reunioes/relatorios" replace />} />
+          <Route path="/reuniao-clientes" element={<Navigate to="/solvenza/reuniao-clientes" replace />} />
+          <Route path="/admin/reuniao-status" element={<Navigate to="/solvenza/admin/reuniao-status" replace />} />
+          <Route path="/admin/backend-code" element={<Navigate to="/solvenza/admin/backend-code" replace />} />
+          
+          {/* ============================================== */}
+          {/* SISTEMAS SEPARADOS (Metal e Link)             */}
+          {/* ============================================== */}
+          
+          {/* Vouti.bio Routes - Isolated Link in Bio System */}
+          <Route path="/link-auth" element={
+            <LinkAuthProvider>
+              <LinkPublicRoute>
+                <LinkAuth />
+              </LinkPublicRoute>
+            </LinkAuthProvider>
+          } />
+          <Route path="/link-dashboard" element={
+            <LinkAuthProvider>
+              <ThemeProvider>
+                <LinkProtectedRoute>
+                  <LinkDashboard />
+                </LinkProtectedRoute>
+              </ThemeProvider>
+            </LinkAuthProvider>
+          } />
+          
+          {/* MetalSystem Routes - Completely separate from Mora */}
+          <Route path="/metal-auth" element={
+            <MetalAuthProvider>
+              <MetalPublicRoute>
+                <MetalAuth />
+              </MetalPublicRoute>
+            </MetalAuthProvider>
+          } />
           <Route path="/metal-dashboard" element={
             <MetalAuthProvider>
               <MetalProtectedRoute>
@@ -384,20 +469,20 @@ function App() {
               </MetalProtectedRoute>
             </MetalAuthProvider>
           } />
-              
-              {/* Landing Pages - Marketing - Always dark mode, isolated from ThemeProvider */}
-              <Route path="/landing-1" element={<LandingPage1 />} />
-              <Route path="/office" element={<LandingPage2 />} />
-              
-              {/* Super Admin Panel */}
-              <Route path="/super-admin" element={<SuperAdmin />} />
-              
-              {/* 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <Toaster />
-          </BrowserRouter>
-        </TooltipProvider>
+          
+          {/* Landing Pages - Marketing - Always dark mode */}
+          <Route path="/landing-1" element={<LandingPage1 />} />
+          <Route path="/office" element={<LandingPage2 />} />
+          
+          {/* Super Admin Panel */}
+          <Route path="/super-admin" element={<SuperAdmin />} />
+          
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+      </BrowserRouter>
+    </TooltipProvider>
   );
 }
 
