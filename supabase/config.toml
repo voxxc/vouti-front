@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.judit-buscar-por-oab]
 verify_jwt = true
+
+[functions.create-tenant-with-admin]
+verify_jwt = false
