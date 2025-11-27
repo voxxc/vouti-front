@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Logo from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -16,6 +16,15 @@ const Auth = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
+  
+  // Try to get tenant context (may not exist on legacy routes)
+  let tenant = null;
+  try {
+    const tenantContext = useTenant();
+    tenant = tenantContext.tenant;
+  } catch {
+    // useTenant throws if not in TenantProvider - that's ok for legacy routes
+  }
 
   // Force dark theme on auth page
   useEffect(() => {
@@ -103,7 +112,8 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(email, password, fullName);
+      // Pass tenant_id when signing up if we have one
+      const { error } = await signUp(email, password, fullName, tenant?.id);
       
       if (error) {
         toast({
@@ -155,6 +165,10 @@ const Auth = () => {
 
       <div className="w-full max-w-md space-y-8 relative z-10">
         <div className="text-center">
+          {/* Show tenant name if available */}
+          {tenant && (
+            <p className="text-sm text-muted-foreground mb-2">{tenant.name}</p>
+          )}
           <Logo size="lg" className="justify-center mb-6" />
         </div>
 

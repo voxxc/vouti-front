@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
@@ -31,9 +31,19 @@ const DashboardLayout = ({
   onProjectNavigation
 }: DashboardLayoutProps) => {
   const navigate = useNavigate();
+  const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const { user, signOut } = useAuth();
 
   const [users, setUsers] = useState<UserType[]>([]);
+
+  // Helper para criar paths tenant-aware
+  const tenantPath = (path: string) => {
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    if (tenantSlug) {
+      return `/${tenantSlug}/${cleanPath}`;
+    }
+    return `/${cleanPath}`;
+  };
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -125,14 +135,14 @@ const DashboardLayout = ({
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/auth');
+    navigate(tenantPath('/auth'));
   };
 
   const handleNavigation = (page: string) => {
     if (onNavigate) {
       onNavigate(page as any);
     } else {
-      navigate(`/${page}`);
+      navigate(tenantPath(`/${page}`));
     }
   };
 
@@ -173,7 +183,7 @@ const DashboardLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/projects')}
+                onClick={() => navigate(tenantPath('/projects'))}
                 title="Projetos"
               >
                 <FolderOpen size={18} />
@@ -182,7 +192,7 @@ const DashboardLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/agenda')}
+                onClick={() => navigate(tenantPath('/agenda'))}
                 title="Agenda"
               >
                 <Calendar size={18} />
@@ -191,7 +201,7 @@ const DashboardLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/crm')}
+                onClick={() => navigate(tenantPath('/crm'))}
                 title="Clientes"
               >
                 <Users size={18} />
@@ -200,7 +210,7 @@ const DashboardLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/financial')}
+                onClick={() => navigate(tenantPath('/financial'))}
                 title="Financeiro"
               >
                 <DollarSign size={18} />
@@ -209,7 +219,7 @@ const DashboardLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/controladoria')}
+                onClick={() => navigate(tenantPath('/controladoria'))}
                 title="Controladoria"
               >
                 <FileCheck size={18} />
@@ -218,7 +228,7 @@ const DashboardLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/reunioes')}
+                onClick={() => navigate(tenantPath('/reunioes'))}
                 title="Reuniões"
               >
                 <Video size={18} />
@@ -248,7 +258,7 @@ const DashboardLayout = ({
               {user && (
                 <NotificationCenter 
                   userId={user.id} 
-                  onProjectNavigation={(pid) => navigate(`/project/${pid}`)}
+                  onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
                 />
               )}
 

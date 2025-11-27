@@ -2,15 +2,16 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
-type UserRole = 'admin' | 'advogado' | 'comercial' | 'financeiro';
+type UserRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   userRole: UserRole | null;
+  tenantId: string | null;
   signIn: (email: string, password: string) => Promise<{ error?: any }>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error?: any }>;
+  signUp: (email: string, password: string, fullName?: string, tenantId?: string) => Promise<{ error?: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -38,13 +40,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Buscar role do usuário quando autenticado
+        // Buscar role e tenant do usuário quando autenticado
         if (session?.user) {
           setTimeout(() => {
-            fetchUserRole(session.user.id);
+            fetchUserRoleAndTenant(session.user.id);
           }, 0);
         } else {
           setUserRole(null);
+          setTenantId(null);
         }
       }
     );
@@ -56,50 +59,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
 
       if (session?.user) {
-        fetchUserRole(session.user.id);
+        fetchUserRoleAndTenant(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRoleAndTenant = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch role
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
 
-      if (error) {
-        console.error('Error fetching user role:', error);
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
         setUserRole('advogado');
-        return;
+      } else if (!roleData || roleData.length === 0) {
+        setUserRole('advogado');
+      } else {
+        // Se há múltiplos roles, pegar o de maior privilégio
+        const rolePriority: Record<string, number> = {
+          'admin': 6,
+          'controller': 5,
+          'financeiro': 4,
+          'comercial': 3,
+          'agenda': 2,
+          'advogado': 1
+        };
+
+        const highestRole = roleData.reduce((prev, current) => {
+          const prevPriority = rolePriority[prev.role] || 0;
+          const currentPriority = rolePriority[current.role] || 0;
+          return currentPriority > prevPriority ? current : prev;
+        });
+
+        setUserRole(highestRole.role as UserRole);
       }
 
-      // Se não há roles, usar default
-      if (!data || data.length === 0) {
-        setUserRole('advogado');
-        return;
+      // Fetch tenant from profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user tenant:', profileError);
+        setTenantId(null);
+      } else {
+        setTenantId(profileData?.tenant_id || null);
       }
-
-      // Se há múltiplos roles, pegar o de maior privilégio
-      const rolePriority: Record<string, number> = {
-        'admin': 4,
-        'financeiro': 3,
-        'comercial': 2,
-        'advogado': 1
-      };
-
-      const highestRole = data.reduce((prev, current) => {
-        const prevPriority = rolePriority[prev.role] || 0;
-        const currentPriority = rolePriority[current.role] || 0;
-        return currentPriority > prevPriority ? current : prev;
-      });
-
-      setUserRole(highestRole.role as UserRole);
     } catch (error) {
-      console.error('Error in fetchUserRole:', error);
+      console.error('Error in fetchUserRoleAndTenant:', error);
       setUserRole('advogado');
+      setTenantId(null);
     }
   };
 
@@ -111,19 +127,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = async (email: string, password: string, fullName?: string, signUpTenantId?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
-          full_name: fullName
+          full_name: fullName,
+          tenant_id: signUpTenantId
         }
       }
     });
+
+    // Se o signup foi bem sucedido e temos um tenant_id, atualizar o profile
+    if (!error && data.user && signUpTenantId) {
+      // Aguardar um pouco para o trigger criar o profile
+      setTimeout(async () => {
+        await supabase
+          .from('profiles')
+          .update({ tenant_id: signUpTenantId })
+          .eq('user_id', data.user!.id);
+      }, 1000);
+    }
+
     return { error };
   };
 
@@ -135,6 +164,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setSession(null);
       setUserRole(null);
+      setTenantId(null);
       
       // Fazer logout no Supabase
       const { error } = await supabase.auth.signOut();
@@ -151,6 +181,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setSession(null);
       setUserRole(null);
+      setTenantId(null);
     }
   };
 
@@ -160,6 +191,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       session,
       loading,
       userRole,
+      tenantId,
       signIn,
       signUp,
       signOut
