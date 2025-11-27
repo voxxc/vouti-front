@@ -7,8 +7,9 @@ import { toast } from '@/hooks/use-toast';
 interface BatinkProfile {
   id: string;
   user_id: string;
+  nome_completo: string | null;
+  apelido: string | null;
   empresa: string | null;
-  full_name: string | null;
   cargo: string | null;
   created_at: string;
   updated_at: string;
@@ -20,7 +21,7 @@ interface BatinkAuthContextType {
   profile: BatinkProfile | null;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, empresa?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, nomeCompleto: string, apelido?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -69,7 +70,7 @@ export const BatinkAuthProvider = ({ children }: { children: ReactNode }) => {
   const loadUserProfile = async (userId: string) => {
     try {
       const { data: profileData, error: profileError } = await supabase
-        .from('batink_profiles' as any)
+        .from('batink_profiles')
         .select('*')
         .eq('user_id', userId)
         .single();
@@ -78,7 +79,7 @@ export const BatinkAuthProvider = ({ children }: { children: ReactNode }) => {
       setProfile(profileData as unknown as BatinkProfile);
 
       const { data: roleData } = await supabase
-        .from('batink_user_roles' as any)
+        .from('batink_user_roles')
         .select('role')
         .eq('user_id', userId)
         .eq('role', 'admin')
@@ -108,12 +109,11 @@ export const BatinkAuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, empresa?: string) => {
+  const signUp = async (email: string, password: string, nomeCompleto: string, apelido?: string) => {
     const redirectUrl = `${window.location.origin}/batink/auth`;
     
-    // Check if this is the first user
     const { count } = await supabase
-      .from('batink_profiles' as any)
+      .from('batink_profiles')
       .select('*', { count: 'exact', head: true });
 
     const isFirstUser = count === 0;
@@ -124,22 +124,21 @@ export const BatinkAuthProvider = ({ children }: { children: ReactNode }) => {
       options: {
         emailRedirectTo: redirectUrl,
         data: {
-          full_name: fullName,
-          empresa: empresa || null,
+          nome_completo: nomeCompleto,
+          apelido: apelido || null,
         },
       },
     });
 
     if (!error && data.user) {
-      await supabase.from('batink_profiles' as any).insert({
+      await supabase.from('batink_profiles').insert({
         user_id: data.user.id,
-        full_name: fullName,
-        empresa: empresa || null,
+        nome_completo: nomeCompleto,
+        apelido: apelido || null,
       });
 
-      // If first user, make them admin
       if (isFirstUser) {
-        await supabase.from('batink_user_roles' as any).insert({
+        await supabase.from('batink_user_roles').insert({
           user_id: data.user.id,
           role: 'admin',
         });
@@ -165,7 +164,7 @@ export const BatinkAuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.log('Logout completed (session may have been expired)');
+      console.log('Logout completed');
     } finally {
       navigate('/batink/auth');
       

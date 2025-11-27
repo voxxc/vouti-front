@@ -1,13 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Clock, LogIn, LogOut, Loader2, CalendarDays } from 'lucide-react';
+import { Clock, LogIn, LogOut, Coffee, UtensilsCrossed, RotateCcw, Loader2, CalendarDays } from 'lucide-react';
 import { useBatinkAuth } from '@/contexts/BatinkAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
+type EntryType = 'entrada' | 'pausa' | 'almoco' | 'retorno_almoco' | 'saida';
+
 interface TimeEntry {
   id: string;
-  entry_type: 'entrada' | 'saida';
+  entry_type: string;
+  entry_date: string;
+  entry_time: string;
   registered_at: string;
 }
+
+const entryTypeConfig: Record<EntryType, { label: string; icon: typeof LogIn; bgColor: string; textColor: string }> = {
+  entrada: { label: 'Entrada', icon: LogIn, bgColor: 'bg-green-500/20', textColor: 'text-green-500' },
+  pausa: { label: 'Pausa', icon: Coffee, bgColor: 'bg-yellow-500/20', textColor: 'text-yellow-500' },
+  almoco: { label: 'Almoço', icon: UtensilsCrossed, bgColor: 'bg-blue-500/20', textColor: 'text-blue-500' },
+  retorno_almoco: { label: 'Retorno', icon: RotateCcw, bgColor: 'bg-cyan-500/20', textColor: 'text-cyan-500' },
+  saida: { label: 'Saída', icon: LogOut, bgColor: 'bg-orange-500/20', textColor: 'text-orange-500' },
+};
 
 const TimeHistory = () => {
   const { user } = useBatinkAuth();
@@ -17,8 +29,7 @@ const TimeHistory = () => {
   useEffect(() => {
     if (user) {
       fetchTodayEntries();
-
-      // Subscribe to realtime changes
+      
       const channel = supabase
         .channel('batink_time_entries_changes')
         .on(
@@ -31,7 +42,10 @@ const TimeHistory = () => {
           },
           (payload) => {
             const newEntry = payload.new as TimeEntry;
-            setEntries((prev) => [newEntry, ...prev]);
+            const today = new Date().toISOString().split('T')[0];
+            if (newEntry.entry_date === today) {
+              setEntries((prev) => [newEntry, ...prev]);
+            }
           }
         )
         .subscribe();
@@ -46,15 +60,14 @@ const TimeHistory = () => {
     if (!user) return;
 
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from('batink_time_entries')
         .select('*')
         .eq('user_id', user.id)
-        .gte('registered_at', today.toISOString())
-        .order('registered_at', { ascending: false });
+        .eq('entry_date', today)
+        .order('entry_time', { ascending: false });
 
       if (error) throw error;
       setEntries((data as TimeEntry[]) || []);
@@ -65,43 +78,53 @@ const TimeHistory = () => {
     }
   };
 
-  const calculateWorkedTime = () => {
-    if (entries.length === 0) return null;
+  const calculateWorkedTime = (): string => {
+    if (entries.length === 0) return '';
 
     let totalMinutes = 0;
-    const sortedEntries = [...entries].sort(
-      (a, b) => new Date(a.registered_at).getTime() - new Date(b.registered_at).getTime()
+    let lastEntrada: Date | null = null;
+
+    const sortedEntries = [...entries].sort((a, b) => 
+      a.entry_time.localeCompare(b.entry_time)
     );
 
-    for (let i = 0; i < sortedEntries.length - 1; i += 2) {
-      const entrada = sortedEntries[i];
-      const saida = sortedEntries[i + 1];
-
-      if (entrada?.entry_type === 'entrada' && saida?.entry_type === 'saida') {
-        const entradaTime = new Date(entrada.registered_at).getTime();
-        const saidaTime = new Date(saida.registered_at).getTime();
-        totalMinutes += (saidaTime - entradaTime) / (1000 * 60);
+    for (const entry of sortedEntries) {
+      const entryTime = new Date(`2000-01-01T${entry.entry_time}`);
+      
+      switch (entry.entry_type) {
+        case 'entrada':
+        case 'retorno_almoco':
+          lastEntrada = entryTime;
+          break;
+        case 'pausa':
+        case 'almoco':
+        case 'saida':
+          if (lastEntrada) {
+            totalMinutes += (entryTime.getTime() - lastEntrada.getTime()) / 60000;
+            lastEntrada = null;
+          }
+          break;
       }
     }
 
-    // If last entry is 'entrada', calculate time until now
-    const lastEntry = sortedEntries[sortedEntries.length - 1];
-    if (lastEntry?.entry_type === 'entrada') {
-      const entradaTime = new Date(lastEntry.registered_at).getTime();
-      const now = new Date().getTime();
-      totalMinutes += (now - entradaTime) / (1000 * 60);
+    // If still working
+    if (lastEntrada) {
+      const now = new Date();
+      const nowTime = new Date(`2000-01-01T${now.toTimeString().split(' ')[0]}`);
+      totalMinutes += (nowTime.getTime() - lastEntrada.getTime()) / 60000;
     }
+
+    if (totalMinutes <= 0) return '';
 
     const hours = Math.floor(totalMinutes / 60);
     const minutes = Math.floor(totalMinutes % 60);
-
     return `${hours}h ${minutes}min`;
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <Loader2 className="w-6 h-6 animate-spin text-[#9333EA]" />
       </div>
     );
   }
@@ -122,54 +145,45 @@ const TimeHistory = () => {
 
   return (
     <div className="space-y-4">
-      {/* Worked time summary */}
       {workedTime && (
-        <div className="bg-primary/10 rounded-lg p-4 text-center">
+        <div className="bg-[#9333EA]/10 rounded-lg p-4 text-center">
           <p className="text-sm text-muted-foreground">Tempo trabalhado hoje</p>
-          <p className="text-2xl font-bold text-primary">{workedTime}</p>
+          <p className="text-2xl font-bold text-[#9333EA]">{workedTime}</p>
         </div>
       )}
 
-      {/* Entries list */}
       <div className="space-y-2">
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className={`flex items-center justify-between p-3 rounded-lg border ${
-              entry.entry_type === 'entrada'
-                ? 'bg-green-500/5 border-green-500/20'
-                : 'bg-orange-500/5 border-orange-500/20'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  entry.entry_type === 'entrada'
-                    ? 'bg-green-500/20 text-green-500'
-                    : 'bg-orange-500/20 text-orange-500'
-                }`}
-              >
-                {entry.entry_type === 'entrada' ? (
-                  <LogIn className="w-4 h-4" />
-                ) : (
-                  <LogOut className="w-4 h-4" />
-                )}
+        {entries.map((entry) => {
+          const config = entryTypeConfig[entry.entry_type as EntryType] || {
+            label: entry.entry_type,
+            icon: Clock,
+            bgColor: 'bg-muted',
+            textColor: 'text-foreground',
+          };
+          const Icon = config.icon;
+
+          return (
+            <div
+              key={entry.id}
+              className={`flex items-center justify-between p-3 rounded-lg border ${config.bgColor} border-transparent`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-background/50 ${config.textColor}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className={`font-medium ${config.textColor}`}>
+                  {config.label}
+                </span>
               </div>
-              <span className="font-medium text-foreground">
-                {entry.entry_type === 'entrada' ? 'Entrada' : 'Saída'}
-              </span>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span className="tabular-nums">
+                  {entry.entry_time?.substring(0, 5)}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="w-4 h-4" />
-              <span className="tabular-nums">
-                {new Date(entry.registered_at).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
