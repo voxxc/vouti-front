@@ -9,6 +9,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
+import { useTenant } from '@/contexts/TenantContext';
 import { Scale, Users, Shield, Award, Phone, Mail, MapPin, Facebook, Instagram, Linkedin, Menu, X, CheckCircle, FileText, Home as HomeIcon, Briefcase, Heart, Building, Coins, Key, Calendar, ShoppingCart } from 'lucide-react';
 import heroImage from '@/assets/hero-law-office.jpg';
 import advogado1 from '@/assets/advogado-1.jpg';
@@ -18,6 +19,7 @@ import advogado4 from '@/assets/advogado-4.jpg';
 
 const LandingPage2 = () => {
   const { toast } = useToast();
+  const { tenant, loading: tenantLoading } = useTenant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
@@ -69,7 +71,8 @@ const LandingPage2 = () => {
         tipo: formData.area,
         comentario: formData.mensagem,
         origem: 'landing_page_2',
-        user_id: null
+        user_id: null,
+        tenant_id: tenant?.id || null
       });
 
       if (error) throw error;
@@ -136,6 +139,14 @@ const LandingPage2 = () => {
   const equipeRef = useScrollAnimation(0.1);
   const diferenciaisRef = useScrollAnimation(0.1);
   const contatoRef = useScrollAnimation(0.1);
+
+  if (tenantLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-white">Carregando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

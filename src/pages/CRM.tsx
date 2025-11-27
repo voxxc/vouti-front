@@ -36,8 +36,8 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { useClientes } from "@/hooks/useClientes";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Cliente as ClienteType } from "@/types/cliente";
 
 
@@ -68,7 +68,7 @@ interface ClientHistory {
 const CRM = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const { tenantPath } = useTenantNavigation();
   const { fetchClientes, deleteCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -477,7 +477,7 @@ const CRM = () => {
                   variant="outline"
                   className="h-24 flex flex-col gap-2"
                   onClick={() => {
-                    navigate('/landing-1');
+                    window.open(tenantPath('/landing-1'), '_blank');
                     setIsLandingPagesDialogOpen(false);
                   }}
                 >
@@ -488,7 +488,7 @@ const CRM = () => {
                   variant="outline"
                   className="h-24 flex flex-col gap-2"
                   onClick={() => {
-                    navigate('/office');
+                    window.open(tenantPath('/office'), '_blank');
                     setIsLandingPagesDialogOpen(false);
                   }}
                 >

@@ -6,11 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Instagram, MessageCircle, CheckCircle2, Users, Shield, TrendingUp, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 const LandingPage1 = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { tenant, loading: tenantLoading } = useTenant();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -45,10 +45,10 @@ const LandingPage1 = () => {
       return;
     }
 
-    if (!user) {
+    if (!formData.name || !formData.phone) {
       toast({
         title: "Erro",
-        description: "Você precisa estar logado para enviar o formulário",
+        description: "Preencha os campos obrigatórios",
         variant: "destructive",
       });
       return;
@@ -67,8 +67,9 @@ const LandingPage1 = () => {
           status: 'captacao',
           prioridade: 'a definir',
           validado: formData.phone ? 'validado' : 'a definir',
-          user_id: user.id,
+          user_id: null,
           origem: 'landing_page_1',
+          tenant_id: tenant?.id || null,
         });
 
       if (error) throw error;
@@ -97,6 +98,14 @@ const LandingPage1 = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (tenantLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-emerald-900">
+        <div className="text-white">Carregando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-900 via-emerald-800 to-emerald-900">

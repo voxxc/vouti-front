@@ -470,9 +470,21 @@ function App() {
             </MetalAuthProvider>
           } />
           
-          {/* Landing Pages - Marketing - Always dark mode */}
-          <Route path="/landing-1" element={<LandingPage1 />} />
-          <Route path="/office" element={<LandingPage2 />} />
+          {/* Landing Pages - Marketing - Tenant Dynamic */}
+          <Route path="/:tenant/landing-1" element={
+            <TenantProvider>
+              <LandingPage1 />
+            </TenantProvider>
+          } />
+          <Route path="/:tenant/office" element={
+            <TenantProvider>
+              <LandingPage2 />
+            </TenantProvider>
+          } />
+          
+          {/* Legacy Landing Page redirects */}
+          <Route path="/landing-1" element={<Navigate to="/solvenza/landing-1" replace />} />
+          <Route path="/office" element={<Navigate to="/solvenza/office" replace />} />
           
           {/* Super Admin Panel */}
           <Route path="/super-admin" element={<SuperAdmin />} />
