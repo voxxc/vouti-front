@@ -16,6 +16,7 @@ interface SystemTypeSectionProps {
   onCreateTenant: (systemTypeId: string) => void;
   onEditTenant: (tenant: Tenant) => void;
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
+  onDeleteTenant: (tenantId: string, tenantName: string) => void;
 }
 
 export function SystemTypeSection({
@@ -24,6 +25,7 @@ export function SystemTypeSection({
   onCreateTenant,
   onEditTenant,
   onToggleStatus,
+  onDeleteTenant,
 }: SystemTypeSectionProps) {
   const Icon = systemType.icon ? iconMap[systemType.icon] || Scale : Scale;
 
@@ -66,6 +68,7 @@ export function SystemTypeSection({
                 systemColor={systemType.color}
                 onEdit={() => onEditTenant(tenant)}
                 onToggleStatus={onToggleStatus}
+                onDelete={onDeleteTenant}
               />
             ))}
           </div>

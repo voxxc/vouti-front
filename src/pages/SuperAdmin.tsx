@@ -23,6 +23,7 @@ export default function SuperAdmin() {
     session,
     createTenant,
     updateTenant,
+    deleteTenant,
     toggleTenantStatus,
     getTenantsBySystemType,
     becomeSuperAdmin,
@@ -358,6 +359,7 @@ export default function SuperAdmin() {
               onCreateTenant={handleCreateTenant}
               onEditTenant={handleEditTenant}
               onToggleStatus={toggleTenantStatus}
+              onDeleteTenant={deleteTenant}
             />
           ))}
         </div>
