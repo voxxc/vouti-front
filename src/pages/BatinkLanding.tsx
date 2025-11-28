@@ -20,7 +20,8 @@ import {
   FileCheck,
   BarChart3,
   UserCheck,
-  Globe
+  Globe,
+  Menu
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -143,8 +144,8 @@ const BatinkLanding = () => {
       {/* Background fixo */}
       <div className="fixed inset-0 -z-10" style={{ backgroundColor: colors.bgMain }} />
       
-      <div className="min-h-screen w-full overflow-x-hidden relative">
-        {/* Header */}
+      <div className="min-h-screen w-full overflow-x-hidden relative scroll-smooth">
+        {/* Header - Mobile Responsive */}
         <header 
           className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b"
           style={{ 
@@ -152,26 +153,35 @@ const BatinkLanding = () => {
             borderColor: colors.border
           }}
         >
-          <div className="flex items-center justify-between h-20 px-6 lg:px-12">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between h-16 sm:h-20 px-4 sm:px-6 lg:px-12">
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="relative">
                 <div 
-                  className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-lg"
                   style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` }}
                 >
-                  <Fingerprint className="w-7 h-7 text-white" />
+                  <Fingerprint className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
                 </div>
                 <div 
-                  className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full animate-pulse shadow-lg"
+                  className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full animate-pulse shadow-lg"
                   style={{ backgroundColor: colors.accent, boxShadow: `0 0 10px ${colors.accent}` }}
                 />
               </div>
-              <span className="text-2xl font-bold tracking-tight" style={{ color: colors.primary }}>
+              <span className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: colors.primary }}>
                 BATINK
               </span>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/batink/auth')}
+                className="sm:hidden transition-all duration-300"
+                style={{ color: colors.textSecondary }}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => navigate('/batink/auth')}
@@ -182,22 +192,22 @@ const BatinkLanding = () => {
               </Button>
               <Button
                 onClick={() => setIsModalOpen(true)}
-                className="transition-all duration-300"
+                className="text-sm sm:text-base px-3 sm:px-4 transition-all duration-300"
                 style={{ 
                   backgroundColor: colors.accent,
                   color: colors.bgMain,
                 }}
               >
-                Agendar Demo
+                <span className="hidden sm:inline">Agendar Demo</span>
+                <span className="sm:hidden">Demo</span>
               </Button>
             </div>
           </div>
         </header>
 
-        {/* Hero Section with Background Image */}
+        {/* Hero Section - Mobile Responsive */}
         <section 
-          className="min-h-screen flex items-center relative overflow-hidden"
-          style={{ paddingTop: '80px' }}
+          className="min-h-screen flex items-center relative overflow-hidden pt-16 sm:pt-20"
         >
           {/* Background Image */}
           <div 
@@ -206,18 +216,18 @@ const BatinkLanding = () => {
               backgroundImage: `url(${heroBg})`,
             }}
           />
-          {/* Dark Overlay with Gradient */}
+          {/* Dark Overlay with Gradient - more opaque on mobile */}
           <div 
             className="absolute inset-0"
             style={{ 
-              background: `linear-gradient(90deg, ${colors.bgMain} 0%, hsla(270, 50%, 8%, 0.85) 50%, hsla(270, 50%, 8%, 0.7) 100%)`
+              background: `linear-gradient(90deg, ${colors.bgMain} 0%, hsla(270, 50%, 8%, 0.95) 30%, hsla(270, 50%, 8%, 0.85) 60%, hsla(270, 50%, 8%, 0.7) 100%)`
             }}
           />
           
-          <div className="relative z-10 w-full px-6 lg:px-12">
-            <div className="max-w-3xl">
+          <div className="relative z-10 w-full px-4 sm:px-6 lg:px-12 py-8 sm:py-0">
+            <div className="max-w-full sm:max-w-2xl lg:max-w-3xl mx-auto sm:mx-0 text-center sm:text-left">
               <div 
-                className="inline-block px-4 py-2 rounded-full mb-6 text-sm font-medium"
+                className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-4 sm:mb-6 text-xs sm:text-sm font-medium"
                 style={{ 
                   backgroundColor: 'hsla(320, 85%, 50%, 0.15)',
                   color: colors.primary,
@@ -228,7 +238,7 @@ const BatinkLanding = () => {
               </div>
               
               <h1 
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight"
                 style={{ color: colors.textMain }}
               >
                 Gestão de Ponto{' '}
@@ -236,24 +246,24 @@ const BatinkLanding = () => {
               </h1>
               
               <p 
-                className="text-lg sm:text-xl md:text-2xl mb-4 max-w-2xl"
+                className="text-base sm:text-lg md:text-xl lg:text-2xl mb-3 sm:mb-4"
                 style={{ color: colors.textSecondary }}
               >
                 O ponto certo para sua equipe.
               </p>
               
               <p 
-                className="text-base sm:text-lg mb-8 max-w-xl"
+                className="text-sm sm:text-base lg:text-lg mb-6 sm:mb-8 max-w-xl mx-auto sm:mx-0"
                 style={{ color: colors.textSecondary }}
               >
                 Simplifique o controle de ponto e garanta conformidade legal com tecnologia de ponta. Tudo em um só lugar.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center sm:justify-start">
                 <Button
                   size="lg"
                   onClick={() => setIsModalOpen(true)}
-                  className="text-lg px-8 py-6 font-semibold transition-all duration-300 hover:scale-105"
+                  className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
                   style={{
                     backgroundColor: colors.accent,
                     color: colors.bgMain,
@@ -267,7 +277,7 @@ const BatinkLanding = () => {
                   size="lg"
                   variant="outline"
                   onClick={() => navigate('/batink/auth')}
-                  className="text-lg px-8 py-6 font-semibold border-2 bg-transparent transition-all duration-300"
+                  className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold border-2 bg-transparent transition-all duration-300 w-full sm:w-auto"
                   style={{ 
                     borderColor: colors.textSecondary,
                     color: colors.textMain
@@ -280,42 +290,50 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* Stats Section */}
+        {/* Stats Section - Mobile Responsive */}
         <section 
-          className="py-20 border-b"
+          className="py-12 sm:py-16 lg:py-20 border-b"
           style={{ 
             backgroundColor: 'hsl(270, 45%, 10%)',
             borderColor: colors.border
           }}
         >
-          <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+            <div className="grid grid-cols-1 gap-8 sm:gap-6 md:grid-cols-3 md:gap-12">
               {stats.map((stat, index) => (
-                <div key={index} className="text-center">
+                <div key={index} className="text-center relative">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    {index === 0 && <TrendingUp className="w-8 h-8" style={{ color: colors.textSecondary }} />}
-                    {index === 1 && <BarChart3 className="w-8 h-8" style={{ color: colors.textSecondary }} />}
-                    {index === 2 && <Target className="w-8 h-8" style={{ color: colors.textSecondary }} />}
+                    {index === 0 && <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" style={{ color: colors.textSecondary }} />}
+                    {index === 1 && <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8" style={{ color: colors.textSecondary }} />}
+                    {index === 2 && <Target className="w-6 h-6 sm:w-8 sm:h-8" style={{ color: colors.textSecondary }} />}
                   </div>
-                  <p className="text-lg mb-1" style={{ color: colors.textSecondary }}>
+                  <p className="text-base sm:text-lg mb-1" style={{ color: colors.textSecondary }}>
                     {stat.label}{' '}
-                    <span className="font-bold text-2xl sm:text-3xl" style={{ color: colors.green }}>
+                    <span className="font-bold text-2xl sm:text-3xl lg:text-4xl" style={{ color: colors.green }}>
                       {stat.value}
                     </span>
                     {stat.suffix}
                   </p>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                  <p className="text-xs sm:text-sm" style={{ color: colors.textSecondary }}>
                     {stat.description}
                   </p>
+                  
+                  {/* Mobile separator */}
+                  {index < 2 && (
+                    <div 
+                      className="md:hidden w-16 h-0.5 mx-auto mt-8"
+                      style={{ backgroundColor: colors.border }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
             
-            <div className="flex justify-center mt-12">
+            <div className="flex justify-center mt-8 sm:mt-12">
               <Button
                 size="lg"
                 onClick={() => setIsModalOpen(true)}
-                className="text-lg px-8 py-6 font-semibold transition-all duration-300 hover:scale-105"
+                className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
                 style={{
                   backgroundColor: colors.accent,
                   color: colors.bgMain,
@@ -327,30 +345,30 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-24" style={{ backgroundColor: colors.bgMain }}>
-          <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-16">
+        {/* Features Section - Mobile Responsive */}
+        <section className="py-16 sm:py-20 lg:py-24" style={{ backgroundColor: colors.bgMain }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+            <div className="text-center mb-10 sm:mb-12 lg:mb-16">
               <h2 
-                className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4"
                 style={{ color: colors.textMain }}
               >
                 Por que escolher o{' '}
                 <span style={{ color: colors.primary }}>BATINK</span>?
               </h2>
               <p 
-                className="text-lg max-w-2xl mx-auto"
+                className="text-base sm:text-lg max-w-2xl mx-auto px-4 sm:px-0"
                 style={{ color: colors.textSecondary }}
               >
                 Tecnologia de ponta para simplificar a gestão de ponto da sua empresa
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
               {features.map((feature, index) => (
                 <div
                   key={index}
-                  className="p-8 rounded-2xl backdrop-blur-sm border transition-all duration-300 hover:scale-105 cursor-default group"
+                  className="p-5 sm:p-6 lg:p-8 rounded-2xl backdrop-blur-sm border transition-all duration-300 hover:scale-105 cursor-default group text-center sm:text-left"
                   style={{
                     backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
                     borderColor: colors.border,
@@ -365,15 +383,15 @@ const BatinkLanding = () => {
                   }}
                 >
                   <div 
-                    className="w-16 h-16 rounded-xl flex items-center justify-center mb-6 transition-all duration-300"
+                    className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-xl flex items-center justify-center mb-4 sm:mb-6 transition-all duration-300 mx-auto sm:mx-0"
                     style={{ backgroundColor: 'hsla(320, 85%, 50%, 0.15)' }}
                   >
-                    <feature.icon className="w-8 h-8" style={{ color: colors.primary }} />
+                    <feature.icon className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" style={{ color: colors.primary }} />
                   </div>
-                  <h3 className="text-2xl font-bold mb-3" style={{ color: colors.textMain }}>
+                  <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3" style={{ color: colors.textMain }}>
                     {feature.title}
                   </h3>
-                  <p className="text-base" style={{ color: colors.textSecondary }}>
+                  <p className="text-sm sm:text-base" style={{ color: colors.textSecondary }}>
                     {feature.description}
                   </p>
                 </div>
@@ -382,22 +400,22 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* Benefits Section - Split Layout */}
+        {/* Benefits Section - Mobile Responsive with reversed order */}
         <section 
-          className="py-24"
+          className="py-16 sm:py-20 lg:py-24"
           style={{ 
             background: `linear-gradient(180deg, hsl(270, 40%, 12%) 0%, ${colors.bgMain} 100%)`
           }}
         >
-          <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              {/* Left - Image placeholder with glow effect */}
-              <div className="relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
+              {/* Image - appears second on mobile */}
+              <div className="relative order-2 lg:order-1">
                 <div 
                   className="aspect-video rounded-2xl overflow-hidden border-2"
                   style={{ 
                     borderColor: colors.primary,
-                    boxShadow: `0 0 60px hsla(320, 85%, 50%, 0.3)`
+                    boxShadow: `0 0 40px hsla(320, 85%, 50%, 0.2), 0 0 60px hsla(320, 85%, 50%, 0.1)`
                   }}
                 >
                   <img 
@@ -412,31 +430,31 @@ const BatinkLanding = () => {
                 </div>
               </div>
               
-              {/* Right - Content */}
-              <div>
+              {/* Content - appears first on mobile */}
+              <div className="order-1 lg:order-2 text-center lg:text-left">
                 <h2 
-                  className="text-3xl sm:text-4xl font-bold mb-6"
+                  className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6"
                   style={{ color: colors.green }}
                 >
                   Controle de Ponto Digital
                 </h2>
                 <p 
-                  className="text-lg mb-8"
+                  className="text-base sm:text-lg mb-6 sm:mb-8 max-w-xl mx-auto lg:mx-0"
                   style={{ color: colors.textSecondary }}
                 >
                   Elimine burocracias e feche sua folha até 25x mais rápido. Tudo 100% em conformidade com a legislação, com cálculos precisos feitos em minutos.
                 </p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
                   {benefits.map((benefit, index) => (
-                    <div key={index} className="flex items-center gap-3">
+                    <div key={index} className="flex items-center gap-2 sm:gap-3 justify-center lg:justify-start">
                       <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: 'hsla(150, 80%, 50%, 0.15)' }}
                       >
-                        <benefit.icon className="w-4 h-4" style={{ color: colors.green }} />
+                        <benefit.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: colors.green }} />
                       </div>
-                      <span style={{ color: colors.textMain }}>{benefit.text}</span>
+                      <span className="text-sm sm:text-base" style={{ color: colors.textMain }}>{benefit.text}</span>
                     </div>
                   ))}
                 </div>
@@ -444,7 +462,7 @@ const BatinkLanding = () => {
                 <Button
                   size="lg"
                   onClick={() => setIsModalOpen(true)}
-                  className="font-semibold transition-all duration-300 hover:scale-105"
+                  className="font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
                   style={{
                     backgroundColor: colors.accent,
                     color: colors.bgMain,
@@ -457,31 +475,31 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* How It Works Section */}
-        <section className="py-24" style={{ backgroundColor: colors.bgMain }}>
-          <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-16">
+        {/* How It Works Section - Mobile Responsive */}
+        <section className="py-16 sm:py-20 lg:py-24" style={{ backgroundColor: colors.bgMain }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+            <div className="text-center mb-10 sm:mb-12 lg:mb-16">
               <h2 
-                className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4"
                 style={{ color: colors.textMain }}
               >
                 Como{' '}
                 <span style={{ color: colors.primary }}>funciona</span>?
               </h2>
               <p 
-                className="text-lg max-w-2xl mx-auto"
+                className="text-base sm:text-lg max-w-2xl mx-auto px-4 sm:px-0"
                 style={{ color: colors.textSecondary }}
               >
                 Em apenas 3 passos simples você moderniza o controle de ponto
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 lg:gap-8">
               {howItWorks.map((step, index) => (
                 <div key={index} className="text-center relative">
                   {/* Step number */}
                   <div 
-                    className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 text-xl font-bold"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 text-lg sm:text-xl font-bold"
                     style={{ 
                       backgroundColor: colors.primary,
                       color: colors.textMain
@@ -492,26 +510,34 @@ const BatinkLanding = () => {
                   
                   {/* Icon */}
                   <div 
-                    className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6"
+                    className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6"
                     style={{ 
                       backgroundColor: 'hsla(270, 40%, 15%, 0.8)',
                       border: `1px solid ${colors.border}`
                     }}
                   >
-                    <step.icon className="w-10 h-10" style={{ color: colors.accent }} />
+                    <step.icon className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10" style={{ color: colors.accent }} />
                   </div>
                   
                   <h3 
-                    className="text-xl font-bold mb-3"
+                    className="text-lg sm:text-xl font-bold mb-2 sm:mb-3"
                     style={{ color: colors.textMain }}
                   >
                     {step.title}
                   </h3>
-                  <p style={{ color: colors.textSecondary }}>
+                  <p className="text-sm sm:text-base px-4 sm:px-0" style={{ color: colors.textSecondary }}>
                     {step.description}
                   </p>
                   
-                  {/* Connector line */}
+                  {/* Mobile vertical connector */}
+                  {index < 2 && (
+                    <div 
+                      className="md:hidden w-0.5 h-8 mx-auto mt-8"
+                      style={{ backgroundColor: colors.border }}
+                    />
+                  )}
+                  
+                  {/* Desktop horizontal connector line */}
                   {index < 2 && (
                     <div 
                       className="hidden md:block absolute top-24 left-[60%] w-[80%] h-0.5"
@@ -524,32 +550,32 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* CTA Section - Mobile Responsive */}
         <section 
-          className="py-24"
+          className="py-16 sm:py-20 lg:py-24"
           style={{
             background: `linear-gradient(180deg, ${colors.bgMain} 0%, hsl(270, 40%, 12%) 100%)`
           }}
         >
-          <div className="max-w-4xl mx-auto px-6 text-center">
-            <Globe className="w-16 h-16 mx-auto mb-6" style={{ color: colors.primary }} />
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+            <Globe className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 mx-auto mb-4 sm:mb-6" style={{ color: colors.primary }} />
             <h2 
-              className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4"
+              className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 px-2"
               style={{ color: colors.textMain }}
             >
               Pronto para modernizar o controle de ponto da sua empresa?
             </h2>
             <p 
-              className="text-lg mb-8"
+              className="text-base sm:text-lg mb-6 sm:mb-8"
               style={{ color: colors.textSecondary }}
             >
               Junte-se a centenas de empresas que já simplificaram sua gestão de ponto
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Button
                 size="lg"
                 onClick={() => setIsModalOpen(true)}
-                className="text-lg px-8 py-6 font-semibold transition-all duration-300 hover:scale-105"
+                className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
                 style={{
                   backgroundColor: colors.accent,
                   color: colors.bgMain,
@@ -563,7 +589,7 @@ const BatinkLanding = () => {
                 size="lg"
                 variant="outline"
                 onClick={() => navigate('/batink/auth')}
-                className="text-lg px-8 py-6 font-semibold border-2 bg-transparent transition-all duration-300"
+                className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold border-2 bg-transparent transition-all duration-300 w-full sm:w-auto"
                 style={{ 
                   borderColor: colors.primary,
                   color: colors.primary
@@ -577,11 +603,11 @@ const BatinkLanding = () => {
 
         {/* Footer */}
         <footer 
-          className="py-8 border-t"
+          className="py-6 sm:py-8 border-t"
           style={{ backgroundColor: colors.bgMain, borderColor: colors.border }}
         >
-          <div className="px-6 text-center">
-            <p style={{ color: colors.textSecondary }}>
+          <div className="px-4 sm:px-6 text-center">
+            <p className="text-sm sm:text-base" style={{ color: colors.textSecondary }}>
               © 2024{' '}
               <span style={{ color: colors.primary }}>BATINK</span>
               . Todos os direitos reservados.
@@ -589,29 +615,29 @@ const BatinkLanding = () => {
           </div>
         </footer>
 
-        {/* Contact Modal */}
+        {/* Contact Modal - Mobile Responsive */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent 
-            className="max-w-md border"
+            className="max-w-[95vw] sm:max-w-md border mx-auto"
             style={{ backgroundColor: 'hsl(270, 40%, 12%)', borderColor: colors.border }}
           >
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-center" style={{ color: colors.textMain }}>
+              <DialogTitle className="text-xl sm:text-2xl font-bold text-center" style={{ color: colors.textMain }}>
                 {isSubmitted ? 'Obrigado!' : 'Fale Conosco'}
               </DialogTitle>
             </DialogHeader>
 
             {isSubmitted ? (
-              <div className="py-8 text-center">
-                <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: colors.accent }} />
-                <p className="text-lg" style={{ color: colors.textSecondary }}>
+              <div className="py-6 sm:py-8 text-center">
+                <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" style={{ color: colors.accent }} />
+                <p className="text-base sm:text-lg px-2" style={{ color: colors.textSecondary }}>
                   Recebemos suas informações! Um especialista BATINK entrará em contato em breve.
                 </p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome" className="flex items-center gap-2" style={{ color: colors.textSecondary }}>
+              <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="nome" className="flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.textSecondary }}>
                     <User className="w-4 h-4" /> Nome *
                   </Label>
                   <Input
@@ -621,7 +647,7 @@ const BatinkLanding = () => {
                     onChange={handleInputChange}
                     required
                     placeholder="Seu nome completo"
-                    className="border focus:ring-2"
+                    className="border focus:ring-2 text-sm sm:text-base h-10 sm:h-11"
                     style={{ 
                       backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
                       borderColor: colors.border,
@@ -630,8 +656,8 @@ const BatinkLanding = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="telefone" className="flex items-center gap-2" style={{ color: colors.textSecondary }}>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="telefone" className="flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.textSecondary }}>
                     <Phone className="w-4 h-4" /> Telefone *
                   </Label>
                   <Input
@@ -642,7 +668,7 @@ const BatinkLanding = () => {
                     onChange={handleInputChange}
                     required
                     placeholder="(00) 00000-0000"
-                    className="border"
+                    className="border text-sm sm:text-base h-10 sm:h-11"
                     style={{ 
                       backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
                       borderColor: colors.border,
@@ -651,8 +677,8 @@ const BatinkLanding = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2" style={{ color: colors.textSecondary }}>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="email" className="flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.textSecondary }}>
                     <Mail className="w-4 h-4" /> Email *
                   </Label>
                   <Input
@@ -663,7 +689,7 @@ const BatinkLanding = () => {
                     onChange={handleInputChange}
                     required
                     placeholder="seu@email.com"
-                    className="border"
+                    className="border text-sm sm:text-base h-10 sm:h-11"
                     style={{ 
                       backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
                       borderColor: colors.border,
@@ -672,8 +698,8 @@ const BatinkLanding = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="cidade" className="flex items-center gap-2" style={{ color: colors.textSecondary }}>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="cidade" className="flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.textSecondary }}>
                     <MapPin className="w-4 h-4" /> Cidade *
                   </Label>
                   <Input
@@ -683,7 +709,7 @@ const BatinkLanding = () => {
                     onChange={handleInputChange}
                     required
                     placeholder="Sua cidade"
-                    className="border"
+                    className="border text-sm sm:text-base h-10 sm:h-11"
                     style={{ 
                       backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
                       borderColor: colors.border,
@@ -692,8 +718,8 @@ const BatinkLanding = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2" style={{ color: colors.textSecondary }}>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label className="flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.textSecondary }}>
                     <Users className="w-4 h-4" /> Quantos funcionários *
                   </Label>
                   <Select
@@ -702,7 +728,7 @@ const BatinkLanding = () => {
                     required
                   >
                     <SelectTrigger 
-                      className="border"
+                      className="border h-10 sm:h-11"
                       style={{ 
                         backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
                         borderColor: colors.border,
@@ -723,7 +749,7 @@ const BatinkLanding = () => {
 
                 <Button
                   type="submit"
-                  className="w-full mt-6 font-semibold transition-all duration-300"
+                  className="w-full mt-4 sm:mt-6 font-semibold transition-all duration-300 h-11 sm:h-12"
                   disabled={isLoading}
                   style={{ backgroundColor: colors.accent, color: colors.bgMain }}
                 >
