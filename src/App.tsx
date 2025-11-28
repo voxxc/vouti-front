@@ -38,6 +38,7 @@ import BatinkAuth from "@/pages/BatinkAuth";
 import BatinkDashboard from "@/pages/BatinkDashboard";
 import BatinkAdmin from "@/pages/BatinkAdmin";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
+import VeridictoLanding from "@/pages/VeridictoLanding";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
@@ -526,6 +527,9 @@ function App() {
               </BatinkProtectedRoute>
             </BatinkAuthProvider>
           } />
+          
+          {/* Veridicto Landing */}
+          <Route path="/veridicto" element={<VeridictoLanding />} />
           
           {/* Landing Pages - Marketing - Tenant Dynamic */}
           <Route path="/:tenant/landing-1" element={
