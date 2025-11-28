@@ -1,295 +1,266 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Shield, Smartphone, Zap, ArrowRight, X, Mail, Phone, User, Loader2 } from 'lucide-react';
+import { 
+  Fingerprint, 
+  Clock, 
+  Shield, 
+  Zap, 
+  ChevronRight, 
+  CheckCircle,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Users
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 
 const BatinkLanding = () => {
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
     email: '',
     cidade: '',
-    funcionarios: ''
+    funcionarios: '',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const heroAnimation = useScrollAnimation(0.1);
   const featuresAnimation = useScrollAnimation(0.1);
-  const statsAnimation = useScrollAnimation(0.1);
   const ctaAnimation = useScrollAnimation(0.1);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.nome || !formData.telefone || !formData.email) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha nome, telefone e email.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
+    setIsLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('leads_captacao')
-        .insert({
-          nome: formData.nome,
-          telefone: formData.telefone,
-          email: formData.email,
-          origem: 'batink_landing',
-          comentario: `Cidade: ${formData.cidade || 'Não informada'} | Funcionários: ${formData.funcionarios || 'Não informado'}`,
-          status: 'novo',
-          user_id: null
-        });
+      const { error } = await supabase.from('leads_captacao').insert({
+        nome: formData.nome,
+        telefone: formData.telefone,
+        email: formData.email,
+        comentario: `Cidade: ${formData.cidade} | Funcionários: ${formData.funcionarios}`,
+        origem: 'batink_landing',
+        tipo: 'batink',
+        status: 'novo',
+      });
 
       if (error) throw error;
 
-      toast({
-        title: "Solicitação enviada!",
-        description: "Entraremos em contato em breve.",
-      });
-      
-      setModalOpen(false);
-      setFormData({ nome: '', telefone: '', email: '', cidade: '', funcionarios: '' });
+      setIsSubmitted(true);
+      toast.success('Dados enviados com sucesso!');
+
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setIsSubmitted(false);
+        setFormData({ nome: '', telefone: '', email: '', cidade: '', funcionarios: '' });
+      }, 3000);
     } catch (error) {
-      console.error('Erro ao enviar lead:', error);
-      toast({
-        title: "Erro ao enviar",
-        description: "Tente novamente mais tarde.",
-        variant: "destructive"
-      });
+      console.error('Erro ao enviar:', error);
+      toast.error('Erro ao enviar dados. Tente novamente.');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   const features = [
     {
-      icon: Smartphone,
-      title: 'Mobile First',
-      description: 'Registre o ponto de qualquer lugar com nosso app responsivo e intuitivo.'
-    },
-    {
-      icon: Shield,
-      title: 'Segurança Total',
-      description: 'Dados criptografados e backup automático em nuvem com alta disponibilidade.'
+      icon: Clock,
+      title: 'Precisão',
+      description: 'Registro de ponto com precisão de segundos e geolocalização integrada',
     },
     {
       icon: Zap,
-      title: 'Tempo Real',
-      description: 'Acompanhe os registros instantaneamente com sincronização em tempo real.'
-    }
+      title: 'Agilidade',
+      description: 'Interface intuitiva para registros rápidos em qualquer dispositivo',
+    },
+    {
+      icon: Shield,
+      title: 'Segurança',
+      description: 'Dados protegidos com criptografia e backup automático',
+    },
   ];
 
-  const stats = [
-    { value: '1.000+', label: 'Empresas' },
-    { value: '99.9%', label: 'Uptime' },
-    { value: '50k+', label: 'Registros/dia' }
-  ];
+  // HSL Colors as per specification
+  const colors = {
+    bgMain: 'hsl(270, 50%, 8%)',        // Roxo escuro profundo
+    primary: 'hsl(320, 85%, 50%)',       // Magenta vibrante
+    accent: 'hsl(45, 90%, 50%)',         // Dourado brilhante
+    cardBg: 'hsl(270, 40%, 15%)',        // Roxo semi-transparente
+    textMain: 'hsl(0, 0%, 98%)',         // Branco
+    textSecondary: 'hsl(270, 20%, 70%)', // Roxo claro
+    border: 'hsl(270, 30%, 30%)',        // Roxo com transparência
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-[#8b5cf6]/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[#7c3aed]/5 rounded-full blur-[100px]" />
-        <div className="absolute top-1/3 left-0 w-[400px] h-[400px] bg-[#d4af37]/5 rounded-full blur-[80px]" />
-      </div>
-
+    <div className="min-h-screen" style={{ backgroundColor: colors.bgMain }}>
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Clock className="h-8 w-8 text-[#8b5cf6]" />
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#d4af37] rounded-full animate-pulse" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">
-              <span className="text-[#8b5cf6]">BAT</span>
-              <span className="text-white">INK</span>
-            </span>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-8">
-            <button 
-              onClick={() => setModalOpen(true)}
-              className="text-sm text-white/60 hover:text-white transition-colors"
-            >
-              Contato
-            </button>
-            <Button 
-              onClick={() => navigate('/batink/auth')}
-              className="bg-transparent border border-[#d4af37]/50 text-[#d4af37] hover:bg-[#d4af37]/10 hover:border-[#d4af37] px-6"
-            >
-              Entrar
-            </Button>
-          </nav>
-
-          <button 
-            className="md:hidden text-white/80"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : (
-              <div className="flex flex-col gap-1.5">
-                <span className="w-6 h-0.5 bg-white/80" />
-                <span className="w-6 h-0.5 bg-white/80" />
-                <span className="w-6 h-0.5 bg-white/80" />
+      <header 
+        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b"
+        style={{ 
+          backgroundColor: 'hsla(270, 50%, 8%, 0.8)',
+          borderColor: colors.border
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo Elaborado */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`
+                  }}
+                >
+                  <Fingerprint className="w-6 h-6 text-white" />
+                </div>
+                {/* Ponto dourado pulsante */}
+                <div 
+                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
+                  style={{ backgroundColor: colors.accent }}
+                />
               </div>
-            )}
-          </button>
-        </div>
+              <span 
+                className="text-xl font-bold"
+                style={{ color: colors.primary }}
+              >
+                BATINK
+              </span>
+            </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-white/5 px-6 py-6 space-y-4">
-            <button 
-              onClick={() => { setModalOpen(true); setMobileMenuOpen(false); }}
-              className="block w-full text-left text-white/60 hover:text-white transition-colors py-2"
-            >
-              Contato
-            </button>
-            <Button 
+            {/* Botão Entrar */}
+            <Button
+              variant="outline"
               onClick={() => navigate('/batink/auth')}
-              className="w-full bg-[#d4af37] text-black hover:bg-[#d4af37]/90"
+              className="border-2 bg-transparent transition-all duration-300"
+              style={{ 
+                borderColor: colors.primary,
+                color: colors.primary
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'hsla(320, 85%, 50%, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
               Entrar
             </Button>
           </div>
-        )}
+        </div>
       </header>
 
       {/* Hero Section */}
       <section 
         ref={heroAnimation.ref}
-        className={`min-h-screen flex items-center justify-center relative pt-20 transition-all duration-1000 ${
+        className={`min-h-screen flex items-center justify-center pt-16 transition-all duration-700 ${
           heroAnimation.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
+        style={{
+          background: `linear-gradient(135deg, ${colors.bgMain} 0%, hsl(270, 40%, 12%) 50%, ${colors.bgMain} 100%)`
+        }}
       >
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 mb-8">
-            <div className="w-2 h-2 bg-[#d4af37] rounded-full animate-pulse" />
-            <span className="text-sm text-white/60">Sistema de Ponto Digital</span>
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
-            <span className="text-[#8b5cf6]">BATINK</span>
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h1 
+            className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6"
+            style={{ color: colors.textMain }}
+          >
+            Gestão de Ponto{' '}
+            <span style={{ color: colors.primary }}>Digital</span>
           </h1>
-          
-          <p className="text-2xl md:text-3xl lg:text-4xl font-light text-white/40 mb-4">
-            Controle de Ponto
+          <p 
+            className="text-xl sm:text-2xl mb-10"
+            style={{ color: colors.textSecondary }}
+          >
+            O ponto certo para sua equipe.
           </p>
-          
-          <p className="text-2xl md:text-3xl lg:text-4xl font-light mb-12">
-            <span className="text-[#d4af37]">Inteligente</span>
-          </p>
-          
-          <p className="text-lg text-white/50 max-w-xl mx-auto mb-12">
-            Modernize a gestão de ponto da sua empresa com tecnologia de ponta, 
-            segurança e simplicidade.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button 
-              onClick={() => setModalOpen(true)}
-              className="relative bg-[#d4af37] text-black hover:bg-[#d4af37]/90 px-8 py-6 text-lg font-semibold group overflow-hidden"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                Começar Agora
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-[#d4af37] to-[#f4d03f] opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Button>
-            
-            <Button 
-              variant="outline"
-              onClick={() => navigate('/batink/auth')}
-              className="border-white/20 text-white hover:bg-white/5 px-8 py-6 text-lg"
-            >
-              Fazer Login
-            </Button>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30">
-          <span className="text-xs uppercase tracking-widest">Scroll</span>
-          <div className="w-px h-12 bg-gradient-to-b from-white/30 to-transparent" />
+          <Button
+            size="lg"
+            onClick={() => setIsModalOpen(true)}
+            className="text-lg px-8 py-6 font-semibold transition-all duration-300 hover:scale-105"
+            style={{
+              backgroundColor: colors.accent,
+              color: colors.bgMain,
+              boxShadow: `0 0 30px hsla(45, 90%, 50%, 0.4)`
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 50px hsla(45, 90%, 50%, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 30px hsla(45, 90%, 50%, 0.4)';
+            }}
+          >
+            Começar Agora
+            <ChevronRight className="w-5 h-5 ml-2" />
+          </Button>
         </div>
       </section>
 
       {/* Features Section */}
       <section 
         ref={featuresAnimation.ref}
-        className={`py-32 relative transition-all duration-1000 delay-200 ${
+        className={`py-24 transition-all duration-700 delay-200 ${
           featuresAnimation.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
+        style={{ backgroundColor: colors.bgMain }}
       >
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Por que escolher o <span className="text-[#8b5cf6]">BATINK</span>?
-            </h2>
-            <p className="text-white/50 max-w-lg mx-auto">
-              Tecnologia avançada para simplificar o controle de ponto da sua empresa.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <div 
+              <div
                 key={index}
-                className="group relative bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:border-[#8b5cf6]/50 transition-all duration-500"
+                className="p-8 rounded-2xl backdrop-blur-sm border transition-all duration-300 hover:scale-105 cursor-default"
+                style={{
+                  backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                  borderColor: colors.border,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = colors.primary;
+                  e.currentTarget.style.boxShadow = `0 0 30px hsla(320, 85%, 50%, 0.3)`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = colors.border;
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                <div className="absolute inset-0 bg-gradient-to-b from-[#8b5cf6]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                
-                <div className="relative">
-                  <div className="w-14 h-14 bg-[#8b5cf6]/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-[#8b5cf6]/20 transition-colors">
-                    <feature.icon className="h-7 w-7 text-[#8b5cf6]" />
-                  </div>
-                  
-                  <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                  <p className="text-white/50 leading-relaxed">{feature.description}</p>
+                <div 
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+                  style={{ backgroundColor: 'hsla(320, 85%, 50%, 0.15)' }}
+                >
+                  <feature.icon 
+                    className="w-7 h-7" 
+                    style={{ color: colors.primary }}
+                  />
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section 
-        ref={statsAnimation.ref}
-        className={`py-24 relative transition-all duration-1000 delay-300 ${
-          statsAnimation.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}
-      >
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="grid grid-cols-3 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl md:text-5xl font-bold text-[#d4af37] mb-2">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-white/40 uppercase tracking-wider">
-                  {stat.label}
-                </div>
+                <h3 
+                  className="text-xl font-bold mb-3"
+                  style={{ color: colors.textMain }}
+                >
+                  {feature.title}
+                </h3>
+                <p style={{ color: colors.textSecondary }}>
+                  {feature.description}
+                </p>
               </div>
             ))}
           </div>
@@ -299,137 +270,246 @@ const BatinkLanding = () => {
       {/* CTA Section */}
       <section 
         ref={ctaAnimation.ref}
-        className={`py-32 relative transition-all duration-1000 delay-400 ${
+        className={`py-24 transition-all duration-700 delay-300 ${
           ctaAnimation.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
+        style={{
+          background: `linear-gradient(180deg, ${colors.bgMain} 0%, hsl(270, 40%, 12%) 100%)`
+        }}
       >
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold mb-6">
-            Pronto para <span className="text-[#8b5cf6]">modernizar</span>
-            <br />
-            sua gestão de ponto?
-          </h2>
-          
-          <p className="text-lg text-white/50 mb-10 max-w-lg mx-auto">
-            Junte-se a milhares de empresas que já transformaram seu controle de ponto.
-          </p>
-
-          <Button 
-            onClick={() => setModalOpen(true)}
-            className="bg-[#d4af37] text-black hover:bg-[#d4af37]/90 px-10 py-6 text-lg font-semibold"
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 
+            className="text-2xl sm:text-3xl md:text-4xl font-bold mb-8"
+            style={{ color: colors.textMain }}
           >
-            Solicitar Demonstração
+            Pronto para modernizar o controle de ponto da sua empresa?
+          </h2>
+          <Button
+            size="lg"
+            onClick={() => setIsModalOpen(true)}
+            className="text-lg px-8 py-6 font-semibold transition-all duration-300 hover:scale-105"
+            style={{
+              backgroundColor: colors.accent,
+              color: colors.bgMain,
+              boxShadow: `0 0 30px hsla(45, 90%, 50%, 0.4)`
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 50px hsla(45, 90%, 50%, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 30px hsla(45, 90%, 50%, 0.4)';
+            }}
+          >
+            Acessar Sistema
+            <ChevronRight className="w-5 h-5 ml-2" />
           </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-[#8b5cf6]" />
-            <span className="text-sm text-white/40">BATINK</span>
-          </div>
-          <p className="text-sm text-white/30">
-            © {new Date().getFullYear()} BATINK. Todos os direitos reservados.
+      <footer 
+        className="py-8 border-t"
+        style={{ 
+          backgroundColor: colors.bgMain,
+          borderColor: colors.border
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p style={{ color: colors.textSecondary }}>
+            © 2024{' '}
+            <span style={{ color: colors.primary }}>BATINK</span>
+            . Todos os direitos reservados.
           </p>
         </div>
       </footer>
 
       {/* Contact Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="bg-[#0f0f15] border border-white/10 text-white max-w-md">
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent 
+          className="max-w-md border"
+          style={{ 
+            backgroundColor: 'hsl(270, 40%, 12%)',
+            borderColor: colors.border
+          }}
+        >
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#8b5cf6]/20 rounded-lg flex items-center justify-center">
-                <Clock className="h-5 w-5 text-[#8b5cf6]" />
-              </div>
-              Solicitar Contato
+            <DialogTitle 
+              className="text-2xl font-bold text-center"
+              style={{ color: colors.textMain }}
+            >
+              {isSubmitted ? 'Obrigado!' : 'Fale Conosco'}
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-5 mt-4">
-            <div className="space-y-2">
-              <Label className="text-white/70 text-sm">Nome *</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
+          {isSubmitted ? (
+            <div className="py-8 text-center">
+              <CheckCircle 
+                className="w-16 h-16 mx-auto mb-4" 
+                style={{ color: colors.accent }}
+              />
+              <p 
+                className="text-lg"
+                style={{ color: colors.textSecondary }}
+              >
+                Recebemos suas informações! Um especialista BATINK entrará em contato em breve.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label 
+                  htmlFor="nome" 
+                  className="flex items-center gap-2"
+                  style={{ color: colors.textSecondary }}
+                >
+                  <User className="w-4 h-4" />
+                  Nome *
+                </Label>
                 <Input
+                  id="nome"
                   name="nome"
                   value={formData.nome}
                   onChange={handleInputChange}
+                  required
                   placeholder="Seu nome completo"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pl-10 focus:border-[#8b5cf6]/50"
+                  className="border focus:ring-2"
+                  style={{ 
+                    backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                    borderColor: colors.border,
+                    color: colors.textMain
+                  }}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label className="text-white/70 text-sm">Telefone *</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
+              <div className="space-y-2">
+                <Label 
+                  htmlFor="telefone" 
+                  className="flex items-center gap-2"
+                  style={{ color: colors.textSecondary }}
+                >
+                  <Phone className="w-4 h-4" />
+                  Telefone *
+                </Label>
                 <Input
+                  id="telefone"
                   name="telefone"
+                  type="tel"
                   value={formData.telefone}
                   onChange={handleInputChange}
+                  required
                   placeholder="(00) 00000-0000"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pl-10 focus:border-[#8b5cf6]/50"
+                  className="border"
+                  style={{ 
+                    backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                    borderColor: colors.border,
+                    color: colors.textMain
+                  }}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label className="text-white/70 text-sm">Email *</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
+              <div className="space-y-2">
+                <Label 
+                  htmlFor="email" 
+                  className="flex items-center gap-2"
+                  style={{ color: colors.textSecondary }}
+                >
+                  <Mail className="w-4 h-4" />
+                  Email *
+                </Label>
                 <Input
+                  id="email"
                   name="email"
                   type="email"
                   value={formData.email}
                   onChange={handleInputChange}
+                  required
                   placeholder="seu@email.com"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 pl-10 focus:border-[#8b5cf6]/50"
+                  className="border"
+                  style={{ 
+                    backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                    borderColor: colors.border,
+                    color: colors.textMain
+                  }}
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-white/70 text-sm">Cidade</Label>
+                <Label 
+                  htmlFor="cidade" 
+                  className="flex items-center gap-2"
+                  style={{ color: colors.textSecondary }}
+                >
+                  <MapPin className="w-4 h-4" />
+                  Cidade *
+                </Label>
                 <Input
+                  id="cidade"
                   name="cidade"
                   value={formData.cidade}
                   onChange={handleInputChange}
+                  required
                   placeholder="Sua cidade"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#8b5cf6]/50"
+                  className="border"
+                  style={{ 
+                    backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                    borderColor: colors.border,
+                    color: colors.textMain
+                  }}
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-white/70 text-sm">Funcionários</Label>
-                <Input
-                  name="funcionarios"
-                  value={formData.funcionarios}
-                  onChange={handleInputChange}
-                  placeholder="Quantidade"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#8b5cf6]/50"
-                />
-              </div>
-            </div>
 
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full bg-[#d4af37] text-black hover:bg-[#d4af37]/90 py-6 font-semibold"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                'Enviar Solicitação'
-              )}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label 
+                  className="flex items-center gap-2"
+                  style={{ color: colors.textSecondary }}
+                >
+                  <Users className="w-4 h-4" />
+                  Quantos funcionários *
+                </Label>
+                <Select
+                  value={formData.funcionarios}
+                  onValueChange={(value) => setFormData({ ...formData, funcionarios: value })}
+                  required
+                >
+                  <SelectTrigger 
+                    className="border"
+                    style={{ 
+                      backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                      borderColor: colors.border,
+                      color: colors.textMain
+                    }}
+                  >
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="border"
+                    style={{ 
+                      backgroundColor: 'hsl(270, 40%, 15%)',
+                      borderColor: colors.border
+                    }}
+                  >
+                    <SelectItem value="1-10" style={{ color: colors.textMain }}>1-10</SelectItem>
+                    <SelectItem value="11-50" style={{ color: colors.textMain }}>11-50</SelectItem>
+                    <SelectItem value="51-100" style={{ color: colors.textMain }}>51-100</SelectItem>
+                    <SelectItem value="101-500" style={{ color: colors.textMain }}>101-500</SelectItem>
+                    <SelectItem value="500+" style={{ color: colors.textMain }}>500+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full font-semibold transition-all duration-300 mt-6"
+                style={{
+                  backgroundColor: colors.accent,
+                  color: colors.bgMain,
+                }}
+              >
+                {isLoading ? 'Enviando...' : 'Enviar'}
+              </Button>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
