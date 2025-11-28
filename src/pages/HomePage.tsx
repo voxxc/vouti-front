@@ -70,6 +70,9 @@ const HomePage = () => {
       } else if (code === 'adm1nvouti') {
         // Super Admin panel - no logout needed
         navigate('/super-admin');
+      } else if (code === 'batink') {
+        // BATINK landing page - no logout needed
+        navigate('/batink');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);
