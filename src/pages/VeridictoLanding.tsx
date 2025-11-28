@@ -1,5 +1,6 @@
-import { Scale, Shield, FileText, Users, Briefcase, Clock, TrendingUp, Award, Target, BarChart3, X } from 'lucide-react';
+import { Scale, Shield, FileText, Users, Briefcase, Clock, TrendingUp, Award, Target, BarChart3, X, KeyRound } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,8 +49,11 @@ const FloatingParticles = ({ count = 30, color = 'gold' }: { count?: number; col
 };
 
 const VeridictoLanding = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggInput, setEasterEggInput] = useState("");
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -57,6 +61,29 @@ const VeridictoLanding = () => {
     colaboradores: '',
     processos: ''
   });
+
+  const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const code = easterEggInput.toLowerCase();
+      if (code === 'jusvouti') {
+        await supabase.auth.signOut();
+        navigate('/auth');
+      } else if (code === 'metal') {
+        await supabase.auth.signOut();
+        navigate('/metal-auth');
+      } else if (code === 'vlink') {
+        await supabase.auth.signOut();
+        navigate('/link-auth');
+      } else if (code === 'adm1nvouti') {
+        navigate('/super-admin');
+      } else if (code === 'batink') {
+        navigate('/batink');
+      } else {
+        setEasterEggInput('');
+        setShowEasterEgg(false);
+      }
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -576,6 +603,32 @@ const VeridictoLanding = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Easter Egg */}
+      <button
+        onClick={() => setShowEasterEgg(!showEasterEgg)}
+        className="fixed bottom-4 right-4 w-8 h-8 opacity-0 hover:opacity-10 transition-opacity z-50"
+        aria-label="Secret"
+      >
+        <KeyRound className="w-4 h-4 text-[hsl(43,70%,50%)]" />
+      </button>
+
+      {showEasterEgg && (
+        <div className="fixed bottom-16 right-4 z-50 animate-fade-in">
+          <Input
+            type="text"
+            value={easterEggInput}
+            onChange={(e) => setEasterEggInput(e.target.value)}
+            onKeyDown={handleEasterEggSubmit}
+            onBlur={() => {
+              setTimeout(() => setShowEasterEgg(false), 200);
+            }}
+            placeholder="..."
+            autoFocus
+            className="w-32 h-8 text-sm backdrop-blur-md bg-black/80 border-[hsl(43,70%,50%)]/50 text-white focus:ring-[hsl(43,70%,50%)]"
+          />
+        </div>
+      )}
     </div>
   );
 };
