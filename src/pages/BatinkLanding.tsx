@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Fingerprint, 
   Clock, 
   Shield, 
   Zap, 
-  ChevronRight, 
   CheckCircle,
   User,
   Phone,
@@ -20,8 +18,7 @@ import {
   FileCheck,
   BarChart3,
   UserCheck,
-  Globe,
-  Menu
+  Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -37,9 +34,13 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import heroBg from '@/assets/batink-hero-bg.jpg';
+import statsBg from '@/assets/batink-stats-bg.jpg';
+import featuresBg from '@/assets/batink-features-bg.jpg';
+import benefitsBg from '@/assets/batink-benefits-bg.jpg';
+import howitBg from '@/assets/batink-howit-bg.jpg';
+import ctaBg from '@/assets/batink-cta-bg.jpg';
 
 const BatinkLanding = () => {
-  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -145,7 +146,7 @@ const BatinkLanding = () => {
       <div className="fixed inset-0 -z-10" style={{ backgroundColor: colors.bgMain }} />
       
       <div className="min-h-screen w-full overflow-x-hidden relative scroll-smooth">
-        {/* Header - Mobile Responsive */}
+        {/* Header - Clean logo only */}
         <header 
           className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b"
           style={{ 
@@ -153,7 +154,7 @@ const BatinkLanding = () => {
             borderColor: colors.border
           }}
         >
-          <div className="flex items-center justify-between h-16 sm:h-20 px-4 sm:px-6 lg:px-12">
+          <div className="flex items-center justify-center h-16 sm:h-20 px-4 sm:px-6 lg:px-12">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="relative">
                 <div 
@@ -171,37 +172,6 @@ const BatinkLanding = () => {
                 BATINK
               </span>
             </div>
-
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/batink/auth')}
-                className="sm:hidden transition-all duration-300"
-                style={{ color: colors.textSecondary }}
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/batink/auth')}
-                className="hidden sm:flex transition-all duration-300"
-                style={{ color: colors.textSecondary }}
-              >
-                Entrar
-              </Button>
-              <Button
-                onClick={() => setIsModalOpen(true)}
-                className="text-sm sm:text-base px-3 sm:px-4 transition-all duration-300"
-                style={{ 
-                  backgroundColor: colors.accent,
-                  color: colors.bgMain,
-                }}
-              >
-                <span className="hidden sm:inline">Agendar Demo</span>
-                <span className="sm:hidden">Demo</span>
-              </Button>
-            </div>
           </div>
         </header>
 
@@ -216,7 +186,7 @@ const BatinkLanding = () => {
               backgroundImage: `url(${heroBg})`,
             }}
           />
-          {/* Dark Overlay with Gradient - more opaque on mobile */}
+          {/* Dark Overlay with Gradient */}
           <div 
             className="absolute inset-0"
             style={{ 
@@ -258,47 +228,26 @@ const BatinkLanding = () => {
               >
                 Simplifique o controle de ponto e garanta conformidade legal com tecnologia de ponta. Tudo em um só lugar.
               </p>
-              
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center sm:justify-start">
-                <Button
-                  size="lg"
-                  onClick={() => setIsModalOpen(true)}
-                  className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
-                  style={{
-                    backgroundColor: colors.accent,
-                    color: colors.bgMain,
-                    boxShadow: `0 0 30px hsla(45, 90%, 50%, 0.4)`
-                  }}
-                >
-                  Começar Agora
-                  <ChevronRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => navigate('/batink/auth')}
-                  className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold border-2 bg-transparent transition-all duration-300 w-full sm:w-auto"
-                  style={{ 
-                    borderColor: colors.textSecondary,
-                    color: colors.textMain
-                  }}
-                >
-                  Acessar Sistema
-                </Button>
-              </div>
             </div>
           </div>
         </section>
 
-        {/* Stats Section - Mobile Responsive */}
-        <section 
-          className="py-12 sm:py-16 lg:py-20 border-b"
-          style={{ 
-            backgroundColor: 'hsl(270, 45%, 10%)',
-            borderColor: colors.border
-          }}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+        {/* Stats Section with Background Image */}
+        <section className="relative py-12 sm:py-16 lg:py-20 overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${statsBg})` }}
+          />
+          {/* Dark Overlay */}
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: `linear-gradient(135deg, hsla(270, 50%, 8%, 0.92) 0%, hsla(270, 45%, 10%, 0.88) 50%, hsla(270, 50%, 8%, 0.92) 100%)`
+            }}
+          />
+          
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
             <div className="grid grid-cols-1 gap-8 sm:gap-6 md:grid-cols-3 md:gap-12">
               {stats.map((stat, index) => (
                 <div key={index} className="text-center relative">
@@ -328,26 +277,25 @@ const BatinkLanding = () => {
                 </div>
               ))}
             </div>
-            
-            <div className="flex justify-center mt-8 sm:mt-12">
-              <Button
-                size="lg"
-                onClick={() => setIsModalOpen(true)}
-                className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
-                style={{
-                  backgroundColor: colors.accent,
-                  color: colors.bgMain,
-                }}
-              >
-                Agendar Demonstração
-              </Button>
-            </div>
           </div>
         </section>
 
-        {/* Features Section - Mobile Responsive */}
-        <section className="py-16 sm:py-20 lg:py-24" style={{ backgroundColor: colors.bgMain }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+        {/* Features Section with Background Image */}
+        <section className="relative py-16 sm:py-20 lg:py-24 overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${featuresBg})` }}
+          />
+          {/* Dark Overlay */}
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: `linear-gradient(180deg, hsla(270, 50%, 8%, 0.95) 0%, hsla(270, 45%, 10%, 0.90) 50%, hsla(270, 50%, 8%, 0.95) 100%)`
+            }}
+          />
+          
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
             <div className="text-center mb-10 sm:mb-12 lg:mb-16">
               <h2 
                 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4"
@@ -368,9 +316,9 @@ const BatinkLanding = () => {
               {features.map((feature, index) => (
                 <div
                   key={index}
-                  className="p-5 sm:p-6 lg:p-8 rounded-2xl backdrop-blur-sm border transition-all duration-300 hover:scale-105 cursor-default group text-center sm:text-left"
+                  className="p-5 sm:p-6 lg:p-8 rounded-2xl backdrop-blur-md border transition-all duration-300 hover:scale-105 cursor-default group text-center sm:text-left"
                   style={{
-                    backgroundColor: 'hsla(270, 40%, 15%, 0.6)',
+                    backgroundColor: 'hsla(270, 40%, 15%, 0.7)',
                     borderColor: colors.border,
                   }}
                   onMouseEnter={(e) => {
@@ -400,19 +348,27 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* Benefits Section - Mobile Responsive with reversed order */}
-        <section 
-          className="py-16 sm:py-20 lg:py-24"
-          style={{ 
-            background: `linear-gradient(180deg, hsl(270, 40%, 12%) 0%, ${colors.bgMain} 100%)`
-          }}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+        {/* Benefits Section with Background Image */}
+        <section className="relative py-16 sm:py-20 lg:py-24 overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${benefitsBg})` }}
+          />
+          {/* Dark Overlay */}
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: `linear-gradient(135deg, hsla(270, 50%, 8%, 0.93) 0%, hsla(270, 40%, 12%, 0.88) 50%, hsla(270, 50%, 8%, 0.93) 100%)`
+            }}
+          />
+          
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
               {/* Image - appears second on mobile */}
               <div className="relative order-2 lg:order-1">
                 <div 
-                  className="aspect-video rounded-2xl overflow-hidden border-2"
+                  className="aspect-video rounded-2xl overflow-hidden border-2 backdrop-blur-sm"
                   style={{ 
                     borderColor: colors.primary,
                     boxShadow: `0 0 40px hsla(320, 85%, 50%, 0.2), 0 0 60px hsla(320, 85%, 50%, 0.1)`
@@ -445,7 +401,7 @@ const BatinkLanding = () => {
                   Elimine burocracias e feche sua folha até 25x mais rápido. Tudo 100% em conformidade com a legislação, com cálculos precisos feitos em minutos.
                 </p>
                 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   {benefits.map((benefit, index) => (
                     <div key={index} className="flex items-center gap-2 sm:gap-3 justify-center lg:justify-start">
                       <div 
@@ -458,26 +414,27 @@ const BatinkLanding = () => {
                     </div>
                   ))}
                 </div>
-                
-                <Button
-                  size="lg"
-                  onClick={() => setIsModalOpen(true)}
-                  className="font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
-                  style={{
-                    backgroundColor: colors.accent,
-                    color: colors.bgMain,
-                  }}
-                >
-                  Agendar Demonstração
-                </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* How It Works Section - Mobile Responsive */}
-        <section className="py-16 sm:py-20 lg:py-24" style={{ backgroundColor: colors.bgMain }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+        {/* How It Works Section with Background Image */}
+        <section className="relative py-16 sm:py-20 lg:py-24 overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${howitBg})` }}
+          />
+          {/* Dark Overlay */}
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: `linear-gradient(180deg, hsla(270, 50%, 8%, 0.90) 0%, hsla(270, 45%, 10%, 0.85) 50%, hsla(270, 50%, 8%, 0.90) 100%)`
+            }}
+          />
+          
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
             <div className="text-center mb-10 sm:mb-12 lg:mb-16">
               <h2 
                 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4"
@@ -510,7 +467,7 @@ const BatinkLanding = () => {
                   
                   {/* Icon */}
                   <div 
-                    className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6"
+                    className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 backdrop-blur-sm"
                     style={{ 
                       backgroundColor: 'hsla(270, 40%, 15%, 0.8)',
                       border: `1px solid ${colors.border}`
@@ -550,14 +507,22 @@ const BatinkLanding = () => {
           </div>
         </section>
 
-        {/* CTA Section - Mobile Responsive */}
-        <section 
-          className="py-16 sm:py-20 lg:py-24"
-          style={{
-            background: `linear-gradient(180deg, ${colors.bgMain} 0%, hsl(270, 40%, 12%) 100%)`
-          }}
-        >
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+        {/* CTA Section with Background Image */}
+        <section className="relative py-16 sm:py-20 lg:py-24 overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${ctaBg})` }}
+          />
+          {/* Dark Overlay */}
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: `linear-gradient(180deg, hsla(270, 50%, 8%, 0.92) 0%, hsla(270, 40%, 12%, 0.88) 50%, hsla(270, 50%, 8%, 0.92) 100%)`
+            }}
+          />
+          
+          <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center">
             <Globe className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 mx-auto mb-4 sm:mb-6" style={{ color: colors.primary }} />
             <h2 
               className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 px-2"
@@ -571,33 +536,6 @@ const BatinkLanding = () => {
             >
               Junte-se a centenas de empresas que já simplificaram sua gestão de ponto
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-              <Button
-                size="lg"
-                onClick={() => setIsModalOpen(true)}
-                className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold transition-all duration-300 hover:scale-105 w-full sm:w-auto"
-                style={{
-                  backgroundColor: colors.accent,
-                  color: colors.bgMain,
-                  boxShadow: `0 0 30px hsla(45, 90%, 50%, 0.4)`
-                }}
-              >
-                Acessar Sistema
-                <ChevronRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate('/batink/auth')}
-                className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 font-semibold border-2 bg-transparent transition-all duration-300 w-full sm:w-auto"
-                style={{ 
-                  borderColor: colors.primary,
-                  color: colors.primary
-                }}
-              >
-                Fazer Login
-              </Button>
-            </div>
           </div>
         </section>
 
