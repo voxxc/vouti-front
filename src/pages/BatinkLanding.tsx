@@ -196,16 +196,26 @@ const BatinkLanding = () => {
           
           <div className="relative z-10 w-full px-4 sm:px-6 lg:px-12 py-8 sm:py-0">
             <div className="max-w-full sm:max-w-2xl lg:max-w-3xl mx-auto sm:mx-0 text-center sm:text-left">
-              <div 
-                className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-4 sm:mb-6 text-xs sm:text-sm font-medium"
-                style={{ 
-                  backgroundColor: 'hsla(320, 85%, 50%, 0.15)',
-                  color: colors.primary,
-                  border: `1px solid ${colors.primary}`
-                }}
-              >
-                ✨ Sistema de Ponto Digital #1 do Brasil
-              </div>
+          <div 
+            className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-4 sm:mb-6 text-xs sm:text-sm font-medium cursor-default transition-all duration-300"
+            style={{ 
+              backgroundColor: 'hsla(320, 85%, 50%, 0.15)',
+              color: colors.primary,
+              border: `1px solid ${colors.primary}`
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 15px hsla(320, 85%, 50%, 0.5), 0 0 30px hsla(320, 85%, 50%, 0.3)';
+              e.currentTarget.style.borderColor = 'hsl(320, 85%, 60%)';
+              e.currentTarget.style.backgroundColor = 'hsla(320, 85%, 50%, 0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.borderColor = colors.primary;
+              e.currentTarget.style.backgroundColor = 'hsla(320, 85%, 50%, 0.15)';
+            }}
+          >
+            Sistema de Ponto Digital #1 do Brasil
+          </div>
               
               <h1 
                 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight"
