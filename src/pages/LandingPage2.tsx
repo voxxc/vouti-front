@@ -50,6 +50,8 @@ const LandingPage2 = () => {
         navigate('/super-admin');
       } else if (code === 'batink') {
         navigate('/batink');
+      } else if (code === 'veridicto') {
+        navigate('/veridicto');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);
