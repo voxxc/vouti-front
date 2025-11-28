@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Instagram, MessageCircle, CheckCircle2, Users, Shield, TrendingUp, ArrowRight } from "lucide-react";
+import { Instagram, MessageCircle, CheckCircle2, Users, Shield, TrendingUp, ArrowRight, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
@@ -11,6 +12,7 @@ import { useTenant } from "@/contexts/TenantContext";
 const LandingPage1 = () => {
   const { toast } = useToast();
   const { tenant, loading: tenantLoading } = useTenant();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,6 +21,31 @@ const LandingPage1 = () => {
     areaAtuacao: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggInput, setEasterEggInput] = useState("");
+
+  const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const code = easterEggInput.toLowerCase();
+      if (code === 'jusvouti') {
+        await supabase.auth.signOut();
+        navigate('/auth');
+      } else if (code === 'metal') {
+        await supabase.auth.signOut();
+        navigate('/metal-auth');
+      } else if (code === 'vlink') {
+        await supabase.auth.signOut();
+        navigate('/link-auth');
+      } else if (code === 'adm1nvouti') {
+        navigate('/super-admin');
+      } else if (code === 'batink') {
+        navigate('/batink');
+      } else {
+        setEasterEggInput('');
+        setShowEasterEgg(false);
+      }
+    }
+  };
 
   // Force light theme for landing page
   useEffect(() => {
@@ -352,6 +379,32 @@ const LandingPage1 = () => {
           </p>
         </div>
       </footer>
+
+      {/* Easter Egg */}
+      <button
+        onClick={() => setShowEasterEgg(!showEasterEgg)}
+        className="fixed bottom-4 right-4 w-8 h-8 opacity-0 hover:opacity-10 transition-opacity z-50"
+        aria-label="Secret"
+      >
+        <KeyRound className="w-4 h-4 text-emerald-400" />
+      </button>
+
+      {showEasterEgg && (
+        <div className="fixed bottom-16 right-4 z-50 animate-fade-in">
+          <Input
+            type="text"
+            value={easterEggInput}
+            onChange={(e) => setEasterEggInput(e.target.value)}
+            onKeyDown={handleEasterEggSubmit}
+            onBlur={() => {
+              setTimeout(() => setShowEasterEgg(false), 200);
+            }}
+            placeholder="..."
+            autoFocus
+            className="w-32 h-8 text-sm backdrop-blur-md bg-emerald-950/90 border-emerald-500/50 text-white focus:ring-emerald-500"
+          />
+        </div>
+      )}
     </div>
   );
 };

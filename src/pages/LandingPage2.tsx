@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { useTenant } from '@/contexts/TenantContext';
-import { Scale, Users, Shield, Award, Phone, Mail, MapPin, Facebook, Instagram, Linkedin, Menu, X, CheckCircle, FileText, Home as HomeIcon, Briefcase, Heart, Building, Coins, Key, Calendar, ShoppingCart } from 'lucide-react';
+import { Scale, Users, Shield, Award, Phone, Mail, MapPin, Facebook, Instagram, Linkedin, Menu, X, CheckCircle, FileText, Home as HomeIcon, Briefcase, Heart, Building, Coins, Key, Calendar, ShoppingCart, KeyRound } from 'lucide-react';
 import heroImage from '@/assets/hero-law-office.jpg';
 import advogado1 from '@/assets/advogado-1.jpg';
 import advogado2 from '@/assets/advogado-2.jpg';
@@ -20,7 +21,10 @@ import advogado4 from '@/assets/advogado-4.jpg';
 const LandingPage2 = () => {
   const { toast } = useToast();
   const { tenant, loading: tenantLoading } = useTenant();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggInput, setEasterEggInput] = useState("");
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -29,6 +33,29 @@ const LandingPage2 = () => {
     mensagem: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const code = easterEggInput.toLowerCase();
+      if (code === 'jusvouti') {
+        await supabase.auth.signOut();
+        navigate('/auth');
+      } else if (code === 'metal') {
+        await supabase.auth.signOut();
+        navigate('/metal-auth');
+      } else if (code === 'vlink') {
+        await supabase.auth.signOut();
+        navigate('/link-auth');
+      } else if (code === 'adm1nvouti') {
+        navigate('/super-admin');
+      } else if (code === 'batink') {
+        navigate('/batink');
+      } else {
+        setEasterEggInput('');
+        setShowEasterEgg(false);
+      }
+    }
+  };
 
   useEffect(() => {
     document.documentElement.classList.remove('dark');
@@ -546,6 +573,32 @@ const LandingPage2 = () => {
           </div>
         </div>
       </footer>
+
+      {/* Easter Egg */}
+      <button
+        onClick={() => setShowEasterEgg(!showEasterEgg)}
+        className="fixed bottom-4 right-4 w-8 h-8 opacity-0 hover:opacity-10 transition-opacity z-50"
+        aria-label="Secret"
+      >
+        <KeyRound className="w-4 h-4 text-slate-500" />
+      </button>
+
+      {showEasterEgg && (
+        <div className="fixed bottom-16 right-4 z-50 animate-fade-in">
+          <Input
+            type="text"
+            value={easterEggInput}
+            onChange={(e) => setEasterEggInput(e.target.value)}
+            onKeyDown={handleEasterEggSubmit}
+            onBlur={() => {
+              setTimeout(() => setShowEasterEgg(false), 200);
+            }}
+            placeholder="..."
+            autoFocus
+            className="w-32 h-8 text-sm backdrop-blur-md bg-slate-900/90 border-slate-500/50 text-white focus:ring-slate-500"
+          />
+        </div>
+      )}
     </div>
   );
 };
