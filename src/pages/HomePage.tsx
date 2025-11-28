@@ -73,6 +73,9 @@ const HomePage = () => {
       } else if (code === 'batink') {
         // BATINK landing page - no logout needed
         navigate('/batink');
+      } else if (code === 'veridicto') {
+        // Veridicto landing page - no logout needed
+        navigate('/veridicto');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);
