@@ -1,5 +1,11 @@
-import { Scale, Shield, FileText, Users, Briefcase, Clock, TrendingUp, Award } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Scale, Shield, FileText, Users, Briefcase, Clock, TrendingUp, Award, Target, BarChart3, X } from 'lucide-react';
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 // Background images
 import heroBg from '@/assets/veridicto-hero-bg.jpg';
@@ -41,42 +47,79 @@ const FloatingParticles = ({ count = 30, color = 'gold' }: { count?: number; col
   );
 };
 
-// Animated counter component
-const AnimatedCounter = ({ end, suffix = '', duration = 2000 }: { end: number; suffix?: string; duration?: number }) => {
-  const [count, setCount] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    
-    let startTime: number;
-    const animate = (currentTime: number) => {
-      if (!startTime) startTime = currentTime;
-      const progress = Math.min((currentTime - startTime) / duration, 1);
-      setCount(Math.floor(progress * end));
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, [isVisible, end, duration]);
-
-  return (
-    <span 
-      className="inline-block"
-      ref={(el) => {
-        if (el) {
-          const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting) setIsVisible(true);
-          });
-          observer.observe(el);
-        }
-      }}
-    >
-      {count.toLocaleString()}{suffix}
-    </span>
-  );
-};
-
 const VeridictoLanding = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    nome: '',
+    email: '',
+    celular: '',
+    colaboradores: '',
+    processos: ''
+  });
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 7) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (numbers.length <= 11) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.nome || !formData.email || !formData.celular) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha nome, email e celular.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const comentario = `Colaboradores: ${formData.colaboradores || 'Não informado'} | Processos: ${formData.processos || 'Não informado'}`;
+      
+      const { error } = await supabase
+        .from('leads_captacao')
+        .insert({
+          nome: formData.nome,
+          email: formData.email,
+          telefone: formData.celular,
+          origem: 'veridicto_landing',
+          tipo: 'demonstracao',
+          comentario: comentario,
+          status: 'captacao'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Solicitação enviada!",
+        description: "Nossa equipe entrará em contato em breve.",
+      });
+
+      setFormData({ nome: '', email: '', celular: '', colaboradores: '', processos: '' });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error submitting lead:', error);
+      toast({
+        title: "Erro ao enviar",
+        description: "Tente novamente mais tarde.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white overflow-x-hidden">
       {/* CSS for animations */}
@@ -173,14 +216,14 @@ const VeridictoLanding = () => {
               Automatização inteligente, controle absoluto, resultados extraordinários.
             </p>
             
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-5 animate-fade-in-up animate-delay-300">
-              <button className="shimmer-btn px-10 py-4 rounded-lg text-black font-semibold text-lg tracking-wide transition-all duration-300 hover:scale-105"
-                      style={{ animation: 'shimmer 3s linear infinite, pulse-glow 2s ease-in-out infinite' }}>
+            {/* CTA Button */}
+            <div className="animate-fade-in-up animate-delay-300">
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="shimmer-btn px-10 py-4 rounded-lg text-black font-semibold text-lg tracking-wide transition-all duration-300 hover:scale-105"
+                style={{ animation: 'shimmer 3s linear infinite, pulse-glow 2s ease-in-out infinite' }}
+              >
                 Solicitar Demonstração
-              </button>
-              <button className="px-10 py-4 rounded-lg border border-white/20 text-white/80 font-medium text-lg tracking-wide transition-all duration-300 hover:bg-white/5 hover:border-[hsl(43,70%,50%)]/30">
-                Conhecer Recursos
               </button>
             </div>
           </div>
@@ -192,29 +235,49 @@ const VeridictoLanding = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Pilares Section - Replacing Stats */}
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[hsl(210,50%,8%)] via-[hsl(210,60%,12%)] to-[hsl(210,50%,8%)]" />
         
-        {/* Decorative line */}
+        {/* Decorative lines */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[hsl(43,70%,50%)]/40 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[hsl(43,70%,50%)]/40 to-transparent" />
         
         <div className="relative z-10 w-full px-8 md:px-16">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {[
-              { value: 500, suffix: '+', label: 'Escritórios Ativos' },
-              { value: 50000, suffix: '+', label: 'Processos Gerenciados' },
-              { value: 99, suffix: '%', label: 'Taxa de Satisfação' },
-              { value: 15, suffix: '+', label: 'Anos de Experiência' },
-            ].map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-4xl md:text-5xl lg:text-6xl font-light gold-gradient mb-2">
-                  <AnimatedCounter end={stat.value} suffix={stat.suffix} />
+              {
+                icon: Target,
+                title: 'Controle Total',
+                description: 'Gerencie todos os seus processos, prazos e audiências em um único painel centralizado'
+              },
+              {
+                icon: Shield,
+                title: 'Conformidade',
+                description: 'Mantenha seu escritório em total conformidade com OAB, LGPD e regulamentações do setor'
+              },
+              {
+                icon: BarChart3,
+                title: 'Inteligência de Dados',
+                description: 'Tome decisões estratégicas baseadas em métricas e relatórios financeiros precisos'
+              }
+            ].map((pilar, index) => (
+              <div 
+                key={index}
+                className="group text-center p-8 rounded-2xl backdrop-blur-xl bg-white/[0.02] border border-white/[0.05] transition-all duration-500 hover:bg-white/[0.05] hover:border-[hsl(43,70%,50%)]/20"
+              >
+                {/* Icon */}
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[hsl(43,70%,50%)]/20 to-[hsl(35,80%,40%)]/10 flex items-center justify-center mb-6 mx-auto group-hover:scale-110 transition-transform duration-500"
+                     style={{ boxShadow: '0 0 30px rgba(212,175,55,0.2)' }}>
+                  <pilar.icon className="w-8 h-8 text-[hsl(43,70%,50%)]" />
                 </div>
-                <div className="text-white/50 text-sm md:text-base tracking-wider uppercase">
-                  {stat.label}
-                </div>
+                
+                <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-[hsl(43,70%,50%)] transition-colors duration-300">
+                  {pilar.title}
+                </h3>
+                <p className="text-white/50 leading-relaxed text-sm">
+                  {pilar.description}
+                </p>
               </div>
             ))}
           </div>
@@ -387,26 +450,22 @@ const VeridictoLanding = () => {
             
             <p className="text-xl text-white/50 mb-12 max-w-2xl mx-auto">
               Junte-se aos escritórios de elite que confiam no Veridicto para 
-              transformar sua gestão jurídica.
+              transformar sua operação jurídica.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-5 justify-center">
-              <button className="shimmer-btn px-12 py-5 rounded-lg text-black font-semibold text-lg tracking-wide transition-all duration-300 hover:scale-105"
-                      style={{ animation: 'shimmer 3s linear infinite, pulse-glow 2s ease-in-out infinite' }}>
-                Começar Agora
-              </button>
-              <button className="px-12 py-5 rounded-lg border border-[hsl(43,70%,50%)]/30 text-[hsl(43,70%,50%)] font-medium text-lg tracking-wide transition-all duration-300 hover:bg-[hsl(43,70%,50%)]/10">
-                Falar com Especialista
-              </button>
-            </div>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="shimmer-btn px-12 py-5 rounded-lg text-black font-semibold text-xl tracking-wide transition-all duration-300 hover:scale-105"
+              style={{ animation: 'shimmer 3s linear infinite, pulse-glow 2s ease-in-out infinite' }}
+            >
+              Solicitar Demonstração Exclusiva
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative py-12">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[hsl(43,70%,50%)]/30 to-transparent" />
-        
+      {/* Footer - Ultra Minimalist */}
+      <footer className="relative py-12 bg-black">
         <div className="w-full px-8 md:px-16">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
@@ -414,19 +473,109 @@ const VeridictoLanding = () => {
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[hsl(43,70%,50%)] to-[hsl(35,80%,40%)] flex items-center justify-center">
                 <Scale className="w-5 h-5 text-black" />
               </div>
-              <span className="text-lg tracking-widest">
+              <span className="text-xl font-light tracking-widest">
                 <span className="gold-gradient font-semibold">VERI</span>
                 <span className="text-white/70">DICTO</span>
               </span>
             </div>
             
             {/* Copyright */}
-            <p className="text-white/30 text-sm tracking-wider">
+            <div className="text-white/30 text-sm">
               © 2024 Veridicto. Todos os direitos reservados.
-            </p>
+            </div>
           </div>
         </div>
       </footer>
+
+      {/* Demo Request Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-[hsl(210,50%,8%)]/95 backdrop-blur-xl border border-[hsl(43,70%,50%)]/20 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-light text-center">
+              <span className="gold-gradient font-semibold">Solicitar</span>{' '}
+              <span className="text-white/90">Demonstração</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-5 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome" className="text-white/70">Nome completo *</Label>
+              <Input
+                id="nome"
+                value={formData.nome}
+                onChange={(e) => handleInputChange('nome', e.target.value)}
+                placeholder="Seu nome completo"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[hsl(43,70%,50%)]/50"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-white/70">E-mail profissional *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder="seu@email.com"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[hsl(43,70%,50%)]/50"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="celular" className="text-white/70">Celular/WhatsApp *</Label>
+              <Input
+                id="celular"
+                type="tel"
+                value={formData.celular}
+                onChange={(e) => handleInputChange('celular', formatPhone(e.target.value))}
+                placeholder="(00) 00000-0000"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[hsl(43,70%,50%)]/50"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="colaboradores" className="text-white/70">Quantidade de colaboradores</Label>
+              <Select value={formData.colaboradores} onValueChange={(value) => handleInputChange('colaboradores', value)}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[hsl(43,70%,50%)]/50">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[hsl(210,50%,12%)] border-white/10">
+                  <SelectItem value="1-5" className="text-white hover:bg-white/10">1-5 colaboradores</SelectItem>
+                  <SelectItem value="6-15" className="text-white hover:bg-white/10">6-15 colaboradores</SelectItem>
+                  <SelectItem value="16-30" className="text-white hover:bg-white/10">16-30 colaboradores</SelectItem>
+                  <SelectItem value="31-50" className="text-white hover:bg-white/10">31-50 colaboradores</SelectItem>
+                  <SelectItem value="50+" className="text-white hover:bg-white/10">Mais de 50 colaboradores</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="processos" className="text-white/70">Processos simultâneos monitorados</Label>
+              <Select value={formData.processos} onValueChange={(value) => handleInputChange('processos', value)}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[hsl(43,70%,50%)]/50">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[hsl(210,50%,12%)] border-white/10">
+                  <SelectItem value="até-100" className="text-white hover:bg-white/10">Até 100 processos</SelectItem>
+                  <SelectItem value="100-500" className="text-white hover:bg-white/10">100-500 processos</SelectItem>
+                  <SelectItem value="500-1000" className="text-white hover:bg-white/10">500-1.000 processos</SelectItem>
+                  <SelectItem value="1000-5000" className="text-white hover:bg-white/10">1.000-5.000 processos</SelectItem>
+                  <SelectItem value="5000+" className="text-white hover:bg-white/10">Mais de 5.000 processos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full shimmer-btn px-8 py-4 rounded-lg text-black font-semibold text-lg tracking-wide transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              style={{ animation: 'shimmer 3s linear infinite' }}
+            >
+              {isSubmitting ? 'Enviando...' : 'Enviar Solicitação'}
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
