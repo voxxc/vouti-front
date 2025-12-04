@@ -15,7 +15,7 @@ serve(async (req) => {
     const { processoId } = await req.json();
     
     if (!processoId) {
-      throw new Error('processoId é obrigatório');
+      throw new Error('processoId e obrigatorio');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -34,7 +34,7 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !monitoramento?.tracking_id) {
-      throw new Error('Monitoramento não encontrado');
+      throw new Error('Monitoramento nao encontrado');
     }
 
     const trackingId = monitoramento.tracking_id;
@@ -44,7 +44,7 @@ serve(async (req) => {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': juditApiKey,
+        'api-key': juditApiKey,
       },
       body: JSON.stringify({
         status: 'paused',
@@ -59,7 +59,7 @@ serve(async (req) => {
 
     console.log('[Judit] Tracking pausado na Judit');
 
-    // Atualizar status no banco (mantém histórico)
+    // Atualizar status no banco (mantem historico)
     const { error: updateError } = await supabase
       .from('processo_monitoramento_judit')
       .update({
