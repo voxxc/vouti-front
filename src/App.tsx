@@ -42,6 +42,13 @@ import VeridictoLanding from "@/pages/VeridictoLanding";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
 import LoadingTransition from "@/components/LoadingTransition";
+import { 
+  LegacyProjectRedirect, 
+  LegacyProjectAcordosRedirect, 
+  LegacyProjectSectorRedirect,
+  LegacyControladoriaProcessoRedirect,
+  LegacyControladoriaProcessoEditarRedirect
+} from "@/components/Routing/LegacyRedirects";
 import "./App.css";
 
 // Protected Route for tenant-based auth
@@ -435,16 +442,16 @@ function App() {
           <Route path="/auth" element={<Navigate to="/solvenza/auth" replace />} />
           <Route path="/dashboard" element={<Navigate to="/solvenza/dashboard" replace />} />
           <Route path="/projects" element={<Navigate to="/solvenza/projects" replace />} />
-          <Route path="/project/:id" element={<Navigate to="/solvenza/project/:id" replace />} />
-          <Route path="/project/:id/acordos" element={<Navigate to="/solvenza/project/:id/acordos" replace />} />
-          <Route path="/project/:id/sector/:sectorId" element={<Navigate to="/solvenza/project/:id/sector/:sectorId" replace />} />
+          <Route path="/project/:id" element={<LegacyProjectRedirect />} />
+          <Route path="/project/:id/acordos" element={<LegacyProjectAcordosRedirect />} />
+          <Route path="/project/:id/sector/:sectorId" element={<LegacyProjectSectorRedirect />} />
           <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
           <Route path="/crm" element={<Navigate to="/solvenza/crm" replace />} />
           <Route path="/financial" element={<Navigate to="/solvenza/financial" replace />} />
           <Route path="/controladoria" element={<Navigate to="/solvenza/controladoria" replace />} />
           <Route path="/controladoria/novo" element={<Navigate to="/solvenza/controladoria/novo" replace />} />
-          <Route path="/controladoria/processo/:id" element={<Navigate to="/solvenza/controladoria/processo/:id" replace />} />
-          <Route path="/controladoria/processo/:id/editar" element={<Navigate to="/solvenza/controladoria/processo/:id/editar" replace />} />
+          <Route path="/controladoria/processo/:id" element={<LegacyControladoriaProcessoRedirect />} />
+          <Route path="/controladoria/processo/:id/editar" element={<LegacyControladoriaProcessoEditarRedirect />} />
           <Route path="/reunioes" element={<Navigate to="/solvenza/reunioes" replace />} />
           <Route path="/reunioes/metricas" element={<Navigate to="/solvenza/reunioes/metricas" replace />} />
           <Route path="/reunioes/relatorios" element={<Navigate to="/solvenza/reunioes/relatorios" replace />} />
