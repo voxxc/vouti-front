@@ -15,7 +15,7 @@ serve(async (req) => {
     const { processoId, numeroProcesso } = await req.json();
     
     if (!processoId || !numeroProcesso) {
-      throw new Error('processoId e numeroProcesso são obrigatórios');
+      throw new Error('processoId e numeroProcesso sao obrigatorios');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -26,16 +26,18 @@ serve(async (req) => {
 
     console.log('[Judit] Buscando processo:', numeroProcesso);
 
-    // Fazer requisição à API Judit
+    // Fazer requisicao a API Judit com payload correto
     const juditResponse = await fetch('https://requests.prod.judit.io/requests', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': juditApiKey,
+        'api-key': juditApiKey,
       },
       body: JSON.stringify({
-        search_type: 'lawsuit_cnj',
-        search_key: numeroProcesso.replace(/\D/g, ''),
+        search: {
+          search_type: 'lawsuit_cnj',
+          search_key: numeroProcesso.replace(/\D/g, ''),
+        }
       }),
     });
 
@@ -46,7 +48,7 @@ serve(async (req) => {
     }
 
     const juditData = await juditResponse.json();
-    const requestId = juditData.id;
+    const requestId = juditData.request_id;
 
     console.log('[Judit] Request ID:', requestId);
 
@@ -57,15 +59,27 @@ serve(async (req) => {
     while (attempts < 30) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      // Verificar status da requisicao
       const statusResponse = await fetch(`https://requests.prod.judit.io/requests/${requestId}`, {
-        headers: { 'x-api-key': juditApiKey },
+        headers: { 'api-key': juditApiKey },
       });
 
-      const status = await statusResponse.json();
+      const statusData = await statusResponse.json();
+      console.log('[Judit] Status:', statusData.status, '- Tentativa:', attempts + 1);
       
-      if (status.response_data) {
-        responseData = status.response_data;
+      if (statusData.status === 'completed') {
+        // Buscar dados em /responses
+        const responsesResponse = await fetch(
+          `https://requests.prod.judit.io/responses?request_id=${requestId}`,
+          { headers: { 'api-key': juditApiKey } }
+        );
+        const responsesData = await responsesResponse.json();
+        responseData = responsesData.page_data?.[0]?.response_data;
         break;
+      }
+
+      if (statusData.status === 'failed' || statusData.status === 'error') {
+        throw new Error('Requisicao falhou na Judit');
       }
 
       attempts++;
@@ -75,7 +89,7 @@ serve(async (req) => {
       throw new Error('Timeout ao buscar dados do processo');
     }
 
-    console.log('[Judit] Dados recebidos:', responseData);
+    console.log('[Judit] Dados recebidos');
 
     // Salvar monitoramento
     const { data: monitoramento, error: monitoramentoError } = await supabase
@@ -105,8 +119,8 @@ serve(async (req) => {
         .insert({
           processo_id: processoId,
           monitoramento_id: monitoramento.id,
-          tipo_movimentacao: step.step_type || 'Movimentação',
-          descricao: step.step_description || step.content || 'Sem descrição',
+          tipo_movimentacao: step.step_type || 'Movimentacao',
+          descricao: step.step_description || step.content || 'Sem descricao',
           data_movimentacao: step.step_date || new Date().toISOString(),
           dados_completos: step,
           lida: false,

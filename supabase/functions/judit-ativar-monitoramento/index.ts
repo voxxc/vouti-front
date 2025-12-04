@@ -15,7 +15,7 @@ serve(async (req) => {
     const { processoId, numeroProcesso } = await req.json();
     
     if (!processoId || !numeroProcesso) {
-      throw new Error('processoId e numeroProcesso são obrigatórios');
+      throw new Error('processoId e numeroProcesso sao obrigatorios');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -34,10 +34,10 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': juditApiKey,
+        'api-key': juditApiKey,
       },
       body: JSON.stringify({
-        recurrence: 1, // Diário
+        recurrence: 1, // Diario
         search: {
           search_type: 'lawsuit_cnj',
           search_key: numeroProcesso.replace(/\D/g, ''),
@@ -53,7 +53,7 @@ serve(async (req) => {
     }
 
     const trackingData = await trackingResponse.json();
-    const trackingId = trackingData.id;
+    const trackingId = trackingData.tracking_id;
 
     console.log('[Judit] Tracking ID:', trackingId);
 
