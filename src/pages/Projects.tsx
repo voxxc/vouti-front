@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import { calculateProjectProgress } from "@/utils/projectHelpers";
 import { KanbanColumn } from "@/types/project";
 
 const Projects = () => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -240,7 +240,7 @@ const Projects = () => {
   };
 
   const handleSelectProject = (project: Project) => {
-    navigate(`/project/${project.id}`);
+    navigate(`project/${project.id}`);
   };
 
   const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
@@ -307,7 +307,7 @@ const Projects = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/dashboard')} className="gap-2">
+            <Button variant="ghost" onClick={() => navigate('dashboard')} className="gap-2">
               <ArrowLeft size={16} />
               Voltar
             </Button>

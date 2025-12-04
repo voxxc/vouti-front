@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project, Task, ProjectSector } from '@/types/project';
 import { useToast } from '@/hooks/use-toast';
@@ -9,7 +10,7 @@ import SectorView from './SectorView';
 
 const ProjectViewWrapper = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -38,7 +39,7 @@ const ProjectViewWrapper = () => {
             description: "Erro ao carregar projeto",
             variant: "destructive",
           });
-          navigate('/projects');
+          navigate('projects');
           return;
         }
 
@@ -166,7 +167,7 @@ const ProjectViewWrapper = () => {
           description: "Erro ao carregar projeto",
           variant: "destructive",
         });
-        navigate('/projects');
+        navigate('projects');
       } finally {
         setLoading(false);
       }
@@ -215,19 +216,19 @@ const ProjectViewWrapper = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/auth');
+    navigate('auth');
   };
 
   const handleBack = () => {
-    navigate('/projects');
+    navigate('projects');
   };
 
   const handleNavigateToAcordos = () => {
-    navigate(`/project/${id}/acordos`);
+    navigate(`project/${id}/acordos`);
   };
 
   const handleProjectNavigation = (path: string) => {
-    navigate(`/project/${path}`);
+    navigate(`project/${path}`);
   };
 
   if (loading) {
