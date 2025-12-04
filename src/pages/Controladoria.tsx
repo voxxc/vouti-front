@@ -7,16 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Eye, BarChart, Bell, FileSearch, Search } from "lucide-react";
+import { FileText, Plus, Eye, BarChart, Bell, FileSearch, Scale } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { MonitoramentoJuditBadge } from "@/components/Controladoria/MonitoramentoJuditBadge";
 import { AndamentosDrawer } from "@/components/Controladoria/AndamentosDrawer";
 import { useMonitoramentoJudit } from "@/hooks/useMonitoramentoJudit";
-import { BuscarPorOABTab } from "@/components/Controladoria/BuscarPorOABTab";
+import { OABManager } from "@/components/Controladoria/OABManager";
 
 const Controladoria = () => {
   const { toast } = useToast();
@@ -95,7 +93,6 @@ const Controladoria = () => {
 
       setProcessos(data || []);
       
-      // Buscar monitoramentos
       if (data && data.length > 0) {
         const { data: monitoramentosData } = await supabase
           .from('processo_monitoramento_judit')
@@ -108,7 +105,6 @@ const Controladoria = () => {
         });
         setMonitoramentos(monitoramentosMap);
 
-        // Buscar andamentos não lidos
         const { data: andamentosData } = await supabase
           .from('processo_andamentos_judit')
           .select('processo_id, lida')
@@ -137,7 +133,7 @@ const Controladoria = () => {
       console.error('Error fetching processos:', error);
       toast({
         title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os processos.",
+        description: "Nao foi possivel carregar os processos.",
         variant: "destructive",
       });
     } finally {
@@ -171,9 +167,9 @@ const Controladoria = () => {
       em_andamento: 'Em Andamento',
       arquivado: 'Arquivado',
       suspenso: 'Suspenso',
-      conciliacao: 'Conciliação',
-      sentenca: 'Sentença',
-      transito_julgado: 'Trânsito em Julgado'
+      conciliacao: 'Conciliacao',
+      sentenca: 'Sentenca',
+      transito_julgado: 'Transito em Julgado'
     };
     return labels[status] || status;
   };
@@ -184,7 +180,7 @@ const Controladoria = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Controladoria</h1>
-            <p className="text-muted-foreground mt-2">Gestão e controle de processos jurídicos</p>
+            <p className="text-muted-foreground mt-2">Gestao e controle de processos juridicos</p>
           </div>
           <Button onClick={() => navigate('/controladoria/novo')}>
             <Plus className="mr-2 h-4 w-4" />
@@ -234,112 +230,119 @@ const Controladoria = () => {
           </Card>
         </div>
 
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Processos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="processos">
-                <TabsList>
-                  <TabsTrigger value="processos">Todos os Processos</TabsTrigger>
-                  <TabsTrigger value="buscar-oab">
-                    <Search className="mr-2 h-4 w-4" />
-                    Buscar por OAB
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="buscar-oab">
-                  <BuscarPorOABTab />
-                </TabsContent>
-                <TabsContent value="processos" className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Número do Processo</TableHead>
-                        <TableHead>Partes</TableHead>
-                        <TableHead>Tribunal</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Monitoramento</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {processos.map((processo) => {
-                        const monitoramento = monitoramentos[processo.id];
-                        const naoLidos = andamentosNaoLidos[processo.id] || 0;
-                        
-                        return (
-                          <TableRow key={processo.id}>
-                            <TableCell className="font-medium">{processo.numero_processo}</TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <div>{processo.parte_ativa}</div>
-                                <div className="text-muted-foreground">vs {processo.parte_passiva}</div>
+        <Tabs defaultValue="minhas-oabs" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="minhas-oabs">
+              <Scale className="mr-2 h-4 w-4" />
+              Minhas OABs
+            </TabsTrigger>
+            <TabsTrigger value="processos-manuais">
+              <FileText className="mr-2 h-4 w-4" />
+              Processos Manuais
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="minhas-oabs">
+            <Card>
+              <CardContent className="pt-6">
+                <OABManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="processos-manuais">
+            <Card>
+              <CardHeader>
+                <CardTitle>Processos Cadastrados Manualmente</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numero do Processo</TableHead>
+                      <TableHead>Partes</TableHead>
+                      <TableHead>Tribunal</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Monitoramento</TableHead>
+                      <TableHead className="text-right">Acoes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processos.map((processo) => {
+                      const monitoramento = monitoramentos[processo.id];
+                      const naoLidos = andamentosNaoLidos[processo.id] || 0;
+                      
+                      return (
+                        <TableRow key={processo.id}>
+                          <TableCell className="font-medium">{processo.numero_processo}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div>{processo.parte_ativa}</div>
+                              <div className="text-muted-foreground">vs {processo.parte_passiva}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{processo.tribunais?.sigla || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(processo.status)}>
+                              {getStatusLabel(processo.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={monitoramento?.monitoramento_ativo || false}
+                                  onCheckedChange={() => handleToggleMonitoramento(processo)}
+                                  disabled={ativando === processo.id}
+                                />
+                                <MonitoramentoJuditBadge 
+                                  ativo={monitoramento?.monitoramento_ativo || false}
+                                  size="sm"
+                                />
                               </div>
-                            </TableCell>
-                            <TableCell>{processo.tribunais?.sigla || '-'}</TableCell>
-                            <TableCell>
-                              <Badge variant={getStatusBadgeVariant(processo.status)}>
-                                {getStatusLabel(processo.status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={monitoramento?.monitoramento_ativo || false}
-                                    onCheckedChange={() => handleToggleMonitoramento(processo)}
-                                    disabled={ativando === processo.id}
-                                  />
-                                  <MonitoramentoJuditBadge 
-                                    ativo={monitoramento?.monitoramento_ativo || false}
-                                    size="sm"
-                                  />
+                              {monitoramento && (
+                                <div className="text-xs text-muted-foreground">
+                                  {monitoramento.total_movimentacoes || 0} andamentos
+                                  {naoLidos > 0 && (
+                                    <Badge variant="destructive" className="ml-2 text-xs">
+                                      {naoLidos} novos
+                                    </Badge>
+                                  )}
                                 </div>
-                                {monitoramento && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {monitoramento.total_movimentacoes || 0} andamentos
-                                    {naoLidos > 0 && (
-                                      <Badge variant="destructive" className="ml-2 text-xs">
-                                        {naoLidos} novos
-                                      </Badge>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex gap-2 justify-end">
-                                {monitoramento && (
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    onClick={() => handleVerAndamentos(processo)}
-                                  >
-                                    <FileSearch className="h-4 w-4 mr-2" />
-                                    Andamentos
-                                  </Button>
-                                )}
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              {monitoramento && (
                                 <Button 
                                   size="sm" 
                                   variant="outline"
-                                  onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
+                                  onClick={() => handleVerAndamentos(processo)}
                                 >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Visualizar
+                                  <FileSearch className="h-4 w-4 mr-2" />
+                                  Andamentos
                                 </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
+                              )}
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Visualizar
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         <AndamentosDrawer
           open={drawerOpen}

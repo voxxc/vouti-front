@@ -1506,6 +1506,56 @@ export type Database = {
           },
         ]
       }
+      oabs_cadastradas: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome_advogado: string | null
+          oab_numero: string
+          oab_uf: string
+          ordem: number | null
+          tenant_id: string | null
+          total_processos: number | null
+          ultima_sincronizacao: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome_advogado?: string | null
+          oab_numero: string
+          oab_uf: string
+          ordem?: number | null
+          tenant_id?: string | null
+          total_processos?: number | null
+          ultima_sincronizacao?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome_advogado?: string | null
+          oab_numero?: string
+          oab_uf?: string
+          ordem?: number | null
+          tenant_id?: string | null
+          total_processos?: number | null
+          ultima_sincronizacao?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oabs_cadastradas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processo_andamentos_judit: {
         Row: {
           created_at: string | null
@@ -2212,6 +2262,153 @@ export type Database = {
             columns: ["tribunal_id"]
             isOneToOne: false
             referencedRelation: "tribunais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos_oab: {
+        Row: {
+          capa_completa: Json | null
+          created_at: string | null
+          data_distribuicao: string | null
+          detalhes_carregados: boolean | null
+          detalhes_completos: Json | null
+          fase_processual: string | null
+          id: string
+          juizo: string | null
+          link_tribunal: string | null
+          monitoramento_ativo: boolean | null
+          numero_cnj: string
+          oab_id: string
+          ordem_lista: number | null
+          parte_ativa: string | null
+          parte_passiva: string | null
+          partes_completas: Json | null
+          status_processual: string | null
+          tenant_id: string | null
+          tracking_id: string | null
+          tribunal: string | null
+          tribunal_sigla: string | null
+          ultima_atualizacao_detalhes: string | null
+          updated_at: string | null
+          valor_causa: number | null
+        }
+        Insert: {
+          capa_completa?: Json | null
+          created_at?: string | null
+          data_distribuicao?: string | null
+          detalhes_carregados?: boolean | null
+          detalhes_completos?: Json | null
+          fase_processual?: string | null
+          id?: string
+          juizo?: string | null
+          link_tribunal?: string | null
+          monitoramento_ativo?: boolean | null
+          numero_cnj: string
+          oab_id: string
+          ordem_lista?: number | null
+          parte_ativa?: string | null
+          parte_passiva?: string | null
+          partes_completas?: Json | null
+          status_processual?: string | null
+          tenant_id?: string | null
+          tracking_id?: string | null
+          tribunal?: string | null
+          tribunal_sigla?: string | null
+          ultima_atualizacao_detalhes?: string | null
+          updated_at?: string | null
+          valor_causa?: number | null
+        }
+        Update: {
+          capa_completa?: Json | null
+          created_at?: string | null
+          data_distribuicao?: string | null
+          detalhes_carregados?: boolean | null
+          detalhes_completos?: Json | null
+          fase_processual?: string | null
+          id?: string
+          juizo?: string | null
+          link_tribunal?: string | null
+          monitoramento_ativo?: boolean | null
+          numero_cnj?: string
+          oab_id?: string
+          ordem_lista?: number | null
+          parte_ativa?: string | null
+          parte_passiva?: string | null
+          partes_completas?: Json | null
+          status_processual?: string | null
+          tenant_id?: string | null
+          tracking_id?: string | null
+          tribunal?: string | null
+          tribunal_sigla?: string | null
+          ultima_atualizacao_detalhes?: string | null
+          updated_at?: string | null
+          valor_causa?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_oab_oab_id_fkey"
+            columns: ["oab_id"]
+            isOneToOne: false
+            referencedRelation: "oabs_cadastradas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_oab_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos_oab_andamentos: {
+        Row: {
+          created_at: string | null
+          dados_completos: Json | null
+          data_movimentacao: string | null
+          descricao: string
+          id: string
+          lida: boolean | null
+          processo_oab_id: string
+          tenant_id: string | null
+          tipo_movimentacao: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_movimentacao?: string | null
+          descricao: string
+          id?: string
+          lida?: boolean | null
+          processo_oab_id: string
+          tenant_id?: string | null
+          tipo_movimentacao?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_movimentacao?: string | null
+          descricao?: string
+          id?: string
+          lida?: boolean | null
+          processo_oab_id?: string
+          tenant_id?: string | null
+          tipo_movimentacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_oab_andamentos_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_oab_andamentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]

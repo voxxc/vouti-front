@@ -24,5 +24,17 @@ verify_jwt = false
 [functions.judit-buscar-por-oab]
 verify_jwt = true
 
+[functions.judit-sincronizar-oab]
+verify_jwt = true
+
+[functions.judit-buscar-detalhes-processo]
+verify_jwt = true
+
+[functions.judit-ativar-monitoramento-oab]
+verify_jwt = true
+
+[functions.judit-webhook-oab]
+verify_jwt = false
+
 [functions.create-tenant-with-admin]
 verify_jwt = false
