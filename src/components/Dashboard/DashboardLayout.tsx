@@ -77,15 +77,37 @@ const DashboardLayout = ({
 
       console.log('DashboardLayout - Roles loaded:', rolesData?.length || 0);
 
-      // Merge profiles with roles
+      // Merge profiles with roles - usando priorização correta
+      const rolePriority: Record<string, number> = {
+        'admin': 6,
+        'controller': 5,
+        'financeiro': 4,
+        'comercial': 3,
+        'agenda': 2,
+        'advogado': 1
+      };
+
       const mappedUsers = profilesData.map((p: any) => {
-        const userRole = rolesData?.find((r: any) => r.user_id === p.user_id);
+        // Buscar TODOS os roles do usuário, não apenas o primeiro
+        const userRoles = rolesData?.filter((r: any) => r.user_id === p.user_id) || [];
+        
+        // Selecionar o role de maior prioridade
+        let highestRole = 'advogado';
+        if (userRoles.length > 0) {
+          const highest = userRoles.reduce((prev: any, current: any) => {
+            const prevPriority = rolePriority[prev.role] || 0;
+            const currentPriority = rolePriority[current.role] || 0;
+            return currentPriority > prevPriority ? current : prev;
+          });
+          highestRole = highest.role;
+        }
+
         return {
           id: p.user_id,
           email: p.email,
           name: p.full_name || p.email,
           avatar: p.avatar_url || undefined,
-          role: (userRole?.role || 'advogado') as 'admin' | 'advogado' | 'comercial' | 'financeiro',
+          role: highestRole as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
           createdAt: new Date(p.created_at),
           updatedAt: new Date(p.updated_at),
         };

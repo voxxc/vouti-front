@@ -68,6 +68,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserRoleAndTenant = async (userId: string) => {
     try {
+      console.log('[AuthContext] Fetching role for user:', userId);
+      
       // Fetch role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
@@ -75,11 +77,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('user_id', userId);
 
       if (roleError) {
-        console.error('Error fetching user role:', roleError);
+        console.error('[AuthContext] Error fetching user role:', roleError);
         setUserRole('advogado');
       } else if (!roleData || roleData.length === 0) {
+        console.warn('[AuthContext] No roles found for user, defaulting to advogado');
         setUserRole('advogado');
       } else {
+        console.log('[AuthContext] Roles found:', roleData);
+        
         // Se há múltiplos roles, pegar o de maior privilégio
         const rolePriority: Record<string, number> = {
           'admin': 6,
@@ -96,6 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return currentPriority > prevPriority ? current : prev;
         });
 
+        console.log('[AuthContext] Highest role selected:', highestRole.role);
         setUserRole(highestRole.role as UserRole);
       }
 
@@ -113,7 +119,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setTenantId(profileData?.tenant_id || null);
       }
     } catch (error) {
-      console.error('Error in fetchUserRoleAndTenant:', error);
+      console.error('[AuthContext] Critical error in fetchUserRoleAndTenant:', error);
       setUserRole('advogado');
       setTenantId(null);
     }
