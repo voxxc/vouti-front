@@ -70,8 +70,8 @@ serve(async (req) => {
     const data = await response.json();
     console.log('[Judit Consultar] Resposta recebida:', JSON.stringify(data).substring(0, 500));
 
-    // Verificar se tem resultados
-    if (!data.results || data.results.length === 0) {
+    // Verificar se tem resultados - API retorna em page_data, nao results
+    if (!data.page_data || data.page_data.length === 0) {
       console.log('[Judit Consultar] Nenhum resultado encontrado. Dados ainda processando ou request_id invalido.');
       return new Response(
         JSON.stringify({ 
@@ -83,9 +83,9 @@ serve(async (req) => {
       );
     }
 
-    // Extrair processos dos resultados
-    const results = data.results || [];
-    console.log('[Judit Consultar] Total de results:', results.length);
+    // Extrair processos dos resultados - API retorna em page_data
+    const results = data.page_data || [];
+    console.log('[Judit Consultar] Total de page_data:', results.length);
 
     // Processar cada resultado
     let processosInseridos = 0;
