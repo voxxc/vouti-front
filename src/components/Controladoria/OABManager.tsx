@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Scale } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -34,10 +36,23 @@ import { OABTab } from './OABTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
 
 export const OABManager = () => {
-  const { oabs, loading, sincronizando, cadastrarOAB, sincronizarOAB, removerOAB } = useOABs();
+  const { 
+    oabs, 
+    loading, 
+    sincronizando, 
+    cadastrarOAB, 
+    sincronizarOAB, 
+    removerOAB,
+    consultarRequest,
+    salvarRequestId 
+  } = useOABs();
+  
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [requestIdDialogOpen, setRequestIdDialogOpen] = useState(false);
+  const [novaBuscaDialogOpen, setNovaBuscaDialogOpen] = useState(false);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
+  const [selectedOabForRequest, setSelectedOabForRequest] = useState<OABCadastrada | null>(null);
   const [activeTab, setActiveTab] = useState<string>('');
   
   // Form state
@@ -45,6 +60,7 @@ export const OABManager = () => {
   const [oabUf, setOabUf] = useState('');
   const [nomeAdvogado, setNomeAdvogado] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [inputRequestId, setInputRequestId] = useState('');
 
   const handleCadastrar = async () => {
     if (!oabNumero || !oabUf) return;
@@ -62,8 +78,40 @@ export const OABManager = () => {
     }
   };
 
-  const handleSincronizar = (oab: OABCadastrada) => {
-    sincronizarOAB(oab.id, oab.oab_numero, oab.oab_uf);
+  const handleOpenRequestIdDialog = (oab: OABCadastrada) => {
+    setSelectedOabForRequest(oab);
+    setInputRequestId(oab.ultimo_request_id || '');
+    setRequestIdDialogOpen(true);
+  };
+
+  const handleSalvarRequestId = async () => {
+    if (!selectedOabForRequest || !inputRequestId.trim()) return;
+    
+    const success = await salvarRequestId(selectedOabForRequest.id, inputRequestId.trim());
+    if (success) {
+      setRequestIdDialogOpen(false);
+      setInputRequestId('');
+    }
+  };
+
+  const handleConsultarRequest = async (oab: OABCadastrada) => {
+    if (!oab.ultimo_request_id) {
+      handleOpenRequestIdDialog(oab);
+      return;
+    }
+    await consultarRequest(oab.id, oab.ultimo_request_id);
+  };
+
+  const handleNovaBuscaClick = (oab: OABCadastrada) => {
+    setSelectedOabForRequest(oab);
+    setNovaBuscaDialogOpen(true);
+  };
+
+  const handleConfirmarNovaBusca = async () => {
+    if (!selectedOabForRequest) return;
+    setNovaBuscaDialogOpen(false);
+    await sincronizarOAB(selectedOabForRequest.id, selectedOabForRequest.oab_numero, selectedOabForRequest.oab_uf);
+    setSelectedOabForRequest(null);
   };
 
   const handleDeleteClick = (oab: OABCadastrada) => {
@@ -206,32 +254,23 @@ export const OABManager = () => {
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4">
               {/* Toolbar da OAB */}
-              <div className="flex items-center justify-between mb-4 p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="font-medium">
-                      OAB {oab.oab_numero}/{oab.oab_uf}
-                    </p>
-                    {oab.nome_advogado && (
-                      <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
+              <div className="flex flex-col gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="font-medium">
+                        OAB {oab.oab_numero}/{oab.oab_uf}
+                      </p>
+                      {oab.nome_advogado && (
+                        <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
+                      )}
+                    </div>
+                    {oab.ultima_sincronizacao && (
+                      <Badge variant="outline" className="text-xs">
+                        Ultima sync: {new Date(oab.ultima_sincronizacao).toLocaleDateString('pt-BR')}
+                      </Badge>
                     )}
                   </div>
-                  {oab.ultima_sincronizacao && (
-                    <Badge variant="outline" className="text-xs">
-                      Ultima sync: {new Date(oab.ultima_sincronizacao).toLocaleDateString('pt-BR')}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSincronizar(oab)}
-                    disabled={sincronizando === oab.id}
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${sincronizando === oab.id ? 'animate-spin' : ''}`} />
-                    Sincronizar
-                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -241,6 +280,60 @@ export const OABManager = () => {
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
+
+                {/* Request ID Section */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 bg-background/50 rounded border">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Key className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-muted-foreground">Request ID (Judit)</p>
+                      {oab.ultimo_request_id ? (
+                        <p className="text-xs font-mono truncate" title={oab.ultimo_request_id}>
+                          {oab.ultimo_request_id}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">Nenhum request salvo</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenRequestIdDialog(oab)}
+                      className="flex-1 sm:flex-none text-xs"
+                    >
+                      <Key className="w-3 h-3 mr-1" />
+                      {oab.ultimo_request_id ? 'Editar' : 'Associar'}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleConsultarRequest(oab)}
+                      disabled={sincronizando === oab.id || !oab.ultimo_request_id}
+                      className="flex-1 sm:flex-none text-xs"
+                      title="Consulta gratuita usando request_id existente"
+                    >
+                      {sincronizando === oab.id ? (
+                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="w-3 h-3 mr-1" />
+                      )}
+                      Consultar (Gratis)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleNovaBuscaClick(oab)}
+                      disabled={sincronizando === oab.id}
+                      className="flex-1 sm:flex-none text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
+                      title="Faz nova busca na Judit (PAGO)"
+                    >
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Nova Busca (R$)
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {/* Lista de Processos */}
@@ -249,6 +342,76 @@ export const OABManager = () => {
           ))}
         </Tabs>
       )}
+
+      {/* Request ID Dialog */}
+      <Dialog open={requestIdDialogOpen} onOpenChange={setRequestIdDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Associar Request ID</DialogTitle>
+            <DialogDescription>
+              Cole o request_id que voce ja possui da Judit. Isso permite consultar os resultados gratuitamente sem fazer uma nova busca paga.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="request-id">Request ID</Label>
+              <Input
+                id="request-id"
+                placeholder="Ex: 5cf6ecc6-6614-4b02-9251-cd8aaad167f4"
+                value={inputRequestId}
+                onChange={(e) => setInputRequestId(e.target.value)}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                O request_id e um UUID gerado quando voce faz uma busca na API Judit
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestIdDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSalvarRequestId}
+              disabled={!inputRequestId.trim()}
+            >
+              Salvar e Consultar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nova Busca Confirmation Dialog */}
+      <AlertDialog open={novaBuscaDialogOpen} onOpenChange={setNovaBuscaDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Confirmar Nova Busca (PAGO)
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Esta acao ira fazer um novo request para a API Judit, o que <strong>gera custos</strong>.
+              </p>
+              <p>
+                Se voce ja possui um request_id de uma busca anterior, use a opcao "Associar" para consultar gratuitamente.
+              </p>
+              <p className="font-medium text-amber-600">
+                Deseja continuar com a nova busca paga?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmarNovaBusca}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Sim, Fazer Nova Busca (R$)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

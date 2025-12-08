@@ -11,6 +11,8 @@ export interface OABCadastrada {
   ordem: number;
   ultima_sincronizacao: string | null;
   total_processos: number;
+  ultimo_request_id: string | null;
+  request_id_data: string | null;
   created_at: string;
 }
 
@@ -196,6 +198,76 @@ export const useOABs = () => {
     }
   };
 
+  // Consultar request existente (GRATUITO - apenas GET)
+  const consultarRequest = async (oabId: string, requestId: string) => {
+    setSincronizando(oabId);
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-consultar-request', {
+        body: { oabId, requestId }
+      });
+
+      if (error) throw error;
+      
+      if (!data?.success) {
+        throw new Error(data?.message || data?.error || 'Nenhum resultado encontrado');
+      }
+
+      toast({
+        title: 'Consulta concluida (GRATUITO)',
+        description: `${data.totalProcessos} processos carregados`
+      });
+
+      await fetchOABs();
+      return data;
+    } catch (error: any) {
+      console.error('[useOABs] Erro ao consultar request:', error);
+      toast({
+        title: 'Erro na consulta',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return null;
+    } finally {
+      setSincronizando(null);
+    }
+  };
+
+  // Salvar request_id manualmente
+  const salvarRequestId = async (oabId: string, requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('oabs_cadastradas')
+        .update({
+          ultimo_request_id: requestId,
+          request_id_data: new Date().toISOString()
+        })
+        .eq('id', oabId);
+
+      if (error) throw error;
+
+      setOabs(prev => prev.map(o => 
+        o.id === oabId 
+          ? { ...o, ultimo_request_id: requestId, request_id_data: new Date().toISOString() }
+          : o
+      ));
+
+      toast({
+        title: 'Request ID salvo',
+        description: 'Agora voce pode consultar o resultado gratuitamente'
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('[useOABs] Erro ao salvar request ID:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   return {
     oabs,
     loading,
@@ -203,7 +275,9 @@ export const useOABs = () => {
     fetchOABs,
     cadastrarOAB,
     sincronizarOAB,
-    removerOAB
+    removerOAB,
+    consultarRequest,
+    salvarRequestId
   };
 };
 
