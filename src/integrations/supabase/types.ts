@@ -1514,9 +1514,11 @@ export type Database = {
           oab_numero: string
           oab_uf: string
           ordem: number | null
+          request_id_data: string | null
           tenant_id: string | null
           total_processos: number | null
           ultima_sincronizacao: string | null
+          ultimo_request_id: string | null
           updated_at: string | null
           user_id: string
         }
@@ -1527,9 +1529,11 @@ export type Database = {
           oab_numero: string
           oab_uf: string
           ordem?: number | null
+          request_id_data?: string | null
           tenant_id?: string | null
           total_processos?: number | null
           ultima_sincronizacao?: string | null
+          ultimo_request_id?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -1540,9 +1544,11 @@ export type Database = {
           oab_numero?: string
           oab_uf?: string
           ordem?: number | null
+          request_id_data?: string | null
           tenant_id?: string | null
           total_processos?: number | null
           ultima_sincronizacao?: string | null
+          ultimo_request_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
