@@ -87,10 +87,10 @@ serve(async (req) => {
       }
 
       const statusData = await statusResponse.json();
-      console.log('[Judit Detalhes] Polling resposta - count:', statusData.count, 'results:', statusData.results?.length || 0);
+      console.log('[Judit Detalhes] Polling resposta - count:', statusData.count, 'page_data:', statusData.page_data?.length || 0);
 
-      // O endpoint /responses/ retorna { results: [...], count: N }
-      if (statusData.results && statusData.results.length > 0) {
+      // CORRIGIDO: O endpoint /responses/ retorna { page_data: [...], count: N }
+      if (statusData.page_data && statusData.page_data.length > 0) {
         resultData = statusData;
         console.log('[Judit Detalhes] Dados recebidos com sucesso');
         break;
@@ -107,9 +107,9 @@ serve(async (req) => {
       throw new Error('Timeout aguardando resposta da API Judit');
     }
 
-    // Extrair dados do resultado - formato /responses/
-    const results = resultData.results || [];
-    const firstResult = results[0] || {};
+    // CORRIGIDO: Extrair dados do resultado - formato /responses/ usa page_data
+    const pageData = resultData.page_data || [];
+    const firstResult = pageData[0] || {};
     const responseData = firstResult.response_data || firstResult;
     const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
 
