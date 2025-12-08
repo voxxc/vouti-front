@@ -68,26 +68,36 @@ serve(async (req) => {
     while (attempts < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const statusResponse = await fetch(`https://requests.prod.judit.io/requests/${requestId}`, {
-        method: "GET",
-        headers: {
-          "api-key": juditApiKey.trim(),
-        },
-      });
+      // CORRIGIDO: Usar /responses?request_id= conforme documentacao oficial
+      const statusResponse = await fetch(
+        `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
+        {
+          method: "GET",
+          headers: {
+            "api-key": juditApiKey.trim(),
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!statusResponse.ok) {
+        console.log("[Judit Sync OAB] Polling erro:", statusResponse.status);
         attempts++;
         continue;
       }
 
       const statusData = await statusResponse.json();
-      console.log("[Judit Sync OAB] Status:", statusData.status);
+      console.log("[Judit Sync OAB] Polling resposta - count:", statusData.count, "results:", statusData.results?.length || 0);
 
-      if (statusData.status === "done" || statusData.status === "completed") {
+      // O endpoint /responses retorna { results: [...], count: N } quando os dados estao prontos
+      if (statusData.results && statusData.results.length > 0) {
         resultData = statusData;
+        console.log("[Judit Sync OAB] Dados recebidos com sucesso");
         break;
-      } else if (statusData.status === "failed" || statusData.status === "error") {
-        throw new Error("Busca falhou na API Judit");
+      }
+
+      if (statusData.count === 0) {
+        console.log("[Judit Sync OAB] Aguardando processamento... tentativa", attempts + 1);
       }
 
       attempts++;
@@ -97,17 +107,26 @@ serve(async (req) => {
       throw new Error("Timeout aguardando resposta da API Judit");
     }
 
-    // Extrair processos do resultado
-    const processos =
-      resultData.response_data?.lawsuits || resultData.response_data?.processes || resultData.response_data || [];
+    // Extrair processos do resultado - formato /responses
+    const results = resultData.results || [];
+    let processos: any[] = [];
+    
+    for (const result of results) {
+      const responseData = result.response_data || result;
+      const lawsuits = responseData.lawsuits || responseData.processes || [];
+      if (Array.isArray(lawsuits)) {
+        processos = processos.concat(lawsuits);
+      } else if (responseData.lawsuit_cnj || responseData.numero_cnj) {
+        processos.push(responseData);
+      }
+    }
 
-    console.log("[Judit Sync OAB] Processos encontrados:", Array.isArray(processos) ? processos.length : 0);
+    console.log("[Judit Sync OAB] Processos encontrados:", processos.length);
 
     let processosInseridos = 0;
     let processosAtualizados = 0;
 
-    if (Array.isArray(processos)) {
-      for (const processo of processos) {
+    for (const processo of processos) {
         const numeroCnj = processo.numero_cnj || processo.lawsuit_cnj || processo.number;
 
         if (!numeroCnj) continue;
@@ -175,7 +194,6 @@ serve(async (req) => {
           } else {
             console.error("[Judit Sync OAB] Erro ao inserir processo:", insertError);
           }
-        }
       }
     }
 
