@@ -42,7 +42,7 @@ serve(async (req) => {
     // GET /responses/ - GRATUITO! Nao gera custos
     console.log('[Judit Consultar] Fazendo GET /responses/ (GRATUITO)...');
     
-    const responseUrl = `https://requests.prod.judit.io/responses/?request_id=${requestId}&page=1&page_size=100`;
+    const responseUrl = `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`;
     console.log('[Judit Consultar] URL:', responseUrl);
     
     const response = await fetch(responseUrl, {

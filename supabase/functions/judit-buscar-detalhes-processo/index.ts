@@ -70,7 +70,7 @@ serve(async (req) => {
       
       // CORRIGIDO: Usar /responses/?request_id= ao inves de /requests/{id}
       const statusResponse = await fetch(
-        `https://requests.prod.judit.io/responses/?request_id=${requestId}&page=1&page_size=100`,
+        `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
         {
           method: 'GET',
           headers: {
