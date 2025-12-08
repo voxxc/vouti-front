@@ -87,86 +87,95 @@ serve(async (req) => {
     const results = data.page_data || [];
     console.log('[Judit Consultar] Total de page_data:', results.length);
 
-    // Processar cada resultado
+    // Processar cada resultado - cada item do page_data e um processo
     let processosInseridos = 0;
     let processosAtualizados = 0;
 
     for (const result of results) {
-      const responseData = result.response_data || result;
-      const lawsuits = responseData.lawsuits || responseData.processes || [];
+      const responseData = result.response_data;
       
-      // Se nao for array, pode ser um processo unico
-      const processosList = Array.isArray(lawsuits) ? lawsuits : [responseData];
+      if (!responseData) {
+        console.log('[Judit Consultar] Item sem response_data, pulando...');
+        continue;
+      }
+
+      // O numero CNJ esta em "code"
+      const numeroCnj = responseData.code || '';
       
-      console.log('[Judit Consultar] Processos no result:', processosList.length);
+      if (!numeroCnj) {
+        console.log('[Judit Consultar] Processo sem numero CNJ, pulando...');
+        continue;
+      }
 
-      for (const processo of processosList) {
-        const numeroCnj = processo.lawsuit_cnj || processo.numero_cnj || processo.number || '';
-        
-        if (!numeroCnj) {
-          console.log('[Judit Consultar] Processo sem numero CNJ, pulando...');
-          continue;
-        }
+      // Extrair partes do campo "name" (formato "AUTOR X REU")
+      let parteAtiva = '';
+      let partePassiva = '';
+      
+      if (responseData.name && responseData.name.includes(' X ')) {
+        const partesNome = responseData.name.split(' X ');
+        parteAtiva = partesNome[0]?.trim() || '';
+        partePassiva = partesNome[1]?.trim() || '';
+      } else if (responseData.name) {
+        parteAtiva = responseData.name;
+      }
 
-        // Extrair partes
-        let parteAtiva = '';
-        let partePassiva = '';
-        
-        const partes = processo.parties || processo.partes || [];
-        for (const parte of partes) {
-          const nome = parte.name || parte.nome || '';
-          const polo = (parte.pole || parte.polo || '').toLowerCase();
-          const papel = (parte.role || parte.papel || '').toLowerCase();
+      // Se tiver array parties, usar para mais detalhes
+      if (responseData.parties && responseData.parties.length > 0) {
+        for (const parte of responseData.parties) {
+          const nome = parte.name || '';
+          const polo = (parte.pole || parte.side || '').toLowerCase();
           
-          if (polo.includes('ativo') || papel.includes('autor') || papel.includes('requerente')) {
-            parteAtiva = parteAtiva ? `${parteAtiva}, ${nome}` : nome;
-          } else if (polo.includes('passivo') || papel.includes('reu') || papel.includes('requerido')) {
-            partePassiva = partePassiva ? `${partePassiva}, ${nome}` : nome;
+          if (polo.includes('active') || polo.includes('ativo')) {
+            parteAtiva = parteAtiva || nome;
+          } else if (polo.includes('passive') || polo.includes('passivo')) {
+            partePassiva = partePassiva || nome;
           }
         }
-
-        // Preparar dados para upsert - usando colunas corretas da tabela processos_oab
-        const processoData = {
-          oab_id: oabId,
-          numero_cnj: numeroCnj,
-          tribunal: processo.court || processo.tribunal || null,
-          tribunal_sigla: processo.court_acronym || processo.tribunal_sigla || null,
-          parte_ativa: parteAtiva || null,
-          parte_passiva: partePassiva || null,
-          partes_completas: processo.parties || processo.partes || null,
-          status_processual: processo.status || 'ativo',
-          fase_processual: processo.phase || processo.fase || null,
-          juizo: processo.court_name || processo.juizo || null,
-          link_tribunal: processo.url || processo.link || null,
-          capa_completa: processo,
-          updated_at: new Date().toISOString(),
-        };
-
-        // Verificar se ja existe
-        const { data: existente } = await supabase
-          .from('processos_oab')
-          .select('id')
-          .eq('oab_id', oabId)
-          .eq('numero_cnj', numeroCnj)
-          .single();
-
-        if (existente) {
-          // Atualizar
-          await supabase
-            .from('processos_oab')
-            .update(processoData)
-            .eq('id', existente.id);
-          processosAtualizados++;
-        } else {
-          // Inserir
-          await supabase
-            .from('processos_oab')
-            .insert(processoData);
-          processosInseridos++;
-        }
-
-        console.log('[Judit Consultar] Processado:', numeroCnj);
       }
+
+      // Extrair tribunal do array courts
+      const tribunal = responseData.courts?.[0]?.name || null;
+      const tribunalSigla = responseData.courts?.[0]?.acronym || null;
+
+      // Preparar dados para upsert
+      const processoData = {
+        oab_id: oabId,
+        numero_cnj: numeroCnj,
+        tribunal: tribunal,
+        tribunal_sigla: tribunalSigla,
+        parte_ativa: parteAtiva || null,
+        parte_passiva: partePassiva || null,
+        partes_completas: responseData.parties || null,
+        status_processual: responseData.status || 'ativo',
+        fase_processual: responseData.phase || null,
+        juizo: tribunal,
+        link_tribunal: responseData.url || null,
+        capa_completa: responseData,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Verificar se ja existe
+      const { data: existente } = await supabase
+        .from('processos_oab')
+        .select('id')
+        .eq('oab_id', oabId)
+        .eq('numero_cnj', numeroCnj)
+        .single();
+
+      if (existente) {
+        await supabase
+          .from('processos_oab')
+          .update(processoData)
+          .eq('id', existente.id);
+        processosAtualizados++;
+      } else {
+        await supabase
+          .from('processos_oab')
+          .insert(processoData);
+        processosInseridos++;
+      }
+
+      console.log('[Judit Consultar] Processado:', numeroCnj);
     }
 
     // Atualizar OAB com request_id e contagem
