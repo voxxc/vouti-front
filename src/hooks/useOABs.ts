@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getTenantIdForUser } from './useTenantId';
 
 export interface OABCadastrada {
   id: string;
@@ -90,6 +91,9 @@ export const useOABs = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
 
+      // Get tenant_id for the user
+      const tenantId = await getTenantIdForUser(user.id);
+
       const { data, error } = await supabase
         .from('oabs_cadastradas')
         .insert({
@@ -97,6 +101,7 @@ export const useOABs = () => {
           oab_uf: oabUf,
           nome_advogado: nomeAdvogado || null,
           user_id: user.id,
+          tenant_id: tenantId,
           ordem: oabs.length
         })
         .select()
