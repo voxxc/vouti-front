@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Reuniao, ReuniaoFormData } from '@/types/reuniao';
 import { toast } from 'sonner';
+import { getTenantIdForUser } from './useTenantId';
 
 export const useReunioes = (selectedDate?: Date) => {
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
@@ -11,9 +12,9 @@ export const useReunioes = (selectedDate?: Date) => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) throw new Error('Usuario nao autenticado');
 
-      // Verificar se é admin
+      // RLS now handles tenant filtering automatically
       const { data: userRole } = await supabase
         .from('user_roles')
         .select('role')
@@ -39,8 +40,8 @@ export const useReunioes = (selectedDate?: Date) => {
 
       setReunioes((data as Reuniao[]) || []);
     } catch (error: any) {
-      console.error('Erro ao carregar reuniões:', error);
-      toast.error('Erro ao carregar reuniões');
+      console.error('Erro ao carregar reunioes:', error);
+      toast.error('Erro ao carregar reunioes');
     } finally {
       setLoading(false);
     }
@@ -49,17 +50,21 @@ export const useReunioes = (selectedDate?: Date) => {
   const createReuniao = async (formData: ReuniaoFormData) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) throw new Error('Usuario nao autenticado');
+
+      // Get tenant_id for the user
+      const tenantId = await getTenantIdForUser(user.id);
 
       let clienteId = formData.cliente_id;
 
-      // Se não foi selecionado cliente mas tem nome, criar novo
+      // Se nao foi selecionado cliente mas tem nome, criar novo
       if (!clienteId && formData.cliente_nome) {
         const { data: novoCliente, error: clienteError } = await supabase
           .from('reuniao_clientes')
           .insert({
             user_id: user.id,
             created_by: user.id,
+            tenant_id: tenantId,
             nome: formData.cliente_nome,
             telefone: formData.cliente_telefone,
             email: formData.cliente_email,
@@ -77,6 +82,7 @@ export const useReunioes = (selectedDate?: Date) => {
         .insert([{
           ...formData,
           user_id: user.id,
+          tenant_id: tenantId,
           cliente_id: clienteId
         }])
         .select()
@@ -88,8 +94,8 @@ export const useReunioes = (selectedDate?: Date) => {
       await fetchReunioes();
       return data;
     } catch (error: any) {
-      console.error('Erro ao criar reunião:', error);
-      toast.error('Erro ao agendar reunião');
+      console.error('Erro ao criar reuniao:', error);
+      toast.error('Erro ao agendar reuniao');
       throw error;
     }
   };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Cliente, ClienteDocumento } from '@/types/cliente';
 import { toast } from '@/hooks/use-toast';
+import { getTenantIdForUser } from './useTenantId';
 
 export const useClientes = () => {
   const [loading, setLoading] = useState(false);
@@ -12,10 +13,10 @@ export const useClientes = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        throw new Error('Usuário não autenticado');
+        throw new Error('Usuario nao autenticado');
       }
 
-      // Verificar se o usuário é admin
+      // RLS now handles tenant filtering automatically
       const { data: rolesData } = await supabase
         .from('user_roles')
         .select('role')
@@ -24,12 +25,10 @@ export const useClientes = () => {
 
       const isAdmin = rolesData && rolesData.length > 0;
 
-      // Construir query base
       let query = supabase
         .from('clientes')
         .select('*');
 
-      // Se não for admin, filtrar por user_id
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
@@ -56,12 +55,15 @@ export const useClientes = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        throw new Error('Usuário não autenticado');
+        throw new Error('Usuario nao autenticado');
       }
+
+      // Get tenant_id for the user
+      const tenantId = await getTenantIdForUser(user.id);
 
       const { data, error } = await supabase
         .from('clientes')
-        .insert([{ ...clienteData, user_id: user.id } as any])
+        .insert([{ ...clienteData, user_id: user.id, tenant_id: tenantId } as any])
         .select()
         .single();
 
@@ -162,6 +164,9 @@ export const useClientes = () => {
 
       if (uploadError) throw uploadError;
 
+      // Get tenant_id for the user
+      const tenantId = await getTenantIdForUser(user.id);
+
       const { data, error: dbError } = await supabase
         .from('cliente_documentos')
         .insert([
@@ -172,6 +177,7 @@ export const useClientes = () => {
             file_size: file.size,
             mime_type: file.type,
             uploaded_by: user.id,
+            tenant_id: tenantId,
           },
         ])
         .select()

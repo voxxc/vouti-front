@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReuniaoCliente, ReuniaoClienteFormData } from '@/types/reuniao';
 import { toast } from 'sonner';
+import { getTenantIdForUser } from './useTenantId';
 
 export const useReuniaoClientes = () => {
   const [clientes, setClientes] = useState<ReuniaoCliente[]>([]);
@@ -107,7 +108,10 @@ export const useReuniaoClientes = () => {
   const criarCliente = async (formData: ReuniaoClienteFormData): Promise<ReuniaoCliente | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) throw new Error('Usuario nao autenticado');
+
+      // Get tenant_id for the user
+      const tenantId = await getTenantIdForUser(user.id);
 
       const { data, error } = await supabase
         .from('reuniao_clientes')
@@ -115,6 +119,7 @@ export const useReuniaoClientes = () => {
           ...formData,
           user_id: user.id,
           created_by: user.id,
+          tenant_id: tenantId,
           origem: 'manual'
         }])
         .select()
