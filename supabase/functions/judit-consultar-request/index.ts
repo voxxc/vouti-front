@@ -125,19 +125,21 @@ serve(async (req) => {
           }
         }
 
-        // Preparar dados para upsert
+        // Preparar dados para upsert - usando colunas corretas da tabela processos_oab
         const processoData = {
           oab_id: oabId,
           numero_cnj: numeroCnj,
-          tribunal: processo.court || processo.tribunal || '',
-          tribunal_sigla: processo.court_acronym || processo.tribunal_sigla || '',
-          classe: processo.class || processo.classe || '',
-          assunto: processo.subject || processo.assunto || '',
-          status: processo.status || 'ativo',
-          parte_ativa: parteAtiva || processo.parte_ativa || '',
-          parte_passiva: partePassiva || processo.parte_passiva || '',
-          dados_judit: processo,
-          ultima_atualizacao: new Date().toISOString(),
+          tribunal: processo.court || processo.tribunal || null,
+          tribunal_sigla: processo.court_acronym || processo.tribunal_sigla || null,
+          parte_ativa: parteAtiva || null,
+          parte_passiva: partePassiva || null,
+          partes_completas: processo.parties || processo.partes || null,
+          status_processual: processo.status || 'ativo',
+          fase_processual: processo.phase || processo.fase || null,
+          juizo: processo.court_name || processo.juizo || null,
+          link_tribunal: processo.url || processo.link || null,
+          capa_completa: processo,
+          updated_at: new Date().toISOString(),
         };
 
         // Verificar se ja existe
