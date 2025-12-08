@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,9 @@ import { OABTab } from './OABTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
 
 export const OABManager = () => {
+  const { userRole } = useAuth();
+  const isAdmin = userRole === 'admin';
+  
   const { 
     oabs, 
     loading, 
@@ -281,59 +285,61 @@ export const OABManager = () => {
                   </Button>
                 </div>
 
-                {/* Request ID Section */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 bg-background/50 rounded border">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Key className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">Request ID (Judit)</p>
-                      {oab.ultimo_request_id ? (
-                        <p className="text-xs font-mono truncate" title={oab.ultimo_request_id}>
-                          {oab.ultimo_request_id}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic">Nenhum request salvo</p>
-                      )}
+                {/* Request ID Section - APENAS ADMIN */}
+                {isAdmin && (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 bg-background/50 rounded border">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Key className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">Request ID (Judit)</p>
+                        {oab.ultimo_request_id ? (
+                          <p className="text-xs font-mono truncate" title={oab.ultimo_request_id}>
+                            {oab.ultimo_request_id}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic">Nenhum request salvo</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 w-full sm:w-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenRequestIdDialog(oab)}
+                        className="flex-1 sm:flex-none text-xs"
+                      >
+                        <Key className="w-3 h-3 mr-1" />
+                        {oab.ultimo_request_id ? 'Editar' : 'Associar'}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleConsultarRequest(oab)}
+                        disabled={sincronizando === oab.id || !oab.ultimo_request_id}
+                        className="flex-1 sm:flex-none text-xs"
+                        title="Consulta gratuita usando request_id existente"
+                      >
+                        {sincronizando === oab.id ? (
+                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Download className="w-3 h-3 mr-1" />
+                        )}
+                        Consultar (Gratis)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleNovaBuscaClick(oab)}
+                        disabled={sincronizando === oab.id}
+                        className="flex-1 sm:flex-none text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
+                        title="Faz nova busca na Judit (PAGO)"
+                      >
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        Nova Busca (R$)
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenRequestIdDialog(oab)}
-                      className="flex-1 sm:flex-none text-xs"
-                    >
-                      <Key className="w-3 h-3 mr-1" />
-                      {oab.ultimo_request_id ? 'Editar' : 'Associar'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleConsultarRequest(oab)}
-                      disabled={sincronizando === oab.id || !oab.ultimo_request_id}
-                      className="flex-1 sm:flex-none text-xs"
-                      title="Consulta gratuita usando request_id existente"
-                    >
-                      {sincronizando === oab.id ? (
-                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                      ) : (
-                        <Download className="w-3 h-3 mr-1" />
-                      )}
-                      Consultar (Gratis)
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleNovaBuscaClick(oab)}
-                      disabled={sincronizando === oab.id}
-                      className="flex-1 sm:flex-none text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
-                      title="Faz nova busca na Judit (PAGO)"
-                    >
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Nova Busca (R$)
-                    </Button>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Lista de Processos */}

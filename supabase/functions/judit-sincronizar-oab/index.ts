@@ -187,6 +187,8 @@ serve(async (req) => {
         ultima_sincronizacao: new Date().toISOString(),
         total_processos: totalProcessos,
         updated_at: new Date().toISOString(),
+        ultimo_request_id: requestId,
+        request_id_data: new Date().toISOString(),
       })
       .eq("id", oabId);
 
