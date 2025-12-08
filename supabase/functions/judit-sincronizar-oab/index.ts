@@ -29,7 +29,7 @@ serve(async (req) => {
     
     console.log('[Judit Sync OAB] Buscando processos para OAB:', searchKey);
 
-    // Chamar /request-document para buscar capas de todos os processos
+    // Chamar /requests para buscar capas de todos os processos
     const requestPayload = {
       search: {
         search_type: 'oab',
@@ -60,7 +60,7 @@ serve(async (req) => {
     
     console.log('[Judit Sync OAB] Request ID:', requestId);
 
-    // Polling para aguardar resultado
+    // Polling usando /responses/ para aguardar resultado
     let attempts = 0;
     const maxAttempts = 30;
     let resultData = null;
@@ -68,26 +68,38 @@ serve(async (req) => {
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const statusResponse = await fetch(`https://requests.prod.judit.io/requests/${requestId}`, {
-        method: 'GET',
-        headers: {
-          'api-key': juditApiKey.trim(),
-        },
-      });
+      // CORRIGIDO: Usar /responses/?request_id= ao inves de /requests/{id}
+      const statusResponse = await fetch(
+        `https://requests.prod.judit.io/responses/?request_id=${requestId}&page=1&page_size=100`, 
+        {
+          method: 'GET',
+          headers: {
+            'api-key': juditApiKey.trim(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       if (!statusResponse.ok) {
+        console.log('[Judit Sync OAB] Polling erro:', statusResponse.status);
         attempts++;
         continue;
       }
 
       const statusData = await statusResponse.json();
-      console.log('[Judit Sync OAB] Status:', statusData.status);
+      console.log('[Judit Sync OAB] Polling resposta - count:', statusData.count, 'results:', statusData.results?.length || 0);
 
-      if (statusData.status === 'done' || statusData.status === 'completed') {
+      // O endpoint /responses/ retorna { results: [...], count: N }
+      // Se tem resultados, os dados estao prontos
+      if (statusData.results && statusData.results.length > 0) {
         resultData = statusData;
+        console.log('[Judit Sync OAB] Dados recebidos com sucesso');
         break;
-      } else if (statusData.status === 'failed' || statusData.status === 'error') {
-        throw new Error('Busca falhou na API Judit');
+      }
+
+      // Se count existe mas e 0, ainda processando
+      if (statusData.count === 0) {
+        console.log('[Judit Sync OAB] Aguardando processamento... tentativa', attempts + 1);
       }
 
       attempts++;
@@ -97,17 +109,28 @@ serve(async (req) => {
       throw new Error('Timeout aguardando resposta da API Judit');
     }
 
-    // Extrair processos do resultado
-    const processos = resultData.response_data?.lawsuits || 
-                      resultData.response_data?.processes || 
-                      resultData.response_data || [];
+    // Extrair processos do resultado - formato /responses/
+    // results e um array onde cada item pode ter response_data com lawsuits
+    const results = resultData.results || [];
+    let processos: any[] = [];
+    
+    for (const result of results) {
+      const data = result.response_data || result;
+      const lawsuits = data.lawsuits || data.processes || [];
+      if (Array.isArray(lawsuits)) {
+        processos = processos.concat(lawsuits);
+      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+        // Se response_data for um objeto unico (um processo)
+        processos.push(data);
+      }
+    }
 
-    console.log('[Judit Sync OAB] Processos encontrados:', Array.isArray(processos) ? processos.length : 0);
+    console.log('[Judit Sync OAB] Processos encontrados:', processos.length);
 
     let processosInseridos = 0;
     let processosAtualizados = 0;
 
-    if (Array.isArray(processos)) {
+    if (Array.isArray(processos) && processos.length > 0) {
       for (const processo of processos) {
         const numeroCnj = processo.numero_cnj || processo.lawsuit_cnj || processo.number;
         
@@ -152,7 +175,7 @@ serve(async (req) => {
           .select('id')
           .eq('oab_id', oabId)
           .eq('numero_cnj', numeroCnj)
-          .single();
+          .maybeSingle();
 
         if (existingProcesso) {
           await supabase
