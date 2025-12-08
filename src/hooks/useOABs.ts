@@ -64,11 +64,33 @@ export const useOABs = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Buscar tenant_id do usuario
+      const tenantId = await getTenantIdForUser(user.id);
+      
+      // Verificar se usuario e admin ou controller
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      
+      const isAdminOrController = roleData?.some(r => 
+        r.role === 'admin' || r.role === 'controller'
+      );
+
+      let query = supabase
         .from('oabs_cadastradas')
         .select('*')
-        .eq('user_id', user.id)
         .order('ordem', { ascending: true });
+
+      if (isAdminOrController && tenantId) {
+        // Admin/Controller ve TODAS as OABs do tenant
+        query = query.eq('tenant_id', tenantId);
+      } else {
+        // Usuarios normais veem apenas suas proprias OABs
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setOabs((data as OABCadastrada[]) || []);
