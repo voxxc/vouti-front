@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,9 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useOABs, OABCadastrada } from '@/hooks/useOABs';
+import { useOABs, useProcessosOAB, OABCadastrada, ProcessoOAB } from '@/hooks/useOABs';
 import { OABTab } from './OABTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
+import { Progress } from '@/components/ui/progress';
 
 export const OABManager = () => {
   const { userRole } = useAuth();
@@ -55,8 +56,12 @@ export const OABManager = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [requestIdDialogOpen, setRequestIdDialogOpen] = useState(false);
   const [novaBuscaDialogOpen, setNovaBuscaDialogOpen] = useState(false);
+  const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
   const [selectedOabForRequest, setSelectedOabForRequest] = useState<OABCadastrada | null>(null);
+  const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
+  const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, isRunning: false });
   const [activeTab, setActiveTab] = useState<string>('');
   
   // Form state
@@ -134,6 +139,63 @@ export const OABManager = () => {
       }
     }
   };
+
+  const handleOpenBatchLawsuit = async (oab: OABCadastrada) => {
+    // Buscar processos da OAB para contar quantos precisam ser consultados
+    const { data } = await import('@/integrations/supabase/client').then(m => 
+      m.supabase
+        .from('processos_oab')
+        .select('*')
+        .eq('oab_id', oab.id)
+        .order('ordem', { ascending: true })
+    );
+    
+    setBatchProcessos(data || []);
+    setSelectedOabForBatch(oab);
+    setLawsuitBatchDialogOpen(true);
+  };
+
+  const handleConfirmarBatchLawsuit = async () => {
+    if (!selectedOabForBatch || batchProcessos.length === 0) return;
+    
+    const processosParaConsultar = batchProcessos.filter(p => !p.detalhes_request_id);
+    if (processosParaConsultar.length === 0) {
+      setLawsuitBatchDialogOpen(false);
+      return;
+    }
+    
+    setBatchProgress({ current: 0, total: processosParaConsultar.length, isRunning: true });
+    
+    for (let i = 0; i < processosParaConsultar.length; i++) {
+      const processo = processosParaConsultar[i];
+      setBatchProgress(prev => ({ ...prev, current: i + 1 }));
+      
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        await supabase.functions.invoke('judit-buscar-detalhes-processo', {
+          body: {
+            processoOabId: processo.id,
+            numeroCnj: processo.numero_cnj,
+            oabId: selectedOabForBatch.id
+          }
+        });
+        // Pequeno delay entre chamadas para nao sobrecarregar
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (error) {
+        console.error('Erro ao buscar detalhes:', error);
+      }
+    }
+    
+    setBatchProgress({ current: 0, total: 0, isRunning: false });
+    setLawsuitBatchDialogOpen(false);
+    setSelectedOabForBatch(null);
+    
+    // Forcar reload da pagina para atualizar dados
+    window.location.reload();
+  };
+
+  const processosJaConsultados = batchProcessos.filter(p => p.detalhes_request_id).length;
+  const processosParaConsultar = batchProcessos.filter(p => !p.detalhes_request_id).length;
 
   if (loading) {
     return (
@@ -337,6 +399,15 @@ export const OABManager = () => {
                       >
                         <Key className="w-4 h-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenBatchLawsuit(oab)}
+                        className="h-8 w-8 rounded-full shrink-0"
+                        title="Carregar detalhes de todos os processos"
+                      >
+                        <Search className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -434,6 +505,75 @@ export const OABManager = () => {
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground">
               Remover
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Batch Lawsuit Dialog */}
+      <AlertDialog open={lawsuitBatchDialogOpen} onOpenChange={(open) => {
+        if (!batchProgress.isRunning) setLawsuitBatchDialogOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-primary" />
+              Carregar Detalhes de Todos os Processos
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                {batchProgress.isRunning ? (
+                  <div className="space-y-3">
+                    <p className="text-sm">Consultando processos na API Judit...</p>
+                    <Progress value={(batchProgress.current / batchProgress.total) * 100} />
+                    <p className="text-xs text-muted-foreground text-center">
+                      {batchProgress.current} de {batchProgress.total} processos
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p>
+                      Esta acao ira buscar andamentos para todos os processos que ainda nao foram consultados na API Judit.
+                    </p>
+                    <div className="p-3 bg-muted rounded-lg space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Total de processos:</span>
+                        <span className="font-medium">{batchProcessos.length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Ja consultados:</span>
+                        <span>{processosJaConsultados} (nao serao cobrados)</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-medium text-amber-600">
+                        <span>A consultar:</span>
+                        <span>{processosParaConsultar} (GERA CUSTO)</span>
+                      </div>
+                    </div>
+                    {processosParaConsultar > 0 && (
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Cada consulta pode gerar custo na sua conta Judit.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {!batchProgress.isRunning && (
+              <>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleConfirmarBatchLawsuit}
+                  disabled={processosParaConsultar === 0}
+                  className={processosParaConsultar > 0 ? "bg-amber-600 hover:bg-amber-700" : ""}
+                >
+                  {processosParaConsultar > 0 
+                    ? `Consultar ${processosParaConsultar} Processos (R$)` 
+                    : 'Todos ja consultados'}
+                </AlertDialogAction>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
