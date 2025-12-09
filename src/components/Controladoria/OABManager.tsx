@@ -535,7 +535,7 @@ export const OABManager = () => {
               </div>
 
               {/* Lista de Processos */}
-              <OABTab oabId={oab.id} />
+              <OABTab oabId={oab.id} oab={oab} />
             </TabsContent>
           ))}
         </Tabs>
