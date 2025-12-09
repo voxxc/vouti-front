@@ -2345,6 +2345,8 @@ export type Database = {
           data_distribuicao: string | null
           detalhes_carregados: boolean | null
           detalhes_completos: Json | null
+          detalhes_request_data: string | null
+          detalhes_request_id: string | null
           fase_processual: string | null
           id: string
           juizo: string | null
@@ -2371,6 +2373,8 @@ export type Database = {
           data_distribuicao?: string | null
           detalhes_carregados?: boolean | null
           detalhes_completos?: Json | null
+          detalhes_request_data?: string | null
+          detalhes_request_id?: string | null
           fase_processual?: string | null
           id?: string
           juizo?: string | null
@@ -2397,6 +2401,8 @@ export type Database = {
           data_distribuicao?: string | null
           detalhes_carregados?: boolean | null
           detalhes_completos?: Json | null
+          detalhes_request_data?: string | null
+          detalhes_request_id?: string | null
           fase_processual?: string | null
           id?: string
           juizo?: string | null

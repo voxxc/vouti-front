@@ -18,7 +18,8 @@ import {
   DollarSign,
   Shield,
   Building2,
-  BookOpen
+  BookOpen,
+  RefreshCw
 } from 'lucide-react';
 import {
   Sheet,
@@ -41,6 +42,8 @@ interface ProcessoOABDetalhesProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<void>;
+  onRefreshProcessos?: () => Promise<void>;
+  onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
 }
 
 // Traduzir person_type para portugues
@@ -134,10 +137,13 @@ export const ProcessoOABDetalhes = ({
   processo,
   open,
   onOpenChange,
-  onToggleMonitoramento
+  onToggleMonitoramento,
+  onRefreshProcessos,
+  onConsultarDetalhesRequest
 }: ProcessoOABDetalhesProps) => {
-  const { andamentos, loading: loadingAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
+  const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
+  const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
 
   if (!processo) return null;
 
@@ -145,6 +151,18 @@ export const ProcessoOABDetalhes = ({
     setTogglingMonitoramento(true);
     await onToggleMonitoramento(processo);
     setTogglingMonitoramento(false);
+  };
+
+  const handleRefreshAndamentos = async () => {
+    if (!processo.detalhes_request_id || !onConsultarDetalhesRequest) return;
+    
+    setRefreshingAndamentos(true);
+    try {
+      await onConsultarDetalhesRequest(processo.id, processo.detalhes_request_id);
+      await fetchAndamentos();
+    } finally {
+      setRefreshingAndamentos(false);
+    }
   };
 
   const andamentosNaoLidos = andamentos.filter(a => !a.lida).length;
@@ -348,9 +366,28 @@ export const ProcessoOABDetalhes = ({
             {/* Andamentos */}
             <TabsContent value="andamentos" className="mt-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-muted-foreground">
-                  {andamentos.length} andamento(s)
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {andamentos.length} andamento(s)
+                  </p>
+                  {/* Botao de atualizar andamentos (gratuito se tiver request_id) */}
+                  {processo.detalhes_request_id && onConsultarDetalhesRequest && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleRefreshAndamentos}
+                      disabled={refreshingAndamentos}
+                      title="Atualizar andamentos (consulta gratuita)"
+                    >
+                      {refreshingAndamentos ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  )}
+                </div>
                 {andamentosNaoLidos > 0 && (
                   <Button variant="ghost" size="sm" onClick={marcarTodasComoLidas}>
                     <CheckCircle2 className="w-4 h-4 mr-1" />

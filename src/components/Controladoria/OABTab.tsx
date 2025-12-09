@@ -10,12 +10,23 @@ import {
   BookUp,
   FileQuestion,
   ChevronDown,
-  Link2
+  Link2,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useProcessosOAB, ProcessoOAB } from '@/hooks/useOABs';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 
@@ -216,13 +227,17 @@ export const OABTab = ({ oabId }: OABTabProps) => {
     processos, 
     loading, 
     carregandoDetalhes,
+    fetchProcessos,
     carregarDetalhes, 
     atualizarOrdem,
-    toggleMonitoramento 
+    toggleMonitoramento,
+    consultarDetalhesRequest
   } = useProcessosOAB(oabId);
   
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [processoParaCarregar, setProcessoParaCarregar] = useState<ProcessoOAB | null>(null);
 
   const processosAgrupados = useMemo(() => agruparPorInstancia(processos), [processos]);
 
@@ -270,13 +285,38 @@ export const OABTab = ({ oabId }: OABTabProps) => {
   };
 
   const handleVerDetalhes = async (processo: ProcessoOAB) => {
-    setSelectedProcesso(processo);
+    // Se ja tem detalhes carregados, abre direto (sem custo)
+    if (processo.detalhes_carregados) {
+      setSelectedProcesso(processo);
+      setDrawerOpen(true);
+      return;
+    }
+    
+    // Mostrar dialog de confirmacao antes de fazer consulta paga
+    setProcessoParaCarregar(processo);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleVerResumo = () => {
+    // Abre o drawer apenas com dados da capa (sem consulta API)
+    if (processoParaCarregar) {
+      setSelectedProcesso(processoParaCarregar);
+      setDrawerOpen(true);
+    }
+    setConfirmDialogOpen(false);
+    setProcessoParaCarregar(null);
+  };
+
+  const handleCarregarDetalhes = async () => {
+    if (!processoParaCarregar) return;
+    
+    setConfirmDialogOpen(false);
+    setSelectedProcesso(processoParaCarregar);
     setDrawerOpen(true);
     
-    // Carregar detalhes se ainda nao foram carregados
-    if (!processo.detalhes_carregados) {
-      await carregarDetalhes(processo.id, processo.numero_cnj);
-    }
+    // Fazer a consulta paga
+    await carregarDetalhes(processoParaCarregar.id, processoParaCarregar.numero_cnj);
+    setProcessoParaCarregar(null);
   };
 
   const handleToggleMonitoramento = async (processo: ProcessoOAB) => {
@@ -384,7 +424,41 @@ export const OABTab = ({ oabId }: OABTabProps) => {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onToggleMonitoramento={handleToggleMonitoramento}
+        onRefreshProcessos={fetchProcessos}
+        onConsultarDetalhesRequest={consultarDetalhesRequest}
       />
+
+      {/* Dialog de Confirmacao para Consulta Paga */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Carregar Andamentos do Processo?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Esta acao fara uma consulta a API Judit para buscar os andamentos 
+                completos do processo.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400 font-medium">
+                Cada consulta pode gerar custo na sua conta Judit.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Voce pode ver o resumo do processo (dados da capa) sem custo adicional.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleVerResumo}>
+              Ver apenas Resumo
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleCarregarDetalhes}>
+              Carregar Andamentos (Consulta API)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
