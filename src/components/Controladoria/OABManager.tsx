@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -70,6 +72,67 @@ export const OABManager = () => {
   const [nomeAdvogado, setNomeAdvogado] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [inputRequestId, setInputRequestId] = useState('');
+  const [syncPendentesProgress, setSyncPendentesProgress] = useState({ current: 0, total: 0, isRunning: false });
+
+  // Sincronizar andamentos pendentes (GET gratuito)
+  const handleSyncAndamentosPendentes = async () => {
+    // 1. Buscar processos com detalhes_request_id mas sem andamentos
+    const { data: processos, error } = await supabase
+      .from('processos_oab')
+      .select('id, numero_cnj, detalhes_request_id')
+      .not('detalhes_request_id', 'is', null);
+
+    if (error || !processos) {
+      toast({ title: 'Erro ao buscar processos', variant: 'destructive' });
+      return;
+    }
+
+    // 2. Para cada processo, verificar se tem andamentos
+    const processosSemAndamentos: typeof processos = [];
+    for (const processo of processos) {
+      const { count } = await supabase
+        .from('processos_oab_andamentos')
+        .select('id', { count: 'exact', head: true })
+        .eq('processo_oab_id', processo.id);
+      
+      if (count === 0) {
+        processosSemAndamentos.push(processo);
+      }
+    }
+
+    if (processosSemAndamentos.length === 0) {
+      toast({ title: 'Todos os processos ja possuem andamentos' });
+      return;
+    }
+
+    // 3. Sincronizar cada um com GET gratuito
+    setSyncPendentesProgress({ current: 0, total: processosSemAndamentos.length, isRunning: true });
+
+    let sucesso = 0;
+    for (let i = 0; i < processosSemAndamentos.length; i++) {
+      const processo = processosSemAndamentos[i];
+      setSyncPendentesProgress(prev => ({ ...prev, current: i + 1 }));
+
+      try {
+        const { error: fnError } = await supabase.functions.invoke('judit-consultar-detalhes-request', {
+          body: {
+            processoOabId: processo.id,
+            requestId: processo.detalhes_request_id
+          }
+        });
+        if (!fnError) sucesso++;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (err) {
+        console.error('Erro ao sincronizar:', err);
+      }
+    }
+
+    setSyncPendentesProgress({ current: 0, total: 0, isRunning: false });
+    toast({ 
+      title: `Sincronizacao concluida`,
+      description: `${sucesso} de ${processosSemAndamentos.length} processos atualizados`
+    });
+  };
 
   const handleCadastrar = async () => {
     if (!oabNumero || !oabUf) return;
@@ -215,13 +278,35 @@ export const OABManager = () => {
           <Badge variant="secondary">{oabs.length}</Badge>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar OAB
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSyncAndamentosPendentes}
+              disabled={syncPendentesProgress.isRunning}
+              title="Sincronizar andamentos dos processos com request_id mas sem movimentos"
+            >
+              {syncPendentesProgress.isRunning ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  {syncPendentesProgress.current}/{syncPendentesProgress.total}
+                </>
+              ) : (
+                <>
+                  <ListChecks className="w-4 h-4 mr-2" />
+                  Sincronizar Pendentes
+                </>
+              )}
             </Button>
-          </DialogTrigger>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Cadastrar OAB
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Cadastrar Nova OAB</DialogTitle>
@@ -277,8 +362,9 @@ export const OABManager = () => {
                 )}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Tabs de OABs */}
