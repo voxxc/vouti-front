@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks, History } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks, FileInput } from 'lucide-react';
 import { OABRequestHistorico } from './OABRequestHistorico';
 import { EditarAdvogadoModal } from './EditarAdvogadoModal';
+import { ImportarProcessoCNJDialog } from './ImportarProcessoCNJDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,9 +63,11 @@ export const OABManager = () => {
   const [requestIdDialogOpen, setRequestIdDialogOpen] = useState(false);
   const [novaBuscaDialogOpen, setNovaBuscaDialogOpen] = useState(false);
   const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
+  const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
   const [selectedOabForRequest, setSelectedOabForRequest] = useState<OABCadastrada | null>(null);
   const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
+  const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
   const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, isRunning: false });
   const [activeTab, setActiveTab] = useState<string>('');
@@ -76,6 +79,11 @@ export const OABManager = () => {
   const [submitting, setSubmitting] = useState(false);
   const [inputRequestId, setInputRequestId] = useState('');
   const [syncPendentesProgress, setSyncPendentesProgress] = useState({ current: 0, total: 0, isRunning: false });
+
+  const handleOpenImportCNJ = (oab: OABCadastrada) => {
+    setSelectedOabForImport(oab);
+    setImportCNJDialogOpen(true);
+  };
 
   // Sincronizar andamentos pendentes (GET gratuito)
   const handleSyncAndamentosPendentes = async () => {
@@ -512,6 +520,18 @@ export const OABManager = () => {
                     </div>
                   </div>
                 )}
+                {/* Botao Importar Processo */}
+                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenImportCNJ(oab)}
+                    className="text-xs"
+                  >
+                    <FileInput className="w-4 h-4 mr-2" />
+                    Importar Processo por CNJ
+                  </Button>
+                </div>
               </div>
 
               {/* Lista de Processos */}
@@ -678,6 +698,19 @@ export const OABManager = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import CNJ Dialog */}
+      {selectedOabForImport && (
+        <ImportarProcessoCNJDialog
+          open={importCNJDialogOpen}
+          onOpenChange={setImportCNJDialogOpen}
+          oab={selectedOabForImport}
+          onSuccess={() => {
+            fetchOABs();
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -1,0 +1,263 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { numeroCnj, oabId, tenantId, userId } = await req.json();
+    
+    if (!numeroCnj || !oabId) {
+      throw new Error('numeroCnj e oabId sao obrigatorios');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const juditApiKey = Deno.env.get('JUDIT_API_KEY')!;
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Limpar numero do processo (apenas digitos)
+    const numeroLimpo = numeroCnj.replace(/\D/g, '');
+    
+    console.log('[Judit Import CNJ] Buscando processo:', numeroLimpo);
+
+    // Verificar se processo ja existe para esta OAB
+    const { data: existente } = await supabase
+      .from('processos_oab')
+      .select('id')
+      .eq('oab_id', oabId)
+      .eq('numero_cnj', numeroCnj)
+      .maybeSingle();
+
+    if (existente) {
+      throw new Error('Este processo ja esta cadastrado para esta OAB');
+    }
+
+    // Chamar /requests com lawsuit_cnj
+    const requestPayload = {
+      search: {
+        search_type: 'lawsuit_cnj',
+        search_key: numeroLimpo,
+        on_demand: true
+      }
+    };
+
+    console.log('[Judit Import CNJ] Payload:', JSON.stringify(requestPayload));
+
+    // Registrar log antes da chamada
+    const { data: logData } = await supabase
+      .from('judit_api_logs')
+      .insert({
+        tenant_id: tenantId || null,
+        user_id: userId || null,
+        oab_id: oabId,
+        tipo_chamada: 'lawsuit_cnj_import',
+        endpoint: 'https://requests.prod.judit.io/requests',
+        metodo: 'POST',
+        request_payload: requestPayload,
+        sucesso: false,
+        custo_estimado: 1
+      })
+      .select('id')
+      .single();
+
+    const logId = logData?.id;
+
+    const response = await fetch('https://requests.prod.judit.io/requests', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': juditApiKey.trim(),
+      },
+      body: JSON.stringify(requestPayload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Judit Import CNJ] Erro na requisicao:', response.status, errorText);
+      
+      if (logId) {
+        await supabase
+          .from('judit_api_logs')
+          .update({ 
+            sucesso: false, 
+            resposta_status: response.status, 
+            erro_mensagem: errorText 
+          })
+          .eq('id', logId);
+      }
+      
+      throw new Error(`Erro na API Judit: ${response.status}`);
+    }
+
+    const initialData = await response.json();
+    const requestId = initialData.request_id;
+    
+    if (logId) {
+      await supabase
+        .from('judit_api_logs')
+        .update({ 
+          sucesso: true, 
+          resposta_status: 200, 
+          request_id: requestId 
+        })
+        .eq('id', logId);
+    }
+    
+    console.log('[Judit Import CNJ] Request ID:', requestId);
+
+    // Polling para obter resultado
+    let attempts = 0;
+    const maxAttempts = 30;
+    let resultData = null;
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(
+        `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
+        {
+          method: 'GET',
+          headers: {
+            'api-key': juditApiKey.trim(),
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!statusResponse.ok) {
+        console.log('[Judit Import CNJ] Polling erro:', statusResponse.status);
+        attempts++;
+        continue;
+      }
+
+      const statusData = await statusResponse.json();
+      console.log('[Judit Import CNJ] Polling - page_data:', statusData.page_data?.length || 0);
+
+      if (statusData.page_data && statusData.page_data.length > 0) {
+        resultData = statusData;
+        console.log('[Judit Import CNJ] Dados recebidos');
+        break;
+      }
+
+      attempts++;
+    }
+
+    if (!resultData) {
+      throw new Error('Timeout aguardando resposta da API Judit');
+    }
+
+    // Extrair dados do resultado
+    const pageData = resultData.page_data || [];
+    const firstResult = pageData[0] || {};
+    const responseData = firstResult.response_data || firstResult;
+    
+    // Extrair partes
+    let parteAtiva = '';
+    let partePassiva = '';
+    const name = responseData.name || '';
+    if (name.includes(' X ')) {
+      const partes = name.split(' X ');
+      parteAtiva = partes[0]?.trim() || '';
+      partePassiva = partes[1]?.trim() || '';
+    }
+    
+    // Extrair tribunal
+    const tribunalInfo = responseData.courts?.[0] || {};
+    const tribunal = tribunalInfo.name || '';
+    const tribunalSigla = tribunalInfo.acronym || '';
+
+    // Criar novo processo
+    const novoProcesso = {
+      oab_id: oabId,
+      tenant_id: tenantId || null,
+      numero_cnj: numeroCnj,
+      parte_ativa: parteAtiva,
+      parte_passiva: partePassiva,
+      tribunal: tribunal,
+      tribunal_sigla: tribunalSigla,
+      capa_completa: responseData,
+      detalhes_completos: responseData,
+      detalhes_carregados: true,
+      detalhes_request_id: requestId,
+      detalhes_request_data: new Date().toISOString(),
+      importado_manualmente: true
+    };
+
+    const { data: processoInserido, error: insertError } = await supabase
+      .from('processos_oab')
+      .insert(novoProcesso)
+      .select('id')
+      .single();
+
+    if (insertError) {
+      console.error('[Judit Import CNJ] Erro ao inserir processo:', insertError);
+      throw new Error('Erro ao salvar processo: ' + insertError.message);
+    }
+
+    const processoOabId = processoInserido.id;
+    console.log('[Judit Import CNJ] Processo criado:', processoOabId);
+
+    // Inserir andamentos
+    const steps = responseData?.steps || responseData?.movements || [];
+    let andamentosInseridos = 0;
+
+    for (const step of steps) {
+      const dataMovimentacao = step.step_date || step.date || step.data;
+      const descricao = step.content || step.description || '';
+      
+      if (descricao) {
+        const { error } = await supabase
+          .from('processos_oab_andamentos')
+          .insert({
+            processo_oab_id: processoOabId,
+            data_movimentacao: dataMovimentacao,
+            tipo_movimentacao: step.type || null,
+            descricao: descricao,
+            dados_completos: step,
+            lida: false
+          });
+
+        if (!error) andamentosInseridos++;
+      }
+    }
+
+    // Atualizar contador de processos na OAB
+    const { count } = await supabase
+      .from('processos_oab')
+      .select('id', { count: 'exact', head: true })
+      .eq('oab_id', oabId);
+
+    await supabase
+      .from('oabs_cadastradas')
+      .update({ total_processos: count || 0 })
+      .eq('id', oabId);
+
+    console.log('[Judit Import CNJ] Concluido:', { andamentosInseridos });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        processoId: processoOabId,
+        andamentosInseridos,
+        totalAndamentos: steps.length
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('[Judit Import CNJ] Erro:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
