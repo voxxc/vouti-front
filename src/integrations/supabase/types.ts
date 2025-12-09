@@ -1572,6 +1572,65 @@ export type Database = {
           },
         ]
       }
+      oab_request_historico: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          erro_mensagem: string | null
+          id: string
+          oab_id: string
+          on_demand: boolean | null
+          processos_atualizados: number | null
+          processos_encontrados: number | null
+          processos_novos: number | null
+          request_id: string
+          status: string | null
+          tenant_id: string | null
+          tipo_busca: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          oab_id: string
+          on_demand?: boolean | null
+          processos_atualizados?: number | null
+          processos_encontrados?: number | null
+          processos_novos?: number | null
+          request_id: string
+          status?: string | null
+          tenant_id?: string | null
+          tipo_busca?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          oab_id?: string
+          on_demand?: boolean | null
+          processos_atualizados?: number | null
+          processos_encontrados?: number | null
+          processos_novos?: number | null
+          request_id?: string
+          status?: string | null
+          tenant_id?: string | null
+          tipo_busca?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oab_request_historico_oab_id_fkey"
+            columns: ["oab_id"]
+            isOneToOne: false
+            referencedRelation: "oabs_cadastradas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oabs_cadastradas: {
         Row: {
           created_at: string | null
