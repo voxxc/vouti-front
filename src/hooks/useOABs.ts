@@ -14,6 +14,13 @@ export interface OABCadastrada {
   ultimo_request_id: string | null;
   request_id_data: string | null;
   created_at: string;
+  // Campos do perfil do advogado
+  email_advogado: string | null;
+  telefone_advogado: string | null;
+  endereco_advogado: string | null;
+  cidade_advogado: string | null;
+  cep_advogado: string | null;
+  logo_url: string | null;
 }
 
 export interface ProcessoOAB {
