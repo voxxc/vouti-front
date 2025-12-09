@@ -27,7 +27,7 @@ serve(async (req) => {
     // Buscar processo atual
     const { data: processo, error: fetchError } = await supabase
       .from('processos_oab')
-      .select('tracking_id, monitoramento_ativo')
+      .select('tracking_id, monitoramento_ativo, tenant_id')
       .eq('id', processoOabId)
       .single();
 
@@ -35,6 +35,7 @@ serve(async (req) => {
       throw new Error('Processo nao encontrado');
     }
 
+    const processoTenantId = processo.tenant_id || tenantId;
     const webhookUrl = `${supabaseUrl}/functions/v1/judit-webhook-oab`;
     const numeroLimpo = numeroCnj.replace(/\D/g, '');
 
@@ -114,18 +115,36 @@ serve(async (req) => {
 
       console.log('[Judit Monitor] Tracking ID:', trackingId);
 
-      // Atualizar processo
-      await supabase
+      // SINCRONIZAR: Atualizar TODOS os processos com mesmo CNJ no tenant
+      let updateQuery = supabase
         .from('processos_oab')
         .update({
           tracking_id: trackingId,
           monitoramento_ativo: true,
           updated_at: new Date().toISOString()
         })
-        .eq('id', processoOabId);
+        .eq('numero_cnj', numeroCnj);
+
+      // Se tiver tenant_id, filtra por tenant tambem
+      if (processoTenantId) {
+        updateQuery = updateQuery.eq('tenant_id', processoTenantId);
+      }
+
+      const { data: updatedProcessos, error: updateError } = await updateQuery.select('id, oab_id');
+      
+      if (updateError) {
+        console.error('[Judit Monitor] Erro ao atualizar processos:', updateError);
+      } else {
+        console.log('[Judit Monitor] Processos sincronizados:', updatedProcessos?.length || 0);
+      }
 
       return new Response(
-        JSON.stringify({ success: true, trackingId, ativo: true }),
+        JSON.stringify({ 
+          success: true, 
+          trackingId, 
+          ativo: true,
+          processosSincronizados: updatedProcessos?.length || 1
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
@@ -150,17 +169,34 @@ serve(async (req) => {
         }
       }
 
-      // Atualizar processo (mantém tracking_id para possível reativação)
-      await supabase
+      // SINCRONIZAR: Atualizar TODOS os processos com mesmo CNJ no tenant
+      let updateQuery = supabase
         .from('processos_oab')
         .update({
           monitoramento_ativo: false,
           updated_at: new Date().toISOString()
         })
-        .eq('id', processoOabId);
+        .eq('numero_cnj', numeroCnj);
+
+      // Se tiver tenant_id, filtra por tenant tambem
+      if (processoTenantId) {
+        updateQuery = updateQuery.eq('tenant_id', processoTenantId);
+      }
+
+      const { data: updatedProcessos, error: updateError } = await updateQuery.select('id, oab_id');
+      
+      if (updateError) {
+        console.error('[Judit Monitor] Erro ao atualizar processos:', updateError);
+      } else {
+        console.log('[Judit Monitor] Processos sincronizados:', updatedProcessos?.length || 0);
+      }
 
       return new Response(
-        JSON.stringify({ success: true, ativo: false }),
+        JSON.stringify({ 
+          success: true, 
+          ativo: false,
+          processosSincronizados: updatedProcessos?.length || 1
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
