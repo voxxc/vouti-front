@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -120,15 +120,6 @@ export const ImportarProcessoCNJDialog = ({
             </p>
           </div>
 
-          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-800 dark:text-amber-200">
-              <p className="font-medium">Esta operacao gera custo na API Judit</p>
-              <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">
-                O processo sera buscado, importado e seus andamentos registrados automaticamente.
-              </p>
-            </div>
-          </div>
         </div>
 
         <DialogFooter>
@@ -138,7 +129,6 @@ export const ImportarProcessoCNJDialog = ({
           <Button
             onClick={handleImportar}
             disabled={!isValidCNJ || importando}
-            className="bg-amber-600 hover:bg-amber-700"
           >
             {importando ? (
               <>
@@ -148,7 +138,7 @@ export const ImportarProcessoCNJDialog = ({
             ) : (
               <>
                 <Plus className="w-4 h-4 mr-2" />
-                Importar Processo (R$)
+                Importar Processo
               </>
             )}
           </Button>
