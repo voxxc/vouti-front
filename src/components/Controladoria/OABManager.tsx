@@ -147,7 +147,7 @@ export const OABManager = () => {
         .from('processos_oab')
         .select('*')
         .eq('oab_id', oab.id)
-        .order('ordem', { ascending: true })
+        .order('ordem_lista', { ascending: true })
     );
     
     setBatchProcessos(data || []);
