@@ -30,16 +30,6 @@ export const RelatorioProcessoOAB = ({
 }: RelatorioProcessoOABProps) => {
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Extended OAB type
-  const oabExtended = oab as OABCadastrada & {
-    email_advogado?: string;
-    telefone_advogado?: string;
-    endereco_advogado?: string;
-    cidade_advogado?: string;
-    cep_advogado?: string;
-    logo_url?: string;
-  } | null;
-
   const formatData = (data: string | null | undefined) => {
     if (!data) return '-';
     try {
@@ -224,30 +214,30 @@ export const RelatorioProcessoOAB = ({
             {/* Cabecalho */}
             <div className="header">
               <div className="header-info">
-                <h1>{oabExtended?.nome_advogado || `OAB ${oab?.oab_numero}/${oab?.oab_uf}`}</h1>
+                <h1>{oab?.nome_advogado || `OAB ${oab?.oab_numero}/${oab?.oab_uf}`}</h1>
                 {oab && (
                   <p style={{ fontSize: '12px', fontWeight: 500 }}>
                     OAB/{oab.oab_uf} {oab.oab_numero}
                   </p>
                 )}
-                {oabExtended?.telefone_advogado && (
-                  <p>{oabExtended.telefone_advogado}</p>
+                {oab?.telefone_advogado && (
+                  <p>{oab.telefone_advogado}</p>
                 )}
-                {oabExtended?.email_advogado && (
-                  <p>{oabExtended.email_advogado}</p>
+                {oab?.email_advogado && (
+                  <p>{oab.email_advogado}</p>
                 )}
-                {oabExtended?.endereco_advogado && (
-                  <p>{oabExtended.endereco_advogado}</p>
+                {oab?.endereco_advogado && (
+                  <p>{oab.endereco_advogado}</p>
                 )}
-                {(oabExtended?.cidade_advogado || oabExtended?.cep_advogado) && (
+                {(oab?.cidade_advogado || oab?.cep_advogado) && (
                   <p>
-                    {oabExtended.cep_advogado && `CEP ${oabExtended.cep_advogado} - `}
-                    {oabExtended.cidade_advogado}
+                    {oab?.cep_advogado && `CEP ${oab.cep_advogado} - `}
+                    {oab?.cidade_advogado}
                   </p>
                 )}
               </div>
-              {oabExtended?.logo_url && (
-                <img src={oabExtended.logo_url} alt="Logo" className="logo" />
+              {oab?.logo_url && (
+                <img src={oab.logo_url} alt="Logo" className="logo" />
               )}
             </div>
 
