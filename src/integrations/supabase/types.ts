@@ -2582,6 +2582,7 @@ export type Database = {
           is_private: boolean | null
           processo_oab_id: string
           status: string | null
+          step_id: string | null
           tenant_id: string | null
         }
         Insert: {
@@ -2594,6 +2595,7 @@ export type Database = {
           is_private?: boolean | null
           processo_oab_id: string
           status?: string | null
+          step_id?: string | null
           tenant_id?: string | null
         }
         Update: {
@@ -2606,6 +2608,7 @@ export type Database = {
           is_private?: boolean | null
           processo_oab_id?: string
           status?: string | null
+          step_id?: string | null
           tenant_id?: string | null
         }
         Relationships: [

@@ -221,6 +221,7 @@ serve(async (req) => {
             status: attachment.status || 'done',
             content_description: attachment.content || attachment.description,
             is_private: attachment.is_private || false,
+            step_id: attachment.step_id || null,
             tenant_id: tenantIdFromProcesso
           }, {
             onConflict: 'processo_oab_id,attachment_id'
