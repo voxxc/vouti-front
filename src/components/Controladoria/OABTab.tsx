@@ -268,7 +268,7 @@ const InstanciaSection = ({
   );
 };
 
-export const OABTab = ({ oabId }: OABTabProps) => {
+export const OABTab = ({ oabId, oab }: OABTabProps) => {
   const { 
     processos, 
     loading, 
