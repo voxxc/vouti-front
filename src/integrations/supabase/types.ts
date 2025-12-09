@@ -2426,6 +2426,7 @@ export type Database = {
           detalhes_request_id: string | null
           fase_processual: string | null
           id: string
+          importado_manualmente: boolean | null
           juizo: string | null
           link_tribunal: string | null
           monitoramento_ativo: boolean | null
@@ -2454,6 +2455,7 @@ export type Database = {
           detalhes_request_id?: string | null
           fase_processual?: string | null
           id?: string
+          importado_manualmente?: boolean | null
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null
@@ -2482,6 +2484,7 @@ export type Database = {
           detalhes_request_id?: string | null
           fase_processual?: string | null
           id?: string
+          importado_manualmente?: boolean | null
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null
