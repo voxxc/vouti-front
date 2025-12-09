@@ -291,7 +291,7 @@ export const OABManager = () => {
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Key className="w-4 h-4 text-muted-foreground shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">Request ID (Judit)</p>
+                        <p className="text-xs text-muted-foreground">Request ID</p>
                         {oab.ultimo_request_id ? (
                           <p className="text-xs font-mono truncate" title={oab.ultimo_request_id}>
                             {oab.ultimo_request_id}
@@ -303,28 +303,19 @@ export const OABManager = () => {
                     </div>
                     <div className="flex items-center gap-1 w-full sm:w-auto">
                       <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenRequestIdDialog(oab)}
-                        className="flex-1 sm:flex-none text-xs"
-                      >
-                        <Key className="w-3 h-3 mr-1" />
-                        {oab.ultimo_request_id ? 'Editar' : 'Associar'}
-                      </Button>
-                      <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => handleConsultarRequest(oab)}
                         disabled={sincronizando === oab.id || !oab.ultimo_request_id}
                         className="flex-1 sm:flex-none text-xs"
-                        title="Consulta gratuita usando request_id existente"
+                        title="Consulta usando request_id existente"
                       >
                         {sincronizando === oab.id ? (
                           <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
                         ) : (
                           <Download className="w-3 h-3 mr-1" />
                         )}
-                        Consultar (Gratis)
+                        Consultar
                       </Button>
                       <Button
                         variant="outline"
@@ -336,6 +327,15 @@ export const OABManager = () => {
                       >
                         <AlertTriangle className="w-3 h-3 mr-1" />
                         Nova Busca (R$)
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenRequestIdDialog(oab)}
+                        className="h-8 w-8 rounded-full shrink-0"
+                        title={oab.ultimo_request_id ? 'Editar Request ID' : 'Associar Request ID'}
+                      >
+                        <Key className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
