@@ -292,6 +292,15 @@ export const OABTab = ({ oabId }: OABTabProps) => {
       return;
     }
     
+    // Se tem request_id salvo, fazer GET gratuito ao inves de pedir consulta paga
+    if (processo.detalhes_request_id) {
+      setSelectedProcesso(processo);
+      setDrawerOpen(true);
+      // Fazer GET gratuito para atualizar andamentos
+      await consultarDetalhesRequest(processo.id, processo.detalhes_request_id);
+      return;
+    }
+    
     // Mostrar dialog de confirmacao antes de fazer consulta paga
     setProcessoParaCarregar(processo);
     setConfirmDialogOpen(true);
