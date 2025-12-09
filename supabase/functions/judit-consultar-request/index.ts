@@ -107,37 +107,86 @@ serve(async (req) => {
         continue;
       }
 
-      // Extrair partes do campo "name" (formato "AUTOR X REU")
+      console.log('[Judit Consultar] Processando CNJ:', numeroCnj);
+
+      // Processar parties de forma mais precisa usando person_type
       let parteAtiva = '';
       let partePassiva = '';
-      
-      if (responseData.name && responseData.name.includes(' X ')) {
+      const advogados: string[] = [];
+
+      if (responseData.parties && responseData.parties.length > 0) {
+        console.log('[Judit Consultar] Processando', responseData.parties.length, 'partes...');
+        
+        for (const parte of responseData.parties) {
+          const nome = parte.name || '';
+          const tipo = (parte.person_type || '').toUpperCase();
+          
+          console.log('[Judit Consultar] Parte:', nome, '- Tipo:', tipo);
+          
+          if (tipo === 'ATIVO' || tipo === 'AUTOR') {
+            if (!parteAtiva) parteAtiva = nome;
+          } else if (tipo === 'PASSIVO' || tipo === 'REU' || tipo === 'RÉU') {
+            if (!partePassiva) partePassiva = nome;
+          } else if (tipo === 'ADVOGADO') {
+            // Extrair OAB do advogado se disponivel
+            const oabDoc = parte.documents?.find((d: { document_type?: string }) => 
+              d.document_type?.toLowerCase() === 'oab'
+            );
+            const oabNum = oabDoc?.document || '';
+            const advStr = oabNum ? `${nome} (OAB ${oabNum})` : nome;
+            if (!advogados.includes(advStr)) {
+              advogados.push(advStr);
+            }
+          }
+          
+          // Tambem extrair advogados que estao como lawyers dentro de cada parte
+          if (parte.lawyers && parte.lawyers.length > 0) {
+            for (const advogado of parte.lawyers) {
+              const advNome = advogado.name || '';
+              const oabDoc = advogado.documents?.find((d: { document_type?: string }) => 
+                d.document_type?.toLowerCase() === 'oab'
+              );
+              const oabNum = oabDoc?.document || '';
+              const advStr = oabNum ? `${advNome} (OAB ${oabNum})` : advNome;
+              if (advStr && !advogados.includes(advStr)) {
+                advogados.push(advStr);
+              }
+            }
+          }
+        }
+      }
+
+      // Fallback para o campo name se parties nao tiver dados de autor/reu
+      if (!parteAtiva && !partePassiva && responseData.name && responseData.name.includes(' X ')) {
         const partesNome = responseData.name.split(' X ');
         parteAtiva = partesNome[0]?.trim() || '';
         partePassiva = partesNome[1]?.trim() || '';
-      } else if (responseData.name) {
-        parteAtiva = responseData.name;
-      }
-
-      // Se tiver array parties, usar para mais detalhes
-      if (responseData.parties && responseData.parties.length > 0) {
-        for (const parte of responseData.parties) {
-          const nome = parte.name || '';
-          const polo = (parte.pole || parte.side || '').toLowerCase();
-          
-          if (polo.includes('active') || polo.includes('ativo')) {
-            parteAtiva = parteAtiva || nome;
-          } else if (polo.includes('passive') || polo.includes('passivo')) {
-            partePassiva = partePassiva || nome;
-          }
-        }
+        console.log('[Judit Consultar] Usando fallback do campo name para partes');
       }
 
       // Extrair tribunal do array courts
       const tribunal = responseData.courts?.[0]?.name || null;
       const tribunalSigla = responseData.courts?.[0]?.acronym || null;
 
-      // Preparar dados para upsert
+      // Extrair link do tribunal - pode estar em tribunal_url ou url
+      let linkTribunal = null;
+      if (responseData.tribunal_url && responseData.tribunal_url !== 'NAO INFORMADO') {
+        linkTribunal = responseData.tribunal_url;
+      } else if (responseData.url) {
+        linkTribunal = responseData.url;
+      }
+
+      // Extrair data de distribuicao
+      let dataDistribuicao = null;
+      if (responseData.distribution_date) {
+        try {
+          dataDistribuicao = responseData.distribution_date.split('T')[0];
+        } catch {
+          dataDistribuicao = null;
+        }
+      }
+
+      // Preparar dados para upsert com todos os campos
       const processoData = {
         oab_id: oabId,
         numero_cnj: numeroCnj,
@@ -146,13 +195,25 @@ serve(async (req) => {
         parte_ativa: parteAtiva || null,
         parte_passiva: partePassiva || null,
         partes_completas: responseData.parties || null,
-        status_processual: responseData.status || 'ativo',
+        status_processual: responseData.situation || responseData.status || 'ativo',
         fase_processual: responseData.phase || null,
-        juizo: tribunal,
-        link_tribunal: responseData.url || null,
+        juizo: responseData.county || responseData.courts?.[0]?.name || tribunal,
+        link_tribunal: linkTribunal,
+        valor_causa: responseData.amount || null,
+        data_distribuicao: dataDistribuicao,
         capa_completa: responseData,
         updated_at: new Date().toISOString(),
       };
+
+      console.log('[Judit Consultar] Dados extraidos:', {
+        numeroCnj,
+        parteAtiva: processoData.parte_ativa,
+        partePassiva: processoData.parte_passiva,
+        advogados: advogados.length,
+        valorCausa: processoData.valor_causa,
+        dataDistribuicao: processoData.data_distribuicao,
+        juizo: processoData.juizo,
+      });
 
       // Verificar se ja existe
       const { data: existente } = await supabase
@@ -163,16 +224,26 @@ serve(async (req) => {
         .single();
 
       if (existente) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('processos_oab')
           .update(processoData)
           .eq('id', existente.id);
-        processosAtualizados++;
+        
+        if (updateError) {
+          console.error('[Judit Consultar] Erro ao atualizar:', updateError);
+        } else {
+          processosAtualizados++;
+        }
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('processos_oab')
           .insert(processoData);
-        processosInseridos++;
+        
+        if (insertError) {
+          console.error('[Judit Consultar] Erro ao inserir:', insertError);
+        } else {
+          processosInseridos++;
+        }
       }
 
       console.log('[Judit Consultar] Processado:', numeroCnj);
