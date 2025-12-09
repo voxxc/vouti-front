@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks, History } from 'lucide-react';
+import { OABRequestHistorico } from './OABRequestHistorico';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -498,6 +499,11 @@ export const OABManager = () => {
                       >
                         <Search className="w-4 h-4" />
                       </Button>
+                      <OABRequestHistorico 
+                        oabId={oab.id} 
+                        oabNumero={oab.oab_numero} 
+                        oabUf={oab.oab_uf} 
+                      />
                     </div>
                   </div>
                 )}
