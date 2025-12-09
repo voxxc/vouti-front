@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2 } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,6 @@ import { Tenant } from '@/types/superadmin';
 import { TenantStatsDialog } from './TenantStatsDialog';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -28,6 +27,7 @@ interface TenantCardProps {
 
 export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleOpenAuth = () => {
@@ -38,6 +38,9 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
     setIsDeleting(true);
     try {
       await onDelete(tenant.id, tenant.name);
+      setDeleteDialogOpen(false);
+    } catch {
+      // Dialog permanece aberto se der erro
     } finally {
       setIsDeleting(false);
     }
@@ -110,7 +113,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
           >
             <ExternalLink className="h-4 w-4" />
           </Button>
-          <AlertDialog>
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button 
                 variant="ghost" 
@@ -123,21 +126,29 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Tem certeza que deseja excluir <strong>{tenant.name}</strong>? 
-                  Esta ação não pode ser desfeita e todos os dados associados serão perdidos.
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <AlertDialogTitle className="text-destructive">
+                    Excluir Cliente Permanentemente
+                  </AlertDialogTitle>
+                </div>
+                <AlertDialogDescription className="pt-2">
+                  <span className="text-destructive font-semibold block mb-2">
+                    ATENCAO: Esta acao e irreversivel!
+                  </span>
+                  Voce esta prestes a excluir <strong>{tenant.name}</strong>.
+                  Todos os dados associados a este cliente serao perdidos permanentemente.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
+                <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                <Button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  variant="destructive"
                 >
-                  {isDeleting ? 'Excluindo...' : 'Excluir'}
-                </AlertDialogAction>
+                  {isDeleting ? 'Excluindo...' : 'Excluir Permanentemente'}
+                </Button>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

@@ -299,16 +299,21 @@ export function useSuperAdmin() {
 
   const deleteTenant = async (id: string, tenantName: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('tenants')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select();
 
       if (error) throw error;
 
+      if (!data || data.length === 0) {
+        throw new Error('Nao foi possivel excluir o cliente. Verifique suas permissoes.');
+      }
+
       toast({
-        title: 'Cliente excluído',
-        description: `${tenantName} foi excluído com sucesso.`,
+        title: 'Cliente excluido',
+        description: `${tenantName} foi excluido com sucesso.`,
       });
 
       await fetchTenants();
