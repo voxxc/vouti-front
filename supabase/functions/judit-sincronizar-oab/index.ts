@@ -30,15 +30,16 @@ serve(async (req) => {
     console.log("[Judit Sync OAB] Buscando processos para OAB:", searchKey);
 
     // Chamar /request-document para buscar capas de todos os processos
+    // on_demand: true = busca ativa em TODOS os tribunais (Projudi, PJe, e-SAJ, etc.)
     const requestPayload = {
       search: {
         search_type: "oab",
         search_key: searchKey,
-        on_demand: false,
+        on_demand: true, // ATIVO: busca em todos os tribunais
       },
     };
 
-    console.log("[Judit Sync OAB] Payload:", JSON.stringify(requestPayload));
+    console.log("[Judit Sync OAB] Payload (on_demand: true):", JSON.stringify(requestPayload));
 
     // Registrar log antes da chamada
     const { data: logData } = await supabase
@@ -103,16 +104,34 @@ serve(async (req) => {
 
     console.log("[Judit Sync OAB] Request ID:", requestId);
 
+    // REGISTRAR NO HISTORICO DE REQUESTS
+    const { data: historicoData } = await supabase
+      .from("oab_request_historico")
+      .insert({
+        oab_id: oabId,
+        request_id: requestId,
+        tipo_busca: "request-document",
+        on_demand: true,
+        status: "processando",
+        user_id: userId || null,
+        tenant_id: tenantId || null,
+      })
+      .select("id")
+      .single();
+
+    const historicoId = historicoData?.id;
+    console.log("[Judit Sync OAB] Historico registrado:", historicoId);
+
     // Polling para aguardar resultado COM PAGINACAO COMPLETA
     let attempts = 0;
-    const maxAttempts = 30;
-    const maxPages = 50; // Limite de paginas
+    const maxAttempts = 60; // Aumentado para on_demand: true (pode demorar mais)
+    const maxPages = 50;
     let allPageData: any[] = [];
     let dataReady = false;
 
     // Primeira etapa: aguardar dados ficarem disponiveis
     while (attempts < maxAttempts && !dataReady) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 3000)); // 3s para on_demand
 
       const statusResponse = await fetch(
         `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
@@ -134,7 +153,6 @@ serve(async (req) => {
       const statusData = await statusResponse.json();
       console.log("[Judit Sync OAB] Polling resposta - count:", statusData.count, "page_data:", statusData.page_data?.length || 0, "total_pages:", statusData.total_pages || 1);
 
-      // CORRIGIDO: Usar page_data em vez de results
       if (statusData.page_data && statusData.page_data.length > 0) {
         dataReady = true;
         allPageData = statusData.page_data;
@@ -144,7 +162,7 @@ serve(async (req) => {
 
         // Buscar paginas adicionais se existirem
         for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
-          await new Promise((resolve) => setTimeout(resolve, 500)); // Delay entre paginas
+          await new Promise((resolve) => setTimeout(resolve, 500));
           
           const pageResponse = await fetch(
             `https://requests.prod.judit.io/responses?request_id=${requestId}&page=${currentPage}&page_size=100`,
@@ -180,6 +198,17 @@ serve(async (req) => {
     }
 
     if (allPageData.length === 0) {
+      // Atualizar historico com erro
+      if (historicoId) {
+        await supabase
+          .from("oab_request_historico")
+          .update({
+            status: "erro",
+            erro_mensagem: "Timeout aguardando resposta da API Judit",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", historicoId);
+      }
       throw new Error("Timeout aguardando resposta da API Judit");
     }
 
@@ -189,11 +218,9 @@ serve(async (req) => {
     for (const item of allPageData) {
       const responseData = item.response_data || item;
       
-      // Extrair numero CNJ diretamente do response_data
       const numeroCnj = responseData.code || responseData.lawsuit_cnj || responseData.numero_cnj;
       
       if (numeroCnj) {
-        // Extrair partes do campo name (formato "AUTOR X REU")
         let parteAtiva = null;
         let partePassiva = null;
         
@@ -202,7 +229,6 @@ serve(async (req) => {
           parteAtiva = partes[0]?.trim() || null;
           partePassiva = partes[1]?.trim() || null;
         } else if (responseData.parties && Array.isArray(responseData.parties)) {
-          // Fallback: extrair de parties array
           const autores = responseData.parties
             .filter((p: any) => {
               const tipo = (p.person_type || p.tipo || "").toUpperCase();
@@ -221,7 +247,6 @@ serve(async (req) => {
           partePassiva = reus.length > 0 ? reus.join(" e ") : null;
         }
         
-        // Extrair tribunal
         const tribunalInfo = responseData.courts?.[0] || {};
         
         processos.push({
@@ -271,7 +296,6 @@ serve(async (req) => {
           capa_completa: processo.capa_completa,
         };
 
-        // Upsert do processo
         const { data: existingProcesso } = await supabase
           .from("processos_oab")
           .select("id")
@@ -315,7 +339,26 @@ serve(async (req) => {
       })
       .eq("id", oabId);
 
-    console.log("[Judit Sync OAB] Sincronizacao concluida:", { processosInseridos, processosAtualizados, totalColetado: allPageData.length });
+    // ATUALIZAR HISTORICO COM RESULTADOS
+    if (historicoId) {
+      await supabase
+        .from("oab_request_historico")
+        .update({
+          processos_encontrados: processos.length,
+          processos_novos: processosInseridos,
+          processos_atualizados: processosAtualizados,
+          status: "concluido",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", historicoId);
+    }
+
+    console.log("[Judit Sync OAB] Sincronizacao concluida:", { 
+      processosInseridos, 
+      processosAtualizados, 
+      totalColetado: allPageData.length,
+      on_demand: true 
+    });
 
     return new Response(
       JSON.stringify({
@@ -324,6 +367,8 @@ serve(async (req) => {
         processosAtualizados,
         totalProcessos,
         paginasProcessadas: Math.ceil(allPageData.length / 100) || 1,
+        on_demand: true,
+        request_id: requestId,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
