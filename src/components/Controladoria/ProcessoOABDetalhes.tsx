@@ -10,7 +10,15 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  MapPin,
+  Scale,
+  Gavel,
+  Calendar,
+  DollarSign,
+  Shield,
+  Building2,
+  BookOpen
 } from 'lucide-react';
 import {
   Sheet,
@@ -75,6 +83,53 @@ const getDocumentoInfo = (documents: any[] | undefined): string | null => {
   return null;
 };
 
+// Formatar valor monetario
+const formatValor = (valor: number | null | undefined): string | null => {
+  if (!valor && valor !== 0) return null;
+  return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+// Formatar data
+const formatData = (data: string | null | undefined): string | null => {
+  if (!data) return null;
+  try {
+    return format(new Date(data), "dd/MM/yyyy", { locale: ptBR });
+  } catch {
+    return data;
+  }
+};
+
+// Extrair instancia
+const getInstancia = (instance: number | undefined): string | null => {
+  if (!instance) return null;
+  return `${instance}a Instancia`;
+};
+
+// Extrair nivel de sigilo
+const getSigilo = (secrecyLevel: number | undefined): string | null => {
+  if (secrecyLevel === undefined || secrecyLevel === null) return null;
+  return secrecyLevel === 0 ? 'Publico' : `Nivel ${secrecyLevel} (Sigiloso)`;
+};
+
+// Extrair classificacao principal
+const getClassificacao = (capa: any): string | null => {
+  if (!capa?.classifications || capa.classifications.length === 0) return null;
+  return capa.classifications.map((c: any) => c.name).join(', ');
+};
+
+// Extrair assuntos
+const getAssuntos = (capa: any): string | null => {
+  if (!capa?.subjects || capa.subjects.length === 0) return null;
+  return capa.subjects.map((s: any) => s.name).join(', ');
+};
+
+// Verificar se valor e valido para exibir
+const isValidValue = (value: any): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string' && (value.trim() === '' || value.toUpperCase() === 'NAO INFORMADO')) return false;
+  return true;
+};
+
 export const ProcessoOABDetalhes = ({
   processo,
   open,
@@ -93,6 +148,9 @@ export const ProcessoOABDetalhes = ({
   };
 
   const andamentosNaoLidos = andamentos.filter(a => !a.lida).length;
+  
+  // Extrair dados da capa_completa
+  const capa = processo.capa_completa || {};
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -105,19 +163,29 @@ export const ProcessoOABDetalhes = ({
         </SheetHeader>
 
         <div className="mt-4 space-y-4">
-          {/* Numero do Processo com Valor */}
-          <div className="p-3 bg-muted/30 rounded-lg">
-            <p className="font-mono text-sm font-medium">{processo.numero_cnj}</p>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {/* Cabecalho com Numero + Valor + Badges */}
+          <div className="p-4 bg-muted/30 rounded-lg space-y-2">
+            <p className="font-mono text-base font-semibold">{processo.numero_cnj}</p>
+            <div className="flex items-center gap-2 flex-wrap">
               {processo.tribunal_sigla && (
                 <Badge variant="outline">{processo.tribunal_sigla}</Badge>
               )}
-              {processo.valor_causa && (
-                <Badge variant="secondary" className="font-mono">
-                  R$ {processo.valor_causa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </Badge>
+              {isValidValue(capa.state) && (
+                <Badge variant="outline">{capa.state}</Badge>
+              )}
+              {isValidValue(capa.instance) && (
+                <Badge variant="outline">{getInstancia(capa.instance)}</Badge>
               )}
             </div>
+            {/* Valor da Causa em destaque */}
+            {(processo.valor_causa || capa.amount) && (
+              <div className="flex items-center gap-2 pt-2 border-t border-border/50 mt-2">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <span className="font-mono font-semibold text-green-600">
+                  {formatValor(processo.valor_causa || capa.amount)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Toggle de Monitoramento */}
@@ -167,41 +235,111 @@ export const ProcessoOABDetalhes = ({
               <TabsTrigger value="partes">Partes</TabsTrigger>
             </TabsList>
 
-            {/* Resumo */}
+            {/* Resumo - TODAS AS INFORMACOES */}
             <TabsContent value="resumo" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-350px)]">
-                <div className="space-y-4 pr-4">
-                  <InfoItem label="Parte Ativa (Autor)" value={processo.parte_ativa} />
-                  <InfoItem label="Parte Passiva (Reu)" value={processo.parte_passiva} />
-                  <InfoItem label="Tribunal" value={processo.tribunal} />
-                  <InfoItem label="Juizo" value={processo.juizo} />
-                  <InfoItem label="Status" value={processo.status_processual} />
-                  <InfoItem label="Fase" value={processo.fase_processual} />
-                  <InfoItem 
-                    label="Data Distribuicao" 
-                    value={processo.data_distribuicao 
-                      ? format(new Date(processo.data_distribuicao), "dd/MM/yyyy", { locale: ptBR })
-                      : null
-                    } 
-                  />
-                  <InfoItem 
-                    label="Valor da Causa" 
-                    value={processo.valor_causa 
-                      ? `R$ ${processo.valor_causa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                      : null
-                    } 
-                  />
+              <ScrollArea className="h-[calc(100vh-420px)]">
+                <div className="space-y-6 pr-4">
                   
-                  {processo.link_tribunal && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => window.open(processo.link_tribunal!, '_blank')}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Ver no Tribunal
-                    </Button>
+                  {/* SECAO: PARTES */}
+                  <SectionHeader icon={Users} title="Partes" />
+                  <div className="space-y-3 pl-1">
+                    <InfoItem label="Parte Ativa (Autor)" value={processo.parte_ativa} />
+                    <InfoItem label="Parte Passiva (Reu)" value={processo.parte_passiva} />
+                  </div>
+
+                  <Separator />
+
+                  {/* SECAO: DADOS DO PROCESSO */}
+                  <SectionHeader icon={Scale} title="Dados do Processo" />
+                  <div className="grid grid-cols-2 gap-3 pl-1">
+                    <InfoItem label="Valor da Causa" value={formatValor(processo.valor_causa || capa.amount)} highlight />
+                    <InfoItem label="Data Distribuicao" value={formatData(processo.data_distribuicao || capa.distribution_date)} />
+                    <InfoItem label="Area do Direito" value={capa.area} />
+                    <InfoItem label="Sistema" value={capa.system} />
+                  </div>
+                  <div className="space-y-3 pl-1">
+                    <InfoItem label="Classe/Tipo" value={getClassificacao(capa)} />
+                    <InfoItem label="Assunto(s)" value={getAssuntos(capa)} />
+                  </div>
+
+                  <Separator />
+
+                  {/* SECAO: LOCALIZACAO */}
+                  <SectionHeader icon={MapPin} title="Localizacao" />
+                  <div className="grid grid-cols-2 gap-3 pl-1">
+                    <InfoItem label="Tribunal" value={processo.tribunal || capa.court?.name} />
+                    <InfoItem label="Sigla" value={processo.tribunal_sigla || capa.court?.acronym} />
+                    <InfoItem label="Estado" value={capa.state} />
+                    <InfoItem label="Cidade" value={capa.city} />
+                    <InfoItem label="Instancia" value={getInstancia(capa.instance)} />
+                  </div>
+                  <div className="space-y-3 pl-1">
+                    <InfoItem label="Juizo/Vara" value={processo.juizo || capa.county} />
+                  </div>
+
+                  <Separator />
+
+                  {/* SECAO: SITUACAO ATUAL */}
+                  <SectionHeader icon={Gavel} title="Situacao Atual" />
+                  <div className="grid grid-cols-2 gap-3 pl-1">
+                    <InfoItem label="Status" value={processo.status_processual || capa.situation} />
+                    <InfoItem label="Fase" value={processo.fase_processual} />
+                    <InfoItem label="Juiz Responsavel" value={capa.judge} />
+                    <InfoItem label="Sigilo" value={getSigilo(capa.secrecy_level)} />
+                  </div>
+                  <div className="pl-1">
+                    <InfoItem 
+                      label="Justica Gratuita" 
+                      value={capa.free_justice !== undefined ? (capa.free_justice ? 'Sim' : 'Nao') : null} 
+                    />
+                  </div>
+
+                  {/* SECAO: ULTIMO ANDAMENTO */}
+                  {capa.last_step && (
+                    <>
+                      <Separator />
+                      <SectionHeader icon={Clock} title="Ultimo Andamento" />
+                      <Card className="p-3 bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {formatData(capa.last_step.step_date)}
+                          </span>
+                        </div>
+                        <p className="text-sm leading-relaxed">{capa.last_step.content}</p>
+                      </Card>
+                    </>
+                  )}
+
+                  {/* SECAO: LINK TRIBUNAL */}
+                  {isValidValue(processo.link_tribunal) && (
+                    <>
+                      <Separator />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => window.open(processo.link_tribunal!, '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Ver no Tribunal
+                      </Button>
+                    </>
+                  )}
+
+                  {/* DEBUG: Mostrar campos extras da capa se existirem */}
+                  {capa.related_lawsuits && capa.related_lawsuits.length > 0 && (
+                    <>
+                      <Separator />
+                      <SectionHeader icon={BookOpen} title="Processos Relacionados" />
+                      <div className="space-y-2 pl-1">
+                        {capa.related_lawsuits.map((rel: any, idx: number) => (
+                          <Card key={idx} className="p-2">
+                            <p className="font-mono text-xs">{rel.code || rel.numero}</p>
+                          </Card>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               </ScrollArea>
@@ -248,10 +386,7 @@ export const ProcessoOABDetalhes = ({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs text-muted-foreground">
-                                {andamento.data_movimentacao 
-                                  ? format(new Date(andamento.data_movimentacao), "dd/MM/yyyy", { locale: ptBR })
-                                  : 'Data nao informada'
-                                }
+                                {formatData(andamento.data_movimentacao) || 'Data nao informada'}
                               </span>
                               {andamento.tipo_movimentacao && (
                                 <Badge variant="outline" className="text-xs">
@@ -325,13 +460,22 @@ export const ProcessoOABDetalhes = ({
   );
 };
 
-const InfoItem = ({ label, value }: { label: string; value: string | null | undefined }) => {
-  if (!value) return null;
+// Componente de cabecalho de secao
+const SectionHeader = ({ icon: Icon, title }: { icon: any; title: string }) => (
+  <div className="flex items-center gap-2">
+    <Icon className="w-4 h-4 text-muted-foreground" />
+    <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">{title}</h3>
+  </div>
+);
+
+// Componente de item de informacao
+const InfoItem = ({ label, value, highlight }: { label: string; value: string | null | undefined; highlight?: boolean }) => {
+  if (!isValidValue(value)) return null;
   
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-      <p className="text-sm">{value}</p>
+      <p className={`text-sm ${highlight ? 'font-semibold text-green-600' : ''}`}>{value}</p>
     </div>
   );
 };
