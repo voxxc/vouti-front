@@ -40,6 +40,8 @@ import { Separator } from '@/components/ui/separator';
 import { ProcessoOAB, OABCadastrada, useAndamentosOAB } from '@/hooks/useOABs';
 import { TarefasTab } from './TarefasTab';
 import { DocumentosTab } from './DocumentosTab';
+import { AndamentoAnexos } from './AndamentoAnexos';
+import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -148,10 +150,14 @@ export const ProcessoOABDetalhes = ({
   oab
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
+  const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
 
   if (!processo) return null;
+  
+  // Get instance from capa_completa for download
+  const instancia = processo.capa_completa?.instance || 1;
 
   const handleToggleMonitoramento = async () => {
     setTogglingMonitoramento(true);
@@ -419,34 +425,58 @@ export const ProcessoOABDetalhes = ({
                   </div>
                 ) : (
                   <div className="space-y-3 pr-4">
-                    {andamentos.map((andamento) => (
-                      <Card 
-                        key={andamento.id} 
-                        className={`p-3 cursor-pointer transition-colors ${
-                          !andamento.lida ? 'bg-primary/5 border-primary/20' : ''
-                        }`}
-                        onClick={() => !andamento.lida && marcarComoLida(andamento.id)}
-                      >
-                        <div className="flex items-start gap-2">
-                          {!andamento.lida && (
-                            <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs text-muted-foreground">
-                                {formatData(andamento.data_movimentacao) || 'Data nao informada'}
-                              </span>
-                              {andamento.tipo_movimentacao && (
-                                <Badge variant="outline" className="text-xs">
-                                  {andamento.tipo_movimentacao}
-                                </Badge>
+                    {andamentos.map((andamento) => {
+                      // Get step_id from dados_completos to find linked attachments
+                      const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
+                      const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
+                      const temAnexos = anexosDoAndamento.length > 0;
+                      
+                      return (
+                        <Card 
+                          key={andamento.id} 
+                          className={`p-3 cursor-pointer transition-colors ${
+                            !andamento.lida ? 'bg-primary/5 border-primary/20' : ''
+                          }`}
+                          onClick={() => !andamento.lida && marcarComoLida(andamento.id)}
+                        >
+                          <div className="flex items-start gap-2">
+                            {!andamento.lida && (
+                              <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs text-muted-foreground">
+                                  {formatData(andamento.data_movimentacao) || 'Data nao informada'}
+                                </span>
+                                {andamento.tipo_movimentacao && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {andamento.tipo_movimentacao}
+                                  </Badge>
+                                )}
+                                {temAnexos && (
+                                  <Badge variant="secondary" className="text-xs gap-1">
+                                    <Paperclip className="w-2.5 h-2.5" />
+                                    {anexosDoAndamento.length}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm">{andamento.descricao}</p>
+                              
+                              {/* Inline attachments */}
+                              {temAnexos && (
+                                <AndamentoAnexos
+                                  anexos={anexosDoAndamento}
+                                  numeroCnj={processo.numero_cnj}
+                                  instancia={instancia}
+                                  downloading={downloading}
+                                  onDownload={downloadAnexo}
+                                />
                               )}
                             </div>
-                            <p className="text-sm">{andamento.descricao}</p>
                           </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </ScrollArea>

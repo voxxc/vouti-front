@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -13,6 +13,7 @@ export interface ProcessoAnexo {
   is_private: boolean;
   tenant_id: string | null;
   created_at: string;
+  step_id: string | null;
 }
 
 export const useProcessoAnexos = (processoOabId: string | null) => {
@@ -43,6 +44,19 @@ export const useProcessoAnexos = (processoOabId: string | null) => {
   useEffect(() => {
     fetchAnexos();
   }, [fetchAnexos]);
+
+  // Group attachments by step_id for easy lookup in andamentos
+  const anexosPorStep = useMemo(() => {
+    const map = new Map<string, ProcessoAnexo[]>();
+    anexos.forEach((anexo) => {
+      if (anexo.step_id) {
+        const existing = map.get(anexo.step_id) || [];
+        existing.push(anexo);
+        map.set(anexo.step_id, existing);
+      }
+    });
+    return map;
+  }, [anexos]);
 
   const downloadAnexo = async (anexo: ProcessoAnexo, numeroCnj: string, instancia: number = 1) => {
     setDownloading(anexo.id);
@@ -99,6 +113,7 @@ export const useProcessoAnexos = (processoOabId: string | null) => {
 
   return {
     anexos,
+    anexosPorStep,
     loading,
     downloading,
     fetchAnexos,
