@@ -459,8 +459,12 @@ export const useProcessosOAB = (oabId: string | null) => {
   const consultarDetalhesRequest = async (processoId: string, requestId: string) => {
     setCarregandoDetalhes(processoId);
     try {
+      // Buscar tenantId para log de auditoria
+      const { data: { user } } = await supabase.auth.getUser();
+      const userTenantId = user ? await getTenantIdForUser(user.id) : null;
+      
       const { data, error } = await supabase.functions.invoke('judit-consultar-detalhes-request', {
-        body: { processoOabId: processoId, requestId }
+        body: { processoOabId: processoId, requestId, tenantId: userTenantId, userId: user?.id }
       });
 
       if (error) throw error;
