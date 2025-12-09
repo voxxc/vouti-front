@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks, History } from 'lucide-react';
 import { OABRequestHistorico } from './OABRequestHistorico';
+import { EditarAdvogadoModal } from './EditarAdvogadoModal';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +49,7 @@ export const OABManager = () => {
     oabs, 
     loading, 
     sincronizando, 
+    fetchOABs,
     cadastrarOAB, 
     sincronizarOAB, 
     removerOAB,
@@ -414,13 +416,16 @@ export const OABManager = () => {
               <div className="flex flex-col gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div>
-                      <p className="font-medium">
-                        OAB {oab.oab_numero}/{oab.oab_uf}
-                      </p>
-                      {oab.nome_advogado && (
-                        <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="font-medium">
+                          OAB {oab.oab_numero}/{oab.oab_uf}
+                        </p>
+                        {oab.nome_advogado && (
+                          <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
+                        )}
+                      </div>
+                      <EditarAdvogadoModal oab={oab} onUpdate={fetchOABs} />
                     </div>
                     {oab.ultima_sincronizacao && (
                       <Badge variant="outline" className="text-xs">

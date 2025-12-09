@@ -19,7 +19,8 @@ import {
   Shield,
   Building2,
   BookOpen,
-  RefreshCw
+  RefreshCw,
+  ClipboardList
 } from 'lucide-react';
 import {
   Sheet,
@@ -35,7 +36,8 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ProcessoOAB, useAndamentosOAB } from '@/hooks/useOABs';
+import { ProcessoOAB, OABCadastrada, useAndamentosOAB } from '@/hooks/useOABs';
+import { TarefasTab } from './TarefasTab';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -44,6 +46,7 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<void>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
+  oab?: OABCadastrada | null;
 }
 
 // Traduzir person_type para portugues
@@ -139,7 +142,8 @@ export const ProcessoOABDetalhes = ({
   onOpenChange,
   onToggleMonitoramento,
   onRefreshProcessos,
-  onConsultarDetalhesRequest
+  onConsultarDetalhesRequest,
+  oab
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
@@ -240,7 +244,7 @@ export const ProcessoOABDetalhes = ({
 
           {/* Tabs */}
           <Tabs defaultValue="resumo" className="flex-1">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
                 Andamentos
@@ -251,6 +255,7 @@ export const ProcessoOABDetalhes = ({
                 )}
               </TabsTrigger>
               <TabsTrigger value="partes">Partes</TabsTrigger>
+              <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
             </TabsList>
 
             {/* Resumo - TODAS AS INFORMACOES */}
@@ -510,6 +515,11 @@ export const ProcessoOABDetalhes = ({
                   )}
                 </div>
               </ScrollArea>
+            </TabsContent>
+
+            {/* Tarefas */}
+            <TabsContent value="tarefas" className="mt-4">
+              <TarefasTab processo={processo} oab={oab || null} />
             </TabsContent>
           </Tabs>
         </div>

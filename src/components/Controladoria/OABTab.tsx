@@ -35,11 +35,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useProcessosOAB, ProcessoOAB } from '@/hooks/useOABs';
+import { useProcessosOAB, ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OABTabProps {
   oabId: string;
+  oab?: OABCadastrada;
 }
 
 interface ProcessosAgrupados {
@@ -526,6 +528,7 @@ export const OABTab = ({ oabId }: OABTabProps) => {
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
+        oab={oab}
       />
 
       {/* Dialog de Confirmacao para Consulta Paga */}

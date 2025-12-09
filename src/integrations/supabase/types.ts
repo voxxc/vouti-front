@@ -1633,13 +1633,19 @@ export type Database = {
       }
       oabs_cadastradas: {
         Row: {
+          cep_advogado: string | null
+          cidade_advogado: string | null
           created_at: string | null
+          email_advogado: string | null
+          endereco_advogado: string | null
           id: string
+          logo_url: string | null
           nome_advogado: string | null
           oab_numero: string
           oab_uf: string
           ordem: number | null
           request_id_data: string | null
+          telefone_advogado: string | null
           tenant_id: string | null
           total_processos: number | null
           ultima_sincronizacao: string | null
@@ -1648,13 +1654,19 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cep_advogado?: string | null
+          cidade_advogado?: string | null
           created_at?: string | null
+          email_advogado?: string | null
+          endereco_advogado?: string | null
           id?: string
+          logo_url?: string | null
           nome_advogado?: string | null
           oab_numero: string
           oab_uf: string
           ordem?: number | null
           request_id_data?: string | null
+          telefone_advogado?: string | null
           tenant_id?: string | null
           total_processos?: number | null
           ultima_sincronizacao?: string | null
@@ -1663,13 +1675,19 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cep_advogado?: string | null
+          cidade_advogado?: string | null
           created_at?: string | null
+          email_advogado?: string | null
+          endereco_advogado?: string | null
           id?: string
+          logo_url?: string | null
           nome_advogado?: string | null
           oab_numero?: string
           oab_uf?: string
           ordem?: number | null
           request_id_data?: string | null
+          telefone_advogado?: string | null
           tenant_id?: string | null
           total_processos?: number | null
           ultima_sincronizacao?: string | null
@@ -2543,6 +2561,63 @@ export type Database = {
           },
           {
             foreignKeyName: "processos_oab_andamentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos_oab_tarefas: {
+        Row: {
+          created_at: string | null
+          data_execucao: string
+          descricao: string | null
+          fase: string | null
+          id: string
+          observacoes: string | null
+          processo_oab_id: string
+          tenant_id: string | null
+          titulo: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_execucao?: string
+          descricao?: string | null
+          fase?: string | null
+          id?: string
+          observacoes?: string | null
+          processo_oab_id: string
+          tenant_id?: string | null
+          titulo: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_execucao?: string
+          descricao?: string | null
+          fase?: string | null
+          id?: string
+          observacoes?: string | null
+          processo_oab_id?: string
+          tenant_id?: string | null
+          titulo?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_oab_tarefas_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_oab_tarefas_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
