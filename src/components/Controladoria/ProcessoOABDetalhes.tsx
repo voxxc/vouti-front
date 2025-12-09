@@ -404,46 +404,67 @@ export const ProcessoOABDetalhes = ({
               </ScrollArea>
             </TabsContent>
 
-            {/* Partes */}
+            {/* Partes - Separadas por Polo */}
             <TabsContent value="partes" className="mt-4">
               <ScrollArea className="h-[calc(100vh-350px)]">
-                <div className="space-y-4 pr-4">
+                <div className="space-y-6 pr-4">
                   {processo.partes_completas && Array.isArray(processo.partes_completas) ? (
-                    processo.partes_completas.map((parte: any, index: number) => (
-                      <Card key={index} className="p-3">
-                        <div className="flex items-start gap-2">
-                          <Users className="w-4 h-4 text-muted-foreground mt-0.5" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <p className="font-medium text-sm">{parte.name || parte.nome}</p>
-                              <Badge variant={getTipoParteBadgeVariant(parte.person_type)}>
-                                {getTipoParteLabel(parte.person_type)}
-                              </Badge>
+                    (() => {
+                      // Agrupar partes por tipo (Polo Ativo vs Polo Passivo)
+                      const autores: any[] = [];
+                      const reus: any[] = [];
+                      const outros: any[] = [];
+                      
+                      processo.partes_completas.forEach((parte: any) => {
+                        const tipo = parte.person_type?.toUpperCase();
+                        if (tipo === 'ATIVO') {
+                          autores.push(parte);
+                        } else if (tipo === 'PASSIVO') {
+                          reus.push(parte);
+                        } else if (tipo !== 'ADVOGADO') {
+                          outros.push(parte);
+                        }
+                      });
+
+                      return (
+                        <>
+                          {/* POLO ATIVO (Autores) */}
+                          {autores.length > 0 && (
+                            <PoloSection 
+                              titulo="Polo Ativo (Autores)" 
+                              partes={autores} 
+                              corBorda="border-blue-500"
+                            />
+                          )}
+
+                          {/* POLO PASSIVO (Reus) */}
+                          {reus.length > 0 && (
+                            <PoloSection 
+                              titulo="Polo Passivo (Reus)" 
+                              partes={reus} 
+                              corBorda="border-muted-foreground"
+                            />
+                          )}
+
+                          {/* OUTROS PARTICIPANTES */}
+                          {outros.length > 0 && (
+                            <PoloSection 
+                              titulo="Outros Participantes" 
+                              partes={outros} 
+                              corBorda="border-yellow-500"
+                            />
+                          )}
+
+                          {/* Se nao houver partes agrupadas, mostra vazio */}
+                          {autores.length === 0 && reus.length === 0 && outros.length === 0 && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Users className="w-8 h-8 mx-auto mb-2" />
+                              <p>Nenhuma parte encontrada</p>
                             </div>
-                            {getDocumentoInfo(parte.documents) && (
-                              <p className="text-xs text-muted-foreground">
-                                {getDocumentoInfo(parte.documents)}
-                              </p>
-                            )}
-                            {parte.lawyers && parte.lawyers.length > 0 && (
-                              <div className="mt-2 pl-3 border-l-2 border-muted">
-                                <p className="text-xs text-muted-foreground font-medium mb-1">Advogados:</p>
-                                {parte.lawyers.map((adv: any, i: number) => (
-                                  <div key={i} className="flex items-center gap-1 text-xs">
-                                    <span>{adv.name}</span>
-                                    {getDocumentoInfo(adv.documents) && (
-                                      <span className="text-muted-foreground">
-                                        - {getDocumentoInfo(adv.documents)}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ))
+                          )}
+                        </>
+                      );
+                    })()
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Users className="w-8 h-8 mx-auto mb-2" />
@@ -479,3 +500,70 @@ const InfoItem = ({ label, value, highlight }: { label: string; value: string | 
     </div>
   );
 };
+
+// Componente de secao de polo (Ativo/Passivo)
+const PoloSection = ({ 
+  titulo, 
+  partes, 
+  corBorda 
+}: { 
+  titulo: string; 
+  partes: any[]; 
+  corBorda: string;
+}) => {
+  if (partes.length === 0) return null;
+  
+  return (
+    <div className="space-y-3">
+      <div className={`flex items-center gap-2 pb-2 border-b-2 ${corBorda}`}>
+        <Users className="w-4 h-4" />
+        <h3 className="font-semibold text-sm uppercase tracking-wide">
+          {titulo} ({partes.length})
+        </h3>
+      </div>
+      {partes.map((parte, index) => (
+        <ParteCard key={index} parte={parte} />
+      ))}
+    </div>
+  );
+};
+
+// Componente de card de parte individual
+const ParteCard = ({ parte }: { parte: any }) => (
+  <Card className="p-3">
+    <div className="flex items-start gap-2">
+      <Users className="w-4 h-4 text-muted-foreground mt-0.5" />
+      <div className="flex-1">
+        <div className="flex items-center gap-2 flex-wrap mb-1">
+          <p className="font-medium text-sm">{parte.name || parte.nome}</p>
+          <Badge variant={getTipoParteBadgeVariant(parte.person_type)}>
+            {getTipoParteLabel(parte.person_type)}
+          </Badge>
+        </div>
+        {getDocumentoInfo(parte.documents) && (
+          <p className="text-xs text-muted-foreground">
+            {getDocumentoInfo(parte.documents)}
+          </p>
+        )}
+        {parte.lawyers && parte.lawyers.length > 0 && (
+          <div className="mt-2 pl-3 border-l-2 border-primary/30">
+            <p className="text-xs font-medium mb-1 flex items-center gap-1">
+              <Scale className="w-3 h-3" />
+              Advogados ({parte.lawyers.length}):
+            </p>
+            {parte.lawyers.map((adv: any, i: number) => (
+              <div key={i} className="flex items-center gap-1 text-xs py-0.5">
+                <span>{adv.name}</span>
+                {getDocumentoInfo(adv.documents) && (
+                  <span className="text-muted-foreground">
+                    - {getDocumentoInfo(adv.documents)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </Card>
+);
