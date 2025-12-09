@@ -194,6 +194,46 @@ serve(async (req) => {
       }
     }
 
+    // Extrair anexos/attachments se existirem
+    const attachments = responseData?.attachments || [];
+    let anexosInseridos = 0;
+    
+    if (attachments.length > 0) {
+      console.log('[Judit Detalhes] Anexos encontrados:', attachments.length);
+      
+      // Buscar tenant_id do processo
+      const { data: processoData } = await supabase
+        .from('processos_oab')
+        .select('tenant_id')
+        .eq('id', processoOabId)
+        .single();
+      
+      const tenantIdFromProcesso = processoData?.tenant_id || tenantId;
+      
+      for (const attachment of attachments) {
+        const { error: anexoError } = await supabase
+          .from('processos_oab_anexos')
+          .upsert({
+            processo_oab_id: processoOabId,
+            attachment_id: attachment.attachment_id || attachment.id,
+            attachment_name: attachment.attachment_name || attachment.name || 'Documento',
+            extension: attachment.extension || attachment.file_extension,
+            status: attachment.status || 'done',
+            content_description: attachment.content || attachment.description,
+            is_private: attachment.is_private || false,
+            tenant_id: tenantIdFromProcesso
+          }, {
+            onConflict: 'processo_oab_id,attachment_id'
+          });
+        
+        if (!anexoError) {
+          anexosInseridos++;
+        }
+      }
+      
+      console.log('[Judit Detalhes] Anexos inseridos:', anexosInseridos);
+    }
+
     // Atualizar processo com detalhes completos e salvar request_id
     await supabase
       .from('processos_oab')
@@ -207,13 +247,15 @@ serve(async (req) => {
       })
       .eq('id', processoOabId);
 
-    console.log('[Judit Detalhes] Concluido:', { andamentosInseridos });
+    console.log('[Judit Detalhes] Concluido:', { andamentosInseridos, anexosInseridos });
 
     return new Response(
       JSON.stringify({
         success: true,
         andamentosInseridos,
-        totalAndamentos: steps.length
+        anexosInseridos,
+        totalAndamentos: steps.length,
+        totalAnexos: attachments.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

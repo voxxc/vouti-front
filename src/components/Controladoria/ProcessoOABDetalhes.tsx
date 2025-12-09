@@ -20,7 +20,8 @@ import {
   Building2,
   BookOpen,
   RefreshCw,
-  ClipboardList
+  ClipboardList,
+  Paperclip
 } from 'lucide-react';
 import {
   Sheet,
@@ -38,6 +39,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ProcessoOAB, OABCadastrada, useAndamentosOAB } from '@/hooks/useOABs';
 import { TarefasTab } from './TarefasTab';
+import { DocumentosTab } from './DocumentosTab';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -244,7 +246,7 @@ export const ProcessoOABDetalhes = ({
 
           {/* Tabs */}
           <Tabs defaultValue="resumo" className="flex-1">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
                 Andamentos
@@ -255,6 +257,10 @@ export const ProcessoOABDetalhes = ({
                 )}
               </TabsTrigger>
               <TabsTrigger value="partes">Partes</TabsTrigger>
+              <TabsTrigger value="documentos">
+                <Paperclip className="w-3.5 h-3.5 mr-1" />
+                Docs
+              </TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
             </TabsList>
 
@@ -515,6 +521,15 @@ export const ProcessoOABDetalhes = ({
                   )}
                 </div>
               </ScrollArea>
+            </TabsContent>
+
+            {/* Documentos */}
+            <TabsContent value="documentos" className="mt-4">
+              <DocumentosTab 
+                processoOabId={processo.id} 
+                numeroCnj={processo.numero_cnj}
+                instancia={capa.instance || 1}
+              />
             </TabsContent>
 
             {/* Tarefas */}
