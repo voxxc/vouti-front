@@ -171,8 +171,8 @@ serve(async (req) => {
     // Inserir novos andamentos
     let andamentosInseridos = 0;
     for (const step of steps) {
-      const dataMovimentacao = step.date || step.data || step.data_movimentacao;
-      const descricao = step.description || step.descricao || step.content || '';
+      const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
+      const descricao = step.content || step.description || step.descricao || '';
       
       const key = `${dataMovimentacao}_${descricao.substring(0, 50)}`;
       
