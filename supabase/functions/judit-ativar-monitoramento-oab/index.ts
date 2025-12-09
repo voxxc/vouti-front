@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { processoOabId, numeroCnj, ativar } = await req.json();
+    const { processoOabId, numeroCnj, ativar, tenantId, userId, oabId } = await req.json();
     
     if (!processoOabId || !numeroCnj) {
       throw new Error('processoOabId e numeroCnj sao obrigatorios');
@@ -51,6 +51,24 @@ serve(async (req) => {
         callback_url: webhookUrl,
       };
 
+      // Registrar log antes da chamada
+      const { data: logData } = await supabase
+        .from('judit_api_logs')
+        .insert({
+          tenant_id: tenantId || null,
+          user_id: userId || null,
+          oab_id: oabId || null,
+          tipo_chamada: 'tracking',
+          endpoint: 'https://tracking.prod.judit.io/tracking',
+          metodo: 'POST',
+          request_payload: trackingPayload,
+          sucesso: false,
+        })
+        .select('id')
+        .single();
+
+      const logId = logData?.id;
+
       const trackingResponse = await fetch('https://tracking.prod.judit.io/tracking', {
         method: 'POST',
         headers: {
@@ -63,11 +81,36 @@ serve(async (req) => {
       if (!trackingResponse.ok) {
         const error = await trackingResponse.text();
         console.error('[Judit Monitor] Erro ao criar tracking:', error);
+        
+        // Atualizar log com erro
+        if (logId) {
+          await supabase
+            .from('judit_api_logs')
+            .update({ 
+              sucesso: false, 
+              resposta_status: trackingResponse.status, 
+              erro_mensagem: error 
+            })
+            .eq('id', logId);
+        }
+        
         throw new Error(`Erro ao ativar monitoramento: ${trackingResponse.status}`);
       }
 
       const trackingData = await trackingResponse.json();
       const trackingId = trackingData.tracking_id;
+
+      // Atualizar log com sucesso
+      if (logId) {
+        await supabase
+          .from('judit_api_logs')
+          .update({ 
+            sucesso: true, 
+            resposta_status: 200, 
+            request_id: trackingId 
+          })
+          .eq('id', logId);
+      }
 
       console.log('[Judit Monitor] Tracking ID:', trackingId);
 

@@ -894,6 +894,72 @@ export type Database = {
           },
         ]
       }
+      judit_api_logs: {
+        Row: {
+          created_at: string | null
+          custo_estimado: number | null
+          endpoint: string
+          erro_mensagem: string | null
+          id: string
+          metodo: string
+          oab_id: string | null
+          request_id: string | null
+          request_payload: Json | null
+          resposta_status: number | null
+          sucesso: boolean | null
+          tenant_id: string | null
+          tipo_chamada: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custo_estimado?: number | null
+          endpoint: string
+          erro_mensagem?: string | null
+          id?: string
+          metodo?: string
+          oab_id?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
+          resposta_status?: number | null
+          sucesso?: boolean | null
+          tenant_id?: string | null
+          tipo_chamada: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custo_estimado?: number | null
+          endpoint?: string
+          erro_mensagem?: string | null
+          id?: string
+          metodo?: string
+          oab_id?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
+          resposta_status?: number | null
+          sucesso?: boolean | null
+          tenant_id?: string | null
+          tipo_chamada?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judit_api_logs_oab_id_fkey"
+            columns: ["oab_id"]
+            isOneToOne: false
+            referencedRelation: "oabs_cadastradas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "judit_api_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_comments: {
         Row: {
           content: string

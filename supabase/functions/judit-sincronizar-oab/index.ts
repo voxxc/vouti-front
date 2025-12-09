@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { oabId, oabNumero, oabUf } = await req.json();
+    const { oabId, oabNumero, oabUf, tenantId, userId } = await req.json();
 
     if (!oabId || !oabNumero || !oabUf) {
       throw new Error("oabId, oabNumero e oabUf sao obrigatorios");
@@ -40,6 +40,24 @@ serve(async (req) => {
 
     console.log("[Judit Sync OAB] Payload:", JSON.stringify(requestPayload));
 
+    // Registrar log antes da chamada
+    const { data: logData } = await supabase
+      .from("judit_api_logs")
+      .insert({
+        tenant_id: tenantId || null,
+        user_id: userId || null,
+        oab_id: oabId,
+        tipo_chamada: "request-document",
+        endpoint: "https://requests.prod.judit.io/requests",
+        metodo: "POST",
+        request_payload: requestPayload,
+        sucesso: false,
+      })
+      .select("id")
+      .single();
+
+    const logId = logData?.id;
+
     const response = await fetch("https://requests.prod.judit.io/requests", {
       method: "POST",
       headers: {
@@ -52,11 +70,36 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[Judit Sync OAB] Erro na requisicao:", response.status, errorText);
+      
+      // Atualizar log com erro
+      if (logId) {
+        await supabase
+          .from("judit_api_logs")
+          .update({ 
+            sucesso: false, 
+            resposta_status: response.status, 
+            erro_mensagem: errorText 
+          })
+          .eq("id", logId);
+      }
+      
       throw new Error(`Erro na API Judit: ${response.status}`);
     }
 
     const initialData = await response.json();
     const requestId = initialData.request_id;
+
+    // Atualizar log com sucesso
+    if (logId) {
+      await supabase
+        .from("judit_api_logs")
+        .update({ 
+          sucesso: true, 
+          resposta_status: 200, 
+          request_id: requestId 
+        })
+        .eq("id", logId);
+    }
 
     console.log("[Judit Sync OAB] Request ID:", requestId);
 

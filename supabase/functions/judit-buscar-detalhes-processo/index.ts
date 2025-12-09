@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { processoOabId, numeroCnj } = await req.json();
+    const { processoOabId, numeroCnj, tenantId, userId, oabId } = await req.json();
     
     if (!processoOabId || !numeroCnj) {
       throw new Error('processoOabId e numeroCnj sao obrigatorios');
@@ -40,6 +40,24 @@ serve(async (req) => {
 
     console.log('[Judit Detalhes] Payload:', JSON.stringify(requestPayload));
 
+    // Registrar log antes da chamada
+    const { data: logData } = await supabase
+      .from('judit_api_logs')
+      .insert({
+        tenant_id: tenantId || null,
+        user_id: userId || null,
+        oab_id: oabId || null,
+        tipo_chamada: 'lawsuit_cnj',
+        endpoint: 'https://requests.prod.judit.io/requests',
+        metodo: 'POST',
+        request_payload: requestPayload,
+        sucesso: false,
+      })
+      .select('id')
+      .single();
+
+    const logId = logData?.id;
+
     const response = await fetch('https://requests.prod.judit.io/requests', {
       method: 'POST',
       headers: {
@@ -52,11 +70,36 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[Judit Detalhes] Erro na requisicao:', response.status, errorText);
+      
+      // Atualizar log com erro
+      if (logId) {
+        await supabase
+          .from('judit_api_logs')
+          .update({ 
+            sucesso: false, 
+            resposta_status: response.status, 
+            erro_mensagem: errorText 
+          })
+          .eq('id', logId);
+      }
+      
       throw new Error(`Erro na API Judit: ${response.status}`);
     }
 
     const initialData = await response.json();
     const requestId = initialData.request_id;
+    
+    // Atualizar log com sucesso
+    if (logId) {
+      await supabase
+        .from('judit_api_logs')
+        .update({ 
+          sucesso: true, 
+          resposta_status: 200, 
+          request_id: requestId 
+        })
+        .eq('id', logId);
+    }
     
     console.log('[Judit Detalhes] Request ID:', requestId);
 
