@@ -47,3 +47,6 @@ verify_jwt = true
 
 [functions.create-tenant-with-admin]
 verify_jwt = false
+
+[functions.judit-baixar-anexo]
+verify_jwt = true

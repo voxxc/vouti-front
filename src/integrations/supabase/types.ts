@@ -2571,6 +2571,60 @@ export type Database = {
           },
         ]
       }
+      processos_oab_anexos: {
+        Row: {
+          attachment_id: string
+          attachment_name: string
+          content_description: string | null
+          created_at: string | null
+          extension: string | null
+          id: string
+          is_private: boolean | null
+          processo_oab_id: string
+          status: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          attachment_id: string
+          attachment_name: string
+          content_description?: string | null
+          created_at?: string | null
+          extension?: string | null
+          id?: string
+          is_private?: boolean | null
+          processo_oab_id: string
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          attachment_id?: string
+          attachment_name?: string
+          content_description?: string | null
+          created_at?: string | null
+          extension?: string | null
+          id?: string
+          is_private?: boolean | null
+          processo_oab_id?: string
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_oab_anexos_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_oab_anexos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processos_oab_tarefas: {
         Row: {
           created_at: string | null
