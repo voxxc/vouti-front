@@ -11,11 +11,19 @@ import {
   FileQuestion,
   ChevronDown,
   Link2,
-  AlertTriangle
+  AlertTriangle,
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   AlertDialog,
@@ -39,6 +47,17 @@ interface ProcessosAgrupados {
   segundaInstancia: ProcessoOAB[];
   semInstancia: ProcessoOAB[];
 }
+
+const extrairUF = (tribunalSigla: string | null | undefined): string => {
+  if (!tribunalSigla) return 'N/I';
+  
+  // TJPR -> PR, TJSP -> SP, TJSC -> SC
+  const matchTJ = tribunalSigla.match(/TJ([A-Z]{2})/);
+  if (matchTJ) return matchTJ[1];
+  
+  // TRT9, TRF4, etc - manter sigla completa
+  return tribunalSigla;
+};
 
 const agruparPorInstancia = (processos: ProcessoOAB[]): ProcessosAgrupados => {
   const primeiraInstancia: ProcessoOAB[] = [];
@@ -238,8 +257,27 @@ export const OABTab = ({ oabId }: OABTabProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [processoParaCarregar, setProcessoParaCarregar] = useState<ProcessoOAB | null>(null);
+  const [filtroUF, setFiltroUF] = useState<string>('todos');
 
-  const processosAgrupados = useMemo(() => agruparPorInstancia(processos), [processos]);
+  // Extrair UFs unicas dos processos com contagem
+  const ufsDisponiveis = useMemo(() => {
+    const ufMap = new Map<string, number>();
+    processos.forEach(p => {
+      const uf = extrairUF(p.tribunal_sigla);
+      ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
+    });
+    return Array.from(ufMap.entries())
+      .sort((a, b) => b[1] - a[1]) // Ordenar por quantidade desc
+      .map(([uf, count]) => ({ uf, count }));
+  }, [processos]);
+
+  // Aplicar filtro antes do agrupamento
+  const processosFiltrados = useMemo(() => {
+    if (filtroUF === 'todos') return processos;
+    return processos.filter(p => extrairUF(p.tribunal_sigla) === filtroUF);
+  }, [processos, filtroUF]);
+
+  const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -358,6 +396,34 @@ export const OABTab = ({ oabId }: OABTabProps) => {
 
   return (
     <>
+      {/* Filtro por UF */}
+      {ufsDisponiveis.length > 1 && (
+        <div className="flex items-center gap-3 mb-4">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Select value={filtroUF} onValueChange={setFiltroUF}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Filtrar por UF" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">
+                Todos ({processos.length})
+              </SelectItem>
+              {ufsDisponiveis.map(({ uf, count }) => (
+                <SelectItem key={uf} value={uf}>
+                  {uf} - {count}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {filtroUF !== 'todos' && (
+            <Badge variant="secondary">
+              {processosFiltrados.length} {processosFiltrados.length === 1 ? 'processo' : 'processos'}
+            </Badge>
+          )}
+        </div>
+      )}
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="space-y-4">
           {/* 1a Instancia */}
