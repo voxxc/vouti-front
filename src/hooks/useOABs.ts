@@ -34,6 +34,8 @@ export interface ProcessoOAB {
   capa_completa: any;
   detalhes_completos: any;
   detalhes_carregados: boolean;
+  detalhes_request_id: string | null;
+  detalhes_request_data: string | null;
   ordem_lista: number;
   monitoramento_ativo: boolean;
   tracking_id: string | null;
@@ -453,6 +455,40 @@ export const useProcessosOAB = (oabId: string | null) => {
     }
   };
 
+  // Consultar request existente de detalhes (GRATUITO - apenas GET)
+  const consultarDetalhesRequest = async (processoId: string, requestId: string) => {
+    setCarregandoDetalhes(processoId);
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-consultar-detalhes-request', {
+        body: { processoOabId: processoId, requestId }
+      });
+
+      if (error) throw error;
+      
+      if (!data?.success) {
+        throw new Error(data?.error || 'Erro ao consultar');
+      }
+
+      toast({
+        title: 'Andamentos atualizados',
+        description: `${data.andamentosInseridos} novos andamentos`
+      });
+
+      await fetchProcessos();
+      return data;
+    } catch (error: any) {
+      console.error('[useProcessosOAB] Erro ao consultar detalhes:', error);
+      toast({
+        title: 'Erro ao atualizar',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return null;
+    } finally {
+      setCarregandoDetalhes(null);
+    }
+  };
+
   return {
     processos,
     loading,
@@ -460,7 +496,8 @@ export const useProcessosOAB = (oabId: string | null) => {
     fetchProcessos,
     carregarDetalhes,
     atualizarOrdem,
-    toggleMonitoramento
+    toggleMonitoramento,
+    consultarDetalhesRequest
   };
 };
 

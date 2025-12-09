@@ -194,12 +194,14 @@ serve(async (req) => {
       }
     }
 
-    // Atualizar processo com detalhes completos
+    // Atualizar processo com detalhes completos e salvar request_id
     await supabase
       .from('processos_oab')
       .update({
         detalhes_completos: responseData,
         detalhes_carregados: true,
+        detalhes_request_id: requestId,
+        detalhes_request_data: new Date().toISOString(),
         ultima_atualizacao_detalhes: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })

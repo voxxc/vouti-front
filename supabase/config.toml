@@ -39,5 +39,8 @@ verify_jwt = false
 [functions.judit-consultar-request]
 verify_jwt = true
 
+[functions.judit-consultar-detalhes-request]
+verify_jwt = true
+
 [functions.create-tenant-with-admin]
 verify_jwt = false
