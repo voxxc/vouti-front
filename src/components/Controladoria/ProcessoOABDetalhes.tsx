@@ -35,6 +35,46 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<void>;
 }
 
+// Traduzir person_type para portugues
+const getTipoParteLabel = (personType: string | undefined): string => {
+  if (!personType) return 'Tipo nao informado';
+  const tipo = personType.toUpperCase();
+  switch (tipo) {
+    case 'ATIVO': return 'Autor';
+    case 'PASSIVO': return 'Reu';
+    case 'ADVOGADO': return 'Advogado';
+    default: return personType;
+  }
+};
+
+// Badge colorido por tipo
+const getTipoParteBadgeVariant = (personType: string | undefined): "default" | "secondary" | "outline" | "destructive" => {
+  if (!personType) return 'outline';
+  const tipo = personType.toUpperCase();
+  switch (tipo) {
+    case 'ATIVO': return 'default';
+    case 'PASSIVO': return 'secondary';
+    case 'ADVOGADO': return 'outline';
+    default: return 'outline';
+  }
+};
+
+// Extrair OAB/CPF/CNPJ dos documentos
+const getDocumentoInfo = (documents: any[] | undefined): string | null => {
+  if (!documents || documents.length === 0) return null;
+  
+  const oab = documents.find(d => d.document_type?.toLowerCase() === 'oab');
+  if (oab) return `OAB ${oab.document}`;
+  
+  const cpf = documents.find(d => d.document_type?.toLowerCase() === 'cpf');
+  if (cpf) return `CPF: ${cpf.document}`;
+  
+  const cnpj = documents.find(d => d.document_type?.toLowerCase() === 'cnpj');
+  if (cnpj) return `CNPJ: ${cnpj.document}`;
+  
+  return null;
+};
+
 export const ProcessoOABDetalhes = ({
   processo,
   open,
@@ -65,12 +105,19 @@ export const ProcessoOABDetalhes = ({
         </SheetHeader>
 
         <div className="mt-4 space-y-4">
-          {/* Numero do Processo */}
+          {/* Numero do Processo com Valor */}
           <div className="p-3 bg-muted/30 rounded-lg">
             <p className="font-mono text-sm font-medium">{processo.numero_cnj}</p>
-            {processo.tribunal_sigla && (
-              <Badge variant="outline" className="mt-1">{processo.tribunal_sigla}</Badge>
-            )}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {processo.tribunal_sigla && (
+                <Badge variant="outline">{processo.tribunal_sigla}</Badge>
+              )}
+              {processo.valor_causa && (
+                <Badge variant="secondary" className="font-mono">
+                  R$ {processo.valor_causa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Toggle de Monitoramento */}
@@ -231,15 +278,32 @@ export const ProcessoOABDetalhes = ({
                       <Card key={index} className="p-3">
                         <div className="flex items-start gap-2">
                           <Users className="w-4 h-4 text-muted-foreground mt-0.5" />
-                          <div>
-                            <p className="font-medium text-sm">{parte.nome || parte.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {parte.tipo || parte.type || 'Tipo nao informado'}
-                            </p>
-                            {parte.papel && (
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {parte.papel}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <p className="font-medium text-sm">{parte.name || parte.nome}</p>
+                              <Badge variant={getTipoParteBadgeVariant(parte.person_type)}>
+                                {getTipoParteLabel(parte.person_type)}
                               </Badge>
+                            </div>
+                            {getDocumentoInfo(parte.documents) && (
+                              <p className="text-xs text-muted-foreground">
+                                {getDocumentoInfo(parte.documents)}
+                              </p>
+                            )}
+                            {parte.lawyers && parte.lawyers.length > 0 && (
+                              <div className="mt-2 pl-3 border-l-2 border-muted">
+                                <p className="text-xs text-muted-foreground font-medium mb-1">Advogados:</p>
+                                {parte.lawyers.map((adv: any, i: number) => (
+                                  <div key={i} className="flex items-center gap-1 text-xs">
+                                    <span>{adv.name}</span>
+                                    {getDocumentoInfo(adv.documents) && (
+                                      <span className="text-muted-foreground">
+                                        - {getDocumentoInfo(adv.documents)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
