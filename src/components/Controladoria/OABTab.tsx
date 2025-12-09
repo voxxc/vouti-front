@@ -48,15 +48,40 @@ interface ProcessosAgrupados {
   semInstancia: ProcessoOAB[];
 }
 
-const extrairUF = (tribunalSigla: string | null | undefined): string => {
-  if (!tribunalSigla) return 'N/I';
+// Mapa de codigos de tribunal CNJ para UF
+const TRIBUNAL_UF_MAP: Record<string, string> = {
+  '01': 'AC', '02': 'AL', '03': 'AP', '04': 'AM', '05': 'BA',
+  '06': 'CE', '07': 'DF', '08': 'ES', '09': 'GO', '10': 'MA',
+  '11': 'MT', '12': 'MS', '13': 'MG', '14': 'PA', '15': 'PB',
+  '16': 'PR', '17': 'PE', '18': 'PI', '19': 'RJ', '20': 'RN',
+  '21': 'RS', '22': 'RO', '23': 'RR', '24': 'SC', '25': 'SE',
+  '26': 'SP', '27': 'TO',
+};
+
+const extrairUF = (tribunalSigla: string | null | undefined, numeroCnj?: string | null): string => {
+  // Primeiro tenta pelo tribunal_sigla
+  if (tribunalSigla) {
+    const matchTJ = tribunalSigla.match(/TJ([A-Z]{2})/);
+    if (matchTJ) return matchTJ[1];
+  }
   
-  // TJPR -> PR, TJSP -> SP, TJSC -> SC
-  const matchTJ = tribunalSigla.match(/TJ([A-Z]{2})/);
-  if (matchTJ) return matchTJ[1];
+  // Fallback: extrai do numero CNJ (formato: NNNNNNN-DD.AAAA.J.TR.OOOO)
+  if (numeroCnj) {
+    const match = numeroCnj.match(/\.\d{4}\.(\d)\.(\d{2})\./);
+    if (match) {
+      const segmento = match[1]; // 8 = Justica Estadual
+      const codigoTribunal = match[2];
+      
+      if (segmento === '8' && TRIBUNAL_UF_MAP[codigoTribunal]) {
+        return TRIBUNAL_UF_MAP[codigoTribunal];
+      }
+      
+      // Para outros segmentos (TRF, TRT, etc), retorna codigo
+      return `${segmento}.${codigoTribunal}`;
+    }
+  }
   
-  // TRT9, TRF4, etc - manter sigla completa
-  return tribunalSigla;
+  return 'N/I';
 };
 
 const agruparPorInstancia = (processos: ProcessoOAB[]): ProcessosAgrupados => {
@@ -263,7 +288,7 @@ export const OABTab = ({ oabId }: OABTabProps) => {
   const ufsDisponiveis = useMemo(() => {
     const ufMap = new Map<string, number>();
     processos.forEach(p => {
-      const uf = extrairUF(p.tribunal_sigla);
+      const uf = extrairUF(p.tribunal_sigla, p.numero_cnj);
       ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
     });
     return Array.from(ufMap.entries())
@@ -274,7 +299,7 @@ export const OABTab = ({ oabId }: OABTabProps) => {
   // Aplicar filtro antes do agrupamento
   const processosFiltrados = useMemo(() => {
     if (filtroUF === 'todos') return processos;
-    return processos.filter(p => extrairUF(p.tribunal_sigla) === filtroUF);
+    return processos.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
   }, [processos, filtroUF]);
 
   const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
