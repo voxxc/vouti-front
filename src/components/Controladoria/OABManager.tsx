@@ -40,7 +40,7 @@ import { ESTADOS_BRASIL } from '@/types/busca-oab';
 import { Progress } from '@/components/ui/progress';
 
 export const OABManager = () => {
-  const { userRole } = useAuth();
+  const { userRole, user, tenantId } = useAuth();
   const isAdmin = userRole === 'admin';
   
   const { 
@@ -117,7 +117,9 @@ export const OABManager = () => {
         const { error: fnError } = await supabase.functions.invoke('judit-consultar-detalhes-request', {
           body: {
             processoOabId: processo.id,
-            requestId: processo.detalhes_request_id
+            requestId: processo.detalhes_request_id,
+            tenantId,
+            userId: user?.id
           }
         });
         if (!fnError) sucesso++;
@@ -239,7 +241,9 @@ export const OABManager = () => {
           body: {
             processoOabId: processo.id,
             numeroCnj: processo.numero_cnj,
-            oabId: selectedOabForBatch.id
+            oabId: selectedOabForBatch.id,
+            tenantId,
+            userId: user?.id
           }
         });
         // Pequeno delay entre chamadas para nao sobrecarregar
