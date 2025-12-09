@@ -69,7 +69,7 @@ serve(async (req) => {
       (existingAndamentos || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
     );
 
-    // Inserir novos andamentos
+    // Inserir apenas novos andamentos (evita duplicatas)
     let andamentosInseridos = 0;
     for (const step of steps) {
       const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
@@ -77,6 +77,7 @@ serve(async (req) => {
       
       const key = `${dataMovimentacao}_${descricao.substring(0, 50)}`;
       
+      // Verificar se ja existe antes de inserir
       if (!existingKeys.has(key) && descricao) {
         const { error } = await supabase
           .from('processos_oab_andamentos')
@@ -91,6 +92,8 @@ serve(async (req) => {
 
         if (!error) {
           andamentosInseridos++;
+          // Adicionar ao set para evitar duplicatas dentro do mesmo lote
+          existingKeys.add(key);
         }
       }
     }
@@ -104,14 +107,16 @@ serve(async (req) => {
       })
       .eq('id', processoOabId);
 
-    console.log('[Judit Consultar Request] Concluido:', { andamentosInseridos });
+    console.log('[Judit Consultar Request] Concluido:', { andamentosInseridos, totalExistentes: existingAndamentos?.length || 0 });
 
     return new Response(
       JSON.stringify({
         success: true,
         andamentosInseridos,
         totalAndamentos: steps.length,
-        message: 'Consulta gratuita realizada com sucesso'
+        message: andamentosInseridos > 0 
+          ? `${andamentosInseridos} novos andamentos inseridos`
+          : 'Nenhum andamento novo encontrado'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
