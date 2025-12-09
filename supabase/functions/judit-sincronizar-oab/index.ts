@@ -103,15 +103,17 @@ serve(async (req) => {
 
     console.log("[Judit Sync OAB] Request ID:", requestId);
 
-    // Polling para aguardar resultado
+    // Polling para aguardar resultado COM PAGINACAO COMPLETA
     let attempts = 0;
     const maxAttempts = 30;
-    let resultData = null;
+    const maxPages = 50; // Limite de paginas
+    let allPageData: any[] = [];
+    let dataReady = false;
 
-    while (attempts < maxAttempts) {
+    // Primeira etapa: aguardar dados ficarem disponiveis
+    while (attempts < maxAttempts && !dataReady) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // CORRIGIDO: Usar /responses?request_id= conforme documentacao oficial
       const statusResponse = await fetch(
         `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
         {
@@ -130,12 +132,43 @@ serve(async (req) => {
       }
 
       const statusData = await statusResponse.json();
-      console.log("[Judit Sync OAB] Polling resposta - count:", statusData.count, "results:", statusData.results?.length || 0);
+      console.log("[Judit Sync OAB] Polling resposta - count:", statusData.count, "page_data:", statusData.page_data?.length || 0, "total_pages:", statusData.total_pages || 1);
 
-      // O endpoint /responses retorna { results: [...], count: N } quando os dados estao prontos
-      if (statusData.results && statusData.results.length > 0) {
-        resultData = statusData;
-        console.log("[Judit Sync OAB] Dados recebidos com sucesso");
+      // CORRIGIDO: Usar page_data em vez de results
+      if (statusData.page_data && statusData.page_data.length > 0) {
+        dataReady = true;
+        allPageData = statusData.page_data;
+        
+        const totalPages = Math.min(statusData.total_pages || 1, maxPages);
+        console.log(`[Judit Sync OAB] Pagina 1/${totalPages} - ${statusData.page_data.length} resultados`);
+
+        // Buscar paginas adicionais se existirem
+        for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+          await new Promise((resolve) => setTimeout(resolve, 500)); // Delay entre paginas
+          
+          const pageResponse = await fetch(
+            `https://requests.prod.judit.io/responses?request_id=${requestId}&page=${currentPage}&page_size=100`,
+            {
+              method: "GET",
+              headers: {
+                "api-key": juditApiKey.trim(),
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (pageResponse.ok) {
+            const pageData = await pageResponse.json();
+            if (pageData.page_data && pageData.page_data.length > 0) {
+              allPageData = allPageData.concat(pageData.page_data);
+              console.log(`[Judit Sync OAB] Pagina ${currentPage}/${totalPages} - ${pageData.page_data.length} resultados`);
+            }
+          } else {
+            console.log(`[Judit Sync OAB] Erro ao buscar pagina ${currentPage}:`, pageResponse.status);
+          }
+        }
+        
+        console.log(`[Judit Sync OAB] Total de itens coletados: ${allPageData.length}`);
         break;
       }
 
@@ -146,21 +179,68 @@ serve(async (req) => {
       attempts++;
     }
 
-    if (!resultData) {
+    if (allPageData.length === 0) {
       throw new Error("Timeout aguardando resposta da API Judit");
     }
 
-    // Extrair processos do resultado - formato /responses
-    const results = resultData.results || [];
+    // Extrair processos do page_data
     let processos: any[] = [];
-    
-    for (const result of results) {
-      const responseData = result.response_data || result;
-      const lawsuits = responseData.lawsuits || responseData.processes || [];
-      if (Array.isArray(lawsuits)) {
-        processos = processos.concat(lawsuits);
-      } else if (responseData.lawsuit_cnj || responseData.numero_cnj) {
-        processos.push(responseData);
+
+    for (const item of allPageData) {
+      const responseData = item.response_data || item;
+      
+      // Extrair numero CNJ diretamente do response_data
+      const numeroCnj = responseData.code || responseData.lawsuit_cnj || responseData.numero_cnj;
+      
+      if (numeroCnj) {
+        // Extrair partes do campo name (formato "AUTOR X REU")
+        let parteAtiva = null;
+        let partePassiva = null;
+        
+        if (responseData.name && responseData.name.includes(' X ')) {
+          const partes = responseData.name.split(' X ');
+          parteAtiva = partes[0]?.trim() || null;
+          partePassiva = partes[1]?.trim() || null;
+        } else if (responseData.parties && Array.isArray(responseData.parties)) {
+          // Fallback: extrair de parties array
+          const autores = responseData.parties
+            .filter((p: any) => {
+              const tipo = (p.person_type || p.tipo || "").toUpperCase();
+              return tipo.includes("ATIVO") || tipo.includes("AUTOR") || tipo.includes("REQUERENTE");
+            })
+            .map((p: any) => p.name || p.nome);
+          
+          const reus = responseData.parties
+            .filter((p: any) => {
+              const tipo = (p.person_type || p.tipo || "").toUpperCase();
+              return tipo.includes("PASSIVO") || tipo.includes("REU") || tipo.includes("REQUERIDO");
+            })
+            .map((p: any) => p.name || p.nome);
+          
+          parteAtiva = autores.length > 0 ? autores.join(" e ") : null;
+          partePassiva = reus.length > 0 ? reus.join(" e ") : null;
+        }
+        
+        // Extrair tribunal
+        const tribunalInfo = responseData.courts?.[0] || {};
+        
+        processos.push({
+          numero_cnj: numeroCnj,
+          tribunal: tribunalInfo.name || responseData.tribunal || null,
+          tribunal_sigla: tribunalInfo.acronym || responseData.tribunal_acronym || null,
+          parte_ativa: parteAtiva,
+          parte_passiva: partePassiva,
+          partes_completas: responseData.parties || null,
+          status_processual: responseData.situation || responseData.status || null,
+          fase_processual: responseData.phase || null,
+          data_distribuicao: responseData.distribution_date || null,
+          valor_causa: responseData.amount || null,
+          juizo: responseData.county || tribunalInfo.name || null,
+          link_tribunal: (responseData.tribunal_url && responseData.tribunal_url !== "NAO INFORMADO") 
+            ? responseData.tribunal_url 
+            : (responseData.url || null),
+          capa_completa: responseData,
+        });
       }
     }
 
@@ -170,43 +250,25 @@ serve(async (req) => {
     let processosAtualizados = 0;
 
     for (const processo of processos) {
-        const numeroCnj = processo.numero_cnj || processo.lawsuit_cnj || processo.number;
+        const numeroCnj = processo.numero_cnj;
 
         if (!numeroCnj) continue;
-
-        // Extrair partes
-        const partes = processo.partes || processo.parties || [];
-        const autores = partes
-          .filter((p: any) => {
-            const tipo = (p.tipo || p.type || "").toLowerCase();
-            return tipo.includes("autor") || tipo.includes("requerente") || tipo.includes("exequente");
-          })
-          .map((p: any) => p.nome || p.name);
-
-        const reus = partes
-          .filter((p: any) => {
-            const tipo = (p.tipo || p.type || "").toLowerCase();
-            return (
-              tipo.includes("reu") || tipo.includes("réu") || tipo.includes("requerido") || tipo.includes("executado")
-            );
-          })
-          .map((p: any) => p.nome || p.name);
 
         const processoData = {
           oab_id: oabId,
           numero_cnj: numeroCnj,
-          tribunal: processo.tribunal || processo.court || null,
-          tribunal_sigla: processo.tribunal_acronym || processo.court_acronym || null,
-          parte_ativa: autores.length > 0 ? autores.join(" e ") : null,
-          parte_passiva: reus.length > 0 ? reus.join(" e ") : null,
-          partes_completas: partes.length > 0 ? partes : null,
-          status_processual: processo.status_processual || processo.status || null,
-          fase_processual: processo.fase_processual || processo.phase || null,
-          data_distribuicao: processo.data_distribuicao || processo.distribution_date || null,
-          valor_causa: processo.valor_causa || processo.amount || null,
-          juizo: processo.juizo || processo.court_unit || null,
-          link_tribunal: processo.link_tribunal || processo.court_link || null,
-          capa_completa: processo,
+          tribunal: processo.tribunal,
+          tribunal_sigla: processo.tribunal_sigla,
+          parte_ativa: processo.parte_ativa,
+          parte_passiva: processo.parte_passiva,
+          partes_completas: processo.partes_completas,
+          status_processual: processo.status_processual,
+          fase_processual: processo.fase_processual,
+          data_distribuicao: processo.data_distribuicao,
+          valor_causa: processo.valor_causa,
+          juizo: processo.juizo,
+          link_tribunal: processo.link_tribunal,
+          capa_completa: processo.capa_completa,
         };
 
         // Upsert do processo
@@ -253,7 +315,7 @@ serve(async (req) => {
       })
       .eq("id", oabId);
 
-    console.log("[Judit Sync OAB] Sincronizacao concluida:", { processosInseridos, processosAtualizados });
+    console.log("[Judit Sync OAB] Sincronizacao concluida:", { processosInseridos, processosAtualizados, totalColetado: allPageData.length });
 
     return new Response(
       JSON.stringify({
@@ -261,6 +323,7 @@ serve(async (req) => {
         processosInseridos,
         processosAtualizados,
         totalProcessos,
+        paginasProcessadas: Math.ceil(allPageData.length / 100) || 1,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
