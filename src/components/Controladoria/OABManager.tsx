@@ -158,7 +158,7 @@ export const OABManager = () => {
   const handleConfirmarBatchLawsuit = async () => {
     if (!selectedOabForBatch || batchProcessos.length === 0) return;
     
-    const processosParaConsultar = batchProcessos.filter(p => !p.detalhes_request_id);
+    const processosParaConsultar = batchProcessos.filter(p => !p.detalhes_carregados && !p.detalhes_request_id);
     if (processosParaConsultar.length === 0) {
       setLawsuitBatchDialogOpen(false);
       return;
@@ -194,8 +194,8 @@ export const OABManager = () => {
     window.location.reload();
   };
 
-  const processosJaConsultados = batchProcessos.filter(p => p.detalhes_request_id).length;
-  const processosParaConsultar = batchProcessos.filter(p => !p.detalhes_request_id).length;
+  const processosJaConsultados = batchProcessos.filter(p => p.detalhes_carregados || p.detalhes_request_id).length;
+  const processosParaConsultarCount = batchProcessos.filter(p => !p.detalhes_carregados && !p.detalhes_request_id).length;
 
   if (loading) {
     return (
@@ -545,10 +545,10 @@ export const OABManager = () => {
                       </div>
                       <div className="flex justify-between text-sm font-medium text-amber-600">
                         <span>A consultar:</span>
-                        <span>{processosParaConsultar} (GERA CUSTO)</span>
+                        <span>{processosParaConsultarCount} (GERA CUSTO)</span>
                       </div>
                     </div>
-                    {processosParaConsultar > 0 && (
+                    {processosParaConsultarCount > 0 && (
                       <p className="text-xs text-amber-600 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
                         Cada consulta pode gerar custo na sua conta Judit.
@@ -565,11 +565,11 @@ export const OABManager = () => {
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction 
                   onClick={handleConfirmarBatchLawsuit}
-                  disabled={processosParaConsultar === 0}
-                  className={processosParaConsultar > 0 ? "bg-amber-600 hover:bg-amber-700" : ""}
+                  disabled={processosParaConsultarCount === 0}
+                  className={processosParaConsultarCount > 0 ? "bg-amber-600 hover:bg-amber-700" : ""}
                 >
-                  {processosParaConsultar > 0 
-                    ? `Consultar ${processosParaConsultar} Processos (R$)` 
+                  {processosParaConsultarCount > 0 
+                    ? `Consultar ${processosParaConsultarCount} Processos (R$)` 
                     : 'Todos ja consultados'}
                 </AlertDialogAction>
               </>
