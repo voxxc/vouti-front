@@ -40,12 +40,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // GET /responses/ - GRATUITO! Nao gera custos
-    console.log('[Judit Consultar] Fazendo GET /responses/ (GRATUITO)...');
+    // COM PAGINACAO COMPLETA - busca ate 50 paginas
+    console.log('[Judit Consultar] Fazendo GET /responses/ (GRATUITO) com paginacao...');
     
-    const responseUrl = `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`;
-    console.log('[Judit Consultar] URL:', responseUrl);
+    const maxPages = 50;
+    let allPageData: any[] = [];
+    let totalPages = 1;
     
-    const response = await fetch(responseUrl, {
+    // Buscar primeira pagina
+    const firstPageUrl = `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`;
+    console.log('[Judit Consultar] URL pagina 1:', firstPageUrl);
+    
+    const firstResponse = await fetch(firstPageUrl, {
       method: 'GET',
       headers: {
         'api-key': juditApiKey.trim(),
@@ -53,45 +59,74 @@ serve(async (req) => {
       },
     });
 
-    console.log('[Judit Consultar] Status resposta:', response.status);
+    console.log('[Judit Consultar] Status resposta:', firstResponse.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!firstResponse.ok) {
+      const errorText = await firstResponse.text();
       console.error('[Judit Consultar] Erro na resposta:', errorText);
       return new Response(
         JSON.stringify({ 
-          error: `Erro ao consultar Judit: ${response.status}`,
+          error: `Erro ao consultar Judit: ${firstResponse.status}`,
           details: errorText 
         }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: firstResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    console.log('[Judit Consultar] Resposta recebida:', JSON.stringify(data).substring(0, 500));
+    const firstData = await firstResponse.json();
+    console.log('[Judit Consultar] Pagina 1 - count:', firstData.count, 'page_data:', firstData.page_data?.length || 0, 'total_pages:', firstData.total_pages || 1);
 
-    // Verificar se tem resultados - API retorna em page_data, nao results
-    if (!data.page_data || data.page_data.length === 0) {
-      console.log('[Judit Consultar] Nenhum resultado encontrado. Dados ainda processando ou request_id invalido.');
+    // Verificar se tem resultados
+    if (!firstData.page_data || firstData.page_data.length === 0) {
+      console.log('[Judit Consultar] Nenhum resultado encontrado.');
       return new Response(
         JSON.stringify({ 
           success: false,
           message: 'Nenhum resultado encontrado. O request pode ainda estar processando ou o ID esta incorreto.',
-          rawResponse: data
+          rawResponse: firstData
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Extrair processos dos resultados - API retorna em page_data
-    const results = data.page_data || [];
-    console.log('[Judit Consultar] Total de page_data:', results.length);
+    // Coletar primeira pagina
+    allPageData = firstData.page_data;
+    totalPages = Math.min(firstData.total_pages || 1, maxPages);
+    console.log(`[Judit Consultar] Pagina 1/${totalPages} - ${firstData.page_data.length} resultados`);
+
+    // Buscar paginas adicionais se existirem
+    for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Delay entre paginas
+      
+      const pageUrl = `https://requests.prod.judit.io/responses?request_id=${requestId}&page=${currentPage}&page_size=100`;
+      console.log(`[Judit Consultar] Buscando pagina ${currentPage}...`);
+      
+      const pageResponse = await fetch(pageUrl, {
+        method: 'GET',
+        headers: {
+          'api-key': juditApiKey.trim(),
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (pageResponse.ok) {
+        const pageData = await pageResponse.json();
+        if (pageData.page_data && pageData.page_data.length > 0) {
+          allPageData = allPageData.concat(pageData.page_data);
+          console.log(`[Judit Consultar] Pagina ${currentPage}/${totalPages} - ${pageData.page_data.length} resultados`);
+        }
+      } else {
+        console.log(`[Judit Consultar] Erro ao buscar pagina ${currentPage}:`, pageResponse.status);
+      }
+    }
+
+    console.log(`[Judit Consultar] Total de itens coletados: ${allPageData.length}`);
 
     // Processar cada resultado - cada item do page_data e um processo
     let processosInseridos = 0;
     let processosAtualizados = 0;
 
-    for (const result of results) {
+    for (const result of allPageData) {
       const responseData = result.response_data;
       
       if (!responseData) {
@@ -115,20 +150,15 @@ serve(async (req) => {
       const advogados: string[] = [];
 
       if (responseData.parties && responseData.parties.length > 0) {
-        console.log('[Judit Consultar] Processando', responseData.parties.length, 'partes...');
-        
         for (const parte of responseData.parties) {
           const nome = parte.name || '';
           const tipo = (parte.person_type || '').toUpperCase();
-          
-          console.log('[Judit Consultar] Parte:', nome, '- Tipo:', tipo);
           
           if (tipo === 'ATIVO' || tipo === 'AUTOR') {
             if (!parteAtiva) parteAtiva = nome;
           } else if (tipo === 'PASSIVO' || tipo === 'REU' || tipo === 'RÉU') {
             if (!partePassiva) partePassiva = nome;
           } else if (tipo === 'ADVOGADO') {
-            // Extrair OAB do advogado se disponivel
             const oabDoc = parte.documents?.find((d: { document_type?: string }) => 
               d.document_type?.toLowerCase() === 'oab'
             );
@@ -161,14 +191,13 @@ serve(async (req) => {
         const partesNome = responseData.name.split(' X ');
         parteAtiva = partesNome[0]?.trim() || '';
         partePassiva = partesNome[1]?.trim() || '';
-        console.log('[Judit Consultar] Usando fallback do campo name para partes');
       }
 
       // Extrair tribunal do array courts
       const tribunal = responseData.courts?.[0]?.name || null;
       const tribunalSigla = responseData.courts?.[0]?.acronym || null;
 
-      // Extrair link do tribunal - pode estar em tribunal_url ou url
+      // Extrair link do tribunal
       let linkTribunal = null;
       if (responseData.tribunal_url && responseData.tribunal_url !== 'NAO INFORMADO') {
         linkTribunal = responseData.tribunal_url;
@@ -205,16 +234,6 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('[Judit Consultar] Dados extraidos:', {
-        numeroCnj,
-        parteAtiva: processoData.parte_ativa,
-        partePassiva: processoData.parte_passiva,
-        advogados: advogados.length,
-        valorCausa: processoData.valor_causa,
-        dataDistribuicao: processoData.data_distribuicao,
-        juizo: processoData.juizo,
-      });
-
       // Verificar se ja existe
       const { data: existente } = await supabase
         .from('processos_oab')
@@ -245,8 +264,6 @@ serve(async (req) => {
           processosInseridos++;
         }
       }
-
-      console.log('[Judit Consultar] Processado:', numeroCnj);
     }
 
     // Atualizar OAB com request_id e contagem
@@ -265,6 +282,7 @@ serve(async (req) => {
     }
 
     console.log('[Judit Consultar] Concluido!');
+    console.log('[Judit Consultar] Total coletado:', allPageData.length);
     console.log('[Judit Consultar] Inseridos:', processosInseridos);
     console.log('[Judit Consultar] Atualizados:', processosAtualizados);
 
@@ -275,6 +293,8 @@ serve(async (req) => {
         processosInseridos,
         processosAtualizados,
         totalProcessos: processosInseridos + processosAtualizados,
+        paginasProcessadas: totalPages,
+        totalItensColetados: allPageData.length,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
