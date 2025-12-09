@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tenant } from '@/types/superadmin';
 import { TenantStatsDialog } from './TenantStatsDialog';
+import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -27,6 +28,7 @@ interface TenantCardProps {
 
 export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
+  const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -100,9 +102,18 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             size="sm" 
             className="gap-2"
             onClick={() => setShowStats(true)}
-            title="Ver estatísticas"
+            title="Ver estatisticas"
           >
             <Database className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => setShowJuditLogs(true)}
+            title="Chamadas Judit API"
+          >
+            <Activity className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
@@ -159,6 +170,12 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         tenant={tenant}
         open={showStats}
         onOpenChange={setShowStats}
+      />
+
+      <TenantJuditLogsDialog
+        tenant={tenant}
+        open={showJuditLogs}
+        onOpenChange={setShowJuditLogs}
       />
     </>
   );

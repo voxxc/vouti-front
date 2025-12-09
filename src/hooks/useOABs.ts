@@ -163,8 +163,11 @@ export const useOABs = () => {
   const sincronizarOAB = async (oabId: string, oabNumero: string, oabUf: string) => {
     setSincronizando(oabId);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenantId = user ? await getTenantIdForUser(user.id) : null;
+
       const { data, error } = await supabase.functions.invoke('judit-sincronizar-oab', {
-        body: { oabId, oabNumero, oabUf }
+        body: { oabId, oabNumero, oabUf, tenantId, userId: user?.id }
       });
 
       if (error) throw error;
@@ -359,11 +362,14 @@ export const useProcessosOAB = (oabId: string | null) => {
     fetchProcessos();
   }, [fetchProcessos]);
 
-  const carregarDetalhes = async (processoId: string, numeroCnj: string) => {
+  const carregarDetalhes = async (processoId: string, numeroCnj: string, oabId?: string) => {
     setCarregandoDetalhes(processoId);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenantId = user ? await getTenantIdForUser(user.id) : null;
+
       const { data, error } = await supabase.functions.invoke('judit-buscar-detalhes-processo', {
-        body: { processoOabId: processoId, numeroCnj }
+        body: { processoOabId: processoId, numeroCnj, tenantId, userId: user?.id, oabId }
       });
 
       if (error) throw error;
@@ -412,10 +418,13 @@ export const useProcessosOAB = (oabId: string | null) => {
     }
   };
 
-  const toggleMonitoramento = async (processoId: string, numeroCnj: string, ativar: boolean) => {
+  const toggleMonitoramento = async (processoId: string, numeroCnj: string, ativar: boolean, oabId?: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenantId = user ? await getTenantIdForUser(user.id) : null;
+
       const { data, error } = await supabase.functions.invoke('judit-ativar-monitoramento-oab', {
-        body: { processoOabId: processoId, numeroCnj, ativar }
+        body: { processoOabId: processoId, numeroCnj, ativar, tenantId, userId: user?.id, oabId }
       });
 
       if (error) throw error;
