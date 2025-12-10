@@ -571,6 +571,62 @@ export type Database = {
           },
         ]
       }
+      cnpjs_cadastrados: {
+        Row: {
+          cnpj: string
+          created_at: string | null
+          id: string
+          nome_fantasia: string | null
+          ordem: number | null
+          razao_social: string | null
+          request_id_data: string | null
+          tenant_id: string | null
+          total_processos: number | null
+          ultima_sincronizacao: string | null
+          ultimo_request_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cnpj: string
+          created_at?: string | null
+          id?: string
+          nome_fantasia?: string | null
+          ordem?: number | null
+          razao_social?: string | null
+          request_id_data?: string | null
+          tenant_id?: string | null
+          total_processos?: number | null
+          ultima_sincronizacao?: string | null
+          ultimo_request_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cnpj?: string
+          created_at?: string | null
+          id?: string
+          nome_fantasia?: string | null
+          ordem?: number | null
+          razao_social?: string | null
+          request_id_data?: string | null
+          tenant_id?: string | null
+          total_processos?: number | null
+          ultima_sincronizacao?: string | null
+          ultimo_request_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cnpjs_cadastrados_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comarcas: {
         Row: {
           created_at: string | null
@@ -2411,6 +2467,183 @@ export type Database = {
             columns: ["tribunal_id"]
             isOneToOne: false
             referencedRelation: "tribunais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos_cnpj: {
+        Row: {
+          area_direito: string | null
+          assunto: string | null
+          capa_completa: Json | null
+          cidade: string | null
+          classificacao: string | null
+          cnpj_id: string
+          created_at: string | null
+          data_distribuicao: string | null
+          detalhes_request_data: string | null
+          detalhes_request_id: string | null
+          estado: string | null
+          fase_processual: string | null
+          id: string
+          importado_manualmente: boolean | null
+          instancia: string | null
+          juizo: string | null
+          link_tribunal: string | null
+          monitoramento_ativo: boolean | null
+          numero_cnj: string
+          ordem: number | null
+          parte_ativa: string | null
+          parte_passiva: string | null
+          parte_tipo: string | null
+          partes_completas: Json | null
+          status_processual: string | null
+          tenant_id: string | null
+          tracking_id: string | null
+          tribunal: string | null
+          tribunal_sigla: string | null
+          ultimo_andamento: string | null
+          ultimo_andamento_data: string | null
+          updated_at: string | null
+          user_id: string
+          valor_causa: number | null
+        }
+        Insert: {
+          area_direito?: string | null
+          assunto?: string | null
+          capa_completa?: Json | null
+          cidade?: string | null
+          classificacao?: string | null
+          cnpj_id: string
+          created_at?: string | null
+          data_distribuicao?: string | null
+          detalhes_request_data?: string | null
+          detalhes_request_id?: string | null
+          estado?: string | null
+          fase_processual?: string | null
+          id?: string
+          importado_manualmente?: boolean | null
+          instancia?: string | null
+          juizo?: string | null
+          link_tribunal?: string | null
+          monitoramento_ativo?: boolean | null
+          numero_cnj: string
+          ordem?: number | null
+          parte_ativa?: string | null
+          parte_passiva?: string | null
+          parte_tipo?: string | null
+          partes_completas?: Json | null
+          status_processual?: string | null
+          tenant_id?: string | null
+          tracking_id?: string | null
+          tribunal?: string | null
+          tribunal_sigla?: string | null
+          ultimo_andamento?: string | null
+          ultimo_andamento_data?: string | null
+          updated_at?: string | null
+          user_id: string
+          valor_causa?: number | null
+        }
+        Update: {
+          area_direito?: string | null
+          assunto?: string | null
+          capa_completa?: Json | null
+          cidade?: string | null
+          classificacao?: string | null
+          cnpj_id?: string
+          created_at?: string | null
+          data_distribuicao?: string | null
+          detalhes_request_data?: string | null
+          detalhes_request_id?: string | null
+          estado?: string | null
+          fase_processual?: string | null
+          id?: string
+          importado_manualmente?: boolean | null
+          instancia?: string | null
+          juizo?: string | null
+          link_tribunal?: string | null
+          monitoramento_ativo?: boolean | null
+          numero_cnj?: string
+          ordem?: number | null
+          parte_ativa?: string | null
+          parte_passiva?: string | null
+          parte_tipo?: string | null
+          partes_completas?: Json | null
+          status_processual?: string | null
+          tenant_id?: string | null
+          tracking_id?: string | null
+          tribunal?: string | null
+          tribunal_sigla?: string | null
+          ultimo_andamento?: string | null
+          ultimo_andamento_data?: string | null
+          updated_at?: string | null
+          user_id?: string
+          valor_causa?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_cnpj_cnpj_id_fkey"
+            columns: ["cnpj_id"]
+            isOneToOne: false
+            referencedRelation: "cnpjs_cadastrados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_cnpj_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processos_cnpj_andamentos: {
+        Row: {
+          created_at: string | null
+          dados_completos: Json | null
+          data_movimentacao: string | null
+          descricao: string
+          id: string
+          lida: boolean | null
+          processo_cnpj_id: string
+          tenant_id: string | null
+          tipo_movimentacao: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_movimentacao?: string | null
+          descricao: string
+          id?: string
+          lida?: boolean | null
+          processo_cnpj_id: string
+          tenant_id?: string | null
+          tipo_movimentacao?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dados_completos?: Json | null
+          data_movimentacao?: string | null
+          descricao?: string
+          id?: string
+          lida?: boolean | null
+          processo_cnpj_id?: string
+          tenant_id?: string | null
+          tipo_movimentacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processos_cnpj_andamentos_processo_cnpj_id_fkey"
+            columns: ["processo_cnpj_id"]
+            isOneToOne: false
+            referencedRelation: "processos_cnpj"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_cnpj_andamentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
