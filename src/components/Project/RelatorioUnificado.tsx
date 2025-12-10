@@ -38,6 +38,13 @@ export const RelatorioUnificado = ({
     return [...processoTarefas].sort((a, b) => {
       const dateA = new Date(a.data_execucao || 0).getTime();
       const dateB = new Date(b.data_execucao || 0).getTime();
+      
+      if (dateA === dateB) {
+        const createdA = new Date(a.created_at || 0).getTime();
+        const createdB = new Date(b.created_at || 0).getTime();
+        return createdB - createdA;
+      }
+      
       return dateB - dateA;
     });
   }, [processoTarefas]);
@@ -47,6 +54,13 @@ export const RelatorioUnificado = ({
     return [...taskTarefas].sort((a, b) => {
       const dateA = new Date(a.data_execucao || 0).getTime();
       const dateB = new Date(b.data_execucao || 0).getTime();
+      
+      if (dateA === dateB) {
+        const createdA = new Date(a.created_at || 0).getTime();
+        const createdB = new Date(b.created_at || 0).getTime();
+        return createdB - createdA;
+      }
+      
       return dateB - dateA;
     });
   }, [taskTarefas]);
