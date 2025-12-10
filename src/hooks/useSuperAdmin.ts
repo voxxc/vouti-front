@@ -299,21 +299,33 @@ export function useSuperAdmin() {
 
   const deleteTenant = async (id: string, tenantName: string) => {
     try {
-      const { data, error } = await supabase
-        .from('tenants')
-        .delete()
-        .eq('id', id)
-        .select();
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession?.access_token) {
+        throw new Error('Voce precisa estar autenticado para excluir um cliente');
+      }
 
-      if (error) throw error;
+      const response = await fetch(
+        `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/delete-tenant`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`,
+          },
+          body: JSON.stringify({ tenant_id: id }),
+        }
+      );
 
-      if (!data || data.length === 0) {
-        throw new Error('Nao foi possivel excluir o cliente. Verifique suas permissoes.');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao excluir cliente');
       }
 
       toast({
-        title: 'Cliente excluido',
-        description: `${tenantName} foi excluido com sucesso.`,
+        title: 'Cliente excluido permanentemente',
+        description: `${tenantName} e todos os ${result.totalDeleted || 0} registros associados foram excluidos.`,
       });
 
       await fetchTenants();
