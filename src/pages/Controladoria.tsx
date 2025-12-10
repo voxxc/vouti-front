@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Eye, BarChart, Bell, FileSearch, Scale } from "lucide-react";
+import { FileText, Plus, Eye, BarChart, Bell, FileSearch, Scale, Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
@@ -15,6 +15,7 @@ import { MonitoramentoJuditBadge } from "@/components/Controladoria/Monitorament
 import { AndamentosDrawer } from "@/components/Controladoria/AndamentosDrawer";
 import { useMonitoramentoJudit } from "@/hooks/useMonitoramentoJudit";
 import { OABManager } from "@/components/Controladoria/OABManager";
+import { CNPJManager } from "@/components/Controladoria/CNPJManager";
 
 const Controladoria = () => {
   const { toast } = useToast();
@@ -236,9 +237,9 @@ const Controladoria = () => {
               <Scale className="mr-2 h-4 w-4" />
               Minhas OABs
             </TabsTrigger>
-            <TabsTrigger value="processos-manuais">
-              <FileText className="mr-2 h-4 w-4" />
-              Processos Manuais
+            <TabsTrigger value="push-doc">
+              <Building2 className="mr-2 h-4 w-4" />
+              Push-Doc
             </TabsTrigger>
           </TabsList>
 
@@ -250,95 +251,10 @@ const Controladoria = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="processos-manuais">
+          <TabsContent value="push-doc">
             <Card>
-              <CardHeader>
-                <CardTitle>Processos Cadastrados Manualmente</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Numero do Processo</TableHead>
-                      <TableHead>Partes</TableHead>
-                      <TableHead>Tribunal</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Monitoramento</TableHead>
-                      <TableHead className="text-right">Acoes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {processos.map((processo) => {
-                      const monitoramento = monitoramentos[processo.id];
-                      const naoLidos = andamentosNaoLidos[processo.id] || 0;
-                      
-                      return (
-                        <TableRow key={processo.id}>
-                          <TableCell className="font-medium">{processo.numero_processo}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div>{processo.parte_ativa}</div>
-                              <div className="text-muted-foreground">vs {processo.parte_passiva}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{processo.tribunais?.sigla || '-'}</TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusBadgeVariant(processo.status)}>
-                              {getStatusLabel(processo.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-2">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  checked={monitoramento?.monitoramento_ativo || false}
-                                  onCheckedChange={() => handleToggleMonitoramento(processo)}
-                                  disabled={ativando === processo.id}
-                                />
-                                <MonitoramentoJuditBadge 
-                                  ativo={monitoramento?.monitoramento_ativo || false}
-                                  size="sm"
-                                />
-                              </div>
-                              {monitoramento && (
-                                <div className="text-xs text-muted-foreground">
-                                  {monitoramento.total_movimentacoes || 0} andamentos
-                                  {naoLidos > 0 && (
-                                    <Badge variant="destructive" className="ml-2 text-xs">
-                                      {naoLidos} novos
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex gap-2 justify-end">
-                              {monitoramento && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleVerAndamentos(processo)}
-                                >
-                                  <FileSearch className="h-4 w-4 mr-2" />
-                                  Andamentos
-                                </Button>
-                              )}
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => navigate(`/controladoria/processo/${processo.id}`)}
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                Visualizar
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <CardContent className="pt-6">
+                <CNPJManager />
               </CardContent>
             </Card>
           </TabsContent>
