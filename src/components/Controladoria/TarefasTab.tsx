@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer } from 'lucide-react';
@@ -28,7 +28,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useTarefasOAB, TarefaOAB } from '@/hooks/useTarefasOAB';
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
-import { RelatorioProcessoOAB } from './RelatorioProcessoOAB';
+import { RelatorioUnificado } from '@/components/Project/RelatorioUnificado';
+import { TaskTarefa } from '@/types/taskTarefa';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TarefasTabProps {
   processo: ProcessoOAB;
@@ -58,12 +60,44 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Tarefas do card vinculado (admin)
+  const [taskTarefas, setTaskTarefas] = useState<TaskTarefa[]>([]);
+
   // Form state
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [fase, setFase] = useState('');
   const [dataExecucao, setDataExecucao] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [observacoes, setObservacoes] = useState('');
+
+  // Buscar card vinculado e suas tarefas admin
+  useEffect(() => {
+    const buscarTarefasCardVinculado = async () => {
+      if (!processo.id) return;
+
+      // Buscar card que tem processo_oab_id = processo.id
+      const { data: task } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('processo_oab_id', processo.id)
+        .maybeSingle();
+
+      if (task) {
+        // Buscar tarefas admin desse card
+        const { data: tarefasAdmin } = await supabase
+          .from('task_tarefas')
+          .select('*')
+          .eq('task_id', task.id)
+          .order('data_execucao', { ascending: false });
+
+        setTaskTarefas((tarefasAdmin || []).map(t => ({ ...t, origem: 'card' as const })));
+      } else {
+        setTaskTarefas([]);
+      }
+    };
+
+    buscarTarefasCardVinculado();
+  }, [processo.id]);
 
   const resetForm = () => {
     setTitulo('');
@@ -297,13 +331,14 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de Relatorio */}
-      <RelatorioProcessoOAB
+      {/* Modal de Relatorio Unificado */}
+      <RelatorioUnificado
         open={relatorioOpen}
         onOpenChange={setRelatorioOpen}
         processo={processo}
         oab={oab}
-        tarefas={tarefas}
+        processoTarefas={tarefas}
+        taskTarefas={taskTarefas}
       />
     </div>
   );
