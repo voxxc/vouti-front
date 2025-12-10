@@ -10,20 +10,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { TarefaOAB } from '@/hooks/useTarefasOAB';
 import { TaskTarefa } from '@/types/taskTarefa';
-
-interface TarefaUnificada {
-  id: string;
-  titulo: string;
-  descricao?: string;
-  fase?: string;
-  data_execucao: string;
-  observacoes?: string;
-  origem: 'processo' | 'card';
-}
 
 interface RelatorioUnificadoProps {
   open: boolean;
@@ -44,34 +33,19 @@ export const RelatorioUnificado = ({
 }: RelatorioUnificadoProps) => {
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Combina e ordena tarefas (mais recente primeiro)
-  const tarefasUnificadas = useMemo(() => {
-    const todasTarefas: TarefaUnificada[] = [
-      ...processoTarefas.map(t => ({
-        id: t.id,
-        titulo: t.titulo,
-        descricao: t.descricao,
-        fase: t.fase,
-        data_execucao: t.data_execucao,
-        observacoes: t.observacoes,
-        origem: 'processo' as const,
-      })),
-      ...taskTarefas.map(t => ({
-        id: t.id,
-        titulo: t.titulo,
-        descricao: t.descricao,
-        fase: t.fase,
-        data_execucao: t.data_execucao,
-        observacoes: t.observacoes,
-        origem: 'card' as const,
-      })),
-    ];
-
-    // Ordena por data decrescente (mais recente primeiro)
-    return todasTarefas.sort(
+  // Ordenar tarefas judiciais (processo) - mais recente primeiro
+  const tarefasJudiciais = useMemo(() => {
+    return [...processoTarefas].sort(
       (a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime()
     );
-  }, [processoTarefas, taskTarefas]);
+  }, [processoTarefas]);
+
+  // Ordenar tarefas admin (card) - mais recente primeiro
+  const tarefasAdmin = useMemo(() => {
+    return [...taskTarefas].sort(
+      (a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime()
+    );
+  }, [taskTarefas]);
 
   const formatData = (data: string | null | undefined) => {
     if (!data) return '-';
@@ -338,24 +312,46 @@ export const RelatorioUnificado = ({
               </div>
             </div>
 
-            {/* Timeline de Atividades Unificada */}
-            {tarefasUnificadas.length > 0 && (
+            {/* Timeline de Atividade Judicial */}
+            {tarefasJudiciais.length > 0 && (
               <div className="section">
                 <div className="section-title">
-                  Historico de Atividades ({tarefasUnificadas.length})
+                  Historico de Atividade Judicial ({tarefasJudiciais.length})
                 </div>
                 <div className="timeline">
-                  {tarefasUnificadas.map((tarefa) => (
-                    <div 
-                      key={tarefa.id} 
-                      className={`timeline-item origem-${tarefa.origem}`}
-                    >
+                  {tarefasJudiciais.map((tarefa) => (
+                    <div key={tarefa.id} className="timeline-item origem-processo">
                       <div className="timeline-date">
                         {formatData(tarefa.data_execucao)}
                         {tarefa.fase && <span className="timeline-fase">{tarefa.fase}</span>}
-                        <span className={`timeline-origem ${tarefa.origem}`}>
-                          {tarefa.origem === 'card' ? 'Card' : 'Processo'}
-                        </span>
+                      </div>
+                      <div className="timeline-title">{tarefa.titulo}</div>
+                      {tarefa.descricao && (
+                        <div className="timeline-desc">{tarefa.descricao}</div>
+                      )}
+                      {tarefa.observacoes && (
+                        <div className="timeline-desc" style={{ fontStyle: 'italic', marginTop: '5px' }}>
+                          Obs: {tarefa.observacoes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Timeline de Atividade Admin */}
+            {tarefasAdmin.length > 0 && (
+              <div className="section">
+                <div className="section-title">
+                  Historico de Atividade Admin ({tarefasAdmin.length})
+                </div>
+                <div className="timeline timeline-admin">
+                  {tarefasAdmin.map((tarefa) => (
+                    <div key={tarefa.id} className="timeline-item origem-card">
+                      <div className="timeline-date">
+                        {formatData(tarefa.data_execucao)}
+                        {tarefa.fase && <span className="timeline-fase">{tarefa.fase}</span>}
                       </div>
                       <div className="timeline-title">{tarefa.titulo}</div>
                       {tarefa.descricao && (
