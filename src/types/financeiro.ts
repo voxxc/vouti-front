@@ -56,4 +56,17 @@ export interface CreateDividaData {
   valor_total: number;
   numero_parcelas: number;
   data_inicio: string;
+  grupos_parcelas?: {
+    entrada?: {
+      valor: number;
+      data_vencimento: string;
+    };
+    grupos: {
+      ordem: number;
+      descricao?: string;
+      quantidade: number;
+      valor_parcela: number;
+      data_inicio: string;
+    }[];
+  };
 }

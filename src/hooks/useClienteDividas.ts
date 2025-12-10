@@ -35,84 +35,191 @@ export const useClienteDividas = (clienteId: string | null) => {
 
   const createDivida = async (dados: CreateDividaData): Promise<boolean> => {
     if (!clienteId) {
-      toast.error('Cliente não identificado');
+      toast.error('Cliente nao identificado');
       return false;
     }
 
     try {
-      // Calcular valores
-      const valorParcela = dados.valor_total / dados.numero_parcelas;
-      
-      // Calcular data final (baseado em parcelas mensais)
-      const dataInicio = new Date(dados.data_inicio);
-      const dataFinal = new Date(dataInicio);
-      dataFinal.setMonth(dataFinal.getMonth() + dados.numero_parcelas - 1);
-
-      // Criar dívida
-      const { data: dividaData, error: dividaError } = await supabase
-        .from('cliente_dividas')
-        .insert({
-          cliente_id: clienteId,
-          titulo: dados.titulo,
-          descricao: dados.descricao,
-          valor_total: dados.valor_total,
-          numero_parcelas: dados.numero_parcelas,
-          valor_parcela: valorParcela,
-          data_inicio: dados.data_inicio,
-          data_vencimento_final: dataFinal.toISOString().split('T')[0],
-          status: 'ativo',
-        })
-        .select()
+      // Buscar tenant_id do cliente
+      const { data: clienteData } = await supabase
+        .from('clientes')
+        .select('tenant_id')
+        .eq('id', clienteId)
         .single();
+      
+      const tenantId = clienteData?.tenant_id;
 
-      if (dividaError) throw dividaError;
-
-      // Buscar o maior numero_parcela existente para este cliente
-      const { data: maxParcela } = await supabase
-        .from('cliente_parcelas')
-        .select('numero_parcela')
-        .eq('cliente_id', clienteId)
-        .order('numero_parcela', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const startingNumber = (maxParcela?.numero_parcela || 0) + 1;
-
-      // Gerar parcelas
-      const parcelas = [];
-      for (let i = 0; i < dados.numero_parcelas; i++) {
-        const dataVencimento = new Date(dataInicio);
-        dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
+      // Verificar se e modo personalizado
+      if (dados.grupos_parcelas && dados.grupos_parcelas.grupos.length > 0) {
+        // Modo personalizado com grupos de parcelas
+        const { grupos, entrada } = dados.grupos_parcelas;
         
+        // Calcular total de parcelas e valor medio
+        const totalParcelas = grupos.reduce((acc, g) => acc + g.quantidade, 0) + (entrada ? 1 : 0);
+        const valorMedio = dados.valor_total / (totalParcelas || 1);
+        
+        // Calcular data final
+        let dataFinal = new Date(dados.data_inicio);
+        for (const grupo of grupos) {
+          const grupoFinal = new Date(grupo.data_inicio);
+          grupoFinal.setMonth(grupoFinal.getMonth() + grupo.quantidade - 1);
+          if (grupoFinal > dataFinal) {
+            dataFinal = grupoFinal;
+          }
+        }
+
+        // Criar divida
+        const { data: dividaData, error: dividaError } = await supabase
+          .from('cliente_dividas')
+          .insert({
+            cliente_id: clienteId,
+            tenant_id: tenantId,
+            titulo: dados.titulo,
+            descricao: dados.descricao,
+            valor_total: dados.valor_total,
+            numero_parcelas: totalParcelas,
+            valor_parcela: valorMedio,
+            data_inicio: dados.data_inicio,
+            data_vencimento_final: dataFinal.toISOString().split('T')[0],
+            status: 'ativo',
+          })
+          .select()
+          .single();
+
+        if (dividaError) throw dividaError;
+
+        // Buscar o maior numero_parcela existente para este cliente
+        const { data: maxParcela } = await supabase
+          .from('cliente_parcelas')
+          .select('numero_parcela')
+          .eq('cliente_id', clienteId)
+          .order('numero_parcela', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        let parcelaNum = (maxParcela?.numero_parcela || 0) + 1;
+        const parcelas: any[] = [];
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
-        const vencimento = new Date(dataVencimento);
-        vencimento.setHours(0, 0, 0, 0);
+
+        // Adicionar entrada se houver
+        if (entrada && entrada.valor > 0) {
+          const vencimentoEntrada = new Date(entrada.data_vencimento);
+          vencimentoEntrada.setHours(0, 0, 0, 0);
+          
+          parcelas.push({
+            cliente_id: clienteId,
+            tenant_id: tenantId,
+            divida_id: dividaData.id,
+            numero_parcela: 0,
+            valor_parcela: entrada.valor,
+            data_vencimento: entrada.data_vencimento,
+            status: vencimentoEntrada < hoje ? 'atrasado' : 'pendente',
+            grupo_descricao: 'Entrada',
+          });
+        }
+
+        // Adicionar parcelas de cada grupo
+        for (const grupo of grupos) {
+          for (let i = 0; i < grupo.quantidade; i++) {
+            const dataVencimento = new Date(grupo.data_inicio);
+            dataVencimento.setMonth(dataVencimento.getMonth() + i);
+            const vencimento = new Date(dataVencimento);
+            vencimento.setHours(0, 0, 0, 0);
+            
+            parcelas.push({
+              cliente_id: clienteId,
+              tenant_id: tenantId,
+              divida_id: dividaData.id,
+              numero_parcela: parcelaNum++,
+              valor_parcela: grupo.valor_parcela,
+              data_vencimento: dataVencimento.toISOString().split('T')[0],
+              status: vencimento < hoje ? 'atrasado' : 'pendente',
+              grupo_descricao: grupo.descricao || `Grupo ${grupo.ordem}`,
+            });
+          }
+        }
+
+        const { error: parcelasError } = await supabase
+          .from('cliente_parcelas')
+          .insert(parcelas);
+
+        if (parcelasError) throw parcelasError;
+
+      } else {
+        // Modo simples - parcelas uniformes
+        const valorParcela = dados.valor_total / dados.numero_parcelas;
         
-        const status = vencimento < hoje ? 'atrasado' : 'pendente';
+        const dataInicio = new Date(dados.data_inicio);
+        const dataFinal = new Date(dataInicio);
+        dataFinal.setMonth(dataFinal.getMonth() + dados.numero_parcelas - 1);
 
-        parcelas.push({
-          cliente_id: clienteId,
-          divida_id: dividaData.id,
-          numero_parcela: startingNumber + i,
-          valor_parcela: valorParcela,
-          data_vencimento: dataVencimento.toISOString().split('T')[0],
-          status: status,
-        });
+        // Criar divida
+        const { data: dividaData, error: dividaError } = await supabase
+          .from('cliente_dividas')
+          .insert({
+            cliente_id: clienteId,
+            tenant_id: tenantId,
+            titulo: dados.titulo,
+            descricao: dados.descricao,
+            valor_total: dados.valor_total,
+            numero_parcelas: dados.numero_parcelas,
+            valor_parcela: valorParcela,
+            data_inicio: dados.data_inicio,
+            data_vencimento_final: dataFinal.toISOString().split('T')[0],
+            status: 'ativo',
+          })
+          .select()
+          .single();
+
+        if (dividaError) throw dividaError;
+
+        // Buscar o maior numero_parcela existente para este cliente
+        const { data: maxParcela } = await supabase
+          .from('cliente_parcelas')
+          .select('numero_parcela')
+          .eq('cliente_id', clienteId)
+          .order('numero_parcela', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const startingNumber = (maxParcela?.numero_parcela || 0) + 1;
+        const parcelas = [];
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < dados.numero_parcelas; i++) {
+          const dataVencimento = new Date(dataInicio);
+          dataVencimento.setMonth(dataVencimento.getMonth() + i);
+          
+          const vencimento = new Date(dataVencimento);
+          vencimento.setHours(0, 0, 0, 0);
+          
+          const status = vencimento < hoje ? 'atrasado' : 'pendente';
+
+          parcelas.push({
+            cliente_id: clienteId,
+            tenant_id: tenantId,
+            divida_id: dividaData.id,
+            numero_parcela: startingNumber + i,
+            valor_parcela: valorParcela,
+            data_vencimento: dataVencimento.toISOString().split('T')[0],
+            status: status,
+          });
+        }
+
+        const { error: parcelasError } = await supabase
+          .from('cliente_parcelas')
+          .insert(parcelas);
+
+        if (parcelasError) throw parcelasError;
       }
-
-      const { error: parcelasError } = await supabase
-        .from('cliente_parcelas')
-        .insert(parcelas);
-
-      if (parcelasError) throw parcelasError;
-
       
       await fetchDividas();
       return true;
     } catch (error) {
-      console.error('Erro ao criar dívida:', error);
-      toast.error('Erro ao criar dívida');
+      console.error('Erro ao criar divida:', error);
+      toast.error('Erro ao criar divida');
       return false;
     }
   };
