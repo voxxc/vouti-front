@@ -60,6 +60,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
   const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null);
   const { processoVinculado } = useTaskVinculo(task?.id || null, processoOabId);
+  const [processoTarefas, setProcessoTarefas] = useState<any[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -90,6 +91,26 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       loadTaskData();
     }
   }, [task?.id, isOpen]);
+
+  // Buscar tarefas judiciais do processo vinculado
+  useEffect(() => {
+    const buscarTarefasProcesso = async () => {
+      if (!processoOabId) {
+        setProcessoTarefas([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('processos_oab_tarefas')
+        .select('*')
+        .eq('processo_oab_id', processoOabId)
+        .order('data_execucao', { ascending: false });
+
+      setProcessoTarefas(data || []);
+    };
+
+    buscarTarefasProcesso();
+  }, [processoOabId]);
 
   const loadTaskData = async () => {
     if (!task) return;
@@ -915,6 +936,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           onOpenChange={setRelatorioOpen}
           processo={processoVinculado}
           oab={processoVinculado.oab || null}
+          processoTarefas={processoTarefas}
           taskTarefas={taskTarefas}
         />
       )}
