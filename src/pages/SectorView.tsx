@@ -168,7 +168,16 @@ const SectorView = ({
   };
 
   const handleAddTask = async (columnId: string) => {
+    if (!currentUser) return;
+
     try {
+      // Buscar tenant_id do usuario atual
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', currentUser.id)
+        .single();
+
       const { data, error } = await supabase
         .from('tasks')
         .insert({
@@ -178,7 +187,8 @@ const SectorView = ({
           project_id: project.id,
           sector_id: sector.id,
           column_id: columnId,
-          task_type: 'regular'
+          task_type: 'regular',
+          tenant_id: profileData?.tenant_id
         })
         .select()
         .single();
