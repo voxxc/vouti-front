@@ -316,6 +316,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase.from("processos_oab").insert({
             ...processoData,
             ordem_lista: processosInseridos,
+            tenant_id: tenantId || null,
           });
 
           if (!insertError) {
