@@ -18,7 +18,8 @@ const Controladoria = () => {
     totalProcessos: 0,
     totalOABs: 0,
     monitorados: 0,
-    totalCNPJs: 0
+    totalCNPJs: 0,
+    cnpjsMonitorados: 0
   });
 
   useEffect(() => {
@@ -51,11 +52,18 @@ const Controladoria = () => {
         .from('cnpjs_cadastrados')
         .select('*', { count: 'exact', head: true });
 
+      // Buscar processos de CNPJ monitorados
+      const { count: cnpjsMonitorados } = await supabase
+        .from('processos_cnpj')
+        .select('*', { count: 'exact', head: true })
+        .eq('monitoramento_ativo', true);
+
       setMetrics({
         totalProcessos: totalProcessos || 0,
         totalOABs: totalOABs || 0,
         monitorados: monitorados || 0,
-        totalCNPJs: totalCNPJs || 0
+        totalCNPJs: totalCNPJs || 0,
+        cnpjsMonitorados: cnpjsMonitorados || 0
       });
     } catch (error) {
       console.error('Error fetching metrics:', error);
@@ -83,10 +91,10 @@ const Controladoria = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Processos</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Total de Processos</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -95,8 +103,8 @@ const Controladoria = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">OABs Cadastradas</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">OABs Cadastradas</CardTitle>
               <Scale className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -105,8 +113,8 @@ const Controladoria = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Processos Monitorados</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Processos Monitorados</CardTitle>
               <Bell className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -115,12 +123,22 @@ const Controladoria = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Push-Docs (CNPJs)</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Push-Docs (CNPJs)</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{loading ? "..." : metrics.totalCNPJs}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium">Push-Docs Monitorados</CardTitle>
+              <Bell className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.cnpjsMonitorados}</div>
             </CardContent>
           </Card>
         </div>
