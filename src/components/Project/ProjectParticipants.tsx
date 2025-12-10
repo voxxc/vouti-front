@@ -15,6 +15,7 @@ import { Search, Plus, X, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
+import { useTenantId } from "@/hooks/useTenantId";
 
 interface ProjectParticipantsProps {
   isOpen: boolean;
@@ -41,21 +42,25 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
   const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && tenantId) {
       fetchAllUsers();
       fetchCollaborators();
     }
-  }, [isOpen, projectId]);
+  }, [isOpen, projectId, tenantId]);
 
   const fetchAllUsers = async () => {
+    if (!tenantId) return;
+    
     try {
-      console.log('[ProjectParticipants] Fetching all users...');
+      console.log('[ProjectParticipants] Fetching all users for tenant:', tenantId);
       
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .eq('tenant_id', tenantId)
         .not('email', 'like', '%@metalsystem.local')
         .order('full_name');
 

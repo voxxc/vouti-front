@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTenantId } from '@/hooks/useTenantId';
 
 interface AdvogadoSelectorProps {
   value: string | null | undefined;
@@ -17,16 +18,22 @@ interface Advogado {
 const AdvogadoSelector = ({ value, onChange }: AdvogadoSelectorProps) => {
   const [advogados, setAdvogados] = useState<Advogado[]>([]);
   const [loading, setLoading] = useState(true);
+  const { tenantId } = useTenantId();
 
   useEffect(() => {
-    fetchAdvogados();
-  }, []);
+    if (tenantId) {
+      fetchAdvogados();
+    }
+  }, [tenantId]);
 
   const fetchAdvogados = async () => {
+    if (!tenantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('user_id, full_name, email')
+        .eq('tenant_id', tenantId)
         .order('full_name');
 
       if (error) throw error;

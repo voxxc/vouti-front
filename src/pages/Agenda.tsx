@@ -25,9 +25,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+import { useTenantId } from "@/hooks/useTenantId";
 
 const Agenda = () => {
   const { user } = useAuth();
+  const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
   const handleBack = () => {
     navigate('/dashboard');
@@ -425,10 +427,15 @@ const Agenda = () => {
   };
 
   const fetchAllUsers = async () => {
-    const { data, error } = await supabase
+    if (!tenantId) return;
+    
+    let query = supabase
       .from('profiles')
       .select('user_id, full_name, email')
+      .eq('tenant_id', tenantId)
       .order('full_name');
+    
+    const { data, error } = await query;
     
     if (!error && data) {
       setAllUsers(data.map(u => ({

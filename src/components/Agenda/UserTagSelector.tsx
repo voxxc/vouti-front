@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useTenantId } from '@/hooks/useTenantId';
 
 interface UserTagSelectorProps {
   selectedUsers: string[];
@@ -28,16 +29,22 @@ const UserTagSelector = ({ selectedUsers, onChange, excludeCurrentUser = false }
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const { tenantId } = useTenantId();
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (tenantId) {
+      fetchUsers();
+    }
+  }, [tenantId]);
 
   const fetchUsers = async () => {
+    if (!tenantId) return;
+    
     try {
       let query = supabase
         .from('profiles')
         .select('user_id, full_name, email, avatar_url')
+        .eq('tenant_id', tenantId)
         .not('email', 'like', '%@metalsystem.local')
         .order('full_name');
 

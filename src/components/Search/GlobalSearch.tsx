@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from '@/hooks/useTenantId';
 
 interface SearchResult {
   id: string;
@@ -33,6 +34,7 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [allTasks, setAllTasks] = useState<any[]>([]);
   const { user } = useAuth();
+  const { tenantId } = useTenantId();
 
   // Load data from Supabase
   useEffect(() => {
@@ -365,22 +367,25 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
         });
       });
 
-      // Search in profiles
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
-        .limit(5);
+      // Search in profiles (filtered by tenant)
+      if (tenantId) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+          .limit(5);
 
-      profiles?.forEach(profile => {
-        searchResults.push({
-          id: `profile-${profile.id}`,
-          type: 'file',
-          title: profile.full_name || profile.email,
-          content: `Usuário: ${profile.email}`,
-          date: new Date(profile.updated_at)
+        profiles?.forEach(profile => {
+          searchResults.push({
+            id: `profile-${profile.id}`,
+            type: 'file',
+            title: profile.full_name || profile.email,
+            content: `Usuario: ${profile.email}`,
+            date: new Date(profile.updated_at)
+          });
         });
-      });
+      }
 
     } catch (error) {
       console.error('Error performing search:', error);
