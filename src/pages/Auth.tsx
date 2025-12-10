@@ -72,10 +72,6 @@ const Auth = () => {
         // Start transition fade-out
         setIsTransitioning(true);
         
-        toast({
-          title: "Sucesso",
-          description: "Login realizado com sucesso!",
-        });
       }
     } catch (error) {
       toast({
@@ -128,10 +124,6 @@ const Auth = () => {
         // Start transition fade-out
         setIsTransitioning(true);
         
-        toast({
-          title: "Sucesso",
-          description: "Conta criada com sucesso! Verifique seu email para confirmar.",
-        });
       }
     } catch (error) {
       toast({
