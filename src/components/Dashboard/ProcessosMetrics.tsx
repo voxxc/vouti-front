@@ -75,52 +75,6 @@ export const ProcessosMetrics = () => {
         </Card>
       </div>
 
-      {/* KPIs Secundarios */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Andamentos</CardTitle>
-            <Activity className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{metrics.totalAndamentos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Movimentacoes registradas</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Andamentos Recentes</CardTitle>
-            <Clock className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{metrics.andamentosRecentes}</div>
-            <p className="text-xs text-muted-foreground mt-1">Ultimos 7 dias</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Com Detalhes</CardTitle>
-            <Eye className="h-4 w-4 text-cyan-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-cyan-600">{metrics.processosComDetalhes}</div>
-            <p className="text-xs text-muted-foreground mt-1">Processos com andamentos carregados</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">OABs Cadastradas</CardTitle>
-            <Users className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{metrics.totalOABs}</div>
-            <p className="text-xs text-muted-foreground mt-1">Advogados no sistema</p>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };
