@@ -14,7 +14,12 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     // Verificar autenticacao
     const authHeader = req.headers.get("Authorization");
@@ -59,6 +64,19 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Starting cascading delete for tenant: ${tenant_id}`);
+
+    // FASE 0: Buscar todos os user_ids do tenant ANTES de deletar profiles
+    const { data: tenantProfiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("tenant_id", tenant_id);
+
+    if (profilesError) {
+      console.error("Error fetching tenant profiles:", profilesError);
+    }
+
+    const userIdsToDelete = tenantProfiles?.map(p => p.user_id) || [];
+    console.log(`Found ${userIdsToDelete.length} users to delete from auth.users`);
 
     const deletionResults: Record<string, number> = {};
 
@@ -177,6 +195,28 @@ Deno.serve(async (req) => {
 
     console.log(`Tenant ${tenant_id} deleted successfully`);
 
+    // FASE FINAL: Deletar usuarios do auth.users
+    let usersDeleted = 0;
+    const userDeletionErrors: string[] = [];
+
+    for (const userId of userIdsToDelete) {
+      try {
+        const { error: deleteUserError } = await supabase.auth.admin.deleteUser(userId);
+        if (deleteUserError) {
+          console.error(`Error deleting user ${userId}:`, deleteUserError);
+          userDeletionErrors.push(`${userId}: ${deleteUserError.message}`);
+        } else {
+          usersDeleted++;
+          console.log(`Deleted auth user: ${userId}`);
+        }
+      } catch (e) {
+        console.error(`Exception deleting user ${userId}:`, e);
+        userDeletionErrors.push(`${userId}: ${e.message}`);
+      }
+    }
+
+    console.log(`Deleted ${usersDeleted}/${userIdsToDelete.length} auth users`);
+
     // Calcular total de registros deletados
     const totalDeleted = Object.values(deletionResults).reduce((a, b) => a + b, 0);
 
@@ -185,6 +225,8 @@ Deno.serve(async (req) => {
         success: true, 
         message: "Tenant deleted successfully",
         totalDeleted,
+        usersDeleted,
+        userDeletionErrors: userDeletionErrors.length > 0 ? userDeletionErrors : undefined,
         deletionResults 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
