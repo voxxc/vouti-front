@@ -2,177 +2,71 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Eye, BarChart, Bell, FileSearch, Scale, Building2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
-import { MonitoramentoJuditBadge } from "@/components/Controladoria/MonitoramentoJuditBadge";
-import { AndamentosDrawer } from "@/components/Controladoria/AndamentosDrawer";
-import { useMonitoramentoJudit } from "@/hooks/useMonitoramentoJudit";
+import { FileText, Plus, Bell, Scale, Building2 } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
 
 const Controladoria = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [processos, setProcessos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
-    total: 0,
-    emAndamento: 0,
-    arquivados: 0,
-    suspensos: 0,
+    totalProcessos: 0,
+    totalOABs: 0,
     monitorados: 0,
-    novosAndamentos: 0
+    totalCNPJs: 0
   });
-  const [monitoramentos, setMonitoramentos] = useState<Record<string, any>>({});
-  const [andamentosNaoLidos, setAndamentosNaoLidos] = useState<Record<string, number>>({});
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedProcesso, setSelectedProcesso] = useState<any>(null);
-  const { toggleMonitoramento, ativando } = useMonitoramentoJudit();
 
   useEffect(() => {
-    fetchProcessos();
+    fetchMetrics();
   }, []);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('processos-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'processos'
-        },
-        (payload) => {
-          setProcessos(prev => prev.filter(p => p.id !== payload.old.id));
-          setMetrics(prev => ({
-            ...prev,
-            total: prev.total - 1,
-            emAndamento: payload.old.status === 'em_andamento' ? prev.emAndamento - 1 : prev.emAndamento,
-            arquivados: payload.old.status === 'arquivado' ? prev.arquivados - 1 : prev.arquivados,
-            suspensos: payload.old.status === 'suspenso' ? prev.suspensos - 1 : prev.suspensos
-          }));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchProcessos = async () => {
+  const fetchMetrics = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const isAdminUser = await checkIfUserIsAdminOrController(user.id);
+      // Buscar total de processos da tabela processos_oab
+      const { count: totalProcessos } = await supabase
+        .from('processos_oab')
+        .select('*', { count: 'exact', head: true });
 
-      let query = supabase
-        .from('processos')
-        .select(`
-          *,
-          tribunais(sigla),
-          grupos_acoes(nome)
-        `)
-        .order('created_at', { ascending: false });
+      // Buscar total de OABs cadastradas
+      const { count: totalOABs } = await supabase
+        .from('oabs_cadastradas')
+        .select('*', { count: 'exact', head: true });
 
-      if (!isAdminUser) {
-        query = query.or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`);
-      }
+      // Buscar processos monitorados
+      const { count: monitorados } = await supabase
+        .from('processos_oab')
+        .select('*', { count: 'exact', head: true })
+        .eq('monitoramento_ativo', true);
 
-      const { data, error } = await query;
+      // Buscar total de CNPJs cadastrados (Push-Docs)
+      const { count: totalCNPJs } = await supabase
+        .from('cnpjs_cadastrados')
+        .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
-
-      setProcessos(data || []);
-      
-      if (data && data.length > 0) {
-        const { data: monitoramentosData } = await supabase
-          .from('processo_monitoramento_judit')
-          .select('*')
-          .in('processo_id', data.map(p => p.id));
-
-        const monitoramentosMap: Record<string, any> = {};
-        (monitoramentosData || []).forEach(m => {
-          monitoramentosMap[m.processo_id] = m;
-        });
-        setMonitoramentos(monitoramentosMap);
-
-        const { data: andamentosData } = await supabase
-          .from('processo_andamentos_judit')
-          .select('processo_id, lida')
-          .in('processo_id', data.map(p => p.id))
-          .eq('lida', false);
-
-        const naoLidosMap: Record<string, number> = {};
-        (andamentosData || []).forEach(a => {
-          naoLidosMap[a.processo_id] = (naoLidosMap[a.processo_id] || 0) + 1;
-        });
-        setAndamentosNaoLidos(naoLidosMap);
-
-        const monitorados = Object.values(monitoramentosMap).filter(m => m.monitoramento_ativo).length;
-        const novosAndamentos = Object.values(naoLidosMap).reduce((acc, val) => acc + val, 0);
-        
-        setMetrics({ 
-          total: data.length,
-          emAndamento: data.filter(p => p.status === 'em_andamento').length,
-          arquivados: data.filter(p => p.status === 'arquivado').length,
-          suspensos: data.filter(p => p.status === 'suspenso').length,
-          monitorados,
-          novosAndamentos
-        });
-      }
+      setMetrics({
+        totalProcessos: totalProcessos || 0,
+        totalOABs: totalOABs || 0,
+        monitorados: monitorados || 0,
+        totalCNPJs: totalCNPJs || 0
+      });
     } catch (error) {
-      console.error('Error fetching processos:', error);
+      console.error('Error fetching metrics:', error);
       toast({
-        title: "Erro ao carregar dados",
-        description: "Nao foi possivel carregar os processos.",
+        title: "Erro ao carregar metricas",
+        description: "Nao foi possivel carregar as metricas.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleToggleMonitoramento = async (processo: any) => {
-    const success = await toggleMonitoramento(processo);
-    if (success) {
-      await fetchProcessos();
-    }
-  };
-
-  const handleVerAndamentos = (processo: any) => {
-    setSelectedProcesso(processo);
-    setDrawerOpen(true);
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'em_andamento': return 'default';
-      case 'arquivado': return 'secondary';
-      case 'suspenso': return 'outline';
-      default: return 'default';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      em_andamento: 'Em Andamento',
-      arquivado: 'Arquivado',
-      suspenso: 'Suspenso',
-      conciliacao: 'Conciliacao',
-      sentenca: 'Sentenca',
-      transito_julgado: 'Transito em Julgado'
-    };
-    return labels[status] || status;
   };
 
   return (
@@ -196,17 +90,17 @@ const Controladoria = () => {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.total}</div>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.totalProcessos}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Em Andamento</CardTitle>
-              <BarChart className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">OABs Cadastradas</CardTitle>
+              <Scale className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.emAndamento}</div>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.totalOABs}</div>
             </CardContent>
           </Card>
 
@@ -222,11 +116,11 @@ const Controladoria = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Novos Andamentos</CardTitle>
-              <FileSearch className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm font-medium">Push-Docs (CNPJs)</CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.novosAndamentos}</div>
+              <div className="text-2xl font-bold">{loading ? "..." : metrics.totalCNPJs}</div>
             </CardContent>
           </Card>
         </div>
@@ -259,12 +153,6 @@ const Controladoria = () => {
             </Card>
           </TabsContent>
         </Tabs>
-
-        <AndamentosDrawer
-          open={drawerOpen}
-          onOpenChange={setDrawerOpen}
-          processo={selectedProcesso}
-        />
       </div>
     </DashboardLayout>
   );
