@@ -10,6 +10,7 @@ import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
+import { useTenantId } from "@/hooks/useTenantId";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -33,6 +34,7 @@ const DashboardLayout = ({
   const navigate = useNavigate();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const { user, signOut } = useAuth();
+  const { tenantId } = useTenantId();
 
   const [users, setUsers] = useState<UserType[]>([]);
 
@@ -47,12 +49,19 @@ const DashboardLayout = ({
 
   useEffect(() => {
     const loadUsers = async () => {
-      console.log('DashboardLayout - Loading users...');
+      // CRITICAL: Wait for tenantId to be available for proper data isolation
+      if (!tenantId) {
+        console.log('DashboardLayout - Waiting for tenantId...');
+        return;
+      }
       
-      // First, fetch profiles
+      console.log('DashboardLayout - Loading users for tenant:', tenantId);
+      
+      // First, fetch profiles - FILTERED BY TENANT_ID
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, email, full_name, avatar_url, created_at, updated_at');
+        .select('user_id, email, full_name, avatar_url, created_at, updated_at, tenant_id')
+        .eq('tenant_id', tenantId);
 
       if (profilesError) {
         console.error('DashboardLayout - Error loading profiles:', profilesError);
@@ -60,22 +69,23 @@ const DashboardLayout = ({
       }
 
       if (!profilesData || profilesData.length === 0) {
-        console.warn('DashboardLayout - No profiles found');
+        console.warn('DashboardLayout - No profiles found for tenant');
         return;
       }
 
-      console.log('DashboardLayout - Profiles loaded:', profilesData.length);
+      console.log('DashboardLayout - Profiles loaded for tenant:', profilesData.length);
 
-      // Second, fetch user roles
+      // Second, fetch user roles - FILTERED BY TENANT_ID
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role');
+        .select('user_id, role, tenant_id')
+        .eq('tenant_id', tenantId);
 
       if (rolesError) {
         console.error('DashboardLayout - Error loading roles:', rolesError);
       }
 
-      console.log('DashboardLayout - Roles loaded:', rolesData?.length || 0);
+      console.log('DashboardLayout - Roles loaded for tenant:', rolesData?.length || 0);
 
       // Merge profiles with roles - usando priorização correta
       const rolePriority: Record<string, number> = {
@@ -139,7 +149,7 @@ const DashboardLayout = ({
     };
     
     loadUsers();
-  }, []);
+  }, [tenantId]);
 
   const currentUser: UserType | undefined = user
     ? {

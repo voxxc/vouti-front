@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export interface Message {
   id: string;
@@ -11,23 +12,27 @@ export interface Message {
   message_type: 'direct' | 'mention' | 'notification';
   created_at: string;
   updated_at: string;
+  tenant_id?: string;
 }
 
 export const useMessages = (userId?: string) => {
+  const { tenantId } = useTenantId();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !tenantId) {
       setLoading(false);
       return;
     }
 
     const fetchMessages = async () => {
       try {
+        // CRITICAL: Filter messages by tenant_id for complete data isolation
         const { data, error } = await supabase
           .from('messages')
           .select('*')
+          .eq('tenant_id', tenantId)
           .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
           .order('created_at', { ascending: true });
 
@@ -93,7 +98,7 @@ export const useMessages = (userId?: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, tenantId]);
 
   const sendMessage = async (
     receiverId: string, 
@@ -103,7 +108,7 @@ export const useMessages = (userId?: string) => {
     attachments?: File[]
   ) => {
     try {
-      // Insert message first
+      // Insert message first - include tenant_id for data isolation
       const { data: newMessage, error: messageError } = await supabase
         .from('messages')
         .insert({
@@ -111,7 +116,8 @@ export const useMessages = (userId?: string) => {
           receiver_id: receiverId,
           content,
           message_type: messageType,
-          related_project_id: relatedProjectId
+          related_project_id: relatedProjectId,
+          tenant_id: tenantId
         })
         .select()
         .single();
