@@ -280,13 +280,13 @@ export const RelatorioProcessoOAB = ({
               </div>
             </div>
 
-            {/* Timeline de Tarefas */}
+            {/* Timeline de Atividade Judicial */}
             {tarefas.length > 0 && (
               <div className="section">
-                <div className="section-title">Historico de Atividades</div>
+                <div className="section-title">Historico de Atividade Judicial ({tarefas.length})</div>
                 <div className="timeline">
-                  {tarefas
-                    .sort((a, b) => new Date(a.data_execucao).getTime() - new Date(b.data_execucao).getTime())
+                  {[...tarefas]
+                    .sort((a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime())
                     .map((tarefa) => (
                       <div key={tarefa.id} className="timeline-item">
                         <div className="timeline-date">
