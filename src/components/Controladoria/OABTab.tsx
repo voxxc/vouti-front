@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { 
   GripVertical, 
@@ -12,7 +12,8 @@ import {
   ChevronDown,
   Link2,
   AlertTriangle,
-  Filter
+  Filter,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,13 +36,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useProcessosOAB, ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantId } from '@/hooks/useTenantId';
 
 interface OABTabProps {
   oabId: string;
   oab?: OABCadastrada;
+}
+
+// Mapa de CNJ -> advogados que compartilham
+interface CompartilhadosMap {
+  [cnj: string]: { advogadoNome: string; oabNumero: string }[];
 }
 
 interface ProcessosAgrupados {
@@ -110,11 +122,26 @@ interface ProcessoCardProps {
   index: number;
   onVerDetalhes: (processo: ProcessoOAB) => void;
   carregandoDetalhes: string | null;
+  compartilhadoCom?: { advogadoNome: string; oabNumero: string }[];
+  oabAtualNumero?: string;
 }
 
-const ProcessoCard = ({ processo, index, onVerDetalhes, carregandoDetalhes }: ProcessoCardProps) => {
+const ProcessoCard = ({ 
+  processo, 
+  index, 
+  onVerDetalhes, 
+  carregandoDetalhes,
+  compartilhadoCom,
+  oabAtualNumero
+}: ProcessoCardProps) => {
   const temRecursoVinculado = processo.capa_completa?.related_lawsuits?.length > 0;
   const processosRelacionados = processo.capa_completa?.related_lawsuits || [];
+  
+  // Filtrar a OAB atual da lista de compartilhados
+  const outrosAdvogados = compartilhadoCom?.filter(
+    adv => adv.oabNumero !== oabAtualNumero
+  ) || [];
+  const isCompartilhado = outrosAdvogados.length > 0;
 
   return (
     <Draggable 
@@ -145,6 +172,20 @@ const ProcessoCard = ({ processo, index, onVerDetalhes, carregandoDetalhes }: Pr
                 <span className="font-mono text-sm font-medium truncate">
                   {processo.numero_cnj}
                 </span>
+                {isCompartilhado && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        <Users className="w-4 h-4 text-purple-500" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        Compartilhado com: {outrosAdvogados.map(a => a.advogadoNome || a.oabNumero).join(', ')}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {processo.monitoramento_ativo && (
                   <Badge variant="default" className="text-xs bg-green-600">
                     <Bell className="w-3 h-3 mr-1" />
@@ -210,6 +251,8 @@ interface InstanciaSectionProps {
   icon: React.ReactNode;
   onVerDetalhes: (processo: ProcessoOAB) => void;
   carregandoDetalhes: string | null;
+  compartilhadosMap: CompartilhadosMap;
+  oabAtualNumero?: string;
 }
 
 const InstanciaSection = ({ 
@@ -221,7 +264,9 @@ const InstanciaSection = ({
   corText,
   icon, 
   onVerDetalhes,
-  carregandoDetalhes
+  carregandoDetalhes,
+  compartilhadosMap,
+  oabAtualNumero
 }: InstanciaSectionProps) => {
   const [isOpen, setIsOpen] = useState(true);
   
@@ -257,6 +302,8 @@ const InstanciaSection = ({
                   index={index}
                   onVerDetalhes={onVerDetalhes}
                   carregandoDetalhes={carregandoDetalhes}
+                  compartilhadoCom={compartilhadosMap[processo.numero_cnj]}
+                  oabAtualNumero={oabAtualNumero}
                 />
               ))}
               {provided.placeholder}
@@ -280,12 +327,70 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
     consultarDetalhesRequest
   } = useProcessosOAB(oabId);
   
+  const { tenantId } = useTenantId();
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [processoParaCarregar, setProcessoParaCarregar] = useState<ProcessoOAB | null>(null);
   const [filtroUF, setFiltroUF] = useState<string>('todos');
+  const [compartilhadosMap, setCompartilhadosMap] = useState<CompartilhadosMap>({});
+
+  // Buscar processos compartilhados (CNJs que aparecem em multiplas OABs)
+  useEffect(() => {
+    const fetchCompartilhados = async () => {
+      if (!tenantId) return;
+      
+      const { data, error } = await supabase
+        .from('processos_oab')
+        .select(`
+          numero_cnj,
+          oab_id,
+          oabs_cadastradas!inner(oab_numero, nome_advogado)
+        `)
+        .eq('tenant_id', tenantId);
+      
+      if (error || !data) return;
+      
+      // Agrupar por CNJ e contar quantas OABs diferentes tem cada processo
+      const cnjMap = new Map<string, { advogadoNome: string; oabNumero: string }[]>();
+      
+      data.forEach((p: any) => {
+        const cnj = p.numero_cnj;
+        const advInfo = {
+          advogadoNome: p.oabs_cadastradas?.nome_advogado || '',
+          oabNumero: p.oabs_cadastradas?.oab_numero || ''
+        };
+        
+        if (!cnjMap.has(cnj)) {
+          cnjMap.set(cnj, []);
+        }
+        
+        // Evitar duplicatas da mesma OAB
+        const existing = cnjMap.get(cnj)!;
+        if (!existing.some(e => e.oabNumero === advInfo.oabNumero)) {
+          existing.push(advInfo);
+        }
+      });
+      
+      // Filtrar apenas CNJs com mais de 1 OAB
+      const compartilhados: CompartilhadosMap = {};
+      cnjMap.forEach((advogados, cnj) => {
+        if (advogados.length > 1) {
+          compartilhados[cnj] = advogados;
+        }
+      });
+      
+      setCompartilhadosMap(compartilhados);
+    };
+    
+    fetchCompartilhados();
+  }, [tenantId, processos]);
+
+  // Contagem de compartilhados para o filtro
+  const compartilhadosCount = useMemo(() => {
+    return processos.filter(p => compartilhadosMap[p.numero_cnj]).length;
+  }, [processos, compartilhadosMap]);
 
   // Extrair UFs unicas dos processos com contagem
   const ufsDisponiveis = useMemo(() => {
@@ -302,8 +407,11 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
   // Aplicar filtro antes do agrupamento
   const processosFiltrados = useMemo(() => {
     if (filtroUF === 'todos') return processos;
+    if (filtroUF === 'compartilhados') {
+      return processos.filter(p => compartilhadosMap[p.numero_cnj]);
+    }
     return processos.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
-  }, [processos, filtroUF]);
+  }, [processos, filtroUF, compartilhadosMap]);
 
   const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
 
@@ -431,17 +539,25 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
   return (
     <>
       {/* Filtro por UF */}
-      {ufsDisponiveis.length > 1 && (
+      {(ufsDisponiveis.length > 1 || compartilhadosCount > 0) && (
         <div className="flex items-center gap-3 mb-4">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={filtroUF} onValueChange={setFiltroUF}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Filtrar por UF" />
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Filtrar" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">
                 Todos ({processos.length})
               </SelectItem>
+              {compartilhadosCount > 0 && (
+                <SelectItem value="compartilhados">
+                  <span className="flex items-center gap-2">
+                    <Users className="w-3 h-3 text-purple-500" />
+                    Compartilhados ({compartilhadosCount})
+                  </span>
+                </SelectItem>
+              )}
               {ufsDisponiveis.map(({ uf, count }) => (
                 <SelectItem key={uf} value={uf}>
                   {uf} - {count}
@@ -471,6 +587,8 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
             icon={<BookOpen className="w-5 h-5" />}
             onVerDetalhes={handleVerDetalhes}
             carregandoDetalhes={carregandoDetalhes}
+            compartilhadosMap={compartilhadosMap}
+            oabAtualNumero={oab?.oab_numero}
           />
 
           {/* 2a Instancia */}
@@ -484,6 +602,8 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
             icon={<BookUp className="w-5 h-5" />}
             onVerDetalhes={handleVerDetalhes}
             carregandoDetalhes={carregandoDetalhes}
+            compartilhadosMap={compartilhadosMap}
+            oabAtualNumero={oab?.oab_numero}
           />
 
           {/* Processos sem instancia identificada */}
@@ -498,6 +618,8 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
               icon={<FileQuestion className="w-5 h-5" />}
               onVerDetalhes={handleVerDetalhes}
               carregandoDetalhes={carregandoDetalhes}
+              compartilhadosMap={compartilhadosMap}
+              oabAtualNumero={oab?.oab_numero}
             />
           )}
 
@@ -517,6 +639,8 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
                       index={index}
                       onVerDetalhes={handleVerDetalhes}
                       carregandoDetalhes={carregandoDetalhes}
+                      compartilhadoCom={compartilhadosMap[processo.numero_cnj]}
+                      oabAtualNumero={oab?.oab_numero}
                     />
                   ))}
                   {provided.placeholder}
