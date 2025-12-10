@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import type { ProcessoOAB } from "@/types/busca-oab";
 import { extrairTribunalDoNumeroProcesso } from "@/utils/processoHelpers";
 import { extrairPartesDoProcesso } from "@/utils/processoOABHelpers";
@@ -23,7 +23,7 @@ export const ImportarProcessoDialog = ({
   processo
 }: ImportarProcessoDialogProps) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const [importando, setImportando] = useState(false);
   const [ativarMonitoramento, setAtivarMonitoramento] = useState(true);
   const [importarAndamentos, setImportarAndamentos] = useState(true);
