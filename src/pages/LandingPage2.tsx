@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +22,8 @@ import advogado4 from '@/assets/advogado-4.jpg';
 const LandingPage2 = () => {
   const { toast } = useToast();
   const { tenant, loading: tenantLoading } = useTenant();
-  const navigate = useNavigate();
+  const absoluteNavigate = useNavigate();
+  const { navigate: tenantNavigate } = useTenantNavigation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggInput, setEasterEggInput] = useState("");
@@ -39,19 +41,19 @@ const LandingPage2 = () => {
       const code = easterEggInput.toLowerCase();
       if (code === 'jusvouti') {
         await supabase.auth.signOut();
-        navigate('/auth');
+        tenantNavigate('/auth');
       } else if (code === 'metal') {
         await supabase.auth.signOut();
-        navigate('/metal-auth');
+        absoluteNavigate('/metal-auth');
       } else if (code === 'vlink') {
         await supabase.auth.signOut();
-        navigate('/link-auth');
+        absoluteNavigate('/link-auth');
       } else if (code === 'adm1nvouti') {
-        navigate('/super-admin');
+        absoluteNavigate('/super-admin');
       } else if (code === 'batink') {
-        navigate('/batink');
+        absoluteNavigate('/batink');
       } else if (code === 'veridicto') {
-        navigate('/veridicto');
+        absoluteNavigate('/veridicto');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);

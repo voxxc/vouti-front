@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,8 @@ import { useTenant } from "@/contexts/TenantContext";
 const LandingPage1 = () => {
   const { toast } = useToast();
   const { tenant, loading: tenantLoading } = useTenant();
-  const navigate = useNavigate();
+  const absoluteNavigate = useNavigate();
+  const { navigate: tenantNavigate } = useTenantNavigation();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -29,19 +31,19 @@ const LandingPage1 = () => {
       const code = easterEggInput.toLowerCase();
       if (code === 'jusvouti') {
         await supabase.auth.signOut();
-        navigate('/auth');
+        tenantNavigate('/auth');
       } else if (code === 'metal') {
         await supabase.auth.signOut();
-        navigate('/metal-auth');
+        absoluteNavigate('/metal-auth');
       } else if (code === 'vlink') {
         await supabase.auth.signOut();
-        navigate('/link-auth');
+        absoluteNavigate('/link-auth');
       } else if (code === 'adm1nvouti') {
-        navigate('/super-admin');
+        absoluteNavigate('/super-admin');
       } else if (code === 'batink') {
-        navigate('/batink');
+        absoluteNavigate('/batink');
       } else if (code === 'veridicto') {
-        navigate('/veridicto');
+        absoluteNavigate('/veridicto');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);

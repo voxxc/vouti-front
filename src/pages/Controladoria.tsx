@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import { CNPJManager } from "@/components/Controladoria/CNPJManager";
 
 const Controladoria = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
     totalProcessos: 0,

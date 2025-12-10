@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OverviewSection } from "@/components/Dashboard/OverviewSection";
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import RoleMetricsPanel from "@/components/Dashboard/RoleMetricsPanel";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [showOverview, setShowOverview] = useState(false);
