@@ -235,7 +235,7 @@ const Controladoria = () => {
           <TabsList>
             <TabsTrigger value="minhas-oabs">
               <Scale className="mr-2 h-4 w-4" />
-              Minhas OABs
+              OABs
             </TabsTrigger>
             <TabsTrigger value="push-doc">
               <Building2 className="mr-2 h-4 w-4" />
