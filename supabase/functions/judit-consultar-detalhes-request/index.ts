@@ -26,6 +26,19 @@ serve(async (req) => {
 
     console.log('[Judit Consultar Request] Consultando request_id:', requestId);
 
+    // Buscar dados do processo para obter CNJ e tenant_id
+    const { data: processoData } = await supabase
+      .from('processos_oab')
+      .select('numero_cnj, tenant_id')
+      .eq('id', processoOabId)
+      .single();
+
+    if (!processoData) {
+      throw new Error('Processo nao encontrado');
+    }
+
+    const { numero_cnj: numeroCnj, tenant_id: tenantId } = processoData;
+
     // GET gratuito usando o request_id existente
     const response = await fetch(
       `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
@@ -59,63 +72,81 @@ serve(async (req) => {
 
     console.log('[Judit Consultar Request] Andamentos encontrados:', steps.length);
 
-    // Buscar andamentos existentes para evitar duplicatas
-    const { data: existingAndamentos } = await supabase
-      .from('processos_oab_andamentos')
-      .select('descricao, data_movimentacao')
-      .eq('processo_oab_id', processoOabId);
+    // NOVO: Buscar TODOS os processos com mesmo CNJ no tenant para sincronizar
+    const { data: allSharedProcesses } = await supabase
+      .from('processos_oab')
+      .select('id')
+      .eq('numero_cnj', numeroCnj)
+      .eq('tenant_id', tenantId);
 
-    const existingKeys = new Set(
-      (existingAndamentos || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
-    );
+    const sharedProcessIds = (allSharedProcesses || []).map(p => p.id);
+    console.log('[Judit Consultar Request] Processos compartilhados encontrados:', sharedProcessIds.length);
 
-    // Inserir apenas novos andamentos (evita duplicatas)
+    // Inserir andamentos para TODOS os processos compartilhados
     let andamentosInseridos = 0;
-    for (const step of steps) {
-      const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
-      const descricao = step.content || step.description || step.descricao || '';
-      
-      const key = `${dataMovimentacao}_${descricao.substring(0, 50)}`;
-      
-      // Verificar se ja existe antes de inserir
-      if (!existingKeys.has(key) && descricao) {
-        const { error } = await supabase
-          .from('processos_oab_andamentos')
-          .insert({
-            processo_oab_id: processoOabId,
-            data_movimentacao: dataMovimentacao,
-            tipo_movimentacao: step.type || step.tipo || null,
-            descricao: descricao,
-            dados_completos: step,
-            lida: false
-          });
+    
+    for (const sharedProcessId of sharedProcessIds) {
+      // Buscar andamentos existentes para este processo
+      const { data: existingAndamentos } = await supabase
+        .from('processos_oab_andamentos')
+        .select('descricao, data_movimentacao')
+        .eq('processo_oab_id', sharedProcessId);
 
-        if (!error) {
-          andamentosInseridos++;
-          // Adicionar ao set para evitar duplicatas dentro do mesmo lote
-          existingKeys.add(key);
+      const existingKeys = new Set(
+        (existingAndamentos || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
+      );
+
+      for (const step of steps) {
+        const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
+        const descricao = step.content || step.description || step.descricao || '';
+        
+        const key = `${dataMovimentacao}_${descricao.substring(0, 50)}`;
+        
+        if (!existingKeys.has(key) && descricao) {
+          const { error } = await supabase
+            .from('processos_oab_andamentos')
+            .insert({
+              processo_oab_id: sharedProcessId,
+              data_movimentacao: dataMovimentacao,
+              tipo_movimentacao: step.type || step.tipo || null,
+              descricao: descricao,
+              dados_completos: step,
+              lida: false
+            });
+
+          if (!error) {
+            andamentosInseridos++;
+            existingKeys.add(key);
+          }
         }
       }
     }
 
-    // Atualizar processo com timestamp
+    // NOVO: Atualizar TODOS os processos compartilhados com timestamp e request_id
     await supabase
       .from('processos_oab')
       .update({
+        detalhes_request_id: requestId,
         ultima_atualizacao_detalhes: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .eq('id', processoOabId);
+      .eq('numero_cnj', numeroCnj)
+      .eq('tenant_id', tenantId);
 
-    console.log('[Judit Consultar Request] Concluido:', { andamentosInseridos, totalExistentes: existingAndamentos?.length || 0 });
+    console.log('[Judit Consultar Request] Concluido:', { 
+      andamentosInseridos, 
+      totalExistentes: steps.length,
+      processosAtualizados: sharedProcessIds.length
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
         andamentosInseridos,
         totalAndamentos: steps.length,
+        processosAtualizados: sharedProcessIds.length,
         message: andamentosInseridos > 0 
-          ? `${andamentosInseridos} novos andamentos inseridos`
+          ? `${andamentosInseridos} novos andamentos inseridos em ${sharedProcessIds.length} processos`
           : 'Nenhum andamento novo encontrado'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
