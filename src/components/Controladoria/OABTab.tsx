@@ -283,6 +283,7 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [processoParaCarregar, setProcessoParaCarregar] = useState<ProcessoOAB | null>(null);
   const [filtroUF, setFiltroUF] = useState<string>('todos');
 
@@ -381,10 +382,16 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
     setProcessoParaCarregar(null);
   };
 
-  const handleCarregarDetalhes = async () => {
+  const handleCarregarDetalhes = () => {
+    // Fecha 1o dialog e abre 2o para confirmacao final
+    setConfirmDialogOpen(false);
+    setConfirmacaoFinalOpen(true);
+  };
+
+  const handleConfirmarConsultaFinal = async () => {
     if (!processoParaCarregar) return;
     
-    setConfirmDialogOpen(false);
+    setConfirmacaoFinalOpen(false);
     setSelectedProcesso(processoParaCarregar);
     setDrawerOpen(true);
     
@@ -541,11 +548,11 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>
-                Esta acao fara uma consulta a API Judit para buscar os andamentos 
+                Esta acao fara uma consulta a API para buscar os andamentos 
                 completos do processo.
               </p>
               <p className="text-amber-600 dark:text-amber-400 font-medium">
-                Cada consulta pode gerar custo na sua conta Judit.
+                Esta consulta pode gerar custo.
               </p>
               <p className="text-sm text-muted-foreground">
                 Voce pode ver o resumo do processo (dados da capa) sem custo adicional.
@@ -556,8 +563,43 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
             <AlertDialogCancel onClick={handleVerResumo}>
               Ver apenas Resumo
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleCarregarDetalhes}>
-              Carregar Andamentos (Consulta API)
+            <AlertDialogAction 
+              onClick={handleCarregarDetalhes}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Carregar Andamentos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de Confirmacao FINAL */}
+      <AlertDialog open={confirmacaoFinalOpen} onOpenChange={setConfirmacaoFinalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="w-5 h-5" />
+              Confirmar Consulta?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p className="font-semibold text-amber-600 dark:text-amber-400">
+                Esta acao gerara custo na sua conta.
+              </p>
+              <p>
+                Confirma que deseja carregar os andamentos do processo{' '}
+                <span className="font-mono text-xs">{processoParaCarregar?.numero_cnj}</span>?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProcessoParaCarregar(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmarConsultaFinal}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Sim, Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
