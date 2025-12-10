@@ -80,15 +80,9 @@ const Controladoria = () => {
   return (
     <DashboardLayout currentPage="controladoria">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Controladoria</h1>
-            <p className="text-muted-foreground mt-2">Gestao e controle de processos juridicos</p>
-          </div>
-          <Button onClick={() => navigate('/controladoria/novo')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Processo
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Controladoria</h1>
+          <p className="text-muted-foreground mt-2">Gestao e controle de processos juridicos</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
