@@ -289,7 +289,7 @@ export const OABManager = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold">Minhas OABs</h2>
+          <h2 className="text-lg font-semibold">OABs</h2>
           <Badge variant="secondary">{oabs.length}</Badge>
         </div>
         
