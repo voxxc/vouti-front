@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Edit, Save, X, Plus, Edit2, Trash2 } from "lucide-react";
+import { Edit, Save, X, Plus, Edit2, Trash2, Link2, ListTodo, MessageSquare, Files, History } from "lucide-react";
 import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry, AcordoDetails } from "@/types/project";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +28,13 @@ import { ptBR } from "date-fns/locale";
 import TaskFilePanel from "./TaskFilePanel";
 import TaskHistoryPanel from "./TaskHistoryPanel";
 import CardColorPicker from "./CardColorPicker";
+import { TaskVinculoTab } from "./TaskVinculoTab";
+import { TaskTarefasTab } from "./TaskTarefasTab";
 import { notifyCommentAdded } from "@/utils/notificationHelpers";
 import { supabase } from "@/integrations/supabase/client";
+import { RelatorioUnificado } from "./RelatorioUnificado";
+import { useTaskTarefas } from "@/hooks/useTaskTarefas";
+import { useTaskVinculo } from "@/hooks/useTaskVinculo";
 
 interface TaskModalProps {
   task: Task | null;
@@ -47,7 +53,13 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editedCommentText, setEditedCommentText] = useState("");
   const [editedAcordoDetails, setEditedAcordoDetails] = useState<AcordoDetails>({});
+  const [activeTab, setActiveTab] = useState("detalhes");
+  const [relatorioOpen, setRelatorioOpen] = useState(false);
+  const [processoOabId, setProcessoOabId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null);
+  const { processoVinculado } = useTaskVinculo(task?.id || null, processoOabId);
 
   useEffect(() => {
     if (task) {
@@ -57,9 +69,24 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     }
   }, [task]);
 
-  // Load comments, files and history from database
+  // Load task processo_oab_id from database
   useEffect(() => {
+    const loadProcessoOabId = async () => {
+      if (!task) return;
+      
+      const { data } = await supabase
+        .from('tasks')
+        .select('processo_oab_id')
+        .eq('id', task.id)
+        .single();
+      
+      if (data?.processo_oab_id) {
+        setProcessoOabId(data.processo_oab_id);
+      }
+    };
+
     if (task && isOpen) {
+      loadProcessoOabId();
       loadTaskData();
     }
   }, [task?.id, isOpen]);
@@ -68,7 +95,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     if (!task) return;
 
     try {
-      // Load comments
       const { data: comments, error: commentsError } = await supabase
         .from('task_comments')
         .select('*')
@@ -77,7 +103,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (commentsError) throw commentsError;
 
-      // Load files
       const { data: files, error: filesError } = await supabase
         .from('task_files')
         .select('*')
@@ -86,7 +111,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (filesError) throw filesError;
 
-      // Load history
       const { data: history, error: historyError } = await supabase
         .from('task_history')
         .select('*')
@@ -95,13 +119,12 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (historyError) throw historyError;
 
-      // Update task with loaded data
       const updatedTask = {
         ...task,
         comments: (comments || []).map(c => ({
           id: c.id,
           text: c.comment_text,
-          author: 'Usuário',
+          author: 'Usuario',
           createdAt: new Date(c.created_at),
           updatedAt: new Date(c.updated_at)
         })),
@@ -111,7 +134,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
           size: f.file_size,
           type: f.file_type || '',
-          uploadedBy: 'Usuário',
+          uploadedBy: 'Usuario',
           uploadedAt: new Date(f.created_at)
         })),
         history: (history || []).map(h => ({
@@ -144,7 +167,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         id: `history-${Date.now()}`,
         action: 'edited',
         details: `Tarefa editada`,
-        user: "Usuário Atual",
+        user: "Usuario Atual",
         timestamp: new Date()
       };
 
@@ -159,11 +182,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       
       onUpdateTask(updatedTask);
       setIsEditingTask(false);
-      
-      toast({
-        title: "Tarefa atualizada",
-        description: "As alterações foram salvas!",
-      });
     }
   };
 
@@ -177,7 +195,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
   const handleAddComment = async () => {
     if (newComment.trim() && task && currentUser) {
       try {
-        // Insert comment into database
         const { data: insertedComment, error } = await supabase
           .from('task_comments')
           .insert({
@@ -190,26 +207,23 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
         if (error) throw error;
 
-        // Create comment object for local state
         const comment: Comment = {
           id: insertedComment.id,
           text: insertedComment.comment_text,
-          author: currentUser.name || "Usuário Atual",
+          author: currentUser.name || "Usuario Atual",
           createdAt: new Date(insertedComment.created_at),
           updatedAt: new Date(insertedComment.updated_at)
         };
 
-        // Add history entry
         await supabase
           .from('task_history')
           .insert({
             task_id: task.id,
             user_id: currentUser.id,
             action: 'comment_added',
-            details: `Comentário adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`
+            details: `Comentario adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`
           });
 
-        // Update local state
         const updatedTask = {
           ...task,
           comments: [...task.comments, comment],
@@ -219,7 +233,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         onUpdateTask(updatedTask);
         setNewComment("");
 
-        // Send notification about comment
         if (projectId) {
           await notifyCommentAdded(
             projectId,
@@ -228,16 +241,11 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
             task.id
           );
         }
-
-        toast({
-          title: "Comentário adicionado",
-          description: "Seu comentário foi salvo com sucesso!",
-        });
       } catch (error) {
         console.error('Error adding comment:', error);
         toast({
           title: "Erro",
-          description: "Erro ao adicionar comentário.",
+          description: "Erro ao adicionar comentario.",
           variant: "destructive",
         });
       }
@@ -248,23 +256,19 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     if (!task || !currentUser) return;
 
     try {
-      // Generate unique file path
       const fileExt = file.name.split('.').pop();
       const fileName = `${currentUser.id}/${task.id}/${Date.now()}.${fileExt}`;
 
-      // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('task-attachments')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('task-attachments')
         .getPublicUrl(fileName);
 
-      // Insert file metadata into database
       const { data: insertedFile, error: dbError } = await supabase
         .from('task_files')
         .insert({
@@ -280,18 +284,16 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (dbError) throw dbError;
 
-      // Create file object for local state
       const taskFile: TaskFile = {
         id: insertedFile.id,
         name: insertedFile.file_name,
         url: urlData.publicUrl,
         size: insertedFile.file_size,
         type: insertedFile.file_type || '',
-        uploadedBy: currentUser.name || "Usuário Atual",
+        uploadedBy: currentUser.name || "Usuario Atual",
         uploadedAt: new Date(insertedFile.created_at)
       };
 
-      // Add history entry
       await supabase
         .from('task_history')
         .insert({
@@ -301,7 +303,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           details: `Arquivo enviado: ${file.name}`
         });
 
-      // Update local state
       const updatedTask = {
         ...task,
         files: [...task.files, taskFile],
@@ -309,11 +310,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       };
 
       onUpdateTask(updatedTask);
-
-      toast({
-        title: "Arquivo enviado",
-        description: `${file.name} foi adicionado com sucesso!`,
-      });
     } catch (error) {
       console.error('Error uploading file:', error);
       toast({
@@ -331,7 +327,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     if (!file) return;
 
     try {
-      // Get file path from database
       const { data: fileData, error: fetchError } = await supabase
         .from('task_files')
         .select('file_path, file_name')
@@ -340,14 +335,12 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (fetchError) throw fetchError;
 
-      // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('task-attachments')
         .remove([fileData.file_path]);
 
       if (storageError) throw storageError;
 
-      // Delete from database
       const { error: dbError } = await supabase
         .from('task_files')
         .delete()
@@ -355,17 +348,15 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (dbError) throw dbError;
 
-      // Add history entry
       await supabase
         .from('task_history')
         .insert({
           task_id: task.id,
           user_id: currentUser.id,
           action: 'file_deleted',
-          details: `Arquivo excluído: ${fileData.file_name}`
+          details: `Arquivo excluido: ${fileData.file_name}`
         });
 
-      // Update local state
       const updatedTask = {
         ...task,
         files: task.files.filter(f => f.id !== fileId),
@@ -373,11 +364,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       };
 
       onUpdateTask(updatedTask);
-
-      toast({
-        title: "Arquivo excluído",
-        description: `${fileData.file_name} foi removido com sucesso!`,
-      });
     } catch (error) {
       console.error('Error deleting file:', error);
       toast({
@@ -400,7 +386,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     if (!editedCommentText.trim() || !currentUser) return;
 
     try {
-      // Update comment in database
       const { error } = await supabase
         .from('task_comments')
         .update({
@@ -411,21 +396,19 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (error) throw error;
 
-      // Update local state
       const updatedComments = task.comments.map(comment =>
         comment.id === commentId
           ? { ...comment, text: editedCommentText.trim(), updatedAt: new Date() }
           : comment
       );
 
-      // Add history entry
       await supabase
         .from('task_history')
         .insert({
           task_id: task.id,
           user_id: currentUser.id,
           action: 'comment_edited',
-          details: 'Comentário editado'
+          details: 'Comentario editado'
         });
 
       const updatedTask = {
@@ -437,16 +420,11 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       onUpdateTask(updatedTask);
       setEditingCommentId(null);
       setEditedCommentText("");
-
-      toast({
-        title: "Comentário atualizado",
-        description: "As alterações foram salvas!",
-      });
     } catch (error) {
       console.error('Error updating comment:', error);
       toast({
         title: "Erro",
-        description: "Erro ao atualizar comentário.",
+        description: "Erro ao atualizar comentario.",
         variant: "destructive",
       });
     }
@@ -459,7 +437,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     if (!comment) return;
 
     try {
-      // Delete from database
       const { error } = await supabase
         .from('task_comments')
         .delete()
@@ -467,17 +444,15 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (error) throw error;
 
-      // Add history entry
       await supabase
         .from('task_history')
         .insert({
           task_id: task.id,
           user_id: currentUser.id,
           action: 'comment_deleted',
-          details: `Comentário excluído: "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`
+          details: `Comentario excluido: "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`
         });
 
-      // Update local state
       const updatedTask = {
         ...task,
         comments: task.comments.filter(c => c.id !== commentId),
@@ -485,16 +460,11 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
       };
 
       onUpdateTask(updatedTask);
-
-      toast({
-        title: "Comentário excluído",
-        description: "O comentário foi removido com sucesso!",
-      });
     } catch (error) {
       console.error('Error deleting comment:', error);
       toast({
         title: "Erro",
-        description: "Erro ao excluir comentário.",
+        description: "Erro ao excluir comentario.",
         variant: "destructive",
       });
     }
@@ -508,394 +478,447 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     };
     
     onUpdateTask(updatedTask);
-    
-    toast({
-      title: "Cor atualizada",
-      description: "A cor do card foi alterada!",
-    });
+  };
+
+  const handleVinculoChange = (novoProcessoOabId: string | null) => {
+    setProcessoOabId(novoProcessoOabId);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              {isEditingTask ? (
-                <Input
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className="text-lg font-semibold"
-                  placeholder="Título da tarefa"
-                />
-              ) : (
-                <DialogTitle className="text-lg">{task.title}</DialogTitle>
-              )}
-            </div>
-            <div className="flex items-center gap-2 ml-4">
-              {isEditingTask ? (
-                <>
-                  <Button onClick={handleSaveTask} size="sm" className="gap-1">
-                    <Save className="h-3 w-3" />
-                    Salvar
-                  </Button>
-                  <Button onClick={handleCancelEditTask} variant="outline" size="sm" className="gap-1">
-                    <X className="h-3 w-3" />
-                    Cancelar
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <CardColorPicker
-                    currentColor={task.cardColor || 'default'}
-                    onColorChange={handleColorChange}
-                  />
-                  <Button onClick={handleEditTask} variant="ghost" size="sm" className="gap-1">
-                    <Edit className="h-3 w-3" />
-                    Editar
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="max-h-[70vh] pr-6">
-          <div className="space-y-6">
-            {/* Description */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Descrição</h3>
-              {isEditingTask ? (
-                <Textarea
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  placeholder="Descrição da tarefa"
-                  className="min-h-[80px]"
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {task.description || "Nenhuma descrição fornecida"}
-                </p>
-              )}
-            </div>
-
-            {/* Acordo Details */}
-            {task.type === 'acordo' && (
-              <div>
-                <h3 className="text-sm font-medium mb-2">Detalhes do Acordo</h3>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
                 {isEditingTask ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium">Contrato/Processo:</label>
-                      <Input
-                        value={editedAcordoDetails.contratoProcesso || ""}
-                        onChange={(e) => setEditedAcordoDetails({
-                          ...editedAcordoDetails,
-                          contratoProcesso: e.target.value
-                        })}
-                        placeholder="Número do contrato/processo"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Banco:</label>
-                      <Input
-                        value={editedAcordoDetails.banco || ""}
-                        onChange={(e) => setEditedAcordoDetails({
-                          ...editedAcordoDetails,
-                          banco: e.target.value
-                        })}
-                        placeholder="Nome do banco"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Valor original:</label>
-                      <Input
-                        type="number"
-                        value={editedAcordoDetails.valorOriginal || ""}
-                        onChange={(e) => setEditedAcordoDetails({
-                          ...editedAcordoDetails,
-                          valorOriginal: e.target.value ? Number(e.target.value) : undefined
-                        })}
-                        placeholder="0,00"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Valor atualizado:</label>
-                      <Input
-                        type="number"
-                        value={editedAcordoDetails.valorAtualizado || ""}
-                        onChange={(e) => setEditedAcordoDetails({
-                          ...editedAcordoDetails,
-                          valorAtualizado: e.target.value ? Number(e.target.value) : undefined
-                        })}
-                        placeholder="0,00"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">À vista:</label>
-                      <Input
-                        type="number"
-                        value={editedAcordoDetails.aVista || ""}
-                        onChange={(e) => setEditedAcordoDetails({
-                          ...editedAcordoDetails,
-                          aVista: e.target.value ? Number(e.target.value) : undefined
-                        })}
-                        placeholder="0,00"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium">Honorários:</label>
-                      <Input
-                        type="number"
-                        value={editedAcordoDetails.honorarios || ""}
-                        onChange={(e) => setEditedAcordoDetails({
-                          ...editedAcordoDetails,
-                          honorarios: e.target.value ? Number(e.target.value) : undefined
-                        })}
-                        placeholder="0,00"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium">Parcelado:</label>
-                      <div className="grid grid-cols-3 gap-2 mt-1">
-                        <Input
-                          type="number"
-                          value={editedAcordoDetails.parcelado?.entrada || ""}
-                          onChange={(e) => setEditedAcordoDetails({
-                            ...editedAcordoDetails,
-                            parcelado: {
-                              ...editedAcordoDetails.parcelado,
-                              entrada: e.target.value ? Number(e.target.value) : 0,
-                              parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
-                              quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
-                            }
-                          })}
-                          placeholder="Entrada"
-                          className="text-sm"
-                        />
-                        <Input
-                          type="number"
-                          value={editedAcordoDetails.parcelado?.parcelas || ""}
-                          onChange={(e) => setEditedAcordoDetails({
-                            ...editedAcordoDetails,
-                            parcelado: {
-                              ...editedAcordoDetails.parcelado,
-                              entrada: editedAcordoDetails.parcelado?.entrada || 0,
-                              parcelas: e.target.value ? Number(e.target.value) : 0,
-                              quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
-                            }
-                          })}
-                          placeholder="Valor parcela"
-                          className="text-sm"
-                        />
-                        <Input
-                          type="number"
-                          value={editedAcordoDetails.parcelado?.quantidadeParcelas || ""}
-                          onChange={(e) => setEditedAcordoDetails({
-                            ...editedAcordoDetails,
-                            parcelado: {
-                              ...editedAcordoDetails.parcelado,
-                              entrada: editedAcordoDetails.parcelado?.entrada || 0,
-                              parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
-                              quantidadeParcelas: e.target.value ? Number(e.target.value) : 0
-                            }
-                          })}
-                          placeholder="Qtd parcelas"
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <Input
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    className="text-lg font-semibold"
+                    placeholder="Titulo da tarefa"
+                  />
                 ) : (
-                  <div className="space-y-2 text-sm">
-                    {task.acordoDetails?.contratoProcesso && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Contrato/Processo:</span>
-                        <span className="font-medium">{task.acordoDetails.contratoProcesso}</span>
+                  <DialogTitle className="text-lg">{task.title}</DialogTitle>
+                )}
+              </div>
+              <div className="flex items-center gap-2 ml-4">
+                {isEditingTask ? (
+                  <>
+                    <Button onClick={handleSaveTask} size="sm" className="gap-1">
+                      <Save className="h-3 w-3" />
+                      Salvar
+                    </Button>
+                    <Button onClick={handleCancelEditTask} variant="outline" size="sm" className="gap-1">
+                      <X className="h-3 w-3" />
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <CardColorPicker
+                      currentColor={task.cardColor || 'default'}
+                      onColorChange={handleColorChange}
+                    />
+                    <Button onClick={handleEditTask} variant="ghost" size="sm" className="gap-1">
+                      <Edit className="h-3 w-3" />
+                      Editar
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+            <TabsList className="grid grid-cols-5 w-full">
+              <TabsTrigger value="detalhes" className="gap-1 text-xs">
+                <Edit className="h-3 w-3" />
+                Detalhes
+              </TabsTrigger>
+              <TabsTrigger value="vinculo" className="gap-1 text-xs">
+                <Link2 className="h-3 w-3" />
+                Vinculo
+              </TabsTrigger>
+              <TabsTrigger value="tarefas" className="gap-1 text-xs">
+                <ListTodo className="h-3 w-3" />
+                Tarefas
+              </TabsTrigger>
+              <TabsTrigger value="arquivos" className="gap-1 text-xs">
+                <Files className="h-3 w-3" />
+                Arquivos
+              </TabsTrigger>
+              <TabsTrigger value="historico" className="gap-1 text-xs">
+                <History className="h-3 w-3" />
+                Historico
+              </TabsTrigger>
+            </TabsList>
+
+            <ScrollArea className="h-[60vh] mt-4">
+              <TabsContent value="detalhes" className="mt-0 space-y-6">
+                {/* Description */}
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Descricao</h3>
+                  {isEditingTask ? (
+                    <Textarea
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      placeholder="Descricao da tarefa"
+                      className="min-h-[80px]"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {task.description || "Nenhuma descricao fornecida"}
+                    </p>
+                  )}
+                </div>
+
+                {/* Acordo Details */}
+                {task.type === 'acordo' && (
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Detalhes do Acordo</h3>
+                    {isEditingTask ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium">Contrato/Processo:</label>
+                          <Input
+                            value={editedAcordoDetails.contratoProcesso || ""}
+                            onChange={(e) => setEditedAcordoDetails({
+                              ...editedAcordoDetails,
+                              contratoProcesso: e.target.value
+                            })}
+                            placeholder="Numero do contrato/processo"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium">Banco:</label>
+                          <Input
+                            value={editedAcordoDetails.banco || ""}
+                            onChange={(e) => setEditedAcordoDetails({
+                              ...editedAcordoDetails,
+                              banco: e.target.value
+                            })}
+                            placeholder="Nome do banco"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium">Valor original:</label>
+                          <Input
+                            type="number"
+                            value={editedAcordoDetails.valorOriginal || ""}
+                            onChange={(e) => setEditedAcordoDetails({
+                              ...editedAcordoDetails,
+                              valorOriginal: e.target.value ? Number(e.target.value) : undefined
+                            })}
+                            placeholder="0,00"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium">Valor atualizado:</label>
+                          <Input
+                            type="number"
+                            value={editedAcordoDetails.valorAtualizado || ""}
+                            onChange={(e) => setEditedAcordoDetails({
+                              ...editedAcordoDetails,
+                              valorAtualizado: e.target.value ? Number(e.target.value) : undefined
+                            })}
+                            placeholder="0,00"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium">A vista:</label>
+                          <Input
+                            type="number"
+                            value={editedAcordoDetails.aVista || ""}
+                            onChange={(e) => setEditedAcordoDetails({
+                              ...editedAcordoDetails,
+                              aVista: e.target.value ? Number(e.target.value) : undefined
+                            })}
+                            placeholder="0,00"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium">Honorarios:</label>
+                          <Input
+                            type="number"
+                            value={editedAcordoDetails.honorarios || ""}
+                            onChange={(e) => setEditedAcordoDetails({
+                              ...editedAcordoDetails,
+                              honorarios: e.target.value ? Number(e.target.value) : undefined
+                            })}
+                            placeholder="0,00"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs font-medium">Parcelado:</label>
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            <Input
+                              type="number"
+                              value={editedAcordoDetails.parcelado?.entrada || ""}
+                              onChange={(e) => setEditedAcordoDetails({
+                                ...editedAcordoDetails,
+                                parcelado: {
+                                  ...editedAcordoDetails.parcelado,
+                                  entrada: e.target.value ? Number(e.target.value) : 0,
+                                  parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
+                                  quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
+                                }
+                              })}
+                              placeholder="Entrada"
+                              className="text-sm"
+                            />
+                            <Input
+                              type="number"
+                              value={editedAcordoDetails.parcelado?.parcelas || ""}
+                              onChange={(e) => setEditedAcordoDetails({
+                                ...editedAcordoDetails,
+                                parcelado: {
+                                  ...editedAcordoDetails.parcelado,
+                                  entrada: editedAcordoDetails.parcelado?.entrada || 0,
+                                  parcelas: e.target.value ? Number(e.target.value) : 0,
+                                  quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
+                                }
+                              })}
+                              placeholder="Valor parcela"
+                              className="text-sm"
+                            />
+                            <Input
+                              type="number"
+                              value={editedAcordoDetails.parcelado?.quantidadeParcelas || ""}
+                              onChange={(e) => setEditedAcordoDetails({
+                                ...editedAcordoDetails,
+                                parcelado: {
+                                  ...editedAcordoDetails.parcelado,
+                                  entrada: editedAcordoDetails.parcelado?.entrada || 0,
+                                  parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
+                                  quantidadeParcelas: e.target.value ? Number(e.target.value) : 0
+                                }
+                              })}
+                              placeholder="Qtd parcelas"
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    {task.acordoDetails?.valorOriginal !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor original:</span>
-                        <span className="font-medium">R$ {task.acordoDetails.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-                    {task.acordoDetails?.valorAtualizado !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor atualizado:</span>
-                        <span className="font-medium">R$ {task.acordoDetails.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-                    {task.acordoDetails?.banco && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Banco:</span>
-                        <span className="font-medium">{task.acordoDetails.banco}</span>
-                      </div>
-                    )}
-                    {task.acordoDetails?.aVista !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">À vista:</span>
-                        <span className="font-medium">R$ {task.acordoDetails.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-                    {task.acordoDetails?.parcelado && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Parcelado:</span>
-                        <span className="font-medium">
-                          R$ {task.acordoDetails.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + 
-                          {task.acordoDetails.parcelado.quantidadeParcelas}x R$ {task.acordoDetails.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    )}
-                    {task.acordoDetails?.honorarios !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Honorários:</span>
-                        <span className="font-medium">R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    ) : (
+                      <div className="space-y-2 text-sm">
+                        {task.acordoDetails?.contratoProcesso && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Contrato/Processo:</span>
+                            <span className="font-medium">{task.acordoDetails.contratoProcesso}</span>
+                          </div>
+                        )}
+                        {task.acordoDetails?.valorOriginal !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Valor original:</span>
+                            <span className="font-medium">R$ {task.acordoDetails.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {task.acordoDetails?.valorAtualizado !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Valor atualizado:</span>
+                            <span className="font-medium">R$ {task.acordoDetails.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {task.acordoDetails?.banco && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Banco:</span>
+                            <span className="font-medium">{task.acordoDetails.banco}</span>
+                          </div>
+                        )}
+                        {task.acordoDetails?.aVista !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">A vista:</span>
+                            <span className="font-medium">R$ {task.acordoDetails.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {task.acordoDetails?.parcelado && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Parcelado:</span>
+                            <span className="font-medium">
+                              R$ {task.acordoDetails.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + 
+                              {task.acordoDetails.parcelado.quantidadeParcelas}x R$ {task.acordoDetails.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
+                        {task.acordoDetails?.honorarios !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Honorarios:</span>
+                            <span className="font-medium">R$ {task.acordoDetails.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Status and Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Badge variant="outline">
-                  {TASK_STATUSES[task.status]}
-                </Badge>
+                {/* Status */}
+                <div className="flex items-center gap-4">
+                  <Badge variant="outline">
+                    {TASK_STATUSES[task.status]}
+                  </Badge>
+                  {processoOabId && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Link2 className="h-3 w-3" />
+                      Vinculado
+                    </Badge>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Comments Section */}
+                <div>
+                  <h3 className="text-sm font-medium mb-4">Comentarios ({task.comments.length})</h3>
+                  
+                  <div className="space-y-3 mb-6">
+                    <Textarea
+                      placeholder="Adicionar um comentario..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                    <Button onClick={handleAddComment} className="gap-2" size="sm">
+                      <Plus className="h-3 w-3" />
+                      Adicionar Comentario
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {task.comments.map((comment) => (
+                      <Card key={comment.id}>
+                        <CardContent className="p-4">
+                          {editingCommentId === comment.id ? (
+                            <div className="space-y-3">
+                              <Textarea
+                                value={editedCommentText}
+                                onChange={(e) => setEditedCommentText(e.target.value)}
+                                className="min-h-[60px]"
+                              />
+                              <div className="flex gap-2">
+                                <Button 
+                                  onClick={() => handleSaveComment(comment.id)} 
+                                  size="sm" 
+                                  className="gap-1"
+                                >
+                                  <Save className="h-3 w-3" />
+                                  Salvar
+                                </Button>
+                                <Button 
+                                  onClick={() => setEditingCommentId(null)} 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="gap-1"
+                                >
+                                  <X className="h-3 w-3" />
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-start justify-between mb-2">
+                                <p className="text-sm flex-1">{comment.text}</p>
+                                <div className="flex gap-1 ml-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEditComment(comment.id)}
+                                    className="h-6 w-6"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Tem certeza que deseja excluir este comentario?
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleDeleteComment(comment.id)}
+                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                          Excluir
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {format(comment.createdAt, "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
+                              </p>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="vinculo" className="mt-0">
+                <TaskVinculoTab
+                  taskId={task.id}
+                  processoOabId={processoOabId}
+                  onVinculoChange={handleVinculoChange}
+                />
+              </TabsContent>
+
+              <TabsContent value="tarefas" className="mt-0">
+                <TaskTarefasTab
+                  taskId={task.id}
+                  hasVinculo={!!processoOabId}
+                  onGerarRelatorio={() => setRelatorioOpen(true)}
+                />
+              </TabsContent>
+
+              <TabsContent value="arquivos" className="mt-0">
                 <TaskFilePanel 
                   files={task.files}
                   onUploadFile={handleUploadFile}
                   onDeleteFile={handleDeleteFile}
                 />
+              </TabsContent>
+
+              <TabsContent value="historico" className="mt-0">
                 <TaskHistoryPanel history={task.history} />
-              </div>
-            </div>
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
 
-            <Separator />
-
-            {/* Comments Section */}
-            <div>
-              <h3 className="text-sm font-medium mb-4">Comentários ({task.comments.length})</h3>
-              
-              {/* Add Comment */}
-              <div className="space-y-3 mb-6">
-                <Textarea
-                  placeholder="Adicionar um comentário..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="min-h-[80px]"
-                />
-                <Button onClick={handleAddComment} className="gap-2" size="sm">
-                  <Plus className="h-3 w-3" />
-                  Adicionar Comentário
-                </Button>
-              </div>
-
-              {/* Comments List */}
-              <div className="space-y-4">
-                {task.comments.map((comment) => (
-                  <Card key={comment.id}>
-                    <CardContent className="p-4">
-                      {editingCommentId === comment.id ? (
-                        <div className="space-y-3">
-                          <Textarea
-                            value={editedCommentText}
-                            onChange={(e) => setEditedCommentText(e.target.value)}
-                            className="min-h-[60px]"
-                          />
-                          <div className="flex gap-2">
-                            <Button 
-                              onClick={() => handleSaveComment(comment.id)} 
-                              size="sm" 
-                              className="gap-1"
-                            >
-                              <Save className="h-3 w-3" />
-                              Salvar
-                            </Button>
-                            <Button 
-                              onClick={() => setEditingCommentId(null)} 
-                              variant="outline" 
-                              size="sm"
-                              className="gap-1"
-                            >
-                              <X className="h-3 w-3" />
-                              Cancelar
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-start justify-between mb-2">
-                            <p className="text-sm flex-1">{comment.text}</p>
-                            <div className="flex gap-1 ml-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditComment(comment.id)}
-                                className="h-6 w-6"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja excluir este comentário?
-                                      Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDeleteComment(comment.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Excluir
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Por {comment.author} em {format(new Date(comment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                            {comment.updatedAt > comment.createdAt && " (editado)"}
-                          </p>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-                
-                {task.comments.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-sm">Nenhum comentário ainda</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      {/* Relatorio Unificado */}
+      {processoVinculado && (
+        <RelatorioUnificado
+          open={relatorioOpen}
+          onOpenChange={setRelatorioOpen}
+          processo={processoVinculado}
+          oab={processoVinculado.oab || null}
+          taskTarefas={taskTarefas}
+        />
+      )}
+    </>
   );
 };
 

@@ -1,0 +1,384 @@
+import { useRef, useMemo } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Printer } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
+import { TarefaOAB } from '@/hooks/useTarefasOAB';
+import { TaskTarefa } from '@/types/taskTarefa';
+
+interface TarefaUnificada {
+  id: string;
+  titulo: string;
+  descricao?: string;
+  fase?: string;
+  data_execucao: string;
+  observacoes?: string;
+  origem: 'processo' | 'card';
+}
+
+interface RelatorioUnificadoProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  processo: ProcessoOAB;
+  oab: OABCadastrada | null;
+  processoTarefas?: TarefaOAB[];
+  taskTarefas?: TaskTarefa[];
+}
+
+export const RelatorioUnificado = ({
+  open,
+  onOpenChange,
+  processo,
+  oab,
+  processoTarefas = [],
+  taskTarefas = [],
+}: RelatorioUnificadoProps) => {
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // Combina e ordena tarefas (mais recente primeiro)
+  const tarefasUnificadas = useMemo(() => {
+    const todasTarefas: TarefaUnificada[] = [
+      ...processoTarefas.map(t => ({
+        id: t.id,
+        titulo: t.titulo,
+        descricao: t.descricao,
+        fase: t.fase,
+        data_execucao: t.data_execucao,
+        observacoes: t.observacoes,
+        origem: 'processo' as const,
+      })),
+      ...taskTarefas.map(t => ({
+        id: t.id,
+        titulo: t.titulo,
+        descricao: t.descricao,
+        fase: t.fase,
+        data_execucao: t.data_execucao,
+        observacoes: t.observacoes,
+        origem: 'card' as const,
+      })),
+    ];
+
+    // Ordena por data decrescente (mais recente primeiro)
+    return todasTarefas.sort(
+      (a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime()
+    );
+  }, [processoTarefas, taskTarefas]);
+
+  const formatData = (data: string | null | undefined) => {
+    if (!data) return '-';
+    try {
+      return format(new Date(data), "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return data;
+    }
+  };
+
+  const formatValor = (valor: number | null | undefined) => {
+    if (!valor && valor !== 0) return '-';
+    return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const handlePrint = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Relatorio - ${processo.numero_cnj}</title>
+          <style>
+            @page { margin: 20mm; }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              font-size: 12px;
+              line-height: 1.5;
+              color: #1a1a1a;
+              margin: 0;
+              padding: 0;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #1a1a1a;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .header-info { flex: 1; }
+            .header-info h1 { 
+              font-size: 18px; 
+              margin: 0 0 5px 0;
+              font-weight: 600;
+            }
+            .header-info p { 
+              margin: 2px 0; 
+              color: #4a4a4a;
+            }
+            .logo {
+              width: 80px;
+              height: 80px;
+              object-fit: contain;
+              margin-left: 20px;
+            }
+            .section { margin-bottom: 20px; }
+            .section-title {
+              font-size: 14px;
+              font-weight: 600;
+              text-transform: uppercase;
+              border-bottom: 1px solid #ccc;
+              padding-bottom: 5px;
+              margin-bottom: 10px;
+              color: #333;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px 20px;
+            }
+            .info-item label {
+              display: block;
+              font-size: 10px;
+              color: #666;
+              text-transform: uppercase;
+            }
+            .info-item span {
+              display: block;
+              font-weight: 500;
+            }
+            .timeline {
+              position: relative;
+              padding-left: 20px;
+            }
+            .timeline::before {
+              content: '';
+              position: absolute;
+              left: 5px;
+              top: 5px;
+              bottom: 5px;
+              width: 2px;
+              background: #ccc;
+            }
+            .timeline-item {
+              position: relative;
+              margin-bottom: 15px;
+              padding-bottom: 15px;
+              border-bottom: 1px dashed #eee;
+            }
+            .timeline-item:last-child {
+              border-bottom: none;
+            }
+            .timeline-item::before {
+              content: '';
+              position: absolute;
+              left: -19px;
+              top: 5px;
+              width: 10px;
+              height: 10px;
+              border-radius: 50%;
+              background: #333;
+              border: 2px solid #fff;
+            }
+            .timeline-item.origem-card::before {
+              background: #3b82f6;
+            }
+            .timeline-item.origem-processo::before {
+              background: #22c55e;
+            }
+            .timeline-date {
+              font-size: 11px;
+              color: #666;
+              margin-bottom: 3px;
+            }
+            .timeline-fase {
+              display: inline-block;
+              background: #f0f0f0;
+              padding: 2px 8px;
+              border-radius: 4px;
+              font-size: 10px;
+              margin-left: 10px;
+            }
+            .timeline-origem {
+              display: inline-block;
+              background: #e0e7ff;
+              color: #3730a3;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 9px;
+              margin-left: 5px;
+            }
+            .timeline-origem.card {
+              background: #dbeafe;
+              color: #1d4ed8;
+            }
+            .timeline-origem.processo {
+              background: #dcfce7;
+              color: #166534;
+            }
+            .timeline-title {
+              font-weight: 600;
+              margin: 5px 0;
+            }
+            .timeline-desc {
+              color: #4a4a4a;
+            }
+            .footer {
+              margin-top: 30px;
+              padding-top: 15px;
+              border-top: 1px solid #ccc;
+              text-align: center;
+              font-size: 10px;
+              color: #666;
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const capa = processo.capa_completa || {};
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Relatorio Unificado</span>
+            <Button size="sm" onClick={handlePrint}>
+              <Printer className="w-4 h-4 mr-2" />
+              Imprimir
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <ScrollArea className="h-[70vh] pr-4">
+          <div ref={printRef} className="p-4 bg-white text-black">
+            {/* Cabecalho */}
+            <div className="header">
+              <div className="header-info">
+                <h1>{oab?.nome_advogado || `OAB ${oab?.oab_numero}/${oab?.oab_uf}`}</h1>
+                {oab && (
+                  <p style={{ fontSize: '12px', fontWeight: 500 }}>
+                    OAB/{oab.oab_uf} {oab.oab_numero}
+                  </p>
+                )}
+                {oab?.telefone_advogado && <p>{oab.telefone_advogado}</p>}
+                {oab?.email_advogado && <p>{oab.email_advogado}</p>}
+                {oab?.endereco_advogado && <p>{oab.endereco_advogado}</p>}
+                {(oab?.cidade_advogado || oab?.cep_advogado) && (
+                  <p>
+                    {oab?.cep_advogado && `CEP ${oab.cep_advogado} - `}
+                    {oab?.cidade_advogado}
+                  </p>
+                )}
+              </div>
+              {oab?.logo_url && (
+                <img src={oab.logo_url} alt="Logo" className="logo" />
+              )}
+            </div>
+
+            {/* Dados do Processo */}
+            <div className="section">
+              <div className="section-title">Dados do Processo</div>
+              <div className="info-grid">
+                <div className="info-item">
+                  <label>Numero CNJ</label>
+                  <span>{processo.numero_cnj}</span>
+                </div>
+                <div className="info-item">
+                  <label>Tribunal</label>
+                  <span>{processo.tribunal || processo.tribunal_sigla || '-'}</span>
+                </div>
+                <div className="info-item">
+                  <label>Parte Ativa (Autor)</label>
+                  <span>{processo.parte_ativa || '-'}</span>
+                </div>
+                <div className="info-item">
+                  <label>Parte Passiva (Reu)</label>
+                  <span>{processo.parte_passiva || '-'}</span>
+                </div>
+                <div className="info-item">
+                  <label>Valor da Causa</label>
+                  <span>{formatValor(processo.valor_causa || capa.amount)}</span>
+                </div>
+                <div className="info-item">
+                  <label>Data Distribuicao</label>
+                  <span>{formatData(processo.data_distribuicao || capa.distribution_date)}</span>
+                </div>
+                <div className="info-item">
+                  <label>Juizo/Vara</label>
+                  <span>{processo.juizo || capa.county || '-'}</span>
+                </div>
+                <div className="info-item">
+                  <label>Status</label>
+                  <span>{processo.status_processual || capa.situation || '-'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline de Atividades Unificada */}
+            {tarefasUnificadas.length > 0 && (
+              <div className="section">
+                <div className="section-title">
+                  Historico de Atividades ({tarefasUnificadas.length})
+                </div>
+                <div className="timeline">
+                  {tarefasUnificadas.map((tarefa) => (
+                    <div 
+                      key={tarefa.id} 
+                      className={`timeline-item origem-${tarefa.origem}`}
+                    >
+                      <div className="timeline-date">
+                        {formatData(tarefa.data_execucao)}
+                        {tarefa.fase && <span className="timeline-fase">{tarefa.fase}</span>}
+                        <span className={`timeline-origem ${tarefa.origem}`}>
+                          {tarefa.origem === 'card' ? 'Card' : 'Processo'}
+                        </span>
+                      </div>
+                      <div className="timeline-title">{tarefa.titulo}</div>
+                      {tarefa.descricao && (
+                        <div className="timeline-desc">{tarefa.descricao}</div>
+                      )}
+                      {tarefa.observacoes && (
+                        <div className="timeline-desc" style={{ fontStyle: 'italic', marginTop: '5px' }}>
+                          Obs: {tarefa.observacoes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Rodape */}
+            <div className="footer">
+              Relatorio gerado em {format(new Date(), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
+            </div>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
