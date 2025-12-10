@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,8 +14,7 @@ export default function ReuniaoClientes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [showDetalhesDialog, setShowDetalhesDialog] = useState(false);
-  const navigate = useNavigate();
-  const { tenantPath } = useTenantNavigation();
+  const { navigate } = useTenantNavigation();
   
   const { clientes, loading, fetchClientes, deletarCliente } = useReuniaoClientes();
 
@@ -49,7 +47,7 @@ export default function ReuniaoClientes() {
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => navigate(tenantPath('/reunioes'))}
+            onClick={() => navigate('/reunioes')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

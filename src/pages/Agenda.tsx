@@ -23,12 +23,12 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 
 const Agenda = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const handleBack = () => {
     navigate('/dashboard');
   };

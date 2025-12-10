@@ -18,8 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter, Edit, Trash2, Users, BarChart3, FileText, Settings } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useReunioes } from '@/hooks/useReunioes';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { ReuniaoFormWrapper } from '@/components/Reunioes/ReuniaoFormWrapper';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
 import { AlterarSituacaoDialog } from '@/components/Reunioes/AlterarSituacaoDialog';
@@ -34,7 +34,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Reunioes() {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { userRole } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');

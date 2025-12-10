@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { useToast } from '@/hooks/use-toast';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,7 +56,7 @@ interface Processo {
 
 const ControladoriaProcessoDetalhes = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { toast } = useToast();
   const [processo, setProcesso] = useState<Processo | null>(null);
   const [loading, setLoading] = useState(true);

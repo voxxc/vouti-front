@@ -22,8 +22,8 @@ import {
   Filter
 } from 'lucide-react';
 import { Cliente } from '@/types/cliente';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { differenceInDays, format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceiroDialog';
@@ -36,7 +36,7 @@ interface ClienteFinanceiro extends Cliente {
 }
 
 const Financial = () => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const [clientes, setClientes] = useState<ClienteFinanceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCliente, setSelectedCliente] = useState<ClienteFinanceiro | null>(null);
