@@ -1,5 +1,8 @@
 project_id = "ietjmyrelhijxyozcequ"
 
+[functions.judit-carregar-detalhes-lote]
+verify_jwt = true
+
 [functions.escavador-ativar-e-buscar]
 verify_jwt = true
 

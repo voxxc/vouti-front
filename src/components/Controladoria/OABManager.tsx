@@ -55,7 +55,8 @@ export const OABManager = () => {
     sincronizarOAB, 
     removerOAB,
     consultarRequest,
-    salvarRequestId 
+    salvarRequestId,
+    carregarDetalhesLote
   } = useOABs();
   
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -216,64 +217,42 @@ export const OABManager = () => {
     }
   };
 
-  const handleOpenBatchLawsuit = async (oab: OABCadastrada) => {
-    // Buscar processos da OAB para contar quantos precisam ser consultados
-    const { data } = await import('@/integrations/supabase/client').then(m => 
-      m.supabase
-        .from('processos_oab')
-        .select('*')
-        .eq('oab_id', oab.id)
-        .order('ordem_lista', { ascending: true })
-    );
+  // Carregar detalhes de todos os processos de uma OAB
+  const handleCarregarDetalhesLote = async (oab: OABCadastrada) => {
+    // Buscar processos para mostrar confirmacao
+    const { data } = await supabase
+      .from('processos_oab')
+      .select('id, numero_cnj, detalhes_request_id, detalhes_carregados')
+      .eq('oab_id', oab.id);
     
-    setBatchProcessos(data || []);
+    const processos = data || [];
+    const comRequestId = processos.filter(p => p.detalhes_request_id).length;
+    const semRequestId = processos.filter(p => !p.detalhes_request_id).length;
+    
+    setBatchProcessos(processos as ProcessoOAB[]);
     setSelectedOabForBatch(oab);
     setLawsuitBatchDialogOpen(true);
   };
 
-  const handleConfirmarBatchLawsuit = async () => {
-    if (!selectedOabForBatch || batchProcessos.length === 0) return;
+  const handleConfirmarCarregarLote = async () => {
+    if (!selectedOabForBatch) return;
     
-    const processosParaConsultar = batchProcessos.filter(p => !p.detalhes_carregados && !p.detalhes_request_id);
-    if (processosParaConsultar.length === 0) {
-      setLawsuitBatchDialogOpen(false);
-      return;
-    }
+    setLawsuitBatchDialogOpen(false);
+    setBatchProgress({ current: 1, total: 1, isRunning: true });
     
-    setBatchProgress({ current: 0, total: processosParaConsultar.length, isRunning: true });
-    
-    for (let i = 0; i < processosParaConsultar.length; i++) {
-      const processo = processosParaConsultar[i];
-      setBatchProgress(prev => ({ ...prev, current: i + 1 }));
-      
-      try {
-        const { supabase } = await import('@/integrations/supabase/client');
-        await supabase.functions.invoke('judit-buscar-detalhes-processo', {
-          body: {
-            processoOabId: processo.id,
-            numeroCnj: processo.numero_cnj,
-            oabId: selectedOabForBatch.id,
-            tenantId,
-            userId: user?.id
-          }
-        });
-        // Pequeno delay entre chamadas para nao sobrecarregar
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      } catch (error) {
-        console.error('Erro ao buscar detalhes:', error);
-      }
-    }
+    const result = await carregarDetalhesLote(selectedOabForBatch.id);
     
     setBatchProgress({ current: 0, total: 0, isRunning: false });
-    setLawsuitBatchDialogOpen(false);
     setSelectedOabForBatch(null);
     
-    // Forcar reload da pagina para atualizar dados
-    window.location.reload();
+    if (result) {
+      // Forcar reload para atualizar dados
+      window.location.reload();
+    }
   };
 
-  const processosJaConsultados = batchProcessos.filter(p => p.detalhes_carregados || p.detalhes_request_id).length;
-  const processosParaConsultarCount = batchProcessos.filter(p => !p.detalhes_carregados && !p.detalhes_request_id).length;
+  const processosComRequestId = batchProcessos.filter(p => p.detalhes_request_id).length;
+  const processosSemRequestId = batchProcessos.filter(p => !p.detalhes_request_id).length;
 
   if (loading) {
     return (
@@ -506,11 +485,16 @@ export const OABManager = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleOpenBatchLawsuit(oab)}
+                        onClick={() => handleCarregarDetalhesLote(oab)}
+                        disabled={sincronizando === oab.id || batchProgress.isRunning}
                         className="h-8 w-8 rounded-full shrink-0"
-                        title="Carregar detalhes de todos os processos"
+                        title="Carregar andamentos de todos os processos"
                       >
-                        <Search className="w-4 h-4" />
+                        {sincronizando === oab.id || batchProgress.isRunning ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Search className="w-4 h-4" />
+                        )}
                       </Button>
                       <OABRequestHistorico 
                         oabId={oab.id} 
@@ -653,26 +637,26 @@ export const OABManager = () => {
                 ) : (
                   <>
                     <p>
-                      Esta acao ira buscar andamentos para todos os processos que ainda nao foram consultados na API Judit.
+                      Esta acao ira buscar andamentos para todos os processos listados.
                     </p>
                     <div className="p-3 bg-muted rounded-lg space-y-1">
                       <div className="flex justify-between text-sm">
                         <span>Total de processos:</span>
                         <span className="font-medium">{batchProcessos.length}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Ja consultados:</span>
-                        <span>{processosJaConsultados} (nao serao cobrados)</span>
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Com Request ID (GET gratuito):</span>
+                        <span>{processosComRequestId}</span>
                       </div>
                       <div className="flex justify-between text-sm font-medium text-amber-600">
-                        <span>A consultar:</span>
-                        <span>{processosParaConsultarCount} (GERA CUSTO)</span>
+                        <span>Sem Request ID (POST pago):</span>
+                        <span>{processosSemRequestId}</span>
                       </div>
                     </div>
-                    {processosParaConsultarCount > 0 && (
+                    {processosSemRequestId > 0 && (
                       <p className="text-xs text-amber-600 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
-                        Cada consulta pode gerar custo na sua conta Judit.
+                        Processos sem request_id salvo gerarao custo.
                       </p>
                     )}
                   </>
@@ -685,13 +669,13 @@ export const OABManager = () => {
               <>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction 
-                  onClick={handleConfirmarBatchLawsuit}
-                  disabled={processosParaConsultarCount === 0}
-                  className={processosParaConsultarCount > 0 ? "bg-amber-600 hover:bg-amber-700" : ""}
+                  onClick={handleConfirmarCarregarLote}
+                  disabled={batchProcessos.length === 0}
+                  className={processosSemRequestId > 0 ? "bg-amber-600 hover:bg-amber-700" : ""}
                 >
-                  {processosParaConsultarCount > 0 
-                    ? `Consultar ${processosParaConsultarCount} Processos (R$)` 
-                    : 'Todos ja consultados'}
+                  {processosSemRequestId > 0 
+                    ? `Carregar Andamentos (${processosComRequestId} GET + ${processosSemRequestId} POST)` 
+                    : `Carregar Andamentos (${processosComRequestId} GET gratuito)`}
                 </AlertDialogAction>
               </>
             )}
