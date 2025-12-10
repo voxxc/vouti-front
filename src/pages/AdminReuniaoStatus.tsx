@@ -2,13 +2,13 @@ import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { ReuniaoStatusManager } from '@/components/Reunioes/ReuniaoStatusManager';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 
 const AdminReuniaoStatus = () => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { userRole } = useAuth();
 
   useEffect(() => {

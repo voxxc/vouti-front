@@ -2,10 +2,10 @@ import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { MinhasMetricasReuniao } from '@/components/Reunioes/MinhasMetricasReuniao';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 
 const ReuniaoMetricas = () => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
 
   return (
     <DashboardLayout>

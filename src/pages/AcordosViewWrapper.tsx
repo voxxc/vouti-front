@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import AcordosView from './AcordosView';
 import { Project, Task } from '@/types/project';
 
 const AcordosViewWrapper = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);

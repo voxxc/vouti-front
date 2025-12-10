@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { MigrationChecklistTab } from "@/components/Backend/MigrationChecklistTa
 
 const AdminBackendCode = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);

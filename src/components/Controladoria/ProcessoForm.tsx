@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ interface ProcessoFormProps {
 }
 
 const ProcessoForm = ({ processoId }: ProcessoFormProps) => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);

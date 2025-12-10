@@ -3,8 +3,8 @@ import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, Users, TrendingUp, Target } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useReuniaoMetrics } from '@/hooks/useReuniaoMetrics';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { StatusDistributionChart } from '@/components/Reunioes/Charts/StatusDistributionChart';
 import { ReunioesTrendChart } from '@/components/Reunioes/Charts/ReunioesTrendChart';
 import { UserPerformanceTable } from '@/components/Reunioes/Charts/UserPerformanceTable';
@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const ReuniaoRelatorios = () => {
-  const navigate = useNavigate();
+  const { navigate } = useTenantNavigation();
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const { metrics, userMetrics, loading, isAdmin } = useReuniaoMetrics(undefined, startDate, endDate);
