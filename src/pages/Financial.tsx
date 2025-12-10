@@ -43,6 +43,7 @@ const Financial = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
+  const [parcelasPorClienteState, setParcelasPorClienteState] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     loadClientes();
@@ -94,6 +95,9 @@ const Financial = () => {
         acc[parcela.cliente_id].push(parcela);
         return acc;
       }, {} as Record<string, any[]>);
+
+      // Guardar parcelas para uso posterior
+      setParcelasPorClienteState(parcelasPorCliente);
 
       const clientesComStatus: ClienteFinanceiro[] = (data || []).map((cliente: any) => {
         const hoje = new Date();
@@ -193,13 +197,14 @@ const Financial = () => {
   const clientesEncerrados = clientes.filter(c => c.status === 'contrato_encerrado').length;
   const clientesInativos = clientes.filter(c => c.status === 'inativo').length;
   
-  const receitaMensal = clientes
-    .filter(c => c.status === 'adimplente' && c.forma_pagamento === 'parcelado')
-    .reduce((sum, c) => sum + (c.valor_parcela || 0), 0);
+  // Calcular receita mensal usando dados reais das parcelas pendentes
+  const receitaMensal = Object.values(parcelasPorClienteState).flat()
+    .filter(p => p.status === 'pendente')
+    .reduce((sum, p) => sum + (p.valor_parcela || 0), 0);
   
-  const receitaPendente = clientes
-    .filter(c => c.status === 'inadimplente')
-    .reduce((sum, c) => sum + (c.valor_parcela || c.valor_contrato), 0);
+  const receitaPendente = Object.values(parcelasPorClienteState).flat()
+    .filter(p => p.status === 'atrasado')
+    .reduce((sum, p) => sum + (p.valor_parcela || 0), 0);
 
   const receitaTotal = clientes
     .filter(c => c.status !== 'inativo')
@@ -417,29 +422,37 @@ const Financial = () => {
                         </span>
                       </div>
                       
-                      {cliente.forma_pagamento === 'parcelado' && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Parcela:</span>
-                            <span className="font-medium">
-                              {formatCurrency(cliente.valor_parcela || 0)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Parcelas:</span>
-                            <span className="text-sm">
-                              {cliente.numero_parcelas}x
-                            </span>
-                          </div>
-                          {cliente.proximoVencimento && (
+                      {cliente.forma_pagamento === 'parcelado' && (() => {
+                        const parcelas = parcelasPorClienteState[cliente.id] || [];
+                        const totalParcelas = parcelas.length;
+                        const parcelasPagas = parcelas.filter(p => p.status === 'pago').length;
+                        const valorMedioParcela = totalParcelas > 0 
+                          ? parcelas.reduce((s, p) => s + p.valor_parcela, 0) / totalParcelas 
+                          : 0;
+                        return (
+                          <>
                             <div className="flex justify-between">
-                              <span className="text-sm text-muted-foreground">Próximo Venc.:</span>
-                              <span className="text-sm">
-                                {format(cliente.proximoVencimento, "dd/MM/yyyy")}
+                              <span className="text-sm text-muted-foreground">Parcela:</span>
+                              <span className="font-medium">
+                                {formatCurrency(valorMedioParcela)}
                               </span>
                             </div>
-                          )}
-                        </>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-muted-foreground">Parcelas:</span>
+                              <span className="text-sm">
+                                {parcelasPagas}/{totalParcelas} pagas
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
+                      {cliente.proximoVencimento && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Próximo Venc.:</span>
+                          <span className="text-sm">
+                            {format(cliente.proximoVencimento, "dd/MM/yyyy")}
+                          </span>
+                        </div>
                       )}
                       
                       {cliente.forma_pagamento === 'a_vista' && (
