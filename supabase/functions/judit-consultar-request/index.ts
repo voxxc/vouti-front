@@ -39,6 +39,24 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Buscar tenant_id da OAB cadastrada ANTES de processar
+    const { data: oabData, error: oabError } = await supabase
+      .from('oabs_cadastradas')
+      .select('tenant_id')
+      .eq('id', oabId)
+      .single();
+
+    if (oabError) {
+      console.error('[Judit Consultar] Erro ao buscar OAB:', oabError);
+      return new Response(
+        JSON.stringify({ error: 'OAB nao encontrada', details: oabError.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const tenantId = oabData?.tenant_id;
+    console.log('[Judit Consultar] Tenant ID da OAB:', tenantId);
+
     // GET /responses/ - GRATUITO! Nao gera custos
     // COM PAGINACAO COMPLETA - busca ate 50 paginas
     console.log('[Judit Consultar] Fazendo GET /responses/ (GRATUITO) com paginacao...');
@@ -218,6 +236,7 @@ serve(async (req) => {
       // Preparar dados para upsert com todos os campos
       const processoData = {
         oab_id: oabId,
+        tenant_id: tenantId, // INCLUIR TENANT_ID!
         numero_cnj: numeroCnj,
         tribunal: tribunal,
         tribunal_sigla: tribunalSigla,
