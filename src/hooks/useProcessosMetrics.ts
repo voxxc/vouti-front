@@ -1,20 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export interface ProcessosMetrics {
   totalProcessos: number;
-  processosPorStatus: {
-    em_andamento: number;
-    suspenso: number;
-    arquivado: number;
-    finalizado: number;
-  };
-  processosPorPrioridade: {
-    urgente: number;
-    alta: number;
-    media: number;
-    baixa: number;
-  };
+  processosMonitorando: number;
+  processosComDetalhes: number;
+  totalAndamentos: number;
+  andamentosRecentes: number;
+  totalOABs: number;
   proximosPrazos: number;
   processosAtrasados: number;
 }
@@ -22,34 +16,46 @@ export interface ProcessosMetrics {
 export const useProcessosMetrics = () => {
   const [metrics, setMetrics] = useState<ProcessosMetrics | null>(null);
   const [loading, setLoading] = useState(false);
+  const { tenantId } = useTenantId();
 
   const fetchMetrics = async () => {
+    if (!tenantId) return;
+    
     setLoading(true);
     try {
-      const [processosRes, prazosRes] = await Promise.all([
+      const [processosRes, andamentosRes, prazosRes, oabsRes] = await Promise.all([
         supabase
-          .from('controladoria_processos')
-          .select('status'),
+          .from('processos_oab')
+          .select('id, monitoramento_ativo, detalhes_request_id')
+          .eq('tenant_id', tenantId),
+        supabase
+          .from('processos_oab_andamentos')
+          .select('id, created_at, processo_oab_id'),
         supabase
           .from('deadlines')
           .select('date, completed')
+          .eq('tenant_id', tenantId),
+        supabase
+          .from('oabs_cadastradas')
+          .select('id')
+          .eq('tenant_id', tenantId)
       ]);
 
-      if (processosRes.error) throw processosRes.error;
-
       const processos = processosRes.data || [];
+      const andamentos = andamentosRes.data || [];
       const prazos = prazosRes.data || [];
-      const totalProcessos = processos.length;
+      const oabs = oabsRes.data || [];
 
-      // Contar por status
-      const statusMap = new Map<string, number>();
-      ['em_andamento', 'suspenso', 'arquivado', 'finalizado'].forEach(s => statusMap.set(s, 0));
+      // Filtrar andamentos apenas dos processos do tenant
+      const processoIds = new Set(processos.map(p => p.id));
+      const andamentosTenant = andamentos.filter(a => processoIds.has(a.processo_oab_id));
 
-      processos.forEach(processo => {
-        if (processo.status) {
-          statusMap.set(processo.status, (statusMap.get(processo.status) || 0) + 1);
-        }
-      });
+      // Calcular andamentos recentes (ultimos 7 dias)
+      const seteDiasAtras = new Date();
+      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+      const andamentosRecentes = andamentosTenant.filter(a => 
+        a.created_at && new Date(a.created_at) >= seteDiasAtras
+      ).length;
 
       // Analisar prazos
       let proximosPrazos = 0;
@@ -61,36 +67,24 @@ export const useProcessosMetrics = () => {
         if (!prazo.completed && prazo.date) {
           const dueDate = new Date(prazo.date);
           dueDate.setHours(0, 0, 0, 0);
-          
           const diffDias = Math.ceil((dueDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (diffDias < 0) {
-            processosAtrasados++;
-          } else if (diffDias <= 7) {
-            proximosPrazos++;
-          }
+          if (diffDias < 0) processosAtrasados++;
+          else if (diffDias <= 7) proximosPrazos++;
         }
       });
 
       setMetrics({
-        totalProcessos,
-        processosPorStatus: {
-          em_andamento: statusMap.get('em_andamento') || 0,
-          suspenso: statusMap.get('suspenso') || 0,
-          arquivado: statusMap.get('arquivado') || 0,
-          finalizado: statusMap.get('finalizado') || 0,
-        },
-        processosPorPrioridade: {
-          urgente: 0,
-          alta: 0,
-          media: 0,
-          baixa: 0,
-        },
+        totalProcessos: processos.length,
+        processosMonitorando: processos.filter(p => p.monitoramento_ativo).length,
+        processosComDetalhes: processos.filter(p => p.detalhes_request_id).length,
+        totalAndamentos: andamentosTenant.length,
+        andamentosRecentes,
+        totalOABs: oabs.length,
         proximosPrazos,
         processosAtrasados,
       });
     } catch (error) {
-      console.error('Erro ao buscar métricas de processos:', error);
+      console.error('Erro ao buscar metricas de processos:', error);
     } finally {
       setLoading(false);
     }
@@ -98,7 +92,7 @@ export const useProcessosMetrics = () => {
 
   useEffect(() => {
     fetchMetrics();
-  }, []);
+  }, [tenantId]);
 
   return {
     metrics,
