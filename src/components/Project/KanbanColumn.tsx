@@ -49,7 +49,7 @@ const KanbanColumn = ({
 
   return (
     <Card 
-      className={`shadow-card border-0 h-[calc(100vh-200px)] min-w-[200px] w-[calc((100%-64px)/5)] max-w-[320px] flex-shrink-0 transition-opacity ${
+      className={`shadow-card border-0 h-[calc(100vh-200px)] w-[280px] flex-shrink-0 transition-opacity ${
         isDraggingColumn ? 'opacity-50' : ''
       }`}
       style={{
