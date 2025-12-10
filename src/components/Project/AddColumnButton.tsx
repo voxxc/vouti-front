@@ -47,7 +47,7 @@ const AddColumnButton = ({ onAddColumn }: AddColumnButtonProps) => {
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          className="gap-2 min-w-[280px] h-[500px] border-dashed hover:border-solid transition-all"
+          className="gap-2 min-w-[160px] w-[calc((100%-64px)/5)] max-w-[280px] h-[500px] border-dashed hover:border-solid transition-all flex-shrink-0"
         >
           <Plus className="h-4 w-4" />
           Nova Coluna

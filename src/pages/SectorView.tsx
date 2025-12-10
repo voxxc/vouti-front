@@ -449,7 +449,7 @@ const SectorView = ({
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className="flex gap-6 pb-4"
+                  className="flex gap-4 pb-4"
                 >
                   {columns.map((column, columnIndex) => {
                     const tasks = getTasksByColumn(column.id);
