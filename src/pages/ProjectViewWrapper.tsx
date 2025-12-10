@@ -200,10 +200,6 @@ const ProjectViewWrapper = () => {
       }
 
       setProject(updatedProject);
-      toast({
-        title: "Sucesso",
-        description: "Projeto atualizado com sucesso",
-      });
     } catch (error) {
       console.error('Error:', error);
       toast({

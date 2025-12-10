@@ -268,10 +268,6 @@ const ProjectView = ({
 
       onUpdateProject(updatedProject);
 
-      toast({
-        title: "Sucesso",
-        description: "Tarefa atualizada com sucesso!",
-      });
     } catch (error) {
       console.error('Error updating task:', error);
       toast({
