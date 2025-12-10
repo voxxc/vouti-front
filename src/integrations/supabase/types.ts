@@ -3812,6 +3812,63 @@ export type Database = {
           },
         ]
       }
+      task_tarefas: {
+        Row: {
+          created_at: string | null
+          data_execucao: string
+          descricao: string | null
+          fase: string | null
+          id: string
+          observacoes: string | null
+          task_id: string
+          tenant_id: string | null
+          titulo: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_execucao: string
+          descricao?: string | null
+          fase?: string | null
+          id?: string
+          observacoes?: string | null
+          task_id: string
+          tenant_id?: string | null
+          titulo: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_execucao?: string
+          descricao?: string | null
+          fase?: string | null
+          id?: string
+          observacoes?: string | null
+          task_id?: string
+          tenant_id?: string | null
+          titulo?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_tarefas_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_tarefas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           acordo_details: Json | null
@@ -3820,6 +3877,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          processo_oab_id: string | null
           project_id: string
           sector_id: string | null
           status: string
@@ -3835,6 +3893,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          processo_oab_id?: string | null
           project_id: string
           sector_id?: string | null
           status?: string
@@ -3850,6 +3909,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          processo_oab_id?: string | null
           project_id?: string
           sector_id?: string | null
           status?: string
@@ -3864,6 +3924,13 @@ export type Database = {
             columns: ["column_id"]
             isOneToOne: false
             referencedRelation: "project_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
             referencedColumns: ["id"]
           },
           {
