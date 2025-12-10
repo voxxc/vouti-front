@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantId } from "@/hooks/useTenantId";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +100,7 @@ const VALIDADO_CONFIG = {
 
 export function CaptacaoSheet() {
   const { user } = useAuth();
+  const { tenantId } = useTenantId();
   const { toast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -116,11 +118,11 @@ export function CaptacaoSheet() {
   ]);
 
   useEffect(() => {
-    if (user) {
+    if (user && tenantId) {
       fetchLeads();
       fetchProfiles();
     }
-  }, [user]);
+  }, [user, tenantId]);
 
   const fetchLeads = async () => {
     try {
@@ -139,10 +141,13 @@ export function CaptacaoSheet() {
   };
 
   const fetchProfiles = async () => {
+    if (!tenantId) return;
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, full_name, avatar_url, email');
+        .select('user_id, full_name, avatar_url, email')
+        .eq('tenant_id', tenantId);
 
       if (error) throw error;
       setProfiles(data || []);
