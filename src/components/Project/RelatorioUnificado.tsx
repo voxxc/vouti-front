@@ -35,16 +35,20 @@ export const RelatorioUnificado = ({
 
   // Ordenar tarefas judiciais (processo) - mais recente primeiro
   const tarefasJudiciais = useMemo(() => {
-    return [...processoTarefas].sort(
-      (a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime()
-    );
+    return [...processoTarefas].sort((a, b) => {
+      const dateA = new Date(a.data_execucao || 0).getTime();
+      const dateB = new Date(b.data_execucao || 0).getTime();
+      return dateB - dateA;
+    });
   }, [processoTarefas]);
 
   // Ordenar tarefas admin (card) - mais recente primeiro
   const tarefasAdmin = useMemo(() => {
-    return [...taskTarefas].sort(
-      (a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime()
-    );
+    return [...taskTarefas].sort((a, b) => {
+      const dateA = new Date(a.data_execucao || 0).getTime();
+      const dateB = new Date(b.data_execucao || 0).getTime();
+      return dateB - dateA;
+    });
   }, [taskTarefas]);
 
   const formatData = (data: string | null | undefined) => {
@@ -316,7 +320,7 @@ export const RelatorioUnificado = ({
             {tarefasJudiciais.length > 0 && (
               <div className="section">
                 <div className="section-title">
-                  Historico de Atividade Judicial ({tarefasJudiciais.length})
+                  Historico de Atividade Judicial
                 </div>
                 <div className="timeline">
                   {tarefasJudiciais.map((tarefa) => (
@@ -344,7 +348,7 @@ export const RelatorioUnificado = ({
             {tarefasAdmin.length > 0 && (
               <div className="section">
                 <div className="section-title">
-                  Historico de Atividade Admin ({tarefasAdmin.length})
+                  Historico de Atividade Admin
                 </div>
                 <div className="timeline timeline-admin">
                   {tarefasAdmin.map((tarefa) => (
