@@ -34,7 +34,7 @@ serve(async (req) => {
     // Buscar processo pelo tracking_id COM tenant_id
     const { data: processo, error: fetchError } = await supabase
       .from('processos_oab')
-      .select('id, numero_cnj, tenant_id')
+      .select('id, numero_cnj, tenant_id, oab_id')
       .eq('tracking_id', trackingId)
       .single();
 
@@ -61,7 +61,7 @@ serve(async (req) => {
       );
     }
 
-    // Buscar andamentos existentes
+    // Buscar andamentos existentes do processo principal
     const { data: existingAndamentos } = await supabase
       .from('processos_oab_andamentos')
       .select('descricao, data_movimentacao')
@@ -71,30 +71,39 @@ serve(async (req) => {
       (existingAndamentos || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
     );
 
-    // Inserir novos andamentos
+    // Inserir novos andamentos no processo principal
     let novosAndamentos = 0;
+    const andamentosParaInserir: any[] = [];
+
     for (const step of steps) {
-      const dataMovimentacao = step.date || step.data || step.data_movimentacao;
+      const dataMovimentacao = step.date || step.data || step.data_movimentacao || step.step_date;
       const descricao = step.description || step.descricao || step.content || '';
       
       const key = `${dataMovimentacao}_${descricao.substring(0, 50)}`;
       
       if (!existingKeys.has(key) && descricao) {
-        const { error } = await supabase
-          .from('processos_oab_andamentos')
-          .insert({
-            processo_oab_id: processo.id,
-            tenant_id: processo.tenant_id,
-            data_movimentacao: dataMovimentacao,
-            tipo_movimentacao: step.type || step.tipo || null,
-            descricao: descricao,
-            dados_completos: step,
-            lida: false
-          });
+        andamentosParaInserir.push({
+          processo_oab_id: processo.id,
+          tenant_id: processo.tenant_id,
+          data_movimentacao: dataMovimentacao,
+          tipo_movimentacao: step.type || step.tipo || null,
+          descricao: descricao,
+          dados_completos: step,
+          lida: false
+        });
+        existingKeys.add(key); // Evitar duplicatas dentro do mesmo batch
+        novosAndamentos++;
+      }
+    }
 
-        if (!error) {
-          novosAndamentos++;
-        }
+    // Inserir andamentos no processo principal
+    if (andamentosParaInserir.length > 0) {
+      const { error: insertError } = await supabase
+        .from('processos_oab_andamentos')
+        .insert(andamentosParaInserir);
+
+      if (insertError) {
+        console.error('[Judit Webhook OAB] Erro ao inserir andamentos:', insertError);
       }
     }
 
@@ -109,10 +118,129 @@ serve(async (req) => {
         .eq('id', processo.id);
     }
 
-    console.log('[Judit Webhook OAB] Novos andamentos inseridos:', novosAndamentos);
+    console.log('[Judit Webhook OAB] Novos andamentos inseridos no processo principal:', novosAndamentos);
+
+    // === PROPAGACAO PARA PROCESSOS COMPARTILHADOS ===
+    // Buscar outros processos com mesmo CNJ e tenant_id
+    const { data: processosCompartilhados } = await supabase
+      .from('processos_oab')
+      .select('id, oab_id, tenant_id')
+      .eq('numero_cnj', processo.numero_cnj)
+      .eq('tenant_id', processo.tenant_id)
+      .neq('id', processo.id);
+
+    console.log('[Judit Webhook OAB] Processos compartilhados encontrados:', processosCompartilhados?.length || 0);
+
+    // Propagar andamentos para processos compartilhados
+    if (processosCompartilhados && processosCompartilhados.length > 0 && andamentosParaInserir.length > 0) {
+      for (const outroProcesso of processosCompartilhados) {
+        // Buscar andamentos existentes do processo compartilhado
+        const { data: existingOutro } = await supabase
+          .from('processos_oab_andamentos')
+          .select('descricao, data_movimentacao')
+          .eq('processo_oab_id', outroProcesso.id);
+
+        const existingKeysOutro = new Set(
+          (existingOutro || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
+        );
+
+        // Filtrar apenas andamentos que nao existem neste processo
+        const andamentosParaOutro = andamentosParaInserir
+          .filter(a => !existingKeysOutro.has(`${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`))
+          .map(a => ({
+            ...a,
+            processo_oab_id: outroProcesso.id,
+            tenant_id: outroProcesso.tenant_id
+          }));
+
+        if (andamentosParaOutro.length > 0) {
+          await supabase
+            .from('processos_oab_andamentos')
+            .insert(andamentosParaOutro);
+
+          // Atualizar timestamp do processo compartilhado
+          await supabase
+            .from('processos_oab')
+            .update({
+              ultima_atualizacao_detalhes: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', outroProcesso.id);
+        }
+
+        console.log('[Judit Webhook OAB] Andamentos propagados para processo:', outroProcesso.id, andamentosParaOutro.length);
+      }
+    }
+
+    // === CRIAR NOTIFICACOES PARA USUARIOS ===
+    if (novosAndamentos > 0) {
+      // Coletar todos os oab_ids envolvidos (principal + compartilhados)
+      const todosOabIds = new Set<string>();
+      todosOabIds.add(processo.oab_id);
+      
+      if (processosCompartilhados) {
+        for (const p of processosCompartilhados) {
+          if (p.oab_id) todosOabIds.add(p.oab_id);
+        }
+      }
+
+      // Buscar user_id e tenant_id de cada OAB
+      const { data: oabs } = await supabase
+        .from('oabs_cadastradas')
+        .select('id, user_id, tenant_id')
+        .in('id', Array.from(todosOabIds));
+
+      console.log('[Judit Webhook OAB] OABs encontradas para notificacao:', oabs?.length || 0);
+
+      if (oabs && oabs.length > 0) {
+        // Criar conjunto de usuarios unicos (user_id + tenant_id)
+        const usuariosUnicos = new Map<string, { user_id: string; tenant_id: string }>();
+        
+        for (const oab of oabs) {
+          if (oab.user_id && oab.tenant_id) {
+            const key = `${oab.user_id}_${oab.tenant_id}`;
+            if (!usuariosUnicos.has(key)) {
+              usuariosUnicos.set(key, {
+                user_id: oab.user_id,
+                tenant_id: oab.tenant_id
+              });
+            }
+          }
+        }
+
+        console.log('[Judit Webhook OAB] Usuarios unicos para notificar:', usuariosUnicos.size);
+
+        // Criar notificacao para cada usuario unico
+        for (const [, userInfo] of usuariosUnicos) {
+          const { error: notifError } = await supabase
+            .from('notifications')
+            .insert({
+              user_id: userInfo.user_id,
+              tenant_id: userInfo.tenant_id,
+              type: 'andamento_processo',
+              title: `${novosAndamentos} novo(s) andamento(s)`,
+              content: `Processo ${processo.numero_cnj} recebeu atualizacao`,
+              related_project_id: processo.id, // Armazenamos o processo_oab_id aqui
+              triggered_by_user_id: userInfo.user_id, // Sistema notificando o proprio usuario
+              is_read: false
+            });
+
+          if (notifError) {
+            console.error('[Judit Webhook OAB] Erro ao criar notificacao para usuario:', userInfo.user_id, notifError);
+          } else {
+            console.log('[Judit Webhook OAB] Notificacao criada para usuario:', userInfo.user_id);
+          }
+        }
+      }
+    }
 
     return new Response(
-      JSON.stringify({ success: true, novosAndamentos }),
+      JSON.stringify({ 
+        success: true, 
+        novosAndamentos,
+        processosCompartilhados: processosCompartilhados?.length || 0,
+        notificacoesEnviadas: novosAndamentos > 0
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

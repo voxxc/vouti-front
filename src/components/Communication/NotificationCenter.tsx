@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, X, Check, CheckCheck } from 'lucide-react';
+import { Bell, CheckCheck, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,28 +16,32 @@ import {
 interface NotificationCenterProps {
   userId: string;
   onProjectNavigation?: (projectId: string) => void;
+  onProcessoNavigation?: (processoId: string) => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
   userId,
-  onProjectNavigation
+  onProjectNavigation,
+  onProcessoNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'project_update':
-        return '📋';
+        return <span className="text-lg">📋</span>;
       case 'task_moved':
-        return '🔄';
+        return <span className="text-lg">🔄</span>;
       case 'task_created':
-        return '➕';
+        return <span className="text-lg">➕</span>;
       case 'mention':
-        return '👤';
+        return <span className="text-lg">👤</span>;
       case 'comment_added':
-        return '💬';
+        return <span className="text-lg">💬</span>;
+      case 'andamento_processo':
+        return <Scale className="h-5 w-5 text-primary" />;
       default:
-        return '📢';
+        return <span className="text-lg">📢</span>;
     }
   };
 
@@ -46,7 +50,10 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       await markAsRead(notification.id);
     }
     
-    if (notification.related_project_id && onProjectNavigation) {
+    // Navegacao condicional baseada no tipo
+    if (notification.type === 'andamento_processo' && notification.related_project_id && onProcessoNavigation) {
+      onProcessoNavigation(notification.related_project_id);
+    } else if (notification.related_project_id && onProjectNavigation) {
       onProjectNavigation(notification.related_project_id);
     }
   };
@@ -78,7 +85,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         <Card className="border-0 shadow-none">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Notificações</CardTitle>
+              <CardTitle className="text-sm font-medium">Notificacoes</CardTitle>
               {unreadCount > 0 && (
                 <Button
                   variant="ghost"
@@ -96,7 +103,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
             <ScrollArea className="h-80">
               {notifications.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
-                  Nenhuma notificação
+                  Nenhuma notificacao
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -111,7 +118,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-3">
-                        <span className="text-lg">{getNotificationIcon(notification.type)}</span>
+                        <div className="flex-shrink-0 mt-0.5">
+                          {getNotificationIcon(notification.type)}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h4 className="text-sm font-medium truncate">
@@ -125,7 +134,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                             {notification.content}
                           </p>
                           <p className="text-xs text-muted-foreground mt-2">
-                            {format(new Date(notification.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                            {format(new Date(notification.created_at), "dd/MM/yy 'as' HH:mm", { locale: ptBR })}
                           </p>
                         </div>
                       </div>

@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'project_update' | 'task_moved' | 'task_created' | 'mention' | 'comment_added';
+  tenant_id?: string;
+  type: 'project_update' | 'task_moved' | 'task_created' | 'mention' | 'comment_added' | 'andamento_processo';
   title: string;
   content: string;
   related_project_id?: string;
