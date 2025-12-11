@@ -576,12 +576,14 @@ export type Database = {
           cnpj: string
           created_at: string | null
           id: string
+          monitoramento_ativo: boolean | null
           nome_fantasia: string | null
           ordem: number | null
           razao_social: string | null
           request_id_data: string | null
           tenant_id: string | null
           total_processos: number | null
+          tracking_id: string | null
           ultima_sincronizacao: string | null
           ultimo_request_id: string | null
           updated_at: string | null
@@ -591,12 +593,14 @@ export type Database = {
           cnpj: string
           created_at?: string | null
           id?: string
+          monitoramento_ativo?: boolean | null
           nome_fantasia?: string | null
           ordem?: number | null
           razao_social?: string | null
           request_id_data?: string | null
           tenant_id?: string | null
           total_processos?: number | null
+          tracking_id?: string | null
           ultima_sincronizacao?: string | null
           ultimo_request_id?: string | null
           updated_at?: string | null
@@ -606,12 +610,14 @@ export type Database = {
           cnpj?: string
           created_at?: string | null
           id?: string
+          monitoramento_ativo?: boolean | null
           nome_fantasia?: string | null
           ordem?: number | null
           razao_social?: string | null
           request_id_data?: string | null
           tenant_id?: string | null
           total_processos?: number | null
+          tracking_id?: string | null
           ultima_sincronizacao?: string | null
           ultimo_request_id?: string | null
           updated_at?: string | null

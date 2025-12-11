@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Plus, Trash2, RefreshCw, Key, Search } from 'lucide-react';
+import { Building2, Plus, Trash2, RefreshCw, Key, Search, Radar, RadarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CNPJTab } from './CNPJTab';
 
 export const CNPJManager = () => {
-  const { cnpjs, loading, cadastrarCNPJ, sincronizarCNPJ, removerCNPJ, consultarRequest, salvarRequestId } = useCNPJs();
+  const { cnpjs, loading, cadastrarCNPJ, sincronizarCNPJ, ativarMonitoramentoCNPJ, removerCNPJ, consultarRequest, salvarRequestId } = useCNPJs();
   const { userRole } = useAuth();
   const isAdmin = userRole === 'admin';
 
@@ -49,6 +49,11 @@ export const CNPJManager = () => {
   // Nova busca confirmation
   const [novaBuscaDialogOpen, setNovaBuscaDialogOpen] = useState(false);
   const [cnpjParaNovaBusca, setCnpjParaNovaBusca] = useState<{ id: string; cnpj: string } | null>(null);
+
+  // Monitoramento confirmation
+  const [monitoramentoDialogOpen, setMonitoramentoDialogOpen] = useState(false);
+  const [cnpjParaMonitoramento, setCnpjParaMonitoramento] = useState<{ id: string; cnpj: string; ativar: boolean } | null>(null);
+  const [ativandoMonitoramento, setAtivandoMonitoramento] = useState<string | null>(null);
 
   const formatCNPJ = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -93,6 +98,29 @@ export const CNPJManager = () => {
     setCnpjParaNovaBusca(null);
   };
 
+  const handleMonitoramentoClick = (cnpjId: string, cnpj: string, ativar: boolean) => {
+    setCnpjParaMonitoramento({ id: cnpjId, cnpj, ativar });
+    setMonitoramentoDialogOpen(true);
+  };
+
+  const handleConfirmarMonitoramento = async () => {
+    if (!cnpjParaMonitoramento) return;
+    
+    setMonitoramentoDialogOpen(false);
+    setAtivandoMonitoramento(cnpjParaMonitoramento.id);
+    
+    try {
+      await ativarMonitoramentoCNPJ(
+        cnpjParaMonitoramento.id, 
+        cnpjParaMonitoramento.cnpj, 
+        cnpjParaMonitoramento.ativar
+      );
+    } finally {
+      setAtivandoMonitoramento(null);
+      setCnpjParaMonitoramento(null);
+    }
+  };
+
   const handleConsultarRequest = async (cnpjId: string, requestId: string | null) => {
     if (!requestId) {
       setSelectedCnpjForRequestId(cnpjId);
@@ -135,7 +163,7 @@ export const CNPJManager = () => {
         <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">Nenhum CNPJ cadastrado</h3>
         <p className="text-muted-foreground mb-4">
-          Cadastre um CNPJ para buscar processos onde a empresa e parte
+          Cadastre um CNPJ para monitorar novos processos onde a empresa e parte
         </p>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -148,7 +176,7 @@ export const CNPJManager = () => {
             <DialogHeader>
               <DialogTitle>Cadastrar CNPJ</DialogTitle>
               <DialogDescription>
-                Adicione um CNPJ para buscar processos onde a empresa e parte
+                Adicione um CNPJ para monitorar novos processos em distribuicao
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -201,6 +229,11 @@ export const CNPJManager = () => {
               <TabsTrigger key={cnpj.id} value={cnpj.id} className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
                 {formatCNPJ(cnpj.cnpj)}
+                {cnpj.monitoramentoAtivo && (
+                  <Badge variant="default" className="ml-1 bg-green-600 text-white text-xs px-1.5 py-0">
+                    <Radar className="h-3 w-3" />
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="ml-1">
                   {cnpj.totalProcessos}
                 </Badge>
@@ -219,7 +252,7 @@ export const CNPJManager = () => {
               <DialogHeader>
                 <DialogTitle>Cadastrar CNPJ</DialogTitle>
                 <DialogDescription>
-                  Adicione um CNPJ para buscar processos onde a empresa e parte
+                  Adicione um CNPJ para monitorar novos processos em distribuicao
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -270,6 +303,13 @@ export const CNPJManager = () => {
                 </span>
               )}
 
+              {cnpj.monitoramentoAtivo && (
+                <Badge variant="default" className="bg-green-600 text-white">
+                  <Radar className="h-3 w-3 mr-1" />
+                  Monitorando
+                </Badge>
+              )}
+
               <div className="flex-1" />
 
               <Button
@@ -316,6 +356,31 @@ export const CNPJManager = () => {
                     <RefreshCw className={`mr-2 h-4 w-4 ${sincronizando === cnpj.id ? 'animate-spin' : ''}`} />
                     Nova Busca
                   </Button>
+
+                  {/* Botao de Monitoramento */}
+                  {cnpj.monitoramentoAtivo ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleMonitoramentoClick(cnpj.id, cnpj.cnpj, false)}
+                      disabled={ativandoMonitoramento === cnpj.id}
+                      className="border-green-600 text-green-600 hover:bg-green-50"
+                    >
+                      <Radar className={`mr-2 h-4 w-4 ${ativandoMonitoramento === cnpj.id ? 'animate-pulse' : ''}`} />
+                      Desativar
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleMonitoramentoClick(cnpj.id, cnpj.cnpj, true)}
+                      disabled={ativandoMonitoramento === cnpj.id}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Radar className={`mr-2 h-4 w-4 ${ativandoMonitoramento === cnpj.id ? 'animate-pulse' : ''}`} />
+                      Ativar Monitoramento
+                    </Button>
+                  )}
                 </>
               )}
 
@@ -394,6 +459,31 @@ export const CNPJManager = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmarNovaBusca}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Monitoramento confirmation */}
+      <AlertDialog open={monitoramentoDialogOpen} onOpenChange={setMonitoramentoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {cnpjParaMonitoramento?.ativar ? 'Ativar Monitoramento' : 'Desativar Monitoramento'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {cnpjParaMonitoramento?.ativar
+                ? 'Deseja ativar o monitoramento de novos processos para este CNPJ? Voce sera notificado automaticamente quando um novo processo for distribuido envolvendo esta empresa.'
+                : 'Deseja desativar o monitoramento? O historico de processos sera mantido, mas voce nao recebera mais notificacoes de novos processos.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmarMonitoramento}
+              className={cnpjParaMonitoramento?.ativar ? 'bg-green-600 hover:bg-green-700' : ''}
+            >
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -12,6 +12,8 @@ export interface CNPJCadastrado {
   ultimaSincronizacao: string | null;
   ultimoRequestId: string | null;
   requestIdData: string | null;
+  trackingId: string | null;
+  monitoramentoAtivo: boolean;
 }
 
 export interface ProcessoCNPJ {
@@ -84,6 +86,8 @@ export const useCNPJs = () => {
         ultimaSincronizacao: item.ultima_sincronizacao,
         ultimoRequestId: item.ultimo_request_id,
         requestIdData: item.request_id_data,
+        trackingId: item.tracking_id,
+        monitoramentoAtivo: item.monitoramento_ativo || false,
       }));
 
       setCnpjs(formatted);
@@ -151,6 +155,37 @@ export const useCNPJs = () => {
     } catch (error: any) {
       console.error('Erro ao sincronizar CNPJ:', error);
       toast.error('Erro ao sincronizar CNPJ');
+      throw error;
+    }
+  };
+
+  const ativarMonitoramentoCNPJ = async (cnpjId: string, cnpj: string, ativar: boolean) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-ativar-monitoramento-cnpj', {
+        body: { 
+          cnpjId, 
+          cnpj, 
+          ativar,
+          tenantId,
+          userId: user.id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (ativar) {
+        toast.success('Monitoramento ativado com sucesso');
+      } else {
+        toast.success('Monitoramento desativado');
+      }
+
+      await fetchCNPJs();
+      return data;
+    } catch (error: any) {
+      console.error('Erro ao ativar/desativar monitoramento:', error);
+      toast.error('Erro ao alterar monitoramento');
       throw error;
     }
   };
@@ -223,6 +258,7 @@ export const useCNPJs = () => {
     fetchCNPJs,
     cadastrarCNPJ,
     sincronizarCNPJ,
+    ativarMonitoramentoCNPJ,
     removerCNPJ,
     consultarRequest,
     salvarRequestId,
