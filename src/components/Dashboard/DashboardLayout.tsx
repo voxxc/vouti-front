@@ -291,6 +291,7 @@ const DashboardLayout = ({
                 <NotificationCenter 
                   userId={user.id} 
                   onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
+                  onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria`))}
                 />
               )}
 
