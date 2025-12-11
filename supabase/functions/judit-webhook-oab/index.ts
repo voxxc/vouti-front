@@ -6,6 +6,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Normaliza timestamp para comparacao consistente (YYYY-MM-DDTHH:MM)
+const normalizeTimestamp = (ts: string | Date | null): string => {
+  if (!ts) return '';
+  try {
+    const date = new Date(ts);
+    if (isNaN(date.getTime())) return String(ts).substring(0, 16);
+    return date.toISOString().substring(0, 16);
+  } catch {
+    return String(ts).substring(0, 16);
+  }
+};
+
+// Gera chave unica para andamento
+const generateAndamentoKey = (dataMovimentacao: string | null, descricao: string | null): string => {
+  const normalizedDate = normalizeTimestamp(dataMovimentacao);
+  const normalizedDesc = (descricao || '').substring(0, 100).toLowerCase().trim();
+  return `${normalizedDate}_${normalizedDesc}`;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -68,7 +87,7 @@ serve(async (req) => {
       .eq('processo_oab_id', processo.id);
 
     const existingKeys = new Set(
-      (existingAndamentos || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
+      (existingAndamentos || []).map(a => generateAndamentoKey(a.data_movimentacao, a.descricao))
     );
 
     // Inserir novos andamentos no processo principal
@@ -79,7 +98,7 @@ serve(async (req) => {
       const dataMovimentacao = step.date || step.data || step.data_movimentacao || step.step_date;
       const descricao = step.description || step.descricao || step.content || '';
       
-      const key = `${dataMovimentacao}_${descricao.substring(0, 50)}`;
+      const key = generateAndamentoKey(dataMovimentacao, descricao);
       
       if (!existingKeys.has(key) && descricao) {
         andamentosParaInserir.push({
@@ -103,7 +122,10 @@ serve(async (req) => {
         .insert(andamentosParaInserir);
 
       if (insertError) {
-        console.error('[Judit Webhook OAB] Erro ao inserir andamentos:', insertError);
+        // Se erro de duplicata, ignorar silenciosamente
+        if (!insertError.message?.includes('duplicate') && !insertError.message?.includes('unique')) {
+          console.error('[Judit Webhook OAB] Erro ao inserir andamentos:', insertError);
+        }
       }
     }
 
@@ -141,12 +163,12 @@ serve(async (req) => {
           .eq('processo_oab_id', outroProcesso.id);
 
         const existingKeysOutro = new Set(
-          (existingOutro || []).map(a => `${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`)
+          (existingOutro || []).map(a => generateAndamentoKey(a.data_movimentacao, a.descricao))
         );
 
         // Filtrar apenas andamentos que nao existem neste processo
         const andamentosParaOutro = andamentosParaInserir
-          .filter(a => !existingKeysOutro.has(`${a.data_movimentacao}_${a.descricao?.substring(0, 50)}`))
+          .filter(a => !existingKeysOutro.has(generateAndamentoKey(a.data_movimentacao, a.descricao)))
           .map(a => ({
             ...a,
             processo_oab_id: outroProcesso.id,
@@ -154,9 +176,15 @@ serve(async (req) => {
           }));
 
         if (andamentosParaOutro.length > 0) {
-          await supabase
+          const { error: insertOutroError } = await supabase
             .from('processos_oab_andamentos')
             .insert(andamentosParaOutro);
+
+          if (insertOutroError) {
+            if (!insertOutroError.message?.includes('duplicate') && !insertOutroError.message?.includes('unique')) {
+              console.error('[Judit Webhook OAB] Erro propagando andamentos:', insertOutroError);
+            }
+          }
 
           // Atualizar timestamp do processo compartilhado
           await supabase

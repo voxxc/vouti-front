@@ -4506,6 +4506,8 @@ export type Database = {
         Args: { _deadline_id: string; _user_id: string }
         Returns: boolean
       }
+      normalize_descricao: { Args: { txt: string }; Returns: string }
+      truncate_minute: { Args: { ts: string }; Returns: string }
       user_belongs_to_tenant: { Args: { _tenant_id: string }; Returns: boolean }
     }
     Enums: {
