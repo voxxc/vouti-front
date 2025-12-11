@@ -142,7 +142,8 @@ export const useMessages = (userId?: string) => {
             file_name: file.name,
             file_path: fileName,
             file_size: file.size,
-            file_type: file.type
+            file_type: file.type,
+            tenant_id: tenantId
           });
         }
       }

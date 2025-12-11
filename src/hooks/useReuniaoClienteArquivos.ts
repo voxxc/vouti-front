@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReuniaoClienteArquivo } from '@/types/reuniao';
 import { toast } from 'sonner';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export const useReuniaoClienteArquivos = (clienteId: string) => {
+  const { tenantId } = useTenantId();
   const [arquivos, setArquivos] = useState<ReuniaoClienteArquivo[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -55,7 +57,8 @@ export const useReuniaoClienteArquivos = (clienteId: string) => {
           file_path: fileName,
           file_size: file.size,
           file_type: file.type,
-          uploaded_by: user.id
+          uploaded_by: user.id,
+          tenant_id: tenantId
         });
 
       if (dbError) throw dbError;

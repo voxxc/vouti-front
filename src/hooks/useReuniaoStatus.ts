@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export interface ReuniaoStatusType {
   id: string;
@@ -14,6 +15,7 @@ export interface ReuniaoStatusType {
 }
 
 export const useReuniaoStatus = () => {
+  const { tenantId } = useTenantId();
   const [status, setStatus] = useState<ReuniaoStatusType[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +41,7 @@ export const useReuniaoStatus = () => {
       const maxOrdem = Math.max(...status.map(s => s.ordem), 0);
       const { data, error } = await supabase
         .from('reuniao_status')
-        .insert({ nome, cor, ordem: maxOrdem + 1 })
+        .insert({ nome, cor, ordem: maxOrdem + 1, tenant_id: tenantId })
         .select()
         .single();
 

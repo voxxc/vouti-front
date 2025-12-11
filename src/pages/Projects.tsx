@@ -16,11 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
 import { calculateProjectProgress } from "@/utils/projectHelpers";
 import { KanbanColumn } from "@/types/project";
+import { useTenantId } from "@/hooks/useTenantId";
 
 const Projects = () => {
   const { navigate } = useTenantNavigation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -211,7 +213,8 @@ const Projects = () => {
           name: newProject.name,
           client: newProject.client,
           description: newProject.description,
-          created_by: user.id
+          created_by: user.id,
+          tenant_id: tenantId
         });
 
       if (error) throw error;
