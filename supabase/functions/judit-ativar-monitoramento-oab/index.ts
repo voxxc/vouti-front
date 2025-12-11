@@ -43,6 +43,56 @@ serve(async (req) => {
       // ATIVAR monitoramento
       console.log('[Judit Monitor] Ativando monitoramento para:', numeroLimpo);
 
+      // Se ja tem tracking_id, usar /resume para reativar
+      if (processo.tracking_id) {
+        console.log('[Judit Monitor] Tracking existente encontrado, usando /resume:', processo.tracking_id);
+        
+        const resumeResponse = await fetch(`https://tracking.prod.judit.io/tracking/${processo.tracking_id}/resume`, {
+          method: 'POST',
+          headers: {
+            'api-key': juditApiKey.trim(),
+          },
+        });
+
+        if (!resumeResponse.ok) {
+          const error = await resumeResponse.text();
+          console.error('[Judit Monitor] Erro ao reativar tracking:', error);
+          // Se falhar o resume, criar novo tracking
+        } else {
+          console.log('[Judit Monitor] Tracking reativado com sucesso');
+          
+          // SINCRONIZAR: Atualizar TODOS os processos com mesmo CNJ no tenant
+          let updateQuery = supabase
+            .from('processos_oab')
+            .update({
+              monitoramento_ativo: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('numero_cnj', numeroCnj);
+
+          if (processoTenantId) {
+            updateQuery = updateQuery.eq('tenant_id', processoTenantId);
+          }
+
+          const { data: updatedProcessos, error: updateError } = await updateQuery.select('id, oab_id');
+          
+          if (updateError) {
+            console.error('[Judit Monitor] Erro ao atualizar processos:', updateError);
+          }
+
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              trackingId: processo.tracking_id, 
+              ativo: true,
+              processosSincronizados: updatedProcessos?.length || 1
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      // Criar novo tracking
       const trackingPayload = {
         recurrence: 1, // Diario
         search: {
@@ -83,7 +133,6 @@ serve(async (req) => {
         const error = await trackingResponse.text();
         console.error('[Judit Monitor] Erro ao criar tracking:', error);
         
-        // Atualizar log com erro
         if (logId) {
           await supabase
             .from('judit_api_logs')
@@ -101,7 +150,6 @@ serve(async (req) => {
       const trackingData = await trackingResponse.json();
       const trackingId = trackingData.tracking_id;
 
-      // Atualizar log com sucesso
       if (logId) {
         await supabase
           .from('judit_api_logs')
@@ -113,7 +161,7 @@ serve(async (req) => {
           .eq('id', logId);
       }
 
-      console.log('[Judit Monitor] Tracking ID:', trackingId);
+      console.log('[Judit Monitor] Novo Tracking ID:', trackingId);
 
       // SINCRONIZAR: Atualizar TODOS os processos com mesmo CNJ no tenant
       let updateQuery = supabase
@@ -125,7 +173,6 @@ serve(async (req) => {
         })
         .eq('numero_cnj', numeroCnj);
 
-      // Se tiver tenant_id, filtra por tenant tambem
       if (processoTenantId) {
         updateQuery = updateQuery.eq('tenant_id', processoTenantId);
       }
@@ -149,23 +196,23 @@ serve(async (req) => {
       );
 
     } else {
-      // DESATIVAR monitoramento
+      // DESATIVAR monitoramento usando endpoint /pause
       console.log('[Judit Monitor] Desativando monitoramento para:', numeroLimpo);
 
       if (processo.tracking_id) {
-        // Pausar tracking na Judit
-        const pauseResponse = await fetch(`https://tracking.prod.judit.io/tracking/${processo.tracking_id}`, {
-          method: 'PATCH',
+        // Pausar tracking na Judit usando POST /pause conforme documentacao
+        const pauseResponse = await fetch(`https://tracking.prod.judit.io/tracking/${processo.tracking_id}/pause`, {
+          method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             'api-key': juditApiKey.trim(),
           },
-          body: JSON.stringify({ status: 'paused' }),
         });
 
         if (!pauseResponse.ok) {
           console.error('[Judit Monitor] Erro ao pausar tracking:', await pauseResponse.text());
           // Continua mesmo se falhar na API
+        } else {
+          console.log('[Judit Monitor] Tracking pausado com sucesso');
         }
       }
 

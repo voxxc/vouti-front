@@ -465,7 +465,13 @@ export const useProcessosOAB = (oabId: string | null) => {
     }
   };
 
-  const toggleMonitoramento = async (processoId: string, numeroCnj: string, ativar: boolean, oabId?: string) => {
+  const toggleMonitoramento = async (
+    processoId: string, 
+    numeroCnj: string, 
+    ativar: boolean, 
+    oabId?: string,
+    onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void
+  ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const tenantId = user ? await getTenantIdForUser(user.id) : null;
@@ -488,6 +494,21 @@ export const useProcessosOAB = (oabId: string | null) => {
       });
 
       await fetchProcessos();
+
+      // Notificar sobre processos compartilhados atualizados
+      if (data.processosSincronizados > 1 && onProcessoCompartilhadoAtualizado) {
+        // Buscar OABs afetadas
+        const { data: oabsAfetadas } = await supabase
+          .from('processos_oab')
+          .select('oab_id')
+          .eq('numero_cnj', numeroCnj)
+          .eq('tenant_id', tenantId)
+          .neq('oab_id', oabId);
+        
+        const oabIds = oabsAfetadas?.map(o => o.oab_id).filter(Boolean) as string[] || [];
+        onProcessoCompartilhadoAtualizado(numeroCnj, oabIds);
+      }
+
       return data;
     } catch (error: any) {
       console.error('[useProcessosOAB] Erro ao alterar monitoramento:', error);

@@ -29,6 +29,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,7 +57,7 @@ interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onToggleMonitoramento: (processo: ProcessoOAB) => Promise<void>;
+  onToggleMonitoramento: (processo: ProcessoOAB) => Promise<any>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
   oab?: OABCadastrada | null;
@@ -153,13 +163,19 @@ export const ProcessoOABDetalhes = ({
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
+  const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
 
   if (!processo) return null;
   
   // Get instance from capa_completa for download
   const instancia = processo.capa_completa?.instance || 1;
 
-  const handleToggleMonitoramento = async () => {
+  const handleToggleClick = () => {
+    setConfirmMonitoramentoOpen(true);
+  };
+
+  const handleConfirmToggle = async () => {
+    setConfirmMonitoramentoOpen(false);
     setTogglingMonitoramento(true);
     await onToggleMonitoramento(processo);
     setTogglingMonitoramento(false);
@@ -243,12 +259,34 @@ export const ProcessoOABDetalhes = ({
                 <Switch
                   id="monitoramento"
                   checked={processo.monitoramento_ativo}
-                  onCheckedChange={handleToggleMonitoramento}
+                  onCheckedChange={handleToggleClick}
                   disabled={togglingMonitoramento}
                 />
               </div>
             </div>
           </Card>
+
+          {/* Modal de Confirmacao de Monitoramento */}
+          <AlertDialog open={confirmMonitoramentoOpen} onOpenChange={setConfirmMonitoramentoOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {processo.monitoramento_ativo ? 'Desativar Monitoramento?' : 'Ativar Monitoramento?'}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {processo.monitoramento_ativo 
+                    ? 'O monitoramento diario sera desativado. O historico de andamentos sera mantido.'
+                    : 'O monitoramento diario sera ativado. Voce recebera notificacoes automaticas de novos andamentos.'}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmToggle}>
+                  {processo.monitoramento_ativo ? 'Desativar' : 'Ativar'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Tabs */}
           <Tabs defaultValue="resumo" className="flex-1">

@@ -519,7 +519,15 @@ export const OABManager = () => {
               </div>
 
               {/* Lista de Processos */}
-              <OABTab oabId={oab.id} oab={oab} />
+              <OABTab 
+                oabId={oab.id} 
+                oab={oab} 
+                onProcessoCompartilhadoAtualizado={(cnj, oabsAfetadas) => {
+                  // Força refresh das OABs afetadas
+                  console.log('[OABManager] Processo compartilhado atualizado:', cnj, 'OABs afetadas:', oabsAfetadas);
+                  // Pode disparar um evento ou forçar reload - o fetchProcessos já é chamado internamente
+                }}
+              />
             </TabsContent>
           ))}
         </Tabs>

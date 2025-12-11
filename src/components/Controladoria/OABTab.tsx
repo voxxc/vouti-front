@@ -49,6 +49,7 @@ import { useTenantId } from '@/hooks/useTenantId';
 interface OABTabProps {
   oabId: string;
   oab?: OABCadastrada;
+  onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void;
 }
 
 // Mapa de CNJ -> advogados que compartilham
@@ -315,7 +316,7 @@ const InstanciaSection = ({
   );
 };
 
-export const OABTab = ({ oabId, oab }: OABTabProps) => {
+export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTabProps) => {
   const { 
     processos, 
     loading, 
@@ -509,7 +510,14 @@ export const OABTab = ({ oabId, oab }: OABTabProps) => {
   };
 
   const handleToggleMonitoramento = async (processo: ProcessoOAB) => {
-    await toggleMonitoramento(processo.id, processo.numero_cnj, !processo.monitoramento_ativo);
+    const result = await toggleMonitoramento(
+      processo.id, 
+      processo.numero_cnj, 
+      !processo.monitoramento_ativo, 
+      oabId,
+      onProcessoCompartilhadoAtualizado
+    );
+    return result;
   };
 
   if (loading) {
