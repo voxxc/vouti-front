@@ -303,6 +303,7 @@ async function processarAndamentos(supabase: any, processoId: string, resultData
           .from('processos_oab_andamentos')
           .insert({
             processo_oab_id: sharedId,
+            tenant_id: processoTenantId,
             data_movimentacao: dataMovimentacao,
             tipo_movimentacao: step.type || step.tipo || null,
             descricao: descricao,
