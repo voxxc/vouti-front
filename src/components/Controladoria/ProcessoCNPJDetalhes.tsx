@@ -41,7 +41,14 @@ export const ProcessoCNPJDetalhes = ({
   onClose,
   onUpdate,
 }: ProcessoCNPJDetalhesProps) => {
+  const [activeTab, setActiveTab] = useState('resumo');
   const capa = processo.capaCompleta || {};
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose();
+    }
+  };
 
   const formatValor = (valor: number | null | undefined) => {
     if (!valor) return null;
@@ -115,8 +122,11 @@ export const ProcessoCNPJDetalhes = ({
   );
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent 
+        className="w-full sm:max-w-2xl overflow-hidden flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <SheetHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2">
@@ -133,7 +143,7 @@ export const ProcessoCNPJDetalhes = ({
         </SheetHeader>
 
         <ScrollArea className="flex-1 mt-4">
-          <Tabs defaultValue="resumo" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full">
               <TabsTrigger value="resumo" className="flex-1">
                 <Scale className="h-4 w-4 mr-2" />
