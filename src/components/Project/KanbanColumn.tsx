@@ -29,6 +29,7 @@ interface KanbanColumnProps {
   onDeleteColumn?: () => void;
   isDraggingColumn?: boolean;
   isColumnsLocked?: boolean;
+  fullWidth?: boolean;
 }
 
 const KanbanColumn = ({ 
@@ -42,16 +43,17 @@ const KanbanColumn = ({
   onUpdateName,
   onDeleteColumn,
   isDraggingColumn = false,
-  isColumnsLocked = false
+  isColumnsLocked = false,
+  fullWidth = false
 }: KanbanColumnProps) => {
   const borderColor = color;
   const bgColor = `${color}20`;
 
   return (
     <Card 
-      className={`shadow-card border-0 h-[calc(100vh-200px)] w-[280px] flex-shrink-0 transition-opacity ${
-        isDraggingColumn ? 'opacity-50' : ''
-      }`}
+      className={`shadow-card border-0 h-[calc(100vh-200px)] flex-shrink-0 transition-opacity ${
+        fullWidth ? 'w-full min-w-[320px]' : 'w-[280px]'
+      } ${isDraggingColumn ? 'opacity-50' : ''}`}
       style={{
         borderLeft: `4px solid ${borderColor}`,
         backgroundColor: bgColor

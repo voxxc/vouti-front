@@ -315,6 +315,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
               title="Processos/Dívidas"
               taskCount={filteredTasks.filter(task => task.status !== 'done').length}
               onAddTask={handleAddTask}
+              fullWidth
             >
               {filteredTasks
                 .filter(task => task.status !== 'done')
@@ -344,6 +345,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
               title="Acordos Feitos"
               taskCount={filteredTasks.filter(task => task.status === 'done').length}
               onAddTask={() => {}}
+              fullWidth
             >
               {filteredTasks
                 .filter(task => task.status === 'done')
