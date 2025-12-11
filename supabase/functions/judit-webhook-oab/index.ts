@@ -31,10 +31,10 @@ serve(async (req) => {
       );
     }
 
-    // Buscar processo pelo tracking_id
+    // Buscar processo pelo tracking_id COM tenant_id
     const { data: processo, error: fetchError } = await supabase
       .from('processos_oab')
-      .select('id, numero_cnj')
+      .select('id, numero_cnj, tenant_id')
       .eq('tracking_id', trackingId)
       .single();
 
@@ -84,6 +84,7 @@ serve(async (req) => {
           .from('processos_oab_andamentos')
           .insert({
             processo_oab_id: processo.id,
+            tenant_id: processo.tenant_id,
             data_movimentacao: dataMovimentacao,
             tipo_movimentacao: step.type || step.tipo || null,
             descricao: descricao,
