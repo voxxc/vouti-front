@@ -2762,7 +2762,7 @@ export type Database = {
           id: string
           lida: boolean | null
           processo_oab_id: string
-          tenant_id: string | null
+          tenant_id: string
           tipo_movimentacao: string | null
         }
         Insert: {
@@ -2773,7 +2773,7 @@ export type Database = {
           id?: string
           lida?: boolean | null
           processo_oab_id: string
-          tenant_id?: string | null
+          tenant_id: string
           tipo_movimentacao?: string | null
         }
         Update: {
@@ -2784,7 +2784,7 @@ export type Database = {
           id?: string
           lida?: boolean | null
           processo_oab_id?: string
-          tenant_id?: string | null
+          tenant_id?: string
           tipo_movimentacao?: string | null
         }
         Relationships: [
