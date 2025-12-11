@@ -460,23 +460,17 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   };
 
   const handleVerDetalhes = async (processo: ProcessoOAB) => {
-    // Se ja tem detalhes carregados, abre direto (sem custo)
-    if (processo.detalhes_carregados) {
-      setSelectedProcesso(processo);
-      setDrawerOpen(true);
-      return;
-    }
-    
-    // Se tem request_id salvo, fazer GET gratuito ao inves de pedir consulta paga
+    // Se tem request_id salvo, pode fazer GET gratuito - abre direto
     if (processo.detalhes_request_id) {
       setSelectedProcesso(processo);
       setDrawerOpen(true);
-      // Fazer GET gratuito para atualizar andamentos
+      // Fazer GET gratuito para atualizar andamentos em background
       await consultarDetalhesRequest(processo.id, processo.detalhes_request_id);
       return;
     }
     
-    // Mostrar dialog de confirmacao antes de fazer consulta paga
+    // Sem request_id = precisa fazer consulta paga
+    // SEMPRE mostrar dialog de confirmacao
     setProcessoParaCarregar(processo);
     setConfirmDialogOpen(true);
   };
