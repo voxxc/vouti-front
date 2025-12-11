@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ClienteParcela, ParcelaComentario, DadosBaixaPagamento } from '@/types/financeiro';
 import { toast } from '@/hooks/use-toast';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export const useClienteParcelas = (clienteId: string | null, dividaId?: string | null) => {
+  const { tenantId } = useTenantId();
   const [parcelas, setParcelas] = useState<ClienteParcela[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -94,6 +96,7 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
             parcela_id: parcelaId,
             user_id: user.id,
             comentario: `Pagamento registrado via ${dados.metodo_pagamento}`,
+            tenant_id: tenantId
           });
       }
 
@@ -126,6 +129,7 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
 export const useParcelaComentarios = (parcelaId: string | null) => {
   const [comentarios, setComentarios] = useState<ParcelaComentario[]>([]);
   const [loading, setLoading] = useState(false);
+  const { tenantId } = useTenantId();
 
   const fetchComentarios = async () => {
     if (!parcelaId) return;
@@ -176,6 +180,7 @@ export const useParcelaComentarios = (parcelaId: string | null) => {
           parcela_id: parcelaId,
           user_id: user.id,
           comentario,
+          tenant_id: tenantId
         });
 
       if (error) throw error;

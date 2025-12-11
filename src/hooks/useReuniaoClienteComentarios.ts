@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReuniaoClienteComentario } from '@/types/reuniao';
 import { toast } from 'sonner';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export const useReuniaoClienteComentarios = (clienteId: string) => {
+  const { tenantId } = useTenantId();
   const [comentarios, setComentarios] = useState<ReuniaoClienteComentario[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -55,7 +57,8 @@ export const useReuniaoClienteComentarios = (clienteId: string) => {
         .insert([{
           cliente_id: clienteId,
           user_id: user.id,
-          comentario
+          comentario,
+          tenant_id: tenantId
         }]);
 
       if (error) throw error;

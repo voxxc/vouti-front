@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTenantId } from '@/hooks/useTenantId';
 
 interface DeadlineComentario {
   id: string;
@@ -20,6 +21,7 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
   const [comentarios, setComentarios] = useState<DeadlineComentario[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
 
   const fetchComentarios = async () => {
     if (!deadlineId) return;
@@ -75,6 +77,7 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
           deadline_id: deadlineId,
           user_id: user.id,
           comentario: comentario.trim(),
+          tenant_id: tenantId
         });
 
       if (error) throw error;

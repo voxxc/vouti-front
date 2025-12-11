@@ -3181,6 +3181,7 @@ export type Database = {
           last_validated: string | null
           login_encrypted: string
           password_encrypted: string
+          tenant_id: string | null
           totp_secret_encrypted: string
           tribunal: string
           updated_at: string | null
@@ -3193,6 +3194,7 @@ export type Database = {
           last_validated?: string | null
           login_encrypted: string
           password_encrypted: string
+          tenant_id?: string | null
           totp_secret_encrypted: string
           tribunal?: string
           updated_at?: string | null
@@ -3205,12 +3207,21 @@ export type Database = {
           last_validated?: string | null
           login_encrypted?: string
           password_encrypted?: string
+          tenant_id?: string | null
           totp_secret_encrypted?: string
           tribunal?: string
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projudi_credentials_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reuniao_arquivos: {
         Row: {
@@ -3784,6 +3795,7 @@ export type Database = {
           details: string
           id: string
           task_id: string
+          tenant_id: string | null
           user_id: string
         }
         Insert: {
@@ -3792,6 +3804,7 @@ export type Database = {
           details: string
           id?: string
           task_id: string
+          tenant_id?: string | null
           user_id: string
         }
         Update: {
@@ -3800,6 +3813,7 @@ export type Database = {
           details?: string
           id?: string
           task_id?: string
+          tenant_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -3808,6 +3822,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4104,6 +4125,7 @@ export type Database = {
           oauth_refresh_token: string | null
           oauth_token: string | null
           password_encrypted: string | null
+          tenant_id: string | null
           token_expires_at: string | null
           tribunal_code: string
           tribunal_name: string
@@ -4124,6 +4146,7 @@ export type Database = {
           oauth_refresh_token?: string | null
           oauth_token?: string | null
           password_encrypted?: string | null
+          tenant_id?: string | null
           token_expires_at?: string | null
           tribunal_code: string
           tribunal_name: string
@@ -4144,13 +4167,22 @@ export type Database = {
           oauth_refresh_token?: string | null
           oauth_token?: string | null
           password_encrypted?: string | null
+          tenant_id?: string | null
           token_expires_at?: string | null
           tribunal_code?: string
           tribunal_name?: string
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tribunal_credentials_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tribunal_sync_logs: {
         Row: {
@@ -4244,6 +4276,7 @@ export type Database = {
           instance_name: string
           is_active: boolean | null
           response_message: string
+          tenant_id: string | null
           trigger_keyword: string
           updated_at: string | null
           user_id: string | null
@@ -4254,6 +4287,7 @@ export type Database = {
           instance_name: string
           is_active?: boolean | null
           response_message: string
+          tenant_id?: string | null
           trigger_keyword: string
           updated_at?: string | null
           user_id?: string | null
@@ -4264,11 +4298,20 @@ export type Database = {
           instance_name?: string
           is_active?: boolean | null
           response_message?: string
+          tenant_id?: string | null
           trigger_keyword?: string
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_automations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_instances: {
         Row: {
@@ -4278,6 +4321,7 @@ export type Database = {
           instance_name: string
           last_update: string | null
           qr_code: string | null
+          tenant_id: string | null
           user_id: string
           zapi_token: string | null
           zapi_url: string | null
@@ -4289,6 +4333,7 @@ export type Database = {
           instance_name: string
           last_update?: string | null
           qr_code?: string | null
+          tenant_id?: string | null
           user_id?: string
           zapi_token?: string | null
           zapi_url?: string | null
@@ -4300,11 +4345,20 @@ export type Database = {
           instance_name?: string
           last_update?: string | null
           qr_code?: string | null
+          tenant_id?: string | null
           user_id?: string
           zapi_token?: string | null
           zapi_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_messages: {
         Row: {
@@ -4318,6 +4372,7 @@ export type Database = {
           message_text: string | null
           message_type: string | null
           raw_data: Json | null
+          tenant_id: string | null
           timestamp: string | null
           to_number: string | null
           user_id: string
@@ -4333,6 +4388,7 @@ export type Database = {
           message_text?: string | null
           message_type?: string | null
           raw_data?: Json | null
+          tenant_id?: string | null
           timestamp?: string | null
           to_number?: string | null
           user_id: string
@@ -4348,11 +4404,20 @@ export type Database = {
           message_text?: string | null
           message_type?: string | null
           raw_data?: Json | null
+          tenant_id?: string | null
           timestamp?: string | null
           to_number?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

@@ -11,6 +11,7 @@ import ProjectParticipants from "@/components/Project/ProjectParticipants";
 import EditableProjectName from "@/components/Project/EditableProjectName";
 import { Project, Task } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AcordosViewProps {
@@ -27,6 +28,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const { tenantId } = useTenantId();
   const { toast } = useToast();
 
   // Filtrar apenas as tarefas de acordo usando o type
@@ -201,7 +203,8 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           status: 'todo',
           project_id: project.id,
           task_type: 'acordo',
-          acordo_details: {}
+          acordo_details: {},
+          tenant_id: tenantId
         })
         .select()
         .single();
