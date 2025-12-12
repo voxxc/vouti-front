@@ -10,6 +10,7 @@ import { UserPlus, Edit, Trash2, Search } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantId } from "@/hooks/useTenantId";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UserManagementProps {
@@ -25,6 +26,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -151,6 +153,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
+    
+    if (!tenantId) {
+      toast({
+        title: "Erro",
+        description: "Nao foi possivel identificar o tenant. Recarregue a pagina.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -165,20 +177,22 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (profileError) throw profileError;
 
-      // Delete existing roles for this user
+      // Delete existing roles for this user in this tenant
       const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', editingUser.id);
+        .eq('user_id', editingUser.id)
+        .eq('tenant_id', tenantId);
 
       if (deleteError) throw deleteError;
 
-      // Insert the new role
+      // Insert the new role with tenant_id
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({ 
           user_id: editingUser.id, 
-          role: editFormData.role 
+          role: editFormData.role,
+          tenant_id: tenantId
         });
 
       if (roleError) throw roleError;
