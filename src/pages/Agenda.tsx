@@ -970,12 +970,12 @@ const Agenda = () => {
                         <TableRow key={deadline.id}>
                           <TableCell className="font-medium">{deadline.title}</TableCell>
                           <TableCell>{deadline.projectName}</TableCell>
-                          <TableCell>{format(deadline.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                          <TableCell>{safeFormatDate(deadline.date)}</TableCell>
                           <TableCell>
                             <Badge 
-                              variant={deadline.completed ? "default" : isPast(deadline.date) ? "destructive" : "secondary"}
+                              variant={deadline.completed ? "default" : safeIsPast(deadline.date) ? "destructive" : "secondary"}
                             >
-                              {deadline.completed ? "Concluido" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
+                              {deadline.completed ? "Concluido" : safeIsPast(deadline.date) ? "Atrasado" : "Pendente"}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -1027,7 +1027,7 @@ const Agenda = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Data</label>
-                        <p className="text-foreground">{format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}</p>
+                        <p className="text-foreground">{safeFormatDate(selectedDeadline.date)}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Projeto</label>
@@ -1076,10 +1076,10 @@ const Agenda = () => {
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Status</label>
                       <Badge 
-                        variant={selectedDeadline.completed ? "default" : isPast(selectedDeadline.date) ? "destructive" : "secondary"}
+                        variant={selectedDeadline.completed ? "default" : safeIsPast(selectedDeadline.date) ? "destructive" : "secondary"}
                         className="ml-2"
                       >
-                        {selectedDeadline.completed ? "Concluido" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
+                        {selectedDeadline.completed ? "Concluido" : safeIsPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
                       </Badge>
                     </div>
 
