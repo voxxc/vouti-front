@@ -65,3 +65,6 @@ verify_jwt = true
 
 [functions.judit-webhook-cnpj]
 verify_jwt = false
+
+[functions.vouti-ia-chat]
+verify_jwt = true
