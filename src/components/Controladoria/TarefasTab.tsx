@@ -37,6 +37,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
 import { cn } from '@/lib/utils';
+import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
+import UserTagSelector from '@/components/Agenda/UserTagSelector';
 
 interface TarefasTabProps {
   processo: ProcessoOAB;
@@ -106,6 +108,8 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   const [prazoDescricao, setPrazoDescricao] = useState('');
   const [prazoData, setPrazoData] = useState<Date>(new Date());
   const [prazoProjetoId, setPrazoProjetoId] = useState('');
+  const [prazoResponsavelId, setPrazoResponsavelId] = useState<string | null>(null);
+  const [prazoTaggedUsers, setPrazoTaggedUsers] = useState<string[]>([]);
   const [submittingPrazo, setSubmittingPrazo] = useState(false);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loadingProjetos, setLoadingProjetos] = useState(false);
@@ -246,11 +250,13 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
     setPrazoDescricao(tarefa.descricao || tarefa.observacoes || '');
     setPrazoData(new Date());
     setPrazoProjetoId('');
+    setPrazoResponsavelId(userId); // Pre-seleciona usuario logado
+    setPrazoTaggedUsers([]);
     setPrazoModalOpen(true);
   };
 
   const handleCriarPrazoSubmit = async () => {
-    if (!prazoTitulo.trim() || !prazoProjetoId || !userId || !tenantId) {
+    if (!prazoTitulo.trim() || !prazoProjetoId || !prazoResponsavelId || !tenantId) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatorios.",
@@ -261,29 +267,53 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
 
     setSubmittingPrazo(true);
     try {
-      const { error } = await supabase
+      // 1. Criar deadline e retornar ID
+      const { data, error } = await supabase
         .from('deadlines')
         .insert({
-          user_id: userId,
+          user_id: prazoResponsavelId,
           tenant_id: tenantId,
           title: prazoTitulo.trim(),
           description: prazoDescricao.trim() || null,
           date: format(prazoData, 'yyyy-MM-dd'),
           project_id: prazoProjetoId,
           processo_oab_id: processo.id,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
+      // 2. Se tem usuarios tagueados, inserir em deadline_tags
+      if (prazoTaggedUsers.length > 0) {
+        const tags = prazoTaggedUsers.map(tagUserId => ({
+          deadline_id: data.id,
+          tagged_user_id: tagUserId,
+          tenant_id: tenantId,
+        }));
+
+        const { error: tagsError } = await supabase
+          .from('deadline_tags')
+          .insert(tags);
+
+        if (tagsError) {
+          console.error('Erro ao criar tags:', tagsError);
+        }
+      }
+
       toast({
         title: "Prazo criado",
-        description: "O prazo foi adicionado a agenda com sucesso.",
+        description: prazoTaggedUsers.length > 0 
+          ? `Prazo criado e ${prazoTaggedUsers.length} colaborador(es) notificado(s).`
+          : "O prazo foi adicionado a agenda com sucesso.",
       });
       
       setPrazoModalOpen(false);
       setPrazoTitulo('');
       setPrazoDescricao('');
       setPrazoProjetoId('');
+      setPrazoResponsavelId(null);
+      setPrazoTaggedUsers([]);
     } catch (err) {
       console.error('Erro ao criar prazo:', err);
       toast({
@@ -660,6 +690,25 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
               </Select>
             </div>
 
+            {/* Responsavel (obrigatorio) */}
+            <AdvogadoSelector
+              value={prazoResponsavelId}
+              onChange={setPrazoResponsavelId}
+            />
+
+            {/* Tags - Colaboradores */}
+            <div className="space-y-1.5">
+              <Label>Marcar Colaboradores</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Colaboradores marcados serao notificados sobre este prazo
+              </p>
+              <UserTagSelector
+                selectedUsers={prazoTaggedUsers}
+                onChange={setPrazoTaggedUsers}
+                excludeCurrentUser={false}
+              />
+            </div>
+
             {/* Descricao */}
             <div className="space-y-1.5">
               <Label htmlFor="prazo-descricao">Descricao</Label>
@@ -674,7 +723,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
 
             <Button 
               onClick={handleCriarPrazoSubmit} 
-              disabled={!prazoTitulo.trim() || !prazoProjetoId || submittingPrazo} 
+              disabled={!prazoTitulo.trim() || !prazoProjetoId || !prazoResponsavelId || submittingPrazo} 
               className="w-full"
             >
               {submittingPrazo ? (
