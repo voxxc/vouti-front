@@ -152,7 +152,9 @@ const HomePage = () => {
             onClick={() => setShowEasterEgg(!showEasterEgg)}
             className="focus:outline-none"
           >
-            <LogoVouti size="sm" />
+            <span className="text-2xl font-bold tracking-wider bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              VOUTI
+            </span>
           </button>
           
           {showEasterEgg && (
