@@ -97,6 +97,17 @@ const Agenda = () => {
     }
   };
 
+  // Helper para parsear timestamp com seguranca (created_at, updated_at)
+  const safeParseTimestamp = (timestamp: string | null | undefined): Date => {
+    if (!timestamp) return new Date();
+    try {
+      const parsed = new Date(timestamp);
+      return isValid(parsed) ? parsed : new Date();
+    } catch {
+      return new Date();
+    }
+  };
+
   // Verificar se veio da aba Tarefas com params para criar prazo
   useEffect(() => {
     const criarPrazo = searchParams.get('criarPrazo');
@@ -159,8 +170,8 @@ const Agenda = () => {
         tasks: [],
         acordoTasks: [],
         createdBy: project.created_by,
-        createdAt: new Date(project.created_at),
-        updatedAt: new Date(project.updated_at)
+        createdAt: safeParseTimestamp(project.created_at),
+        updatedAt: safeParseTimestamp(project.updated_at)
       }));
 
       setProjects(mappedProjects);
@@ -232,8 +243,8 @@ const Agenda = () => {
             avatar: tag.tagged_user?.avatar_url
           })),
         processoOabId: deadline.processo_oab_id || undefined,
-        createdAt: new Date(deadline.created_at),
-        updatedAt: new Date(deadline.updated_at)
+        createdAt: safeParseTimestamp(deadline.created_at),
+        updatedAt: safeParseTimestamp(deadline.updated_at)
       }));
 
       setDeadlines(mappedDeadlines);
@@ -575,8 +586,8 @@ const Agenda = () => {
               avatar: tag.tagged_user?.avatar_url
             })),
           processoOabId: deadline.processo_oab_id || undefined,
-          createdAt: new Date(deadline.created_at),
-          updatedAt: new Date(deadline.updated_at)
+          createdAt: safeParseTimestamp(deadline.created_at),
+          updatedAt: safeParseTimestamp(deadline.updated_at)
         }));
         setFilteredUserDeadlines(mapped);
       }
