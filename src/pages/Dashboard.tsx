@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OverviewSection } from "@/components/Dashboard/OverviewSection";
 import UserManagement from "@/components/Admin/UserManagement";
-import { FolderOpen, Calendar, Users, DollarSign, FileCheck, Video } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,21 +44,18 @@ const Dashboard = () => {
       console.error('Error fetching users:', error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar usuários.",
+        description: "Erro ao carregar usuarios.",
         variant: "destructive",
       });
     }
   };
 
   const handleAddUser = (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
-    // User is created via Supabase Auth in UserManagement component
-    // Refresh the user list
     fetchUsers();
   };
 
   const handleEditUser = async (userId: string, userData: Partial<User>) => {
     try {
-      // Atualizar informações do perfil (sem role)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -72,9 +67,7 @@ const Dashboard = () => {
 
       if (profileError) throw profileError;
 
-      // Se a role foi alterada, atualizar na tabela user_roles
       if (userData.role) {
-        // Primeiro, remover todas as roles antigas do usuário
         const { error: deleteError } = await supabase
           .from('user_roles')
           .delete()
@@ -82,7 +75,6 @@ const Dashboard = () => {
 
         if (deleteError) throw deleteError;
 
-        // Inserir a nova role
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert({
@@ -95,16 +87,15 @@ const Dashboard = () => {
 
       toast({
         title: "Sucesso",
-        description: "Usuário atualizado com sucesso!",
+        description: "Usuario atualizado com sucesso!",
       });
 
-      // Recarregar lista de usuários para refletir mudanças
       fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
       toast({
         title: "Erro",
-        description: "Erro ao atualizar usuário.",
+        description: "Erro ao atualizar usuario.",
         variant: "destructive",
       });
     }
@@ -112,8 +103,6 @@ const Dashboard = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // Note: You should implement proper user deletion
-      // This is a simplified version
       const { error } = await supabase
         .from('profiles')
         .delete()
@@ -125,25 +114,27 @@ const Dashboard = () => {
 
       toast({
         title: "Sucesso",
-        description: "Usuário removido com sucesso!",
+        description: "Usuario removido com sucesso!",
       });
     } catch (error) {
       console.error('Error deleting user:', error);
       toast({
         title: "Erro",
-        description: "Erro ao remover usuário.",
+        description: "Erro ao remover usuario.",
         variant: "destructive",
       });
     }
   };
 
+  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' = (userRole as any) || 'advogado';
+
   if (showUserManagement) {
     return (
-      <DashboardLayout>
+      <DashboardLayout currentPage="dashboard">
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => setShowUserManagement(false)}>
-              ← Voltar ao Dashboard
+              Voltar ao Dashboard
             </Button>
           </div>
           <UserManagement
@@ -159,11 +150,11 @@ const Dashboard = () => {
 
   if (showOverview) {
     return (
-      <DashboardLayout>
+      <DashboardLayout currentPage="dashboard">
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => setShowOverview(false)}>
-              ← Voltar ao Dashboard
+              Voltar ao Dashboard
             </Button>
           </div>
           <OverviewSection users={systemUsers} projects={[]} />
@@ -172,73 +163,14 @@ const Dashboard = () => {
     );
   }
 
-  // Obter role do usuário atual do AuthContext
-  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' = (userRole as any) || 'advogado';
-
-  // Função para verificar se o usuário tem acesso a uma seção
-  const hasAccess = (section: string) => {
-    if (!currentUserRole) return false;
-    if (currentUserRole === 'admin') return true;
-    
-    // Perfil Agenda só tem acesso a Reuniões
-    if (currentUserRole === 'agenda') {
-      return section === 'reunioes';
-    }
-    
-    if (section === 'projetos' && (currentUserRole === 'advogado')) return true;
-    if (section === 'agenda' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
-    if (section === 'clientes' && (currentUserRole === 'comercial')) return true;
-    if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
-    if (section === 'controladoria' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
-    if (section === 'reunioes' && (currentUserRole === 'advogado' || currentUserRole === 'comercial' || currentUserRole === 'controller')) return true;
-    return false;
-  };
-
-  const menuItems = [
-    { id: 'projetos', icon: FolderOpen, label: 'Projetos', route: '/projects' },
-    { id: 'agenda', icon: Calendar, label: 'Agenda', route: '/agenda' },
-    { id: 'clientes', icon: Users, label: 'Clientes', route: '/crm' },
-    { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
-    { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
-    { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
-  ];
-
   return (
     <DashboardLayout
+      currentPage="dashboard"
       isAdmin={currentUserRole === 'admin'}
       onCreateUser={() => setShowUserManagement(true)}
     >
-      <div className="flex gap-6 h-full">
-        {/* Área Central - Painel de Métricas */}
-        <div className="flex-1 space-y-6">
-          <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
-        </div>
-
-        {/* Menu Lateral Direito */}
-        <div className="w-20 border-l border-border bg-card">
-          <div className="flex flex-col gap-2 p-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const hasAccessToItem = hasAccess(item.id);
-              
-              if (!hasAccessToItem) return null;
-
-              return (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate(item.route)}
-                  className="w-full h-14 flex flex-col items-center justify-center gap-1 text-xs hover:bg-accent"
-                  title={item.label}
-                >
-                  <Icon size={20} />
-                  <span className="text-[10px] leading-tight text-center">{item.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-        </div>
+      <div className="space-y-6">
+        <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
       </div>
     </DashboardLayout>
   );
