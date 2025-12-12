@@ -17,7 +17,7 @@ const LogoSolvenza = ({ className = "", size = "md" }: LogoSolvenzaProps) => {
   };
 
   return (
-    <div className={`flex flex-col items-start ${className}`}>
+    <div className={`flex flex-col items-center ${className}`}>
       {/* Logo Icon - S Shield (Superman style) */}
       <div className="relative mb-2">
         <svg 
@@ -61,7 +61,7 @@ const LogoSolvenza = ({ className = "", size = "md" }: LogoSolvenzaProps) => {
       </div>
       
       {/* Text */}
-      <div className="flex flex-col items-start text-left">
+      <div className="flex flex-col items-center text-center">
         <span 
           className="text-[6px] font-normal tracking-[0.3em] mb-0.5 leading-none"
           style={{
