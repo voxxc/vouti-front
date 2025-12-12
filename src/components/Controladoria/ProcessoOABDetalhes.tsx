@@ -594,17 +594,7 @@ export const ProcessoOABDetalhes = ({
 
             {/* Vouti IA */}
             <TabsContent value="vouti-ia" className="mt-4">
-              <VoutiIATab 
-                processoOabId={processo.id} 
-                processoContext={{
-                  numero_cnj: processo.numero_cnj,
-                  parte_ativa: processo.parte_ativa || undefined,
-                  parte_passiva: processo.parte_passiva || undefined,
-                  tribunal: processo.tribunal || capa.court?.name,
-                  status: processo.status_processual || capa.situation,
-                  valor_causa: processo.valor_causa || capa.amount,
-                }}
-              />
+              <VoutiIATab processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}

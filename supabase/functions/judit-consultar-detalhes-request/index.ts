@@ -83,11 +83,28 @@ serve(async (req) => {
       throw new Error('Nenhum resultado encontrado para este request_id');
     }
 
-    // Extrair dados do resultado
+    // Extrair dados do resultado - separar por response_type
     const pageData = resultData.page_data || [];
-    const firstResult = pageData[0] || {};
-    const responseData = firstResult.response_data || firstResult;
+    
+    let lawsuitData = null;
+    let summaryData = null;
+    
+    for (const item of pageData) {
+      const respType = item.response_type || item.response_data?.response_type;
+      if (respType === 'summary') {
+        summaryData = item.response_data || item;
+      } else {
+        lawsuitData = item.response_data || item;
+      }
+    }
+    
+    if (!lawsuitData && pageData.length > 0) {
+      lawsuitData = pageData[0].response_data || pageData[0];
+    }
+    
+    const responseData = lawsuitData || {};
     const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+    const aiSummary = summaryData?.summary || summaryData?.content || null;
 
     console.log('[Judit Consultar Request] Andamentos encontrados:', steps.length);
 
@@ -147,12 +164,14 @@ serve(async (req) => {
       }
     }
 
-    // Atualizar TODOS os processos compartilhados com timestamp e request_id
+    // Atualizar TODOS os processos compartilhados com timestamp, request_id e AI summary
     await supabase
       .from('processos_oab')
       .update({
         detalhes_request_id: requestId,
         ultima_atualizacao_detalhes: new Date().toISOString(),
+        ai_summary: aiSummary,
+        ai_summary_data: summaryData,
         updated_at: new Date().toISOString()
       })
       .eq('numero_cnj', numeroCnj)
