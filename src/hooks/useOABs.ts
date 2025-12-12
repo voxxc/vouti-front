@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getTenantIdForUser } from './useTenantId';
@@ -410,6 +410,10 @@ export const useProcessosOAB = (oabId: string | null) => {
   }, [fetchProcessos]);
 
   // Real-time subscription para atualizar contagem de andamentos nao lidos
+  // Usar ref para evitar stale closure
+  const processosRef = useRef<ProcessoOAB[]>([]);
+  processosRef.current = processos;
+
   useEffect(() => {
     if (!oabId) return;
 
@@ -426,8 +430,8 @@ export const useProcessosOAB = (oabId: string | null) => {
           const processoId = (payload.new as any)?.processo_oab_id || (payload.old as any)?.processo_oab_id;
           if (!processoId) return;
 
-          // Verificar se o processo pertence a esta OAB
-          const processoExiste = processos.some(p => p.id === processoId);
+          // Usar ref para verificar se processo pertence a esta OAB (evita stale closure)
+          const processoExiste = processosRef.current.some(p => p.id === processoId);
           if (!processoExiste) return;
 
           // Atualizar contagem do processo afetado
@@ -450,7 +454,7 @@ export const useProcessosOAB = (oabId: string | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [oabId, processos]);
+  }, [oabId]);
 
   const carregarDetalhes = async (processoId: string, numeroCnj: string, oabId?: string) => {
     setCarregandoDetalhes(processoId);
