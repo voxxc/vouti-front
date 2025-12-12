@@ -78,6 +78,25 @@ const Agenda = () => {
     }
   };
 
+  // Helper para formatacao segura de data
+  const safeFormatDate = (date: Date, formatStr: string = "dd/MM/yyyy"): string => {
+    try {
+      if (!isValid(date)) return "Data invalida";
+      return format(date, formatStr, { locale: ptBR });
+    } catch {
+      return "Data invalida";
+    }
+  };
+
+  // Helper para verificacao segura de isPast
+  const safeIsPast = (date: Date): boolean => {
+    try {
+      return isValid(date) && isPast(date);
+    } catch {
+      return false;
+    }
+  };
+
   // Verificar se veio da aba Tarefas com params para criar prazo
   useEffect(() => {
     const criarPrazo = searchParams.get('criarPrazo');
@@ -464,7 +483,13 @@ const Agenda = () => {
   };
 
   const hasDeadlines = (date: Date) => {
-    return deadlines.some(deadline => isSameDay(deadline.date, date));
+    return deadlines.some(deadline => {
+      try {
+        return isValid(deadline.date) && isSameDay(deadline.date, date);
+      } catch {
+        return false;
+      }
+    });
   };
 
   const checkIfAdmin = async () => {
@@ -788,10 +813,10 @@ const Agenda = () => {
                           {deadline.projectName}
                         </Badge>
                         <Badge 
-                          variant={deadline.completed ? "default" : isPast(deadline.date) ? "destructive" : "secondary"}
+                          variant={deadline.completed ? "default" : safeIsPast(deadline.date) ? "destructive" : "secondary"}
                           className="text-xs"
                         >
-                          {deadline.completed ? "Concluido" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
+                          {deadline.completed ? "Concluido" : safeIsPast(deadline.date) ? "Atrasado" : "Pendente"}
                         </Badge>
                       </div>
                     </div>
@@ -827,7 +852,7 @@ const Agenda = () => {
                         <p className="font-medium text-sm">{deadline.title}</p>
                         <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
                         <p className="text-xs text-red-600">
-                          {format(deadline.date, "dd/MM/yyyy", { locale: ptBR })}
+                          {safeFormatDate(deadline.date)}
                         </p>
                       </div>
                       <Button
@@ -867,7 +892,7 @@ const Agenda = () => {
                         <p className="font-medium text-sm">{deadline.title}</p>
                         <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
                         <p className="text-xs text-blue-600">
-                          {format(deadline.date, "dd/MM/yyyy", { locale: ptBR })}
+                          {safeFormatDate(deadline.date)}
                         </p>
                       </div>
                       <Button
