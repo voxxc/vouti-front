@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTenantId } from '@/hooks/useTenantId';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const roleVariants: Record<string, 'default' | 'destructive' | 'outline' | 'seco
 
 export default function RoleManagement() {
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -84,9 +86,12 @@ export default function RoleManagement() {
   const addRole = async (userId: string, role: string) => {
     setUpdating(userId);
     try {
+      if (!tenantId) {
+        throw new Error('Tenant nao identificado');
+      }
       const { error } = await supabase
         .from('user_roles')
-        .insert({ user_id: userId, role: role as any });
+        .insert({ user_id: userId, role: role as any, tenant_id: tenantId });
 
       if (error) throw error;
 

@@ -75,11 +75,19 @@ const Dashboard = () => {
 
         if (deleteError) throw deleteError;
 
+        // Buscar tenant_id do usuario
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', userId)
+          .single();
+
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert({
             user_id: userId,
-            role: userData.role
+            role: userData.role,
+            tenant_id: profileData?.tenant_id
           });
 
         if (roleError) throw roleError;
