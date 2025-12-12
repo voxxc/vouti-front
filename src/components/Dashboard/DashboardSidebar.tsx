@@ -101,10 +101,10 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
           "p-4 border-b border-border flex items-center",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none"
-          >
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-4"
+        >
             {isCollapsed ? (
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">V</span>
