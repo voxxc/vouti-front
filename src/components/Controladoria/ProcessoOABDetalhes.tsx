@@ -22,7 +22,9 @@ import {
   RefreshCw,
   ClipboardList,
   Bot,
-  Paperclip
+  Paperclip,
+  AlertTriangle,
+  Download
 } from 'lucide-react';
 import {
   Sheet,
@@ -61,6 +63,7 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<any>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
+  onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
   oab?: OABCadastrada | null;
 }
 
@@ -158,6 +161,7 @@ export const ProcessoOABDetalhes = ({
   onToggleMonitoramento,
   onRefreshProcessos,
   onConsultarDetalhesRequest,
+  onCarregarDetalhes,
   oab
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
@@ -165,6 +169,9 @@ export const ProcessoOABDetalhes = ({
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
+  const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
 
   if (!processo) return null;
   
@@ -191,6 +198,19 @@ export const ProcessoOABDetalhes = ({
       await fetchAndamentos();
     } finally {
       setRefreshingAndamentos(false);
+    }
+  };
+
+  const handleCarregarAndamentos = async () => {
+    if (!onCarregarDetalhes) return;
+    
+    setConfirmacaoFinalOpen(false);
+    setCarregandoAndamentos(true);
+    try {
+      await onCarregarDetalhes(processo.id, processo.numero_cnj);
+      await fetchAndamentos();
+    } finally {
+      setCarregandoAndamentos(false);
     }
   };
 
@@ -421,48 +441,83 @@ export const ProcessoOABDetalhes = ({
 
             {/* Andamentos */}
             <TabsContent value="andamentos" className="mt-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    {andamentos.length} andamento(s)
-                  </p>
-                  {/* Botao de atualizar andamentos (gratuito se tiver request_id) */}
-                  {processo.detalhes_request_id && onConsultarDetalhesRequest && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={handleRefreshAndamentos}
-                      disabled={refreshingAndamentos}
-                      title="Atualizar andamentos (consulta gratuita)"
-                    >
-                      {refreshingAndamentos ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                  )}
-                </div>
-                {andamentosNaoLidos > 0 && (
-                  <Button variant="ghost" size="sm" onClick={marcarTodasComoLidas}>
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                    Marcar todas como lidas
+              {/* Se nao tem request_id, mostrar botao para carregar */}
+              {!processo.detalhes_request_id && onCarregarDetalhes && (
+                <div className="p-6 text-center space-y-4 border rounded-lg bg-muted/20 mb-4">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <Download className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium mb-1">Andamentos nao carregados</p>
+                    <p className="text-sm text-muted-foreground">
+                      Os andamentos deste processo ainda nao foram buscados.
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => setConfirmDialogOpen(true)}
+                    className="bg-amber-600 hover:bg-amber-700"
+                    disabled={carregandoAndamentos}
+                  >
+                    {carregandoAndamentos ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Carregando...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Carregar Andamentos
+                      </>
+                    )}
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
 
-              <ScrollArea className="h-[calc(100vh-400px)]">
-                {loadingAndamentos ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+              {/* Se tem request_id OU ja tem andamentos, mostrar lista */}
+              {(processo.detalhes_request_id || andamentos.length > 0) && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {andamentos.length} andamento(s)
+                      </p>
+                      {/* Botao de atualizar andamentos (gratuito se tiver request_id) */}
+                      {processo.detalhes_request_id && onConsultarDetalhesRequest && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={handleRefreshAndamentos}
+                          disabled={refreshingAndamentos}
+                          title="Atualizar andamentos"
+                        >
+                          {refreshingAndamentos ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    {andamentosNaoLidos > 0 && (
+                      <Button variant="ghost" size="sm" onClick={marcarTodasComoLidas}>
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        Marcar todas como lidas
+                      </Button>
+                    )}
                   </div>
-                ) : andamentos.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Clock className="w-8 h-8 mx-auto mb-2" />
-                    <p>Nenhum andamento encontrado</p>
-                  </div>
-                ) : (
+
+                  <ScrollArea className="h-[calc(100vh-400px)]">
+                    {loadingAndamentos ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                    ) : andamentos.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Clock className="w-8 h-8 mx-auto mb-2" />
+                        <p>Nenhum andamento encontrado</p>
+                      </div>
+                    ) : (
                   <div className="space-y-3 pr-4">
                     {andamentos.map((andamento) => {
                       // Get step_id from dados_completos to find linked attachments
@@ -516,10 +571,64 @@ export const ProcessoOABDetalhes = ({
                         </Card>
                       );
                     })}
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
+                    </div>
+                  )}
+                </ScrollArea>
+              </>
+            )}
+
+            {/* Dialogs de confirmacao para carregar andamentos */}
+            <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    Carregar Andamentos?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    <p>Esta acao fara uma consulta para buscar os andamentos completos do processo.</p>
+                    <p className="text-amber-600 dark:text-amber-400 font-medium">Esta consulta pode gerar custo.</p>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => {
+                      setConfirmDialogOpen(false);
+                      setConfirmacaoFinalOpen(true);
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Continuar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={confirmacaoFinalOpen} onOpenChange={setConfirmacaoFinalOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-amber-600 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    Confirmar Consulta?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Confirma que deseja carregar os andamentos do processo{' '}
+                    <span className="font-mono text-xs">{processo.numero_cnj}</span>?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleCarregarAndamentos}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Sim, Confirmar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TabsContent>
 
             {/* Partes - Separadas por Polo */}
             <TabsContent value="partes" className="mt-4">

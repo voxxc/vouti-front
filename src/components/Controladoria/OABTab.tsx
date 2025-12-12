@@ -331,9 +331,6 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   const { tenantId } = useTenantId();
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
-  const [processoParaCarregar, setProcessoParaCarregar] = useState<ProcessoOAB | null>(null);
   const [filtroUF, setFiltroUF] = useState<string>('todos');
   const [compartilhadosMap, setCompartilhadosMap] = useState<CompartilhadosMap>({});
 
@@ -460,47 +457,15 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   };
 
   const handleVerDetalhes = async (processo: ProcessoOAB) => {
-    // Se tem request_id salvo, pode fazer GET gratuito - abre direto
-    if (processo.detalhes_request_id) {
-      setSelectedProcesso(processo);
-      setDrawerOpen(true);
-      // Fazer GET gratuito para atualizar andamentos em background
-      await consultarDetalhesRequest(processo.id, processo.detalhes_request_id);
-      return;
-    }
-    
-    // Sem request_id = precisa fazer consulta paga
-    // SEMPRE mostrar dialog de confirmacao
-    setProcessoParaCarregar(processo);
-    setConfirmDialogOpen(true);
-  };
-
-  const handleVerResumo = () => {
-    // Abre o drawer apenas com dados da capa (sem consulta API)
-    if (processoParaCarregar) {
-      setSelectedProcesso(processoParaCarregar);
-      setDrawerOpen(true);
-    }
-    setConfirmDialogOpen(false);
-    setProcessoParaCarregar(null);
-  };
-
-  const handleCarregarDetalhes = () => {
-    // Fecha 1o dialog e abre 2o para confirmacao final
-    setConfirmDialogOpen(false);
-    setConfirmacaoFinalOpen(true);
-  };
-
-  const handleConfirmarConsultaFinal = async () => {
-    if (!processoParaCarregar) return;
-    
-    setConfirmacaoFinalOpen(false);
-    setSelectedProcesso(processoParaCarregar);
+    // Sempre abre o drawer diretamente
+    setSelectedProcesso(processo);
     setDrawerOpen(true);
     
-    // Fazer a consulta paga
-    await carregarDetalhes(processoParaCarregar.id, processoParaCarregar.numero_cnj);
-    setProcessoParaCarregar(null);
+    // Se tem request_id salvo, faz GET gratuito em background
+    if (processo.detalhes_request_id) {
+      await consultarDetalhesRequest(processo.id, processo.detalhes_request_id);
+    }
+    // Se NAO tem request_id, nao faz nada - usuario vera botao na aba Andamentos
   };
 
   const handleToggleMonitoramento = async (processo: ProcessoOAB) => {
@@ -661,75 +626,9 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
+        onCarregarDetalhes={carregarDetalhes}
         oab={oab}
       />
-
-      {/* Dialog de Confirmacao para Consulta Paga */}
-      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Carregar Andamentos do Processo?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                Esta acao fara uma consulta a API para buscar os andamentos 
-                completos do processo.
-              </p>
-              <p className="text-amber-600 dark:text-amber-400 font-medium">
-                Esta consulta pode gerar custo.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Voce pode ver o resumo do processo (dados da capa) sem custo adicional.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleVerResumo}>
-              Ver apenas Resumo
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleCarregarDetalhes}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              Carregar Andamentos
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Dialog de Confirmacao FINAL */}
-      <AlertDialog open={confirmacaoFinalOpen} onOpenChange={setConfirmacaoFinalOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
-              <AlertTriangle className="w-5 h-5" />
-              Confirmar Consulta?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p className="font-semibold text-amber-600 dark:text-amber-400">
-                Esta acao gerara custo na sua conta.
-              </p>
-              <p>
-                Confirma que deseja carregar os andamentos do processo{' '}
-                <span className="font-mono text-xs">{processoParaCarregar?.numero_cnj}</span>?
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setProcessoParaCarregar(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmarConsultaFinal}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              Sim, Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };
