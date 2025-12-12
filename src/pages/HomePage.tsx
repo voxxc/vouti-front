@@ -406,19 +406,19 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
             {mockups.map((mockup, i) => (
               <div 
                 key={i}
-                className="group relative aspect-square sm:aspect-[4/3] rounded-xl sm:rounded-2xl overflow-hidden border border-white/10"
+                className="group relative rounded-xl sm:rounded-2xl overflow-hidden border border-white/10 min-h-[120px] sm:min-h-[140px]"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 via-cyan-500/20 to-blue-900/50" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-4 text-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-3 sm:p-4 text-center">
                   <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-white/10 flex items-center justify-center mb-2 sm:mb-3">
                     <LayoutGrid className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-cyan-400" />
                   </div>
-                  <h3 className="font-semibold text-[10px] sm:text-sm mb-0.5 sm:mb-1">{mockup.title}</h3>
-                  <p className="text-[8px] sm:text-xs text-gray-400 line-clamp-1 sm:line-clamp-none">{mockup.desc}</p>
+                  <h3 className="font-semibold text-[11px] sm:text-sm mb-1 sm:mb-2">{mockup.title}</h3>
+                  <p className="text-[9px] sm:text-xs text-gray-400 leading-relaxed">{mockup.desc}</p>
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1a] via-transparent to-transparent opacity-60" />
               </div>
