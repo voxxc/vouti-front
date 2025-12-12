@@ -467,25 +467,25 @@ const HomePage = () => {
 
       {/* CTA Section */}
       <section id="demo-section" className="py-20 relative">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-blue-600/30 via-cyan-500/20 to-blue-900/30 border border-blue-500/30 relative overflow-hidden">
+            <div className="p-4 sm:p-8 md:p-12 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-blue-600/30 via-cyan-500/20 to-blue-900/30 border border-blue-500/30 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
               <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
               
-              <div className="relative grid lg:grid-cols-2 gap-12 items-center">
-                <div>
-                  <h2 className="text-3xl sm:text-4xl font-bold mb-6">
+              <div className="relative grid lg:grid-cols-2 gap-6 sm:gap-12 items-center">
+                <div className="text-center lg:text-left">
+                  <h2 className="text-xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6">
                     Transforme seu escritório com{' '}
                     <span className="text-cyan-400">gestão inteligente</span>
                   </h2>
-                  <p className="text-gray-300 text-lg mb-6">
+                  <p className="text-gray-300 text-sm sm:text-lg mb-4 sm:mb-6">
                     Agende uma demonstração personalizada e descubra como a VOUTI 
                     pode revolucionar sua operação jurídica.
                   </p>
-                  <ul className="space-y-3">
+                  <ul className="space-y-2 sm:space-y-3 hidden sm:block">
                     {['Demonstração gratuita', 'Sem compromisso', 'Suporte especializado'].map((item, i) => (
-                      <li key={i} className="flex items-center gap-3">
+                      <li key={i} className="flex items-center gap-3 justify-center lg:justify-start">
                         <CheckCircle2 className="w-5 h-5 text-cyan-400" />
                         <span className="text-gray-300">{item}</span>
                       </li>
@@ -493,7 +493,7 @@ const HomePage = () => {
                   </ul>
                 </div>
 
-                <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/10">
+                <div className="bg-white/5 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 border border-white/10">
                   <h3 className="text-xl font-semibold mb-6 text-center">Agendar Demonstração</h3>
                   <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
                     <div>
