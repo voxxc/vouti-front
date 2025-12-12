@@ -153,7 +153,7 @@ const HomePage = () => {
             className="focus:outline-none"
           >
             <span className="text-3xl sm:text-4xl font-bold tracking-wider">
-              <span className="text-amber-400">VOUTI</span>
+              <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </button>
