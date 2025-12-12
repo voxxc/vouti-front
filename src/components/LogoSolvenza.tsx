@@ -61,7 +61,18 @@ const LogoSolvenza = ({ className = "", size = "md" }: LogoSolvenzaProps) => {
       </div>
       
       {/* Text */}
-      <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col items-center text-center pl-1">
+        <span 
+          className="text-[6px] font-normal tracking-[0.3em] mb-0.5 leading-none"
+          style={{
+            background: 'linear-gradient(180deg, hsl(43 90% 65%) 0%, hsl(43 90% 45%) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}
+        >
+          GRUPO
+        </span>
         <span 
           className={`font-bold tracking-[0.4em] ${logoSizes[size].sub} leading-none`}
           style={{
@@ -72,17 +83,6 @@ const LogoSolvenza = ({ className = "", size = "md" }: LogoSolvenzaProps) => {
           }}
         >
           SOLVENZA
-        </span>
-        <span 
-          className="text-xs font-normal tracking-[0.2em] mt-1"
-          style={{
-            background: 'linear-gradient(180deg, hsl(43 90% 65%) 0%, hsl(43 90% 45%) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}
-        >
-          GROUP
         </span>
       </div>
     </div>
