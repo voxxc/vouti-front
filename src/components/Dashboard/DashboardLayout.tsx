@@ -1,16 +1,16 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import Logo from "@/components/Logo";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { ArrowLeft, Calendar, FolderOpen, Users, LogOut, BarChart3, DollarSign, Settings, FileCheck, Video } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
+import DashboardSidebar from "./DashboardSidebar";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -38,7 +38,6 @@ const DashboardLayout = ({
 
   const [users, setUsers] = useState<UserType[]>([]);
 
-  // Helper para criar paths tenant-aware
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     if (tenantSlug) {
@@ -49,15 +48,10 @@ const DashboardLayout = ({
 
   useEffect(() => {
     const loadUsers = async () => {
-      // CRITICAL: Wait for tenantId to be available for proper data isolation
       if (!tenantId) {
-        console.log('DashboardLayout - Waiting for tenantId...');
         return;
       }
       
-      console.log('DashboardLayout - Loading users for tenant:', tenantId);
-      
-      // First, fetch profiles - FILTERED BY TENANT_ID
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('user_id, email, full_name, avatar_url, created_at, updated_at, tenant_id')
@@ -69,13 +63,9 @@ const DashboardLayout = ({
       }
 
       if (!profilesData || profilesData.length === 0) {
-        console.warn('DashboardLayout - No profiles found for tenant');
         return;
       }
 
-      console.log('DashboardLayout - Profiles loaded for tenant:', profilesData.length);
-
-      // Second, fetch user roles - FILTERED BY TENANT_ID
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role, tenant_id')
@@ -85,9 +75,6 @@ const DashboardLayout = ({
         console.error('DashboardLayout - Error loading roles:', rolesError);
       }
 
-      console.log('DashboardLayout - Roles loaded for tenant:', rolesData?.length || 0);
-
-      // Merge profiles with roles - usando priorização correta
       const rolePriority: Record<string, number> = {
         'admin': 6,
         'controller': 5,
@@ -98,10 +85,8 @@ const DashboardLayout = ({
       };
 
       const mappedUsers = profilesData.map((p: any) => {
-        // Buscar TODOS os roles do usuário, não apenas o primeiro
         const userRoles = rolesData?.filter((r: any) => r.user_id === p.user_id) || [];
         
-        // Selecionar o role de maior prioridade
         let highestRole = 'advogado';
         if (userRoles.length > 0) {
           const highest = userRoles.reduce((prev: any, current: any) => {
@@ -123,10 +108,8 @@ const DashboardLayout = ({
         };
       });
 
-      console.log('DashboardLayout - Final mapped users:', mappedUsers.length, mappedUsers);
       setUsers(mappedUsers);
 
-      // Set up real-time subscription for new users
       const channel = supabase
         .channel('profiles-changes')
         .on(
@@ -137,7 +120,6 @@ const DashboardLayout = ({
             table: 'profiles'
           },
           () => {
-            console.log('DashboardLayout - Profile change detected, reloading users...');
             loadUsers();
           }
         )
@@ -157,7 +139,7 @@ const DashboardLayout = ({
         email: user.email ?? '',
         name:
           users.find((u) => u.id === user.id)?.name ||
-          (user.user_metadata?.full_name || user.email || 'Usuário'),
+          (user.user_metadata?.full_name || user.email || 'Usuario'),
         avatar: users.find((u) => u.id === user.id)?.avatar,
         role: users.find((u) => u.id === user.id)?.role || 'advogado',
         createdAt: new Date(),
@@ -170,117 +152,21 @@ const DashboardLayout = ({
     navigate(tenantPath('/auth'));
   };
 
-  const handleNavigation = (page: string) => {
-    if (onNavigate) {
-      onNavigate(page as any);
-    } else {
-      navigate(tenantPath(`/${page}`));
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Floating Elements */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-1/4 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-60" />
-        <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 right-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-20 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute top-40 right-1/3 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '2.5s' }} />
-        <div className="absolute top-1/3 right-12 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '0.3s' }} />
-        <div className="absolute bottom-1/4 left-16 w-3 h-3 rounded-full bg-accent animate-float opacity-50" style={{ animationDelay: '1.8s' }} />
-        <div className="absolute top-2/3 right-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-40" style={{ animationDelay: '3s' }} />
-        <div className="absolute top-10 left-1/3 w-3 h-3 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.7s' }} />
-        <div className="absolute bottom-20 right-1/4 w-2 h-2 rounded-full bg-accent animate-float opacity-60" style={{ animationDelay: '2.3s' }} />
-        <div className="absolute top-1/3 left-12 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '1.2s' }} />
-        <div className="absolute bottom-1/2 right-10 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1.7s' }} />
-        <div className="absolute top-3/4 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '0.9s' }} />
-      </div>
+    <div className="min-h-screen bg-background flex w-full">
+      {/* Sidebar */}
+      <DashboardSidebar currentPage={currentPage} />
 
-      {/* Header */}
-      <header className="border-b border-border bg-card shadow-card relative z-10">
-        <div className="flex items-center justify-between px-6 py-4">
-          <button 
-            onClick={() => handleNavigation('dashboard')}
-            className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-lg"
-            aria-label="Ir para Dashboard"
-          >
-            <Logo size="sm" />
-          </button>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center space-x-2">
-              {/* Ícones de Acesso Rápido */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(tenantPath('/projects'))}
-                title="Projetos"
-              >
-                <FolderOpen size={18} />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(tenantPath('/agenda'))}
-                title="Agenda"
-              >
-                <Calendar size={18} />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(tenantPath('/crm'))}
-                title="Clientes"
-              >
-                <Users size={18} />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(tenantPath('/financial'))}
-                title="Financeiro"
-              >
-                <DollarSign size={18} />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(tenantPath('/controladoria'))}
-                title="Controladoria"
-              >
-                <FileCheck size={18} />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(tenantPath('/reunioes'))}
-                title="Reuniões"
-              >
-                <Video size={18} />
-              </Button>
-
-              {/* Separador Visual */}
-              <div className="h-6 w-px bg-border mx-2" />
-
-              {/* Botão Dashboard */}
-              <Button
-                variant={currentPage === 'dashboard' ? 'default' : 'ghost'}
-                onClick={() => handleNavigation('dashboard')}
-                className="gap-2"
-              >
-                <BarChart3 size={16} />
-                Dashboard
-              </Button>
-            </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Header - Sticky */}
+        <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <div className="flex items-center justify-between px-6 py-3">
+            {/* Left spacer for mobile menu */}
+            <div className="w-10 md:hidden" />
             
-            <div className="flex items-center space-x-4">
+            {/* Right Side - Tools */}
+            <div className="flex items-center gap-3 ml-auto">
               <GlobalSearch projects={projects} />
 
               {currentUser && (
@@ -296,25 +182,37 @@ const DashboardLayout = ({
               )}
 
               <ThemeToggle />
+              
               {isAdmin && onCreateUser && (
-                <Button variant="outline" onClick={onCreateUser} className="gap-2">
+                <Button variant="outline" size="sm" onClick={onCreateUser} className="gap-2">
                   <Settings size={16} />
-                  Usuários
+                  <span className="hidden sm:inline">Usuarios</span>
                 </Button>
               )}
-              <Button variant="ghost" onClick={handleLogout} className="gap-2">
+              
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
                 <LogOut size={16} />
-                Sair
+                <span className="hidden sm:inline">Sair</span>
               </Button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="container max-w-7xl mx-auto px-6 py-8 relative z-10">
-        {children}
-      </main>
+        {/* Floating Elements */}
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute top-1/4 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-60" />
+          <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 right-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '2s' }} />
+          <div className="absolute top-20 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.5s' }} />
+          <div className="absolute top-40 right-1/3 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1.5s' }} />
+          <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '2.5s' }} />
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 container max-w-7xl mx-auto px-6 py-8 relative z-10">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
