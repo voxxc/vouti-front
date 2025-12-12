@@ -604,25 +604,25 @@ const HomePage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-white/10">
+      <footer className="py-8 border-t border-white/10">
         <div className="container mx-auto px-4">
-          <div className="grid gap-8 mb-12">
+          <div className="grid gap-4 mb-6">
             {/* Logo e descrição */}
             <div className="text-center">
               <span className="text-3xl font-bold tracking-wider">
                 <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
                 <span className="text-red-500">.</span>
               </span>
-              <p className="mt-4 text-sm text-gray-400 max-w-md mx-auto">
+              <p className="mt-2 text-sm text-gray-400 max-w-md mx-auto">
                 A plataforma mais completa para gestão de escritórios de advocacia.
               </p>
             </div>
             
             {/* Plataforma e Recursos em duas colunas */}
-            <div className="grid grid-cols-2 gap-8 max-w-md mx-auto">
+            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
               <div className="text-center">
-                <h4 className="font-semibold mb-4">Plataforma</h4>
-                <ul className="space-y-2 text-sm text-gray-400">
+                <h4 className="font-semibold mb-2">Plataforma</h4>
+                <ul className="space-y-1 text-sm text-gray-400">
                   <li><a href="#modules" className="hover:text-white transition-colors">Módulos</a></li>
                   <li><a href="#benefits" className="hover:text-white transition-colors">Benefícios</a></li>
                   <li><a href="#testimonials" className="hover:text-white transition-colors">Depoimentos</a></li>
@@ -630,8 +630,8 @@ const HomePage = () => {
               </div>
               
               <div className="text-center">
-                <h4 className="font-semibold mb-4">Recursos</h4>
-                <ul className="space-y-2 text-sm text-gray-400">
+                <h4 className="font-semibold mb-2">Recursos</h4>
+                <ul className="space-y-1 text-sm text-gray-400">
                   <li><a href="#" className="hover:text-white transition-colors">Central de Ajuda</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">API</a></li>
@@ -641,7 +641,7 @@ const HomePage = () => {
             
             {/* Contato centralizado */}
             <div className="text-center">
-              <h4 className="font-semibold mb-4">Contato</h4>
+              <h4 className="font-semibold mb-2">Contato</h4>
               <a href="mailto:contato@vouti.co" className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
                 <Mail className="w-4 h-4" />
                 contato@vouti.co
@@ -649,7 +649,7 @@ const HomePage = () => {
             </div>
           </div>
           
-          <div className="pt-8 border-t border-white/10 text-center text-sm text-gray-500">
+          <div className="pt-4 border-t border-white/10 text-center text-sm text-gray-500">
             <p>&copy; {new Date().getFullYear()} VOUTI. Todos os direitos reservados.</p>
           </div>
         </div>
