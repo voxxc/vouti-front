@@ -152,7 +152,7 @@ const HomePage = () => {
             onClick={() => setShowEasterEgg(!showEasterEgg)}
             className="focus:outline-none"
           >
-            <span className="text-2xl font-bold tracking-wider">
+            <span className="text-3xl sm:text-4xl font-bold tracking-wider">
               <span className="text-amber-400">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
@@ -222,7 +222,7 @@ const HomePage = () => {
               <Button 
                 variant="outline"
                 size="lg"
-                className="border-white/20 text-white hover:bg-white/10 text-lg px-8 py-6 rounded-xl"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10 text-lg px-8 py-6 rounded-xl"
                 onClick={() => document.getElementById('modules')?.scrollIntoView({ behavior: 'smooth' })}
               >
                 Conhecer Módulos
