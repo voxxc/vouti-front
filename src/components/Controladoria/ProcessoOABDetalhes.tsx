@@ -21,6 +21,7 @@ import {
   BookOpen,
   RefreshCw,
   ClipboardList,
+  Bot,
   Paperclip
 } from 'lucide-react';
 import {
@@ -49,7 +50,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ProcessoOAB, OABCadastrada, useAndamentosOAB } from '@/hooks/useOABs';
 import { TarefasTab } from './TarefasTab';
-import { DocumentosTab } from './DocumentosTab';
+import { VoutiIATab } from './VoutiIATab';
 import { AndamentoAnexos } from './AndamentoAnexos';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 
@@ -301,9 +302,9 @@ export const ProcessoOABDetalhes = ({
                 )}
               </TabsTrigger>
               <TabsTrigger value="partes">Partes</TabsTrigger>
-              <TabsTrigger value="documentos">
-                <Paperclip className="w-3.5 h-3.5 mr-1" />
-                Docs
+              <TabsTrigger value="vouti-ia">
+                <Bot className="w-3.5 h-3.5 mr-1" />
+                Vouti IA
               </TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
             </TabsList>
@@ -591,12 +592,18 @@ export const ProcessoOABDetalhes = ({
               </ScrollArea>
             </TabsContent>
 
-            {/* Documentos */}
-            <TabsContent value="documentos" className="mt-4">
-              <DocumentosTab 
+            {/* Vouti IA */}
+            <TabsContent value="vouti-ia" className="mt-4">
+              <VoutiIATab 
                 processoOabId={processo.id} 
-                numeroCnj={processo.numero_cnj}
-                instancia={capa.instance || 1}
+                processoContext={{
+                  numero_cnj: processo.numero_cnj,
+                  parte_ativa: processo.parte_ativa || undefined,
+                  parte_passiva: processo.parte_passiva || undefined,
+                  tribunal: processo.tribunal || capa.court?.name,
+                  status: processo.status_processual || capa.situation,
+                  valor_causa: processo.valor_causa || capa.amount,
+                }}
               />
             </TabsContent>
 
