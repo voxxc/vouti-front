@@ -103,7 +103,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
         )}>
         <button 
           onClick={() => navigate('/dashboard')}
-          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-12"
+          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
         >
             {isCollapsed ? (
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
