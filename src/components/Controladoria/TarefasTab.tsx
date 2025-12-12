@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer, Pencil, CalendarPlus } from 'lucide-react';
+import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer, Pencil, CalendarPlus, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -32,11 +35,18 @@ import { RelatorioUnificado } from '@/components/Project/RelatorioUnificado';
 import { TaskTarefa } from '@/types/taskTarefa';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useTenantNavigation } from '@/hooks/useTenantNavigation';
+import { useTenantId } from '@/hooks/useTenantId';
+import { cn } from '@/lib/utils';
 
 interface TarefasTabProps {
   processo: ProcessoOAB;
   oab: OABCadastrada | null;
+}
+
+interface Projeto {
+  id: string;
+  name: string;
+  client: string | null;
 }
 
 const FASES_SUGERIDAS = [
@@ -63,34 +73,76 @@ const getLocalDateString = () => {
 export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   const { tarefas, loading, adicionarTarefa, atualizarTarefa, removerTarefa } = useTarefasOAB(processo.id);
   const { toast } = useToast();
-  const { navigate } = useTenantNavigation();
+  const { tenantId } = useTenantId();
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [prazoDialogOpen, setPrazoDialogOpen] = useState(false);
   const [tarefaToDelete, setTarefaToDelete] = useState<TarefaOAB | null>(null);
   const [editingTarefa, setEditingTarefa] = useState<TarefaOAB | null>(null);
-  const [tarefaForPrazo, setTarefaForPrazo] = useState<TarefaOAB | null>(null);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Tarefas do card vinculado (admin)
   const [taskTarefas, setTaskTarefas] = useState<TaskTarefa[]>([]);
 
-  // Form state - Criar
+  // Form state - Criar tarefa
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [fase, setFase] = useState('');
   const [dataExecucao, setDataExecucao] = useState(getLocalDateString());
   const [observacoes, setObservacoes] = useState('');
 
-  // Form state - Editar
+  // Form state - Editar tarefa
   const [editTitulo, setEditTitulo] = useState('');
   const [editDescricao, setEditDescricao] = useState('');
   const [editFase, setEditFase] = useState('');
   const [editDataExecucao, setEditDataExecucao] = useState('');
   const [editObservacoes, setEditObservacoes] = useState('');
+
+  // State para modal de criar prazo
+  const [prazoModalOpen, setPrazoModalOpen] = useState(false);
+  const [prazoTitulo, setPrazoTitulo] = useState('');
+  const [prazoDescricao, setPrazoDescricao] = useState('');
+  const [prazoData, setPrazoData] = useState<Date>(new Date());
+  const [prazoProjetoId, setPrazoProjetoId] = useState('');
+  const [submittingPrazo, setSubmittingPrazo] = useState(false);
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [loadingProjetos, setLoadingProjetos] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Buscar user id
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUserId(data.user.id);
+      }
+    });
+  }, []);
+
+  // Buscar projetos do tenant
+  useEffect(() => {
+    const fetchProjetos = async () => {
+      if (!tenantId) return;
+      setLoadingProjetos(true);
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, name, client')
+          .eq('tenant_id', tenantId)
+          .order('name');
+        
+        if (error) throw error;
+        setProjetos(data || []);
+      } catch (err) {
+        console.error('Erro ao buscar projetos:', err);
+      } finally {
+        setLoadingProjetos(false);
+      }
+    };
+
+    fetchProjetos();
+  }, [tenantId]);
 
   // Buscar card vinculado e suas tarefas admin
   useEffect(() => {
@@ -189,24 +241,59 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   };
 
   const handleCriarPrazoClick = (tarefa: TarefaOAB) => {
-    setTarefaForPrazo(tarefa);
-    setPrazoDialogOpen(true);
+    // Pre-preencher com dados da tarefa
+    setPrazoTitulo(tarefa.titulo);
+    setPrazoDescricao(tarefa.descricao || tarefa.observacoes || '');
+    setPrazoData(new Date());
+    setPrazoProjetoId('');
+    setPrazoModalOpen(true);
   };
 
-  const handleConfirmCriarPrazo = () => {
-    if (!tarefaForPrazo) return;
-    
-    // Navegar para agenda com params para criar prazo
-    const params = new URLSearchParams({
-      criarPrazo: 'true',
-      titulo: tarefaForPrazo.titulo,
-      descricao: tarefaForPrazo.descricao || '',
-      processoOabId: processo.id,
-      processoNumero: processo.numero_cnj || '',
-    });
-    
-    navigate(`/agenda?${params.toString()}`);
-    setPrazoDialogOpen(false);
+  const handleCriarPrazoSubmit = async () => {
+    if (!prazoTitulo.trim() || !prazoProjetoId || !userId || !tenantId) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatorios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmittingPrazo(true);
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .insert({
+          user_id: userId,
+          tenant_id: tenantId,
+          title: prazoTitulo.trim(),
+          description: prazoDescricao.trim() || null,
+          date: format(prazoData, 'yyyy-MM-dd'),
+          project_id: prazoProjetoId,
+          processo_oab_id: processo.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Prazo criado",
+        description: "O prazo foi adicionado a agenda com sucesso.",
+      });
+      
+      setPrazoModalOpen(false);
+      setPrazoTitulo('');
+      setPrazoDescricao('');
+      setPrazoProjetoId('');
+    } catch (err) {
+      console.error('Erro ao criar prazo:', err);
+      toast({
+        title: "Erro",
+        description: "Nao foi possivel criar o prazo.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingPrazo(false);
+    }
   };
 
   const formatData = (data: string) => {
@@ -504,24 +591,104 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog de confirmacao de criar prazo */}
-      <AlertDialog open={prazoDialogOpen} onOpenChange={setPrazoDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Criar Prazo na Agenda</AlertDialogTitle>
-            <AlertDialogDescription>
-              Deseja criar um prazo na agenda com base nesta tarefa? 
-              Voce sera redirecionado para a pagina de Agenda com os dados pre-preenchidos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmCriarPrazo}>
-              Ir para Agenda
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Modal de criar prazo na agenda */}
+      <Dialog open={prazoModalOpen} onOpenChange={setPrazoModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Prazo na Agenda</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Info do processo vinculado */}
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">Processo vinculado:</p>
+              <p className="font-medium text-sm">{processo.numero_cnj}</p>
+            </div>
+
+            {/* Titulo */}
+            <div className="space-y-1.5">
+              <Label htmlFor="prazo-titulo">Titulo *</Label>
+              <Input
+                id="prazo-titulo"
+                value={prazoTitulo}
+                onChange={(e) => setPrazoTitulo(e.target.value)}
+                placeholder="Titulo do prazo"
+              />
+            </div>
+
+            {/* Data com Popover/Calendar compacto */}
+            <div className="space-y-1.5">
+              <Label>Data *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !prazoData && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {prazoData ? format(prazoData, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={prazoData}
+                    onSelect={(d) => d && setPrazoData(d)}
+                    locale={ptBR}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Projeto (obrigatorio) */}
+            <div className="space-y-1.5">
+              <Label>Projeto *</Label>
+              <Select value={prazoProjetoId} onValueChange={setPrazoProjetoId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingProjetos ? "Carregando..." : "Selecione o projeto"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {projetos.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.client ? `(${p.client})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Descricao */}
+            <div className="space-y-1.5">
+              <Label htmlFor="prazo-descricao">Descricao</Label>
+              <Textarea
+                id="prazo-descricao"
+                value={prazoDescricao}
+                onChange={(e) => setPrazoDescricao(e.target.value)}
+                placeholder="Detalhes do prazo..."
+                rows={3}
+              />
+            </div>
+
+            <Button 
+              onClick={handleCriarPrazoSubmit} 
+              disabled={!prazoTitulo.trim() || !prazoProjetoId || submittingPrazo} 
+              className="w-full"
+            >
+              {submittingPrazo ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                'Criar Prazo'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Relatorio Unificado */}
       <RelatorioUnificado
