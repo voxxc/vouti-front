@@ -282,17 +282,17 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
             {modules.map((module, i) => (
               <div 
                 key={i}
-                className="group p-6 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-white/10 transition-all duration-300"
+                className="group p-3 sm:p-6 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-white/10 transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center mb-4 group-hover:bg-blue-500/30 transition-colors">
-                  <module.icon className="w-6 h-6 text-cyan-400" />
+                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-blue-500/20 flex items-center justify-center mb-2 sm:mb-4 group-hover:bg-blue-500/30 transition-colors">
+                  <module.icon className="w-4 h-4 sm:w-6 sm:h-6 text-cyan-400" />
                 </div>
-                <h3 className="font-semibold mb-2">{module.title}</h3>
-                <p className="text-sm text-gray-400">{module.desc}</p>
+                <h3 className="text-xs sm:text-base font-semibold mb-1 sm:mb-2">{module.title}</h3>
+                <p className="text-[10px] sm:text-sm text-gray-400 line-clamp-2 sm:line-clamp-none">{module.desc}</p>
               </div>
             ))}
           </div>
@@ -333,19 +333,19 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6">
             {benefits.map((benefit, i) => (
               <div 
                 key={i}
-                className="group p-6 rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10 hover:border-cyan-500/30 transition-all"
+                className="group p-3 sm:p-6 rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10 hover:border-cyan-500/30 transition-all"
               >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
-                    <benefit.icon className="w-6 h-6 text-cyan-400" />
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-4">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
+                    <benefit.icon className="w-4 h-4 sm:w-6 sm:h-6 text-cyan-400" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{benefit.title}</h3>
-                    <p className="text-sm text-gray-400">{benefit.desc}</p>
+                  <div className="text-center sm:text-left">
+                    <h3 className="text-xs sm:text-base font-semibold mb-1 sm:mb-2">{benefit.title}</h3>
+                    <p className="text-[10px] sm:text-sm text-gray-400 line-clamp-2 sm:line-clamp-none">{benefit.desc}</p>
                   </div>
                 </div>
               </div>
@@ -366,17 +366,17 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-6">
             {personas.map((persona, i) => (
               <div 
                 key={i}
-                className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all"
+                className="text-center p-4 sm:p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-all"
               >
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-6">
-                  <persona.icon className="w-8 h-8 text-white" />
+                <div className="w-10 h-10 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-3 sm:mb-6">
+                  <persona.icon className="w-5 h-5 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="font-semibold mb-2">{persona.title}</h3>
-                <p className="text-sm text-gray-400">{persona.desc}</p>
+                <h3 className="text-xs sm:text-base font-semibold mb-1 sm:mb-2">{persona.title}</h3>
+                <p className="text-[10px] sm:text-sm text-gray-400 line-clamp-2 sm:line-clamp-none">{persona.desc}</p>
               </div>
             ))}
           </div>
@@ -395,19 +395,19 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
             {mockups.map((mockup, i) => (
               <div 
                 key={i}
-                className="group relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/10"
+                className="group relative aspect-square sm:aspect-[4/3] rounded-xl sm:rounded-2xl overflow-hidden border border-white/10"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 via-cyan-500/20 to-blue-900/50" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                  <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center mb-3">
-                    <LayoutGrid className="w-5 h-5 text-cyan-400" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-2 sm:p-4 text-center">
+                  <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-white/10 flex items-center justify-center mb-2 sm:mb-3">
+                    <LayoutGrid className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-cyan-400" />
                   </div>
-                  <h3 className="font-semibold text-sm mb-1">{mockup.title}</h3>
-                  <p className="text-xs text-gray-400">{mockup.desc}</p>
+                  <h3 className="font-semibold text-[10px] sm:text-sm mb-0.5 sm:mb-1">{mockup.title}</h3>
+                  <p className="text-[8px] sm:text-xs text-gray-400 line-clamp-1 sm:line-clamp-none">{mockup.desc}</p>
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1a] via-transparent to-transparent opacity-60" />
               </div>
@@ -428,25 +428,25 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
             {testimonials.map((testimonial, i) => (
               <div 
                 key={i}
-                className="p-8 rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10"
+                className="p-4 sm:p-8 rounded-xl sm:rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10"
               >
-                <div className="flex gap-1 mb-6">
+                <div className="flex gap-1 mb-3 sm:mb-6">
                   {[...Array(testimonial.rating)].map((_, j) => (
-                    <Star key={j} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    <Star key={j} className="w-3.5 h-3.5 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-gray-300 mb-6 italic">"{testimonial.text}"</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                    <span className="text-lg font-bold">{testimonial.name[0]}</span>
+                <p className="text-xs sm:text-base text-gray-300 mb-3 sm:mb-6 italic line-clamp-3 sm:line-clamp-none">"{testimonial.text}"</p>
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                    <span className="text-sm sm:text-lg font-bold">{testimonial.name[0]}</span>
                   </div>
                   <div>
-                    <h4 className="font-semibold">{testimonial.name}</h4>
-                    <p className="text-sm text-gray-400">{testimonial.role}</p>
+                    <h4 className="text-xs sm:text-base font-semibold">{testimonial.name}</h4>
+                    <p className="text-[10px] sm:text-sm text-gray-400">{testimonial.role}</p>
                   </div>
                 </div>
               </div>
