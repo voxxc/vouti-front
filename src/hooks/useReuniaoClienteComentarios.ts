@@ -94,6 +94,31 @@ export const useReuniaoClienteComentarios = (clienteId: string) => {
     fetchComentarios();
   }, [clienteId]);
 
+  // Real-time subscription para atualizacoes automaticas
+  useEffect(() => {
+    if (!clienteId) return;
+
+    const channel = supabase
+      .channel(`reuniao-cliente-comentarios-${clienteId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reuniao_cliente_comentarios',
+          filter: `cliente_id=eq.${clienteId}`
+        },
+        () => {
+          fetchComentarios();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clienteId]);
+
   return {
     comentarios,
     loading,

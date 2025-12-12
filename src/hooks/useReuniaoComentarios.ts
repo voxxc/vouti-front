@@ -94,6 +94,31 @@ export const useReuniaoComentarios = (reuniaoId: string) => {
     fetchComentarios();
   }, [reuniaoId]);
 
+  // Real-time subscription para atualizacoes automaticas
+  useEffect(() => {
+    if (!reuniaoId) return;
+
+    const channel = supabase
+      .channel(`reuniao-comentarios-${reuniaoId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reuniao_comentarios',
+          filter: `reuniao_id=eq.${reuniaoId}`
+        },
+        () => {
+          fetchComentarios();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [reuniaoId]);
+
   return {
     comentarios,
     loading,
