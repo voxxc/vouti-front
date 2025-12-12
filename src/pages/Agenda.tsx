@@ -19,7 +19,7 @@ import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "@/components/Agenda/UserTagSelector";
 import { Project } from "@/types/project";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
-import { format, isSameDay, isPast, isFuture, parseISO } from "date-fns";
+import { format, isSameDay, isPast, isFuture, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +61,22 @@ const Agenda = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [filteredUserDeadlines, setFilteredUserDeadlines] = useState<Deadline[]>([]);
   const { toast } = useToast();
+
+  // Funcao helper para parsear data com seguranca
+  const safeParseDate = (dateString: string | null | undefined): Date => {
+    if (!dateString) return new Date();
+    try {
+      const parsed = parseISO(dateString + 'T12:00:00');
+      if (!isValid(parsed)) {
+        console.warn('[Agenda] Invalid date:', dateString);
+        return new Date();
+      }
+      return parsed;
+    } catch (error) {
+      console.warn('[Agenda] Error parsing date:', dateString, error);
+      return new Date();
+    }
+  };
 
   // Verificar se veio da aba Tarefas com params para criar prazo
   useEffect(() => {
@@ -179,7 +195,7 @@ const Agenda = () => {
         id: deadline.id,
         title: deadline.title,
         description: deadline.description || '',
-        date: parseISO(deadline.date + 'T12:00:00'),
+        date: safeParseDate(deadline.date),
         projectId: deadline.project_id,
         projectName: deadline.projects?.name || 'Projeto nao encontrado',
         clientName: deadline.projects?.client || 'Cliente nao encontrado',
@@ -189,11 +205,13 @@ const Agenda = () => {
           name: deadline.advogado.full_name,
           avatar: deadline.advogado.avatar_url
         } : undefined,
-        taggedUsers: (deadline.deadline_tags || []).map((tag: any) => ({
-          userId: tag.tagged_user?.user_id,
-          name: tag.tagged_user?.full_name,
-          avatar: tag.tagged_user?.avatar_url
-        })),
+        taggedUsers: (deadline.deadline_tags || [])
+          .filter((tag: any) => tag.tagged_user)
+          .map((tag: any) => ({
+            userId: tag.tagged_user?.user_id,
+            name: tag.tagged_user?.full_name || 'Usuario',
+            avatar: tag.tagged_user?.avatar_url
+          })),
         processoOabId: deadline.processo_oab_id || undefined,
         createdAt: new Date(deadline.created_at),
         updatedAt: new Date(deadline.updated_at)
@@ -218,15 +236,33 @@ const Agenda = () => {
   );
 
   const getDeadlinesForDate = (date: Date) => {
-    return filteredDeadlines.filter(deadline => isSameDay(deadline.date, date));
+    return filteredDeadlines.filter(deadline => {
+      try {
+        return isValid(deadline.date) && isSameDay(deadline.date, date);
+      } catch {
+        return false;
+      }
+    });
   };
 
   const getOverdueDeadlines = () => {
-    return filteredDeadlines.filter(deadline => isPast(deadline.date) && !deadline.completed);
+    return filteredDeadlines.filter(deadline => {
+      try {
+        return isValid(deadline.date) && isPast(deadline.date) && !deadline.completed;
+      } catch {
+        return false;
+      }
+    });
   };
 
   const getUpcomingDeadlines = () => {
-    return filteredDeadlines.filter(deadline => isFuture(deadline.date) && !deadline.completed);
+    return filteredDeadlines.filter(deadline => {
+      try {
+        return isValid(deadline.date) && isFuture(deadline.date) && !deadline.completed;
+      } catch {
+        return false;
+      }
+    });
   };
 
   const handleCreateDeadline = async () => {
@@ -496,7 +532,7 @@ const Agenda = () => {
           id: deadline.id,
           title: deadline.title,
           description: deadline.description || '',
-          date: parseISO(deadline.date + 'T12:00:00'),
+          date: safeParseDate(deadline.date),
           projectId: deadline.project_id,
           projectName: deadline.projects?.name || 'Projeto nao encontrado',
           clientName: deadline.projects?.client || 'Cliente nao encontrado',
@@ -506,11 +542,13 @@ const Agenda = () => {
             name: deadline.advogado.full_name,
             avatar: deadline.advogado.avatar_url
           } : undefined,
-          taggedUsers: (deadline.deadline_tags || []).map((tag: any) => ({
-            userId: tag.tagged_user?.user_id,
-            name: tag.tagged_user?.full_name,
-            avatar: tag.tagged_user?.avatar_url
-          })),
+          taggedUsers: (deadline.deadline_tags || [])
+            .filter((tag: any) => tag.tagged_user)
+            .map((tag: any) => ({
+              userId: tag.tagged_user?.user_id,
+              name: tag.tagged_user?.full_name || 'Usuario',
+              avatar: tag.tagged_user?.avatar_url
+            })),
           processoOabId: deadline.processo_oab_id || undefined,
           createdAt: new Date(deadline.created_at),
           updatedAt: new Date(deadline.updated_at)
