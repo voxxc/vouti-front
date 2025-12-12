@@ -133,6 +133,31 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
     fetchComentarios();
   }, [deadlineId]);
 
+  // Real-time subscription para atualizacoes automaticas
+  useEffect(() => {
+    if (!deadlineId) return;
+
+    const channel = supabase
+      .channel(`deadline-comentarios-${deadlineId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'deadline_comentarios',
+          filter: `deadline_id=eq.${deadlineId}`
+        },
+        () => {
+          fetchComentarios();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [deadlineId]);
+
   return {
     comentarios,
     loading,

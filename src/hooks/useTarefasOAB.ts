@@ -57,6 +57,31 @@ export const useTarefasOAB = (processoOabId: string | null) => {
     fetchTarefas();
   }, [fetchTarefas]);
 
+  // Real-time subscription para atualizacoes automaticas
+  useEffect(() => {
+    if (!processoOabId) return;
+
+    const channel = supabase
+      .channel(`tarefas-oab-${processoOabId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'processos_oab_tarefas',
+          filter: `processo_oab_id=eq.${processoOabId}`
+        },
+        () => {
+          fetchTarefas();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [processoOabId, fetchTarefas]);
+
   const adicionarTarefa = async (data: NovaTarefaData) => {
     if (!processoOabId) return null;
 

@@ -39,6 +39,7 @@ import { useTenantId } from '@/hooks/useTenantId';
 import { cn } from '@/lib/utils';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 
 interface TarefasTabProps {
   processo: ProcessoOAB;
@@ -298,6 +299,31 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
 
         if (tagsError) {
           console.error('Erro ao criar tags:', tagsError);
+        }
+      }
+
+      // 3. Criar notificacoes
+      if (userId && tenantId) {
+        // Notificar responsavel (se nao for o proprio usuario)
+        await notifyDeadlineAssigned(
+          data.id,
+          prazoTitulo.trim(),
+          prazoResponsavelId,
+          userId,
+          tenantId,
+          prazoProjetoId
+        );
+
+        // Notificar usuarios tagueados
+        if (prazoTaggedUsers.length > 0) {
+          await notifyDeadlineTagged(
+            data.id,
+            prazoTitulo.trim(),
+            prazoTaggedUsers,
+            userId,
+            tenantId,
+            prazoProjetoId
+          );
         }
       }
 

@@ -100,3 +100,95 @@ export const notifyCommentAdded = async (
     taskId
   );
 };
+
+// Notificacao para responsavel pelo prazo
+export const notifyDeadlineAssigned = async (
+  deadlineId: string,
+  deadlineTitle: string,
+  assignedToUserId: string,
+  assignedByUserId: string,
+  tenantId: string,
+  projectId?: string
+) => {
+  // Nao notificar se o usuario esta atribuindo para si mesmo
+  if (assignedToUserId === assignedByUserId) return;
+
+  try {
+    // Buscar nome de quem atribuiu
+    const { data: assignerProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', assignedByUserId)
+      .single();
+
+    const assignerName = assignerProfile?.full_name || 'Alguem';
+
+    const { error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: assignedToUserId,
+        tenant_id: tenantId,
+        type: 'deadline_assigned',
+        title: 'Novo Prazo Atribuido',
+        content: `${assignerName} atribuiu o prazo "${deadlineTitle}" para voce.`,
+        triggered_by_user_id: assignedByUserId,
+        related_project_id: projectId || null,
+        related_task_id: deadlineId,
+      });
+
+    if (error) {
+      console.error('Erro ao criar notificacao de prazo:', error);
+    }
+  } catch (error) {
+    console.error('Erro ao notificar prazo atribuido:', error);
+  }
+};
+
+// Notificacao para usuarios tagueados no prazo
+export const notifyDeadlineTagged = async (
+  deadlineId: string,
+  deadlineTitle: string,
+  taggedUserIds: string[],
+  taggedByUserId: string,
+  tenantId: string,
+  projectId?: string
+) => {
+  if (taggedUserIds.length === 0) return;
+
+  try {
+    // Buscar nome de quem tagueou
+    const { data: taggerProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', taggedByUserId)
+      .single();
+
+    const taggerName = taggerProfile?.full_name || 'Alguem';
+
+    // Criar notificacao para cada usuario tagueado (exceto quem tagueou)
+    const notifications = taggedUserIds
+      .filter(userId => userId !== taggedByUserId)
+      .map(userId => ({
+        user_id: userId,
+        tenant_id: tenantId,
+        type: 'deadline_tagged',
+        title: 'Voce foi marcado em um prazo',
+        content: `${taggerName} marcou voce no prazo "${deadlineTitle}".`,
+        triggered_by_user_id: taggedByUserId,
+        related_project_id: projectId || null,
+        related_task_id: deadlineId,
+      }));
+
+    if (notifications.length > 0) {
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (error) {
+        console.error('Erro ao criar notificacoes de tags:', error);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao notificar usuarios tagueados:', error);
+  }
+};
