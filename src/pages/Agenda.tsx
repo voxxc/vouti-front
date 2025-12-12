@@ -237,6 +237,7 @@ const Agenda = () => {
         .from('deadlines')
         .insert({
           user_id: user.id,
+          tenant_id: tenantId,
           title: formData.title,
           description: formData.description,
           date: format(formData.date, 'yyyy-MM-dd'),
