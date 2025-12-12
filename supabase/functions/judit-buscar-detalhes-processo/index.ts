@@ -187,11 +187,34 @@ serve(async (req) => {
 
     // Extrair dados do resultado
     const pageData = resultData.page_data || [];
-    const firstResult = pageData[0] || {};
-    const responseData = firstResult.response_data || firstResult;
+    
+    // Separar dados por response_type
+    let lawsuitData = null;
+    let summaryData = null;
+    
+    for (const item of pageData) {
+      const respType = item.response_type || item.response_data?.response_type;
+      if (respType === 'summary') {
+        summaryData = item.response_data || item;
+      } else {
+        // lawsuit ou outro tipo
+        lawsuitData = item.response_data || item;
+      }
+    }
+    
+    // Se nao separou, usar primeiro resultado como lawsuit
+    if (!lawsuitData && pageData.length > 0) {
+      lawsuitData = pageData[0].response_data || pageData[0];
+    }
+    
+    const responseData = lawsuitData || {};
     const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+    
+    // Extrair summary text se existir
+    const aiSummary = summaryData?.summary || summaryData?.content || null;
 
     console.log('[Judit Detalhes] Andamentos encontrados:', steps.length);
+    console.log('[Judit Detalhes] AI Summary encontrado:', !!aiSummary);
 
     // Buscar TODOS os processos com mesmo CNJ no tenant para sincronizar
     const { data: allSharedProcesses } = await supabase
@@ -281,7 +304,7 @@ serve(async (req) => {
       console.log('[Judit Detalhes] Anexos inseridos:', anexosInseridos);
     }
 
-    // Atualizar TODOS os processos compartilhados com o request_id
+    // Atualizar TODOS os processos compartilhados com o request_id e AI summary
     await supabase
       .from('processos_oab')
       .update({
@@ -290,6 +313,8 @@ serve(async (req) => {
         detalhes_request_id: requestId,
         detalhes_request_data: new Date().toISOString(),
         ultima_atualizacao_detalhes: new Date().toISOString(),
+        ai_summary: aiSummary,
+        ai_summary_data: summaryData,
         updated_at: new Date().toISOString()
       })
       .eq('numero_cnj', numeroCnj)

@@ -14,44 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_chat_messages: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          processo_oab_id: string | null
-          role: string
-          tenant_id: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          processo_oab_id?: string | null
-          role: string
-          tenant_id: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          processo_oab_id?: string | null
-          role?: string
-          tenant_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_chat_messages_processo_oab_id_fkey"
-            columns: ["processo_oab_id"]
-            isOneToOne: false
-            referencedRelation: "processos_oab"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       batink_audit_logs: {
         Row: {
           action: string
@@ -2736,6 +2698,8 @@ export type Database = {
       }
       processos_oab: {
         Row: {
+          ai_summary: string | null
+          ai_summary_data: Json | null
           capa_completa: Json | null
           created_at: string | null
           data_distribuicao: string | null
@@ -2765,6 +2729,8 @@ export type Database = {
           valor_causa: number | null
         }
         Insert: {
+          ai_summary?: string | null
+          ai_summary_data?: Json | null
           capa_completa?: Json | null
           created_at?: string | null
           data_distribuicao?: string | null
@@ -2794,6 +2760,8 @@ export type Database = {
           valor_causa?: number | null
         }
         Update: {
+          ai_summary?: string | null
+          ai_summary_data?: Json | null
           capa_completa?: Json | null
           created_at?: string | null
           data_distribuicao?: string | null

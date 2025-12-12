@@ -1,29 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
 import { toast } from 'sonner';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  created_at?: string;
-}
-
-interface ProcessoContext {
-  numero_cnj?: string;
-  parte_ativa?: string;
-  parte_passiva?: string;
-  tribunal?: string;
-  status?: string;
-  valor_causa?: number;
-}
-
-export const useVoutiIA = (processoOabId?: string, processoContext?: ProcessoContext) => {
+export const useVoutiIA = (processoOabId?: string) => {
   const { user, userRole } = useAuth();
   const { tenantId } = useTenantId();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSummaryData, setAiSummaryData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -47,7 +32,7 @@ export const useVoutiIA = (processoOabId?: string, processoContext?: ProcessoCon
           console.error('Error loading AI settings:', error);
         }
 
-        setAiEnabled(data?.ai_enabled ?? false);
+        setAiEnabled(data?.ai_enabled ?? true);
       } catch (err) {
         console.error('Error loading AI settings:', err);
       } finally {
@@ -58,36 +43,32 @@ export const useVoutiIA = (processoOabId?: string, processoContext?: ProcessoCon
     loadSettings();
   }, [tenantId]);
 
-  // Load chat history for this process
+  // Load summary from processo
   useEffect(() => {
-    const loadHistory = async () => {
-      if (!processoOabId || !tenantId) return;
+    const loadSummary = async () => {
+      if (!processoOabId) return;
 
+      setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('ai_chat_messages')
-          .select('id, role, content, created_at')
-          .eq('processo_oab_id', processoOabId)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: true });
+          .from('processos_oab')
+          .select('ai_summary, ai_summary_data')
+          .eq('id', processoOabId)
+          .single();
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
-          setMessages(data.map(m => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            created_at: m.created_at,
-          })));
-        }
+        setAiSummary(data?.ai_summary || null);
+        setAiSummaryData(data?.ai_summary_data || null);
       } catch (err) {
-        console.error('Error loading chat history:', err);
+        console.error('Error loading summary:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadHistory();
-  }, [processoOabId, tenantId]);
+    loadSummary();
+  }, [processoOabId]);
 
   // Toggle AI enabled for tenant (admin only)
   const toggleAiEnabled = useCallback(async () => {
@@ -118,150 +99,37 @@ export const useVoutiIA = (processoOabId?: string, processoContext?: ProcessoCon
     }
   }, [tenantId, userRole, aiEnabled]);
 
-  // Send message to AI
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || !aiEnabled || !user || !tenantId) return;
+  // Refresh summary
+  const refreshSummary = useCallback(async () => {
+    if (!processoOabId) return;
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: content.trim(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
-
-    let assistantContent = '';
-
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vouti-ia-chat`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: [...messages, userMessage].map(m => ({
-              role: m.role,
-              content: m.content,
-            })),
-            processoContext,
-            tenantId,
-            userId: user.id,
-            processoOabId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao processar solicitacao');
-      }
-
-      if (!response.body) throw new Error('No response body');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
-
-      const assistantMessageId = crypto.randomUUID();
-
-      // Add empty assistant message
-      setMessages(prev => [...prev, {
-        id: assistantMessageId,
-        role: 'assistant',
-        content: '',
-      }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const deltaContent = parsed.choices?.[0]?.delta?.content;
-            if (deltaContent) {
-              assistantContent += deltaContent;
-              setMessages(prev =>
-                prev.map(m =>
-                  m.id === assistantMessageId
-                    ? { ...m, content: assistantContent }
-                    : m
-                )
-              );
-            }
-          } catch {
-            textBuffer = line + '\n' + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Save assistant message to database
-      if (assistantContent && processoOabId) {
-        await supabase.from('ai_chat_messages').insert({
-          tenant_id: tenantId,
-          user_id: user.id,
-          processo_oab_id: processoOabId,
-          role: 'assistant',
-          content: assistantContent,
-        });
-      }
-    } catch (err) {
-      console.error('Error sending message:', err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mensagem');
-      // Remove the failed user message
-      setMessages(prev => prev.filter(m => m.id !== userMessage.id));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [messages, aiEnabled, user, tenantId, processoOabId, processoContext]);
-
-  // Clear chat history for this process
-  const clearHistory = useCallback(async () => {
-    if (!processoOabId || !tenantId) return;
-
-    try {
-      const { error } = await supabase
-        .from('ai_chat_messages')
-        .delete()
-        .eq('processo_oab_id', processoOabId)
-        .eq('tenant_id', tenantId);
+      const { data, error } = await supabase
+        .from('processos_oab')
+        .select('ai_summary, ai_summary_data')
+        .eq('id', processoOabId)
+        .single();
 
       if (error) throw error;
 
-      setMessages([]);
-      toast.success('Historico limpo');
+      setAiSummary(data?.ai_summary || null);
+      setAiSummaryData(data?.ai_summary_data || null);
     } catch (err) {
-      console.error('Error clearing history:', err);
-      toast.error('Erro ao limpar historico');
+      console.error('Error refreshing summary:', err);
+    } finally {
+      setIsLoading(false);
     }
-  }, [processoOabId, tenantId]);
+  }, [processoOabId]);
 
   return {
-    messages,
+    aiSummary,
+    aiSummaryData,
     isLoading,
     aiEnabled,
     loadingSettings,
     isAdmin: userRole === 'admin',
-    sendMessage,
     toggleAiEnabled,
-    clearHistory,
+    refreshSummary,
   };
 };
