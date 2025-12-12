@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useClienteAnalytics } from '@/hooks/useClienteAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { Users, Briefcase, MapPin, Calendar, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, Briefcase, MapPin, Calendar, DollarSign, TrendingUp, Eye, EyeOff } from 'lucide-react';
 
 const COLORS_PROFISSOES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF6B9D'];
 const COLORS_IDADES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#6366F1'];
@@ -10,6 +12,14 @@ const COLORS_REGIOES = ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '
 
 export const ClienteAnalytics = () => {
   const { analytics, loading } = useClienteAnalytics();
+  const [valoresVisiveis, setValoresVisiveis] = useState(false);
+
+  const formatarValorOculto = (valor: number): string => {
+    if (!valoresVisiveis) {
+      return "R$ ••••••••";
+    }
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+  };
 
   if (loading) {
     return (
@@ -28,9 +38,30 @@ export const ClienteAnalytics = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">📊 Analytics de Clientes</h2>
-        <p className="text-muted-foreground">Análise completa do perfil dos clientes</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold mb-2 text-foreground">Analytics de Clientes</h2>
+          <p className="text-muted-foreground">Analise completa do perfil dos clientes</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setValoresVisiveis(!valoresVisiveis)}
+          className="flex items-center gap-2"
+          title={valoresVisiveis ? "Ocultar valores" : "Mostrar valores"}
+        >
+          {valoresVisiveis ? (
+            <>
+              <EyeOff className="h-4 w-4" />
+              <span className="hidden sm:inline">Ocultar</span>
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">Mostrar</span>
+            </>
+          )}
+        </Button>
       </div>
 
       {/* KPIs Principais */}
@@ -55,7 +86,7 @@ export const ClienteAnalytics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(analytics.valorTotalContratos)}
+              {formatarValorOculto(analytics.valorTotalContratos)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Receita total</p>
           </CardContent>
@@ -68,7 +99,7 @@ export const ClienteAnalytics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(analytics.ticketMedio)}
+              {formatarValorOculto(analytics.ticketMedio)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Por contrato</p>
           </CardContent>
