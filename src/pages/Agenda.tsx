@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DeadlineComentarios } from "@/components/Agenda/DeadlineComentarios";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
@@ -26,11 +27,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useSearchParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 const Agenda = () => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const handleBack = () => {
     navigate('/dashboard');
   };
@@ -47,6 +52,8 @@ const Agenda = () => {
     date: new Date(),
     projectId: ""
   });
+  const [processoOabIdForDeadline, setProcessoOabIdForDeadline] = useState<string | null>(null);
+  const [processoNumeroForDeadline, setProcessoNumeroForDeadline] = useState<string>("");
   const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const [filteredUserId, setFilteredUserId] = useState<string | null>(null);
@@ -54,6 +61,29 @@ const Agenda = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [filteredUserDeadlines, setFilteredUserDeadlines] = useState<Deadline[]>([]);
   const { toast } = useToast();
+
+  // Verificar se veio da aba Tarefas com params para criar prazo
+  useEffect(() => {
+    const criarPrazo = searchParams.get('criarPrazo');
+    if (criarPrazo === 'true') {
+      const titulo = searchParams.get('titulo') || '';
+      const descricao = searchParams.get('descricao') || '';
+      const processoOabId = searchParams.get('processoOabId') || null;
+      const processoNumero = searchParams.get('processoNumero') || '';
+      
+      setFormData(prev => ({
+        ...prev,
+        title: titulo,
+        description: descricao,
+      }));
+      setProcessoOabIdForDeadline(processoOabId);
+      setProcessoNumeroForDeadline(processoNumero);
+      setIsDialogOpen(true);
+      
+      // Limpar params da URL
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (user) {
@@ -80,13 +110,12 @@ const Agenda = () => {
         console.error('Error fetching projects:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível carregar os projetos.",
+          description: "Nao foi possivel carregar os projetos.",
           variant: "destructive",
         });
         return;
       }
 
-      // Mapear os dados do Supabase para o formato Project
       const mappedProjects: Project[] = (data || []).map(project => ({
         id: project.id,
         name: project.name,
@@ -112,14 +141,6 @@ const Agenda = () => {
 
   const fetchDeadlines = async () => {
     try {
-      console.log('[Agenda] Fetching deadlines...');
-      
-      // Verificar se é admin para log
-      if (user) {
-        const isAdminUser = await checkIfUserIsAdminOrController(user.id);
-        console.log('[Agenda] User is admin/controller:', isAdminUser);
-      }
-      
       const { data, error } = await supabase
         .from('deadlines')
         .select(`
@@ -148,23 +169,20 @@ const Agenda = () => {
         console.error('[Agenda] Error fetching deadlines:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível carregar os prazos.",
+          description: "Nao foi possivel carregar os prazos.",
           variant: "destructive",
         });
         return;
       }
 
-      console.log(`[Agenda] Loaded ${data?.length || 0} deadlines`);
-
-      // Mapear os dados do Supabase para o formato Deadline
       const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
         id: deadline.id,
         title: deadline.title,
         description: deadline.description || '',
         date: parseISO(deadline.date + 'T12:00:00'),
         projectId: deadline.project_id,
-        projectName: deadline.projects?.name || 'Projeto não encontrado',
-        clientName: deadline.projects?.client || 'Cliente não encontrado',
+        projectName: deadline.projects?.name || 'Projeto nao encontrado',
+        clientName: deadline.projects?.client || 'Cliente nao encontrado',
         completed: deadline.completed,
         advogadoResponsavel: deadline.advogado ? {
           userId: deadline.advogado.user_id,
@@ -176,6 +194,7 @@ const Agenda = () => {
           name: tag.tagged_user?.full_name,
           avatar: tag.tagged_user?.avatar_url
         })),
+        processoOabId: deadline.processo_oab_id || undefined,
         createdAt: new Date(deadline.created_at),
         updatedAt: new Date(deadline.updated_at)
       }));
@@ -214,9 +233,6 @@ const Agenda = () => {
     if (!formData.title.trim() || !formData.projectId || !user) return;
 
     try {
-      console.log('[Agenda] Creating deadline with tags:', taggedUsers);
-      
-      // Criar o deadline
       const { data, error } = await supabase
         .from('deadlines')
         .insert({
@@ -225,7 +241,8 @@ const Agenda = () => {
           description: formData.description,
           date: format(formData.date, 'yyyy-MM-dd'),
           project_id: formData.projectId,
-          advogado_responsavel_id: selectedAdvogado
+          advogado_responsavel_id: selectedAdvogado,
+          processo_oab_id: processoOabIdForDeadline
         })
         .select(`
           *,
@@ -245,13 +262,12 @@ const Agenda = () => {
         console.error('[Agenda] Error creating deadline:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível criar o prazo.",
+          description: "Nao foi possivel criar o prazo.",
           variant: "destructive",
         });
         return;
       }
 
-      // Criar tags se houver usuários selecionados
       if (taggedUsers.length > 0) {
         const tags = taggedUsers.map(userId => ({
           deadline_id: data.id,
@@ -264,14 +280,11 @@ const Agenda = () => {
 
         if (tagsError) {
           console.error('[Agenda] Error creating tags:', tagsError);
-          // Continuar mesmo com erro nas tags
         }
       }
 
-      // Recarregar deadlines para pegar os dados completos com tags
       await fetchDeadlines();
 
-      // Limpar formulário
       setFormData({
         title: "",
         description: "",
@@ -280,13 +293,17 @@ const Agenda = () => {
       });
       setSelectedAdvogado(null);
       setTaggedUsers([]);
+      setProcessoOabIdForDeadline(null);
+      setProcessoNumeroForDeadline("");
       setIsDialogOpen(false);
 
       toast({
-        title: "✓ Prazo criado",
-        description: taggedUsers.length > 0 
-          ? `Prazo criado e ${taggedUsers.length} usuário(s) foram marcados.`
-          : "Novo prazo adicionado à agenda com sucesso.",
+        title: "Prazo criado",
+        description: processoOabIdForDeadline 
+          ? "Prazo criado e vinculado ao processo."
+          : taggedUsers.length > 0 
+            ? `Prazo criado e ${taggedUsers.length} usuario(s) foram marcados.`
+            : "Novo prazo adicionado a agenda com sucesso.",
       });
     } catch (error) {
       console.error('[Agenda] Error:', error);
@@ -312,7 +329,7 @@ const Agenda = () => {
         console.error('Error updating deadline:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível atualizar o status do prazo.",
+          description: "Nao foi possivel atualizar o status do prazo.",
           variant: "destructive",
         });
         return;
@@ -363,8 +380,8 @@ const Agenda = () => {
     setIsDetailDialogOpen(false);
     
     toast({
-      title: "Prazo concluído",
-      description: "Prazo marcado como concluído e adicionado ao histórico do cliente.",
+      title: "Prazo concluido",
+      description: "Prazo marcado como concluido e adicionado ao historico do cliente.",
     });
   };
 
@@ -386,7 +403,7 @@ const Agenda = () => {
         console.error('Error deleting deadline:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível excluir o prazo.",
+          description: "Nao foi possivel excluir o prazo.",
           variant: "destructive",
         });
         return;
@@ -396,7 +413,7 @@ const Agenda = () => {
       setIsDetailDialogOpen(false);
 
       toast({
-        title: "Prazo excluído",
+        title: "Prazo excluido",
         description: "Prazo foi removido com sucesso.",
       });
     } catch (error) {
@@ -480,8 +497,8 @@ const Agenda = () => {
           description: deadline.description || '',
           date: parseISO(deadline.date + 'T12:00:00'),
           projectId: deadline.project_id,
-          projectName: deadline.projects?.name || 'Projeto não encontrado',
-          clientName: deadline.projects?.client || 'Cliente não encontrado',
+          projectName: deadline.projects?.name || 'Projeto nao encontrado',
+          clientName: deadline.projects?.client || 'Cliente nao encontrado',
           completed: deadline.completed,
           advogadoResponsavel: deadline.advogado ? {
             userId: deadline.advogado.user_id,
@@ -493,6 +510,7 @@ const Agenda = () => {
             name: tag.tagged_user?.full_name,
             avatar: tag.tagged_user?.avatar_url
           })),
+          processoOabId: deadline.processo_oab_id || undefined,
           createdAt: new Date(deadline.created_at),
           updatedAt: new Date(deadline.updated_at)
         }));
@@ -518,33 +536,45 @@ const Agenda = () => {
               <p className="text-muted-foreground">Gerencie prazos e compromissos</p>
             </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setProcessoOabIdForDeadline(null);
+              setProcessoNumeroForDeadline("");
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="professional" className="gap-2">
                 <Plus size={16} />
                 Novo Prazo
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-sm">
               <DialogHeader>
                 <DialogTitle>Criar Novo Prazo</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-3">
+                {processoNumeroForDeadline && (
+                  <div className="p-2 bg-muted rounded-md text-xs">
+                    <span className="text-muted-foreground">Vinculado ao processo:</span>
+                    <p className="font-medium">{processoNumeroForDeadline}</p>
+                  </div>
+                )}
                 <div>
-                  <label className="text-sm font-medium">Título</label>
+                  <label className="text-sm font-medium">Titulo</label>
                   <Input
-                    placeholder="Digite o título do prazo"
+                    placeholder="Digite o titulo do prazo"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Descrição</label>
+                  <label className="text-sm font-medium">Descricao</label>
                   <Textarea
                     placeholder="Descreva o prazo"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="min-h-[80px]"
+                    className="min-h-[60px]"
                   />
                 </div>
                 <div>
@@ -577,12 +607,29 @@ const Agenda = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Data</label>
-                  <Calendar
-                    mode="single"
-                    selected={formData.date}
-                    onSelect={(date) => date && setFormData({ ...formData, date })}
-                    className="border rounded-md p-3 pointer-events-auto"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.date ? format(formData.date, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.date}
+                        onSelect={(date) => date && setFormData({ ...formData, date })}
+                        className="pointer-events-auto"
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <Button onClick={handleCreateDeadline} className="w-full">
                   Criar Prazo
@@ -610,7 +657,7 @@ const Agenda = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5" />
-                  Calendário
+                  Calendario
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -666,7 +713,6 @@ const Agenda = () => {
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">{deadline.description}</p>
                       
-                      {/* Advogado Responsável */}
                       {deadline.advogadoResponsavel && (
                         <div className="flex items-center gap-2 mb-2">
                           <UserCheck className="h-3 w-3 text-primary" />
@@ -684,7 +730,6 @@ const Agenda = () => {
                         </div>
                       )}
                       
-                      {/* Usuários Tagados */}
                       {deadline.taggedUsers && deadline.taggedUsers.length > 0 && (
                         <div className="flex items-center gap-1 mb-2 flex-wrap">
                           <span className="text-xs text-muted-foreground">Tags:</span>
@@ -707,7 +752,7 @@ const Agenda = () => {
                           variant={deadline.completed ? "default" : isPast(deadline.date) ? "destructive" : "secondary"}
                           className="text-xs"
                         >
-                          {deadline.completed ? "Concluído" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
+                          {deadline.completed ? "Concluido" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
                         </Badge>
                       </div>
                     </div>
@@ -737,7 +782,7 @@ const Agenda = () => {
             <CardContent>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {getOverdueDeadlines().map((deadline) => (
-                  <div key={deadline.id} className="border rounded p-2 bg-red-50 border-red-200">
+                  <div key={deadline.id} className="border rounded p-2 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="font-medium text-sm">{deadline.title}</p>
@@ -771,13 +816,13 @@ const Agenda = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-600">
                 <Clock className="h-5 w-5" />
-                Próximos Prazos ({getUpcomingDeadlines().length})
+                Proximos Prazos ({getUpcomingDeadlines().length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {getUpcomingDeadlines().slice(0, 10).map((deadline) => (
-                  <div key={deadline.id} className="border rounded p-2 bg-blue-50 border-blue-200">
+                  <div key={deadline.id} className="border rounded p-2 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="font-medium text-sm">{deadline.title}</p>
@@ -799,7 +844,7 @@ const Agenda = () => {
                 ))}
                 {getUpcomingDeadlines().length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    Nenhum prazo próximo
+                    Nenhum prazo proximo
                   </p>
                 )}
               </div>
@@ -807,268 +852,211 @@ const Agenda = () => {
           </Card>
         </div>
 
-        {/* Admin Filter Section */}
+        {/* Admin Section */}
         {isAdmin && (
-          <div className="mt-8 space-y-4">
-            <div className="border-t pt-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Badge variant="destructive" className="gap-1">
-                  <Shield className="h-3 w-3" />
-                  ÁREA ADMINISTRATIVA
-                </Badge>
-                <h3 className="text-lg font-semibold">Visualizar Prazos de Outros Usuários</h3>
-              </div>
-              
-              <Select value={filteredUserId || ""} onValueChange={(value) => {
-                setFilteredUserId(value);
-                if (value) fetchUserDeadlines(value);
-                else setFilteredUserDeadlines([]);
-              }}>
-                <SelectTrigger className="max-w-md">
-                  <SelectValue placeholder="Selecione um usuário para filtrar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {allUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {filteredUserId && filteredUserDeadlines.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    Prazos de {allUsers.find(u => u.id === filteredUserId)?.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Título</TableHead>
-                          <TableHead>Projeto</TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead>Data</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Responsável</TableHead>
-                          <TableHead className="text-right">Ações</TableHead>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Visao do Administrador
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Filtrar por usuario</label>
+                  <Select 
+                    value={filteredUserId || ""} 
+                    onValueChange={(value) => {
+                      setFilteredUserId(value || null);
+                      if (value) {
+                        fetchUserDeadlines(value);
+                      } else {
+                        setFilteredUserDeadlines([]);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um usuario" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todos</SelectItem>
+                      {allUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} ({u.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {filteredUserId && filteredUserDeadlines.length > 0 && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Titulo</TableHead>
+                        <TableHead>Projeto</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Acoes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUserDeadlines.map((deadline) => (
+                        <TableRow key={deadline.id}>
+                          <TableCell className="font-medium">{deadline.title}</TableCell>
+                          <TableCell>{deadline.projectName}</TableCell>
+                          <TableCell>{format(deadline.date, "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={deadline.completed ? "default" : isPast(deadline.date) ? "destructive" : "secondary"}
+                            >
+                              {deadline.completed ? "Concluido" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeadlineDetails(deadline)}
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredUserDeadlines.map(deadline => (
-                          <TableRow key={deadline.id}>
-                            <TableCell className="font-medium">{deadline.title}</TableCell>
-                            <TableCell>{deadline.projectName}</TableCell>
-                            <TableCell>{deadline.clientName}</TableCell>
-                            <TableCell>{format(deadline.date, "dd/MM/yyyy")}</TableCell>
-                            <TableCell>
-                              <Badge variant={deadline.completed ? "default" : isPast(deadline.date) ? "destructive" : "secondary"}>
-                                {deadline.completed ? "Concluído" : isPast(deadline.date) ? "Atrasado" : "Pendente"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {deadline.advogadoResponsavel ? (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={deadline.advogadoResponsavel.avatar} />
-                                    <AvatarFallback className="text-xs">
-                                      {deadline.advogadoResponsavel.name?.charAt(0).toUpperCase() || 'A'}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">{deadline.advogadoResponsavel.name}</span>
-                                </div>
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openDeadlineDetails(deadline)}
-                              >
-                                Detalhes
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {filteredUserId && filteredUserDeadlines.length === 0 && (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <p className="text-muted-foreground">Este usuário não possui prazos cadastrados.</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                
+                {filteredUserId && filteredUserDeadlines.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhum prazo encontrado para este usuario
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Modal de Detalhes do Prazo */}
+        {/* Deadline Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Detalhes do Prazo</DialogTitle>
-            </DialogHeader>
+          <DialogContent className="max-w-lg">
             {selectedDeadline && (
-              <Tabs defaultValue="detalhes" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="detalhes" className="gap-2">
-                    <Info className="h-4 w-4" />
-                    Detalhes
-                  </TabsTrigger>
-                  <TabsTrigger value="comentarios" className="gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    Comentários
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="detalhes" className="space-y-4 mt-4">
-                  <div>
-                    <label className="text-sm font-medium">Título</label>
-                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
-                      {selectedDeadline.title}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Descrição</label>
-                    <p className="text-sm border rounded p-2 bg-muted min-h-[100px] max-h-[200px] overflow-y-auto break-words whitespace-pre-wrap">
-                      {selectedDeadline.description || 'Nenhuma descrição fornecida'}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Projeto</label>
-                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
-                      {selectedDeadline.projectName}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Cliente</label>
-                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
-                      {selectedDeadline.clientName}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Data do Prazo</label>
-                    <p className="text-sm border rounded p-2 bg-muted break-words whitespace-pre-wrap">
-                      {format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium">Status:</label>
-                    <Badge 
-                      variant={selectedDeadline.completed ? "default" : isPast(selectedDeadline.date) ? "destructive" : "secondary"}
-                    >
-                      {selectedDeadline.completed ? "Concluído" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
-                    </Badge>
-                  </div>
-
-                  {selectedDeadline.advogadoResponsavel && (
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Advogado Responsável:</label>
-                      <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={selectedDeadline.advogadoResponsavel.avatar} />
-                          <AvatarFallback className="text-xs">
-                            {selectedDeadline.advogadoResponsavel.name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium text-primary">
-                          {selectedDeadline.advogadoResponsavel.name}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedDeadline.taggedUsers && selectedDeadline.taggedUsers.length > 0 && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{selectedDeadline.title}</DialogTitle>
+                </DialogHeader>
+                <Tabs defaultValue="info" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="info">Informacoes</TabsTrigger>
+                    <TabsTrigger value="comments">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Comentarios
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="info" className="space-y-4 mt-4">
                     <div>
-                      <label className="text-sm font-medium block mb-2">Usuários Tagados:</label>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedDeadline.taggedUsers.map((user) => (
-                          <div 
-                            key={user.userId}
-                            className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-full border border-secondary"
-                          >
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={user.avatar} />
-                              <AvatarFallback className="text-xs">
-                                {user.name.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">
-                              {user.name}
-                            </span>
-                          </div>
-                        ))}
+                      <label className="text-sm font-medium text-muted-foreground">Descricao</label>
+                      <p className="text-foreground">{selectedDeadline.description || 'Sem descricao'}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Data</label>
+                        <p className="text-foreground">{format(selectedDeadline.date, "dd/MM/yyyy", { locale: ptBR })}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Projeto</label>
+                        <p className="text-foreground">{selectedDeadline.projectName}</p>
                       </div>
                     </div>
-                  )}
-                  
-                  <div className="flex gap-2 pt-2">
-                    {!selectedDeadline.completed && (
-                      <Button 
-                        onClick={() => handleCompleteDeadline(selectedDeadline)} 
-                        className="flex-1"
-                        variant="professional"
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Marcar como Concluído
-                      </Button>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Cliente</label>
+                      <p className="text-foreground">{selectedDeadline.clientName}</p>
+                    </div>
+                    
+                    {selectedDeadline.advogadoResponsavel && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Advogado Responsavel</label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={selectedDeadline.advogadoResponsavel.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {selectedDeadline.advogadoResponsavel.name?.charAt(0).toUpperCase() || 'A'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{selectedDeadline.advogadoResponsavel.name}</span>
+                        </div>
+                      </div>
                     )}
                     
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Excluir Prazo
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita e todos os comentários serão perdidos.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              handleDeleteDeadline(selectedDeadline.id);
-                              setIsDetailDialogOpen(false);
-                            }}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </TabsContent>
+                    {selectedDeadline.taggedUsers && selectedDeadline.taggedUsers.length > 0 && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Usuarios Marcados</label>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {selectedDeadline.taggedUsers.map((tagged, idx) => (
+                            <div key={idx} className="flex items-center gap-1 bg-muted px-2 py-1 rounded">
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage src={tagged.avatar} />
+                                <AvatarFallback className="text-xs">
+                                  {tagged.name?.charAt(0).toUpperCase() || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm">{tagged.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Status</label>
+                      <Badge 
+                        variant={selectedDeadline.completed ? "default" : isPast(selectedDeadline.date) ? "destructive" : "secondary"}
+                        className="ml-2"
+                      >
+                        {selectedDeadline.completed ? "Concluido" : isPast(selectedDeadline.date) ? "Atrasado" : "Pendente"}
+                      </Badge>
+                    </div>
 
-                <TabsContent value="comentarios" className="mt-4">
-                  <DeadlineComentarios 
-                    deadlineId={selectedDeadline.id}
-                    currentUserId={user?.id || ''}
-                  />
-                </TabsContent>
-              </Tabs>
+                    <div className="flex gap-2 pt-4">
+                      {!selectedDeadline.completed && (
+                        <Button 
+                          onClick={() => handleCompleteDeadline(selectedDeadline)}
+                          className="flex-1"
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Marcar como Concluido
+                        </Button>
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="icon">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir Prazo</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir este prazo? Esta acao nao pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteDeadline(selectedDeadline.id)}>
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="comments" className="mt-4">
+                    <DeadlineComentarios deadlineId={selectedDeadline.id} />
+                  </TabsContent>
+                </Tabs>
+              </>
             )}
           </DialogContent>
         </Dialog>
