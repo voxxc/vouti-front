@@ -21,6 +21,7 @@ export interface Deadline {
   completed: boolean;
   advogadoResponsavel?: AdvogadoResponsavel;
   taggedUsers?: TaggedUser[];
+  processoOabId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer } from 'lucide-react';
+import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer, Pencil, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,8 @@ import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { RelatorioUnificado } from '@/components/Project/RelatorioUnificado';
 import { TaskTarefa } from '@/types/taskTarefa';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 
 interface TarefasTabProps {
   processo: ProcessoOAB;
@@ -52,30 +54,49 @@ const FASES_SUGERIDAS = [
   'Outro',
 ];
 
+// Helper para obter data local correta
+const getLocalDateString = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
+
 export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
-  const { tarefas, loading, adicionarTarefa, removerTarefa } = useTarefasOAB(processo.id);
+  const { tarefas, loading, adicionarTarefa, atualizarTarefa, removerTarefa } = useTarefasOAB(processo.id);
+  const { toast } = useToast();
+  const { navigate } = useTenantNavigation();
+  
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [prazoDialogOpen, setPrazoDialogOpen] = useState(false);
   const [tarefaToDelete, setTarefaToDelete] = useState<TarefaOAB | null>(null);
+  const [editingTarefa, setEditingTarefa] = useState<TarefaOAB | null>(null);
+  const [tarefaForPrazo, setTarefaForPrazo] = useState<TarefaOAB | null>(null);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Tarefas do card vinculado (admin)
   const [taskTarefas, setTaskTarefas] = useState<TaskTarefa[]>([]);
 
-  // Form state
+  // Form state - Criar
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [fase, setFase] = useState('');
-  const [dataExecucao, setDataExecucao] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dataExecucao, setDataExecucao] = useState(getLocalDateString());
   const [observacoes, setObservacoes] = useState('');
+
+  // Form state - Editar
+  const [editTitulo, setEditTitulo] = useState('');
+  const [editDescricao, setEditDescricao] = useState('');
+  const [editFase, setEditFase] = useState('');
+  const [editDataExecucao, setEditDataExecucao] = useState('');
+  const [editObservacoes, setEditObservacoes] = useState('');
 
   // Buscar card vinculado e suas tarefas admin
   useEffect(() => {
     const buscarTarefasCardVinculado = async () => {
       if (!processo.id) return;
 
-      // Buscar card que tem processo_oab_id = processo.id
       const { data: task } = await supabase
         .from('tasks')
         .select('id')
@@ -83,7 +104,6 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
         .maybeSingle();
 
       if (task) {
-        // Buscar tarefas admin desse card
         const { data: tarefasAdmin } = await supabase
           .from('task_tarefas')
           .select('*')
@@ -103,7 +123,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
     setTitulo('');
     setDescricao('');
     setFase('');
-    setDataExecucao(format(new Date(), 'yyyy-MM-dd'));
+    setDataExecucao(getLocalDateString());
     setObservacoes('');
   };
 
@@ -126,6 +146,35 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
     }
   };
 
+  const handleEditClick = (tarefa: TarefaOAB) => {
+    setEditingTarefa(tarefa);
+    setEditTitulo(tarefa.titulo);
+    setEditDescricao(tarefa.descricao || '');
+    setEditFase(tarefa.fase || '');
+    setEditDataExecucao(tarefa.data_execucao);
+    setEditObservacoes(tarefa.observacoes || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingTarefa || !editTitulo.trim()) return;
+
+    setSubmitting(true);
+    const result = await atualizarTarefa(editingTarefa.id, {
+      titulo: editTitulo.trim(),
+      descricao: editDescricao.trim() || undefined,
+      fase: editFase.trim() || undefined,
+      data_execucao: editDataExecucao,
+      observacoes: editObservacoes.trim() || undefined,
+    });
+    setSubmitting(false);
+
+    if (result) {
+      setEditDialogOpen(false);
+      setEditingTarefa(null);
+    }
+  };
+
   const handleDeleteClick = (tarefa: TarefaOAB) => {
     setTarefaToDelete(tarefa);
     setDeleteDialogOpen(true);
@@ -139,9 +188,32 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
     }
   };
 
+  const handleCriarPrazoClick = (tarefa: TarefaOAB) => {
+    setTarefaForPrazo(tarefa);
+    setPrazoDialogOpen(true);
+  };
+
+  const handleConfirmCriarPrazo = () => {
+    if (!tarefaForPrazo) return;
+    
+    // Navegar para agenda com params para criar prazo
+    const params = new URLSearchParams({
+      criarPrazo: 'true',
+      titulo: tarefaForPrazo.titulo,
+      descricao: tarefaForPrazo.descricao || '',
+      processoOabId: processo.id,
+      processoNumero: processo.numero_cnj || '',
+    });
+    
+    navigate(`/agenda?${params.toString()}`);
+    setPrazoDialogOpen(false);
+  };
+
   const formatData = (data: string) => {
     try {
-      return format(new Date(data), "dd/MM/yyyy", { locale: ptBR });
+      // Adicionar horario para evitar shift de timezone
+      const date = new Date(data + 'T12:00:00');
+      return format(date, "dd/MM/yyyy", { locale: ptBR });
     } catch {
       return data;
     }
@@ -268,7 +340,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
             {/* Linha vertical da timeline */}
             <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-border" />
             
-            {tarefas.map((tarefa, index) => (
+            {tarefas.map((tarefa) => (
               <div key={tarefa.id} className="relative">
                 {/* Ponto na timeline */}
                 <div className="absolute -left-3.5 top-2 w-3 h-3 rounded-full bg-primary border-2 border-background" />
@@ -297,14 +369,35 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
                         </p>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteClick(tarefa)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-primary hover:text-primary"
+                        onClick={() => handleCriarPrazoClick(tarefa)}
+                        title="Criar Prazo na Agenda"
+                      >
+                        <CalendarPlus className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleEditClick(tarefa)}
+                        title="Editar Tarefa"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteClick(tarefa)}
+                        title="Excluir Tarefa"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               </div>
@@ -312,6 +405,86 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
           </div>
         )}
       </ScrollArea>
+
+      {/* Dialog de edicao */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-titulo">Titulo *</Label>
+              <Input
+                id="edit-titulo"
+                placeholder="Ex: Audiencia de Conciliacao"
+                value={editTitulo}
+                onChange={(e) => setEditTitulo(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-fase">Fase Processual</Label>
+                <Input
+                  id="edit-fase"
+                  placeholder="Selecione ou digite"
+                  value={editFase}
+                  onChange={(e) => setEditFase(e.target.value)}
+                  list="fases-lista-edit"
+                />
+                <datalist id="fases-lista-edit">
+                  {FASES_SUGERIDAS.map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-data">Data de Execucao</Label>
+                <Input
+                  id="edit-data"
+                  type="date"
+                  value={editDataExecucao}
+                  onChange={(e) => setEditDataExecucao(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-descricao">Descricao</Label>
+              <Textarea
+                id="edit-descricao"
+                placeholder="Detalhes da atividade realizada..."
+                value={editDescricao}
+                onChange={(e) => setEditDescricao(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-observacoes">Observacoes</Label>
+              <Textarea
+                id="edit-observacoes"
+                placeholder="Notas adicionais..."
+                value={editObservacoes}
+                onChange={(e) => setEditObservacoes(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <Button onClick={handleEditSubmit} disabled={!editTitulo.trim() || submitting} className="w-full">
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Alteracoes'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de confirmacao de exclusao */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -326,6 +499,25 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmacao de criar prazo */}
+      <AlertDialog open={prazoDialogOpen} onOpenChange={setPrazoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Criar Prazo na Agenda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja criar um prazo na agenda com base nesta tarefa? 
+              Voce sera redirecionado para a pagina de Agenda com os dados pre-preenchidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCriarPrazo}>
+              Ir para Agenda
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

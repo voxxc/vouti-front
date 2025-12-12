@@ -827,6 +827,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          processo_oab_id: string | null
           project_id: string
           tenant_id: string | null
           title: string
@@ -840,6 +841,7 @@ export type Database = {
           date: string
           description?: string | null
           id?: string
+          processo_oab_id?: string | null
           project_id: string
           tenant_id?: string | null
           title: string
@@ -853,6 +855,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          processo_oab_id?: string | null
           project_id?: string
           tenant_id?: string | null
           title?: string
@@ -866,6 +869,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "deadlines_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "deadlines_project_id_fkey"
