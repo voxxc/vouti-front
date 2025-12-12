@@ -390,6 +390,11 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     return processos.filter(p => compartilhadosMap[p.numero_cnj]).length;
   }, [processos, compartilhadosMap]);
 
+  // Contagem de processos com andamentos nao lidos
+  const naoLidosCount = useMemo(() => {
+    return processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length;
+  }, [processos]);
+
   // Extrair UFs unicas dos processos com contagem
   const ufsDisponiveis = useMemo(() => {
     const ufMap = new Map<string, number>();
@@ -407,6 +412,9 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     if (filtroUF === 'todos') return processos;
     if (filtroUF === 'compartilhados') {
       return processos.filter(p => compartilhadosMap[p.numero_cnj]);
+    }
+    if (filtroUF === 'nao-lidos') {
+      return processos.filter(p => (p.andamentos_nao_lidos || 0) > 0);
     }
     return processos.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
   }, [processos, filtroUF, compartilhadosMap]);
@@ -506,7 +514,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   return (
     <>
       {/* Filtro por UF */}
-      {(ufsDisponiveis.length > 1 || compartilhadosCount > 0) && (
+      {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
         <div className="flex items-center gap-3 mb-4">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={filtroUF} onValueChange={setFiltroUF}>
@@ -517,6 +525,14 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
               <SelectItem value="todos">
                 Todos ({processos.length})
               </SelectItem>
+              {naoLidosCount > 0 && (
+                <SelectItem value="nao-lidos">
+                  <span className="flex items-center gap-2">
+                    <Bell className="w-3 h-3 text-red-500" />
+                    Com novos andamentos ({naoLidosCount})
+                  </span>
+                </SelectItem>
+              )}
               {compartilhadosCount > 0 && (
                 <SelectItem value="compartilhados">
                   <span className="flex items-center gap-2">
