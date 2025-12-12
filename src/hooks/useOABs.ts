@@ -409,6 +409,49 @@ export const useProcessosOAB = (oabId: string | null) => {
     fetchProcessos();
   }, [fetchProcessos]);
 
+  // Real-time subscription para atualizar contagem de andamentos nao lidos
+  useEffect(() => {
+    if (!oabId) return;
+
+    const channel = supabase
+      .channel(`processos-andamentos-count-${oabId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'processos_oab_andamentos'
+        },
+        async (payload) => {
+          const processoId = (payload.new as any)?.processo_oab_id || (payload.old as any)?.processo_oab_id;
+          if (!processoId) return;
+
+          // Verificar se o processo pertence a esta OAB
+          const processoExiste = processos.some(p => p.id === processoId);
+          if (!processoExiste) return;
+
+          // Atualizar contagem do processo afetado
+          const { count } = await supabase
+            .from('processos_oab_andamentos')
+            .select('*', { count: 'exact', head: true })
+            .eq('processo_oab_id', processoId)
+            .eq('lida', false);
+
+          setProcessos(prev => 
+            prev.map(p => p.id === processoId 
+              ? { ...p, andamentos_nao_lidos: count || 0 } 
+              : p
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [oabId, processos]);
+
   const carregarDetalhes = async (processoId: string, numeroCnj: string, oabId?: string) => {
     setCarregandoDetalhes(processoId);
     try {
@@ -430,7 +473,14 @@ export const useProcessosOAB = (oabId: string | null) => {
         description: `${data.andamentosInseridos} novos andamentos`
       });
 
-      await fetchProcessos();
+      // Atualizar apenas o processo especifico sem re-fetch completo
+      setProcessos(prev => 
+        prev.map(p => p.id === processoId 
+          ? { ...p, detalhes_carregados: true, detalhes_request_id: data.requestId || p.detalhes_request_id }
+          : p
+        )
+      );
+      
       return data;
     } catch (error: any) {
       console.error('[useProcessosOAB] Erro ao carregar detalhes:', error);
@@ -544,7 +594,8 @@ export const useProcessosOAB = (oabId: string | null) => {
         description: `${data.andamentosInseridos} novos andamentos`
       });
 
-      await fetchProcessos();
+      // Nao chamar fetchProcessos() para evitar re-render do modal
+      // O real-time subscription ja vai atualizar a contagem de nao lidos
       return data;
     } catch (error: any) {
       console.error('[useProcessosOAB] Erro ao consultar detalhes:', error);
@@ -603,6 +654,72 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
     fetchAndamentos();
   }, [fetchAndamentos]);
 
+  // Real-time subscription para andamentos
+  useEffect(() => {
+    if (!processoOabId) return;
+
+    const channel = supabase
+      .channel(`andamentos-oab-${processoOabId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'processos_oab_andamentos',
+          filter: `processo_oab_id=eq.${processoOabId}`
+        },
+        (payload) => {
+          const newAndamento = payload.new as AndamentoOAB;
+          setAndamentos(prev => {
+            // Evitar duplicatas
+            if (prev.some(a => a.id === newAndamento.id)) return prev;
+            // Inserir ordenado por data
+            const updated = [newAndamento, ...prev];
+            return updated.sort((a, b) => {
+              const dateA = a.data_movimentacao ? new Date(a.data_movimentacao).getTime() : 0;
+              const dateB = b.data_movimentacao ? new Date(b.data_movimentacao).getTime() : 0;
+              return dateB - dateA;
+            });
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'processos_oab_andamentos',
+          filter: `processo_oab_id=eq.${processoOabId}`
+        },
+        (payload) => {
+          const updatedAndamento = payload.new as AndamentoOAB;
+          setAndamentos(prev => 
+            prev.map(a => a.id === updatedAndamento.id ? updatedAndamento : a)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'DELETE', 
+          schema: 'public', 
+          table: 'processos_oab_andamentos',
+          filter: `processo_oab_id=eq.${processoOabId}`
+        },
+        (payload) => {
+          const deletedId = (payload.old as any)?.id;
+          if (deletedId) {
+            setAndamentos(prev => prev.filter(a => a.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [processoOabId]);
+
   const marcarComoLida = async (andamentoId: string) => {
     try {
       await supabase
@@ -610,9 +727,7 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
         .update({ lida: true })
         .eq('id', andamentoId);
 
-      setAndamentos(prev => 
-        prev.map(a => a.id === andamentoId ? { ...a, lida: true } : a)
-      );
+      // O real-time subscription ja vai atualizar o state
     } catch (error: any) {
       console.error('[useAndamentosOAB] Erro ao marcar como lida:', error);
     }
@@ -628,8 +743,7 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
         .eq('processo_oab_id', processoOabId)
         .eq('lida', false);
 
-      setAndamentos(prev => prev.map(a => ({ ...a, lida: true })));
-      
+      // O real-time subscription ja vai atualizar o state
       toast({
         title: 'Andamentos marcados como lidos'
       });
