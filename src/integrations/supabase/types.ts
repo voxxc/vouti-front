@@ -4495,6 +4495,10 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      is_current_user_admin_in_tenant: {
+        Args: { _target_tenant_id: string }
+        Returns: boolean
+      }
       is_deadline_owner: {
         Args: { _deadline_id: string; _user_id: string }
         Returns: boolean
