@@ -338,7 +338,8 @@ const Agenda = () => {
       if (taggedUsers.length > 0) {
         const tags = taggedUsers.map(userId => ({
           deadline_id: data.id,
-          tagged_user_id: userId
+          tagged_user_id: userId,
+          tenant_id: tenantId
         }));
 
         const { error: tagsError } = await supabase
