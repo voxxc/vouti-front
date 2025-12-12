@@ -73,61 +73,61 @@ const HomePage = () => {
   };
 
   const modules = [
-    { icon: FileText, title: 'Landing Page Inteligente', desc: 'Capture leads com paginas otimizadas para conversao' },
-    { icon: Users, title: 'CRM Juridico', desc: 'Gestao visual de oportunidades estilo Kanban' },
-    { icon: User, title: 'Cadastro de Clientes', desc: 'Perfis completos com historico e documentacao' },
-    { icon: DollarSign, title: 'Gestao Financeira', desc: 'Honorarios, contratos, mensalidades, fluxo de caixa' },
+    { icon: FileText, title: 'Landing Page Inteligente', desc: 'Capture leads com páginas otimizadas para conversão' },
+    { icon: Users, title: 'CRM Jurídico', desc: 'Gestão visual de oportunidades estilo Kanban' },
+    { icon: User, title: 'Cadastro de Clientes', desc: 'Perfis completos com histórico e documentação' },
+    { icon: DollarSign, title: 'Gestão Financeira', desc: 'Honorários, contratos, mensalidades, fluxo de caixa' },
     { icon: Calendar, title: 'Controle de Prazos', desc: 'Agenda automatizada com alertas inteligentes' },
-    { icon: Scale, title: 'Controladoria Juridica', desc: 'Andamentos, intimacoes e resumos em tempo real' },
-    { icon: Search, title: 'Monitoramento CPF/CNPJ', desc: 'Push-Docs com notificacoes de novos processos' },
-    { icon: LayoutGrid, title: 'Projetos Kanban', desc: 'Boards visuais para gestao de tarefas e acordos' },
-    { icon: Handshake, title: 'Gestao de Acordos', desc: 'Controle completo de negociacoes e parcelamentos' },
-    { icon: MessageSquare, title: 'Chat Interno', desc: 'Comunicacao integrada entre equipe' },
-    { icon: BarChart3, title: 'Relatorios Automatizados', desc: 'Exportacao de dados e metricas em PDF' },
-    { icon: Gauge, title: 'Dashboard Indicadores', desc: 'Visao completa da operacao em tempo real' },
+    { icon: Scale, title: 'Controladoria Jurídica', desc: 'Andamentos, intimações e resumos em tempo real' },
+    { icon: Search, title: 'Monitoramento CPF/CNPJ', desc: 'Push-Docs com notificações de novos processos' },
+    { icon: LayoutGrid, title: 'Projetos Kanban', desc: 'Boards visuais para gestão de tarefas e acordos' },
+    { icon: Handshake, title: 'Gestão de Acordos', desc: 'Controle completo de negociações e parcelamentos' },
+    { icon: MessageSquare, title: 'Chat Interno', desc: 'Comunicação integrada entre equipe' },
+    { icon: BarChart3, title: 'Relatórios Automatizados', desc: 'Exportação de dados e métricas em PDF' },
+    { icon: Gauge, title: 'Dashboard Indicadores', desc: 'Visão completa da operação em tempo real' },
   ];
 
   const benefits = [
     { icon: TrendingUp, title: 'Aumento real de produtividade', desc: 'Automatize tarefas repetitivas e foque no que importa' },
-    { icon: Shield, title: 'Reducao de erros e retrabalho', desc: 'Processos padronizados que eliminam falhas humanas' },
-    { icon: DollarSign, title: 'Controle financeiro preciso', desc: 'Visao clara de receitas, despesas e inadimplencia' },
-    { icon: Zap, title: 'Automacao de rotinas juridicas', desc: 'Andamentos, prazos e intimacoes monitorados 24/7' },
-    { icon: Users, title: 'Organizacao total da equipe', desc: 'Tarefas distribuidas e acompanhamento em tempo real' },
-    { icon: CheckCircle2, title: 'Visao completa da operacao', desc: 'Dashboards que metrificam toda a performance' },
+    { icon: Shield, title: 'Redução de erros e retrabalho', desc: 'Processos padronizados que eliminam falhas humanas' },
+    { icon: DollarSign, title: 'Controle financeiro preciso', desc: 'Visão clara de receitas, despesas e inadimplência' },
+    { icon: Zap, title: 'Automação de rotinas jurídicas', desc: 'Andamentos, prazos e intimações monitorados 24/7' },
+    { icon: Users, title: 'Organização total da equipe', desc: 'Tarefas distribuídas e acompanhamento em tempo real' },
+    { icon: CheckCircle2, title: 'Visão completa da operação', desc: 'Dashboards que metrificam toda a performance' },
   ];
 
   const personas = [
-    { icon: User, title: 'Advogados Autonomos', desc: 'Organize sua rotina e potencialize resultados' },
-    { icon: Building2, title: 'Escritorios Pequenos e Medios', desc: 'Escale operacoes sem perder o controle' },
-    { icon: Building, title: 'Escritorios de Grande Porte', desc: 'Gestao unificada de multiplas equipes e areas' },
-    { icon: Briefcase, title: 'Departamentos Juridicos', desc: 'Integracao com operacoes corporativas' },
+    { icon: User, title: 'Advogados Autônomos', desc: 'Organize sua rotina e potencialize resultados' },
+    { icon: Building2, title: 'Escritórios Pequenos e Médios', desc: 'Escale operações sem perder o controle' },
+    { icon: Building, title: 'Escritórios de Grande Porte', desc: 'Gestão unificada de múltiplas equipes e áreas' },
+    { icon: Briefcase, title: 'Departamentos Jurídicos', desc: 'Integração com operações corporativas' },
   ];
 
   const testimonials = [
     {
       name: 'Dr. Ricardo Mendes',
-      role: 'Socio-Fundador, Mendes & Associados',
-      text: 'A VOUTI transformou completamente nossa operacao. Reduzimos em 40% o tempo gasto com tarefas administrativas.',
+      role: 'Sócio-Fundador, Mendes & Associados',
+      text: 'A VOUTI transformou completamente nossa operação. Reduzimos em 40% o tempo gasto com tarefas administrativas.',
       rating: 5
     },
     {
       name: 'Dra. Camila Santos',
       role: 'Advogada, Santos Advocacia',
-      text: 'Nunca mais perdi um prazo. O sistema de alertas e a controladoria sao impecaveis.',
+      text: 'Nunca mais perdi um prazo. O sistema de alertas e a controladoria são impecáveis.',
       rating: 5
     },
     {
       name: 'Dr. Fernando Costa',
-      role: 'Diretor Juridico, Grupo Empresarial',
-      text: 'A visibilidade que temos hoje sobre nossa operacao nao tem preco. Recomendo fortemente.',
+      role: 'Diretor Jurídico, Grupo Empresarial',
+      text: 'A visibilidade que temos hoje sobre nossa operação não tem preço. Recomendo fortemente.',
       rating: 5
     },
   ];
 
   const mockups = [
-    { title: 'Dashboard Principal', desc: 'Visao 360 da sua operacao' },
-    { title: 'Kanban de Projetos', desc: 'Gestao visual de tarefas' },
-    { title: 'Calendario de Prazos', desc: 'Nunca perca uma deadline' },
+    { title: 'Dashboard Principal', desc: 'Visão 360 da sua operação' },
+    { title: 'Kanban de Projetos', desc: 'Gestão visual de tarefas' },
+    { title: 'Calendário de Prazos', desc: 'Nunca perca uma deadline' },
     { title: 'CRM de Clientes', desc: 'Pipeline de oportunidades' },
     { title: 'Controladoria', desc: 'Andamentos em tempo real' },
   ];
@@ -169,8 +169,8 @@ const HomePage = () => {
 
           <nav className="hidden md:flex items-center gap-8">
             <a href="#about" className="text-sm text-gray-400 hover:text-white transition-colors">Sobre</a>
-            <a href="#modules" className="text-sm text-gray-400 hover:text-white transition-colors">Modulos</a>
-            <a href="#benefits" className="text-sm text-gray-400 hover:text-white transition-colors">Beneficios</a>
+            <a href="#modules" className="text-sm text-gray-400 hover:text-white transition-colors">Módulos</a>
+            <a href="#benefits" className="text-sm text-gray-400 hover:text-white transition-colors">Benefícios</a>
             <a href="#testimonials" className="text-sm text-gray-400 hover:text-white transition-colors">Depoimentos</a>
           </nav>
 
@@ -189,12 +189,12 @@ const HomePage = () => {
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 mb-8">
               <Zap className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm text-cyan-400">Plataforma #1 em Gestao Juridica</span>
+              <span className="text-sm text-cyan-400">Plataforma #1 em Gestão Jurídica</span>
             </div>
             
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
               <span className="bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent">
-                Gestao Juridica
+                Gestão Jurídica
               </span>
               <br />
               <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
@@ -203,7 +203,7 @@ const HomePage = () => {
             </h1>
             
             <p className="text-lg sm:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Automatize processos, organize prazos e potencialize resultados do seu escritorio 
+              Automatize processos, organize prazos e potencialize resultados do seu escritório 
               com a plataforma mais completa do mercado.
             </p>
             
@@ -213,7 +213,7 @@ const HomePage = () => {
                 size="lg"
                 className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0 text-lg px-8 py-6 rounded-xl shadow-lg shadow-blue-500/25"
               >
-                Solicitar Demonstracao
+                Solicitar Demonstração
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
               <Button 
@@ -222,7 +222,7 @@ const HomePage = () => {
                 className="border-white/20 text-white hover:bg-white/10 text-lg px-8 py-6 rounded-xl"
                 onClick={() => document.getElementById('modules')?.scrollIntoView({ behavior: 'smooth' })}
               >
-                Conhecer Modulos
+                Conhecer Módulos
               </Button>
             </div>
           </div>
@@ -238,19 +238,19 @@ const HomePage = () => {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-              Uma plataforma, <span className="text-cyan-400">toda sua operacao</span>
+              Uma plataforma, <span className="text-cyan-400">toda sua operação</span>
             </h2>
             <p className="text-xl text-gray-400 leading-relaxed">
-              A VOUTI integra todas as areas de gestao do escritorio juridico em um 
-              ambiente unico, intuitivo e totalmente automatizado.
+              A VOUTI integra todas as áreas de gestão do escritório jurídico em um 
+              ambiente único, intuitivo e totalmente automatizado.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: Scale, title: 'Centralizacao', desc: 'Todas as informacoes em um so lugar, acessiveis de qualquer dispositivo' },
-              { icon: Zap, title: 'Automacao', desc: 'Rotinas juridicas automatizadas que economizam horas do seu dia' },
-              { icon: BarChart3, title: 'Inteligencia', desc: 'Dashboards e metricas que transformam dados em decisoes estrategicas' },
+              { icon: Scale, title: 'Centralização', desc: 'Todas as informações em um só lugar, acessíveis de qualquer dispositivo' },
+              { icon: Zap, title: 'Automação', desc: 'Rotinas jurídicas automatizadas que economizam horas do seu dia' },
+              { icon: BarChart3, title: 'Inteligência', desc: 'Dashboards e métricas que transformam dados em decisões estratégicas' },
             ].map((item, i) => (
               <div 
                 key={i}
@@ -272,10 +272,10 @@ const HomePage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Modulos <span className="text-cyan-400">Principais</span>
+              Módulos <span className="text-cyan-400">Principais</span>
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Cada modulo foi desenvolvido para resolver desafios especificos da advocacia moderna
+              Cada módulo foi desenvolvido para resolver desafios específicos da advocacia moderna
             </p>
           </div>
 
@@ -305,12 +305,12 @@ const HomePage = () => {
               <div className="relative">
                 <Scale className="w-12 h-12 text-cyan-400 mb-6" />
                 <p className="text-lg sm:text-xl leading-relaxed text-gray-200">
-                  "A VOUTI foi criada para resolver os principais desafios dos escritorios de advocacia, 
-                  trazendo <span className="text-cyan-400 font-semibold">organizacao, previsibilidade e automacao</span>. 
-                  O sistema centraliza informacoes, simplifica o controle financeiro, reduz riscos de perda de prazos, 
-                  melhora a comunicacao interna e oferece dashboards que metrificam toda a operacao juridica. 
-                  Com modulos que abrangem desde o CRM ate a controladoria, a VOUTI entrega 
-                  <span className="text-cyan-400 font-semibold"> clareza, produtividade e gestao inteligente</span>."
+                  "A VOUTI foi criada para resolver os principais desafios dos escritórios de advocacia, 
+                  trazendo <span className="text-cyan-400 font-semibold">organização, previsibilidade e automação</span>. 
+                  O sistema centraliza informações, simplifica o controle financeiro, reduz riscos de perda de prazos, 
+                  melhora a comunicação interna e oferece dashboards que metrificam toda a operação jurídica. 
+                  Com módulos que abrangem desde o CRM até a controladoria, a VOUTI entrega 
+                  <span className="text-cyan-400 font-semibold"> clareza, produtividade e gestão inteligente</span>."
                 </p>
               </div>
             </div>
@@ -326,7 +326,7 @@ const HomePage = () => {
               Por que escolher a <span className="text-cyan-400">VOUTI</span>?
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Beneficios reais que transformam a operacao do seu escritorio
+              Benefícios reais que transformam a operação do seu escritório
             </p>
           </div>
 
@@ -356,10 +356,10 @@ const HomePage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Para quem e a <span className="text-cyan-400">VOUTI</span>?
+              Para quem é a <span className="text-cyan-400">VOUTI</span>?
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Solucoes adaptadas para cada perfil de atuacao juridica
+              Soluções adaptadas para cada perfil de atuação jurídica
             </p>
           </div>
 
@@ -421,7 +421,7 @@ const HomePage = () => {
               O que nossos clientes <span className="text-cyan-400">dizem</span>
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Escritorios que transformaram sua operacao com a VOUTI
+              Escritórios que transformaram sua operação com a VOUTI
             </p>
           </div>
 
@@ -463,15 +463,15 @@ const HomePage = () => {
               <div className="relative grid lg:grid-cols-2 gap-12 items-center">
                 <div>
                   <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-                    Transforme seu escritorio com{' '}
-                    <span className="text-cyan-400">gestao inteligente</span>
+                    Transforme seu escritório com{' '}
+                    <span className="text-cyan-400">gestão inteligente</span>
                   </h2>
                   <p className="text-gray-300 text-lg mb-6">
-                    Agende uma demonstracao personalizada e descubra como a VOUTI 
-                    pode revolucionar sua operacao juridica.
+                    Agende uma demonstração personalizada e descubra como a VOUTI 
+                    pode revolucionar sua operação jurídica.
                   </p>
                   <ul className="space-y-3">
-                    {['Demonstracao gratuita', 'Sem compromisso', 'Suporte especializado'].map((item, i) => (
+                    {['Demonstração gratuita', 'Sem compromisso', 'Suporte especializado'].map((item, i) => (
                       <li key={i} className="flex items-center gap-3">
                         <CheckCircle2 className="w-5 h-5 text-cyan-400" />
                         <span className="text-gray-300">{item}</span>
@@ -481,7 +481,7 @@ const HomePage = () => {
                 </div>
 
                 <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/10">
-                  <h3 className="text-xl font-semibold mb-6 text-center">Agendar Demonstracao</h3>
+                  <h3 className="text-xl font-semibold mb-6 text-center">Agendar Demonstração</h3>
                   <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
                     <div>
                       <label className="text-sm text-gray-400 mb-1 block">Nome completo</label>
@@ -512,14 +512,14 @@ const HomePage = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-gray-400 mb-1 block">Tamanho do escritorio</label>
+                      <label className="text-sm text-gray-400 mb-1 block">Tamanho do escritório</label>
                       <select 
                         value={formData.tamanho}
                         onChange={(e) => setFormData({...formData, tamanho: e.target.value})}
                         className="w-full h-10 px-3 rounded-md bg-white/5 border border-white/10 text-white focus:border-cyan-500 focus:outline-none"
                       >
                         <option value="" className="bg-[#0a0f1a]">Selecione</option>
-                        <option value="autonomo" className="bg-[#0a0f1a]">Advogado Autonomo</option>
+                        <option value="autonomo" className="bg-[#0a0f1a]">Advogado Autônomo</option>
                         <option value="pequeno" className="bg-[#0a0f1a]">1-5 advogados</option>
                         <option value="medio" className="bg-[#0a0f1a]">6-20 advogados</option>
                         <option value="grande" className="bg-[#0a0f1a]">20+ advogados</option>
@@ -529,7 +529,7 @@ const HomePage = () => {
                       type="submit"
                       className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0 py-6"
                     >
-                      Agendar Demonstracao Gratuita
+                      Agendar Demonstração Gratuita
                       <ArrowRight className="ml-2 w-5 h-5" />
                     </Button>
                   </form>
@@ -547,15 +547,15 @@ const HomePage = () => {
             <div>
               <LogoVouti size="sm" />
               <p className="mt-4 text-sm text-gray-400">
-                A plataforma mais completa para gestao de escritorios de advocacia.
+                A plataforma mais completa para gestão de escritórios de advocacia.
               </p>
             </div>
             
             <div>
               <h4 className="font-semibold mb-4">Plataforma</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#modules" className="hover:text-white transition-colors">Modulos</a></li>
-                <li><a href="#benefits" className="hover:text-white transition-colors">Beneficios</a></li>
+                <li><a href="#modules" className="hover:text-white transition-colors">Módulos</a></li>
+                <li><a href="#benefits" className="hover:text-white transition-colors">Benefícios</a></li>
                 <li><a href="#testimonials" className="hover:text-white transition-colors">Depoimentos</a></li>
               </ul>
             </div>
