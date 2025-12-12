@@ -941,11 +941,12 @@ const Agenda = () => {
                 <div>
                   <label className="text-sm font-medium">Filtrar por usuario</label>
                   <Select 
-                    value={filteredUserId || ""} 
+                    value={filteredUserId || "all"} 
                     onValueChange={(value) => {
-                      setFilteredUserId(value || null);
-                      if (value) {
-                        fetchUserDeadlines(value);
+                      const userId = value === "all" ? null : value;
+                      setFilteredUserId(userId);
+                      if (userId) {
+                        fetchUserDeadlines(userId);
                       } else {
                         setFilteredUserDeadlines([]);
                       }
@@ -955,7 +956,7 @@ const Agenda = () => {
                       <SelectValue placeholder="Selecione um usuario" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       {allUsers.map((u) => (
                         <SelectItem key={u.id} value={u.id}>
                           {u.name} ({u.email})
