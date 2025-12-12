@@ -130,6 +130,7 @@ const HomePage = () => {
     { title: 'Calendário de Prazos', desc: 'Nunca perca uma deadline' },
     { title: 'CRM de Clientes', desc: 'Pipeline de oportunidades' },
     { title: 'Controladoria', desc: 'Andamentos em tempo real' },
+    { title: 'Sistema Sob Medida', desc: 'Demandas específicas para áreas trabalhista, bancária, criminal, consumidor e cível, com calculadoras e IA' },
   ];
 
   const scrollToDemo = () => {
