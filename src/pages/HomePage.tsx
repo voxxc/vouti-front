@@ -581,28 +581,11 @@ const HomePage = () => {
                         <option value="pequeno" className="bg-[#0a0f1a]">1-5 advogados</option>
                         <option value="medio" className="bg-[#0a0f1a]">6-20 advogados</option>
                         <option value="grande" className="bg-[#0a0f1a]">20+ advogados</option>
-                    </select>
-                  </div>
-                  <Button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0 py-6"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                    ) : null}
-                    Agendar Demonstracao Gratuita
-                    {!isSubmitting && <ArrowRight className="ml-2 w-5 h-5" />}
-                  </Button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+                      </select>
                     </div>
                     <Button 
                       type="submit"
+                      onClick={handleSubmitForm}
                       disabled={isSubmitting}
                       className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0 py-6"
                     >
