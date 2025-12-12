@@ -556,44 +556,46 @@ const HomePage = () => {
       {/* Footer */}
       <footer className="py-12 border-t border-white/10">
         <div className="container mx-auto px-4">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            <div>
-              <LogoVouti size="sm" />
-              <p className="mt-4 text-sm text-gray-400">
+          <div className="grid gap-8 mb-12">
+            {/* Logo e descrição */}
+            <div className="text-center">
+              <span className="text-3xl font-bold tracking-wider">
+                <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
+                <span className="text-red-500">.</span>
+              </span>
+              <p className="mt-4 text-sm text-gray-400 max-w-md mx-auto">
                 A plataforma mais completa para gestão de escritórios de advocacia.
               </p>
             </div>
             
-            <div>
-              <h4 className="font-semibold mb-4">Plataforma</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#modules" className="hover:text-white transition-colors">Módulos</a></li>
-                <li><a href="#benefits" className="hover:text-white transition-colors">Benefícios</a></li>
-                <li><a href="#testimonials" className="hover:text-white transition-colors">Depoimentos</a></li>
-              </ul>
+            {/* Plataforma e Recursos em duas colunas */}
+            <div className="grid grid-cols-2 gap-8 max-w-md mx-auto">
+              <div className="text-center">
+                <h4 className="font-semibold mb-4">Plataforma</h4>
+                <ul className="space-y-2 text-sm text-gray-400">
+                  <li><a href="#modules" className="hover:text-white transition-colors">Módulos</a></li>
+                  <li><a href="#benefits" className="hover:text-white transition-colors">Benefícios</a></li>
+                  <li><a href="#testimonials" className="hover:text-white transition-colors">Depoimentos</a></li>
+                </ul>
+              </div>
+              
+              <div className="text-center">
+                <h4 className="font-semibold mb-4">Recursos</h4>
+                <ul className="space-y-2 text-sm text-gray-400">
+                  <li><a href="#" className="hover:text-white transition-colors">Central de Ajuda</a></li>
+                  <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
+                  <li><a href="#" className="hover:text-white transition-colors">API</a></li>
+                </ul>
+              </div>
             </div>
             
-            <div>
-              <h4 className="font-semibold mb-4">Recursos</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Central de Ajuda</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
-              </ul>
-            </div>
-            
-            <div>
+            {/* Contato centralizado */}
+            <div className="text-center">
               <h4 className="font-semibold mb-4">Contato</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  contato@vouti.com.br
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  (11) 99999-9999
-                </li>
-              </ul>
+              <a href="mailto:contato@vouti.co" className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+                <Mail className="w-4 h-4" />
+                contato@vouti.co
+              </a>
             </div>
           </div>
           
