@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { createLandingLead } from '@/hooks/useLandingLeads';
 import { 
   Scale, 
   Users, 
@@ -29,20 +31,62 @@ import {
   ArrowRight,
   Mail,
   Phone,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from 'lucide-react';
 import LogoVouti from '@/components/LogoVouti';
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggCode, setEasterEggCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
     whatsapp: '',
     tamanho: ''
   });
+
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.nome.trim()) {
+      toast({
+        title: 'Campo obrigatorio',
+        description: 'Por favor, informe seu nome.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createLandingLead({
+        nome: formData.nome,
+        email: formData.email || undefined,
+        telefone: formData.whatsapp || undefined,
+        tamanho_escritorio: formData.tamanho || undefined,
+        origem: 'vouti_landing'
+      });
+
+      toast({
+        title: 'Solicitacao enviada!',
+        description: 'Entraremos em contato em breve.'
+      });
+
+      setFormData({ nome: '', email: '', whatsapp: '', tamanho: '' });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar',
+        description: error.message || 'Tente novamente mais tarde.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -537,14 +581,36 @@ const HomePage = () => {
                         <option value="pequeno" className="bg-[#0a0f1a]">1-5 advogados</option>
                         <option value="medio" className="bg-[#0a0f1a]">6-20 advogados</option>
                         <option value="grande" className="bg-[#0a0f1a]">20+ advogados</option>
-                      </select>
+                    </select>
+                  </div>
+                  <Button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0 py-6"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    ) : null}
+                    Agendar Demonstracao Gratuita
+                    {!isSubmitting && <ArrowRight className="ml-2 w-5 h-5" />}
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
                     </div>
                     <Button 
                       type="submit"
+                      disabled={isSubmitting}
                       className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0 py-6"
                     >
-                      Agendar Demonstração Gratuita
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                      {isSubmitting ? (
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      ) : null}
+                      Agendar Demonstracao Gratuita
+                      {!isSubmitting && <ArrowRight className="ml-2 w-5 h-5" />}
                     </Button>
                   </form>
                 </div>

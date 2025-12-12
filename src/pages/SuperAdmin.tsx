@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Shield, Loader2, ShieldCheck, Eye, EyeOff, LogOut } from 'lucide-react';
+import { Shield, Loader2, ShieldCheck, Eye, EyeOff, LogOut, Users, Headphones, Building2 } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
 import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
 import { SuperAdminThemeToggle } from '@/components/SuperAdmin/SuperAdminThemeToggle';
+import { SuperAdminLeads } from '@/components/SuperAdmin/SuperAdminLeads';
+import { SuperAdminSupport } from '@/components/SuperAdmin/SuperAdminSupport';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -343,26 +345,53 @@ export default function SuperAdmin() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Sistemas & Clientes</h2>
-          <p className="text-muted-foreground">
-            Gerencie todos os sistemas e clientes da plataforma VOUTI
-          </p>
-        </div>
+        <Tabs defaultValue="tenants" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="tenants" className="flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              Clientes
+            </TabsTrigger>
+            <TabsTrigger value="leads" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Leads
+            </TabsTrigger>
+            <TabsTrigger value="support" className="flex items-center gap-2">
+              <Headphones className="w-4 h-4" />
+              Suporte
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="space-y-8">
-          {systemTypes.map((systemType) => (
-            <SystemTypeSection
-              key={systemType.id}
-              systemType={systemType}
-              tenants={getTenantsBySystemType(systemType.id)}
-              onCreateTenant={handleCreateTenant}
-              onEditTenant={handleEditTenant}
-              onToggleStatus={toggleTenantStatus}
-              onDeleteTenant={deleteTenant}
-            />
-          ))}
-        </div>
+          <TabsContent value="tenants">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-2">Sistemas & Clientes</h2>
+              <p className="text-muted-foreground">
+                Gerencie todos os sistemas e clientes da plataforma VOUTI
+              </p>
+            </div>
+
+            <div className="space-y-8">
+              {systemTypes.map((systemType) => (
+                <SystemTypeSection
+                  key={systemType.id}
+                  systemType={systemType}
+                  tenants={getTenantsBySystemType(systemType.id)}
+                  onCreateTenant={handleCreateTenant}
+                  onEditTenant={handleEditTenant}
+                  onToggleStatus={toggleTenantStatus}
+                  onDeleteTenant={deleteTenant}
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="leads">
+            <SuperAdminLeads />
+          </TabsContent>
+
+          <TabsContent value="support">
+            <SuperAdminSupport />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Dialogs */}

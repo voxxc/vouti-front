@@ -13,10 +13,12 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  Headphones
 } from "lucide-react";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { SupportSheet } from "@/components/Support/SupportSheet";
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -25,6 +27,7 @@ interface DashboardSidebarProps {
 const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const { navigate } = useTenantNavigation();
   const { userRole } = useAuth();
 
@@ -145,6 +148,22 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
           })}
         </nav>
 
+        {/* Support Button */}
+        <div className="px-2 py-2 border-t border-border">
+          <Button
+            variant="ghost"
+            onClick={() => setSupportOpen(true)}
+            className={cn(
+              "w-full justify-start gap-3 h-11 text-muted-foreground hover:text-foreground",
+              isCollapsed && "justify-center px-2"
+            )}
+            title={isCollapsed ? "Suporte" : undefined}
+          >
+            <Headphones size={20} />
+            {!isCollapsed && <span>Suporte</span>}
+          </Button>
+        </div>
+
         {/* Collapse Toggle */}
         <div className="p-2 border-t border-border hidden md:block">
           <Button
@@ -160,6 +179,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
           </Button>
         </div>
       </aside>
+
+      {/* Support Sheet */}
+      <SupportSheet open={supportOpen} onOpenChange={setSupportOpen} />
 
       {/* Spacer to push content */}
       <div className={cn(
