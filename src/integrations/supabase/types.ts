@@ -1022,6 +1022,48 @@ export type Database = {
           },
         ]
       }
+      landing_leads: {
+        Row: {
+          atendido_por: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          nome: string
+          notas: string | null
+          origem: string | null
+          status: string | null
+          tamanho_escritorio: string | null
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          atendido_por?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome: string
+          notas?: string | null
+          origem?: string | null
+          status?: string | null
+          tamanho_escritorio?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          atendido_por?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome?: string
+          notas?: string | null
+          origem?: string | null
+          status?: string | null
+          tamanho_escritorio?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       lead_comments: {
         Row: {
           content: string
@@ -3664,6 +3706,85 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      support_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          sender_id: string
+          sender_type: string
+          ticket_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          sender_id: string
+          sender_type: string
+          ticket_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          sender_id?: string
+          sender_type?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          status: string | null
+          subject: string
+          tenant_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          status?: string | null
+          subject: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          status?: string | null
+          subject?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_types: {
         Row: {
