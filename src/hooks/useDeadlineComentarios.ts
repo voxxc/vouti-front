@@ -30,33 +30,34 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
     try {
       const { data, error } = await supabase
         .from('deadline_comentarios')
-        .select(`
-          *,
-          profiles!deadline_comentarios_user_id_fkey (
-            user_id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('deadline_id', deadlineId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       
-      const mapped = (data || []).map(item => ({
-        ...item,
-        autor: Array.isArray(item.profiles) && item.profiles.length > 0 
-          ? item.profiles[0] 
-          : undefined
-      }));
+      // Buscar profiles separadamente para cada comentario
+      const comentariosWithProfiles = await Promise.all(
+        (data || []).map(async (comentario) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, email, avatar_url')
+            .eq('user_id', comentario.user_id)
+            .single();
+          
+          return {
+            ...comentario,
+            autor: profile || undefined
+          };
+        })
+      );
       
-      setComentarios(mapped);
+      setComentarios(comentariosWithProfiles);
     } catch (error) {
-      console.error('Erro ao carregar comentários:', error);
+      console.error('Erro ao carregar comentarios:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os comentários.",
+        description: "Nao foi possivel carregar os comentarios.",
         variant: "destructive",
       });
     } finally {
