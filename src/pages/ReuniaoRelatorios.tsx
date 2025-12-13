@@ -8,7 +8,7 @@ import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { StatusDistributionChart } from '@/components/Reunioes/Charts/StatusDistributionChart';
 import { ReunioesTrendChart } from '@/components/Reunioes/Charts/ReunioesTrendChart';
 import { UserPerformanceTable } from '@/components/Reunioes/Charts/UserPerformanceTable';
-import { RelatorioReunioesExport } from '@/components/Reunioes/RelatorioReunioesExport';
+import { RelatorioReunioesModal } from '@/components/Reunioes/RelatorioReunioesModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -27,10 +27,10 @@ const ReuniaoRelatorios = () => {
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-2">Acesso Negado</h2>
             <p className="text-muted-foreground mb-4">
-              Você não tem permissão para acessar esta página.
+              Voce nao tem permissao para acessar esta pagina.
             </p>
             <Button onClick={() => navigate('/reunioes')}>
-              Voltar para Reuniões
+              Voltar para Reunioes
             </Button>
           </div>
         </div>
@@ -42,7 +42,7 @@ const ReuniaoRelatorios = () => {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center p-8">
-          Carregando relatórios...
+          Carregando relatorios...
         </div>
       </DashboardLayout>
     );
@@ -57,25 +57,20 @@ const ReuniaoRelatorios = () => {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Relatórios de Reuniões</h1>
+              <h1 className="text-3xl font-bold">Relatorios de Reunioes</h1>
               <p className="text-muted-foreground">
-                Visão completa e consolidada de todas as reuniões
+                Visao completa e consolidada de todas as reunioes
               </p>
             </div>
           </div>
-          <RelatorioReunioesExport
-            metrics={metrics}
-            userMetrics={userMetrics}
-            startDate={startDate}
-            endDate={endDate}
-          />
+          <RelatorioReunioesModal />
         </div>
 
         {/* Filtros de data */}
         <Card>
           <CardHeader>
             <CardTitle>Filtros</CardTitle>
-            <CardDescription>Selecione o período para análise</CardDescription>
+            <CardDescription>Selecione o periodo para analise</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 items-center">
@@ -94,7 +89,7 @@ const ReuniaoRelatorios = () => {
                   />
                 </PopoverContent>
               </Popover>
-              <span>até</span>
+              <span>ate</span>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline">
@@ -124,12 +119,12 @@ const ReuniaoRelatorios = () => {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Reuniões</CardTitle>
+                <CardTitle className="text-sm font-medium">Total de Reunioes</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.totalReunioes}</div>
-                <p className="text-xs text-muted-foreground">reuniões agendadas</p>
+                <p className="text-xs text-muted-foreground">reunioes agendadas</p>
               </CardContent>
             </Card>
 
@@ -140,35 +135,35 @@ const ReuniaoRelatorios = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.totalClientes}</div>
-                <p className="text-xs text-muted-foreground">clientes únicos</p>
+                <p className="text-xs text-muted-foreground">clientes unicos</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
+                <CardTitle className="text-sm font-medium">Taxa de Conversao</CardTitle>
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.taxaConversao.toFixed(1)}%</div>
-                <p className="text-xs text-muted-foreground">reuniões fechadas</p>
+                <p className="text-xs text-muted-foreground">reunioes fechadas</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Média por Cliente</CardTitle>
+                <CardTitle className="text-sm font-medium">Media por Cliente</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.mediaReunioesPorCliente.toFixed(1)}</div>
-                <p className="text-xs text-muted-foreground">reuniões/cliente</p>
+                <p className="text-xs text-muted-foreground">reunioes/cliente</p>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Gráficos gerais */}
+        {/* Graficos gerais */}
         {metrics && (
           <div className="grid gap-4 md:grid-cols-2">
             {metrics.reunioesPorStatus.length > 0 && (
@@ -180,7 +175,7 @@ const ReuniaoRelatorios = () => {
           </div>
         )}
 
-        {/* Tabela de performance por usuário */}
+        {/* Tabela de performance por usuario */}
         {userMetrics.length > 0 && (
           <UserPerformanceTable userMetrics={userMetrics} />
         )}
