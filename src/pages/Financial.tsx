@@ -31,6 +31,7 @@ import { ptBR } from 'date-fns/locale';
 import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceiroDialog';
 import { ColaboradoresTab } from '@/components/Financial/ColaboradoresTab';
 import { CustosTab } from '@/components/Financial/CustosTab';
+import { RelatorioFinanceiroModal } from '@/components/Financial/RelatorioFinanceiroModal';
 
 
 interface ClienteFinanceiro extends Cliente {
@@ -267,10 +268,7 @@ const Financial = () => {
               <p className="text-muted-foreground">Gestão financeira integrada com CRM</p>
             </div>
           </div>
-          <Button variant="outline" className="gap-2">
-            <Download size={16} />
-            Exportar Relatório
-          </Button>
+          <RelatorioFinanceiroModal />
         </div>
 
         {/* Dashboard Cards */}
