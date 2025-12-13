@@ -124,18 +124,18 @@ const LandingPage2 = () => {
   const pilares = [
     {
       icon: Scale,
-      title: 'Excelencia Juridica',
-      description: 'Atuacao estrategica com foco em resultados concretos'
+      title: 'Excelência Jurídica',
+      description: 'Atuação estratégica com foco em resultados concretos'
     },
     {
       icon: Shield,
-      title: 'Protecao Integral',
-      description: 'Seguranca juridica para voce e seu patrimonio'
+      title: 'Proteção Integral',
+      description: 'Segurança jurídica para você e seu patrimônio'
     },
     {
       icon: Users,
       title: 'Atendimento Exclusivo',
-      description: 'Relacionamento proximo e personalizado'
+      description: 'Relacionamento próximo e personalizado'
     }
   ];
 
@@ -143,8 +143,8 @@ const LandingPage2 = () => {
     'Direito Civil',
     'Direito Empresarial',
     'Direito Trabalhista',
-    'Direito de Familia',
-    'Direito Imobiliario',
+    'Direito de Família',
+    'Direito Imobiliário',
     'Outro'
   ];
 
@@ -156,7 +156,7 @@ const LandingPage2 = () => {
     );
   }
 
-  const escritorioName = tenant?.name || 'Escritorio de Advocacia';
+  const escritorioName = tenant?.name || 'VOUTI';
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
@@ -167,7 +167,7 @@ const LandingPage2 = () => {
         <div className="relative z-10 text-center max-w-4xl mx-auto">
           <div className="mb-8">
             <span className="text-[#c4a052] text-sm tracking-[0.3em] uppercase font-light">
-              Advocacia de Excelencia
+              Advocacia de Excelência
             </span>
           </div>
           
@@ -176,7 +176,7 @@ const LandingPage2 = () => {
           </h1>
           
           <p className="text-lg md:text-xl text-[#a0a0a0] font-light max-w-2xl mx-auto mb-12 leading-relaxed">
-            Solucoes juridicas estrategicas com compromisso, etica e resultados.
+            Soluções jurídicas estratégicas com compromisso, ética e resultados.
           </p>
           
           <Button
@@ -200,10 +200,10 @@ const LandingPage2 = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-20">
             <span className="text-[#c4a052] text-sm tracking-[0.3em] uppercase font-light">
-              Nossa Atuacao
+              Nossa Atuação
             </span>
             <h2 className="text-3xl md:text-4xl font-light mt-4">
-              Pilares do Escritorio
+              Pilares do Escritório
             </h2>
           </div>
 
@@ -245,7 +245,7 @@ const LandingPage2 = () => {
                 {counters.years}
               </div>
               <div className="text-sm text-[#707070] tracking-widest uppercase">
-                Anos de Atuacao
+                Anos de Atuação
               </div>
             </div>
             <div className="text-center">
@@ -258,10 +258,10 @@ const LandingPage2 = () => {
             </div>
             <div className="text-center">
               <div className="text-4xl md:text-5xl font-light text-[#c4a052] mb-2">
-                {counters.success}%
+                ALTO
               </div>
               <div className="text-sm text-[#707070] tracking-widest uppercase">
-                Taxa de Sucesso
+                Compromisso com Resultado
               </div>
             </div>
           </div>
@@ -310,7 +310,7 @@ const LandingPage2 = () => {
               onValueChange={(value) => setFormData({ ...formData, area: value })}
             >
               <SelectTrigger className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] h-14 rounded-none [&>span]:text-[#505050] data-[state=open]:border-[#c4a052]">
-                <SelectValue placeholder="Area de interesse" />
+                <SelectValue placeholder="Área de interesse" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#262626] rounded-none">
                 {areas.map((area) => (
@@ -345,7 +345,7 @@ const LandingPage2 = () => {
                 {escritorioName}
               </h3>
               <p className="text-[#505050] text-sm">
-                Advocacia de Excelencia
+                Advocacia de Excelência
               </p>
             </div>
 
@@ -390,7 +390,7 @@ const LandingPage2 = () => {
           >
             <Input
               type="password"
-              placeholder="Codigo de acesso"
+              placeholder="Código de acesso"
               value={easterEggInput}
               onChange={(e) => setEasterEggInput(e.target.value)}
               autoFocus
