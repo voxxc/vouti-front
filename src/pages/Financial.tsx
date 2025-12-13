@@ -378,10 +378,6 @@ const Financial = () => {
               <Users size={16} />
               Clientes ({clientesFiltrados.length})
             </TabsTrigger>
-            <TabsTrigger value="contracts" className="gap-2">
-              <FileText size={16} />
-              Contratos
-            </TabsTrigger>
             <TabsTrigger value="colaboradores" className="gap-2">
               <UserCheck size={16} />
               Colaboradores
@@ -512,60 +508,6 @@ const Financial = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="contracts" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Resumo de Contratos</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 border rounded-lg">
-                    <div className="text-sm text-muted-foreground mb-1">À Vista</div>
-                    <div className="text-2xl font-bold">
-                      {clientes.filter(c => c.forma_pagamento === 'a_vista').length}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {formatCurrency(
-                        clientes
-                          .filter(c => c.forma_pagamento === 'a_vista')
-                          .reduce((sum, c) => sum + c.valor_contrato, 0)
-                      )}
-                    </div>
-                  </div>
-                  <div className="p-4 border rounded-lg">
-                    <div className="text-sm text-muted-foreground mb-1">Parcelado</div>
-                    <div className="text-2xl font-bold">
-                      {clientes.filter(c => c.forma_pagamento === 'parcelado').length}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {formatCurrency(receitaMensal)}/mês
-                    </div>
-                  </div>
-                  <div className="p-4 border rounded-lg">
-                    <div className="text-sm text-muted-foreground mb-1">Total Geral</div>
-                    <div className="text-2xl font-bold">
-                      {clientes.length}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {formatCurrency(receitaTotal)}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-center py-6 text-muted-foreground border-t">
-                  <FileText size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Documentos contratuais disponíveis no CRM</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-3"
-                    onClick={() => navigate('/crm')}
-                  >
-                    Acessar Documentos no CRM
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="colaboradores" className="space-y-4">
             <ColaboradoresTab />
