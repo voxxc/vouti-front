@@ -116,6 +116,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     if (!task) return;
 
     try {
+      // Buscar comentários com perfil do autor
       const { data: comments, error: commentsError } = await supabase
         .from('task_comments')
         .select('*')
@@ -124,6 +125,16 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (commentsError) throw commentsError;
 
+      // Buscar perfis dos autores dos comentários
+      const commentUserIds = [...new Set((comments || []).map(c => c.user_id))];
+      const { data: commentProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', commentUserIds);
+
+      const profileMap = new Map((commentProfiles || []).map(p => [p.user_id, p.full_name]));
+
+      // Buscar arquivos com perfil do uploader
       const { data: files, error: filesError } = await supabase
         .from('task_files')
         .select('*')
@@ -132,6 +143,16 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (filesError) throw filesError;
 
+      // Buscar perfis dos uploaders
+      const fileUserIds = [...new Set((files || []).map(f => f.uploaded_by))];
+      const { data: fileProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', fileUserIds);
+
+      const fileProfileMap = new Map((fileProfiles || []).map(p => [p.user_id, p.full_name]));
+
+      // Buscar histórico com perfil do usuário
       const { data: history, error: historyError } = await supabase
         .from('task_history')
         .select('*')
@@ -140,12 +161,21 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (historyError) throw historyError;
 
+      // Buscar perfis dos usuários do histórico
+      const historyUserIds = [...new Set((history || []).map(h => h.user_id).filter(Boolean))];
+      const { data: historyProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', historyUserIds);
+
+      const historyProfileMap = new Map((historyProfiles || []).map(p => [p.user_id, p.full_name]));
+
       const updatedTask = {
         ...task,
         comments: (comments || []).map(c => ({
           id: c.id,
           text: c.comment_text,
-          author: 'Usuario',
+          author: profileMap.get(c.user_id) || 'Usuario',
           createdAt: new Date(c.created_at),
           updatedAt: new Date(c.updated_at)
         })),
@@ -155,14 +185,14 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
           size: f.file_size,
           type: f.file_type || '',
-          uploadedBy: 'Usuario',
+          uploadedBy: fileProfileMap.get(f.uploaded_by) || 'Usuario',
           uploadedAt: new Date(f.created_at)
         })),
         history: (history || []).map(h => ({
           id: h.id,
           action: h.action as any,
           details: h.details,
-          user: 'Sistema',
+          user: h.user_id ? (historyProfileMap.get(h.user_id) || 'Usuario') : 'Sistema',
           timestamp: new Date(h.created_at)
         }))
       };
@@ -182,13 +212,26 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
     setEditedAcordoDetails(task.acordoDetails || {});
   };
 
-  const handleSaveTask = () => {
+  const handleSaveTask = async () => {
     if (editedTitle.trim()) {
+      // Buscar nome real do usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      let userName = 'Usuario';
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .single();
+        userName = profile?.full_name || user.email || 'Usuario';
+      }
+
       const historyEntry: TaskHistoryEntry = {
         id: `history-${Date.now()}`,
         action: 'edited',
         details: `Tarefa editada`,
-        user: "Usuario Atual",
+        user: userName,
         timestamp: new Date()
       };
 

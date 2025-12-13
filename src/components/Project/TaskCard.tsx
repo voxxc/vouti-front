@@ -111,7 +111,7 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
     const newComment = {
       id: `comment-${Date.now()}`,
       text: message,
-      author: 'Sistema',
+      author: 'Mensagem Automatica',
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -125,8 +125,8 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
         {
           id: `history-${Date.now()}`,
           action: 'comment_added' as const,
-          details: 'Mensagem automática gerada pelo sistema',
-          user: 'Sistema',
+          details: 'Mensagem automatica gerada',
+          user: 'Mensagem Automatica',
           timestamp: new Date()
         }
       ]
