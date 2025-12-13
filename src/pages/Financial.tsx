@@ -569,6 +569,14 @@ const Financial = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="colaboradores" className="space-y-4">
+            <ColaboradoresTab />
+          </TabsContent>
+
+          <TabsContent value="custos" className="space-y-4">
+            <CustosTab />
+          </TabsContent>
+
           <TabsContent value="history" className="space-y-4">
             <Card>
               <CardHeader>
