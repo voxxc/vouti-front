@@ -105,6 +105,14 @@ const Projects = () => {
             .eq('task_id', task.id)
             .order('created_at', { ascending: true });
 
+          // Buscar perfis dos autores dos comentários
+          const commentUserIds = [...new Set((comments || []).map(c => c.user_id))];
+          const { data: commentProfiles } = commentUserIds.length > 0 ? await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', commentUserIds) : { data: [] };
+          const commentProfileMap = new Map((commentProfiles || []).map(p => [p.user_id, p.full_name]));
+
           // Fetch files
           const { data: files } = await supabase
             .from('task_files')
@@ -112,12 +120,28 @@ const Projects = () => {
             .eq('task_id', task.id)
             .order('created_at', { ascending: true });
 
+          // Buscar perfis dos uploaders
+          const fileUserIds = [...new Set((files || []).map(f => f.uploaded_by))];
+          const { data: fileProfiles } = fileUserIds.length > 0 ? await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', fileUserIds) : { data: [] };
+          const fileProfileMap = new Map((fileProfiles || []).map(p => [p.user_id, p.full_name]));
+
           // Fetch history
           const { data: history } = await supabase
             .from('task_history')
             .select('*')
             .eq('task_id', task.id)
             .order('created_at', { ascending: false });
+
+          // Buscar perfis dos usuários do histórico
+          const historyUserIds = [...new Set((history || []).map(h => h.user_id).filter(Boolean))];
+          const { data: historyProfiles } = historyUserIds.length > 0 ? await supabase
+            .from('profiles')
+            .select('user_id, full_name')
+            .in('user_id', historyUserIds) : { data: [] };
+          const historyProfileMap = new Map((historyProfiles || []).map(p => [p.user_id, p.full_name]));
 
           return {
             id: task.id,
@@ -130,7 +154,7 @@ const Projects = () => {
             comments: (comments || []).map(c => ({
               id: c.id,
               text: c.comment_text,
-              author: 'Usuário',
+              author: commentProfileMap.get(c.user_id) || 'Usuario',
               createdAt: new Date(c.created_at),
               updatedAt: new Date(c.updated_at)
             })),
@@ -140,14 +164,14 @@ const Projects = () => {
               url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
               size: f.file_size,
               type: f.file_type || '',
-              uploadedBy: 'Usuário',
+              uploadedBy: fileProfileMap.get(f.uploaded_by) || 'Usuario',
               uploadedAt: new Date(f.created_at)
             })),
             history: (history || []).map(h => ({
               id: h.id,
               action: h.action as any,
               details: h.details,
-              user: 'Sistema',
+              user: h.user_id ? (historyProfileMap.get(h.user_id) || 'Usuario') : 'Sistema',
               timestamp: new Date(h.created_at)
             })),
             createdAt: new Date(task.created_at),
