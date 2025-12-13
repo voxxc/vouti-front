@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Filter, Edit, Trash2, Users, BarChart3, FileText, Settings } from 'lucide-react';
 import { useReunioes } from '@/hooks/useReunioes';
+import { useReunioesDoMes } from '@/hooks/useReunioesDoMes';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { ReuniaoFormWrapper } from '@/components/Reunioes/ReuniaoFormWrapper';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
@@ -26,7 +27,7 @@ import { AlterarSituacaoDialog } from '@/components/Reunioes/AlterarSituacaoDial
 import { ReuniaoComentarios } from '@/components/Reunioes/ReuniaoComentarios';
 import { ReuniaoArquivos } from '@/components/Reunioes/ReuniaoArquivos';
 import { Reuniao, ReuniaoFormData, HORARIOS_DISPONIVEIS, REUNIAO_STATUS_OPTIONS } from '@/types/reuniao';
-import { format } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -37,6 +38,7 @@ export default function Reunioes() {
   const { navigate } = useTenantNavigation();
   const { userRole } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [mesAtual, setMesAtual] = useState<Date>(startOfMonth(new Date()));
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showFormDialog, setShowFormDialog] = useState(false);
@@ -49,6 +51,7 @@ export default function Reunioes() {
   const [situacaoAction, setSituacaoAction] = useState<'desmarcada' | 'remarcada'>('desmarcada');
 
   const { reunioes, loading, createReuniao, updateReuniao, deleteReuniao, alterarSituacaoReuniao } = useReunioes(selectedDate);
+  const { diasComReunioes } = useReunioesDoMes(mesAtual);
 
   const filteredReunioes = reunioes.filter((reuniao) => {
     const matchesSearch = searchTerm
@@ -135,11 +138,10 @@ export default function Reunioes() {
     return filteredReunioes.filter((r) => r.horario.slice(0, 5) === horario);
   };
 
-  // Identifica quais dias têm reuniões (para o calendário)
-  const diasComReunioes = reunioes.map((r) => {
-    const [year, month, day] = r.data.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  });
+  // Atualiza o mês atual quando a data selecionada muda
+  const handleMonthChange = (month: Date) => {
+    setMesAtual(startOfMonth(month));
+  };
 
   return (
     <DashboardLayout currentPage="reunioes">
@@ -176,11 +178,12 @@ export default function Reunioes() {
               mode="single"
               selected={selectedDate}
               onSelect={(date) => date && setSelectedDate(date)}
+              onMonthChange={handleMonthChange}
               locale={ptBR}
               className="rounded-md border"
               modifiers={{ comReunioes: diasComReunioes }}
               modifiersClassNames={{
-                comReunioes: 'relative after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-primary after:rounded-full'
+                comReunioes: 'relative after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-primary after:rounded-full'
               }}
             />
             <div className="mt-4 space-y-2">
