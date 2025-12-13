@@ -266,6 +266,9 @@ const ProjectView = ({
         updatedAt: new Date()
       };
 
+      // Atualizar selectedTask para refletir mudancas imediatamente no modal
+      setSelectedTask(updatedTask);
+
       onUpdateProject(updatedProject);
 
     } catch (error) {

@@ -301,6 +301,9 @@ const SectorView = ({
         t.id === updatedTask.id ? updatedTask : t
       );
 
+      // Atualizar selectedTask para refletir mudancas imediatamente no modal
+      setSelectedTask(updatedTask);
+
       onUpdateProject({
         ...project,
         tasks: updatedTasks,
