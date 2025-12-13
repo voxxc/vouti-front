@@ -929,6 +929,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
                                 </div>
                               </div>
                               <p className="text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground">{comment.author}</span>
+                                {" • "}
                                 {format(comment.createdAt, "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
                               </p>
                             </>
