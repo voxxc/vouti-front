@@ -39,7 +39,7 @@ export const useReuniaoMetrics = (
 
       const targetUserId = userId || user.id;
 
-      // Base query
+      // Base query - sem JOIN com profiles (buscar separadamente)
       let reunioesQuery = supabase
         .from('reunioes')
         .select(`
@@ -52,9 +52,6 @@ export const useReuniaoMetrics = (
           reuniao_status (
             nome,
             cor
-          ),
-          profiles (
-            full_name
           )
         `);
 
@@ -163,9 +160,6 @@ export const useReuniaoMetrics = (
           reuniao_status (
             nome,
             cor
-          ),
-          profiles (
-            full_name
           )
         `);
 
@@ -179,7 +173,17 @@ export const useReuniaoMetrics = (
       const { data: reunioes, error } = await query;
       if (error) throw error;
 
-      // Agrupar por usuário
+      // Buscar perfis separadamente
+      const userIds = [...new Set(reunioes?.map(r => r.user_id).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map<string, string>();
+      profiles?.forEach(p => profileMap.set(p.user_id, p.full_name || 'Usuario'));
+
+      // Agrupar por usuario
       const userMap = new Map<string, any[]>();
       reunioes?.forEach(r => {
         const userId = r.user_id;
@@ -204,7 +208,7 @@ export const useReuniaoMetrics = (
 
         return {
           userId,
-          userName: (userReunioes[0]?.profiles as any)?.full_name || 'Usuário',
+          userName: profileMap.get(userId) || 'Usuario',
           totalReunioes: userReunioes.length,
           totalClientes: clienteIds.length,
           reunioesPorStatus: Array.from(statusMap.entries()).map(([status, data]) => ({
@@ -220,7 +224,7 @@ export const useReuniaoMetrics = (
 
       setUserMetrics(metrics.sort((a, b) => b.totalReunioes - a.totalReunioes));
     } catch (error) {
-      console.error('Erro ao buscar métricas por usuário:', error);
+      console.error('Erro ao buscar metricas por usuario:', error);
     }
   };
 

@@ -93,7 +93,7 @@ export const MinhasMetricasReuniao = () => {
     enabled: !!tenantId
   });
 
-  // Buscar reunioes detalhadas
+  // Buscar reunioes detalhadas (sem JOIN com profiles)
   const { data: reunioesDetalhadas } = useQuery({
     queryKey: ['reunioes-detalhadas', tenantId, datasCalculadas.start, datasCalculadas.end, usuarioSelecionado],
     queryFn: async () => {
@@ -102,8 +102,7 @@ export const MinhasMetricasReuniao = () => {
         .select(`
           id, data, observacoes, user_id,
           reuniao_clientes (nome),
-          reuniao_status (nome, cor),
-          profiles:user_id (full_name)
+          reuniao_status (nome, cor)
         `)
         .order('data', { ascending: false })
         .limit(50);
@@ -121,8 +120,23 @@ export const MinhasMetricasReuniao = () => {
         query = query.eq('user_id', usuarioSelecionado);
       }
 
-      const { data } = await query;
-      return data || [];
+      const { data: reunioes } = await query;
+      if (!reunioes || reunioes.length === 0) return [];
+
+      // Buscar perfis separadamente
+      const userIds = [...new Set(reunioes.map(r => r.user_id).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+
+      const profileMap = new Map<string, string>();
+      profiles?.forEach(p => profileMap.set(p.user_id, p.full_name || 'Usuario'));
+
+      return reunioes.map(r => ({
+        ...r,
+        userName: profileMap.get(r.user_id) || 'Usuario'
+      }));
     },
     enabled: !!tenantId
   });
@@ -362,7 +376,7 @@ export const MinhasMetricasReuniao = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Unicos</CardTitle>
+            <CardTitle className="text-sm font-medium">LEADs Unicos</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -408,7 +422,7 @@ export const MinhasMetricasReuniao = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>LEAD</TableHead>
                   <TableHead>Usuario</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -420,10 +434,10 @@ export const MinhasMetricasReuniao = () => {
                       {r.data ? format(new Date(r.data), 'dd/MM/yy') : '-'}
                     </TableCell>
                     <TableCell className="text-sm font-medium">
-                      {(r.reuniao_clientes as any)?.nome || 'Cliente'}
+                      {(r.reuniao_clientes as any)?.nome || 'LEAD'}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {(r.profiles as any)?.full_name?.split(' ')[0] || 'Usuario'}
+                      {(r as any).userName?.split(' ')[0] || 'Usuario'}
                     </TableCell>
                     <TableCell>
                       <Badge 
