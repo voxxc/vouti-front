@@ -42,7 +42,7 @@ export interface TaskFile {
 
 export interface TaskHistoryEntry {
   id: string;
-  action: 'created' | 'moved' | 'edited' | 'comment_added' | 'comment_edited' | 'comment_deleted' | 'file_uploaded' | 'file_deleted';
+  action: 'created' | 'moved' | 'edited' | 'comment_added' | 'comment_edited' | 'comment_deleted' | 'file_uploaded' | 'file_deleted' | 'tarefa_added' | 'tarefa_edited' | 'tarefa_deleted';
   details: string;
   user: string;
   timestamp: Date;

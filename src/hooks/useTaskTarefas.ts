@@ -61,6 +61,17 @@ export const useTaskTarefas = (taskId: string | null) => {
 
       if (error) throw error;
 
+      // Registrar no histórico do card
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: taskId,
+          user_id: user.id,
+          action: 'tarefa_added',
+          details: `Tarefa adicionada: "${novaTarefa.titulo}"`,
+          tenant_id: tenantId,
+        });
+
       const tarefaComOrigem = { ...data, origem: 'card' as const };
       setTarefas(prev => [tarefaComOrigem, ...prev]);
       return tarefaComOrigem;
@@ -71,7 +82,11 @@ export const useTaskTarefas = (taskId: string | null) => {
   };
 
   const atualizarTarefa = async (tarefaId: string, dados: Partial<NovaTarefaData>) => {
+    if (!taskId || !user) return null;
+
     try {
+      const tarefaAtual = tarefas.find(t => t.id === tarefaId);
+      
       const { data, error } = await supabase
         .from('task_tarefas')
         .update({
@@ -84,6 +99,17 @@ export const useTaskTarefas = (taskId: string | null) => {
 
       if (error) throw error;
 
+      // Registrar no histórico do card
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: taskId,
+          user_id: user.id,
+          action: 'tarefa_edited',
+          details: `Tarefa editada: "${dados.titulo || tarefaAtual?.titulo || 'tarefa'}"`,
+          tenant_id: tenantId,
+        });
+
       setTarefas(prev =>
         prev.map(t => (t.id === tarefaId ? { ...data, origem: 'card' as const } : t))
       );
@@ -95,13 +121,28 @@ export const useTaskTarefas = (taskId: string | null) => {
   };
 
   const removerTarefa = async (tarefaId: string) => {
+    if (!taskId || !user) return false;
+
     try {
+      const tarefaParaRemover = tarefas.find(t => t.id === tarefaId);
+      
       const { error } = await supabase
         .from('task_tarefas')
         .delete()
         .eq('id', tarefaId);
 
       if (error) throw error;
+
+      // Registrar no histórico do card
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: taskId,
+          user_id: user.id,
+          action: 'tarefa_deleted',
+          details: `Tarefa removida: "${tarefaParaRemover?.titulo || 'tarefa'}"`,
+          tenant_id: tenantId,
+        });
 
       setTarefas(prev => prev.filter(t => t.id !== tarefaId));
       return true;
