@@ -24,7 +24,8 @@ import {
   Bot,
   Paperclip,
   AlertTriangle,
-  Download
+  Download,
+  MessageSquareWarning
 } from 'lucide-react';
 import {
   Sheet,
@@ -216,6 +217,13 @@ export const ProcessoOABDetalhes = ({
 
   const andamentosNaoLidos = andamentos.filter(a => !a.lida).length;
   
+  // Filtrar intimacoes
+  const intimacoes = andamentos.filter(a => 
+    a.descricao?.toLowerCase().includes('intimação') ||
+    a.descricao?.toLowerCase().includes('intimacao')
+  );
+  const intimacoesNaoLidas = intimacoes.filter(a => !a.lida).length;
+  
   // Extrair dados da capa_completa
   const capa = processo.capa_completa || {};
 
@@ -311,7 +319,7 @@ export const ProcessoOABDetalhes = ({
 
           {/* Tabs */}
           <Tabs defaultValue="resumo" className="flex-1">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
                 Andamentos
@@ -321,10 +329,18 @@ export const ProcessoOABDetalhes = ({
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="intimacoes" className="relative">
+                Intimacoes
+                {intimacoesNaoLidas > 0 && (
+                  <Badge variant="destructive" className="ml-1 text-xs px-1.5">
+                    {intimacoesNaoLidas}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="partes">Partes</TabsTrigger>
               <TabsTrigger value="vouti-ia">
                 <Bot className="w-3.5 h-3.5 mr-1" />
-                Vouti IA
+                IA
               </TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
             </TabsList>
@@ -629,6 +645,89 @@ export const ProcessoOABDetalhes = ({
               </AlertDialogContent>
             </AlertDialog>
           </TabsContent>
+
+            {/* Intimacoes - Filtro de andamentos que sao intimacoes */}
+            <TabsContent value="intimacoes" className="mt-4">
+              <ScrollArea className="h-[calc(100vh-350px)]">
+                {intimacoes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquareWarning className="w-8 h-8 mx-auto mb-2" />
+                    <p>Nenhuma intimacao encontrada</p>
+                    <p className="text-xs mt-1">As intimacoes aparecerao aqui quando forem identificadas nos andamentos</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-muted-foreground">
+                        {intimacoes.length} intimacao(es) encontrada(s)
+                      </p>
+                      {intimacoesNaoLidas > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            intimacoes.filter(i => !i.lida).forEach(i => marcarComoLida(i.id));
+                          }}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          Marcar como lidas
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-3 pr-4">
+                      {intimacoes.map((andamento) => {
+                        const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
+                        const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
+                        const temAnexos = anexosDoAndamento.length > 0;
+                        
+                        return (
+                          <Card 
+                            key={andamento.id} 
+                            className={`p-3 cursor-pointer transition-colors border-l-4 border-l-amber-500 ${
+                              !andamento.lida ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : ''
+                            }`}
+                            onClick={() => !andamento.lida && marcarComoLida(andamento.id)}
+                          >
+                            <div className="flex items-start gap-2">
+                              {!andamento.lida && (
+                                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatData(andamento.data_movimentacao) || 'Data nao informada'}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300">
+                                    Intimacao
+                                  </Badge>
+                                  {temAnexos && (
+                                    <Badge variant="secondary" className="text-xs gap-1">
+                                      <Paperclip className="w-2.5 h-2.5" />
+                                      {anexosDoAndamento.length}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm">{andamento.descricao}</p>
+                                
+                                {temAnexos && (
+                                  <AndamentoAnexos
+                                    anexos={anexosDoAndamento}
+                                    numeroCnj={processo.numero_cnj}
+                                    instancia={instancia}
+                                    downloading={downloading}
+                                    onDownload={downloadAnexo}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </ScrollArea>
+            </TabsContent>
 
             {/* Partes - Separadas por Polo */}
             <TabsContent value="partes" className="mt-4">
