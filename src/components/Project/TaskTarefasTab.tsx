@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Calendar, Trash2, FileText, Loader2 } from 'lucide-react';
+import { Plus, Calendar, Trash2, FileText, Loader2, Pencil, CalendarPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useTaskTarefas } from '@/hooks/useTaskTarefas';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from '@/hooks/useTenantId';
+import { supabase } from '@/integrations/supabase/client';
+import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
+import UserTagSelector from '@/components/Agenda/UserTagSelector';
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
+import { TaskTarefa } from '@/types/taskTarefa';
 
 const FASES_SUGERIDAS = [
   'Analise Inicial',
@@ -50,18 +57,44 @@ const FASES_SUGERIDAS = [
 
 interface TaskTarefasTabProps {
   taskId: string;
+  projectId?: string;
   onGerarRelatorio?: () => void;
   hasVinculo: boolean;
 }
 
-export const TaskTarefasTab = ({ taskId, onGerarRelatorio, hasVinculo }: TaskTarefasTabProps) => {
-  const { tarefas, loading, adicionarTarefa, removerTarefa } = useTaskTarefas(taskId);
+export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo }: TaskTarefasTabProps) => {
+  const { tarefas, loading, adicionarTarefa, atualizarTarefa, removerTarefa } = useTaskTarefas(taskId);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
 
+  // Estados para criar tarefa
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tarefaParaDeletar, setTarefaParaDeletar] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Estados para editar tarefa
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTarefa, setEditingTarefa] = useState<TaskTarefa | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    titulo: '',
+    descricao: '',
+    fase: '',
+    dataExecucao: '',
+    observacoes: '',
+  });
+
+  // Estados para criar prazo
+  const [prazoDialogOpen, setPrazoDialogOpen] = useState(false);
+  const [prazoSaving, setPrazoSaving] = useState(false);
+  const [prazoFormData, setPrazoFormData] = useState({
+    titulo: '',
+    descricao: '',
+    data: format(new Date(), 'yyyy-MM-dd'),
+    responsavelId: null as string | null,
+    taggedUsers: [] as string[],
+  });
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -104,6 +137,129 @@ export const TaskTarefasTab = ({ taskId, onGerarRelatorio, hasVinculo }: TaskTar
       setDialogOpen(false);
     } else {
       toast({ title: 'Erro ao adicionar tarefa', variant: 'destructive' });
+    }
+  };
+
+  // Editar tarefa
+  const handleEditClick = (tarefa: TaskTarefa) => {
+    setEditingTarefa(tarefa);
+    setEditFormData({
+      titulo: tarefa.titulo,
+      descricao: tarefa.descricao || '',
+      fase: tarefa.fase || '',
+      dataExecucao: tarefa.data_execucao,
+      observacoes: tarefa.observacoes || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingTarefa || !editFormData.titulo.trim()) {
+      toast({ title: 'Titulo obrigatorio', variant: 'destructive' });
+      return;
+    }
+
+    setSaving(true);
+    const result = await atualizarTarefa(editingTarefa.id, {
+      titulo: editFormData.titulo.trim(),
+      descricao: editFormData.descricao.trim() || undefined,
+      fase: editFormData.fase || undefined,
+      data_execucao: editFormData.dataExecucao,
+      observacoes: editFormData.observacoes.trim() || undefined,
+    });
+
+    setSaving(false);
+
+    if (result) {
+      toast({ title: 'Tarefa atualizada' });
+      setEditDialogOpen(false);
+      setEditingTarefa(null);
+    } else {
+      toast({ title: 'Erro ao atualizar tarefa', variant: 'destructive' });
+    }
+  };
+
+  // Criar prazo
+  const handleCriarPrazoClick = (tarefa: TaskTarefa) => {
+    setPrazoFormData({
+      titulo: tarefa.titulo,
+      descricao: tarefa.descricao || '',
+      data: tarefa.data_execucao || format(new Date(), 'yyyy-MM-dd'),
+      responsavelId: null,
+      taggedUsers: [],
+    });
+    setPrazoDialogOpen(true);
+  };
+
+  const handleCriarPrazo = async () => {
+    if (!prazoFormData.titulo.trim() || !user?.id || !projectId) {
+      toast({ title: 'Dados incompletos', variant: 'destructive' });
+      return;
+    }
+
+    setPrazoSaving(true);
+
+    try {
+      // Criar deadline
+      const { data: deadline, error } = await supabase
+        .from('deadlines')
+        .insert({
+          title: prazoFormData.titulo.trim(),
+          description: prazoFormData.descricao.trim() || null,
+          date: prazoFormData.data,
+          project_id: projectId,
+          user_id: user.id,
+          advogado_responsavel_id: prazoFormData.responsavelId,
+          tenant_id: tenantId,
+          completed: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Inserir tags de usuarios
+      if (prazoFormData.taggedUsers.length > 0 && deadline) {
+        const tags = prazoFormData.taggedUsers.map(userId => ({
+          deadline_id: deadline.id,
+          tagged_user_id: userId,
+          tenant_id: tenantId,
+        }));
+
+        await supabase.from('deadline_tags').insert(tags);
+
+        // Notificar usuarios marcados
+        if (tenantId) {
+          await notifyDeadlineTagged(
+            deadline.id,
+            prazoFormData.titulo.trim(),
+            prazoFormData.taggedUsers,
+            user.id,
+            tenantId,
+            projectId
+          );
+        }
+      }
+
+      // Notificar responsavel
+      if (prazoFormData.responsavelId && prazoFormData.responsavelId !== user.id && tenantId) {
+        await notifyDeadlineAssigned(
+          deadline.id,
+          prazoFormData.titulo.trim(),
+          prazoFormData.responsavelId,
+          user.id,
+          tenantId,
+          projectId
+        );
+      }
+
+      toast({ title: 'Prazo criado na Agenda' });
+      setPrazoDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao criar prazo:', error);
+      toast({ title: 'Erro ao criar prazo', variant: 'destructive' });
+    } finally {
+      setPrazoSaving(false);
     }
   };
 
@@ -197,14 +353,37 @@ export const TaskTarefasTab = ({ taskId, onGerarRelatorio, hasVinculo }: TaskTar
                         </p>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                      onClick={() => handleDeleteClick(tarefa.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {projectId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-primary"
+                          onClick={() => handleCriarPrazoClick(tarefa)}
+                          title="Criar Prazo na Agenda"
+                        >
+                          <CalendarPlus className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => handleEditClick(tarefa)}
+                        title="Editar Tarefa"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive"
+                        onClick={() => handleDeleteClick(tarefa.id)}
+                        title="Excluir Tarefa"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -287,6 +466,144 @@ export const TaskTarefasTab = ({ taskId, onGerarRelatorio, hasVinculo }: TaskTar
             <Button onClick={handleSubmit} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Editar Tarefa */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tarefa</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Titulo *</label>
+              <Input
+                value={editFormData.titulo}
+                onChange={(e) => setEditFormData({ ...editFormData, titulo: e.target.value })}
+                placeholder="Titulo da atividade"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Data *</label>
+                <Input
+                  type="date"
+                  value={editFormData.dataExecucao}
+                  onChange={(e) => setEditFormData({ ...editFormData, dataExecucao: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Fase</label>
+                <Select
+                  value={editFormData.fase}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, fase: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FASES_SUGERIDAS.map((fase) => (
+                      <SelectItem key={fase} value={fase}>
+                        {fase}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Descricao</label>
+              <Textarea
+                value={editFormData.descricao}
+                onChange={(e) => setEditFormData({ ...editFormData, descricao: e.target.value })}
+                placeholder="Descricao da atividade"
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Observacoes</label>
+              <Textarea
+                value={editFormData.observacoes}
+                onChange={(e) => setEditFormData({ ...editFormData, observacoes: e.target.value })}
+                placeholder="Observacoes adicionais"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditSubmit} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Criar Prazo na Agenda */}
+      <Dialog open={prazoDialogOpen} onOpenChange={setPrazoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Prazo na Agenda</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Titulo *</label>
+              <Input
+                value={prazoFormData.titulo}
+                onChange={(e) => setPrazoFormData({ ...prazoFormData, titulo: e.target.value })}
+                placeholder="Titulo do prazo"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Data *</label>
+              <Input
+                type="date"
+                value={prazoFormData.data}
+                onChange={(e) => setPrazoFormData({ ...prazoFormData, data: e.target.value })}
+              />
+            </div>
+
+            <AdvogadoSelector
+              value={prazoFormData.responsavelId}
+              onChange={(value) => setPrazoFormData({ ...prazoFormData, responsavelId: value })}
+            />
+
+            <UserTagSelector
+              selectedUsers={prazoFormData.taggedUsers}
+              onChange={(users) => setPrazoFormData({ ...prazoFormData, taggedUsers: users })}
+            />
+
+            <div>
+              <label className="text-sm font-medium">Descricao</label>
+              <Textarea
+                value={prazoFormData.descricao}
+                onChange={(e) => setPrazoFormData({ ...prazoFormData, descricao: e.target.value })}
+                placeholder="Descricao do prazo"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrazoDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCriarPrazo} disabled={prazoSaving}>
+              {prazoSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Criar Prazo
             </Button>
           </DialogFooter>
         </DialogContent>

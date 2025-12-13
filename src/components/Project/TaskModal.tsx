@@ -908,6 +908,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
               <TabsContent value="tarefas" className="mt-0">
                 <TaskTarefasTab
                   taskId={task.id}
+                  projectId={projectId}
                   hasVinculo={!!processoOabId}
                   onGerarRelatorio={() => setRelatorioOpen(true)}
                 />
