@@ -1,606 +1,408 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useTenantNavigation } from '@/hooks/useTenantNavigation';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { useTenant } from '@/contexts/TenantContext';
-import { Scale, Users, Shield, Award, Phone, Mail, MapPin, Facebook, Instagram, Linkedin, Menu, X, CheckCircle, FileText, Home as HomeIcon, Briefcase, Heart, Building, Coins, Key, Calendar, ShoppingCart, KeyRound } from 'lucide-react';
-import heroImage from '@/assets/hero-law-office.jpg';
-import advogado1 from '@/assets/advogado-1.jpg';
-import advogado2 from '@/assets/advogado-2.jpg';
-import advogado3 from '@/assets/advogado-3.jpg';
-import advogado4 from '@/assets/advogado-4.jpg';
+import { useTenantNavigation } from '@/hooks/useTenantNavigation';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Scale, Shield, Users, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const LandingPage2 = () => {
-  const { toast } = useToast();
-  const { tenant, loading: tenantLoading } = useTenant();
+  const { tenant, loading } = useTenant();
   const absoluteNavigate = useNavigate();
   const { navigate: tenantNavigate } = useTenantNavigation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showEasterEgg, setShowEasterEgg] = useState(false);
-  const [easterEggInput, setEasterEggInput] = useState("");
   const [formData, setFormData] = useState({
     nome: '',
-    email: '',
     telefone: '',
-    area: '',
-    mensagem: ''
+    email: '',
+    area: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [easterEggInput, setEasterEggInput] = useState('');
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
 
-  const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      const code = easterEggInput.toLowerCase();
-      if (code === 'jusvouti') {
-        await supabase.auth.signOut();
-        tenantNavigate('/auth');
-      } else if (code === 'metal') {
-        await supabase.auth.signOut();
-        absoluteNavigate('/metal-auth');
-      } else if (code === 'vlink') {
-        await supabase.auth.signOut();
-        absoluteNavigate('/link-auth');
-      } else if (code === 'adm1nvouti') {
-        absoluteNavigate('/super-admin');
-      } else if (code === 'batink') {
-        absoluteNavigate('/batink');
-      } else if (code === 'veridicto') {
-        absoluteNavigate('/veridicto');
-      } else {
-        setEasterEggInput('');
-        setShowEasterEgg(false);
-      }
-    }
-  };
+  const [counters, setCounters] = useState({ cases: 0, years: 0, clients: 0, success: 0 });
+  const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
-    
-    return () => {
-      const storedTheme = localStorage.getItem('theme') || 'dark';
-      document.documentElement.classList.remove('light', 'dark');
-      document.documentElement.classList.add(storedTheme);
+    const handleScroll = () => {
+      const metricsSection = document.getElementById('metricas');
+      if (metricsSection && !hasAnimated) {
+        const rect = metricsSection.getBoundingClientRect();
+        if (rect.top < window.innerHeight * 0.8) {
+          setHasAnimated(true);
+          animateCounters();
+        }
+      }
     };
-  }, []);
 
-  const scrollToSection = (id: string) => {
-    setMobileMenuOpen(false);
-    document.getElementById(id)?.scrollIntoView({ 
-      behavior: 'smooth',
-      block: 'start'
-    });
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasAnimated]);
+
+  const animateCounters = () => {
+    const targets = { cases: 500, years: 15, clients: 200, success: 98 };
+    const duration = 2000;
+    const steps = 60;
+    const interval = duration / steps;
+
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const progress = step / steps;
+      setCounters({
+        cases: Math.floor(targets.cases * progress),
+        years: Math.floor(targets.years * progress),
+        clients: Math.floor(targets.clients * progress),
+        success: Math.floor(targets.success * progress)
+      });
+      if (step >= steps) clearInterval(timer);
+    }, interval);
+  };
+
+  const scrollToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.nome || !formData.email || !formData.telefone || !formData.area) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive"
-      });
+    if (!formData.nome.trim() || !formData.telefone.trim()) {
+      toast.error('Preencha nome e telefone');
       return;
     }
 
     setIsSubmitting(true);
-
     try {
       const { error } = await supabase.from('leads_captacao').insert({
-        nome: formData.nome,
-        email: formData.email,
-        telefone: formData.telefone,
-        tipo: formData.area,
-        comentario: formData.mensagem,
+        nome: formData.nome.trim(),
+        telefone: formData.telefone.trim(),
+        email: formData.email.trim() || null,
+        tipo: formData.area || 'Nao especificado',
         origem: 'landing_page_2',
-        user_id: null,
         tenant_id: tenant?.id || null
       });
 
       if (error) throw error;
-
-      toast({
-        title: "Mensagem enviada!",
-        description: "Entraremos em contato em breve.",
-      });
-
-      setFormData({
-        nome: '',
-        email: '',
-        telefone: '',
-        area: '',
-        mensagem: ''
-      });
+      
+      toast.success('Mensagem enviada com sucesso');
+      setFormData({ nome: '', telefone: '', email: '', area: '' });
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast({
-        title: "Erro ao enviar",
-        description: "Ocorreu um erro ao enviar sua mensagem. Tente novamente.",
-        variant: "destructive"
-      });
+      toast.error('Erro ao enviar mensagem');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const areasAtuacao = [
-    { icon: Scale, title: "Direito Civil", desc: "Assessoria completa em contratos, responsabilidade civil e disputas patrimoniais." },
-    { icon: Briefcase, title: "Direito Trabalhista", desc: "Defesa de direitos trabalhistas, rescisões e processos contra empregadores." },
-    { icon: Heart, title: "Direito de Família", desc: "Divórcio, pensão alimentícia, guarda de filhos e inventários." },
-    { icon: Building, title: "Direito Empresarial", desc: "Consultoria jurídica para empresas, contratos e recuperação judicial." },
-    { icon: Coins, title: "Direito Tributário", desc: "Planejamento tributário, restituição de impostos e defesas fiscais." },
-    { icon: Key, title: "Direito Imobiliário", desc: "Compra e venda de imóveis, regularização e usucapião." },
-    { icon: Calendar, title: "Direito Previdenciário", desc: "Aposentadorias, pensões, auxílios e benefícios do INSS." },
-    { icon: ShoppingCart, title: "Direito do Consumidor", desc: "Defesa de direitos do consumidor, indenizações e recalls." }
+  const handleEasterEggSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = easterEggInput.toLowerCase().trim();
+    
+    if (code === 'jusvouti') {
+      await supabase.auth.signOut();
+      tenantNavigate('/auth');
+    } else if (code === 'metal') {
+      await supabase.auth.signOut();
+      absoluteNavigate('/metal-auth');
+    } else if (code === 'vlink') {
+      await supabase.auth.signOut();
+      absoluteNavigate('/link-auth');
+    } else if (code === 'adm1nvouti') {
+      absoluteNavigate('/super-admin');
+    } else if (code === 'batink') {
+      absoluteNavigate('/batink');
+    } else if (code === 'veridicto') {
+      absoluteNavigate('/veridicto');
+    }
+    
+    setShowEasterEgg(false);
+    setEasterEggInput('');
+  };
+
+  const pilares = [
+    {
+      icon: Scale,
+      title: 'Excelencia Juridica',
+      description: 'Atuacao estrategica com foco em resultados concretos'
+    },
+    {
+      icon: Shield,
+      title: 'Protecao Integral',
+      description: 'Seguranca juridica para voce e seu patrimonio'
+    },
+    {
+      icon: Users,
+      title: 'Atendimento Exclusivo',
+      description: 'Relacionamento proximo e personalizado'
+    }
   ];
 
-  const equipe = [
-    { image: advogado1, nome: "ADVOGADO 1", oab: "OAB/SP 123.456", especialidade: "Direito Civil e Família" },
-    { image: advogado2, nome: "ADVOGADO 2", oab: "OAB/SP 234.567", especialidade: "Direito Trabalhista" },
-    { image: advogado3, nome: "ADVOGADO 3", oab: "OAB/SP 345.678", especialidade: "Direito Empresarial" },
-    { image: advogado4, nome: "ADVOGADO 4", oab: "OAB/SP 456.789", especialidade: "Direito Tributário" }
+  const areas = [
+    'Direito Civil',
+    'Direito Empresarial',
+    'Direito Trabalhista',
+    'Direito de Familia',
+    'Direito Imobiliario',
+    'Outro'
   ];
 
-  const diferenciais = [
-    { icon: Users, title: "Atendimento Personalizado", desc: "Cada caso é único e merece atenção exclusiva." },
-    { icon: Award, title: "Equipe Especializada", desc: "Advogados experientes e altamente qualificados." },
-    { icon: Shield, title: "Transparência Total", desc: "Comunicação clara e acompanhamento constante." },
-    { icon: CheckCircle, title: "Resultados Comprovados", desc: "Histórico de sucesso em milhares de casos." }
-  ];
-
-  const metricas = [
-    { numero: "+500", label: "Clientes Atendidos" },
-    { numero: "+15", label: "Anos de Experiência" },
-    { numero: "98%", label: "Taxa de Sucesso" },
-    { numero: "+1000", label: "Processos Concluídos" }
-  ];
-
-  const heroRef = useScrollAnimation(0.1);
-  const aboutRef = useScrollAnimation(0.1);
-  const areasRef = useScrollAnimation(0.1);
-  const equipeRef = useScrollAnimation(0.1);
-  const diferenciaisRef = useScrollAnimation(0.1);
-  const contatoRef = useScrollAnimation(0.1);
-
-  if (tenantLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-white">Carregando...</div>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#c4a052] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  const escritorioName = tenant?.name || 'Escritorio de Advocacia';
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header Fixo */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center gap-2">
-              <Scale className="h-8 w-8 text-slate-400" />
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-slate-100">MORA</span>
-                <span className="text-xs text-slate-400">ADVOGADOS ASSOCIADOS</span>
-              </div>
-            </div>
-
-            {/* Desktop Menu */}
-            <nav className="hidden md:flex items-center gap-6">
-              <button onClick={() => scrollToSection('inicio')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
-                Início
-              </button>
-              <button onClick={() => scrollToSection('sobre')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
-                Sobre
-              </button>
-              <button onClick={() => scrollToSection('areas')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
-                Áreas
-              </button>
-              <button onClick={() => scrollToSection('equipe')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
-                Equipe
-              </button>
-              <button onClick={() => scrollToSection('contato')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors">
-                Contato
-              </button>
-              <Button onClick={() => scrollToSection('contato')} className="bg-slate-700 hover:bg-slate-600 hover:scale-105 text-slate-50 transition-all duration-300">
-                Fale Conosco
-              </Button>
-            </nav>
-
-            {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden text-slate-100"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t border-slate-800">
-              <nav className="flex flex-col gap-3">
-                <button onClick={() => scrollToSection('inicio')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
-                  Início
-                </button>
-                <button onClick={() => scrollToSection('sobre')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
-                  Sobre
-                </button>
-                <button onClick={() => scrollToSection('areas')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
-                  Áreas
-                </button>
-                <button onClick={() => scrollToSection('equipe')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
-                  Equipe
-                </button>
-                <button onClick={() => scrollToSection('contato')} className="text-sm font-medium text-slate-100 hover:text-slate-300 transition-colors text-left">
-                  Contato
-                </button>
-                <Button onClick={() => scrollToSection('contato')} className="bg-slate-700 hover:bg-slate-600 text-slate-50 w-full">
-                  Fale Conosco
-                </Button>
-              </nav>
-            </div>
-          )}
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-[#0a0a0a] text-[#fafafa]">
       {/* Hero Section */}
-      <section 
-        id="inicio" 
-        ref={heroRef.ref}
-        className="relative h-screen flex items-center justify-center" 
-        style={{ marginTop: '80px' }}
-      >
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 to-slate-800/90"></div>
-        </div>
+      <section className="min-h-screen flex flex-col justify-center items-center relative px-6">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a]" />
         
-        <div className={`relative z-10 container mx-auto px-4 text-center text-white transition-all duration-700 ${heroRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight hover:text-slate-200 transition-colors duration-300">
-            Tradição, Excelência e<br />Compromisso com a Justiça
+        <div className="relative z-10 text-center max-w-4xl mx-auto">
+          <div className="mb-8">
+            <span className="text-[#c4a052] text-sm tracking-[0.3em] uppercase font-light">
+              Advocacia de Excelencia
+            </span>
+          </div>
+          
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-light tracking-tight mb-8 leading-tight">
+            {escritorioName}
           </h1>
-          <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-slate-200">
-            Há mais de 15 anos protegendo seus direitos com ética e competência
+          
+          <p className="text-lg md:text-xl text-[#a0a0a0] font-light max-w-2xl mx-auto mb-12 leading-relaxed">
+            Solucoes juridicas estrategicas com compromisso, etica e resultados.
           </p>
-          <Button 
-            onClick={() => scrollToSection('contato')} 
-            size="lg"
-            className="bg-slate-700 hover:bg-slate-600 hover:scale-105 text-slate-50 text-lg px-8 py-6 transition-all duration-300 shadow-lg hover:shadow-2xl"
+          
+          <Button
+            onClick={() => scrollToSection('contato')}
+            className="bg-transparent border border-[#c4a052] text-[#c4a052] hover:bg-[#c4a052] hover:text-[#0a0a0a] px-10 py-6 text-sm tracking-widest uppercase transition-all duration-300 rounded-none"
           >
-            Agende uma Consulta
+            Fale Conosco
           </Button>
         </div>
+
+        <button
+          onClick={() => scrollToSection('pilares')}
+          className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[#505050] hover:text-[#c4a052] transition-colors animate-bounce"
+        >
+          <ChevronDown size={32} strokeWidth={1} />
+        </button>
       </section>
 
-      {/* Sobre Nós */}
-      <section 
-        id="sobre" 
-        ref={aboutRef.ref}
-        className="py-20 bg-slate-100"
-      >
-        <div className="container mx-auto px-4">
-          <div className={`text-center mb-12 transition-all duration-700 ${aboutRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Sobre Nós</h2>
-            <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
-            <p className="text-lg text-slate-700 max-w-3xl mx-auto">
-              O escritório MORA - Advogados Associados nasceu com o propósito de oferecer serviços jurídicos de excelência, 
-              pautados na ética, transparência e compromisso com os resultados. Nossa equipe multidisciplinar está preparada 
-              para atender demandas de pessoas físicas e jurídicas nas mais diversas áreas do Direito.
-            </p>
+      {/* Pilares Section */}
+      <section id="pilares" className="py-32 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-20">
+            <span className="text-[#c4a052] text-sm tracking-[0.3em] uppercase font-light">
+              Nossa Atuacao
+            </span>
+            <h2 className="text-3xl md:text-4xl font-light mt-4">
+              Pilares do Escritorio
+            </h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
-            {metricas.map((metrica, index) => (
-              <Card 
-                key={index} 
-                className={`text-center border-2 border-slate-300 hover:border-slate-500 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 ${aboutRef.isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <CardContent className="p-6">
-                  <div className="text-4xl font-bold text-slate-700 mb-2 hover:text-slate-600 transition-colors duration-300">{metrica.numero}</div>
-                  <div className="text-sm text-slate-600 font-medium">{metrica.label}</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Áreas de Atuação */}
-      <section 
-        id="areas" 
-        ref={areasRef.ref}
-        className="py-20 bg-white"
-      >
-        <div className="container mx-auto px-4">
-          <div className={`text-center mb-12 transition-all duration-700 ${areasRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Áreas de Atuação</h2>
-            <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
-            <p className="text-lg text-slate-700 max-w-3xl mx-auto">
-              Oferecemos serviços especializados em diversas áreas do direito, sempre com foco em resultados efetivos.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {areasAtuacao.map((area, index) => (
-              <Card 
-                key={index} 
-                className={`border-slate-200 hover:border-slate-700 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 group ${areasRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <CardContent className="p-6 text-center">
-                  <area.icon className="h-12 w-12 mx-auto mb-4 text-slate-600 group-hover:scale-110 transition-transform duration-300" />
-                  <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-slate-700 transition-colors duration-300">{area.title}</h3>
-                  <p className="text-sm text-slate-600">{area.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Nossa Equipe */}
-      <section 
-        id="equipe" 
-        ref={equipeRef.ref}
-        className="py-20 bg-slate-100"
-      >
-        <div className="container mx-auto px-4">
-          <div className={`text-center mb-12 transition-all duration-700 ${equipeRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Nossa Equipe</h2>
-            <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
-            <p className="text-lg text-slate-700 max-w-3xl mx-auto">
-              Profissionais altamente qualificados e comprometidos com a excelência jurídica.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {equipe.map((membro, index) => (
-              <Card 
-                key={index} 
-                className={`text-center border-slate-300 hover:border-slate-500 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 ${equipeRef.isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <CardContent className="p-6">
-                  <Avatar className="h-32 w-32 mx-auto mb-4 border-4 border-slate-600 hover:border-slate-500 transition-colors duration-300">
-                    <AvatarImage src={membro.image} alt={membro.nome} className="hover:scale-110 transition-transform duration-300" />
-                    <AvatarFallback>A{index + 1}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="text-xl font-bold text-slate-900 mb-1 hover:text-slate-700 transition-colors duration-300">{membro.nome}</h3>
-                  <p className="text-sm text-slate-600 mb-2">{membro.oab}</p>
-                  <p className="text-sm text-slate-700 font-medium">{membro.especialidade}</p>
-                  <Button variant="outline" className="mt-4 border-slate-700 text-slate-700 hover:bg-slate-800 hover:text-slate-50 transition-all duration-300">
-                    Ver Perfil
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Diferenciais */}
-      <section 
-        ref={diferenciaisRef.ref}
-        className="py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 text-white"
-      >
-        <div className="container mx-auto px-4">
-          <div className={`text-center mb-12 transition-all duration-700 ${diferenciaisRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h2 className="text-4xl font-bold mb-4 hover:text-slate-200 transition-colors duration-300">Por Que Escolher a MORA?</h2>
-            <div className="w-24 h-1 bg-slate-400 mx-auto mb-6"></div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {diferenciais.map((diferencial, index) => (
+          <div className="grid md:grid-cols-3 gap-16">
+            {pilares.map((pilar, index) => (
               <div 
                 key={index} 
-                className={`text-center transition-all duration-600 ${diferenciaisRef.isVisible ? 'opacity-100 translate-x-0' : `opacity-0 ${index % 2 === 0 ? 'translate-x-[-100px]' : 'translate-x-[100px]'}`}`}
-                style={{ transitionDelay: `${index * 150}ms` }}
+                className="text-center group"
               >
-                <diferencial.icon className="h-16 w-16 mx-auto mb-4 text-slate-400 hover:scale-110 transition-transform duration-300" />
-                <h3 className="text-xl font-bold mb-2 hover:text-slate-300 transition-colors duration-300">{diferencial.title}</h3>
-                <p className="text-slate-300">{diferencial.desc}</p>
+                <div className="mb-8 inline-flex items-center justify-center w-16 h-16 border border-[#262626] group-hover:border-[#c4a052] transition-colors duration-300">
+                  <pilar.icon size={28} strokeWidth={1} className="text-[#c4a052]" />
+                </div>
+                <h3 className="text-xl font-light mb-4 tracking-wide">
+                  {pilar.title}
+                </h3>
+                <p className="text-[#707070] font-light leading-relaxed">
+                  {pilar.description}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Formulário de Contato */}
-      <section 
-        id="contato" 
-        ref={contatoRef.ref}
-        className="py-20 bg-slate-50"
-      >
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className={`text-center mb-12 transition-all duration-700 ${contatoRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h2 className="text-4xl font-bold text-slate-900 mb-4 hover:text-slate-700 transition-colors duration-300">Entre em Contato</h2>
-              <div className="w-24 h-1 bg-slate-500 mx-auto mb-6"></div>
-              <p className="text-lg text-slate-700">
-                Preencha o formulário abaixo e nossa equipe entrará em contato em breve.
-              </p>
+      {/* Metricas Section */}
+      <section id="metricas" className="py-32 px-6 bg-[#0f0f0f]">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-light text-[#c4a052] mb-2">
+                +{counters.cases}
+              </div>
+              <div className="text-sm text-[#707070] tracking-widest uppercase">
+                Casos Atendidos
+              </div>
             </div>
-
-            <Card className={`shadow-2xl border border-slate-200 transition-all duration-700 ${contatoRef.isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-              <CardContent className="p-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="nome" className="text-slate-700">Nome Completo *</Label>
-                      <Input
-                        id="nome"
-                        value={formData.nome}
-                        onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                        placeholder="Seu nome completo"
-                        className="border-slate-300 focus:border-slate-600"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email" className="text-slate-700">Email *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="seu@email.com"
-                        className="border-slate-300 focus:border-slate-600"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="telefone" className="text-slate-700">Telefone *</Label>
-                      <Input
-                        id="telefone"
-                        value={formData.telefone}
-                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                        placeholder="(00) 00000-0000"
-                        className="border-slate-300 focus:border-slate-600"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="area" className="text-slate-700">Área de Interesse *</Label>
-                      <Select value={formData.area} onValueChange={(value) => setFormData({ ...formData, area: value })}>
-                        <SelectTrigger className="border-slate-300 focus:border-slate-600">
-                          <SelectValue placeholder="Selecione uma área" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="civil">Direito Civil</SelectItem>
-                          <SelectItem value="trabalhista">Direito Trabalhista</SelectItem>
-                          <SelectItem value="familia">Direito de Família</SelectItem>
-                          <SelectItem value="empresarial">Direito Empresarial</SelectItem>
-                          <SelectItem value="tributario">Direito Tributário</SelectItem>
-                          <SelectItem value="imobiliario">Direito Imobiliário</SelectItem>
-                          <SelectItem value="previdenciario">Direito Previdenciário</SelectItem>
-                          <SelectItem value="consumidor">Direito do Consumidor</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="mensagem" className="text-slate-700">Mensagem</Label>
-                    <Textarea
-                      id="mensagem"
-                      value={formData.mensagem}
-                      onChange={(e) => setFormData({ ...formData, mensagem: e.target.value })}
-                      placeholder="Descreva brevemente seu caso..."
-                      className="border-slate-300 focus:border-slate-600"
-                      rows={5}
-                    />
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-slate-800 hover:bg-slate-700 hover:scale-105 text-slate-50 text-lg py-6 transition-all duration-300 shadow-lg hover:shadow-2xl"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-light text-[#c4a052] mb-2">
+                {counters.years}
+              </div>
+              <div className="text-sm text-[#707070] tracking-widest uppercase">
+                Anos de Atuacao
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-light text-[#c4a052] mb-2">
+                +{counters.clients}
+              </div>
+              <div className="text-sm text-[#707070] tracking-widest uppercase">
+                Clientes Ativos
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-light text-[#c4a052] mb-2">
+                {counters.success}%
+              </div>
+              <div className="text-sm text-[#707070] tracking-widest uppercase">
+                Taxa de Sucesso
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      {/* Contato Section */}
+      <section id="contato" className="py-32 px-6">
+        <div className="max-w-xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-[#c4a052] text-sm tracking-[0.3em] uppercase font-light">
+              Contato
+            </span>
+            <h2 className="text-3xl md:text-4xl font-light mt-4">
+              Fale Conosco
+            </h2>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <Input
+              type="text"
+              placeholder="Nome completo"
+              value={formData.nome}
+              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+              className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] placeholder:text-[#505050] h-14 rounded-none"
+            />
+            
+            <Input
+              type="tel"
+              placeholder="Telefone"
+              value={formData.telefone}
+              onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+              className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] placeholder:text-[#505050] h-14 rounded-none"
+            />
+            
+            <Input
+              type="email"
+              placeholder="E-mail (opcional)"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] placeholder:text-[#505050] h-14 rounded-none"
+            />
+            
+            <Select
+              value={formData.area}
+              onValueChange={(value) => setFormData({ ...formData, area: value })}
+            >
+              <SelectTrigger className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] h-14 rounded-none [&>span]:text-[#505050] data-[state=open]:border-[#c4a052]">
+                <SelectValue placeholder="Area de interesse" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-[#262626] rounded-none">
+                {areas.map((area) => (
+                  <SelectItem 
+                    key={area} 
+                    value={area}
+                    className="text-[#fafafa] focus:bg-[#262626] focus:text-[#c4a052]"
+                  >
+                    {area}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-[#c4a052] text-[#0a0a0a] hover:bg-[#d4b062] h-14 text-sm tracking-widest uppercase transition-all duration-300 disabled:opacity-50 rounded-none"
+            >
+              {isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}
+            </Button>
+          </form>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <div className="flex flex-col items-center mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Scale className="h-8 w-8 text-slate-400" />
-                  <span className="text-xl font-bold text-slate-100">MORA</span>
-                </div>
-                <span className="text-xs text-slate-400">ADVOGADOS ASSOCIADOS</span>
-              </div>
-              <p className="text-slate-400 text-sm text-center">
-                Tradição, excelência e compromisso com a justiça desde 2009.
+      <footer className="py-16 px-6 border-t border-[#1a1a1a]">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="text-center md:text-left">
+              <h3 className="text-lg font-light tracking-wide mb-2">
+                {escritorioName}
+              </h3>
+              <p className="text-[#505050] text-sm">
+                Advocacia de Excelencia
               </p>
             </div>
 
-            <div>
-              <h3 className="text-lg font-bold mb-4 text-slate-100 text-center">Contato</h3>
-              <div className="space-y-3 text-sm flex flex-col items-center">
-                <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
-                  <MapPin className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-400">Av. Paulista, 1000 - São Paulo/SP</span>
-                </div>
-                <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
-                  <Phone className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-400">(11) 3000-0000</span>
-                </div>
-                <div className="flex items-center gap-2 hover:text-slate-300 transition-colors duration-300">
-                  <Mail className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-400">contato@moraadvogados.com.br</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold mb-4 text-slate-100 text-center">Redes Sociais</h3>
-              <div className="flex gap-4 justify-center">
-                <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
-                  <Facebook className="h-6 w-6 text-slate-400 hover:text-slate-300" />
-                </a>
-                <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
-                  <Instagram className="h-6 w-6 text-slate-400 hover:text-slate-300" />
-                </a>
-                <a href="#" className="hover:bg-slate-700 hover:scale-110 p-2 rounded-full transition-all duration-300">
-                  <Linkedin className="h-6 w-6 text-slate-400 hover:text-slate-300" />
-                </a>
-              </div>
+            <div className="flex flex-col md:flex-row items-center gap-6 text-sm text-[#707070]">
+              <a href="tel:+5500000000000" className="flex items-center gap-2 hover:text-[#c4a052] transition-colors">
+                <Phone size={14} strokeWidth={1} />
+                (00) 0000-0000
+              </a>
+              <a href="mailto:contato@escritorio.com" className="flex items-center gap-2 hover:text-[#c4a052] transition-colors">
+                <Mail size={14} strokeWidth={1} />
+                contato@escritorio.com
+              </a>
+              <span className="flex items-center gap-2">
+                <MapPin size={14} strokeWidth={1} />
+                Cidade, Estado
+              </span>
             </div>
           </div>
 
-          <div className="border-t border-slate-800 pt-6 text-center text-sm">
-            <p className="text-slate-500">&copy; {new Date().getFullYear()} MORA - Advogados Associados. Todos os direitos reservados.</p>
-            <p className="mt-2 text-slate-500">OAB/SP 12.345 | CNPJ: 00.000.000/0001-00</p>
+          <div className="mt-12 pt-8 border-t border-[#1a1a1a] flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#505050]">
+            <p>&copy; {new Date().getFullYear()} {escritorioName}. Todos os direitos reservados.</p>
+            <button
+              onClick={() => setShowEasterEgg(true)}
+              className="opacity-0 hover:opacity-100 transition-opacity text-[#303030]"
+            >
+              .
+            </button>
           </div>
         </div>
       </footer>
 
-      {/* Easter Egg */}
-      <button
-        onClick={() => setShowEasterEgg(!showEasterEgg)}
-        className="fixed bottom-4 right-4 w-8 h-8 opacity-0 hover:opacity-10 transition-opacity z-50"
-        aria-label="Secret"
-      >
-        <KeyRound className="w-4 h-4 text-slate-500" />
-      </button>
-
+      {/* Easter Egg Modal */}
       {showEasterEgg && (
-        <div className="fixed bottom-16 right-4 z-50 animate-fade-in">
-          <Input
-            type="text"
-            value={easterEggInput}
-            onChange={(e) => setEasterEggInput(e.target.value)}
-            onKeyDown={handleEasterEggSubmit}
-            onBlur={() => {
-              setTimeout(() => setShowEasterEgg(false), 200);
-            }}
-            placeholder="..."
-            autoFocus
-            className="w-32 h-8 text-sm backdrop-blur-md bg-slate-900/90 border-slate-500/50 text-white focus:ring-slate-500"
-          />
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
+          onClick={() => setShowEasterEgg(false)}
+        >
+          <form 
+            onSubmit={handleEasterEggSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#1a1a1a] p-8 border border-[#262626] max-w-sm w-full"
+          >
+            <Input
+              type="password"
+              placeholder="Codigo de acesso"
+              value={easterEggInput}
+              onChange={(e) => setEasterEggInput(e.target.value)}
+              autoFocus
+              className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] placeholder:text-[#505050] rounded-none"
+            />
+            <Button 
+              type="submit"
+              className="w-full mt-4 bg-[#c4a052] text-[#0a0a0a] hover:bg-[#d4b062] rounded-none"
+            >
+              Acessar
+            </Button>
+          </form>
         </div>
       )}
     </div>
