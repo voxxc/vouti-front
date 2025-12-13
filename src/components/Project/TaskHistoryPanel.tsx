@@ -17,7 +17,8 @@ import {
   MessageSquare,
   Upload,
   Trash2,
-  Clock
+  Clock,
+  ListTodo
 } from "lucide-react";
 import { TaskHistoryEntry } from "@/types/project";
 
@@ -42,6 +43,10 @@ const TaskHistoryPanel = ({ history }: TaskHistoryPanelProps) => {
         return <Upload className="h-4 w-4" />;
       case 'file_deleted':
         return <Trash2 className="h-4 w-4" />;
+      case 'tarefa_added':
+      case 'tarefa_edited':
+      case 'tarefa_deleted':
+        return <ListTodo className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
     }
@@ -65,6 +70,12 @@ const TaskHistoryPanel = ({ history }: TaskHistoryPanelProps) => {
         return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400';
       case 'file_deleted':
         return 'bg-red-500/10 text-red-700 dark:text-red-400';
+      case 'tarefa_added':
+        return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+      case 'tarefa_edited':
+        return 'bg-amber-500/10 text-amber-700 dark:text-amber-400';
+      case 'tarefa_deleted':
+        return 'bg-red-500/10 text-red-700 dark:text-red-400';
       default:
         return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
     }
@@ -79,17 +90,23 @@ const TaskHistoryPanel = ({ history }: TaskHistoryPanelProps) => {
       case 'edited':
         return 'Editado';
       case 'comment_added':
-        return 'Comentário Adicionado';
+        return 'Comentario Adicionado';
       case 'comment_edited':
-        return 'Comentário Editado';
+        return 'Comentario Editado';
       case 'comment_deleted':
-        return 'Comentário Excluído';
+        return 'Comentario Excluido';
       case 'file_uploaded':
         return 'Arquivo Enviado';
       case 'file_deleted':
-        return 'Arquivo Excluído';
+        return 'Arquivo Excluido';
+      case 'tarefa_added':
+        return 'Tarefa Adicionada';
+      case 'tarefa_edited':
+        return 'Tarefa Editada';
+      case 'tarefa_deleted':
+        return 'Tarefa Excluida';
       default:
-        return 'Ação';
+        return 'Acao';
     }
   };
 
