@@ -101,14 +101,13 @@ export const RelatorioReunioesExport = ({ dados, escopo, formato, onComplete }: 
         const leadsData = dados.leads.map(l => [
           l.nome,
           format(new Date(l.dataCadastro), 'dd/MM/yyyy', { locale: ptBR }),
-          l.origem || '-',
-          l.status || '-',
-          l.responsavel || '-'
+          l.telefone || '-',
+          l.email || '-'
         ]);
 
         autoTable(doc, {
           startY: currentY + 5,
-          head: [['Nome', 'Data', 'Origem', 'Status', 'Responsavel']],
+          head: [['Nome', 'Data Cadastro', 'Telefone', 'Email']],
           body: leadsData,
           theme: 'grid',
           headStyles: { fillColor: [99, 102, 241] },
@@ -224,12 +223,12 @@ export const RelatorioReunioesExport = ({ dados, escopo, formato, onComplete }: 
       const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
       XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
 
-      // Aba Leads
+      // Aba Leads (cadastrados via agendamento de reunioes)
       if (dados.leads.length > 0) {
-        const leadsHeader = ['Nome', 'Email', 'Telefone', 'Origem', 'Status', 'Data Cadastro', 'Responsavel'];
+        const leadsHeader = ['Nome', 'Email', 'Telefone', 'Data Cadastro'];
         const leadsRows = dados.leads.map(l => [
-          l.nome, l.email || '', l.telefone || '', l.origem || '', l.status || '',
-          format(new Date(l.dataCadastro), 'dd/MM/yyyy'), l.responsavel || ''
+          l.nome, l.email || '', l.telefone || '',
+          format(new Date(l.dataCadastro), 'dd/MM/yyyy')
         ]);
         const wsLeads = XLSX.utils.aoa_to_sheet([leadsHeader, ...leadsRows]);
         XLSX.utils.book_append_sheet(wb, wsLeads, 'Leads');

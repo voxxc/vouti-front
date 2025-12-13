@@ -34,19 +34,16 @@ export const useRelatorioReunioes = () => {
         .eq('user_id', user.id)
         .single();
 
-      // Buscar leads no periodo
+      // Buscar leads no periodo (de reuniao_clientes - leads criados via agendamento)
       let leadsQuery = supabase
-        .from('leads_captacao')
+        .from('reuniao_clientes')
         .select(`
           id,
           nome,
           email,
           telefone,
-          origem,
-          status,
-          created_at,
-          responsavel_id,
-          profiles:responsavel_id (full_name)
+          observacoes,
+          created_at
         `)
         .gte('created_at', config.periodo.inicio.toISOString())
         .lte('created_at', config.periodo.fim.toISOString());
@@ -62,10 +59,10 @@ export const useRelatorioReunioes = () => {
         nome: lead.nome,
         email: lead.email,
         telefone: lead.telefone,
-        origem: lead.origem,
-        status: lead.status,
+        origem: null, // Nao existe origem em reuniao_clientes
+        status: null, // Nao existe status em reuniao_clientes
         dataCadastro: lead.created_at,
-        responsavel: (lead.profiles as any)?.full_name || null
+        responsavel: null // Nao tem responsavel direto em reuniao_clientes
       }));
 
       // Calcular novos leads (ultimos 7 dias do periodo)
