@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   Search,
-  Filter
+  Filter,
+  Receipt,
+  UserCheck
 } from 'lucide-react';
 import { Cliente } from '@/types/cliente';
 import { toast } from 'sonner';
@@ -27,6 +29,8 @@ import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { differenceInDays, format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceiroDialog';
+import { ColaboradoresTab } from '@/components/Financial/ColaboradoresTab';
+import { CustosTab } from '@/components/Financial/CustosTab';
 
 
 interface ClienteFinanceiro extends Cliente {
@@ -372,11 +376,23 @@ const Financial = () => {
         {/* Main Content */}
         <Tabs defaultValue="clients" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="clients">
+            <TabsTrigger value="clients" className="gap-2">
+              <Users size={16} />
               Clientes ({clientesFiltrados.length})
             </TabsTrigger>
-            <TabsTrigger value="contracts">Contratos</TabsTrigger>
-            <TabsTrigger value="history">Histórico</TabsTrigger>
+            <TabsTrigger value="contracts" className="gap-2">
+              <FileText size={16} />
+              Contratos
+            </TabsTrigger>
+            <TabsTrigger value="colaboradores" className="gap-2">
+              <UserCheck size={16} />
+              Colaboradores
+            </TabsTrigger>
+            <TabsTrigger value="custos" className="gap-2">
+              <Receipt size={16} />
+              Custos
+            </TabsTrigger>
+            <TabsTrigger value="history">Historico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="clients" className="space-y-4">

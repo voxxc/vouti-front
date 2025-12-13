@@ -633,6 +633,290 @@ export type Database = {
           },
         ]
       }
+      colaborador_comentarios: {
+        Row: {
+          colaborador_id: string
+          comentario: string
+          created_at: string | null
+          id: string
+          tenant_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          colaborador_id: string
+          comentario: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          colaborador_id?: string
+          comentario?: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaborador_comentarios_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "colaborador_comentarios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      colaborador_documentos: {
+        Row: {
+          colaborador_id: string
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          tenant_id: string | null
+          tipo_documento: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          colaborador_id: string
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          tenant_id?: string | null
+          tipo_documento?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          colaborador_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          tenant_id?: string | null
+          tipo_documento?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaborador_documentos_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "colaborador_documentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      colaborador_reajustes: {
+        Row: {
+          colaborador_id: string
+          created_at: string | null
+          data_reajuste: string
+          id: string
+          motivo: string | null
+          tenant_id: string | null
+          user_id: string
+          valor_anterior: number
+          valor_novo: number
+        }
+        Insert: {
+          colaborador_id: string
+          created_at?: string | null
+          data_reajuste: string
+          id?: string
+          motivo?: string | null
+          tenant_id?: string | null
+          user_id: string
+          valor_anterior: number
+          valor_novo: number
+        }
+        Update: {
+          colaborador_id?: string
+          created_at?: string | null
+          data_reajuste?: string
+          id?: string
+          motivo?: string | null
+          tenant_id?: string | null
+          user_id?: string
+          valor_anterior?: number
+          valor_novo?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaborador_reajustes_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "colaborador_reajustes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      colaborador_vales: {
+        Row: {
+          colaborador_id: string
+          created_at: string | null
+          data: string
+          descricao: string | null
+          id: string
+          status: string | null
+          tenant_id: string | null
+          tipo: string
+          user_id: string
+          valor: number
+          vincular_salario: boolean | null
+        }
+        Insert: {
+          colaborador_id: string
+          created_at?: string | null
+          data: string
+          descricao?: string | null
+          id?: string
+          status?: string | null
+          tenant_id?: string | null
+          tipo: string
+          user_id: string
+          valor: number
+          vincular_salario?: boolean | null
+        }
+        Update: {
+          colaborador_id?: string
+          created_at?: string | null
+          data?: string
+          descricao?: string | null
+          id?: string
+          status?: string | null
+          tenant_id?: string | null
+          tipo?: string
+          user_id?: string
+          valor?: number
+          vincular_salario?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaborador_vales_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "colaborador_vales_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      colaboradores: {
+        Row: {
+          cargo: string | null
+          cpf_cnpj: string | null
+          created_at: string | null
+          data_contratacao: string | null
+          data_nascimento: string | null
+          dia_pagamento: number | null
+          email: string | null
+          endereco: string | null
+          forma_pagamento: string | null
+          id: string
+          nome_completo: string
+          observacoes: string | null
+          salario_base: number
+          status: string | null
+          telefone: string | null
+          tenant_id: string | null
+          tipo_pessoa: string
+          tipo_vinculo: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cargo?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string | null
+          data_contratacao?: string | null
+          data_nascimento?: string | null
+          dia_pagamento?: number | null
+          email?: string | null
+          endereco?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          nome_completo: string
+          observacoes?: string | null
+          salario_base?: number
+          status?: string | null
+          telefone?: string | null
+          tenant_id?: string | null
+          tipo_pessoa: string
+          tipo_vinculo?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cargo?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string | null
+          data_contratacao?: string | null
+          data_nascimento?: string | null
+          dia_pagamento?: number | null
+          email?: string | null
+          endereco?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          nome_completo?: string
+          observacoes?: string | null
+          salario_base?: number
+          status?: string | null
+          telefone?: string | null
+          tenant_id?: string | null
+          tipo_pessoa?: string
+          tipo_vinculo?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaboradores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comarcas: {
         Row: {
           created_at: string | null
@@ -721,6 +1005,224 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "controladoria_processos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custo_categorias: {
+        Row: {
+          cor: string | null
+          created_at: string | null
+          id: string
+          nome: string
+          padrao: boolean | null
+          tenant_id: string | null
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string | null
+          id?: string
+          nome: string
+          padrao?: boolean | null
+          tenant_id?: string | null
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string | null
+          id?: string
+          nome?: string
+          padrao?: boolean | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custo_categorias_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custo_comprovantes: {
+        Row: {
+          created_at: string | null
+          custo_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          tenant_id: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          custo_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          tenant_id?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string | null
+          custo_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          tenant_id?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custo_comprovantes_custo_id_fkey"
+            columns: ["custo_id"]
+            isOneToOne: false
+            referencedRelation: "custos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custo_comprovantes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custo_parcelas: {
+        Row: {
+          created_at: string | null
+          custo_id: string
+          data_pagamento: string | null
+          data_vencimento: string
+          id: string
+          numero_parcela: number
+          status: string | null
+          tenant_id: string | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          custo_id: string
+          data_pagamento?: string | null
+          data_vencimento: string
+          id?: string
+          numero_parcela: number
+          status?: string | null
+          tenant_id?: string | null
+          valor: number
+        }
+        Update: {
+          created_at?: string | null
+          custo_id?: string
+          data_pagamento?: string | null
+          data_vencimento?: string
+          id?: string
+          numero_parcela?: number
+          status?: string | null
+          tenant_id?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custo_parcelas_custo_id_fkey"
+            columns: ["custo_id"]
+            isOneToOne: false
+            referencedRelation: "custos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custo_parcelas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custos: {
+        Row: {
+          categoria_id: string | null
+          created_at: string | null
+          data: string
+          data_final: string | null
+          data_inicial: string | null
+          descricao: string
+          forma_pagamento: string | null
+          id: string
+          numero_parcelas: number | null
+          observacoes: string | null
+          parcelado: boolean | null
+          periodicidade: string | null
+          recorrente: boolean | null
+          status: string | null
+          tenant_id: string | null
+          tipo: string | null
+          updated_at: string | null
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          created_at?: string | null
+          data: string
+          data_final?: string | null
+          data_inicial?: string | null
+          descricao: string
+          forma_pagamento?: string | null
+          id?: string
+          numero_parcelas?: number | null
+          observacoes?: string | null
+          parcelado?: boolean | null
+          periodicidade?: string | null
+          recorrente?: boolean | null
+          status?: string | null
+          tenant_id?: string | null
+          tipo?: string | null
+          updated_at?: string | null
+          user_id: string
+          valor: number
+        }
+        Update: {
+          categoria_id?: string | null
+          created_at?: string | null
+          data?: string
+          data_final?: string | null
+          data_inicial?: string | null
+          descricao?: string
+          forma_pagamento?: string | null
+          id?: string
+          numero_parcelas?: number | null
+          observacoes?: string | null
+          parcelado?: boolean | null
+          periodicidade?: string | null
+          recorrente?: boolean | null
+          status?: string | null
+          tenant_id?: string | null
+          tipo?: string | null
+          updated_at?: string | null
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "custo_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custos_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4609,6 +5111,10 @@ export type Database = {
           task_id_param?: string
           triggered_by?: string
         }
+        Returns: undefined
+      }
+      criar_categorias_custos_padrao: {
+        Args: { p_tenant_id: string }
         Returns: undefined
       }
       decrypt_credential: {
