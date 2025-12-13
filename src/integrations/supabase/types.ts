@@ -4656,39 +4656,54 @@ export type Database = {
       }
       tenants: {
         Row: {
+          cnpj: string | null
           created_at: string | null
+          email_contato: string | null
           email_domain: string | null
+          endereco: string | null
           id: string
           is_active: boolean | null
           logo_url: string | null
           name: string
+          responsavel_financeiro: string | null
           settings: Json | null
           slug: string
           system_type_id: string | null
+          telefone: string | null
           updated_at: string | null
         }
         Insert: {
+          cnpj?: string | null
           created_at?: string | null
+          email_contato?: string | null
           email_domain?: string | null
+          endereco?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
           name: string
+          responsavel_financeiro?: string | null
           settings?: Json | null
           slug: string
           system_type_id?: string | null
+          telefone?: string | null
           updated_at?: string | null
         }
         Update: {
+          cnpj?: string | null
           created_at?: string | null
+          email_contato?: string | null
           email_domain?: string | null
+          endereco?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
+          responsavel_financeiro?: string | null
           settings?: Json | null
           slug?: string
           system_type_id?: string | null
+          telefone?: string | null
           updated_at?: string | null
         }
         Relationships: [
