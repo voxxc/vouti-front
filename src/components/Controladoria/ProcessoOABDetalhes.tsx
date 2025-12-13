@@ -329,6 +329,7 @@ export const ProcessoOABDetalhes = ({
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="partes">Partes</TabsTrigger>
               <TabsTrigger value="intimacoes" className="relative">
                 Intimacoes
                 {intimacoesNaoLidas > 0 && (
@@ -337,12 +338,11 @@ export const ProcessoOABDetalhes = ({
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="partes">Partes</TabsTrigger>
+              <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
               <TabsTrigger value="vouti-ia">
                 <Bot className="w-3.5 h-3.5 mr-1" />
                 IA
               </TabsTrigger>
-              <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
             </TabsList>
 
             {/* Resumo - TODAS AS INFORMACOES */}
