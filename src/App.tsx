@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -7,6 +8,15 @@ import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
 import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useState, useEffect } from 'react';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+    },
+  },
+});
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
@@ -301,268 +311,270 @@ const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.Re
 
 function App() {
   return (
-    <TooltipProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Homepage - Always dark mode, isolated from ThemeProvider */}
-          <Route path="/" element={<HomePage />} />
-          
-          {/* ============================================== */}
-          {/* ROTAS DINÂMICAS POR TENANT (/:tenant/*)       */}
-          {/* ============================================== */}
-          
-          {/* Auth - Tenant Dynamic */}
-          <Route path="/:tenant/auth" element={
-            <TenantRouteWrapper isPublic>
-              <Auth />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Dashboard - Tenant Dynamic */}
-          <Route path="/:tenant/dashboard" element={
-            <TenantRouteWrapper>
-              <Dashboard />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Projects - Tenant Dynamic */}
-          <Route path="/:tenant/projects" element={
-            <TenantRouteWrapper>
-              <Projects />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/project/:id" element={
-            <TenantRouteWrapper>
-              <ProjectViewWrapper />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/project/:id/acordos" element={
-            <TenantRouteWrapper>
-              <AcordosViewWrapper />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/project/:id/sector/:sectorId" element={
-            <TenantRouteWrapper>
-              <ProjectViewWrapper />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Agenda - Tenant Dynamic */}
-          <Route path="/:tenant/agenda" element={
-            <TenantRouteWrapper>
-              <Agenda />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* CRM - Tenant Dynamic */}
-          <Route path="/:tenant/crm" element={
-            <TenantRouteWrapper>
-              <CRM />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Financial - Tenant Dynamic */}
-          <Route path="/:tenant/financial" element={
-            <TenantRouteWrapper>
-              <Financial />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Controladoria - Tenant Dynamic */}
-          <Route path="/:tenant/controladoria" element={
-            <TenantRouteWrapper>
-              <Controladoria />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/controladoria/novo" element={
-            <TenantRouteWrapper>
-              <ControladoriaNovoProcesso />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/controladoria/processo/:id" element={
-            <TenantRouteWrapper>
-              <ControladoriaProcessoDetalhes />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/controladoria/processo/:id/editar" element={
-            <TenantRouteWrapper>
-              <ControladoriaNovoProcesso />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Reuniões - Tenant Dynamic */}
-          <Route path="/:tenant/reunioes" element={
-            <TenantRouteWrapper>
-              <Reunioes />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/reunioes/metricas" element={
-            <TenantRouteWrapper>
-              <ReuniaoMetricas />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/reunioes/relatorios" element={
-            <TenantRouteWrapper>
-              <ReuniaoRelatorios />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/reuniao-clientes" element={
-            <TenantRouteWrapper>
-              <ReuniaoClientes />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* Admin - Tenant Dynamic */}
-          <Route path="/:tenant/admin/reuniao-status" element={
-            <TenantRouteWrapper>
-              <AdminReuniaoStatus />
-            </TenantRouteWrapper>
-          } />
-          
-          <Route path="/:tenant/admin/backend-code" element={
-            <TenantRouteWrapper>
-              <AdminBackendCode />
-            </TenantRouteWrapper>
-          } />
-          
-          {/* ============================================== */}
-          {/* ROTAS LEGADAS (redirect para /solvenza/*)     */}
-          {/* Mantidas para compatibilidade temporária       */}
-          {/* ============================================== */}
-          
-          <Route path="/auth" element={<Navigate to="/solvenza/auth" replace />} />
-          <Route path="/dashboard" element={<Navigate to="/solvenza/dashboard" replace />} />
-          <Route path="/projects" element={<Navigate to="/solvenza/projects" replace />} />
-          <Route path="/project/:id" element={<LegacyProjectRedirect />} />
-          <Route path="/project/:id/acordos" element={<LegacyProjectAcordosRedirect />} />
-          <Route path="/project/:id/sector/:sectorId" element={<LegacyProjectSectorRedirect />} />
-          <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
-          <Route path="/crm" element={<Navigate to="/solvenza/crm" replace />} />
-          <Route path="/financial" element={<Navigate to="/solvenza/financial" replace />} />
-          <Route path="/controladoria" element={<Navigate to="/solvenza/controladoria" replace />} />
-          <Route path="/controladoria/novo" element={<Navigate to="/solvenza/controladoria/novo" replace />} />
-          <Route path="/controladoria/processo/:id" element={<LegacyControladoriaProcessoRedirect />} />
-          <Route path="/controladoria/processo/:id/editar" element={<LegacyControladoriaProcessoEditarRedirect />} />
-          <Route path="/reunioes" element={<Navigate to="/solvenza/reunioes" replace />} />
-          <Route path="/reunioes/metricas" element={<Navigate to="/solvenza/reunioes/metricas" replace />} />
-          <Route path="/reunioes/relatorios" element={<Navigate to="/solvenza/reunioes/relatorios" replace />} />
-          <Route path="/reuniao-clientes" element={<Navigate to="/solvenza/reuniao-clientes" replace />} />
-          <Route path="/admin/reuniao-status" element={<Navigate to="/solvenza/admin/reuniao-status" replace />} />
-          <Route path="/admin/backend-code" element={<Navigate to="/solvenza/admin/backend-code" replace />} />
-          
-          {/* ============================================== */}
-          {/* SISTEMAS SEPARADOS (Metal e Link)             */}
-          {/* ============================================== */}
-          
-          {/* Vouti.bio Routes - Isolated Link in Bio System */}
-          <Route path="/link-auth" element={
-            <LinkAuthProvider>
-              <LinkPublicRoute>
-                <LinkAuth />
-              </LinkPublicRoute>
-            </LinkAuthProvider>
-          } />
-          <Route path="/link-dashboard" element={
-            <LinkAuthProvider>
-              <ThemeProvider>
-                <LinkProtectedRoute>
-                  <LinkDashboard />
-                </LinkProtectedRoute>
-              </ThemeProvider>
-            </LinkAuthProvider>
-          } />
-          
-          {/* MetalSystem Routes - Completely separate from Mora */}
-          <Route path="/metal-auth" element={
-            <MetalAuthProvider>
-              <MetalPublicRoute>
-                <MetalAuth />
-              </MetalPublicRoute>
-            </MetalAuthProvider>
-          } />
-          <Route path="/metal-dashboard" element={
-            <MetalAuthProvider>
-              <MetalProtectedRoute>
-                <MetalDashboard />
-              </MetalProtectedRoute>
-            </MetalAuthProvider>
-          } />
-          <Route path="/metal-admin-users" element={
-            <MetalAuthProvider>
-              <MetalProtectedRoute>
-                <MetalAdminUsers />
-              </MetalProtectedRoute>
-            </MetalAuthProvider>
-          } />
-          <Route path="/metal-reports" element={
-            <MetalAuthProvider>
-              <MetalProtectedRoute>
-                <MetalReports />
-              </MetalProtectedRoute>
-            </MetalAuthProvider>
-          } />
-          
-          {/* BATINK Routes - Digital Time Clock System */}
-          <Route path="/batink" element={<BatinkLanding />} />
-          <Route path="/batink/auth" element={
-            <BatinkAuthProvider>
-              <BatinkPublicRoute>
-                <BatinkAuth />
-              </BatinkPublicRoute>
-            </BatinkAuthProvider>
-          } />
-          <Route path="/batink/dashboard" element={
-            <BatinkAuthProvider>
-              <BatinkProtectedRoute>
-                <BatinkDashboard />
-              </BatinkProtectedRoute>
-            </BatinkAuthProvider>
-          } />
-          <Route path="/batink/admin" element={
-            <BatinkAuthProvider>
-              <BatinkProtectedRoute>
-                <BatinkAdmin />
-              </BatinkProtectedRoute>
-            </BatinkAuthProvider>
-          } />
-          
-          {/* Veridicto Landing */}
-          <Route path="/veridicto" element={<VeridictoLanding />} />
-          
-          {/* Landing Pages - Marketing - Tenant Dynamic */}
-          <Route path="/:tenant/landing-1" element={
-            <TenantProvider>
-              <LandingPage1 />
-            </TenantProvider>
-          } />
-          <Route path="/:tenant/office" element={
-            <TenantProvider>
-              <LandingPage2 />
-            </TenantProvider>
-          } />
-          
-          {/* Legacy Landing Page redirects */}
-          <Route path="/landing-1" element={<Navigate to="/solvenza/landing-1" replace />} />
-          <Route path="/office" element={<Navigate to="/solvenza/office" replace />} />
-          
-          {/* Super Admin Panel */}
-          <Route path="/super-admin" element={<SuperAdmin />} />
-          
-          {/* 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster />
-      </BrowserRouter>
-    </TooltipProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Homepage - Always dark mode, isolated from ThemeProvider */}
+            <Route path="/" element={<HomePage />} />
+            
+            {/* ============================================== */}
+            {/* ROTAS DINÂMICAS POR TENANT (/:tenant/*)       */}
+            {/* ============================================== */}
+            
+            {/* Auth - Tenant Dynamic */}
+            <Route path="/:tenant/auth" element={
+              <TenantRouteWrapper isPublic>
+                <Auth />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Dashboard - Tenant Dynamic */}
+            <Route path="/:tenant/dashboard" element={
+              <TenantRouteWrapper>
+                <Dashboard />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Projects - Tenant Dynamic */}
+            <Route path="/:tenant/projects" element={
+              <TenantRouteWrapper>
+                <Projects />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/project/:id" element={
+              <TenantRouteWrapper>
+                <ProjectViewWrapper />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/project/:id/acordos" element={
+              <TenantRouteWrapper>
+                <AcordosViewWrapper />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/project/:id/sector/:sectorId" element={
+              <TenantRouteWrapper>
+                <ProjectViewWrapper />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Agenda - Tenant Dynamic */}
+            <Route path="/:tenant/agenda" element={
+              <TenantRouteWrapper>
+                <Agenda />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* CRM - Tenant Dynamic */}
+            <Route path="/:tenant/crm" element={
+              <TenantRouteWrapper>
+                <CRM />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Financial - Tenant Dynamic */}
+            <Route path="/:tenant/financial" element={
+              <TenantRouteWrapper>
+                <Financial />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Controladoria - Tenant Dynamic */}
+            <Route path="/:tenant/controladoria" element={
+              <TenantRouteWrapper>
+                <Controladoria />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/controladoria/novo" element={
+              <TenantRouteWrapper>
+                <ControladoriaNovoProcesso />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/controladoria/processo/:id" element={
+              <TenantRouteWrapper>
+                <ControladoriaProcessoDetalhes />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/controladoria/processo/:id/editar" element={
+              <TenantRouteWrapper>
+                <ControladoriaNovoProcesso />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Reuniões - Tenant Dynamic */}
+            <Route path="/:tenant/reunioes" element={
+              <TenantRouteWrapper>
+                <Reunioes />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/reunioes/metricas" element={
+              <TenantRouteWrapper>
+                <ReuniaoMetricas />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/reunioes/relatorios" element={
+              <TenantRouteWrapper>
+                <ReuniaoRelatorios />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/reuniao-clientes" element={
+              <TenantRouteWrapper>
+                <ReuniaoClientes />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Admin - Tenant Dynamic */}
+            <Route path="/:tenant/admin/reuniao-status" element={
+              <TenantRouteWrapper>
+                <AdminReuniaoStatus />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/admin/backend-code" element={
+              <TenantRouteWrapper>
+                <AdminBackendCode />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* ============================================== */}
+            {/* ROTAS LEGADAS (redirect para /solvenza/*)     */}
+            {/* Mantidas para compatibilidade temporária       */}
+            {/* ============================================== */}
+            
+            <Route path="/auth" element={<Navigate to="/solvenza/auth" replace />} />
+            <Route path="/dashboard" element={<Navigate to="/solvenza/dashboard" replace />} />
+            <Route path="/projects" element={<Navigate to="/solvenza/projects" replace />} />
+            <Route path="/project/:id" element={<LegacyProjectRedirect />} />
+            <Route path="/project/:id/acordos" element={<LegacyProjectAcordosRedirect />} />
+            <Route path="/project/:id/sector/:sectorId" element={<LegacyProjectSectorRedirect />} />
+            <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
+            <Route path="/crm" element={<Navigate to="/solvenza/crm" replace />} />
+            <Route path="/financial" element={<Navigate to="/solvenza/financial" replace />} />
+            <Route path="/controladoria" element={<Navigate to="/solvenza/controladoria" replace />} />
+            <Route path="/controladoria/novo" element={<Navigate to="/solvenza/controladoria/novo" replace />} />
+            <Route path="/controladoria/processo/:id" element={<LegacyControladoriaProcessoRedirect />} />
+            <Route path="/controladoria/processo/:id/editar" element={<LegacyControladoriaProcessoEditarRedirect />} />
+            <Route path="/reunioes" element={<Navigate to="/solvenza/reunioes" replace />} />
+            <Route path="/reunioes/metricas" element={<Navigate to="/solvenza/reunioes/metricas" replace />} />
+            <Route path="/reunioes/relatorios" element={<Navigate to="/solvenza/reunioes/relatorios" replace />} />
+            <Route path="/reuniao-clientes" element={<Navigate to="/solvenza/reuniao-clientes" replace />} />
+            <Route path="/admin/reuniao-status" element={<Navigate to="/solvenza/admin/reuniao-status" replace />} />
+            <Route path="/admin/backend-code" element={<Navigate to="/solvenza/admin/backend-code" replace />} />
+            
+            {/* ============================================== */}
+            {/* SISTEMAS SEPARADOS (Metal e Link)             */}
+            {/* ============================================== */}
+            
+            {/* Vouti.bio Routes - Isolated Link in Bio System */}
+            <Route path="/link-auth" element={
+              <LinkAuthProvider>
+                <LinkPublicRoute>
+                  <LinkAuth />
+                </LinkPublicRoute>
+              </LinkAuthProvider>
+            } />
+            <Route path="/link-dashboard" element={
+              <LinkAuthProvider>
+                <ThemeProvider>
+                  <LinkProtectedRoute>
+                    <LinkDashboard />
+                  </LinkProtectedRoute>
+                </ThemeProvider>
+              </LinkAuthProvider>
+            } />
+            
+            {/* MetalSystem Routes - Completely separate from Mora */}
+            <Route path="/metal-auth" element={
+              <MetalAuthProvider>
+                <MetalPublicRoute>
+                  <MetalAuth />
+                </MetalPublicRoute>
+              </MetalAuthProvider>
+            } />
+            <Route path="/metal-dashboard" element={
+              <MetalAuthProvider>
+                <MetalProtectedRoute>
+                  <MetalDashboard />
+                </MetalProtectedRoute>
+              </MetalAuthProvider>
+            } />
+            <Route path="/metal-admin" element={
+              <MetalAuthProvider>
+                <MetalProtectedRoute>
+                  <MetalAdminUsers />
+                </MetalProtectedRoute>
+              </MetalAuthProvider>
+            } />
+            <Route path="/metal-reports" element={
+              <MetalAuthProvider>
+                <MetalProtectedRoute>
+                  <MetalReports />
+                </MetalProtectedRoute>
+              </MetalAuthProvider>
+            } />
+            
+            {/* BATINK Routes - Isolated Point System */}
+            <Route path="/batink" element={<BatinkLanding />} />
+            <Route path="/batink/auth" element={
+              <BatinkAuthProvider>
+                <BatinkPublicRoute>
+                  <BatinkAuth />
+                </BatinkPublicRoute>
+              </BatinkAuthProvider>
+            } />
+            <Route path="/batink/dashboard" element={
+              <BatinkAuthProvider>
+                <BatinkProtectedRoute>
+                  <BatinkDashboard />
+                </BatinkProtectedRoute>
+              </BatinkAuthProvider>
+            } />
+            <Route path="/batink/admin" element={
+              <BatinkAuthProvider>
+                <BatinkProtectedRoute>
+                  <BatinkAdmin />
+                </BatinkProtectedRoute>
+              </BatinkAuthProvider>
+            } />
+            
+            {/* Veridicto Landing Page */}
+            <Route path="/veridicto" element={<VeridictoLanding />} />
+            
+            {/* Landing Pages - Tenant Dynamic */}
+            <Route path="/:tenant/landing-1" element={
+              <TenantProvider>
+                <LandingPage1 />
+              </TenantProvider>
+            } />
+            <Route path="/:tenant/office" element={
+              <TenantProvider>
+                <LandingPage2 />
+              </TenantProvider>
+            } />
+            
+            {/* Legacy Landing Page redirects */}
+            <Route path="/landing-1" element={<Navigate to="/solvenza/landing-1" replace />} />
+            <Route path="/office" element={<Navigate to="/solvenza/office" replace />} />
+            
+            {/* Super Admin Panel */}
+            <Route path="/super-admin" element={<SuperAdmin />} />
+            
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 
