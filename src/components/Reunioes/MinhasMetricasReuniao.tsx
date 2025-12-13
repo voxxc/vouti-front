@@ -68,13 +68,13 @@ export const MinhasMetricasReuniao = () => {
     enabled: !!tenantId && isAdmin
   });
 
-  // Buscar leads do periodo
+  // Buscar leads do periodo (de reuniao_clientes - leads criados via agendamento)
   const { data: leadsData } = useQuery({
-    queryKey: ['leads-metricas', tenantId, datasCalculadas.start, datasCalculadas.end],
+    queryKey: ['reuniao-leads-metricas', tenantId, datasCalculadas.start, datasCalculadas.end],
     queryFn: async () => {
       let query = supabase
-        .from('leads_captacao')
-        .select('id, nome, created_at, status, origem')
+        .from('reuniao_clientes')
+        .select('id, nome, created_at, telefone, email, observacoes')
         .order('created_at', { ascending: false });
 
       if (tenantId) {
@@ -141,37 +141,33 @@ export const MinhasMetricasReuniao = () => {
     enabled: !!tenantId
   });
 
-  // Calcular dados do grafico de leads por dia
+  // Calcular dados do grafico de leads por dia (leads criados via agendamento)
   const leadsTrendData = useMemo(() => {
     if (!leadsData) return [];
     
-    const seteDiasAtras = subDays(new Date(), 7);
-    const porDia = new Map<string, { total: number; novos: number }>();
+    const porDia = new Map<string, number>();
     
     leadsData.forEach(lead => {
       const data = format(new Date(lead.created_at), 'dd/MM');
-      const current = porDia.get(data) || { total: 0, novos: 0 };
-      current.total++;
-      if (new Date(lead.created_at) >= seteDiasAtras) {
-        current.novos++;
-      }
-      porDia.set(data, current);
+      porDia.set(data, (porDia.get(data) || 0) + 1);
     });
 
-    return Array.from(porDia.entries()).map(([dia, data]) => ({
+    return Array.from(porDia.entries()).map(([dia, total]) => ({
       dia,
-      total: data.total,
-      novos: data.novos
+      total,
+      novos: total // Todos sao leads de reuniao
     })).slice(-14);
   }, [leadsData]);
 
-  // Dados do funil
+  // Dados do funil baseado apenas em reunioes
   const funnelData = useMemo(() => {
     const fechados = metrics?.reunioesPorStatus.find(s => s.status.toLowerCase() === 'fechado')?.count || 0;
+    const emContato = metrics?.reunioesPorStatus.find(s => s.status.toLowerCase().includes('contato'))?.count || 0;
+    const inviaveis = metrics?.reunioesPorStatus.find(s => s.status.toLowerCase().includes('inviavel') || s.status.toLowerCase().includes('inviável'))?.count || 0;
     return {
       leadsCadastrados: leadsData?.length || 0,
       reunioesAgendadas: metrics?.totalReunioes || 0,
-      reunioesRealizadas: metrics?.totalReunioes || 0, // Simplificado
+      reunioesRealizadas: (metrics?.totalReunioes || 0) - inviaveis,
       fechamentos: fechados
     };
   }, [leadsData, metrics]);
@@ -464,20 +460,20 @@ export const MinhasMetricasReuniao = () => {
           </CardContent>
         </Card>
 
-        {/* Lista de Leads */}
+        {/* Lista de Leads (cadastrados via agendamento) */}
         <Card>
           <CardHeader>
             <CardTitle>Ultimos Leads</CardTitle>
-            <CardDescription>Leads cadastrados recentemente</CardDescription>
+            <CardDescription>Leads cadastrados via agendamento de reunioes</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Data Cadastro</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Email</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -487,10 +483,8 @@ export const MinhasMetricasReuniao = () => {
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(lead.created_at), 'dd/MM/yy')}
                     </TableCell>
-                    <TableCell className="text-sm">{lead.origem || '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{lead.status || 'Novo'}</Badge>
-                    </TableCell>
+                    <TableCell className="text-sm">{lead.telefone || '-'}</TableCell>
+                    <TableCell className="text-sm">{lead.email || '-'}</TableCell>
                   </TableRow>
                 ))}
                 {(!leadsData || leadsData.length === 0) && (
