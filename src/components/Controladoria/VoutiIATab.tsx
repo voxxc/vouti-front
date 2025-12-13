@@ -46,100 +46,30 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
             <div className="flex items-center gap-2">
               <Switch
                 id="ai-toggle"
-                checked={aiEnabled}
-                onCheckedChange={toggleAiEnabled}
+                checked={false}
+                disabled={true}
+                className="opacity-50 cursor-not-allowed"
               />
-              <Label htmlFor="ai-toggle" className="text-sm cursor-pointer">
+              <Label htmlFor="ai-toggle" className="text-sm cursor-not-allowed text-muted-foreground flex items-center gap-1">
                 <Power className="w-4 h-4" />
+                <span className="text-xs">(Em breve)</span>
               </Label>
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={refreshSummary}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
         </div>
       </div>
 
       {/* Conteudo do Summary */}
       <ScrollArea className="flex-1 py-4">
         <div className="px-1">
-          {!aiEnabled ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <Bot className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <h3 className="font-medium text-foreground mb-2">Vouti IA Desativado</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                O resumo automatico de processos esta desativado para este escritorio.
-                {isAdmin && ' Ative o toggle acima para habilitar.'}
-              </p>
-            </div>
-          ) : isLoading ? (
-            <div className="flex flex-col items-center justify-center h-48">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-              <p className="text-sm text-muted-foreground">Carregando resumo...</p>
-            </div>
-          ) : aiSummary ? (
-            <div className="space-y-4">
-              {/* Summary Card */}
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <h4 className="font-medium text-foreground">Resumo do Processo</h4>
-                </div>
-                <div 
-                  className="prose prose-sm dark:prose-invert max-w-none text-foreground/90"
-                  dangerouslySetInnerHTML={{ __html: formatSummaryToHtml(aiSummary) }}
-                />
-              </div>
-
-              {/* Dados adicionais do summary */}
-              {aiSummaryData && (
-                <div className="space-y-3">
-                  {aiSummaryData.parties && aiSummaryData.parties.length > 0 && (
-                    <SummarySection title="Partes" icon={<FileText className="h-4 w-4" />}>
-                      <ul className="space-y-1">
-                        {aiSummaryData.parties.map((party: any, idx: number) => (
-                          <li key={idx} className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">{party.name}</span>
-                            {party.role && <span className="text-xs ml-2">({party.role})</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </SummarySection>
-                  )}
-
-                  {aiSummaryData.class && (
-                    <SummarySection title="Classe" icon={<FileText className="h-4 w-4" />}>
-                      <p className="text-sm text-muted-foreground">{aiSummaryData.class}</p>
-                    </SummarySection>
-                  )}
-
-                  {aiSummaryData.subjects && aiSummaryData.subjects.length > 0 && (
-                    <SummarySection title="Assuntos" icon={<FileText className="h-4 w-4" />}>
-                      <ul className="space-y-1">
-                        {aiSummaryData.subjects.map((subject: string, idx: number) => (
-                          <li key={idx} className="text-sm text-muted-foreground">{subject}</li>
-                        ))}
-                      </ul>
-                    </SummarySection>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <AlertCircle className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <h3 className="font-medium text-foreground mb-2">Resumo nao disponivel</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                O resumo automatico deste processo ainda nao foi gerado.
-                Carregue os detalhes do processo na aba "Andamentos" para obter o resumo.
-              </p>
-            </div>
-          )}
+          <div className="flex flex-col items-center justify-center h-48 text-center">
+            <Bot className="h-12 w-12 text-muted-foreground/30 mb-4" />
+            <h3 className="font-medium text-foreground mb-2">Vouti IA - Em breve</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              O resumo automatico de processos estara disponivel em breve.
+              Estamos trabalhando para trazer essa funcionalidade para voce.
+            </p>
+          </div>
         </div>
       </ScrollArea>
     </div>
