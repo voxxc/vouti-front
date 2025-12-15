@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ColaboradorPagamento, Colaborador } from '@/types/financeiro';
 import { useTenantId } from './useTenantId';
 import { toast } from '@/hooks/use-toast';
-import { format, startOfMonth, addMonths } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 
 export const useColaboradorPagamentos = () => {
   const [pagamentos, setPagamentos] = useState<ColaboradorPagamento[]>([]);
@@ -108,12 +108,9 @@ export const useColaboradorPagamentos = () => {
 
       // Calcular data de vencimento baseado no dia_pagamento
       const diaPagamento = colaborador.dia_pagamento || 5;
-      const dataVencimento = new Date(mesReferencia.getFullYear(), mesReferencia.getMonth(), diaPagamento);
-      
-      // Se o dia de pagamento ja passou este mes, usar proximo mes
-      if (dataVencimento < new Date()) {
-        dataVencimento.setMonth(dataVencimento.getMonth() + 1);
-      }
+      const anoRef = mesReferencia.getFullYear();
+      const mesRef = mesReferencia.getMonth();
+      const dataVencimento = new Date(anoRef, mesRef, diaPagamento);
 
       const { data, error } = await supabase
         .from('colaborador_pagamentos')
@@ -245,6 +242,31 @@ export const useColaboradorPagamentos = () => {
       .lt('data_vencimento', hoje);
   };
 
+  const deletePagamento = async (pagamentoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('colaborador_pagamentos')
+        .delete()
+        .eq('id', pagamentoId);
+
+      if (error) throw error;
+
+      setPagamentos(prev => prev.filter(p => p.id !== pagamentoId));
+      toast({
+        title: 'Pagamento excluido',
+        description: 'O pagamento foi removido com sucesso',
+      });
+      return true;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao excluir pagamento',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   return {
     pagamentos,
     loading,
@@ -253,6 +275,7 @@ export const useColaboradorPagamentos = () => {
     gerarPagamentoMensal,
     gerarFolhaMes,
     darBaixaPagamento,
+    deletePagamento,
     atualizarStatusAtrasados,
   };
 };

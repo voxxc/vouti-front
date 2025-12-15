@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, Filter, Eye, Edit, Archive, Users } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, Search, Eye, Edit, Users, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ColaboradorForm } from './ColaboradorForm';
@@ -16,13 +17,14 @@ import { ColaboradorDetalhes } from './ColaboradorDetalhes';
 import { FolhaPagamentoCard } from './FolhaPagamentoCard';
 
 export const ColaboradoresTab = () => {
-  const { colaboradores, loading } = useColaboradores();
+  const { colaboradores, loading, deleteColaborador, fetchColaboradores } = useColaboradores();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [vinculoFilter, setVinculoFilter] = useState<string>('todos');
   const [showForm, setShowForm] = useState(false);
   const [selectedColaborador, setSelectedColaborador] = useState<Colaborador | null>(null);
   const [showDetalhes, setShowDetalhes] = useState(false);
+  const [colaboradorParaExcluir, setColaboradorParaExcluir] = useState<Colaborador | null>(null);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -180,6 +182,14 @@ export const ColaboradoresTab = () => {
                         >
                           <Edit size={16} />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setColaboradorParaExcluir(colaborador)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -211,6 +221,34 @@ export const ColaboradoresTab = () => {
           colaborador={selectedColaborador}
         />
       )}
+
+      {/* Dialog de confirmacao de exclusao */}
+      <AlertDialog open={!!colaboradorParaExcluir} onOpenChange={(open) => !open && setColaboradorParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Colaborador</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{colaboradorParaExcluir?.nome_completo}</strong>?
+              Esta acao nao pode ser desfeita e todos os dados relacionados serao removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (colaboradorParaExcluir) {
+                  await deleteColaborador(colaboradorParaExcluir.id);
+                  await fetchColaboradores();
+                  setColaboradorParaExcluir(null);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
