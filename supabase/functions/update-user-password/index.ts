@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('No authorization header provided')
       throw new Error('Sem autorizacao')
     }
 
@@ -34,17 +35,43 @@ Deno.serve(async (req) => {
       throw new Error('Nao autenticado')
     }
 
-    // Verificar se o usuario solicitante e admin
-    const { data: isAdmin } = await supabaseAdmin.rpc('has_role', {
+    console.log('Authenticated user:', user.id, user.email)
+
+    // Buscar tenant do admin primeiro
+    const { data: adminProfile, error: adminProfileError } = await supabaseAdmin
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminProfileError || !adminProfile?.tenant_id) {
+      console.error('Error fetching admin profile:', adminProfileError)
+      throw new Error('Erro ao buscar perfil do administrador')
+    }
+
+    console.log('Admin tenant_id:', adminProfile.tenant_id)
+
+    // Verificar se o usuario solicitante e admin NO MESMO TENANT
+    const { data: isAdmin, error: roleError } = await supabaseAdmin.rpc('has_role_in_tenant', {
       _user_id: user.id,
-      _role: 'admin'
+      _role: 'admin',
+      _tenant_id: adminProfile.tenant_id
     })
+
+    if (roleError) {
+      console.error('Error checking admin role:', roleError)
+      throw new Error('Erro ao verificar permissoes')
+    }
+
+    console.log('Is admin in tenant:', isAdmin)
 
     if (!isAdmin) {
       throw new Error('Sem permissao de administrador')
     }
 
     const { user_id, new_password } = await req.json()
+
+    console.log('Target user_id:', user_id)
 
     if (!user_id || !new_password) {
       throw new Error('ID do usuario e nova senha sao obrigatorios')
@@ -54,26 +81,23 @@ Deno.serve(async (req) => {
       throw new Error('Senha deve ter no minimo 6 caracteres')
     }
 
-    // Buscar tenant do admin
-    const { data: adminProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .single()
-
     // Buscar tenant do usuario alvo
-    const { data: targetProfile } = await supabaseAdmin
+    const { data: targetProfile, error: targetProfileError } = await supabaseAdmin
       .from('profiles')
       .select('tenant_id')
       .eq('user_id', user_id)
       .single()
 
-    // Validar mesmo tenant
-    if (!adminProfile?.tenant_id || !targetProfile?.tenant_id) {
-      throw new Error('Erro ao verificar tenant dos usuarios')
+    if (targetProfileError || !targetProfile?.tenant_id) {
+      console.error('Error fetching target profile:', targetProfileError)
+      throw new Error('Usuario alvo nao encontrado')
     }
 
+    console.log('Target user tenant_id:', targetProfile.tenant_id)
+
+    // Validar mesmo tenant
     if (adminProfile.tenant_id !== targetProfile.tenant_id) {
+      console.error('Tenant mismatch - Admin:', adminProfile.tenant_id, 'Target:', targetProfile.tenant_id)
       throw new Error('Usuario nao pertence ao seu tenant')
     }
 

@@ -5256,6 +5256,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_in_tenant: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_admin_in_same_tenant: {
         Args: { _target_user_id: string }
         Returns: boolean
