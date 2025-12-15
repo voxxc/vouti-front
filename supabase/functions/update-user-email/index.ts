@@ -44,14 +44,16 @@ Deno.serve(async (req) => {
       throw new Error('Sem permissao de administrador')
     }
 
-    const { user_id, new_password } = await req.json()
+    const { user_id, new_email } = await req.json()
 
-    if (!user_id || !new_password) {
-      throw new Error('ID do usuario e nova senha sao obrigatorios')
+    if (!user_id || !new_email) {
+      throw new Error('ID do usuario e novo email sao obrigatorios')
     }
 
-    if (new_password.length < 6) {
-      throw new Error('Senha deve ter no minimo 6 caracteres')
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(new_email)) {
+      throw new Error('Formato de email invalido')
     }
 
     // Buscar tenant do admin
@@ -77,24 +79,36 @@ Deno.serve(async (req) => {
       throw new Error('Usuario nao pertence ao seu tenant')
     }
 
-    console.log('Updating password for user:', user_id)
+    console.log('Updating email for user:', user_id, 'to:', new_email)
 
+    // Atualizar email em auth.users
     const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,
-      { password: new_password }
+      { email: new_email }
     )
 
     if (updateError) {
-      console.error('Error updating password:', updateError)
-      throw new Error('Erro ao atualizar senha: ' + updateError.message)
+      console.error('Error updating email in auth:', updateError)
+      throw new Error('Erro ao atualizar email: ' + updateError.message)
     }
 
-    console.log('Password updated successfully for user:', user_id)
+    // Atualizar email na tabela profiles tambem
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({ email: new_email })
+      .eq('user_id', user_id)
+
+    if (profileError) {
+      console.error('Error updating email in profiles:', profileError)
+      // Nao falha a operacao se profiles falhar, pois o auth ja foi atualizado
+    }
+
+    console.log('Email updated successfully for user:', user_id)
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Senha atualizada com sucesso'
+        message: 'Email atualizado com sucesso'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -102,10 +116,10 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error in update-user-password function:', error)
+    console.error('Error in update-user-email function:', error)
     return new Response(
       JSON.stringify({
-        error: error.message || 'Erro ao atualizar senha'
+        error: error.message || 'Erro ao atualizar email'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -19,7 +18,6 @@ serve(async (req) => {
       throw new Error('userId is required');
     }
 
-    // Create Supabase admin client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -31,7 +29,6 @@ serve(async (req) => {
       }
     );
 
-    // Verify that the requesting user is an admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
@@ -44,24 +41,54 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Check if user is admin
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single();
+    // Verificar se o usuario solicitante e admin
+    const { data: isAdmin } = await supabaseAdmin.rpc('has_role', {
+      _user_id: user.id,
+      _role: 'admin'
+    });
 
-    if (roleError || !roleData) {
+    if (!isAdmin) {
       throw new Error('Unauthorized: Admin access required');
     }
 
-    // Delete user from auth.users (this will cascade to profiles and user_roles)
+    // Buscar tenant do admin
+    const { data: adminProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single();
+
+    // Buscar tenant do usuario alvo
+    const { data: targetProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .single();
+
+    // Validar mesmo tenant
+    if (!adminProfile?.tenant_id || !targetProfile?.tenant_id) {
+      throw new Error('Erro ao verificar tenant dos usuarios');
+    }
+
+    if (adminProfile.tenant_id !== targetProfile.tenant_id) {
+      throw new Error('Usuario nao pertence ao seu tenant');
+    }
+
+    // Impedir que admin delete a si mesmo
+    if (user.id === userId) {
+      throw new Error('Voce nao pode excluir sua propria conta');
+    }
+
+    console.log('Deleting user:', userId);
+
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
+      console.error('Error deleting user:', deleteError);
       throw deleteError;
     }
+
+    console.log('User deleted successfully:', userId);
 
     return new Response(
       JSON.stringify({ success: true, message: 'User deleted successfully' }),

@@ -177,12 +177,24 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     setLoading(true);
 
     try {
-      // Update profile (name and email)
+      // Se email foi alterado, atualizar em auth.users via Edge Function
+      if (editFormData.email !== editingUser.email) {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user-email', {
+          body: {
+            user_id: editingUser.id,
+            new_email: editFormData.email
+          }
+        });
+
+        if (emailError) throw emailError;
+        if (emailData?.error) throw new Error(emailData.error);
+      }
+
+      // Update profile (name only - email ja foi atualizado pela edge function)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
-          full_name: editFormData.name,
-          email: editFormData.email
+          full_name: editFormData.name
         })
         .eq('user_id', editingUser.id);
 
@@ -229,7 +241,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       toast({
         title: "Sucesso",
-        description: editFormData.password ? "Usuário e senha atualizados com sucesso!" : "Usuário atualizado com sucesso!",
+        description: editFormData.password ? "Usuario e senha atualizados com sucesso!" : "Usuario atualizado com sucesso!",
       });
 
       setIsEditOpen(false);
@@ -237,15 +249,18 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     } catch (error: any) {
       console.error('Error updating user:', error);
       
-      let errorMessage = error.message || 'Erro ao atualizar usuário';
+      let errorMessage = error.message || 'Erro ao atualizar usuario';
       
       if (errorMessage.includes('Senha deve ter')) {
-        errorMessage = 'A senha deve ter no mínimo 6 caracteres';
+        errorMessage = 'A senha deve ter no minimo 6 caracteres';
+      } else if (errorMessage.includes('nao pertence ao seu tenant')) {
+        errorMessage = 'Usuario nao pertence ao seu tenant';
       }
 
       toast({
         title: "Erro ao atualizar",
         description: errorMessage,
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
