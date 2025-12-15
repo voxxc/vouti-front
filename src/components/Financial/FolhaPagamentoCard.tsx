@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { 
   DollarSign, 
   Clock, 
@@ -13,7 +14,8 @@ import {
   Check, 
   CalendarPlus,
   ChevronRight,
-  Users
+  Users,
+  Trash2
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,10 +23,11 @@ import { BaixaPagamentoColaboradorDialog } from './BaixaPagamentoColaboradorDial
 
 export const FolhaPagamentoCard = () => {
   const { colaboradores } = useColaboradores();
-  const { pagamentos, loading, fetchPagamentosMes, gerarFolhaMes, atualizarStatusAtrasados } = useColaboradorPagamentos();
+  const { pagamentos, loading, fetchPagamentosMes, gerarFolhaMes, atualizarStatusAtrasados, deletePagamento } = useColaboradorPagamentos();
   const [mesAtual] = useState(startOfMonth(new Date()));
   const [gerando, setGerando] = useState(false);
   const [pagamentoSelecionado, setPagamentoSelecionado] = useState<ColaboradorPagamento | null>(null);
+  const [pagamentoParaExcluir, setPagamentoParaExcluir] = useState<ColaboradorPagamento | null>(null);
 
   useEffect(() => {
     loadData();
@@ -106,10 +109,12 @@ export const FolhaPagamentoCard = () => {
               {[...pagamentosAtrasados, ...pagamentosPendentes].slice(0, 5).map((pagamento) => (
                 <div 
                   key={pagamento.id} 
-                  className="flex items-center justify-between bg-muted/30 rounded-lg p-2 hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => setPagamentoSelecionado(pagamento)}
+                  className="flex items-center justify-between bg-muted/30 rounded-lg p-2 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
+                  <div 
+                    className="flex items-center gap-2 flex-1 cursor-pointer"
+                    onClick={() => setPagamentoSelecionado(pagamento)}
+                  >
                     {pagamento.status === 'atrasado' ? (
                       <AlertCircle className="h-4 w-4 text-red-500" />
                     ) : (
@@ -124,6 +129,17 @@ export const FolhaPagamentoCard = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold">{formatCurrency(pagamento.valor_liquido)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPagamentoParaExcluir(pagamento);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
@@ -153,6 +169,35 @@ export const FolhaPagamentoCard = () => {
           }}
         />
       )}
+
+      {/* Dialog de exclusao */}
+      <AlertDialog open={!!pagamentoParaExcluir} onOpenChange={(open) => !open && setPagamentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Pagamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o pagamento de{' '}
+              <strong>{(pagamentoParaExcluir as any)?.colaborador?.nome_completo || 'Colaborador'}</strong> referente a{' '}
+              <strong>{pagamentoParaExcluir && format(new Date(pagamentoParaExcluir.mes_referencia), 'MMMM yyyy', { locale: ptBR })}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (pagamentoParaExcluir) {
+                  await deletePagamento(pagamentoParaExcluir.id);
+                  await loadData();
+                  setPagamentoParaExcluir(null);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

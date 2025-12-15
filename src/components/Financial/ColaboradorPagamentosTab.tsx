@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, Check, Clock, AlertCircle, Plus } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Calendar, Check, Clock, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { format, addMonths, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BaixaPagamentoColaboradorDialog } from './BaixaPagamentoColaboradorDialog';
@@ -15,9 +16,10 @@ interface ColaboradorPagamentosTabProps {
 }
 
 export const ColaboradorPagamentosTab = ({ colaborador }: ColaboradorPagamentosTabProps) => {
-  const { pagamentos, loading, fetchPagamentosColaborador, gerarPagamentoMensal } = useColaboradorPagamentos();
+  const { pagamentos, loading, fetchPagamentosColaborador, gerarPagamentoMensal, deletePagamento } = useColaboradorPagamentos();
   const [gerando, setGerando] = useState(false);
   const [pagamentoSelecionado, setPagamentoSelecionado] = useState<ColaboradorPagamento | null>(null);
+  const [pagamentoParaExcluir, setPagamentoParaExcluir] = useState<ColaboradorPagamento | null>(null);
 
   useEffect(() => {
     fetchPagamentosColaborador(colaborador.id);
@@ -128,18 +130,30 @@ export const ColaboradorPagamentosTab = ({ colaborador }: ColaboradorPagamentosT
                 <div className="flex items-center justify-between mt-3 pt-3 border-t">
                   {getStatusBadge(pagamento.status)}
                   
-                  {pagamento.status !== 'pago' && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => setPagamentoSelecionado(pagamento)}
-                    >
-                      Dar Baixa
-                    </Button>
-                  )}
-                  
-                  {pagamento.metodo_pagamento && (
-                    <span className="text-xs text-muted-foreground">{pagamento.metodo_pagamento}</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {pagamento.status !== 'pago' && (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setPagamentoParaExcluir(pagamento)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setPagamentoSelecionado(pagamento)}
+                        >
+                          Dar Baixa
+                        </Button>
+                      </>
+                    )}
+                    
+                    {pagamento.metodo_pagamento && (
+                      <span className="text-xs text-muted-foreground">{pagamento.metodo_pagamento}</span>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -160,6 +174,34 @@ export const ColaboradorPagamentosTab = ({ colaborador }: ColaboradorPagamentosT
           }}
         />
       )}
+
+      {/* Dialog de exclusao */}
+      <AlertDialog open={!!pagamentoParaExcluir} onOpenChange={(open) => !open && setPagamentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Pagamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o pagamento de{' '}
+              <strong>{pagamentoParaExcluir && format(new Date(pagamentoParaExcluir.mes_referencia), 'MMMM yyyy', { locale: ptBR })}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (pagamentoParaExcluir) {
+                  await deletePagamento(pagamentoParaExcluir.id);
+                  await fetchPagamentosColaborador(colaborador.id);
+                  setPagamentoParaExcluir(null);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
