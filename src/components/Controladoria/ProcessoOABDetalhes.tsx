@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -55,7 +55,9 @@ import { ProcessoOAB, OABCadastrada, useAndamentosOAB } from '@/hooks/useOABs';
 import { TarefasTab } from './TarefasTab';
 import { VoutiIATab } from './VoutiIATab';
 import { AndamentoAnexos } from './AndamentoAnexos';
+import { IntimacaoCard } from './IntimacaoCard';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
+import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -223,6 +225,7 @@ export const ProcessoOABDetalhes = ({
     a.descricao?.toLowerCase().includes('intimacao')
   );
   const intimacoesNaoLidas = intimacoes.filter(a => !a.lida).length;
+  const intimacoesUrgentes = useMemo(() => countIntimacoesUrgentes(andamentos), [andamentos]);
   
   // Extrair dados da capa_completa
   const capa = processo.capa_completa || {};
@@ -332,11 +335,15 @@ export const ProcessoOABDetalhes = ({
               <TabsTrigger value="partes">Partes</TabsTrigger>
               <TabsTrigger value="intimacoes" className="relative">
                 Intimacoes
-                {intimacoesNaoLidas > 0 && (
+                {intimacoesUrgentes > 0 ? (
+                  <Badge variant="destructive" className="ml-1 text-xs px-1.5 animate-pulse">
+                    {intimacoesUrgentes}
+                  </Badge>
+                ) : intimacoesNaoLidas > 0 ? (
                   <Badge variant="destructive" className="ml-1 text-xs px-1.5">
                     {intimacoesNaoLidas}
                   </Badge>
-                )}
+                ) : null}
               </TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
               <TabsTrigger value="vouti-ia">
@@ -646,7 +653,7 @@ export const ProcessoOABDetalhes = ({
             </AlertDialog>
           </TabsContent>
 
-            {/* Intimacoes - Filtro de andamentos que sao intimacoes */}
+            {/* Intimacoes - Cards estruturados com deteccao inteligente */}
             <TabsContent value="intimacoes" className="mt-4">
               <ScrollArea className="h-[calc(100vh-350px)]">
                 {intimacoes.length === 0 ? (
@@ -658,9 +665,16 @@ export const ProcessoOABDetalhes = ({
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm text-muted-foreground">
-                        {intimacoes.length} intimacao(es) encontrada(s)
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          {intimacoes.length} intimacao(es)
+                        </p>
+                        {intimacoesUrgentes > 0 && (
+                          <Badge variant="destructive" className="text-xs">
+                            {intimacoesUrgentes} urgente(s)
+                          </Badge>
+                        )}
+                      </div>
                       {intimacoesNaoLidas > 0 && (
                         <Button 
                           variant="ghost" 
@@ -678,49 +692,19 @@ export const ProcessoOABDetalhes = ({
                       {intimacoes.map((andamento) => {
                         const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                         const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
-                        const temAnexos = anexosDoAndamento.length > 0;
                         
                         return (
-                          <Card 
-                            key={andamento.id} 
-                            className={`p-3 cursor-pointer transition-colors border-l-4 border-l-amber-500 ${
-                              !andamento.lida ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' : ''
-                            }`}
-                            onClick={() => !andamento.lida && marcarComoLida(andamento.id)}
-                          >
-                            <div className="flex items-start gap-2">
-                              {!andamento.lida && (
-                                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatData(andamento.data_movimentacao) || 'Data nao informada'}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300">
-                                    Intimacao
-                                  </Badge>
-                                  {temAnexos && (
-                                    <Badge variant="secondary" className="text-xs gap-1">
-                                      <Paperclip className="w-2.5 h-2.5" />
-                                      {anexosDoAndamento.length}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-sm">{andamento.descricao}</p>
-                                
-                                {temAnexos && (
-                                  <AndamentoAnexos
-                                    anexos={anexosDoAndamento}
-                                    numeroCnj={processo.numero_cnj}
-                                    instancia={instancia}
-                                    downloading={downloading}
-                                    onDownload={downloadAnexo}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          </Card>
+                          <IntimacaoCard
+                            key={andamento.id}
+                            andamento={andamento}
+                            processoOabId={processo.id}
+                            numeroCnj={processo.numero_cnj}
+                            instancia={instancia}
+                            anexos={anexosDoAndamento}
+                            downloading={downloading}
+                            onDownload={downloadAnexo}
+                            onMarcarLida={marcarComoLida}
+                          />
                         );
                       })}
                     </div>
