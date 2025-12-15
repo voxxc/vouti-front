@@ -176,6 +176,15 @@ export const ProcessoOABDetalhes = ({
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
 
+  // Memoizacoes ANTES do early return para evitar erro React #310
+  const intimacoesUrgentes = useMemo(() => countIntimacoesUrgentes(andamentos), [andamentos]);
+  const andamentosNaoLidos = andamentos.filter(a => !a.lida).length;
+  const intimacoes = andamentos.filter(a => 
+    a.descricao?.toLowerCase().includes('intimação') ||
+    a.descricao?.toLowerCase().includes('intimacao')
+  );
+  const intimacoesNaoLidas = intimacoes.filter(a => !a.lida).length;
+
   if (!processo) return null;
   
   // Get instance from capa_completa for download
@@ -216,16 +225,6 @@ export const ProcessoOABDetalhes = ({
       setCarregandoAndamentos(false);
     }
   };
-
-  const andamentosNaoLidos = andamentos.filter(a => !a.lida).length;
-  
-  // Filtrar intimacoes
-  const intimacoes = andamentos.filter(a => 
-    a.descricao?.toLowerCase().includes('intimação') ||
-    a.descricao?.toLowerCase().includes('intimacao')
-  );
-  const intimacoesNaoLidas = intimacoes.filter(a => !a.lida).length;
-  const intimacoesUrgentes = useMemo(() => countIntimacoesUrgentes(andamentos), [andamentos]);
   
   // Extrair dados da capa_completa
   const capa = processo.capa_completa || {};
