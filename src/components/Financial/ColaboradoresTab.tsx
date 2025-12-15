@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ColaboradorForm } from './ColaboradorForm';
 import { ColaboradorDetalhes } from './ColaboradorDetalhes';
+import { FolhaPagamentoCard } from './FolhaPagamentoCard';
 
 export const ColaboradoresTab = () => {
   const { colaboradores, loading } = useColaboradores();
@@ -60,6 +61,9 @@ export const ColaboradoresTab = () => {
 
   return (
     <div className="space-y-4">
+      {/* Card de Folha de Pagamento */}
+      <FolhaPagamentoCard />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-4 justify-between">
         <div className="flex-1 flex gap-4">

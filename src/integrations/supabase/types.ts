@@ -732,6 +732,81 @@ export type Database = {
           },
         ]
       }
+      colaborador_pagamentos: {
+        Row: {
+          acrescimos: number | null
+          colaborador_id: string
+          comprovante_url: string | null
+          created_at: string | null
+          data_pagamento: string | null
+          data_vencimento: string
+          descontos: number | null
+          id: string
+          mes_referencia: string
+          metodo_pagamento: string | null
+          observacoes: string | null
+          salario_base: number
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          user_id: string | null
+          valor_liquido: number
+        }
+        Insert: {
+          acrescimos?: number | null
+          colaborador_id: string
+          comprovante_url?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento: string
+          descontos?: number | null
+          id?: string
+          mes_referencia: string
+          metodo_pagamento?: string | null
+          observacoes?: string | null
+          salario_base: number
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          valor_liquido: number
+        }
+        Update: {
+          acrescimos?: number | null
+          colaborador_id?: string
+          comprovante_url?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descontos?: number | null
+          id?: string
+          mes_referencia?: string
+          metodo_pagamento?: string | null
+          observacoes?: string | null
+          salario_base?: number
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          valor_liquido?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "colaborador_pagamentos_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "colaborador_pagamentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       colaborador_reajustes: {
         Row: {
           colaborador_id: string

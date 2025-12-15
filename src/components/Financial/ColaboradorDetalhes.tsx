@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ColaboradorValesTab } from './ColaboradorValesTab';
 import { ColaboradorComentariosTab } from './ColaboradorComentariosTab';
 import { ColaboradorDocumentosTab } from './ColaboradorDocumentosTab';
+import { ColaboradorPagamentosTab } from './ColaboradorPagamentosTab';
 
 interface ColaboradorDetalhesProps {
   open: boolean;
@@ -100,8 +101,9 @@ export const ColaboradorDetalhes = ({ open, onOpenChange, colaborador }: Colabor
         </SheetHeader>
 
         <Tabs defaultValue="financeiro" className="mt-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+            <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
             <TabsTrigger value="vales">Vales</TabsTrigger>
             <TabsTrigger value="comentarios">Comentarios</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
@@ -223,6 +225,10 @@ export const ColaboradorDetalhes = ({ open, onOpenChange, colaborador }: Colabor
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="pagamentos" className="mt-4">
+            <ColaboradorPagamentosTab colaborador={colaborador} />
           </TabsContent>
 
           <TabsContent value="vales" className="mt-4">

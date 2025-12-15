@@ -207,3 +207,26 @@ export interface CustoComprovante {
   uploaded_by: string;
   created_at: string;
 }
+
+// ============= PAGAMENTOS COLABORADORES =============
+
+export interface ColaboradorPagamento {
+  id: string;
+  colaborador_id: string;
+  tenant_id?: string;
+  mes_referencia: string;
+  salario_base: number;
+  descontos: number;
+  acrescimos: number;
+  valor_liquido: number;
+  data_vencimento: string;
+  data_pagamento?: string;
+  status: 'pendente' | 'pago' | 'atrasado';
+  metodo_pagamento?: string;
+  comprovante_url?: string;
+  observacoes?: string;
+  user_id?: string;
+  created_at: string;
+  updated_at?: string;
+  colaborador?: Colaborador;
+}
