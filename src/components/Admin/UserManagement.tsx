@@ -69,6 +69,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!tenantId) {
+      toast({
+        title: "Erro",
+        description: "Nao foi possivel identificar o tenant. Recarregue a pagina.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -80,7 +90,8 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
           email: formData.email,
           password: formData.password,
           full_name: formData.name,
-          role: formData.role
+          role: formData.role,
+          tenant_id: tenantId
         }
       });
 
