@@ -49,11 +49,15 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, full_name, role } = await req.json()
+    const { email, password, full_name, role, tenant_id } = await req.json()
 
     // Validate input
     if (!email || !password || !full_name || !role) {
       throw new Error('Todos os campos são obrigatórios')
+    }
+
+    if (!tenant_id) {
+      throw new Error('Tenant ID é obrigatório')
     }
 
     if (password.length < 6) {
@@ -110,7 +114,8 @@ Deno.serve(async (req) => {
         .from('profiles')
         .update({
           full_name: full_name,
-          email: email
+          email: email,
+          tenant_id: tenant_id
         })
         .eq('user_id', newUser.user.id)
 
@@ -128,7 +133,8 @@ Deno.serve(async (req) => {
         .from('user_roles')
         .insert({
           user_id: newUser.user.id,
-          role: role
+          role: role,
+          tenant_id: tenant_id
         })
 
       if (roleError) {
