@@ -13,7 +13,8 @@ import {
   Link2,
   AlertTriangle,
   Filter,
-  Users
+  Users,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -125,6 +126,7 @@ interface ProcessoCardProps {
   carregandoDetalhes: string | null;
   compartilhadoCom?: { advogadoNome: string; oabNumero: string }[];
   oabAtualNumero?: string;
+  temIntimacaoUrgente?: boolean;
 }
 
 const ProcessoCard = ({ 
@@ -133,7 +135,8 @@ const ProcessoCard = ({
   onVerDetalhes, 
   carregandoDetalhes,
   compartilhadoCom,
-  oabAtualNumero
+  oabAtualNumero,
+  temIntimacaoUrgente
 }: ProcessoCardProps) => {
   const temRecursoVinculado = processo.capa_completa?.related_lawsuits?.length > 0;
   const processosRelacionados = processo.capa_completa?.related_lawsuits || [];
@@ -197,6 +200,19 @@ const ProcessoCard = ({
                   <Badge variant="destructive" className="text-xs">
                     {processo.andamentos_nao_lidos} novos
                   </Badge>
+                )}
+                {temIntimacaoUrgente && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="destructive" className="text-xs animate-pulse gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Intimacao
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Este processo tem intimacoes urgentes pendentes</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {temRecursoVinculado && (
                   <Badge variant="outline" className="text-xs border-purple-500 text-purple-600">
