@@ -77,7 +77,7 @@ export const useProjectsOptimized = () => {
           updated_at,
           tasks(count)
         `)
-        .order('created_at', { ascending: false });
+        .order('name', { ascending: true });
 
       // Non-admin filter
       if (!isAdminUser) {
@@ -223,7 +223,7 @@ export const useProjectsOptimized = () => {
         updatedAt: new Date(newRecord.updated_at),
         taskCount: 0
       };
-      setProjects(prev => [newProject, ...prev]);
+      setProjects(prev => [...prev, newProject].sort((a, b) => a.name.localeCompare(b.name)));
       // Fetch details for new project
       fetchProjectDetails([newRecord.id]);
     } else if (eventType === 'UPDATE') {
