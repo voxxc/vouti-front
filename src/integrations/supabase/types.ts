@@ -922,13 +922,16 @@ export type Database = {
           created_at: string | null
           data_contratacao: string | null
           data_nascimento: string | null
+          data_primeiro_pagamento: string | null
           dia_pagamento: number | null
+          dias_trabalhados_primeiro_mes: number | null
           email: string | null
           endereco: string | null
           forma_pagamento: string | null
           id: string
           nome_completo: string
           observacoes: string | null
+          primeiro_mes_proporcional: boolean | null
           salario_base: number
           status: string | null
           telefone: string | null
@@ -944,13 +947,16 @@ export type Database = {
           created_at?: string | null
           data_contratacao?: string | null
           data_nascimento?: string | null
+          data_primeiro_pagamento?: string | null
           dia_pagamento?: number | null
+          dias_trabalhados_primeiro_mes?: number | null
           email?: string | null
           endereco?: string | null
           forma_pagamento?: string | null
           id?: string
           nome_completo: string
           observacoes?: string | null
+          primeiro_mes_proporcional?: boolean | null
           salario_base?: number
           status?: string | null
           telefone?: string | null
@@ -966,13 +972,16 @@ export type Database = {
           created_at?: string | null
           data_contratacao?: string | null
           data_nascimento?: string | null
+          data_primeiro_pagamento?: string | null
           dia_pagamento?: number | null
+          dias_trabalhados_primeiro_mes?: number | null
           email?: string | null
           endereco?: string | null
           forma_pagamento?: string | null
           id?: string
           nome_completo?: string
           observacoes?: string | null
+          primeiro_mes_proporcional?: boolean | null
           salario_base?: number
           status?: string | null
           telefone?: string | null

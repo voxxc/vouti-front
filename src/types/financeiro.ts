@@ -92,6 +92,9 @@ export interface Colaborador {
   email?: string;
   telefone?: string;
   observacoes?: string;
+  data_primeiro_pagamento?: string;
+  primeiro_mes_proporcional?: boolean;
+  dias_trabalhados_primeiro_mes?: number;
   created_at: string;
   updated_at: string;
 }

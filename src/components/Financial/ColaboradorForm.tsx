@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 
 interface ColaboradorFormProps {
@@ -33,7 +34,10 @@ export const ColaboradorForm = ({ open, onOpenChange, colaborador }: Colaborador
     endereco: '',
     email: '',
     telefone: '',
-    observacoes: ''
+    observacoes: '',
+    data_primeiro_pagamento: '',
+    primeiro_mes_proporcional: false,
+    dias_trabalhados_primeiro_mes: 30
   });
 
   useEffect(() => {
@@ -53,7 +57,10 @@ export const ColaboradorForm = ({ open, onOpenChange, colaborador }: Colaborador
         endereco: colaborador.endereco || '',
         email: colaborador.email || '',
         telefone: colaborador.telefone || '',
-        observacoes: colaborador.observacoes || ''
+        observacoes: colaborador.observacoes || '',
+        data_primeiro_pagamento: colaborador.data_primeiro_pagamento || '',
+        primeiro_mes_proporcional: colaborador.primeiro_mes_proporcional || false,
+        dias_trabalhados_primeiro_mes: colaborador.dias_trabalhados_primeiro_mes || 30
       });
     } else {
       setFormData({
@@ -71,7 +78,10 @@ export const ColaboradorForm = ({ open, onOpenChange, colaborador }: Colaborador
         endereco: '',
         email: '',
         telefone: '',
-        observacoes: ''
+        observacoes: '',
+        data_primeiro_pagamento: '',
+        primeiro_mes_proporcional: false,
+        dias_trabalhados_primeiro_mes: 30
       });
     }
   }, [colaborador, open]);
@@ -85,7 +95,11 @@ export const ColaboradorForm = ({ open, onOpenChange, colaborador }: Colaborador
         ...formData,
         tipo_vinculo: formData.tipo_vinculo || undefined,
         data_contratacao: formData.data_contratacao || undefined,
-        data_nascimento: formData.data_nascimento || undefined
+        data_nascimento: formData.data_nascimento || undefined,
+        data_primeiro_pagamento: formData.data_primeiro_pagamento || undefined,
+        dias_trabalhados_primeiro_mes: formData.primeiro_mes_proporcional 
+          ? formData.dias_trabalhados_primeiro_mes 
+          : undefined
       };
 
       if (colaborador) {
@@ -238,6 +252,52 @@ export const ColaboradorForm = ({ open, onOpenChange, colaborador }: Colaborador
                 value={formData.data_contratacao}
                 onChange={(e) => setFormData({ ...formData, data_contratacao: e.target.value })}
               />
+            </div>
+
+            <div>
+              <Label>Data do 1o Pagamento</Label>
+              <Input
+                type="date"
+                value={formData.data_primeiro_pagamento}
+                onChange={(e) => setFormData({ ...formData, data_primeiro_pagamento: e.target.value })}
+              />
+            </div>
+
+            <div className="col-span-2 space-y-3 p-3 border rounded-md bg-muted/30">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="primeiro_mes_proporcional"
+                  checked={formData.primeiro_mes_proporcional}
+                  onCheckedChange={(checked) => 
+                    setFormData({ ...formData, primeiro_mes_proporcional: checked === true })
+                  }
+                />
+                <Label htmlFor="primeiro_mes_proporcional" className="cursor-pointer">
+                  1o mes proporcional (nao trabalhou o mes completo)
+                </Label>
+              </div>
+              
+              {formData.primeiro_mes_proporcional && (
+                <div className="pl-6">
+                  <Label>Dias trabalhados no 1o mes</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={formData.dias_trabalhados_primeiro_mes}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      dias_trabalhados_primeiro_mes: parseInt(e.target.value) || 30 
+                    })}
+                    className="w-24 mt-1"
+                  />
+                  {formData.salario_base > 0 && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Valor proporcional: R$ {((formData.salario_base / 30) * formData.dias_trabalhados_primeiro_mes).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
