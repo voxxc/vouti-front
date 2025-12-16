@@ -92,10 +92,22 @@ const HomePage = () => {
     if (e.key === 'Enter') {
       const code = easterEggCode.toLowerCase().trim();
       
-      if (code === 'jusvouti') {
+      if (code === 'jusvouti' || code === 'solvenza') {
         await supabase.auth.signOut();
         sessionStorage.setItem('selectedTenant', 'solvenza');
         navigate('/solvenza/auth');
+      } else if (code === 'cordeiro') {
+        await supabase.auth.signOut();
+        sessionStorage.setItem('selectedTenant', 'cordeiro');
+        navigate('/cordeiro/auth');
+      } else if (code === 'teste') {
+        await supabase.auth.signOut();
+        sessionStorage.setItem('selectedTenant', 'teste');
+        navigate('/teste/auth');
+      } else if (code === 'advams') {
+        await supabase.auth.signOut();
+        sessionStorage.setItem('selectedTenant', 'advams');
+        navigate('/advams/auth');
       } else if (code === 'metal') {
         await supabase.auth.signOut();
         navigate('/metal-auth');
