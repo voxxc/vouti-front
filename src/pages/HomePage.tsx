@@ -12,6 +12,7 @@ import {
   DollarSign, 
   FileText, 
   Bell,
+  Key,
   Search,
   LayoutGrid,
   Handshake,
@@ -205,27 +206,32 @@ const HomePage = () => {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0f1a]/80 border-b border-white/5">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <button 
-            onClick={() => setShowEasterEgg(!showEasterEgg)}
-            className="focus:outline-none"
-          >
+          <div className="flex items-center gap-3">
             <span className="text-3xl sm:text-4xl font-bold tracking-wider">
               <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
-          </button>
-          
-          {showEasterEgg && (
-            <Input
-              type="text"
-              value={easterEggCode}
-              onChange={(e) => setEasterEggCode(e.target.value)}
-              onKeyDown={handleEasterEggSubmit}
-              placeholder="..."
-              className="w-32 h-8 text-xs bg-transparent border-white/10"
-              autoFocus
-            />
-          )}
+            
+            <button 
+              onClick={() => setShowEasterEgg(!showEasterEgg)}
+              className="p-1.5 rounded-md hover:bg-white/10 transition-colors opacity-30 hover:opacity-100"
+              title="Acesso rápido"
+            >
+              <Key className="w-4 h-4 text-gray-400" />
+            </button>
+            
+            {showEasterEgg && (
+              <Input
+                type="text"
+                value={easterEggCode}
+                onChange={(e) => setEasterEggCode(e.target.value)}
+                onKeyDown={handleEasterEggSubmit}
+                placeholder="Digite o código..."
+                className="w-36 h-8 text-xs bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                autoFocus
+              />
+            )}
+          </div>
 
           <nav className="hidden md:flex items-center gap-8">
             <a href="#about" className="text-sm text-gray-400 hover:text-white transition-colors">Sobre</a>
