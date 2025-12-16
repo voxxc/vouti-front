@@ -3,6 +3,8 @@ import { Plus, Calendar, Trash2, FileText, Loader2, Pencil, CalendarPlus } from 
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -104,6 +106,11 @@ export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo
     observacoes: '',
   });
 
+  // State para criar prazo automaticamente
+  const [criarPrazoAutomatico, setCriarPrazoAutomatico] = useState(false);
+  const [novaTarefaResponsavelId, setNovaTarefaResponsavelId] = useState<string | null>(null);
+  const [novaTarefaTaggedUsers, setNovaTarefaTaggedUsers] = useState<string[]>([]);
+
   const resetForm = () => {
     setFormData({
       titulo: '',
@@ -112,11 +119,20 @@ export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo
       dataExecucao: format(new Date(), 'yyyy-MM-dd'),
       observacoes: '',
     });
+    setCriarPrazoAutomatico(false);
+    setNovaTarefaResponsavelId(null);
+    setNovaTarefaTaggedUsers([]);
   };
 
   const handleSubmit = async () => {
     if (!formData.titulo.trim()) {
       toast({ title: 'Titulo obrigatorio', variant: 'destructive' });
+      return;
+    }
+
+    // Validar campos do prazo se checkbox marcado
+    if (criarPrazoAutomatico && !projectId) {
+      toast({ title: 'Projeto nao identificado', variant: 'destructive' });
       return;
     }
 
@@ -129,15 +145,83 @@ export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo
       observacoes: formData.observacoes.trim() || undefined,
     });
 
-    setSaving(false);
-
     if (result) {
-      toast({ title: 'Tarefa adicionada' });
+      // Se marcou para criar prazo automaticamente
+      if (criarPrazoAutomatico && projectId && user?.id && tenantId) {
+        try {
+          // 1. Criar deadline
+          const { data: deadline, error } = await supabase
+            .from('deadlines')
+            .insert({
+              title: formData.titulo.trim(),
+              description: formData.descricao.trim() || formData.observacoes.trim() || null,
+              date: formData.dataExecucao,
+              project_id: projectId,
+              user_id: user.id,
+              advogado_responsavel_id: novaTarefaResponsavelId,
+              tenant_id: tenantId,
+              completed: false,
+            })
+            .select('id')
+            .single();
+
+          if (error) throw error;
+
+          // 2. Inserir tags se houver
+          if (novaTarefaTaggedUsers.length > 0 && deadline) {
+            const tags = novaTarefaTaggedUsers.map(tagUserId => ({
+              deadline_id: deadline.id,
+              tagged_user_id: tagUserId,
+              tenant_id: tenantId,
+            }));
+            await supabase.from('deadline_tags').insert(tags);
+          }
+
+          // 3. Notificacoes
+          if (deadline) {
+            if (novaTarefaResponsavelId && novaTarefaResponsavelId !== user.id) {
+              await notifyDeadlineAssigned(
+                deadline.id,
+                formData.titulo.trim(),
+                novaTarefaResponsavelId,
+                user.id,
+                tenantId,
+                projectId
+              );
+            }
+
+            if (novaTarefaTaggedUsers.length > 0) {
+              await notifyDeadlineTagged(
+                deadline.id,
+                formData.titulo.trim(),
+                novaTarefaTaggedUsers,
+                user.id,
+                tenantId,
+                projectId
+              );
+            }
+          }
+
+          toast({ title: 'Tarefa e prazo criados' });
+        } catch (err) {
+          console.error('Erro ao criar prazo automatico:', err);
+          toast({ 
+            title: 'Tarefa criada',
+            description: 'A tarefa foi adicionada, mas houve erro ao criar o prazo.',
+            variant: 'destructive' 
+          });
+        }
+      } else {
+        toast({ title: 'Tarefa adicionada' });
+      }
+
       resetForm();
       setDialogOpen(false);
     } else {
       toast({ title: 'Erro ao adicionar tarefa', variant: 'destructive' });
     }
+
+    setSaving(false);
   };
 
   // Editar tarefa
@@ -457,6 +541,56 @@ export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo
                 rows={2}
               />
             </div>
+
+            {/* Separador - Criar Prazo */}
+            {projectId && (
+              <>
+                <div className="border-t pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="criar-prazo-admin" 
+                      checked={criarPrazoAutomatico}
+                      onCheckedChange={(checked) => {
+                        setCriarPrazoAutomatico(checked === true);
+                        if (checked && user?.id) {
+                          setNovaTarefaResponsavelId(user.id);
+                        }
+                      }}
+                    />
+                    <label 
+                      htmlFor="criar-prazo-admin" 
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Criar prazo na agenda automaticamente
+                    </label>
+                  </div>
+                </div>
+
+                {/* Campos do Prazo - Colapsavel */}
+                <Collapsible open={criarPrazoAutomatico}>
+                  <CollapsibleContent className="space-y-4 pt-2">
+                    {/* Responsavel */}
+                    <AdvogadoSelector
+                      value={novaTarefaResponsavelId}
+                      onChange={setNovaTarefaResponsavelId}
+                    />
+
+                    {/* Colaboradores */}
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Marcar Colaboradores</label>
+                      <p className="text-xs text-muted-foreground">
+                        Colaboradores marcados serao notificados sobre este prazo
+                      </p>
+                      <UserTagSelector
+                        selectedUsers={novaTarefaTaggedUsers}
+                        onChange={setNovaTarefaTaggedUsers}
+                        excludeCurrentUser={false}
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </>
+            )}
           </div>
 
           <DialogFooter>
@@ -465,7 +599,7 @@ export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo
             </Button>
             <Button onClick={handleSubmit} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Adicionar
+              {criarPrazoAutomatico ? 'Adicionar e Criar Prazo' : 'Adicionar'}
             </Button>
           </DialogFooter>
         </DialogContent>
