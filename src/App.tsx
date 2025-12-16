@@ -18,6 +18,7 @@ const queryClient = new QueryClient({
   },
 });
 import Auth from "@/pages/Auth";
+import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
 import ProjectViewWrapper from "@/pages/ProjectViewWrapper";
@@ -327,6 +328,17 @@ function App() {
               <TenantRouteWrapper isPublic>
                 <Auth />
               </TenantRouteWrapper>
+            } />
+            
+            {/* Reset Password - Tenant Dynamic */}
+            <Route path="/:tenant/reset-password" element={
+              <TenantProvider>
+                <AuthProvider>
+                  <ThemeProvider>
+                    <ResetPassword />
+                  </ThemeProvider>
+                </AuthProvider>
+              </TenantProvider>
             } />
             
             {/* Dashboard - Tenant Dynamic */}

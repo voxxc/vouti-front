@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { ArrowLeft } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -14,14 +15,17 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [mode, setMode] = useState<'login' | 'recovery'>('login');
   const { toast } = useToast();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   
   // Try to get tenant context (may not exist on legacy routes)
   let tenant = null;
+  let tenantSlug = 'solvenza';
   try {
     const tenantContext = useTenant();
     tenant = tenantContext.tenant;
+    tenantSlug = tenantContext.tenantSlug || 'solvenza';
   } catch {
     // useTenant throws if not in TenantProvider - that's ok for legacy routes
   }
@@ -136,6 +140,49 @@ const Auth = () => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe seu email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const redirectUrl = `${window.location.origin}/${tenantSlug}/reset-password`;
+      const { error } = await resetPassword(email, redirectUrl);
+      
+      if (error) {
+        toast({
+          title: "Erro",
+          description: error.message || "Erro ao enviar email de recuperacao.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Email enviado",
+          description: "Verifique sua caixa de entrada para redefinir sua senha.",
+        });
+        setMode('login');
+        setEmail("");
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao enviar email.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-gradient-subtle flex items-center justify-center p-4 transition-opacity duration-500 relative overflow-hidden ${
       isTransitioning ? 'opacity-0 animate-fade-out' : 'opacity-100'
@@ -166,48 +213,94 @@ const Auth = () => {
 
         <Card className="shadow-card border-0">
           <CardHeader className="space-y-1 text-center pb-4">
-            <h3 className="text-xl font-semibold text-foreground">Acesso ao Sistema</h3>
+            <h3 className="text-xl font-semibold text-foreground">
+              {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Entre ou crie sua conta para continuar
+              {mode === 'login' 
+                ? 'Entre ou crie sua conta para continuar'
+                : 'Informe seu email para receber o link de recuperacao'
+              }
             </p>
           </CardHeader>
           <CardContent>
             <div className="w-full">
-              
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Senha</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
+              {mode === 'login' ? (
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Email</Label>
+                    <Input
+                      id="signin-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Senha</Label>
+                    <Input
+                      id="signin-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  variant="professional"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Entrando..." : "Entrar"}
-                </Button>
-              </form>
+                  <button
+                    type="button"
+                    onClick={() => setMode('recovery')}
+                    className="text-sm text-primary hover:underline w-full text-right"
+                  >
+                    Esqueceu sua senha?
+                  </button>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    variant="professional"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Entrando..." : "Entrar"}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="recovery-email">Email</Label>
+                    <Input
+                      id="recovery-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    variant="professional"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Enviando..." : "Enviar link de recuperacao"}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMode('login')}
+                    className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Voltar ao login
+                  </button>
+                </form>
+              )}
             </div>
           </CardContent>
         </Card>
