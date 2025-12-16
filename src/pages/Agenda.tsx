@@ -60,6 +60,7 @@ const Agenda = () => {
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filteredUserDeadlines, setFilteredUserDeadlines] = useState<Deadline[]>([]);
+  const [completedFilterUserId, setCompletedFilterUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Funcao helper para parsear data com seguranca
@@ -293,6 +294,30 @@ const Agenda = () => {
         return false;
       }
     });
+  };
+
+  // Prazos cumpridos - visibilidade por role
+  const getCompletedDeadlines = () => {
+    let completed = filteredDeadlines.filter(d => d.completed);
+    
+    // Se nao for admin, filtra apenas os do usuario
+    if (!isAdmin) {
+      completed = completed.filter(d => 
+        d.advogadoResponsavel?.userId === user?.id ||
+        d.taggedUsers?.some(t => t.userId === user?.id)
+      );
+    } else if (completedFilterUserId && completedFilterUserId !== 'all') {
+      // Admin com filtro por usuario
+      completed = completed.filter(d =>
+        d.advogadoResponsavel?.userId === completedFilterUserId ||
+        d.taggedUsers?.some(t => t.userId === completedFilterUserId)
+      );
+    }
+    
+    // Ordenar por updatedAt (data de conclusao) decrescente
+    return completed.sort((a, b) => 
+      b.updatedAt.getTime() - a.updatedAt.getTime()
+    );
   };
 
   const handleCreateDeadline = async () => {
@@ -1015,6 +1040,88 @@ const Agenda = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Historico de Prazos Cumpridos */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-5 w-5" />
+                Historico de Prazos Cumpridos ({getCompletedDeadlines().length})
+              </CardTitle>
+              
+              {/* Filtro por usuario - apenas Admin */}
+              {isAdmin && (
+                <Select value={completedFilterUserId || 'all'} onValueChange={setCompletedFilterUserId}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Todos os usuarios" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os usuarios</SelectItem>
+                    {allUsers.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {getCompletedDeadlines().length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Prazo</TableHead>
+                    <TableHead>Projeto</TableHead>
+                    <TableHead>Data Original</TableHead>
+                    <TableHead>Concluido em</TableHead>
+                    {isAdmin && <TableHead>Responsavel</TableHead>}
+                    <TableHead className="w-20"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {getCompletedDeadlines().map(deadline => (
+                    <TableRow key={deadline.id}>
+                      <TableCell className="font-medium">{deadline.title}</TableCell>
+                      <TableCell>{deadline.projectName}</TableCell>
+                      <TableCell>{safeFormatDate(deadline.date)}</TableCell>
+                      <TableCell>{safeFormatDate(deadline.updatedAt)}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={deadline.advogadoResponsavel?.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {deadline.advogadoResponsavel?.name?.charAt(0) || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">
+                              {deadline.advogadoResponsavel?.name || 'N/A'}
+                            </span>
+                          </div>
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDeadlineDetails(deadline)}
+                        >
+                          Detalhes
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Nenhum prazo cumprido ainda</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Deadline Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
