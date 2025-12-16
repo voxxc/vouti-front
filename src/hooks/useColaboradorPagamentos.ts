@@ -104,7 +104,22 @@ export const useColaboradorPagamentos = () => {
         }
       });
 
-      const valorLiquido = colaborador.salario_base - descontos + acrescimos;
+      // Calcular salario base (verificar se e primeiro pagamento proporcional)
+      let salarioBase = colaborador.salario_base;
+      
+      if (colaborador.data_primeiro_pagamento && colaborador.primeiro_mes_proporcional) {
+        const primeiroPagamentoMes = format(
+          startOfMonth(new Date(colaborador.data_primeiro_pagamento)), 
+          'yyyy-MM-dd'
+        );
+        
+        if (mesFormatado === primeiroPagamentoMes) {
+          const diasTrabalhados = colaborador.dias_trabalhados_primeiro_mes || 30;
+          salarioBase = (colaborador.salario_base / 30) * diasTrabalhados;
+        }
+      }
+
+      const valorLiquido = salarioBase - descontos + acrescimos;
 
       // Calcular data de vencimento baseado no dia_pagamento
       const diaPagamento = colaborador.dia_pagamento || 5;
@@ -118,7 +133,7 @@ export const useColaboradorPagamentos = () => {
           colaborador_id: colaborador.id,
           tenant_id: tenantId,
           mes_referencia: mesFormatado,
-          salario_base: colaborador.salario_base,
+          salario_base: salarioBase,
           descontos,
           acrescimos,
           valor_liquido: valorLiquido,
