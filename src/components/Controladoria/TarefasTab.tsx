@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer, Pencil, CalendarPlus, CalendarIcon } from 'lucide-react';
+import { Plus, Calendar, ClipboardList, Trash2, Loader2, Printer, Pencil, CalendarPlus, CalendarIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -95,6 +97,12 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   const [fase, setFase] = useState('');
   const [dataExecucao, setDataExecucao] = useState(getLocalDateString());
   const [observacoes, setObservacoes] = useState('');
+  
+  // State para criar prazo automaticamente na nova tarefa
+  const [criarPrazoAutomatico, setCriarPrazoAutomatico] = useState(false);
+  const [novaTarefaProjetoId, setNovaTarefaProjetoId] = useState('');
+  const [novaTarefaResponsavelId, setNovaTarefaResponsavelId] = useState<string | null>(null);
+  const [novaTarefaTaggedUsers, setNovaTarefaTaggedUsers] = useState<string[]>([]);
 
   // Form state - Editar tarefa
   const [editTitulo, setEditTitulo] = useState('');
@@ -182,10 +190,24 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
     setFase('');
     setDataExecucao(getLocalDateString());
     setObservacoes('');
+    setCriarPrazoAutomatico(false);
+    setNovaTarefaProjetoId('');
+    setNovaTarefaResponsavelId(null);
+    setNovaTarefaTaggedUsers([]);
   };
 
   const handleSubmit = async () => {
     if (!titulo.trim()) return;
+    
+    // Validar campos do prazo se checkbox marcado
+    if (criarPrazoAutomatico && (!novaTarefaProjetoId || !novaTarefaResponsavelId)) {
+      toast({
+        title: "Erro",
+        description: "Selecione o projeto e o responsavel para criar o prazo.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSubmitting(true);
     const result = await adicionarTarefa({
@@ -195,12 +217,82 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
       data_execucao: dataExecucao,
       observacoes: observacoes.trim() || undefined,
     });
-    setSubmitting(false);
 
     if (result) {
+      // Se marcou para criar prazo automaticamente
+      if (criarPrazoAutomatico && tenantId && userId) {
+        try {
+          // 1. Criar deadline
+          const { data: deadline, error } = await supabase
+            .from('deadlines')
+            .insert({
+              user_id: novaTarefaResponsavelId,
+              tenant_id: tenantId,
+              title: titulo.trim(),
+              description: descricao.trim() || observacoes.trim() || null,
+              date: dataExecucao,
+              project_id: novaTarefaProjetoId,
+              processo_oab_id: processo.id,
+            })
+            .select('id')
+            .single();
+
+          if (error) throw error;
+
+          // 2. Inserir tags se houver
+          if (novaTarefaTaggedUsers.length > 0 && deadline) {
+            const tags = novaTarefaTaggedUsers.map(tagUserId => ({
+              deadline_id: deadline.id,
+              tagged_user_id: tagUserId,
+              tenant_id: tenantId,
+            }));
+            await supabase.from('deadline_tags').insert(tags);
+          }
+
+          // 3. Notificacoes
+          if (deadline) {
+            await notifyDeadlineAssigned(
+              deadline.id,
+              titulo.trim(),
+              novaTarefaResponsavelId!,
+              userId,
+              tenantId,
+              novaTarefaProjetoId
+            );
+
+            if (novaTarefaTaggedUsers.length > 0) {
+              await notifyDeadlineTagged(
+                deadline.id,
+                titulo.trim(),
+                novaTarefaTaggedUsers,
+                userId,
+                tenantId,
+                novaTarefaProjetoId
+              );
+            }
+          }
+
+          toast({
+            title: "Tarefa e prazo criados",
+            description: "A tarefa foi registrada e o prazo foi adicionado a agenda.",
+          });
+        } catch (err) {
+          console.error('Erro ao criar prazo automatico:', err);
+          toast({
+            title: "Tarefa criada",
+            description: "A tarefa foi registrada, mas houve erro ao criar o prazo.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({ title: "Tarefa registrada" });
+      }
+
       resetForm();
       setDialogOpen(false);
     }
+    
+    setSubmitting(false);
   };
 
   const handleEditClick = (tarefa: TarefaOAB) => {
@@ -450,12 +542,81 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
                   />
                 </div>
 
-                <Button onClick={handleSubmit} disabled={!titulo.trim() || submitting} className="w-full">
+                {/* Separador */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="criar-prazo" 
+                      checked={criarPrazoAutomatico}
+                      onCheckedChange={(checked) => {
+                        setCriarPrazoAutomatico(checked === true);
+                        if (checked && userId) {
+                          setNovaTarefaResponsavelId(userId);
+                        }
+                      }}
+                    />
+                    <label 
+                      htmlFor="criar-prazo" 
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Criar prazo na agenda automaticamente
+                    </label>
+                  </div>
+                </div>
+
+                {/* Campos do Prazo - Colapsavel */}
+                <Collapsible open={criarPrazoAutomatico}>
+                  <CollapsibleContent className="space-y-4 pt-2">
+                    {/* Projeto */}
+                    <div className="space-y-1.5">
+                      <Label>Projeto *</Label>
+                      <Select value={novaTarefaProjetoId} onValueChange={setNovaTarefaProjetoId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingProjetos ? "Carregando..." : "Selecione o projeto"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projetos.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} {p.client ? `(${p.client})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Responsavel */}
+                    <AdvogadoSelector
+                      value={novaTarefaResponsavelId}
+                      onChange={setNovaTarefaResponsavelId}
+                    />
+
+                    {/* Colaboradores */}
+                    <div className="space-y-1.5">
+                      <Label>Marcar Colaboradores</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Colaboradores marcados serao notificados sobre este prazo
+                      </p>
+                      <UserTagSelector
+                        selectedUsers={novaTarefaTaggedUsers}
+                        onChange={setNovaTarefaTaggedUsers}
+                        excludeCurrentUser={false}
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Button 
+                  onClick={handleSubmit} 
+                  disabled={!titulo.trim() || submitting || (criarPrazoAutomatico && (!novaTarefaProjetoId || !novaTarefaResponsavelId))} 
+                  className="w-full"
+                >
                   {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Salvando...
                     </>
+                  ) : criarPrazoAutomatico ? (
+                    'Registrar Tarefa e Criar Prazo'
                   ) : (
                     'Registrar Tarefa'
                   )}
