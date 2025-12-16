@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,257 +7,43 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Search, Plus, FolderOpen, Calendar, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import { Project } from "@/types/project";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
-import { calculateProjectProgress } from "@/utils/projectHelpers";
-import { KanbanColumn } from "@/types/project";
-import { useTenantId } from "@/hooks/useTenantId";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProjectsOptimized, ProjectBasic } from "@/hooks/useProjectsOptimized";
 
 const Projects = () => {
   const { navigate } = useTenantNavigation();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const { tenantId } = useTenantId();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [newProject, setNewProject] = useState({
     name: "",
     client: "",
     description: ""
   });
 
-  useEffect(() => {
-    fetchProjects();
-    checkIfAdmin();
-  }, [user]);
-
-  const checkIfAdmin = async () => {
-    if (!user) return;
-    
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-    
-    setIsAdmin(!!data);
-  };
-
-  const fetchProjects = async () => {
-    if (!user) return;
-
-    try {
-      console.log('[Projects] Fetching projects for user:', user.id);
-      
-      // Verificar se o usuário é admin
-      const isAdminUser = await checkIfUserIsAdmin(user.id);
-      console.log('[Projects] User is admin:', isAdminUser);
-      
-      let query = supabase
-        .from('projects')
-        .select(`
-          *,
-          tasks (*)
-        `)
-        .order('created_at', { ascending: false });
-
-      // Se NÃO for admin, filtrar por criador ou colaborador
-      if (!isAdminUser) {
-        const { data: collaboratorProjects } = await supabase
-          .from('project_collaborators')
-          .select('project_id')
-          .eq('user_id', user.id);
-
-        const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
-        
-        console.log('[Projects] User is collaborator in:', collaboratorProjectIds);
-        
-        query = query.or(`created_by.eq.${user.id}${collaboratorProjectIds.length > 0 ? `,id.in.(${collaboratorProjectIds.join(',')})` : ''}`);
-      } else {
-        console.log('[Projects] Admin access: fetching ALL projects');
-      }
-      
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('[Projects] Error fetching projects:', error);
-        throw error;
-      }
-
-      console.log(`[Projects] Found ${data?.length || 0} projects`);
-
-      const projectsWithTasks: Project[] = await Promise.all((data || []).map(async (project) => {
-        // Fetch tasks with their comments, files, and history
-        const tasks = await Promise.all((project.tasks || []).map(async (task: any) => {
-          // Fetch comments
-          const { data: comments } = await supabase
-            .from('task_comments')
-            .select('*')
-            .eq('task_id', task.id)
-            .order('created_at', { ascending: true });
-
-          // Buscar perfis dos autores dos comentários
-          const commentUserIds = [...new Set((comments || []).map(c => c.user_id))];
-          const { data: commentProfiles } = commentUserIds.length > 0 ? await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', commentUserIds) : { data: [] };
-          const commentProfileMap = new Map((commentProfiles || []).map(p => [p.user_id, p.full_name]));
-
-          // Fetch files
-          const { data: files } = await supabase
-            .from('task_files')
-            .select('*')
-            .eq('task_id', task.id)
-            .order('created_at', { ascending: true });
-
-          // Buscar perfis dos uploaders
-          const fileUserIds = [...new Set((files || []).map(f => f.uploaded_by))];
-          const { data: fileProfiles } = fileUserIds.length > 0 ? await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', fileUserIds) : { data: [] };
-          const fileProfileMap = new Map((fileProfiles || []).map(p => [p.user_id, p.full_name]));
-
-          // Fetch history
-          const { data: history } = await supabase
-            .from('task_history')
-            .select('*')
-            .eq('task_id', task.id)
-            .order('created_at', { ascending: false });
-
-          // Buscar perfis dos usuários do histórico
-          const historyUserIds = [...new Set((history || []).map(h => h.user_id).filter(Boolean))];
-          const { data: historyProfiles } = historyUserIds.length > 0 ? await supabase
-            .from('profiles')
-            .select('user_id, full_name')
-            .in('user_id', historyUserIds) : { data: [] };
-          const historyProfileMap = new Map((historyProfiles || []).map(p => [p.user_id, p.full_name]));
-
-          return {
-            id: task.id,
-            title: task.title,
-            description: task.description || '',
-            status: task.status,
-            type: task.task_type || 'regular',
-            columnId: task.column_id,
-            cardColor: task.card_color || 'default',
-            comments: (comments || []).map(c => ({
-              id: c.id,
-              text: c.comment_text,
-              author: commentProfileMap.get(c.user_id) || 'Usuario',
-              createdAt: new Date(c.created_at),
-              updatedAt: new Date(c.updated_at)
-            })),
-            files: (files || []).map(f => ({
-              id: f.id,
-              name: f.file_name,
-              url: supabase.storage.from('task-attachments').getPublicUrl(f.file_path).data.publicUrl,
-              size: f.file_size,
-              type: f.file_type || '',
-              uploadedBy: fileProfileMap.get(f.uploaded_by) || 'Usuario',
-              uploadedAt: new Date(f.created_at)
-            })),
-            history: (history || []).map(h => ({
-              id: h.id,
-              action: h.action as any,
-              details: h.details,
-              user: h.user_id ? (historyProfileMap.get(h.user_id) || 'Usuario') : 'Sistema',
-              timestamp: new Date(h.created_at)
-            })),
-            createdAt: new Date(task.created_at),
-            updatedAt: new Date(task.updated_at)
-          };
-        }));
-
-        // Carregar colunas do projeto
-        const { data: columnsData } = await supabase
-          .from('project_columns')
-          .select('*')
-          .eq('project_id', project.id)
-          .is('sector_id', null)
-          .order('column_order');
-        
-        const columns: KanbanColumn[] = (columnsData || []).map(col => ({
-          id: col.id,
-          projectId: col.project_id,
-          sectorId: col.sector_id,
-          name: col.name,
-          columnOrder: col.column_order,
-          color: col.color,
-          isDefault: col.is_default,
-          createdAt: new Date(col.created_at),
-          updatedAt: new Date(col.updated_at)
-        }));
-
-        return {
-          id: project.id,
-          name: project.name,
-          client: project.client,
-          clienteId: project.cliente_id,
-          description: project.description || '',
-          createdBy: project.created_by,
-          createdAt: new Date(project.created_at),
-          updatedAt: new Date(project.updated_at),
-          tasks: tasks,
-          acordoTasks: [],
-          columns: columns
-        };
-      }));
-
-      setProjects(projectsWithTasks);
-    } catch (error) {
-      console.error('[Projects] Error in fetchProjects:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar projetos.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    projects,
+    isBasicLoaded,
+    isDetailsLoaded,
+    isAdmin,
+    getProjectStats,
+    createProject,
+    deleteProject
+  } = useProjectsOptimized();
 
   const handleCreateProject = async () => {
-    if (!user || !newProject.name || !newProject.client) return;
+    if (!newProject.name || !newProject.client) return;
 
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .insert({
-          name: newProject.name,
-          client: newProject.client,
-          description: newProject.description,
-          created_by: user.id,
-          tenant_id: tenantId
-        });
+    const result = await createProject({
+      name: newProject.name,
+      client: newProject.client,
+      description: newProject.description
+    });
 
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Projeto criado com sucesso!",
-      });
-
+    if (result) {
       setNewProject({ name: "", client: "", description: "" });
       setShowCreateForm(false);
-      fetchProjects();
-    } catch (error) {
-      console.error('Error creating project:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao criar projeto.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -266,38 +52,13 @@ const Projects = () => {
     setShowCreateForm(false);
   };
 
-  const handleSelectProject = (project: Project) => {
+  const handleSelectProject = (project: ProjectBasic) => {
     navigate(`project/${project.id}`);
   };
 
   const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevenir navegação ao clicar no botão deletar
-    
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Projeto deletado com sucesso!",
-      });
-
-      // Atualizar lista de projetos
-      setProjects(projects.filter(p => p.id !== projectId));
-    } catch (error) {
-      console.error('Error deleting project:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao deletar projeto.",
-        variant: "destructive",
-      });
-    }
+    e.stopPropagation();
+    await deleteProject(projectId);
   };
 
   const filteredProjects = projects.filter(project =>
@@ -306,23 +67,46 @@ const Projects = () => {
     project.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getProjectStats = (project: Project) => {
-    const total = project.tasks.length;
-    const done = project.tasks.filter(t => t.status === 'done').length;
-    const progress = project.tasks.filter(t => t.status === 'progress').length;
-    
-    // Calcular progresso baseado na posição das colunas
-    const columns = project.columns || [];
-    const progressPercentage = calculateProjectProgress(project.tasks, columns);
-    
-    return { total, done, progress, progressPercentage };
-  };
-
-  if (loading) {
+  // Skeleton loading for initial load
+  if (!isBasicLoaded) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div>Carregando projetos...</div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-10 w-24" />
+              <div>
+                <Skeleton className="h-8 w-48 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <Skeleton className="h-10 w-80" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <Card key={i} className="shadow-card border-0">
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-9 w-9 rounded-lg" />
+                      <Skeleton className="h-6 w-32" />
+                    </div>
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -411,7 +195,7 @@ const Projects = () => {
         {/* Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => {
-            const stats = getProjectStats(project);
+            const stats = getProjectStats(project.id);
             const completionRate = stats.progressPercentage;
             
             return (
@@ -482,20 +266,32 @@ const Projects = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Progresso</span>
-                      <span className="font-medium">{completionRate}%</span>
+                      {isDetailsLoaded ? (
+                        <span className="font-medium">{completionRate}%</span>
+                      ) : (
+                        <Skeleton className="h-4 w-8" />
+                      )}
                     </div>
                     
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-gradient-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${completionRate}%` }}
-                      />
-                    </div>
+                    {isDetailsLoaded ? (
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-gradient-primary h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${completionRate}%` }}
+                        />
+                      </div>
+                    ) : (
+                      <Skeleton className="h-2 w-full rounded-full" />
+                    )}
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{stats.total} tarefas</span>
-                        <span>{stats.progress} em andamento</span>
+                        <span>{project.taskCount} tarefas</span>
+                        {isDetailsLoaded ? (
+                          <span>{stats.progress} em andamento</span>
+                        ) : (
+                          <Skeleton className="h-3 w-20" />
+                        )}
                       </div>
                       
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
