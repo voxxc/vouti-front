@@ -34,8 +34,8 @@ export const useBuscaOAB = () => {
         console.log('[useBuscaOAB] 📋 Tentativas:', data.attempts);
         
         toast({
-          title: "Serviço da Judit instável",
-          description: `A Judit está retornando erro ${data.upstream_status}. Tentamos ${data.attempts?.length || 4} variações de payload. Tente novamente em alguns minutos.`,
+          title: "Serviço temporariamente instável",
+          description: `O serviço está retornando erro ${data.upstream_status}. Tentamos ${data.attempts?.length || 4} variações. Tente novamente em alguns minutos.`,
           variant: "destructive"
         });
         return;

@@ -95,7 +95,7 @@ export const BuscarPorOABTab = () => {
                   onClick={checkJuditHealth}
                 >
                   <Activity className="h-3 w-3" />
-                  Judit: {juditHealth.ok ? 'OK' : 'Instável'}
+                  Vouti: {juditHealth.ok ? 'OK' : 'Instável'}
                 </Badge>
               ) : null}
             </div>
@@ -162,7 +162,7 @@ export const BuscarPorOABTab = () => {
 
           {buscando && (
             <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-              ⏳ Buscando processos na API Judit... isso pode levar até 60 segundos
+              ⏳ Buscando processos... isso pode levar até 60 segundos
             </div>
           )}
         </CardContent>

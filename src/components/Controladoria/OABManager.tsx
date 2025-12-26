@@ -539,7 +539,7 @@ export const OABManager = () => {
           <DialogHeader>
             <DialogTitle>Associar Request ID</DialogTitle>
             <DialogDescription>
-              Cole o request_id que voce ja possui da Judit. Isso permite consultar os resultados gratuitamente sem fazer uma nova busca paga.
+              Cole o request_id que voce ja possui. Isso permite consultar os resultados gratuitamente sem fazer uma nova busca paga.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -553,7 +553,7 @@ export const OABManager = () => {
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                O request_id e um UUID gerado quando voce faz uma busca na API Judit
+                O request_id é um UUID gerado quando você faz uma busca
               </p>
             </div>
           </div>
@@ -581,7 +581,7 @@ export const OABManager = () => {
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
               <p>
-                Esta acao ira fazer um novo request para a API Judit, o que <strong>gera custos</strong>.
+                Esta ação irá fazer uma nova busca, o que <strong>gera custos</strong>.
               </p>
               <p>
                 Se voce ja possui um request_id de uma busca anterior, use a opcao "Associar" para consultar gratuitamente.
@@ -636,7 +636,7 @@ export const OABManager = () => {
               <div className="space-y-4">
                 {batchProgress.isRunning ? (
                   <div className="space-y-3">
-                    <p className="text-sm">Consultando processos na API Judit...</p>
+                    <p className="text-sm">Consultando processos...</p>
                     <Progress value={(batchProgress.current / batchProgress.total) * 100} />
                     <p className="text-xs text-muted-foreground text-center">
                       {batchProgress.current} de {batchProgress.total} processos
