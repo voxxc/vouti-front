@@ -59,6 +59,26 @@ export const useProcessoAnexos = (processoOabId: string | null) => {
   }, [anexos]);
 
   const downloadAnexo = async (anexo: ProcessoAnexo, numeroCnj: string, instancia: number = 1) => {
+    // Verificar status antes de tentar download
+    if (anexo.status === 'pending') {
+      toast({
+        title: 'Anexo em processamento',
+        description: 'Este anexo ainda está sendo processado pela Judit. Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Verificar se é anexo restrito
+    if (anexo.attachment_name?.includes('Restrição na Visualização') || anexo.is_private) {
+      toast({
+        title: 'Anexo restrito',
+        description: 'Este documento possui restrição de visualização e não pode ser baixado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setDownloading(anexo.id);
     try {
       const { data, error } = await supabase.functions.invoke('judit-baixar-anexo', {
@@ -67,11 +87,24 @@ export const useProcessoAnexos = (processoOabId: string | null) => {
           attachmentId: anexo.attachment_id,
           numeroCnj,
           instancia,
-          fileName: anexo.attachment_name
+          fileName: anexo.attachment_name,
+          stepId: anexo.step_id,
+          status: anexo.status
         }
       });
 
       if (error) throw error;
+
+      // Verificar tipos de erro específicos
+      if (!data?.success && data?.errorType) {
+        let message = data.error || 'Erro ao baixar anexo';
+        toast({
+          title: 'Não foi possível baixar',
+          description: message,
+          variant: 'destructive',
+        });
+        return;
+      }
 
       if (data?.url) {
         window.open(data.url, '_blank');
