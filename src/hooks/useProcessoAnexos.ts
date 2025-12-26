@@ -63,7 +63,7 @@ export const useProcessoAnexos = (processoOabId: string | null) => {
     if (anexo.status === 'pending') {
       toast({
         title: 'Anexo em processamento',
-        description: 'Este anexo ainda está sendo processado pela Judit. Tente novamente mais tarde.',
+        description: 'Este anexo ainda está sendo processado pela Vouti. Tente novamente mais tarde.',
         variant: 'destructive',
       });
       return;
