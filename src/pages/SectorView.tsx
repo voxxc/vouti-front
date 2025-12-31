@@ -514,14 +514,15 @@ const SectorView = ({
               </p>
             </div>
           </div>
-          <Button 
-            variant={isColumnsLocked ? "default" : "outline"}
-            onClick={() => setIsColumnsLocked(!isColumnsLocked)}
-            className="gap-2"
-          >
-            {isColumnsLocked ? <Lock size={16} /> : <LockOpen size={16} />}
-            {isColumnsLocked ? "Desbloquear" : "Bloquear"} Colunas
-          </Button>
+            <Button 
+              variant={isColumnsLocked ? "default" : "outline"}
+              onClick={() => setIsColumnsLocked(!isColumnsLocked)}
+              size="icon"
+              className="rounded-full h-9 w-9"
+              title={isColumnsLocked ? "Desbloquear colunas" : "Bloquear colunas"}
+            >
+              {isColumnsLocked ? <Lock size={18} /> : <LockOpen size={18} />}
+            </Button>
         </div>
 
         <div className="flex items-center gap-4">
