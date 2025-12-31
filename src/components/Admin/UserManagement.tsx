@@ -229,29 +229,18 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       const allRolesFromDB = userRolesData?.map(r => r.role as string) || [];
       console.log('handleEdit - roles do banco:', allRolesFromDB);
       
-      // Determinar role principal pela prioridade
-      const rolePriority: Record<string, number> = {
-        'admin': 7,
-        'controller': 6,
-        'financeiro': 5,
-        'comercial': 4,
-        'reunioes': 3,
-        'agenda': 2,
-        'advogado': 1
-      };
+      // CORREÇÃO: Usar a role que o usuário já tem definida como principal
+      // NÃO usar prioridade para determinar - respeitar o que está no user.role
+      // Isso evita inversão de roles (ex: financeiro virando principal em vez de adicional)
+      const primaryRole = user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
       
-      // Ordenar por prioridade e pegar a maior como principal
-      const sortedRoles = [...allRolesFromDB].sort((a, b) => 
-        (rolePriority[b] || 0) - (rolePriority[a] || 0)
-      );
-      
-      const primaryRole = (sortedRoles[0] || user.role) as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
+      // Todas as outras roles do banco (que não são a principal) são adicionais
       const additionalRolesFromDB = allRolesFromDB.filter(r => r !== primaryRole);
       
       // Converter roles adicionais para IDs de permissões
       const additionalPermissionIds = rolesToPermissions(additionalRolesFromDB);
       
-      console.log('handleEdit - role principal:', primaryRole);
+      console.log('handleEdit - role principal (respeitando user.role):', primaryRole);
       console.log('handleEdit - roles adicionais:', additionalRolesFromDB);
       console.log('handleEdit - permissões (IDs):', additionalPermissionIds);
       
