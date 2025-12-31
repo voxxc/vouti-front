@@ -784,7 +784,7 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Vouti IA */}
-            <TabsContent value="vouti-ia" className="mt-4">
+            <TabsContent value="vouti-ia" className="mt-4 h-[calc(100vh-350px)]">
               <VoutiIATab processoOabId={processo.id} />
             </TabsContent>
 
