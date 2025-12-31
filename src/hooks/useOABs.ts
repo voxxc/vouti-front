@@ -367,30 +367,31 @@ export const useProcessosOAB = (oabId: string | null) => {
 
     setLoading(true);
     try {
-      // Buscar processos
+      // Query otimizada: buscar processos com andamentos em uma única query
       const { data: processosData, error } = await supabase
         .from('processos_oab')
-        .select('*')
+        .select(`
+          *,
+          processos_oab_andamentos!left(id, lida)
+        `)
         .eq('oab_id', oabId)
         .order('ordem_lista', { ascending: true });
 
       if (error) throw error;
 
-      // Buscar contagem de andamentos nao lidos para cada processo
-      const processosComContagem = await Promise.all(
-        (processosData || []).map(async (p) => {
-          const { count } = await supabase
-            .from('processos_oab_andamentos')
-            .select('*', { count: 'exact', head: true })
-            .eq('processo_oab_id', p.id)
-            .eq('lida', false);
-
-          return {
-            ...p,
-            andamentos_nao_lidos: count || 0
-          } as ProcessoOAB;
-        })
-      );
+      // Processar contagem de andamentos não lidos no JavaScript (evita N+1 queries)
+      const processosComContagem = (processosData || []).map((p: any) => {
+        const andamentos = p.processos_oab_andamentos || [];
+        const naoLidos = andamentos.filter((a: any) => a.lida === false).length;
+        
+        // Remover o campo aninhado para não poluir o objeto
+        const { processos_oab_andamentos, ...processo } = p;
+        
+        return {
+          ...processo,
+          andamentos_nao_lidos: naoLidos
+        } as ProcessoOAB;
+      });
 
       setProcessos(processosComContagem);
     } catch (error: any) {
