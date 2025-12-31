@@ -34,7 +34,7 @@ const Dashboard = () => {
         email: user.email,
         name: user.full_name || user.email,
         avatar: user.avatar_url,
-        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
+        role: user.highest_role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes',
         personalInfo: {},
         createdAt: new Date(user.created_at),
         updatedAt: new Date(user.updated_at)
@@ -55,6 +55,8 @@ const Dashboard = () => {
     fetchUsers();
   };
 
+  // IMPORTANTE: user_roles são gerenciadas EXCLUSIVAMENTE pela Edge Function admin-set-user-roles
+  // Esta função apenas atualiza dados do perfil (nome/avatar)
   const handleEditUser = async (userId: string, userData: Partial<User>) => {
     try {
       const { error: profileError } = await supabase
@@ -67,32 +69,6 @@ const Dashboard = () => {
         .eq('user_id', userId);
 
       if (profileError) throw profileError;
-
-      if (userData.role) {
-        const { error: deleteError } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId);
-
-        if (deleteError) throw deleteError;
-
-        // Buscar tenant_id do usuario
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', userId)
-          .single();
-
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: userId,
-            role: userData.role,
-            tenant_id: profileData?.tenant_id
-          });
-
-        if (roleError) throw roleError;
-      }
 
       toast({
         title: "Sucesso",
@@ -135,7 +111,7 @@ const Dashboard = () => {
     }
   };
 
-  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' = (userRole as any) || 'advogado';
+  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' = (userRole as any) || 'advogado';
 
   if (showUserManagement) {
     return (
