@@ -52,7 +52,23 @@ const ProjectView = ({
   const [isColumnsLocked, setIsColumnsLocked] = useState(true);
   const [sectors, setSectors] = useState<ProjectSector[]>([]);
   const [isCreateSectorOpen, setIsCreateSectorOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
+
+  // Verificar se usuário é admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!currentUser?.id) return;
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', currentUser.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      setIsAdmin(!!data);
+    };
+    checkAdmin();
+  }, [currentUser?.id]);
 
   // Load columns from database
   useEffect(() => {
@@ -826,14 +842,16 @@ const ProjectView = ({
               Participantes
             </Button>
 
-            <Button 
-              variant="outline" 
-              onClick={() => setIsClientDataOpen(true)}
-              className="gap-2"
-            >
-              <FileText size={16} />
-              Dados
-            </Button>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                onClick={() => setIsClientDataOpen(true)}
+                className="gap-2"
+              >
+                <FileText size={16} />
+                Dados
+              </Button>
+            )}
             
             <SetoresDropdown
               sectors={sectors}
