@@ -600,6 +600,46 @@ const HomePage = () => {
                 </div>
               </div>
             ))}
+
+            {/* Card Personalizado */}
+            <div className="relative rounded-xl sm:rounded-2xl p-4 sm:p-6 border bg-gradient-to-b from-purple-600/20 to-blue-500/10 border-purple-500/30 hover:border-purple-500/50 transition-all duration-300 flex flex-col justify-center">
+              <div className="text-center">
+                <h3 className="text-sm sm:text-lg font-semibold mb-2">Personalizado</h3>
+                
+                <div className="mb-4">
+                  <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                    Sob Medida
+                  </span>
+                </div>
+
+                <p className="text-[10px] sm:text-sm text-gray-300 mb-4">
+                  Precisa de algo específico para seu escritório? Criamos um plano exclusivo para você.
+                </p>
+
+                <div className="space-y-2 text-left mb-4">
+                  <div className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 shrink-0" />
+                    Recursos sob demanda
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 shrink-0" />
+                    Integrações customizadas
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 shrink-0" />
+                    Suporte dedicado
+                  </div>
+                </div>
+
+                <Button
+                  onClick={scrollToDemo}
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white"
+                >
+                  Fale Conosco
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
