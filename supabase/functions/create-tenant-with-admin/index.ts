@@ -67,9 +67,11 @@ Deno.serve(async (req) => {
       admin_email,
       admin_password,
       admin_name,
+      plano,
+      limite_oabs_personalizado,
     } = await req.json();
 
-    console.log('Creating tenant with admin:', { name, slug, email_domain, system_type_id, admin_email, admin_name });
+    console.log('Creating tenant with admin:', { name, slug, email_domain, system_type_id, admin_email, admin_name, plano, limite_oabs_personalizado });
 
     // Validate required fields
     if (!name || !slug || !system_type_id || !admin_email || !admin_password || !admin_name) {
@@ -115,8 +117,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Create tenant
+    // Step 1: Create tenant with plan
     console.log('Step 1: Creating tenant...');
+    const tenantPlano = plano || 'solo';
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
       .insert({
@@ -125,6 +128,8 @@ Deno.serve(async (req) => {
         email_domain: email_domain || null,
         system_type_id,
         is_active: true,
+        plano: tenantPlano,
+        limite_oabs_personalizado: (tenantPlano === 'expansao' || tenantPlano === 'enterprise') ? limite_oabs_personalizado : null,
       })
       .select()
       .single();
@@ -220,6 +225,7 @@ Deno.serve(async (req) => {
           id: tenant.id,
           name: tenant.name,
           slug: tenant.slug,
+          plano: tenantPlano,
         },
         admin: {
           id: newUser.user.id,

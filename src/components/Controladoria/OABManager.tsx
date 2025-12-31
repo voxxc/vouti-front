@@ -41,12 +41,16 @@ import { useOABs, useProcessosOAB, OABCadastrada, ProcessoOAB } from '@/hooks/us
 import { OABTab } from './OABTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
 import { Progress } from '@/components/ui/progress';
+import { usePlanoLimites } from '@/hooks/usePlanoLimites';
+import { LimiteAlert } from '@/components/Common/LimiteAlert';
 
 export const OABManager = () => {
   const { userRole, user, tenantId } = useAuth();
   const isAdmin = userRole === 'admin';
   const isController = userRole === 'controller';
   const canImportCNJ = isAdmin || isController;
+  
+  const { podeAdicionarOAB, uso, limites, porcentagemUso, loading: loadingLimites } = usePlanoLimites();
   
   const { 
     oabs, 
@@ -266,12 +270,22 @@ export const OABManager = () => {
 
   return (
     <div className="space-y-4">
+      {/* Alerta de limite de OABs */}
+      <LimiteAlert
+        tipo="oabs"
+        uso={uso.oabs}
+        limite={limites.oabs}
+        porcentagem={porcentagemUso.oabs}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold">OABs</h2>
-          <Badge variant="secondary">{oabs.length}</Badge>
+          <Badge variant="secondary">
+            {limites.oabs !== null ? `${uso.oabs}/${limites.oabs}` : oabs.length}
+          </Badge>
         </div>
         
         <div className="flex items-center gap-2">
@@ -296,7 +310,7 @@ export const OABManager = () => {
               )}
             </Button>
           )}
-          {isAdmin && (
+          {isAdmin && podeAdicionarOAB() && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
@@ -371,16 +385,18 @@ export const OABManager = () => {
           <Scale className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">Nenhuma OAB cadastrada</h3>
           <p className="text-muted-foreground mb-4">
-            {isAdmin 
-              ? 'Cadastre uma OAB para visualizar seus processos'
-              : 'Solicite ao administrador o cadastro de uma OAB'}
-          </p>
-          {isAdmin && (
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar OAB
-            </Button>
-          )}
+          {isAdmin 
+            ? (podeAdicionarOAB() 
+                ? 'Cadastre uma OAB para visualizar seus processos'
+                : 'Limite de OABs atingido. Faça upgrade do seu plano.')
+            : 'Solicite ao administrador o cadastro de uma OAB'}
+        </p>
+        {isAdmin && podeAdicionarOAB() && (
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Cadastrar OAB
+          </Button>
+        )}
         </div>
       ) : (
         <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab}>
