@@ -72,6 +72,26 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
 
       if (error) throw error;
 
+      // Nomes das colunas para o histórico
+      const sourceColumnName = source.droppableId === 'acordos-feitos' ? 'Acordos Feitos' : 'Processos/Dívidas';
+      const destColumnName = destination.droppableId === 'acordos-feitos' ? 'Acordos Feitos' : 'Processos/Dívidas';
+
+      // Registrar movimentação no histórico
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: project.id,
+            task_title: task.title,
+            user_id: user.id,
+            action: 'moved',
+            details: `Card "${task.title}" movido de "${sourceColumnName}" para "${destColumnName}"`,
+            tenant_id: tenantId
+          });
+      }
+
       const updatedTask = {
         ...task,
         status: (destination.droppableId === 'acordos-feitos' ? 'done' : 'todo') as Task['status'],
@@ -81,7 +101,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           {
             id: `history-${Date.now()}`,
             action: 'moved' as const,
-            details: `Tarefa movida para ${destination.droppableId}`,
+            details: `Tarefa movida para ${destColumnName}`,
             user: project.createdBy,
             timestamp: new Date()
           }
@@ -135,6 +155,22 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
 
       if (error) throw error;
 
+      // Registrar edição no histórico
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: updatedTask.id,
+            project_id: project.id,
+            task_title: updatedTask.title,
+            user_id: user.id,
+            action: 'edited',
+            details: `Card editado: "${updatedTask.title}" (Acordos)`,
+            tenant_id: tenantId
+          });
+      }
+
       const updatedAcordoTasks = acordoTasks.map(t =>
         t.id === updatedTask.id ? updatedTask : t
       );
@@ -163,6 +199,26 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
 
   const handleDeleteTask = async (taskId: string) => {
     try {
+      // Buscar dados da tarefa ANTES de deletar para manter no histórico
+      const taskToDelete = acordoTasks.find(t => t.id === taskId);
+      const taskTitle = taskToDelete?.title || 'Item desconhecido';
+
+      // Registrar exclusão no histórico ANTES de deletar
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: taskId,
+            project_id: project.id,
+            task_title: taskTitle,
+            user_id: user.id,
+            action: 'deleted',
+            details: `Card excluído: "${taskTitle}" (Acordos)`,
+            tenant_id: tenantId
+          });
+      }
+
       // Delete task from Supabase
       const { error } = await supabase
         .from('tasks')
@@ -210,6 +266,22 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
         .single();
 
       if (error) throw error;
+
+      // Registrar criação no histórico
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: data.id,
+            project_id: project.id,
+            task_title: data.title,
+            user_id: user.id,
+            action: 'created',
+            details: `Card criado: "${data.title}" na coluna "Processos/Dívidas" (Acordos)`,
+            tenant_id: tenantId
+          });
+      }
 
       const newTask: Task = {
         id: data.id,

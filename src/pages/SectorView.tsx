@@ -135,6 +135,31 @@ const SectorView = ({
 
       if (error) throw error;
 
+      // Buscar nomes das colunas para o histórico
+      const sourceColumn = columns.find(c => c.id === source.droppableId);
+      const destColumn = columns.find(c => c.id === destination.droppableId);
+
+      // Registrar movimentação no histórico
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: project.id,
+            task_title: task.title,
+            user_id: currentUser.id,
+            action: 'moved',
+            details: `Card "${task.title}" movido de "${sourceColumn?.name || 'Coluna desconhecida'}" para "${destColumn?.name || 'Coluna desconhecida'}"`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
+
       const updatedTask = {
         ...task,
         columnId: destination.droppableId,
@@ -150,8 +175,6 @@ const SectorView = ({
         tasks: updatedTasks,
         updatedAt: new Date()
       });
-
-      const destColumn = columns.find(c => c.id === destination.droppableId);
 
       toast({
         title: "Tarefa movida",
@@ -194,6 +217,22 @@ const SectorView = ({
         .single();
 
       if (error) throw error;
+
+      // Buscar nome da coluna para registrar no histórico
+      const columnName = columns.find(c => c.id === columnId)?.name || 'Coluna desconhecida';
+
+      // Registrar criação no histórico
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: data.id,
+          project_id: project.id,
+          task_title: data.title,
+          user_id: currentUser.id,
+          action: 'created',
+          details: `Card criado: "${data.title}" na coluna "${columnName}" (Setor: ${sector.name})`,
+          tenant_id: profileData?.tenant_id
+        });
 
       const newTask: Task = {
         id: data.id,
@@ -297,6 +336,27 @@ const SectorView = ({
 
       if (error) throw error;
 
+      // Registrar edição no histórico
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: updatedTask.id,
+            project_id: project.id,
+            task_title: updatedTask.title,
+            user_id: currentUser.id,
+            action: 'edited',
+            details: `Card editado: "${updatedTask.title}"`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
+
       const updatedTasks = project.tasks.map(t =>
         t.id === updatedTask.id ? updatedTask : t
       );
@@ -322,6 +382,31 @@ const SectorView = ({
 
   const handleDeleteTask = async (taskId: string) => {
     try {
+      // Buscar dados da tarefa ANTES de deletar para manter no histórico
+      const taskToDelete = project.tasks.find(t => t.id === taskId);
+      const taskTitle = taskToDelete?.title || 'Tarefa desconhecida';
+
+      // Registrar exclusão no histórico ANTES de deletar
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: taskId,
+            project_id: project.id,
+            task_title: taskTitle,
+            user_id: currentUser.id,
+            action: 'deleted',
+            details: `Card excluído: "${taskTitle}" (Setor: ${sector.name})`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
+
       const { error } = await supabase
         .from('tasks')
         .delete()
