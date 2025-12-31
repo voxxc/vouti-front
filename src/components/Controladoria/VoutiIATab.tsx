@@ -60,9 +60,9 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b pb-3 mb-4">
+      <div className="flex items-center justify-between border-b pb-3 mb-4 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
           <span className="font-medium">Vouti IA</span>
@@ -88,7 +88,7 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
       </div>
 
       {/* Conteúdo */}
-      <ScrollArea className="flex-1 py-4">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="px-1 space-y-4">
           {!aiEnabled ? (
             /* Estado: IA não ativada */
