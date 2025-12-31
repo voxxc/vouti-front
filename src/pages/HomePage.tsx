@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
+  XCircle,
   Building2,
   User,
   Building,
@@ -191,7 +192,8 @@ const HomePage = () => {
       oabLabel: 'Até 1 OAB cadastrada',
       popular: false,
       showMore: false,
-      unlimitedProcesses: false
+      unlimitedProcesses: false,
+      hasCRM: false
     },
     { 
       name: 'Essencial', 
@@ -201,7 +203,8 @@ const HomePage = () => {
       oabLabel: 'Até 2 OABs cadastradas',
       popular: false,
       showMore: false,
-      unlimitedProcesses: false
+      unlimitedProcesses: false,
+      hasCRM: false
     },
     { 
       name: 'Estrutura', 
@@ -211,7 +214,8 @@ const HomePage = () => {
       oabLabel: 'Até 3 OABs cadastradas',
       popular: true,
       showMore: true,
-      unlimitedProcesses: true
+      unlimitedProcesses: true,
+      hasCRM: true
     },
     { 
       name: 'Expansão', 
@@ -221,7 +225,8 @@ const HomePage = () => {
       oabLabel: 'OABs personalizado',
       popular: false,
       showMore: true,
-      unlimitedProcesses: true
+      unlimitedProcesses: true,
+      hasCRM: true
     },
     { 
       name: 'Enterprise', 
@@ -231,7 +236,8 @@ const HomePage = () => {
       oabLabel: 'OABs personalizado',
       popular: false,
       showMore: true,
-      unlimitedProcesses: true
+      unlimitedProcesses: true,
+      hasCRM: true
     },
   ];
 
@@ -557,10 +563,6 @@ const HomePage = () => {
                     </li>
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                      CRM INCLUSO com Landing Page exclusiva
-                    </li>
-                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
-                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
                       Quadro de Tarefas Kanban
                     </li>
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
@@ -571,20 +573,34 @@ const HomePage = () => {
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
                       Financeiro Completo
                     </li>
-                    {plan.unlimitedProcesses && (
-                      <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                    <li className={`flex items-center gap-2 text-[10px] sm:text-sm ${plan.hasCRM ? 'text-gray-300' : 'text-gray-500'}`}>
+                      {plan.hasCRM ? (
                         <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                        Cadastro de processos ilimitados
-                      </li>
-                    )}
+                      ) : (
+                        <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-500 shrink-0" />
+                      )}
+                      CRM INCLUSO com Landing Page Exclusiva*
+                    </li>
+                    <li className={`flex items-center gap-2 text-[10px] sm:text-sm ${plan.unlimitedProcesses ? 'text-gray-300' : 'text-gray-500'}`}>
+                      {plan.unlimitedProcesses ? (
+                        <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      ) : (
+                        <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-500 shrink-0" />
+                      )}
+                      Cadastro de processos ilimitados
+                    </li>
                   </ul>
 
                   {plan.showMore && (
-                    <div className="flex items-center justify-center gap-2 text-[10px] sm:text-sm text-cyan-400 mb-4">
+                    <div className="flex items-center justify-center gap-2 text-[10px] sm:text-sm text-cyan-400 mb-2">
                       <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                       E muito mais...
                     </div>
                   )}
+
+                  <p className="text-[8px] sm:text-[10px] text-gray-500 text-center mb-3">
+                    *: falar com consultor sobre detalhes
+                  </p>
 
                   <Button
                     onClick={scrollToDemo}
