@@ -1,5 +1,8 @@
 project_id = "ietjmyrelhijxyozcequ"
 
+[functions.vouti-gerar-resumo]
+verify_jwt = true
+
 [functions.judit-carregar-detalhes-lote]
 verify_jwt = true
 

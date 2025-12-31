@@ -1,58 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTenantId } from '@/hooks/useTenantId';
 import { toast } from 'sonner';
 
 export const useVoutiIA = (processoOabId?: string) => {
-  const { user, userRole } = useAuth();
-  const { tenantId } = useTenantId();
+  const { userRole } = useAuth();
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryData, setAiSummaryData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
-  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Load AI settings for tenant
+  // Carregar dados do processo (incluindo ai_enabled)
   useEffect(() => {
-    const loadSettings = async () => {
-      if (!tenantId) {
-        setLoadingSettings(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('tenant_ai_settings')
-          .select('ai_enabled')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
-
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error loading AI settings:', error);
-        }
-
-        setAiEnabled(data?.ai_enabled ?? true);
-      } catch (err) {
-        console.error('Error loading AI settings:', err);
-      } finally {
-        setLoadingSettings(false);
-      }
-    };
-
-    loadSettings();
-  }, [tenantId]);
-
-  // Load summary from processo
-  useEffect(() => {
-    const loadSummary = async () => {
+    const loadProcessoData = async () => {
       if (!processoOabId) return;
 
       setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('processos_oab')
-          .select('ai_summary, ai_summary_data')
+          .select('ai_summary, ai_summary_data, ai_enabled')
           .eq('id', processoOabId)
           .single();
 
@@ -60,76 +28,127 @@ export const useVoutiIA = (processoOabId?: string) => {
 
         setAiSummary(data?.ai_summary || null);
         setAiSummaryData(data?.ai_summary_data || null);
+        setAiEnabled(data?.ai_enabled ?? false);
       } catch (err) {
-        console.error('Error loading summary:', err);
+        console.error('Erro ao carregar dados do processo:', err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadSummary();
+    loadProcessoData();
   }, [processoOabId]);
 
-  // Toggle AI enabled for tenant (admin only)
-  const toggleAiEnabled = useCallback(async () => {
-    if (!tenantId || userRole !== 'admin') {
-      toast.error('Apenas administradores podem alterar esta configuracao');
-      return;
+  // Ativar IA e gerar resumo
+  const enableAndGenerateSummary = useCallback(async () => {
+    if (!processoOabId) {
+      toast.error('ID do processo não encontrado');
+      return false;
     }
 
+    setIsGenerating(true);
     try {
-      const newValue = !aiEnabled;
+      // Chamar edge function para gerar resumo
+      const { data, error } = await supabase.functions.invoke('vouti-gerar-resumo', {
+        body: { processo_oab_id: processoOabId },
+      });
 
-      const { error } = await supabase
-        .from('tenant_ai_settings')
-        .upsert({
-          tenant_id: tenantId,
-          ai_enabled: newValue,
-        }, {
-          onConflict: 'tenant_id',
-        });
+      if (error) {
+        console.error('Erro ao gerar resumo:', error);
+        toast.error('Erro ao gerar resumo com IA');
+        return false;
+      }
 
-      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return false;
+      }
 
-      setAiEnabled(newValue);
-      toast.success(newValue ? 'Vouti IA ativada' : 'Vouti IA desativada');
+      // Atualizar estado local
+      setAiSummary(data.ai_summary);
+      setAiSummaryData(data.ai_summary_data);
+      setAiEnabled(true);
+      
+      toast.success('Vouti IA ativada e resumo gerado com sucesso!');
+      return true;
     } catch (err) {
-      console.error('Error toggling AI:', err);
-      toast.error('Erro ao alterar configuracao');
-    }
-  }, [tenantId, userRole, aiEnabled]);
-
-  // Refresh summary
-  const refreshSummary = useCallback(async () => {
-    if (!processoOabId) return;
-
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('processos_oab')
-        .select('ai_summary, ai_summary_data')
-        .eq('id', processoOabId)
-        .single();
-
-      if (error) throw error;
-
-      setAiSummary(data?.ai_summary || null);
-      setAiSummaryData(data?.ai_summary_data || null);
-    } catch (err) {
-      console.error('Error refreshing summary:', err);
+      console.error('Erro ao ativar IA:', err);
+      toast.error('Erro ao ativar Vouti IA');
+      return false;
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
+    }
+  }, [processoOabId]);
+
+  // Regenerar resumo (quando já está ativado)
+  const regenerateSummary = useCallback(async () => {
+    if (!processoOabId) {
+      toast.error('ID do processo não encontrado');
+      return false;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vouti-gerar-resumo', {
+        body: { processo_oab_id: processoOabId },
+      });
+
+      if (error) {
+        console.error('Erro ao regenerar resumo:', error);
+        toast.error('Erro ao regenerar resumo');
+        return false;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return false;
+      }
+
+      setAiSummary(data.ai_summary);
+      setAiSummaryData(data.ai_summary_data);
+      
+      toast.success('Resumo regenerado com sucesso!');
+      return true;
+    } catch (err) {
+      console.error('Erro ao regenerar resumo:', err);
+      toast.error('Erro ao regenerar resumo');
+      return false;
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [processoOabId]);
+
+  // Desativar IA para o processo
+  const disableAi = useCallback(async () => {
+    if (!processoOabId) return false;
+
+    try {
+      const { error } = await supabase
+        .from('processos_oab')
+        .update({ ai_enabled: false })
+        .eq('id', processoOabId);
+
+      if (error) throw error;
+
+      setAiEnabled(false);
+      toast.success('Vouti IA desativada para este processo');
+      return true;
+    } catch (err) {
+      console.error('Erro ao desativar IA:', err);
+      toast.error('Erro ao desativar IA');
+      return false;
     }
   }, [processoOabId]);
 
   return {
     aiSummary,
     aiSummaryData,
-    isLoading,
     aiEnabled,
-    loadingSettings,
+    isLoading,
+    isGenerating,
     isAdmin: userRole === 'admin',
-    toggleAiEnabled,
-    refreshSummary,
+    enableAndGenerateSummary,
+    regenerateSummary,
+    disableAi,
   };
 };

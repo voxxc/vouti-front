@@ -1,10 +1,18 @@
-import React from 'react';
-import { useVoutiIA } from '@/hooks/useVoutiIA';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Bot, Sparkles, FileText, AlertCircle, Power } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bot, Sparkles, RefreshCw, AlertCircle, FileText, Loader2, Power, Zap } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { useVoutiIA } from '@/hooks/useVoutiIA';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface VoutiIATabProps {
   processoOabId: string;
@@ -14,15 +22,36 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
   const {
     aiSummary,
     aiSummaryData,
-    isLoading,
     aiEnabled,
-    loadingSettings,
-    isAdmin,
-    toggleAiEnabled,
-    refreshSummary,
+    isLoading,
+    isGenerating,
+    enableAndGenerateSummary,
+    regenerateSummary,
+    disableAi,
   } = useVoutiIA(processoOabId);
 
-  if (loadingSettings) {
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+
+  const handleActivateClick = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmActivate = async () => {
+    setShowConfirmDialog(false);
+    await enableAndGenerateSummary();
+  };
+
+  const handleDisableClick = () => {
+    setShowDisableDialog(true);
+  };
+
+  const handleConfirmDisable = async () => {
+    setShowDisableDialog(false);
+    await disableAi();
+  };
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -31,25 +60,30 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-400px)] min-h-[400px]">
-      {/* Header com toggle */}
-      <div className="flex items-center justify-between pb-4 border-b">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b pb-3 mb-4">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
           <span className="font-medium">Vouti IA</span>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-            Resumo Automático
-          </span>
+          {aiEnabled && (
+            <span className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded flex items-center gap-1">
+              <Power className="h-3 w-3" />
+              Ativa
+            </span>
+          )}
         </div>
 
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            <Switch id="ai-toggle" checked={aiEnabled} onCheckedChange={toggleAiEnabled} />
-            <Label htmlFor="ai-toggle" className="text-sm text-muted-foreground flex items-center gap-1">
-              <Power className="w-4 h-4" />
-              <span className="text-xs">{aiEnabled ? 'Ativo' : 'Inativo'}</span>
-            </Label>
-          </div>
+        {aiEnabled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDisableClick}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Power className="h-4 w-4 mr-1" />
+            Desativar
+          </Button>
         )}
       </div>
 
@@ -57,106 +91,189 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
       <ScrollArea className="flex-1 py-4">
         <div className="px-1 space-y-4">
           {!aiEnabled ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <AlertCircle className="h-10 w-10 text-muted-foreground/60 mb-3" />
-              <h3 className="font-medium text-foreground mb-1">Vouti IA desativada</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                A IA está desativada para este tenant. Um administrador pode ativar no topo desta aba.
+            /* Estado: IA não ativada */
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Bot className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg text-foreground mb-2">
+                Vouti IA disponível
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                Ative a Vouti IA para gerar um resumo executivo automático deste processo,
+                incluindo análise das partes, situação atual e pontos de atenção.
+              </p>
+              <Button
+                onClick={handleActivateClick}
+                disabled={isGenerating}
+                className="gap-2"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+                Ativar Vouti IA
+              </Button>
+            </div>
+          ) : isGenerating ? (
+            /* Estado: Gerando resumo */
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <h3 className="font-medium text-foreground mb-2">Gerando resumo...</h3>
+              <p className="text-sm text-muted-foreground">
+                A IA está analisando o processo. Isso pode levar alguns segundos.
               </p>
             </div>
-          ) : isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
           ) : aiSummary ? (
+            /* Estado: Resumo gerado */
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Sparkles className="h-4 w-4" />
-                  <span>Resumo gerado</span>
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>Resumo gerado por IA</span>
                 </div>
-                <Button variant="outline" size="sm" onClick={refreshSummary} disabled={isLoading}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Atualizar
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={regenerateSummary}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Regenerar
                 </Button>
               </div>
 
               <div className="bg-card rounded-lg border p-4">
                 <div
-                  className="prose prose-sm max-w-none text-foreground"
+                  className="prose prose-sm max-w-none text-foreground dark:prose-invert"
                   dangerouslySetInnerHTML={{ __html: formatSummaryToHtml(aiSummary) }}
                 />
               </div>
 
               {aiSummaryData && (
-                <SummarySection title="Dados estruturados" icon={<FileText className="h-4 w-4 text-muted-foreground" />}>
-                  <pre className="text-xs whitespace-pre-wrap text-muted-foreground">
-                    {JSON.stringify(aiSummaryData, null, 2)}
-                  </pre>
+                <SummarySection
+                  title="Informações da geração"
+                  icon={<FileText className="h-4 w-4 text-muted-foreground" />}
+                >
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Gerado em: {new Date(aiSummaryData.generated_at).toLocaleString('pt-BR')}</p>
+                    <p>Movimentações analisadas: {aiSummaryData.movimentacoes_analisadas}</p>
+                    <p>Modelo: {aiSummaryData.model}</p>
+                  </div>
                 </SummarySection>
               )}
             </div>
           ) : (
+            /* Estado: IA ativa mas sem resumo */
             <div className="flex flex-col items-center justify-center h-48 text-center">
-              <Bot className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <AlertCircle className="h-10 w-10 text-muted-foreground/60 mb-3" />
               <h3 className="font-medium text-foreground mb-2">Nenhum resumo ainda</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                A IA está ativa, mas este processo ainda não possui um resumo salvo.
+              <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                A IA está ativa, mas ainda não há um resumo salvo para este processo.
               </p>
-              <Button className="mt-4" variant="outline" onClick={refreshSummary}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Recarregar
+              <Button variant="outline" onClick={regenerateSummary} disabled={isGenerating}>
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Gerar Resumo
               </Button>
             </div>
           )}
         </div>
       </ScrollArea>
+
+      {/* Dialog de Confirmação para Ativar */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              Ativar Vouti IA para este processo?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Ao ativar a Vouti IA, o sistema irá analisar automaticamente os dados
+                deste processo e gerar um resumo executivo com:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>Síntese do caso</li>
+                <li>Análise das partes envolvidas</li>
+                <li>Situação atual do processo</li>
+                <li>Pontos de atenção para o advogado</li>
+              </ul>
+              <p className="text-amber-600 dark:text-amber-400 font-medium">
+                ⚠️ Esta ação consome créditos de IA do seu workspace.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmActivate}>
+              <Zap className="h-4 w-4 mr-2" />
+              Confirmar e Ativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de Confirmação para Desativar */}
+      <AlertDialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar Vouti IA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A IA será desativada para este processo. O resumo existente será mantido,
+              mas não será atualizado automaticamente. Você pode reativar a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDisable} className="bg-destructive hover:bg-destructive/90">
+              Desativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
-// Componente auxiliar para secoes
-const SummarySection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({
-  title,
-  icon,
-  children,
-}) => (
-  <div className="bg-muted/50 rounded-lg p-3">
+// Componente auxiliar
+interface SummarySectionProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const SummarySection: React.FC<SummarySectionProps> = ({ title, icon, children }) => (
+  <div className="border rounded-lg p-3">
     <div className="flex items-center gap-2 mb-2">
       {icon}
-      <h5 className="font-medium text-sm text-foreground">{title}</h5>
+      <span className="text-sm font-medium">{title}</span>
     </div>
     {children}
   </div>
 );
 
-// Funcao para formatar o summary em HTML
+// Função para formatar markdown simples em HTML
 function formatSummaryToHtml(summary: string): string {
   if (!summary) return '';
   
-  // Converter quebras de linha em paragrafos
-  const paragraphs = summary.split(/\n\n+/);
-  
-  return paragraphs
-    .map(p => {
-      // Converter listas
-      if (p.startsWith('- ') || p.startsWith('* ')) {
-        const items = p.split('\n').map(line => 
-          line.replace(/^[-*]\s*/, '').trim()
-        ).filter(Boolean);
-        return `<ul class="list-disc pl-4 space-y-1">${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
-      }
-      
-      // Converter headers
-      if (p.startsWith('# ')) {
-        return `<h3 class="font-semibold text-base mt-3 mb-1">${p.replace(/^#\s*/, '')}</h3>`;
-      }
-      if (p.startsWith('## ')) {
-        return `<h4 class="font-medium text-sm mt-2 mb-1">${p.replace(/^##\s*/, '')}</h4>`;
-      }
-      
-      // Paragrafo normal
-      return `<p class="mb-2">${p.replace(/\n/g, '<br/>')}</p>`;
-    })
-    .join('');
+  return summary
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^### (.*$)/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
+    .replace(/^- (.*$)/gm, '<li class="ml-4">$1</li>')
+    .replace(/(<li.*<\/li>\n?)+/g, '<ul class="list-disc my-2">$&</ul>')
+    .replace(/\n\n/g, '</p><p class="my-2">')
+    .replace(/\n/g, '<br/>');
 }
