@@ -2405,6 +2405,42 @@ export type Database = {
           },
         ]
       }
+      planos_config: {
+        Row: {
+          codigo: string
+          created_at: string | null
+          id: string
+          limite_oabs: number | null
+          limite_processos_cadastrados: number | null
+          limite_processos_monitorados: number | null
+          limite_usuarios: number | null
+          nome: string
+          valor_mensal: number
+        }
+        Insert: {
+          codigo: string
+          created_at?: string | null
+          id?: string
+          limite_oabs?: number | null
+          limite_processos_cadastrados?: number | null
+          limite_processos_monitorados?: number | null
+          limite_usuarios?: number | null
+          nome: string
+          valor_mensal?: number
+        }
+        Update: {
+          codigo?: string
+          created_at?: string | null
+          id?: string
+          limite_oabs?: number | null
+          limite_processos_cadastrados?: number | null
+          limite_processos_monitorados?: number | null
+          limite_usuarios?: number | null
+          nome?: string
+          valor_mensal?: number
+        }
+        Relationships: []
+      }
       processo_andamentos_judit: {
         Row: {
           created_at: string | null
@@ -4763,8 +4799,10 @@ export type Database = {
           endereco: string | null
           id: string
           is_active: boolean | null
+          limite_oabs_personalizado: number | null
           logo_url: string | null
           name: string
+          plano: string
           responsavel_financeiro: string | null
           settings: Json | null
           slug: string
@@ -4780,8 +4818,10 @@ export type Database = {
           endereco?: string | null
           id?: string
           is_active?: boolean | null
+          limite_oabs_personalizado?: number | null
           logo_url?: string | null
           name: string
+          plano?: string
           responsavel_financeiro?: string | null
           settings?: Json | null
           slug: string
@@ -4797,8 +4837,10 @@ export type Database = {
           endereco?: string | null
           id?: string
           is_active?: boolean | null
+          limite_oabs_personalizado?: number | null
           logo_url?: string | null
           name?: string
+          plano?: string
           responsavel_financeiro?: string | null
           settings?: Json | null
           slug?: string

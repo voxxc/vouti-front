@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tenant } from '@/types/superadmin';
 import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
+import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -85,10 +86,11 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
               <span>{tenant.email_domain}</span>
             </div>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={tenant.is_active ? 'default' : 'secondary'}>
               {tenant.is_active ? 'Ativo' : 'Inativo'}
             </Badge>
+            <PlanoIndicator plano={tenant.plano || 'solo'} size="sm" />
           </div>
         </div>
 
