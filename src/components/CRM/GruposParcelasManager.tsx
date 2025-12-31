@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 interface GruposParcelasManagerProps {
   value?: GruposParcelasConfig;
@@ -104,11 +105,9 @@ export const GruposParcelasManager = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Valor da Entrada *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={entrada.valor || ''}
-                  onChange={(e) => setEntrada({ ...entrada, valor: parseFloat(e.target.value) || 0 })}
+                <CurrencyInput
+                  value={entrada.valor || 0}
+                  onChange={(value) => setEntrada({ ...entrada, valor: value })}
                   placeholder="R$ 0,00"
                 />
               </div>
@@ -200,11 +199,9 @@ export const GruposParcelasManager = ({
 
                 <div className="space-y-2">
                   <Label>Valor por Parcela *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={grupo.valor_parcela || ''}
-                    onChange={(e) => updateGrupo(index, 'valor_parcela', parseFloat(e.target.value) || 0)}
+                  <CurrencyInput
+                    value={grupo.valor_parcela || 0}
+                    onChange={(value) => updateGrupo(index, 'valor_parcela', value)}
                     placeholder="R$ 0,00"
                   />
                 </div>

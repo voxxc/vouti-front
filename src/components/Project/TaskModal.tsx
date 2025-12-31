@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RelatorioUnificado } from "./RelatorioUnificado";
 import { useTaskTarefas } from "@/hooks/useTaskTarefas";
 import { useTaskVinculo } from "@/hooks/useTaskVinculo";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 interface TaskModalProps {
   task: Task | null;
@@ -669,67 +670,62 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
                         </div>
                         <div>
                           <label className="text-xs font-medium">Valor original:</label>
-                          <Input
-                            type="number"
-                            value={editedAcordoDetails.valorOriginal || ""}
-                            onChange={(e) => setEditedAcordoDetails({
+                          <CurrencyInput
+                            value={editedAcordoDetails.valorOriginal}
+                            onChange={(value) => setEditedAcordoDetails({
                               ...editedAcordoDetails,
-                              valorOriginal: e.target.value ? Number(e.target.value) : undefined
+                              valorOriginal: value || undefined
                             })}
-                            placeholder="0,00"
+                            placeholder="R$ 0,00"
                             className="text-sm"
                           />
                         </div>
                         <div>
                           <label className="text-xs font-medium">Valor atualizado:</label>
-                          <Input
-                            type="number"
-                            value={editedAcordoDetails.valorAtualizado || ""}
-                            onChange={(e) => setEditedAcordoDetails({
+                          <CurrencyInput
+                            value={editedAcordoDetails.valorAtualizado}
+                            onChange={(value) => setEditedAcordoDetails({
                               ...editedAcordoDetails,
-                              valorAtualizado: e.target.value ? Number(e.target.value) : undefined
+                              valorAtualizado: value || undefined
                             })}
-                            placeholder="0,00"
+                            placeholder="R$ 0,00"
                             className="text-sm"
                           />
                         </div>
                         <div>
                           <label className="text-xs font-medium">A vista:</label>
-                          <Input
-                            type="number"
-                            value={editedAcordoDetails.aVista || ""}
-                            onChange={(e) => setEditedAcordoDetails({
+                          <CurrencyInput
+                            value={editedAcordoDetails.aVista}
+                            onChange={(value) => setEditedAcordoDetails({
                               ...editedAcordoDetails,
-                              aVista: e.target.value ? Number(e.target.value) : undefined
+                              aVista: value || undefined
                             })}
-                            placeholder="0,00"
+                            placeholder="R$ 0,00"
                             className="text-sm"
                           />
                         </div>
                         <div>
                           <label className="text-xs font-medium">Honorarios:</label>
-                          <Input
-                            type="number"
-                            value={editedAcordoDetails.honorarios || ""}
-                            onChange={(e) => setEditedAcordoDetails({
+                          <CurrencyInput
+                            value={editedAcordoDetails.honorarios}
+                            onChange={(value) => setEditedAcordoDetails({
                               ...editedAcordoDetails,
-                              honorarios: e.target.value ? Number(e.target.value) : undefined
+                              honorarios: value || undefined
                             })}
-                            placeholder="0,00"
+                            placeholder="R$ 0,00"
                             className="text-sm"
                           />
                         </div>
                         <div className="col-span-2">
                           <label className="text-xs font-medium">Parcelado:</label>
                           <div className="grid grid-cols-3 gap-2 mt-1">
-                            <Input
-                              type="number"
-                              value={editedAcordoDetails.parcelado?.entrada || ""}
-                              onChange={(e) => setEditedAcordoDetails({
+                            <CurrencyInput
+                              value={editedAcordoDetails.parcelado?.entrada || 0}
+                              onChange={(value) => setEditedAcordoDetails({
                                 ...editedAcordoDetails,
                                 parcelado: {
                                   ...editedAcordoDetails.parcelado,
-                                  entrada: e.target.value ? Number(e.target.value) : 0,
+                                  entrada: value,
                                   parcelas: editedAcordoDetails.parcelado?.parcelas || 0,
                                   quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
                                 }
@@ -737,15 +733,14 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
                               placeholder="Entrada"
                               className="text-sm"
                             />
-                            <Input
-                              type="number"
-                              value={editedAcordoDetails.parcelado?.parcelas || ""}
-                              onChange={(e) => setEditedAcordoDetails({
+                            <CurrencyInput
+                              value={editedAcordoDetails.parcelado?.parcelas || 0}
+                              onChange={(value) => setEditedAcordoDetails({
                                 ...editedAcordoDetails,
                                 parcelado: {
                                   ...editedAcordoDetails.parcelado,
                                   entrada: editedAcordoDetails.parcelado?.entrada || 0,
-                                  parcelas: e.target.value ? Number(e.target.value) : 0,
+                                  parcelas: value,
                                   quantidadeParcelas: editedAcordoDetails.parcelado?.quantidadeParcelas || 0
                                 }
                               })}

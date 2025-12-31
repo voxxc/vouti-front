@@ -13,6 +13,7 @@ import { Upload, X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { GruposParcelasManager } from './GruposParcelasManager';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 interface ClienteFormProps {
   cliente?: Cliente;
@@ -465,7 +466,12 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
 
           <div className="space-y-2">
             <Label htmlFor="valor_contrato">Valor do Contrato *</Label>
-            <Input id="valor_contrato" type="number" step="0.01" {...register('valor_contrato')} placeholder="0.00" />
+            <CurrencyInput
+              id="valor_contrato"
+              value={watch('valor_contrato') ? parseFloat(watch('valor_contrato')) : undefined}
+              onChange={(value) => setValue('valor_contrato', value.toString())}
+              placeholder="R$ 0,00"
+            />
             {errors.valor_contrato && (
               <p className="text-sm text-destructive">{errors.valor_contrato.message}</p>
             )}
@@ -517,7 +523,12 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="valor_entrada">Valor de Entrada</Label>
-                    <Input id="valor_entrada" type="number" step="0.01" {...register('valor_entrada')} placeholder="0.00" />
+                    <CurrencyInput
+                      id="valor_entrada"
+                      value={watch('valor_entrada') ? parseFloat(watch('valor_entrada')) : undefined}
+                      onChange={(value) => setValue('valor_entrada', value.toString())}
+                      placeholder="R$ 0,00"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -530,7 +541,12 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
 
                   <div className="space-y-2">
                     <Label htmlFor="valor_parcela">Valor da Parcela</Label>
-                    <Input id="valor_parcela" type="number" step="0.01" {...register('valor_parcela')} placeholder="0.00" />
+                    <CurrencyInput
+                      id="valor_parcela"
+                      value={watch('valor_parcela') ? parseFloat(watch('valor_parcela')) : undefined}
+                      onChange={(value) => setValue('valor_parcela', value.toString())}
+                      placeholder="R$ 0,00"
+                    />
                   </div>
 
                   <div className="space-y-2">
