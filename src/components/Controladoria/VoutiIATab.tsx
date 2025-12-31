@@ -23,6 +23,7 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
     aiSummary,
     aiSummaryData,
     aiEnabled,
+    tenantAiEnabled,
     isLoading,
     isGenerating,
     enableAndGenerateSummary,
@@ -55,6 +56,23 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Estado: Tenant não tem permissão para usar IA
+  if (tenantAiEnabled === false) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <Bot className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="font-semibold text-lg text-foreground mb-2">
+          Vouti IA
+        </h3>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Este recurso estará disponível em breve. Aguarde novidades!
+        </p>
       </div>
     );
   }

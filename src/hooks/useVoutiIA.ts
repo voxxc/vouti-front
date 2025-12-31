@@ -8,29 +8,45 @@ export const useVoutiIA = (processoOabId?: string) => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryData, setAiSummaryData] = useState<any>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [tenantAiEnabled, setTenantAiEnabled] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Carregar dados do processo (incluindo ai_enabled)
+  // Carregar dados do processo e configuração do tenant
   useEffect(() => {
     const loadProcessoData = async () => {
       if (!processoOabId) return;
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        // Buscar dados do processo
+        const { data: processoData, error: processoError } = await supabase
           .from('processos_oab')
-          .select('ai_summary, ai_summary_data, ai_enabled')
+          .select('ai_summary, ai_summary_data, ai_enabled, tenant_id')
           .eq('id', processoOabId)
           .single();
 
-        if (error) throw error;
+        if (processoError) throw processoError;
 
-        setAiSummary(data?.ai_summary || null);
-        setAiSummaryData(data?.ai_summary_data || null);
-        setAiEnabled(data?.ai_enabled ?? false);
+        setAiSummary(processoData?.ai_summary || null);
+        setAiSummaryData(processoData?.ai_summary_data || null);
+        setAiEnabled(processoData?.ai_enabled ?? false);
+
+        // Buscar configuração de IA do tenant
+        if (processoData?.tenant_id) {
+          const { data: tenantSettings } = await supabase
+            .from('tenant_ai_settings')
+            .select('ai_enabled')
+            .eq('tenant_id', processoData.tenant_id)
+            .single();
+
+          setTenantAiEnabled(tenantSettings?.ai_enabled ?? false);
+        } else {
+          setTenantAiEnabled(false);
+        }
       } catch (err) {
         console.error('Erro ao carregar dados do processo:', err);
+        setTenantAiEnabled(false);
       } finally {
         setIsLoading(false);
       }
@@ -144,6 +160,7 @@ export const useVoutiIA = (processoOabId?: string) => {
     aiSummary,
     aiSummaryData,
     aiEnabled,
+    tenantAiEnabled,
     isLoading,
     isGenerating,
     isAdmin: userRole === 'admin',
