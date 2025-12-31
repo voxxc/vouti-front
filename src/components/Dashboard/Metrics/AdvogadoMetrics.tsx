@@ -40,16 +40,24 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       const today = new Date();
       const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      // Buscar projetos do usuário
-      const { data: userProjects } = await supabase
+      // Buscar projetos criados pelo usuário
+      const { data: createdProjects } = await supabase
         .from('projects')
         .select('id')
         .eq('created_by', userId);
 
-      const projectIds = userProjects?.map(p => p.id) || [];
+      // Buscar projetos onde o usuário é participante
+      const { data: collaboratorProjects } = await supabase
+        .from('project_collaborators')
+        .select('project_id')
+        .eq('user_id', userId);
 
-      const [projectsRes, deadlinesRes, tasksRes, completedTasksRes, upcomingRes] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('created_by', userId),
+      // Combinar IDs únicos (evitar duplicatas se for criador E participante)
+      const createdIds = createdProjects?.map(p => p.id) || [];
+      const collabIds = collaboratorProjects?.map(p => p.project_id) || [];
+      const allProjectIds = [...new Set([...createdIds, ...collabIds])];
+
+      const [deadlinesRes, tasksRes, completedTasksRes, upcomingRes] = await Promise.all([
         supabase
           .from('deadlines')
           .select('id', { count: 'exact', head: true })
@@ -57,18 +65,18 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
           .eq('completed', false)
           .gte('date', today.toISOString().split('T')[0])
           .lte('date', nextWeek.toISOString().split('T')[0]),
-        projectIds.length > 0
+        allProjectIds.length > 0
           ? supabase
               .from('tasks')
               .select('id', { count: 'exact', head: true })
-              .in('project_id', projectIds)
+              .in('project_id', allProjectIds)
               .in('status', ['todo', 'in_progress'])
           : Promise.resolve({ count: 0 }),
-        projectIds.length > 0
+        allProjectIds.length > 0
           ? supabase
               .from('tasks')
               .select('id', { count: 'exact', head: true })
-              .in('project_id', projectIds)
+              .in('project_id', allProjectIds)
               .eq('status', 'done')
           : Promise.resolve({ count: 0 }),
         supabase
@@ -85,7 +93,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       const completionRate = totalTasks > 0 ? ((completedTasksRes.count || 0) / totalTasks) * 100 : 0;
 
       setMetrics({
-        myProjects: projectsRes.count || 0,
+        myProjects: allProjectIds.length,
         deadlinesThisWeek: deadlinesRes.count || 0,
         activeTasks: tasksRes.count || 0,
         completionRate: parseFloat(completionRate.toFixed(1))
