@@ -57,7 +57,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     { id: 'clientes', icon: Users, label: 'Clientes', route: '/crm' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
-    { id: 'reunioes', icon: Video, label: 'Reunioes', route: '/reunioes' },
+    { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
   ];
 
   const isActive = (itemId: string) => {
