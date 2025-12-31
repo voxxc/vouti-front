@@ -59,13 +59,15 @@ const FASES_SUGERIDAS = [
 
 interface TaskTarefasTabProps {
   taskId: string;
+  taskTitle?: string;
   projectId?: string;
+  columnName?: string;
   onGerarRelatorio?: () => void;
   hasVinculo: boolean;
 }
 
-export const TaskTarefasTab = ({ taskId, projectId, onGerarRelatorio, hasVinculo }: TaskTarefasTabProps) => {
-  const { tarefas, loading, adicionarTarefa, atualizarTarefa, removerTarefa } = useTaskTarefas(taskId);
+export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGerarRelatorio, hasVinculo }: TaskTarefasTabProps) => {
+  const { tarefas, loading, adicionarTarefa, atualizarTarefa, removerTarefa } = useTaskTarefas(taskId, { projectId, taskTitle, columnName });
   const { toast } = useToast();
   const { user } = useAuth();
   const { tenantId } = useTenantId();

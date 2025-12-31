@@ -31,6 +31,7 @@ const SectorView = ({
 }: SectorViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedColumnName, setSelectedColumnName] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [isColumnsLocked, setIsColumnsLocked] = useState(false);
@@ -587,8 +588,9 @@ const SectorView = ({
                                       >
                                         <TaskCard
                                           task={task}
-                                          onClick={() => {
-                                            setSelectedTask(task);
+                                          onClick={(t) => {
+                                            setSelectedTask(t);
+                                            setSelectedColumnName(column.name);
                                             setIsModalOpen(true);
                                           }}
                                           onDelete={handleDeleteTask}
@@ -621,6 +623,7 @@ const SectorView = ({
           onUpdateTask={handleUpdateTask}
           currentUser={currentUser}
           projectId={project.id}
+          columnName={selectedColumnName}
         />
       </div>
     </DashboardLayout>

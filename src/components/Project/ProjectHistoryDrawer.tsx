@@ -188,15 +188,21 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
   const formatActionText = (entry: HistoryEntry) => {
     const { action, details, task_title } = entry;
     
+    // Se temos details do banco, usar diretamente (contém contexto completo)
+    if (details && details.length > 0) {
+      return details;
+    }
+    
+    // Fallback para mensagens genéricas (registros antigos sem details)
     switch (action) {
       case 'created':
         return `Criou o card "${task_title}"`;
       case 'moved':
-        return details || `Moveu o card "${task_title}"`;
+        return `Moveu o card "${task_title}"`;
       case 'edited':
-        return details || `Editou o card "${task_title}"`;
+        return `Editou o card "${task_title}"`;
       case 'deleted':
-        return details || `Excluiu o card "${task_title}"`;
+        return `Excluiu o card "${task_title}"`;
       case 'comment_added':
         return `Comentou no card "${task_title}"`;
       case 'comment_edited':
@@ -214,7 +220,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
       case 'tarefa_deleted':
         return `Excluiu tarefa do card "${task_title}"`;
       default:
-        return details || `Ação em "${task_title}"`;
+        return `Ação em "${task_title}"`;
     }
   };
 
