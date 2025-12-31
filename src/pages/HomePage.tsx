@@ -187,6 +187,7 @@ const HomePage = () => {
       price: 99, 
       processes: 30, 
       usersLabel: '1 usuário',
+      oabLabel: 'Até 1 OAB cadastrada',
       popular: false 
     },
     { 
@@ -194,6 +195,7 @@ const HomePage = () => {
       price: 200, 
       processes: 100, 
       usersLabel: '3 usuários',
+      oabLabel: 'Até 2 OABs cadastradas',
       popular: false 
     },
     { 
@@ -201,6 +203,7 @@ const HomePage = () => {
       price: 400, 
       processes: 200, 
       usersLabel: '10 usuários',
+      oabLabel: 'Até 3 OABs cadastradas',
       popular: true
     },
     { 
@@ -208,6 +211,7 @@ const HomePage = () => {
       price: 600, 
       processes: 400, 
       usersLabel: 'Usuários ilimitados',
+      oabLabel: 'OABs personalizado',
       popular: false 
     },
     { 
@@ -215,6 +219,7 @@ const HomePage = () => {
       price: 1000, 
       processes: 800, 
       usersLabel: 'Usuários ilimitados',
+      oabLabel: 'OABs personalizado',
       popular: false 
     },
   ];
@@ -533,15 +538,27 @@ const HomePage = () => {
                   <ul className="space-y-2 text-left mb-6">
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                      Até {plan.processes} processos
+                      Monitoramento Diário de até {plan.processes} processos
                     </li>
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                      Monitoramento automático
+                      {plan.oabLabel}
                     </li>
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                      Suporte especializado
+                      CRM INCLUSO com Landing Page exclusiva
+                    </li>
+                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      Quadro de Tarefas Kanban
+                    </li>
+                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      Relatórios e Métricas
+                    </li>
+                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      Financeiro Completo
                     </li>
                   </ul>
 
@@ -554,7 +571,7 @@ const HomePage = () => {
                         : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
                     }`}
                   >
-                    Solicitar Demo
+                    Selecionar Plano
                   </Button>
                 </div>
               </div>
