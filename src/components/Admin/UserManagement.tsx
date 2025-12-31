@@ -15,12 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 
 const ADDITIONAL_PERMISSIONS = [
-  { id: 'projetos', role: 'advogado', label: 'Projetos' },
   { id: 'agenda', role: 'agenda', label: 'Agenda' },
   { id: 'clientes', role: 'comercial', label: 'Clientes' },
   { id: 'financeiro', role: 'financeiro', label: 'Financeiro' },
   { id: 'controladoria', role: 'controller', label: 'Controladoria' },
-  { id: 'reunioes', role: 'agenda', label: 'Reuniões' },
+  { id: 'reunioes', role: 'reunioes', label: 'Reuniões' },
 ];
 
 interface UserManagementProps {
@@ -41,16 +40,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     name: '',
     email: '',
     password: '',
-    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
-    additionalPermissions: [] as string[] // IDs das permissões (não roles)
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes',
+    additionalPermissions: [] as string[]
   });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
-    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes',
     password: '',
-    additionalPermissions: [] as string[] // IDs das permissões (não roles)
+    additionalPermissions: [] as string[]
   });
 
   // Função para converter IDs de permissões para roles
@@ -191,30 +190,52 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
   const handleEdit = async (user: User) => {
     setEditingUser(user);
     
-    // Buscar todas as roles do usuário
-    const { data: userRoles } = await supabase
+    // Buscar TODAS as roles do usuário diretamente do banco
+    const { data: userRolesData, error: rolesError } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('tenant_id', tenantId);
     
-    const allRoles = userRoles?.map(r => r.role) || [];
-    const primaryRole = user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
-    const additionalRoles = allRoles.filter(r => r !== primaryRole);
+    if (rolesError) {
+      console.error('Erro ao buscar roles:', rolesError);
+    }
     
-    // Converter roles para IDs de permissões
-    const additionalPermissions = rolesToPermissions(additionalRoles);
-    console.log('handleEdit - roles do banco:', allRoles);
+    const allRolesFromDB = userRolesData?.map(r => r.role as string) || [];
+    console.log('handleEdit - todas as roles do banco:', allRolesFromDB);
+    
+    // Determinar role principal pela prioridade
+    const rolePriority: Record<string, number> = {
+      'admin': 7,
+      'controller': 6,
+      'financeiro': 5,
+      'comercial': 4,
+      'reunioes': 3,
+      'agenda': 2,
+      'advogado': 1
+    };
+    
+    // Ordenar por prioridade e pegar a maior como principal
+    const sortedRoles = [...allRolesFromDB].sort((a, b) => 
+      (rolePriority[b] || 0) - (rolePriority[a] || 0)
+    );
+    
+    const primaryRole = (sortedRoles[0] || user.role) as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
+    const additionalRolesFromDB = allRolesFromDB.filter(r => r !== primaryRole);
+    
+    // Converter roles adicionais para IDs de permissões (para marcar os checkboxes)
+    const additionalPermissionIds = rolesToPermissions(additionalRolesFromDB);
+    
     console.log('handleEdit - role principal:', primaryRole);
-    console.log('handleEdit - roles adicionais:', additionalRoles);
-    console.log('handleEdit - permissões convertidas:', additionalPermissions);
+    console.log('handleEdit - roles adicionais:', additionalRolesFromDB);
+    console.log('handleEdit - permissões convertidas (IDs):', additionalPermissionIds);
     
     setEditFormData({
       name: user.name,
       email: user.email,
       role: primaryRole,
       password: '',
-      additionalPermissions: additionalPermissions
+      additionalPermissions: additionalPermissionIds
     });
     setIsEditOpen(true);
   };
@@ -269,11 +290,15 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       // Preparar todas as roles (principal + adicionais convertidas de permissões)
       const additionalRoles = permissionsToRoles(editFormData.additionalPermissions);
+      console.log('handleEditSubmit - permissões selecionadas:', editFormData.additionalPermissions);
+      console.log('handleEditSubmit - roles convertidas:', additionalRoles);
+      
       const allRolesToInsert = [editFormData.role, ...additionalRoles.filter(r => r !== editFormData.role)];
       const uniqueRoles = [...new Set(allRolesToInsert)];
+      console.log('handleEditSubmit - roles únicas a inserir:', uniqueRoles);
 
       // Insert all roles with tenant_id
-      type AppRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
+      type AppRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
       const rolesToInsert = uniqueRoles.map(r => ({
         user_id: editingUser.id,
         role: r as AppRole,
@@ -424,7 +449,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                 <Label htmlFor="role">Perfil</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' })}
+                  onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um perfil" />
@@ -524,7 +549,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                 <Label htmlFor="edit-role">Perfil</Label>
                 <Select
                   value={editFormData.role}
-                  onValueChange={(value) => setEditFormData({ ...editFormData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' })}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, role: value as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um perfil" />

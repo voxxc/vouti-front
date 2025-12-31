@@ -38,7 +38,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     'clientes': ['comercial'],
     'financeiro': ['financeiro'],
     'controladoria': ['advogado', 'controller'],
-    'reunioes': ['comercial', 'agenda'],
+    'reunioes': ['comercial', 'agenda', 'reunioes'],
   };
 
   const hasAccess = (section: string) => {
