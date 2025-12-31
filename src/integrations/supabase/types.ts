@@ -5033,6 +5033,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_primary: boolean
           role: Database["public"]["Enums"]["app_role"]
           tenant_id: string
           user_id: string
@@ -5040,6 +5041,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          is_primary?: boolean
           role: Database["public"]["Enums"]["app_role"]
           tenant_id: string
           user_id: string
@@ -5047,6 +5049,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          is_primary?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           tenant_id?: string
           user_id?: string
@@ -5249,6 +5252,7 @@ export type Database = {
           email: string
           full_name: string
           highest_role: string
+          primary_role: string
           updated_at: string
           user_id: string
         }[]

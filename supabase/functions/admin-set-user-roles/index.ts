@@ -52,15 +52,36 @@ serve(async (req) => {
 
     console.log('admin-set-user-roles: Caller user ID:', callerUser.id);
 
-    // Parse body
-    const { target_user_id, tenant_id, roles } = await req.json();
+    // Parse body - NOVO CONTRATO: primary_role + additional_roles
+    const body = await req.json();
+    const { target_user_id, tenant_id, primary_role, additional_roles, roles } = body;
     
-    console.log('admin-set-user-roles: Request body:', { target_user_id, tenant_id, roles });
+    console.log('admin-set-user-roles: Request body:', { target_user_id, tenant_id, primary_role, additional_roles, roles });
 
-    if (!target_user_id || !tenant_id || !roles || !Array.isArray(roles) || roles.length === 0) {
+    if (!target_user_id || !tenant_id) {
       console.error('admin-set-user-roles: Missing required fields');
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: target_user_id, tenant_id, roles' }),
+        JSON.stringify({ error: 'Missing required fields: target_user_id, tenant_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Suportar tanto o novo contrato (primary_role + additional_roles) quanto o antigo (roles array)
+    let finalPrimaryRole: string;
+    let finalAdditionalRoles: string[] = [];
+
+    if (primary_role) {
+      // Novo contrato
+      finalPrimaryRole = primary_role;
+      finalAdditionalRoles = additional_roles || [];
+    } else if (roles && Array.isArray(roles) && roles.length > 0) {
+      // Contrato antigo - primeira role é a principal
+      finalPrimaryRole = roles[0];
+      finalAdditionalRoles = roles.slice(1);
+    } else {
+      console.error('admin-set-user-roles: No roles provided');
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: primary_role or roles array' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -116,14 +137,28 @@ serve(async (req) => {
 
     // Validar roles
     const validRoles = ['admin', 'advogado', 'comercial', 'financeiro', 'controller', 'agenda', 'reunioes'];
-    const invalidRoles = roles.filter(r => !validRoles.includes(r));
-    if (invalidRoles.length > 0) {
-      console.error('admin-set-user-roles: Invalid roles:', invalidRoles);
+    
+    if (!validRoles.includes(finalPrimaryRole)) {
+      console.error('admin-set-user-roles: Invalid primary role:', finalPrimaryRole);
       return new Response(
-        JSON.stringify({ error: `Roles inválidas: ${invalidRoles.join(', ')}` }),
+        JSON.stringify({ error: `Role principal inválida: ${finalPrimaryRole}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const invalidAdditionalRoles = finalAdditionalRoles.filter(r => !validRoles.includes(r));
+    if (invalidAdditionalRoles.length > 0) {
+      console.error('admin-set-user-roles: Invalid additional roles:', invalidAdditionalRoles);
+      return new Response(
+        JSON.stringify({ error: `Roles adicionais inválidas: ${invalidAdditionalRoles.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Remove duplicates and ensure primary is not in additional
+    const uniqueAdditionalRoles = [...new Set(finalAdditionalRoles.filter(r => r !== finalPrimaryRole))];
+
+    console.log('admin-set-user-roles: Final roles:', { primary: finalPrimaryRole, additional: uniqueAdditionalRoles });
 
     // PASSO 1: Deletar todas as roles existentes do usuário neste tenant
     console.log('admin-set-user-roles: Deleting existing roles for user in tenant...');
@@ -143,20 +178,32 @@ serve(async (req) => {
 
     console.log('admin-set-user-roles: Existing roles deleted successfully');
 
-    // PASSO 2: Inserir as novas roles
-    const uniqueRoles = [...new Set(roles)];
-    const rolesToInsert = uniqueRoles.map(role => ({
-      user_id: target_user_id,
-      tenant_id: tenant_id,
-      role: role
-    }));
+    // PASSO 2: Inserir role principal com is_primary = true
+    const rolesToInsert = [
+      {
+        user_id: target_user_id,
+        tenant_id: tenant_id,
+        role: finalPrimaryRole,
+        is_primary: true
+      }
+    ];
 
-    console.log('admin-set-user-roles: Inserting new roles:', rolesToInsert);
+    // PASSO 3: Inserir roles adicionais com is_primary = false
+    for (const additionalRole of uniqueAdditionalRoles) {
+      rolesToInsert.push({
+        user_id: target_user_id,
+        tenant_id: tenant_id,
+        role: additionalRole,
+        is_primary: false
+      });
+    }
+
+    console.log('admin-set-user-roles: Inserting roles:', rolesToInsert);
 
     const { data: insertedRoles, error: insertError } = await supabaseAdmin
       .from('user_roles')
       .insert(rolesToInsert)
-      .select('role');
+      .select('role, is_primary');
 
     if (insertError) {
       console.error('admin-set-user-roles: Error inserting roles:', insertError);
@@ -168,10 +215,10 @@ serve(async (req) => {
 
     console.log('admin-set-user-roles: Roles inserted successfully:', insertedRoles);
 
-    // PASSO 3: Confirmar lendo do banco
+    // PASSO 4: Confirmar lendo do banco
     const { data: confirmedRoles, error: confirmError } = await supabaseAdmin
       .from('user_roles')
-      .select('role')
+      .select('role, is_primary')
       .eq('user_id', target_user_id)
       .eq('tenant_id', tenant_id);
 
@@ -179,14 +226,18 @@ serve(async (req) => {
       console.error('admin-set-user-roles: Error confirming roles:', confirmError);
     }
 
-    const rolesApplied = confirmedRoles?.map(r => r.role) || [];
-    console.log('admin-set-user-roles: Final confirmed roles:', rolesApplied);
+    const primaryConfirmed = confirmedRoles?.find(r => r.is_primary)?.role || finalPrimaryRole;
+    const additionalConfirmed = confirmedRoles?.filter(r => !r.is_primary).map(r => r.role) || [];
+    
+    console.log('admin-set-user-roles: Final confirmed roles:', { primary: primaryConfirmed, additional: additionalConfirmed });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        roles_applied: rolesApplied,
-        message: `${rolesApplied.length} role(s) aplicada(s) com sucesso`
+        primary_role: primaryConfirmed,
+        additional_roles: additionalConfirmed,
+        roles_applied: confirmedRoles?.map(r => r.role) || [],
+        message: `Perfil ${primaryConfirmed}${additionalConfirmed.length > 0 ? ` + ${additionalConfirmed.length} permissão(ões) adicional(is)` : ''} aplicado com sucesso`
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

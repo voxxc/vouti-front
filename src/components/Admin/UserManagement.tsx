@@ -214,10 +214,10 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       setEditUserTenantId(userTenantId);
       console.log('handleEdit - tenant_id:', userTenantId);
       
-      // Buscar TODAS as roles do usuário diretamente do banco
+      // Buscar TODAS as roles do usuário COM is_primary diretamente do banco
       const { data: userRolesData, error: rolesError } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, is_primary')
         .eq('user_id', user.id)
         .eq('tenant_id', userTenantId);
       
@@ -226,21 +226,23 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         throw new Error('Não foi possível carregar as permissões do usuário');
       }
       
+      console.log('handleEdit - roles do banco (com is_primary):', userRolesData);
+      
+      // CORREÇÃO DEFINITIVA: Usar is_primary do banco para determinar a role principal
+      // Isso garante que adicionar permissão adicional NUNCA muda o perfil
+      const primaryRoleFromDB = userRolesData?.find(r => r.is_primary)?.role as string;
       const allRolesFromDB = userRolesData?.map(r => r.role as string) || [];
-      console.log('handleEdit - roles do banco:', allRolesFromDB);
       
-      // CORREÇÃO: Usar a role que o usuário já tem definida como principal
-      // NÃO usar prioridade para determinar - respeitar o que está no user.role
-      // Isso evita inversão de roles (ex: financeiro virando principal em vez de adicional)
-      const primaryRole = user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
+      // Se não houver is_primary marcado (dados antigos), usar a primeira role ou fallback para user.role
+      const primaryRole = (primaryRoleFromDB || user.role) as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
       
-      // Todas as outras roles do banco (que não são a principal) são adicionais
+      // Roles adicionais = todas as roles que NÃO são a principal
       const additionalRolesFromDB = allRolesFromDB.filter(r => r !== primaryRole);
       
       // Converter roles adicionais para IDs de permissões
       const additionalPermissionIds = rolesToPermissions(additionalRolesFromDB);
       
-      console.log('handleEdit - role principal (respeitando user.role):', primaryRole);
+      console.log('handleEdit - role principal (via is_primary):', primaryRole);
       console.log('handleEdit - roles adicionais:', additionalRolesFromDB);
       console.log('handleEdit - permissões (IDs):', additionalPermissionIds);
       
@@ -306,19 +308,22 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (profileError) throw profileError;
 
-      // Preparar todas as roles (principal + adicionais)
+      // Preparar roles separadas: principal + adicionais (novo contrato da Edge Function)
       const additionalRoles = permissionsToRoles(editFormData.additionalPermissions);
-      const allRoles = [editFormData.role, ...additionalRoles.filter(r => r !== editFormData.role)];
-      const uniqueRoles = [...new Set(allRoles)];
+      // Remover a role principal das adicionais para evitar duplicação
+      const uniqueAdditionalRoles = [...new Set(additionalRoles.filter(r => r !== editFormData.role))];
       
-      console.log('handleEditSubmit - roles finais a enviar:', uniqueRoles);
+      console.log('handleEditSubmit - role principal:', editFormData.role);
+      console.log('handleEditSubmit - roles adicionais:', uniqueAdditionalRoles);
 
-      // CHAMAR EDGE FUNCTION para persistir roles (bypassa RLS)
+      // CHAMAR EDGE FUNCTION com novo contrato: primary_role + additional_roles
+      // Isso garante que o perfil NÃO muda ao adicionar permissões
       const { data: rolesResult, error: rolesError } = await supabase.functions.invoke('admin-set-user-roles', {
         body: {
           target_user_id: editingUser.id,
           tenant_id: editUserTenantId,
-          roles: uniqueRoles
+          primary_role: editFormData.role,
+          additional_roles: uniqueAdditionalRoles
         }
       });
 
@@ -337,25 +342,26 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       // Verificar se realmente salvou (releitura de confirmação)
       const { data: confirmedRoles, error: confirmError } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, is_primary')
         .eq('user_id', editingUser.id)
         .eq('tenant_id', editUserTenantId);
 
       if (confirmError) {
         console.error('Erro na confirmação:', confirmError);
       } else {
-        const confirmedRolesList = confirmedRoles?.map(r => r.role) || [];
-        console.log('handleEditSubmit - Roles confirmadas no banco:', confirmedRolesList);
+        console.log('handleEditSubmit - Roles confirmadas no banco:', confirmedRoles);
         
-        // Atualizar o editFormData com os dados confirmados
-        const primaryConfirmed = confirmedRolesList.includes(editFormData.role) 
-          ? editFormData.role 
-          : (confirmedRolesList[0] as typeof editFormData.role) || editFormData.role;
-        const additionalConfirmed = confirmedRolesList.filter(r => r !== primaryConfirmed);
+        // Usar is_primary para determinar corretamente
+        const primaryConfirmed = confirmedRoles?.find(r => r.is_primary)?.role || editFormData.role;
+        const additionalConfirmed = confirmedRoles?.filter(r => !r.is_primary).map(r => r.role) || [];
         const permissionIdsConfirmed = rolesToPermissions(additionalConfirmed);
+        
+        console.log('handleEditSubmit - Primary confirmado:', primaryConfirmed);
+        console.log('handleEditSubmit - Adicionais confirmados:', additionalConfirmed);
         
         setEditFormData(prev => ({
           ...prev,
+          role: primaryConfirmed as typeof prev.role,
           additionalPermissions: permissionIdsConfirmed
         }));
       }
@@ -381,7 +387,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       toast({
         title: "Sucesso",
-        description: `Usuário atualizado com sucesso! ${rolesResult?.roles_applied?.length || uniqueRoles.length} permissão(ões) aplicada(s).`,
+        description: `Usuário atualizado! Perfil: ${editFormData.role}${uniqueAdditionalRoles.length > 0 ? ` + ${uniqueAdditionalRoles.length} permissão(ões) adicional(is)` : ''}`,
       });
 
       setIsEditOpen(false);
