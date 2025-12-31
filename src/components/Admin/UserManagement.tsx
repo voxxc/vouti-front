@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Edit, Trash2, Search } from "lucide-react";
+import { UserPlus, Edit, Trash2, Search, CheckCircle2 } from "lucide-react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     password: '',
     additionalPermissions: [] as string[]
   });
+  const [editUserTenantId, setEditUserTenantId] = useState<string | null>(null);
 
   // Função para converter IDs de permissões para roles
   const permissionsToRoles = (permissionIds: string[]): string[] => {
@@ -58,7 +59,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       const perm = ADDITIONAL_PERMISSIONS.find(p => p.id === id);
       return perm?.role;
     }).filter(Boolean) as string[];
-    return [...new Set(roles)]; // Remove duplicatas
+    return [...new Set(roles)];
   };
 
   // Função para converter roles para IDs de permissões
@@ -189,106 +190,111 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
   const handleEdit = async (user: User) => {
     setEditingUser(user);
+    setLoading(true);
     
-    // Buscar o tenant_id do usuário sendo editado (mais confiável)
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .single();
-    
-    const userTenantId = userProfile?.tenant_id || tenantId;
-    
-    if (!userTenantId) {
-      console.error('Não foi possível determinar o tenant do usuário');
+    try {
+      // Buscar o tenant_id do usuário sendo editado
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Erro ao buscar profile:', profileError);
+        throw new Error('Não foi possível carregar os dados do usuário');
+      }
+      
+      const userTenantId = userProfile?.tenant_id || tenantId;
+      
+      if (!userTenantId) {
+        throw new Error('Não foi possível determinar o tenant do usuário');
+      }
+      
+      setEditUserTenantId(userTenantId);
+      console.log('handleEdit - tenant_id:', userTenantId);
+      
+      // Buscar TODAS as roles do usuário diretamente do banco
+      const { data: userRolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('tenant_id', userTenantId);
+      
+      if (rolesError) {
+        console.error('Erro ao buscar roles:', rolesError);
+        throw new Error('Não foi possível carregar as permissões do usuário');
+      }
+      
+      const allRolesFromDB = userRolesData?.map(r => r.role as string) || [];
+      console.log('handleEdit - roles do banco:', allRolesFromDB);
+      
+      // Determinar role principal pela prioridade
+      const rolePriority: Record<string, number> = {
+        'admin': 7,
+        'controller': 6,
+        'financeiro': 5,
+        'comercial': 4,
+        'reunioes': 3,
+        'agenda': 2,
+        'advogado': 1
+      };
+      
+      // Ordenar por prioridade e pegar a maior como principal
+      const sortedRoles = [...allRolesFromDB].sort((a, b) => 
+        (rolePriority[b] || 0) - (rolePriority[a] || 0)
+      );
+      
+      const primaryRole = (sortedRoles[0] || user.role) as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
+      const additionalRolesFromDB = allRolesFromDB.filter(r => r !== primaryRole);
+      
+      // Converter roles adicionais para IDs de permissões
+      const additionalPermissionIds = rolesToPermissions(additionalRolesFromDB);
+      
+      console.log('handleEdit - role principal:', primaryRole);
+      console.log('handleEdit - roles adicionais:', additionalRolesFromDB);
+      console.log('handleEdit - permissões (IDs):', additionalPermissionIds);
+      
+      setEditFormData({
+        name: user.name,
+        email: user.email,
+        role: primaryRole,
+        password: '',
+        additionalPermissions: additionalPermissionIds
+      });
+      setIsEditOpen(true);
+    } catch (error: any) {
+      console.error('handleEdit error:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar as permissões do usuário.",
+        description: error.message || "Não foi possível carregar os dados do usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser || !editUserTenantId) {
+      toast({
+        title: "Erro",
+        description: "Dados do usuário não carregados corretamente. Feche e abra novamente.",
         variant: "destructive",
       });
       return;
     }
     
-    // Buscar TODAS as roles do usuário diretamente do banco
-    const { data: userRolesData, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('tenant_id', userTenantId);
-    
-    if (rolesError) {
-      console.error('Erro ao buscar roles:', rolesError);
-    }
-    
-    const allRolesFromDB = userRolesData?.map(r => r.role as string) || [];
-    console.log('handleEdit - tenant_id usado:', userTenantId);
-    console.log('handleEdit - todas as roles do banco:', allRolesFromDB);
-    
-    // Determinar role principal pela prioridade
-    const rolePriority: Record<string, number> = {
-      'admin': 7,
-      'controller': 6,
-      'financeiro': 5,
-      'comercial': 4,
-      'reunioes': 3,
-      'agenda': 2,
-      'advogado': 1
-    };
-    
-    // Ordenar por prioridade e pegar a maior como principal
-    const sortedRoles = [...allRolesFromDB].sort((a, b) => 
-      (rolePriority[b] || 0) - (rolePriority[a] || 0)
-    );
-    
-    const primaryRole = (sortedRoles[0] || user.role) as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
-    const additionalRolesFromDB = allRolesFromDB.filter(r => r !== primaryRole);
-    
-    // Converter roles adicionais para IDs de permissões (para marcar os checkboxes)
-    const additionalPermissionIds = rolesToPermissions(additionalRolesFromDB);
-    
-    console.log('handleEdit - role principal:', primaryRole);
-    console.log('handleEdit - roles adicionais:', additionalRolesFromDB);
-    console.log('handleEdit - permissões convertidas (IDs):', additionalPermissionIds);
-    
-    setEditFormData({
-      name: user.name,
-      email: user.email,
-      role: primaryRole,
-      password: '',
-      additionalPermissions: additionalPermissionIds
-    });
-    setIsEditOpen(true);
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingUser) return;
-    
     setLoading(true);
 
     try {
-      // Buscar o tenant_id do usuário sendo editado
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', editingUser.id)
-        .single();
+      console.log('handleEditSubmit - Iniciando...');
+      console.log('handleEditSubmit - tenant_id:', editUserTenantId);
+      console.log('handleEditSubmit - role principal:', editFormData.role);
+      console.log('handleEditSubmit - permissões adicionais:', editFormData.additionalPermissions);
       
-      const userTenantId = userProfile?.tenant_id || tenantId;
-      
-      if (!userTenantId) {
-        toast({
-          title: "Erro",
-          description: "Não foi possível identificar o tenant. Recarregue a página.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-      
-      console.log('handleEditSubmit - tenant_id usado:', userTenantId);
-      
-      // Se email foi alterado, atualizar em auth.users via Edge Function
+      // Se email foi alterado, atualizar via Edge Function
       if (editFormData.email !== editingUser.email) {
         const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user-email', {
           body: {
@@ -301,7 +307,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         if (emailData?.error) throw new Error(emailData.error);
       }
 
-      // Update profile (name only - email ja foi atualizado pela edge function)
+      // Update profile (name only)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
@@ -311,42 +317,59 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (profileError) throw profileError;
 
-      // Delete existing roles for this user in this tenant
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', editingUser.id)
-        .eq('tenant_id', userTenantId);
+      // Preparar todas as roles (principal + adicionais)
+      const additionalRoles = permissionsToRoles(editFormData.additionalPermissions);
+      const allRoles = [editFormData.role, ...additionalRoles.filter(r => r !== editFormData.role)];
+      const uniqueRoles = [...new Set(allRoles)];
+      
+      console.log('handleEditSubmit - roles finais a enviar:', uniqueRoles);
 
-      if (deleteError) {
-        console.error('Erro ao deletar roles:', deleteError);
-        throw deleteError;
+      // CHAMAR EDGE FUNCTION para persistir roles (bypassa RLS)
+      const { data: rolesResult, error: rolesError } = await supabase.functions.invoke('admin-set-user-roles', {
+        body: {
+          target_user_id: editingUser.id,
+          tenant_id: editUserTenantId,
+          roles: uniqueRoles
+        }
+      });
+
+      if (rolesError) {
+        console.error('Edge function error:', rolesError);
+        throw new Error(rolesError.message || 'Erro ao salvar permissões');
       }
 
-      // Preparar todas as roles (principal + adicionais convertidas de permissões)
-      const additionalRoles = permissionsToRoles(editFormData.additionalPermissions);
-      console.log('handleEditSubmit - permissões selecionadas:', editFormData.additionalPermissions);
-      console.log('handleEditSubmit - roles convertidas:', additionalRoles);
-      
-      const allRolesToInsert = [editFormData.role, ...additionalRoles.filter(r => r !== editFormData.role)];
-      const uniqueRoles = [...new Set(allRolesToInsert)];
-      console.log('handleEditSubmit - roles únicas a inserir:', uniqueRoles);
+      if (rolesResult?.error) {
+        console.error('Edge function response error:', rolesResult.error);
+        throw new Error(rolesResult.error);
+      }
 
-      // Insert all roles with tenant_id
-      type AppRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
-      const rolesToInsert = uniqueRoles.map(r => ({
-        user_id: editingUser.id,
-        role: r as AppRole,
-        tenant_id: userTenantId
-      }));
-      
-      console.log('handleEditSubmit - roles a inserir:', rolesToInsert);
+      console.log('handleEditSubmit - Roles aplicadas:', rolesResult?.roles_applied);
 
-      const { error: roleError } = await supabase
+      // Verificar se realmente salvou (releitura de confirmação)
+      const { data: confirmedRoles, error: confirmError } = await supabase
         .from('user_roles')
-        .insert(rolesToInsert);
+        .select('role')
+        .eq('user_id', editingUser.id)
+        .eq('tenant_id', editUserTenantId);
 
-      if (roleError) throw roleError;
+      if (confirmError) {
+        console.error('Erro na confirmação:', confirmError);
+      } else {
+        const confirmedRolesList = confirmedRoles?.map(r => r.role) || [];
+        console.log('handleEditSubmit - Roles confirmadas no banco:', confirmedRolesList);
+        
+        // Atualizar o editFormData com os dados confirmados
+        const primaryConfirmed = confirmedRolesList.includes(editFormData.role) 
+          ? editFormData.role 
+          : (confirmedRolesList[0] as typeof editFormData.role) || editFormData.role;
+        const additionalConfirmed = confirmedRolesList.filter(r => r !== primaryConfirmed);
+        const permissionIdsConfirmed = rolesToPermissions(additionalConfirmed);
+        
+        setEditFormData(prev => ({
+          ...prev,
+          additionalPermissions: permissionIdsConfirmed
+        }));
+      }
 
       // Update password if provided
       if (editFormData.password && editFormData.password.trim() !== '') {
@@ -369,20 +392,21 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       toast({
         title: "Sucesso",
-        description: editFormData.password ? "Usuario e senha atualizados com sucesso!" : "Usuario atualizado com sucesso!",
+        description: `Usuário atualizado com sucesso! ${rolesResult?.roles_applied?.length || uniqueRoles.length} permissão(ões) aplicada(s).`,
       });
 
       setIsEditOpen(false);
       setEditingUser(null);
+      setEditUserTenantId(null);
     } catch (error: any) {
-      console.error('Error updating user:', error);
+      console.error('handleEditSubmit error:', error);
       
-      let errorMessage = error.message || 'Erro ao atualizar usuario';
+      let errorMessage = error.message || 'Erro ao atualizar usuário';
       
       if (errorMessage.includes('Senha deve ter')) {
-        errorMessage = 'A senha deve ter no minimo 6 caracteres';
-      } else if (errorMessage.includes('nao pertence ao seu tenant')) {
-        errorMessage = 'Usuario nao pertence ao seu tenant';
+        errorMessage = 'A senha deve ter no mínimo 6 caracteres';
+      } else if (errorMessage.includes('nao pertence ao seu tenant') || errorMessage.includes('não pertence')) {
+        errorMessage = 'Usuário não pertence ao seu tenant';
       }
 
       toast({
@@ -436,6 +460,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       user.role.toLowerCase().includes(query)
     );
   });
+
+  // Gerar resumo das permissões selecionadas para exibir no modal
+  const getPermissionsSummary = (permissions: string[]): string => {
+    if (permissions.length === 0) return 'Nenhuma permissão adicional';
+    const labels = permissions.map(id => {
+      const perm = ADDITIONAL_PERMISSIONS.find(p => p.id === id);
+      return perm?.label || id;
+    });
+    return labels.join(', ');
+  };
 
   return (
     <div className="space-y-6">
@@ -544,7 +578,13 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         </Dialog>
 
         {/* Edit User Dialog */}
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <Dialog open={isEditOpen} onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) {
+            setEditingUser(null);
+            setEditUserTenantId(null);
+          }
+        }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Usuário</DialogTitle>
@@ -634,6 +674,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                     </div>
                   ))}
                 </div>
+                
+                {/* Resumo visual das permissões selecionadas */}
+                {editFormData.additionalPermissions.length > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-md text-xs">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-muted-foreground">
+                      Selecionadas: <strong>{getPermissionsSummary(editFormData.additionalPermissions)}</strong>
+                    </span>
+                  </div>
+                )}
               </div>
               
               <Button type="submit" className="w-full" disabled={loading}>
