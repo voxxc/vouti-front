@@ -12,6 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+
+const ADDITIONAL_PERMISSIONS = [
+  { id: 'projetos', role: 'advogado', label: 'Projetos' },
+  { id: 'agenda', role: 'controller', label: 'Agenda' },
+  { id: 'clientes', role: 'comercial', label: 'Clientes' },
+  { id: 'financeiro', role: 'financeiro', label: 'Financeiro' },
+  { id: 'controladoria', role: 'controller', label: 'Controladoria' },
+  { id: 'reunioes', role: 'comercial', label: 'Reuniões' },
+];
 
 interface UserManagementProps {
   users: User[];
@@ -31,14 +41,16 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     name: '',
     email: '',
     password: '',
-    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda'
+    role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
+    additionalRoles: [] as string[]
   });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
     role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
-    password: '' // Optional - only update if provided
+    password: '', // Optional - only update if provided
+    additionalRoles: [] as string[]
   });
 
   // Set up realtime subscription for profiles
@@ -91,6 +103,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
           password: formData.password,
           full_name: formData.name,
           role: formData.role,
+          additional_roles: formData.additionalRoles,
           tenant_id: tenantId
         }
       });
@@ -126,7 +139,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       });
 
       setIsOpen(false);
-      setFormData({ name: '', email: '', password: '', role: 'advogado' });
+      setFormData({ name: '', email: '', password: '', role: 'advogado', additionalRoles: [] });
     } catch (error: any) {
       console.error("Error creating user:", error);
       
@@ -150,13 +163,26 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     }
   };
 
-  const handleEdit = (user: User) => {
+  const handleEdit = async (user: User) => {
     setEditingUser(user);
+    
+    // Buscar todas as roles do usuário
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('tenant_id', tenantId);
+    
+    const allRoles = userRoles?.map(r => r.role) || [];
+    const primaryRole = user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
+    const additionalRoles = allRoles.filter(r => r !== primaryRole);
+    
     setEditFormData({
       name: user.name,
       email: user.email,
-      role: user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
-      password: '' // Reset password field
+      role: primaryRole,
+      password: '', // Reset password field
+      additionalRoles: additionalRoles
     });
     setIsEditOpen(true);
   };
@@ -209,14 +235,21 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (deleteError) throw deleteError;
 
-      // Insert the new role with tenant_id
+      // Preparar todas as roles (principal + adicionais)
+      const allRolesToInsert = [editFormData.role, ...editFormData.additionalRoles.filter(r => r !== editFormData.role)];
+      const uniqueRoles = [...new Set(allRolesToInsert)];
+
+      // Insert all roles with tenant_id
+      type AppRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
+      const rolesToInsert = uniqueRoles.map(r => ({
+        user_id: editingUser.id,
+        role: r as AppRole,
+        tenant_id: tenantId!
+      }));
+
       const { error: roleError } = await supabase
         .from('user_roles')
-        .insert({ 
-          user_id: editingUser.id, 
-          role: editFormData.role,
-          tenant_id: tenantId
-        });
+        .insert(rolesToInsert);
 
       if (roleError) throw roleError;
 
@@ -373,6 +406,41 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Permissões Adicionais */}
+              <div className="space-y-3">
+                <Label>Permissões Adicionais</Label>
+                <p className="text-xs text-muted-foreground">
+                  Selecione áreas extras que este usuário terá acesso além do perfil principal.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ADDITIONAL_PERMISSIONS.map((perm) => (
+                    <div key={perm.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`perm-${perm.id}`}
+                        checked={formData.additionalRoles.includes(perm.role)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFormData({
+                              ...formData,
+                              additionalRoles: [...new Set([...formData.additionalRoles, perm.role])]
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              additionalRoles: formData.additionalRoles.filter(r => r !== perm.role)
+                            });
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`perm-${perm.id}`} className="text-sm font-normal cursor-pointer">
+                        {perm.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Criando..." : "Criar Usuário"}
               </Button>
@@ -438,6 +506,41 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Permissões Adicionais na Edição */}
+              <div className="space-y-3">
+                <Label>Permissões Adicionais</Label>
+                <p className="text-xs text-muted-foreground">
+                  Áreas extras que este usuário terá acesso.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ADDITIONAL_PERMISSIONS.map((perm) => (
+                    <div key={perm.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-perm-${perm.id}`}
+                        checked={editFormData.additionalRoles.includes(perm.role)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setEditFormData({
+                              ...editFormData,
+                              additionalRoles: [...new Set([...editFormData.additionalRoles, perm.role])]
+                            });
+                          } else {
+                            setEditFormData({
+                              ...editFormData,
+                              additionalRoles: editFormData.additionalRoles.filter(r => r !== perm.role)
+                            });
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`edit-perm-${perm.id}`} className="text-sm font-normal cursor-pointer">
+                        {perm.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Salvando..." : "Salvar Alterações"}
               </Button>

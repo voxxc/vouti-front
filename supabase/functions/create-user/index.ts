@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, full_name, role, tenant_id } = await req.json()
+    const { email, password, full_name, role, additional_roles, tenant_id } = await req.json()
 
     // Validate input
     if (!email || !password || !full_name || !role) {
@@ -128,24 +128,38 @@ Deno.serve(async (req) => {
 
       console.log('Profile updated')
 
-      // Assign role
+      // Preparar todas as roles (principal + adicionais)
+      const allRoles = [role]
+      if (additional_roles && Array.isArray(additional_roles)) {
+        for (const additionalRole of additional_roles) {
+          if (additionalRole !== role && !allRoles.includes(additionalRole)) {
+            allRoles.push(additionalRole)
+          }
+        }
+      }
+
+      console.log('Assigning roles:', allRoles)
+
+      // Assign all roles
+      const rolesToInsert = allRoles.map(r => ({
+        user_id: newUser.user.id,
+        role: r,
+        tenant_id: tenant_id
+      }))
+
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
-        .insert({
-          user_id: newUser.user.id,
-          role: role,
-          tenant_id: tenant_id
-        })
+        .insert(rolesToInsert)
 
       if (roleError) {
-        console.error('Error assigning role:', roleError)
+        console.error('Error assigning roles:', roleError)
         // Rollback: delete profile and user
         await supabaseAdmin.from('profiles').delete().eq('user_id', newUser.user.id)
         await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
         throw new Error('Erro ao atribuir perfil: ' + roleError.message)
       }
 
-      console.log('Role assigned successfully')
+      console.log('Roles assigned successfully:', allRoles)
 
       return new Response(
         JSON.stringify({
