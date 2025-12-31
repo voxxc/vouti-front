@@ -132,26 +132,33 @@ Deno.serve(async (req) => {
 
       console.log('Profile updated')
 
-      // Preparar todas as roles (principal + adicionais)
-      const allRoles = [role]
+      // Preparar todas as roles com is_primary
+      // Role principal: is_primary = true
+      // Roles adicionais: is_primary = false
+      const rolesToInsert = [
+        {
+          user_id: newUser.user.id,
+          role: role,
+          tenant_id: tenant_id,
+          is_primary: true
+        }
+      ]
+
+      // Adicionar roles adicionais (se houver)
       if (additional_roles && Array.isArray(additional_roles)) {
         for (const additionalRole of additional_roles) {
-          if (additionalRole !== role && !allRoles.includes(additionalRole)) {
-            allRoles.push(additionalRole)
+          if (additionalRole !== role && validRoles.includes(additionalRole)) {
+            rolesToInsert.push({
+              user_id: newUser.user.id,
+              role: additionalRole,
+              tenant_id: tenant_id,
+              is_primary: false
+            })
           }
         }
       }
 
       console.log('=== ROLES TO INSERT ===')
-      console.log('All roles array:', allRoles)
-
-      // Assign all roles
-      const rolesToInsert = allRoles.map(r => ({
-        user_id: newUser.user.id,
-        role: r,
-        tenant_id: tenant_id
-      }))
-
       console.log('Roles to insert (formatted):', JSON.stringify(rolesToInsert, null, 2))
 
       const { error: roleError } = await supabaseAdmin
@@ -166,6 +173,7 @@ Deno.serve(async (req) => {
         throw new Error('Erro ao atribuir perfil: ' + roleError.message)
       }
 
+      const allRoles = rolesToInsert.map(r => r.role)
       console.log('Roles assigned successfully:', allRoles)
 
       return new Response(
@@ -175,7 +183,8 @@ Deno.serve(async (req) => {
             id: newUser.user.id,
             email: email,
             full_name: full_name,
-            role: role
+            role: role,
+            additional_roles: additional_roles || []
           }
         }),
         {
