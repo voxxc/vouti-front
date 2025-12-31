@@ -76,12 +76,13 @@ export const notifyTaskMovement = async (
 export const notifyTaskCreated = async (
   projectId: string,
   taskTitle: string,
-  createdBy: string
+  createdBy: string,
+  projectName: string
 ) => {
   await createProjectNotification(
     'task_created',
     'Nova Tarefa Criada',
-    `${createdBy} criou uma nova tarefa: "${taskTitle}"`,
+    `${createdBy} criou uma nova tarefa no projeto "${projectName}"`,
     projectId
   );
 };

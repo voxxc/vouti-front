@@ -386,7 +386,8 @@ const ProjectView = ({
         await notifyTaskCreated(
           project.id,
           newTask.title,
-          currentUser.name
+          currentUser.name,
+          project.name
         );
       }
 
