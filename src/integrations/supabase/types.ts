@@ -4523,7 +4523,9 @@ export type Database = {
           created_at: string
           details: string
           id: string
+          project_id: string | null
           task_id: string
+          task_title: string | null
           tenant_id: string | null
           user_id: string
         }
@@ -4532,7 +4534,9 @@ export type Database = {
           created_at?: string
           details: string
           id?: string
+          project_id?: string | null
           task_id: string
+          task_title?: string | null
           tenant_id?: string | null
           user_id: string
         }
@@ -4541,11 +4545,20 @@ export type Database = {
           created_at?: string
           details?: string
           id?: string
+          project_id?: string | null
           task_id?: string
+          task_title?: string | null
           tenant_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_history_task_id_fkey"
             columns: ["task_id"]

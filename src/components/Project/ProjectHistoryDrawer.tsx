@@ -25,6 +25,7 @@ interface HistoryEntry {
   action: string;
   details: string;
   created_at: string;
+  user_id: string;
   user_name: string;
   task_title: string;
 }
@@ -33,13 +34,13 @@ interface ProjectHistoryDrawerProps {
   projectId: string;
   isOpen: boolean;
   onClose: () => void;
-  refreshTrigger?: number;
 }
 
 const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   created: { icon: Plus, color: "text-green-500", label: "Criação" },
   moved: { icon: ArrowRight, color: "text-blue-500", label: "Movimento" },
   edited: { icon: Edit, color: "text-orange-500", label: "Edição" },
+  deleted: { icon: Trash2, color: "text-red-600", label: "Exclusão" },
   comment_added: { icon: MessageSquare, color: "text-purple-500", label: "Comentário" },
   comment_edited: { icon: MessageSquare, color: "text-purple-400", label: "Comentário editado" },
   comment_deleted: { icon: Trash2, color: "text-red-500", label: "Comentário excluído" },
@@ -50,7 +51,7 @@ const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; la
   tarefa_deleted: { icon: ListTodo, color: "text-red-400", label: "Tarefa excluída" },
 };
 
-const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: ProjectHistoryDrawerProps) => {
+const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDrawerProps) => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,28 +61,61 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: Pr
     if (isOpen) {
       loadHistory();
     }
-  }, [isOpen, projectId, refreshTrigger]);
+  }, [isOpen, projectId]);
+
+  // Realtime subscription para atualizações em tempo real
+  useEffect(() => {
+    if (!isOpen || !projectId) return;
+
+    const channel = supabase
+      .channel(`task-history-${projectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'task_history',
+          filter: `project_id=eq.${projectId}`
+        },
+        async (payload) => {
+          // Buscar nome do usuário para o novo registro
+          const newEntry = payload.new as any;
+          let userName = 'Usuário desconhecido';
+          
+          if (newEntry.user_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('user_id', newEntry.user_id)
+              .single();
+            userName = profile?.full_name || 'Usuário desconhecido';
+          }
+
+          const historyEntry: HistoryEntry = {
+            id: newEntry.id,
+            action: newEntry.action,
+            details: newEntry.details || '',
+            created_at: newEntry.created_at,
+            user_id: newEntry.user_id,
+            user_name: userName,
+            task_title: newEntry.task_title || 'Tarefa'
+          };
+
+          // Adicionar no topo da lista
+          setHistory(prev => [historyEntry, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, projectId]);
 
   const loadHistory = async () => {
     setLoading(true);
     try {
-      // Get all tasks from this project
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id, title')
-        .eq('project_id', projectId);
-
-      if (tasksError) throw tasksError;
-
-      if (!tasks || tasks.length === 0) {
-        setHistory([]);
-        return;
-      }
-
-      const taskIds = tasks.map(t => t.id);
-      const taskMap = new Map(tasks.map(t => [t.id, t.title]));
-
-      // Get history for these tasks
+      // Buscar histórico diretamente pelo project_id (não precisa mais buscar tasks primeiro)
       const { data: historyData, error: historyError } = await supabase
         .from('task_history')
         .select(`
@@ -90,9 +124,10 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: Pr
           details,
           created_at,
           user_id,
-          task_id
+          task_id,
+          task_title
         `)
-        .in('task_id', taskIds)
+        .eq('project_id', projectId)
         .order('created_at', { ascending: false })
         .limit(200);
 
@@ -104,7 +139,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: Pr
       }
 
       // Get unique user IDs
-      const userIds = [...new Set(historyData.map(h => h.user_id))];
+      const userIds = [...new Set(historyData.map(h => h.user_id).filter(Boolean))];
 
       // Get profiles for these users
       const { data: profiles, error: profilesError } = await supabase
@@ -122,8 +157,9 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: Pr
         action: h.action,
         details: h.details || '',
         created_at: h.created_at,
+        user_id: h.user_id,
         user_name: profileMap.get(h.user_id) || 'Usuário desconhecido',
-        task_title: taskMap.get(h.task_id) || 'Tarefa removida'
+        task_title: h.task_title || 'Tarefa removida'
       }));
 
       setHistory(combinedHistory);
@@ -159,6 +195,8 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: Pr
         return details || `Moveu o card "${task_title}"`;
       case 'edited':
         return details || `Editou o card "${task_title}"`;
+      case 'deleted':
+        return details || `Excluiu o card "${task_title}"`;
       case 'comment_added':
         return `Comentou no card "${task_title}"`;
       case 'comment_edited':
@@ -220,6 +258,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: Pr
                 <SelectItem value="created">Criação</SelectItem>
                 <SelectItem value="moved">Movimento</SelectItem>
                 <SelectItem value="edited">Edição</SelectItem>
+                <SelectItem value="deleted">Exclusão</SelectItem>
                 <SelectItem value="comment_added">Comentários</SelectItem>
                 <SelectItem value="file_uploaded">Arquivos</SelectItem>
                 <SelectItem value="tarefa_added">Tarefas</SelectItem>
