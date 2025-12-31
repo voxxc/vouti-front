@@ -29,25 +29,25 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const { navigate } = useTenantNavigation();
-  const { userRole } = useAuth();
+  const { userRoles = [] } = useAuth();
 
-  const currentUserRole = (userRole as string) || 'advogado';
+  // Mapeamento de seções para roles que têm acesso
+  const sectionRoleMap: Record<string, string[]> = {
+    'projetos': ['advogado'],
+    'agenda': ['advogado', 'controller', 'agenda'],
+    'clientes': ['comercial'],
+    'financeiro': ['financeiro'],
+    'controladoria': ['advogado', 'controller'],
+    'reunioes': ['comercial', 'agenda'],
+  };
 
   const hasAccess = (section: string) => {
-    if (!currentUserRole) return false;
-    if (currentUserRole === 'admin') return true;
+    // Admin tem acesso a tudo
+    if (userRoles.includes('admin')) return true;
     
-    if (currentUserRole === 'agenda') {
-      return section === 'reunioes';
-    }
-    
-    if (section === 'projetos' && (currentUserRole === 'advogado')) return true;
-    if (section === 'agenda' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
-    if (section === 'clientes' && (currentUserRole === 'comercial')) return true;
-    if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
-    if (section === 'controladoria' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
-    if (section === 'reunioes' && (currentUserRole === 'comercial' || currentUserRole === 'agenda')) return true;
-    return false;
+    // Verificar se QUALQUER role do usuário dá acesso à seção
+    const allowedRoles = sectionRoleMap[section] || [];
+    return userRoles.some(role => allowedRoles.includes(role));
   };
 
   const menuItems = [
