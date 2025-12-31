@@ -61,6 +61,7 @@ const Agenda = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [filteredUserDeadlines, setFilteredUserDeadlines] = useState<Deadline[]>([]);
   const [completedFilterUserId, setCompletedFilterUserId] = useState<string | null>(null);
+  const [confirmCompleteDeadlineId, setConfirmCompleteDeadlineId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Funcao helper para parsear data com seguranca
@@ -467,9 +468,16 @@ const Agenda = () => {
     }
   };
 
-  const handleCompleteDeadline = async (deadline: Deadline) => {
+  const handleConfirmComplete = async () => {
+    if (!confirmCompleteDeadlineId) return;
+    
+    const deadline = deadlines.find(d => d.id === confirmCompleteDeadlineId);
+    if (!deadline) return;
+    
     await toggleDeadlineCompletion(deadline.id);
     await createClientHistory(deadline, 'deadline_completed');
+    
+    setConfirmCompleteDeadlineId(null);
     setIsDetailDialogOpen(false);
     
     toast({
@@ -805,7 +813,11 @@ const Agenda = () => {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleDeadlineCompletion(deadline.id);
+                            if (!deadline.completed) {
+                              setConfirmCompleteDeadlineId(deadline.id);
+                            } else {
+                              toggleDeadlineCompletion(deadline.id);
+                            }
                           }}
                           className={deadline.completed ? "text-green-600" : "text-muted-foreground"}
                         >
@@ -1206,7 +1218,7 @@ const Agenda = () => {
                     <div className="flex gap-2 pt-4">
                       {!selectedDeadline.completed && (
                         <Button 
-                          onClick={() => handleCompleteDeadline(selectedDeadline)}
+                          onClick={() => setConfirmCompleteDeadlineId(selectedDeadline.id)}
                           className="flex-1"
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -1244,6 +1256,28 @@ const Agenda = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* AlertDialog de confirmação para concluir prazo */}
+        <AlertDialog 
+          open={!!confirmCompleteDeadlineId} 
+          onOpenChange={(open) => !open && setConfirmCompleteDeadlineId(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja marcar este prazo como concluído? 
+                Essa ação será registrada no histórico do cliente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmComplete}>
+                Confirmar Conclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
