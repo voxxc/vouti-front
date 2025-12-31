@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
-type UserRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
+type UserRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes';
 
 interface AuthContextType {
   user: User | null;
@@ -75,15 +75,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('[AuthContext] Fetching role for user:', userId);
       
-      // Fetch role
-      const { data: roleData, error: roleError } = await supabase
+      // Primeiro buscar o tenant_id do profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('[AuthContext] Error fetching user profile:', profileError);
+        setTenantId(null);
+      } else {
+        setTenantId(profileData?.tenant_id || null);
+        console.log('[AuthContext] Tenant ID:', profileData?.tenant_id);
+      }
+      
+      const userTenantId = profileData?.tenant_id;
+      
+      // Buscar roles filtrando por tenant_id se disponível
+      let roleQuery = supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
+      
+      if (userTenantId) {
+        roleQuery = roleQuery.eq('tenant_id', userTenantId);
+      }
+      
+      const { data: roleData, error: roleError } = await roleQuery;
 
       if (roleError) {
         console.error('[AuthContext] Error fetching user role:', roleError);
         setUserRole('advogado');
+        setUserRoles(['advogado']);
       } else if (!roleData || roleData.length === 0) {
         console.warn('[AuthContext] No roles found for user, defaulting to advogado');
         setUserRole('advogado');
@@ -98,10 +122,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         // Se há múltiplos roles, pegar o de maior privilégio para userRole principal
         const rolePriority: Record<string, number> = {
-          'admin': 6,
-          'controller': 5,
-          'financeiro': 4,
-          'comercial': 3,
+          'admin': 7,
+          'controller': 6,
+          'financeiro': 5,
+          'comercial': 4,
+          'reunioes': 3,
           'agenda': 2,
           'advogado': 1
         };
@@ -116,19 +141,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUserRole(highestRole.role as UserRole);
       }
 
-      // Fetch tenant from profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching user tenant:', profileError);
-        setTenantId(null);
-      } else {
-        setTenantId(profileData?.tenant_id || null);
-      }
+      // Tenant já foi buscado no início da função
     } catch (error) {
       console.error('[AuthContext] Critical error in fetchUserRoleAndTenant:', error);
       setUserRole('advogado');
