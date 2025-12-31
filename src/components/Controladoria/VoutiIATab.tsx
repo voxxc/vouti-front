@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Sparkles, RefreshCw, AlertCircle, FileText, Loader2, Power, Zap } from 'lucide-react';
+import { Bot, Sparkles, RefreshCw, AlertCircle, Loader2, Power, Zap } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useVoutiIA } from '@/hooks/useVoutiIA';
@@ -155,17 +155,10 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
                 />
               </div>
 
-              {aiSummaryData && (
-                <SummarySection
-                  title="Informações da geração"
-                  icon={<FileText className="h-4 w-4 text-muted-foreground" />}
-                >
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Gerado em: {new Date(aiSummaryData.generated_at).toLocaleString('pt-BR')}</p>
-                    <p>Movimentações analisadas: {aiSummaryData.movimentacoes_analisadas}</p>
-                    <p>Modelo: {aiSummaryData.model}</p>
-                  </div>
-                </SummarySection>
+              {aiSummaryData?.generated_at && (
+                <div className="text-xs text-muted-foreground text-right pt-2 border-t">
+                  Atualizado em: {new Date(aiSummaryData.generated_at).toLocaleString('pt-BR')}
+                </div>
               )}
             </div>
           ) : (
@@ -208,9 +201,6 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
                 <li>Situação atual do processo</li>
                 <li>Pontos de atenção para o advogado</li>
               </ul>
-              <p className="text-amber-600 dark:text-amber-400 font-medium">
-                ⚠️ Esta ação consome créditos de IA do seu workspace.
-              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -244,23 +234,6 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
     </div>
   );
 };
-
-// Componente auxiliar
-interface SummarySectionProps {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}
-
-const SummarySection: React.FC<SummarySectionProps> = ({ title, icon, children }) => (
-  <div className="border rounded-lg p-3">
-    <div className="flex items-center gap-2 mb-2">
-      {icon}
-      <span className="text-sm font-medium">{title}</span>
-    </div>
-    {children}
-  </div>
-);
 
 // Função para formatar markdown simples em HTML
 function formatSummaryToHtml(summary: string): string {
