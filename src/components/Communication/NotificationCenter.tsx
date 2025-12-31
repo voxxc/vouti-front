@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CheckCheck, Scale } from 'lucide-react';
+import { Bell, CheckCheck, Scale, FolderPlus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -64,6 +64,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return <span className="text-lg">💬</span>;
       case 'andamento_processo':
         return <Scale className="h-5 w-5 text-primary" />;
+      case 'project_added':
+        return <FolderPlus className="h-5 w-5 text-green-600" />;
+      case 'deadline_assigned':
+      case 'deadline_tagged':
+        return <Calendar className="h-5 w-5 text-orange-500" />;
       default:
         return <span className="text-lg">📢</span>;
     }

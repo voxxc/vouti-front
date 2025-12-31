@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProjectParticipantsProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { tenantId } = useTenantId();
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     if (isOpen && tenantId) {
@@ -194,6 +196,19 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
       }
 
       console.log('[ProjectParticipants] Collaborator added successfully');
+
+      // Notificar o usuário que foi adicionado ao projeto
+      if (currentUser?.id && tenantId) {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          tenant_id: tenantId,
+          type: 'project_added',
+          title: 'Você foi adicionado a um projeto',
+          content: `Você foi adicionado como participante do projeto "${projectName}".`,
+          related_project_id: projectId,
+          triggered_by_user_id: currentUser.id,
+        });
+      }
 
       toast({
         title: "✓ Sucesso!",
