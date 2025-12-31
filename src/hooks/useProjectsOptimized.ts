@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useToast } from "@/hooks/use-toast";
-import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
+import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { calculateProjectProgress } from "@/utils/projectHelpers";
 import { KanbanColumn } from "@/types/project";
 
@@ -48,10 +48,10 @@ export const useProjectsOptimized = () => {
     projectsRef.current = projects;
   }, [projects]);
 
-  // Check admin status
-  const checkAdmin = useCallback(async () => {
+  // Check admin or controller status (both have full project access)
+  const checkAdminOrController = useCallback(async () => {
     if (!user) return false;
-    const result = await checkIfUserIsAdmin(user.id);
+    const result = await checkIfUserIsAdminOrController(user.id);
     setIsAdmin(result);
     isAdminRef.current = result;
     return result;
@@ -62,7 +62,7 @@ export const useProjectsOptimized = () => {
     if (!user) return;
 
     try {
-      const isAdminUser = await checkAdmin();
+      const hasFullAccess = await checkAdminOrController();
       
       let query = supabase
         .from('projects')
@@ -79,8 +79,8 @@ export const useProjectsOptimized = () => {
         `)
         .order('name', { ascending: true });
 
-      // Non-admin filter
-      if (!isAdminUser) {
+      // Non-admin/controller filter - only filter if user doesn't have full access
+      if (!hasFullAccess) {
         const { data: collaboratorProjects } = await supabase
           .from('project_collaborators')
           .select('project_id')
@@ -121,7 +121,7 @@ export const useProjectsOptimized = () => {
       setIsBasicLoaded(true);
       return [];
     }
-  }, [user, checkAdmin, toast]);
+  }, [user, checkAdminOrController, toast]);
 
   // Phase 2: Load details in background
   const fetchProjectDetails = useCallback(async (projectIds: string[]) => {
