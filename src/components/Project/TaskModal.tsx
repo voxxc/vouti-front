@@ -42,12 +42,13 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateTask: (task: Task) => void;
+  onRefreshTask?: (task: Task) => void;
   currentUser?: User;
   projectId?: string;
   columnName?: string;
 }
 
-const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId, columnName }: TaskModalProps) => {
+const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, currentUser, projectId, columnName }: TaskModalProps) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
@@ -199,7 +200,12 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         }))
       };
 
-      onUpdateTask(updatedTask);
+      // Usar onRefreshTask para apenas atualizar estado local sem registrar histórico
+      if (onRefreshTask) {
+        onRefreshTask(updatedTask);
+      } else {
+        onUpdateTask(updatedTask);
+      }
     } catch (error) {
       console.error('Error loading task data:', error);
     }
