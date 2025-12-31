@@ -34,7 +34,7 @@ import {
   Phone,
   ChevronDown,
   Loader2,
-  Sparkles
+  Plus
 } from 'lucide-react';
 import LogoVouti from '@/components/LogoVouti';
 
@@ -581,7 +581,7 @@ const HomePage = () => {
 
                   {plan.showMore && (
                     <div className="flex items-center justify-center gap-2 text-[10px] sm:text-sm text-cyan-400 mb-4">
-                      <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                       E muito mais...
                     </div>
                   )}
