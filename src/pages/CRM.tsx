@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Layout, Edit, Trash2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Search, Plus, User, Phone, Mail, Calendar, Building, FileText, DollarSign, TrendingUp, Clock, CheckCircle2, Layout, Edit, Trash2, AlertCircle, Bot } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -297,7 +297,16 @@ const CRM = () => {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
             <TabsTrigger value="captacao">CAPTAÇÃO</TabsTrigger>
-            <TabsTrigger value="whatsapp">WhatsApp Bot</TabsTrigger>
+            <TabsTrigger 
+              value="whatsapp" 
+              disabled 
+              className="opacity-60 cursor-not-allowed"
+            >
+              WhatsApp Bot
+              <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">
+                Em breve
+              </Badge>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="clientes" className="space-y-4">
@@ -461,7 +470,25 @@ const CRM = () => {
           </TabsContent>
 
           <TabsContent value="whatsapp">
-            <WhatsAppBot />
+            <Card className="border-dashed border-2 border-muted">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                <div className="p-4 bg-muted/50 rounded-full">
+                  <Bot className="h-12 w-12 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-foreground">
+                    WhatsApp Bot - Em Desenvolvimento
+                  </h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Estamos trabalhando para trazer uma integração completa com WhatsApp Business. 
+                    Em breve você poderá automatizar conversas, criar respostas automáticas e muito mais.
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-sm px-4 py-1">
+                  🚧 Aguarde novidades
+                </Badge>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
