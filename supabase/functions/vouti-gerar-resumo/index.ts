@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,16 +23,16 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY não configurada");
+    const JUDIT_API_KEY = Deno.env.get("JUDIT_API_KEY");
+    if (!JUDIT_API_KEY) {
+      console.error("JUDIT_API_KEY não configurada");
       return new Response(
-        JSON.stringify({ error: "Configuração de IA não encontrada" }),
+        JSON.stringify({ error: "Configuração não encontrada" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Criar cliente Supabase com service role para acessar dados
+    // Criar cliente Supabase
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -38,7 +40,7 @@ serve(async (req) => {
     // Buscar dados do processo
     const { data: processo, error: processoError } = await supabase
       .from("processos_oab")
-      .select("*")
+      .select("id, numero_cnj, tenant_id")
       .eq("id", processo_oab_id)
       .single();
 
@@ -50,132 +52,145 @@ serve(async (req) => {
       );
     }
 
-    // Buscar movimentações do processo
-    const { data: movimentacoes } = await supabase
-      .from("processo_movimentacoes")
-      .select("data, descricao, tipo")
-      .eq("processo_id", processo_oab_id)
-      .order("data", { ascending: false })
-      .limit(20);
-
-    // Montar contexto para a IA
-    const contextoParts = [];
-
-    // Informações básicas do processo
-    contextoParts.push(`PROCESSO: ${processo.numero_processo || processo.numero_cnj || "Sem número"}`);
-    
-    if (processo.tribunal) contextoParts.push(`Tribunal: ${processo.tribunal}`);
-    if (processo.classe) contextoParts.push(`Classe: ${processo.classe}`);
-    if (processo.assuntos) contextoParts.push(`Assuntos: ${JSON.stringify(processo.assuntos)}`);
-    if (processo.valor_causa) contextoParts.push(`Valor da Causa: R$ ${processo.valor_causa}`);
-    
-    // Partes
-    if (processo.partes && Array.isArray(processo.partes)) {
-      const partesAtivas = processo.partes.filter((p: any) => p.polo === "ATIVO" || p.polo === "ativo");
-      const partesPassivas = processo.partes.filter((p: any) => p.polo === "PASSIVO" || p.polo === "passivo");
-      
-      if (partesAtivas.length > 0) {
-        contextoParts.push(`Polo Ativo: ${partesAtivas.map((p: any) => p.nome).join(", ")}`);
-      }
-      if (partesPassivas.length > 0) {
-        contextoParts.push(`Polo Passivo: ${partesPassivas.map((p: any) => p.nome).join(", ")}`);
-      }
+    if (!processo.numero_cnj) {
+      return new Response(
+        JSON.stringify({ error: "Processo sem número CNJ" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Movimentações recentes
-    if (movimentacoes && movimentacoes.length > 0) {
-      contextoParts.push("\nÚLTIMAS MOVIMENTAÇÕES:");
-      movimentacoes.slice(0, 10).forEach((m: any) => {
-        const data = m.data ? new Date(m.data).toLocaleDateString("pt-BR") : "Sem data";
-        contextoParts.push(`- [${data}] ${m.descricao?.substring(0, 200) || "Sem descrição"}`);
-      });
-    }
+    const numeroCnj = processo.numero_cnj.replace(/\D/g, "");
+    console.log("Solicitando resumo IA para CNJ:", numeroCnj);
 
-    const contexto = contextoParts.join("\n");
-
-    console.log("Gerando resumo para processo:", processo_oab_id);
-    console.log("Contexto montado com", contextoParts.length, "partes");
-
-    // Chamar Lovable AI Gateway
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Fazer POST para a API Judit
+    const postResponse = await fetch("https://requests.prod.judit.io/requests", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
+        "api-key": JUDIT_API_KEY,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `Você é um assistente jurídico especializado em análise de processos judiciais brasileiros.
-Sua tarefa é analisar os dados do processo e gerar um resumo executivo claro e objetivo.
-
-O resumo deve conter:
-1. **Síntese do Caso**: Um parágrafo resumindo do que se trata o processo
-2. **Partes Envolvidas**: Quem são os litigantes e seus papéis
-3. **Situação Atual**: Status atual do processo baseado nas últimas movimentações
-4. **Pontos de Atenção**: Alertas ou itens que requerem ação do advogado
-
-Use linguagem profissional e objetiva. Seja conciso mas completo.
-Formate usando markdown para melhor legibilidade.`,
-          },
-          {
-            role: "user",
-            content: `Analise o seguinte processo e gere um resumo executivo:\n\n${contexto}`,
-          },
-        ],
+        search: {
+          search_type: "lawsuit_cnj",
+          search_key: numeroCnj,
+          response_type: "lawsuit+summary",
+        },
       }),
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("Erro na API de IA:", aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos de IA esgotados. Entre em contato com o suporte." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
+    if (!postResponse.ok) {
+      const errorText = await postResponse.text();
+      console.error("Erro ao solicitar processo na Judit:", postResponse.status, errorText);
       return new Response(
-        JSON.stringify({ error: "Erro ao gerar resumo com IA" }),
+        JSON.stringify({ error: "Erro ao solicitar dados do processo" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiData = await aiResponse.json();
-    const resumo = aiData.choices?.[0]?.message?.content;
+    const postData = await postResponse.json();
+    const requestId = postData.request_id;
 
-    if (!resumo) {
-      console.error("Resposta da IA sem conteúdo:", aiData);
+    if (!requestId) {
+      console.error("Resposta da Judit sem request_id:", postData);
       return new Response(
-        JSON.stringify({ error: "IA não retornou um resumo válido" }),
+        JSON.stringify({ error: "Resposta inválida do serviço" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Request ID obtido:", requestId);
+
+    // Polling para obter a resposta
+    let summaryData = null;
+    const maxAttempts = 30;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      await sleep(2000);
+
+      console.log(`Tentativa ${attempts}/${maxAttempts} de obter resposta...`);
+
+      const getResponse = await fetch(
+        `https://requests.prod.judit.io/responses?request_id=${requestId}`,
+        {
+          headers: {
+            "api-key": JUDIT_API_KEY,
+          },
+        }
+      );
+
+      if (!getResponse.ok) {
+        console.error("Erro ao consultar resposta:", getResponse.status);
+        continue;
+      }
+
+      const getData = await getResponse.json();
+      const pageData = getData.page_data || [];
+
+      // Procurar pelo response_type === 'summary'
+      for (const item of pageData) {
+        if (item.response_type === "summary") {
+          summaryData = item.response_data;
+          console.log("Summary encontrado!");
+          break;
+        }
+      }
+
+      if (summaryData) break;
+
+      // Se não encontrou summary mas tem dados, pode ser que ainda está processando
+      if (pageData.length === 0) {
+        console.log("Ainda sem dados, aguardando...");
+      }
+    }
+
+    if (!summaryData) {
+      console.error("Timeout ao aguardar resumo da Judit");
+      return new Response(
+        JSON.stringify({ error: "Timeout ao gerar resumo. Tente novamente." }),
+        { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Extrair o resumo do summaryData
+    // A estrutura pode variar, tentamos algumas possibilidades
+    let aiSummary = "";
+    
+    if (typeof summaryData === "string") {
+      aiSummary = summaryData;
+    } else if (summaryData.summary) {
+      aiSummary = summaryData.summary;
+    } else if (summaryData.data && Array.isArray(summaryData.data) && summaryData.data.length > 0) {
+      aiSummary = summaryData.data[0];
+    } else if (summaryData.text) {
+      aiSummary = summaryData.text;
+    } else {
+      // Tentar converter o objeto inteiro para string legível
+      aiSummary = JSON.stringify(summaryData, null, 2);
+    }
+
+    if (!aiSummary) {
+      console.error("Não foi possível extrair resumo:", summaryData);
+      return new Response(
+        JSON.stringify({ error: "Resumo não disponível" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Dados estruturados para salvar
-    const summaryData = {
+    const aiSummaryData = {
       generated_at: new Date().toISOString(),
-      model: "google/gemini-2.5-flash",
-      movimentacoes_analisadas: movimentacoes?.length || 0,
-      processo_numero: processo.numero_processo || processo.numero_cnj,
+      request_id: requestId,
+      source: "judit",
     };
 
     // Salvar resumo no processo
     const { error: updateError } = await supabase
       .from("processos_oab")
       .update({
-        ai_summary: resumo,
-        ai_summary_data: summaryData,
+        ai_summary: aiSummary,
+        ai_summary_data: aiSummaryData,
         ai_enabled: true,
       })
       .eq("id", processo_oab_id);
@@ -183,7 +198,7 @@ Formate usando markdown para melhor legibilidade.`,
     if (updateError) {
       console.error("Erro ao salvar resumo:", updateError);
       return new Response(
-        JSON.stringify({ error: "Erro ao salvar resumo no banco de dados" }),
+        JSON.stringify({ error: "Erro ao salvar resumo" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -193,8 +208,8 @@ Formate usando markdown para melhor legibilidade.`,
     return new Response(
       JSON.stringify({
         success: true,
-        ai_summary: resumo,
-        ai_summary_data: summaryData,
+        ai_summary: aiSummary,
+        ai_summary_data: aiSummaryData,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
