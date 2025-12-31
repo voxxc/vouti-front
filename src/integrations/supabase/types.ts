@@ -3294,6 +3294,7 @@ export type Database = {
       }
       processos_oab: {
         Row: {
+          ai_enabled: boolean | null
           ai_summary: string | null
           ai_summary_data: Json | null
           capa_completa: Json | null
@@ -3325,6 +3326,7 @@ export type Database = {
           valor_causa: number | null
         }
         Insert: {
+          ai_enabled?: boolean | null
           ai_summary?: string | null
           ai_summary_data?: Json | null
           capa_completa?: Json | null
@@ -3356,6 +3358,7 @@ export type Database = {
           valor_causa?: number | null
         }
         Update: {
+          ai_enabled?: boolean | null
           ai_summary?: string | null
           ai_summary_data?: Json | null
           capa_completa?: Json | null
