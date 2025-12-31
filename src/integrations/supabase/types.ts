@@ -4527,7 +4527,7 @@ export type Database = {
           details: string
           id: string
           project_id: string | null
-          task_id: string
+          task_id: string | null
           task_title: string | null
           tenant_id: string | null
           user_id: string
@@ -4538,7 +4538,7 @@ export type Database = {
           details: string
           id?: string
           project_id?: string | null
-          task_id: string
+          task_id?: string | null
           task_title?: string | null
           tenant_id?: string | null
           user_id: string
@@ -4549,7 +4549,7 @@ export type Database = {
           details?: string
           id?: string
           project_id?: string | null
-          task_id?: string
+          task_id?: string | null
           task_title?: string | null
           tenant_id?: string | null
           user_id?: string
