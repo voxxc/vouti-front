@@ -33,7 +33,8 @@ import {
   Mail,
   Phone,
   ChevronDown,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import LogoVouti from '@/components/LogoVouti';
 
@@ -188,7 +189,9 @@ const HomePage = () => {
       processes: 30, 
       usersLabel: '1 usuário',
       oabLabel: 'Até 1 OAB cadastrada',
-      popular: false 
+      popular: false,
+      showMore: false,
+      unlimitedProcesses: false
     },
     { 
       name: 'Essencial', 
@@ -196,7 +199,9 @@ const HomePage = () => {
       processes: 100, 
       usersLabel: '3 usuários',
       oabLabel: 'Até 2 OABs cadastradas',
-      popular: false 
+      popular: false,
+      showMore: false,
+      unlimitedProcesses: false
     },
     { 
       name: 'Estrutura', 
@@ -204,7 +209,9 @@ const HomePage = () => {
       processes: 200, 
       usersLabel: '10 usuários',
       oabLabel: 'Até 3 OABs cadastradas',
-      popular: true
+      popular: true,
+      showMore: true,
+      unlimitedProcesses: true
     },
     { 
       name: 'Expansão', 
@@ -212,7 +219,9 @@ const HomePage = () => {
       processes: 400, 
       usersLabel: 'Usuários ilimitados',
       oabLabel: 'OABs personalizado',
-      popular: false 
+      popular: false,
+      showMore: true,
+      unlimitedProcesses: true
     },
     { 
       name: 'Enterprise', 
@@ -220,7 +229,9 @@ const HomePage = () => {
       processes: 800, 
       usersLabel: 'Usuários ilimitados',
       oabLabel: 'OABs personalizado',
-      popular: false 
+      popular: false,
+      showMore: true,
+      unlimitedProcesses: true
     },
   ];
 
@@ -535,10 +546,13 @@ const HomePage = () => {
                     {plan.usersLabel}
                   </div>
 
-                  <ul className="space-y-2 text-left mb-6">
+                  <ul className="space-y-2 text-left mb-4">
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                      Monitoramento Diário de até {plan.processes} processos
+                      {plan.unlimitedProcesses 
+                        ? `Até ${plan.processes} processos ou ilimitados`
+                        : `Monitoramento Diário de até ${plan.processes} processos`
+                      }
                     </li>
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
@@ -562,7 +576,14 @@ const HomePage = () => {
                     </li>
                   </ul>
 
-                  <Button 
+                  {plan.showMore && (
+                    <div className="flex items-center justify-center gap-2 text-[10px] sm:text-sm text-cyan-400 mb-4">
+                      <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                      E muito mais...
+                    </div>
+                  )}
+
+                  <Button
                     onClick={scrollToDemo}
                     size="sm"
                     className={`w-full ${
