@@ -162,53 +162,106 @@ serve(async (req) => {
 
       console.log('[Judit Consultar] Processando CNJ:', numeroCnj);
 
-      // Processar parties de forma mais precisa usando person_type
+      // Processar parties com lógica melhorada (suporte a 'side', 2ª instância, fallbacks)
       let parteAtiva = '';
       let partePassiva = '';
       const advogados: string[] = [];
+      const parties = responseData.parties || [];
 
-      if (responseData.parties && responseData.parties.length > 0) {
-        for (const parte of responseData.parties) {
-          const nome = parte.name || '';
-          const tipo = (parte.person_type || '').toUpperCase();
-          
-          if (tipo === 'ATIVO' || tipo === 'AUTOR') {
-            if (!parteAtiva) parteAtiva = nome;
-          } else if (tipo === 'PASSIVO' || tipo === 'REU' || tipo === 'RÉU') {
-            if (!partePassiva) partePassiva = nome;
-          } else if (tipo === 'ADVOGADO') {
-            const oabDoc = parte.documents?.find((d: { document_type?: string }) => 
-              d.document_type?.toLowerCase() === 'oab'
-            );
-            const oabNum = oabDoc?.document || '';
-            const advStr = oabNum ? `${nome} (OAB ${oabNum})` : nome;
-            if (!advogados.includes(advStr)) {
-              advogados.push(advStr);
-            }
-          }
-          
-          // Tambem extrair advogados que estao como lawyers dentro de cada parte
-          if (parte.lawyers && parte.lawyers.length > 0) {
-            for (const advogado of parte.lawyers) {
-              const advNome = advogado.name || '';
-              const oabDoc = advogado.documents?.find((d: { document_type?: string }) => 
-                d.document_type?.toLowerCase() === 'oab'
-              );
-              const oabNum = oabDoc?.document || '';
-              const advStr = oabNum ? `${advNome} (OAB ${oabNum})` : advNome;
-              if (advStr && !advogados.includes(advStr)) {
-                advogados.push(advStr);
-              }
-            }
-          }
-        }
+      // Identificar autores/parte ativa
+      const autores = parties
+        .filter((p: any) => {
+          const tipo = (p.person_type || p.tipo || '').toUpperCase();
+          const side = (p.side || '').toLowerCase();
+          const papel = (p.role || p.papel || '').toLowerCase();
+          return side === 'active' || side === 'plaintiff' || side === 'author' ||
+                 tipo.includes('ATIVO') || tipo.includes('AUTOR') || tipo.includes('REQUERENTE') || tipo.includes('EXEQUENTE') ||
+                 papel.includes('autor') || papel.includes('requerente') || papel.includes('ativo');
+        })
+        .map((p: any) => p.name || p.nome)
+        .filter(Boolean);
+      
+      // Identificar réus/parte passiva
+      const reus = parties
+        .filter((p: any) => {
+          const tipo = (p.person_type || p.tipo || '').toUpperCase();
+          const side = (p.side || '').toLowerCase();
+          const papel = (p.role || p.papel || '').toLowerCase();
+          return side === 'passive' || side === 'defendant' ||
+                 tipo.includes('PASSIVO') || tipo.includes('REU') || tipo.includes('RÉU') || tipo.includes('REQUERIDO') || tipo.includes('EXECUTADO') ||
+                 papel.includes('réu') || papel.includes('reu') || papel.includes('requerido') || papel.includes('passivo');
+        })
+        .map((p: any) => p.name || p.nome)
+        .filter(Boolean);
+      
+      // Identificar interessados (comum em 2ª instância)
+      const interessados = parties
+        .filter((p: any) => {
+          const side = (p.side || '').toLowerCase();
+          const tipo = (p.person_type || p.tipo || '').toUpperCase();
+          return side === 'interested' || side === 'third_party' || 
+                 tipo.includes('INTERESSADO') || tipo.includes('TERCEIRO');
+        })
+        .map((p: any) => p.name || p.nome)
+        .filter(Boolean);
+      
+      parteAtiva = autores.length > 0 ? autores.join(' e ') : '';
+      partePassiva = reus.length > 0 ? reus.join(' e ') : '';
+      
+      // Fallback 1: Se não encontrou autor/réu mas tem interessado
+      if (!parteAtiva && !partePassiva && interessados.length > 0) {
+        parteAtiva = interessados.join(' e ');
+        partePassiva = '(Parte interessada - processo recursal)';
       }
-
-      // Fallback para o campo name se parties nao tiver dados de autor/reu
+      
+      // Fallback 2: Campo "name" com padrão " X "
       if (!parteAtiva && !partePassiva && responseData.name && responseData.name.includes(' X ')) {
         const partesNome = responseData.name.split(' X ');
         parteAtiva = partesNome[0]?.trim() || '';
         partePassiva = partesNome[1]?.trim() || '';
+      }
+      
+      // Fallback 3: Campo "name" direto para processos de 2ª instância
+      const instance = responseData.instance || responseData.instancia;
+      if (!parteAtiva && !partePassiva && responseData.name && instance && instance >= 2) {
+        parteAtiva = responseData.name;
+        partePassiva = '(Processo de 2ª instância)';
+      }
+      
+      // Fallback 4: Se ainda não tem partes mas tem "name"
+      if (!parteAtiva && !partePassiva && responseData.name && !responseData.name.includes(' X ')) {
+        parteAtiva = responseData.name;
+      }
+      
+      // Extrair advogados
+      for (const parte of parties) {
+        const tipo = (parte.person_type || parte.tipo || '').toUpperCase();
+        
+        if (tipo.includes('ADVOGADO')) {
+          const oabDoc = parte.documents?.find((d: { document_type?: string }) => 
+            d.document_type?.toLowerCase() === 'oab'
+          );
+          const oabNum = oabDoc?.document || '';
+          const nome = parte.name || '';
+          const advStr = oabNum ? `${nome} (OAB ${oabNum})` : nome;
+          if (advStr && !advogados.includes(advStr)) {
+            advogados.push(advStr);
+          }
+        }
+        
+        if (parte.lawyers && parte.lawyers.length > 0) {
+          for (const advogado of parte.lawyers) {
+            const advNome = advogado.name || '';
+            const oabDoc = advogado.documents?.find((d: { document_type?: string }) => 
+              d.document_type?.toLowerCase() === 'oab'
+            );
+            const oabNum = oabDoc?.document || '';
+            const advStr = oabNum ? `${advNome} (OAB ${oabNum})` : advNome;
+            if (advStr && !advogados.includes(advStr)) {
+              advogados.push(advStr);
+            }
+          }
+        }
       }
 
       // Extrair tribunal do array courts

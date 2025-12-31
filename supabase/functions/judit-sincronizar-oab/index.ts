@@ -224,27 +224,72 @@ serve(async (req) => {
         let parteAtiva = null;
         let partePassiva = null;
         
-        if (responseData.name && responseData.name.includes(' X ')) {
+        // Extrair partes com lógica melhorada (suporte a 'side', 2ª instância, fallbacks)
+        const parties = responseData.parties || [];
+        
+        // Identificar autores/parte ativa
+        const autores = parties
+          .filter((p: any) => {
+            const tipo = (p.person_type || p.tipo || '').toUpperCase();
+            const side = (p.side || '').toLowerCase();
+            const papel = (p.role || p.papel || '').toLowerCase();
+            return side === 'active' || side === 'plaintiff' || side === 'author' ||
+                   tipo.includes('ATIVO') || tipo.includes('AUTOR') || tipo.includes('REQUERENTE') || tipo.includes('EXEQUENTE') ||
+                   papel.includes('autor') || papel.includes('requerente') || papel.includes('ativo');
+          })
+          .map((p: any) => p.name || p.nome)
+          .filter(Boolean);
+        
+        // Identificar réus/parte passiva
+        const reus = parties
+          .filter((p: any) => {
+            const tipo = (p.person_type || p.tipo || '').toUpperCase();
+            const side = (p.side || '').toLowerCase();
+            const papel = (p.role || p.papel || '').toLowerCase();
+            return side === 'passive' || side === 'defendant' ||
+                   tipo.includes('PASSIVO') || tipo.includes('REU') || tipo.includes('RÉU') || tipo.includes('REQUERIDO') || tipo.includes('EXECUTADO') ||
+                   papel.includes('réu') || papel.includes('reu') || papel.includes('requerido') || papel.includes('passivo');
+          })
+          .map((p: any) => p.name || p.nome)
+          .filter(Boolean);
+        
+        // Identificar interessados (comum em 2ª instância)
+        const interessados = parties
+          .filter((p: any) => {
+            const side = (p.side || '').toLowerCase();
+            const tipo = (p.person_type || p.tipo || '').toUpperCase();
+            return side === 'interested' || side === 'third_party' || 
+                   tipo.includes('INTERESSADO') || tipo.includes('TERCEIRO');
+          })
+          .map((p: any) => p.name || p.nome)
+          .filter(Boolean);
+        
+        parteAtiva = autores.length > 0 ? autores.join(' e ') : null;
+        partePassiva = reus.length > 0 ? reus.join(' e ') : null;
+        
+        // Fallback 1: Se não encontrou autor/réu mas tem interessado
+        if (!parteAtiva && !partePassiva && interessados.length > 0) {
+          parteAtiva = interessados.join(' e ');
+          partePassiva = '(Parte interessada - processo recursal)';
+        }
+        
+        // Fallback 2: Campo "name" com padrão " X "
+        if (!parteAtiva && !partePassiva && responseData.name && responseData.name.includes(' X ')) {
           const partes = responseData.name.split(' X ');
           parteAtiva = partes[0]?.trim() || null;
           partePassiva = partes[1]?.trim() || null;
-        } else if (responseData.parties && Array.isArray(responseData.parties)) {
-          const autores = responseData.parties
-            .filter((p: any) => {
-              const tipo = (p.person_type || p.tipo || "").toUpperCase();
-              return tipo.includes("ATIVO") || tipo.includes("AUTOR") || tipo.includes("REQUERENTE");
-            })
-            .map((p: any) => p.name || p.nome);
-          
-          const reus = responseData.parties
-            .filter((p: any) => {
-              const tipo = (p.person_type || p.tipo || "").toUpperCase();
-              return tipo.includes("PASSIVO") || tipo.includes("REU") || tipo.includes("REQUERIDO");
-            })
-            .map((p: any) => p.name || p.nome);
-          
-          parteAtiva = autores.length > 0 ? autores.join(" e ") : null;
-          partePassiva = reus.length > 0 ? reus.join(" e ") : null;
+        }
+        
+        // Fallback 3: Campo "name" direto para processos de 2ª instância
+        const instance = responseData.instance || responseData.instancia;
+        if (!parteAtiva && !partePassiva && responseData.name && instance && instance >= 2) {
+          parteAtiva = responseData.name;
+          partePassiva = '(Processo de 2ª instância)';
+        }
+        
+        // Fallback 4: Se ainda não tem partes mas tem "name"
+        if (!parteAtiva && !partePassiva && responseData.name && !responseData.name.includes(' X ')) {
+          parteAtiva = responseData.name;
         }
         
         const tribunalInfo = responseData.courts?.[0] || {};
