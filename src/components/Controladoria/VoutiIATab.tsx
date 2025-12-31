@@ -38,38 +38,77 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
           <Bot className="h-5 w-5 text-primary" />
           <span className="font-medium">Vouti IA</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-            Resumo Automatico
+            Resumo Automático
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <Switch
-                id="ai-toggle"
-                checked={false}
-                disabled={true}
-                className="opacity-50 cursor-not-allowed"
-              />
-              <Label htmlFor="ai-toggle" className="text-sm cursor-not-allowed text-muted-foreground flex items-center gap-1">
-                <Power className="w-4 h-4" />
-                <span className="text-xs">(Em breve)</span>
-              </Label>
-            </div>
-          )}
-        </div>
+
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <Switch id="ai-toggle" checked={aiEnabled} onCheckedChange={toggleAiEnabled} />
+            <Label htmlFor="ai-toggle" className="text-sm text-muted-foreground flex items-center gap-1">
+              <Power className="w-4 h-4" />
+              <span className="text-xs">{aiEnabled ? 'Ativo' : 'Inativo'}</span>
+            </Label>
+          </div>
+        )}
       </div>
 
-      {/* Conteudo do Summary */}
+      {/* Conteúdo */}
       <ScrollArea className="flex-1 py-4">
-        <div className="px-1">
-          <div className="flex flex-col items-center justify-center h-48 text-center">
-            <Bot className="h-12 w-12 text-muted-foreground/30 mb-4" />
-            <h3 className="font-medium text-foreground mb-2">Vouti IA - Em breve</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              O resumo automatico de processos estara disponivel em breve.
-              Estamos trabalhando para trazer essa funcionalidade para voce.
-            </p>
-          </div>
+        <div className="px-1 space-y-4">
+          {!aiEnabled ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <AlertCircle className="h-10 w-10 text-muted-foreground/60 mb-3" />
+              <h3 className="font-medium text-foreground mb-1">Vouti IA desativada</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                A IA está desativada para este tenant. Um administrador pode ativar no topo desta aba.
+              </p>
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : aiSummary ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Resumo gerado</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={refreshSummary} disabled={isLoading}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Atualizar
+                </Button>
+              </div>
+
+              <div className="bg-card rounded-lg border p-4">
+                <div
+                  className="prose prose-sm max-w-none text-foreground"
+                  dangerouslySetInnerHTML={{ __html: formatSummaryToHtml(aiSummary) }}
+                />
+              </div>
+
+              {aiSummaryData && (
+                <SummarySection title="Dados estruturados" icon={<FileText className="h-4 w-4 text-muted-foreground" />}>
+                  <pre className="text-xs whitespace-pre-wrap text-muted-foreground">
+                    {JSON.stringify(aiSummaryData, null, 2)}
+                  </pre>
+                </SummarySection>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <Bot className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <h3 className="font-medium text-foreground mb-2">Nenhum resumo ainda</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                A IA está ativa, mas este processo ainda não possui um resumo salvo.
+              </p>
+              <Button className="mt-4" variant="outline" onClick={refreshSummary}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Recarregar
+              </Button>
+            </div>
+          )}
         </div>
       </ScrollArea>
     </div>
