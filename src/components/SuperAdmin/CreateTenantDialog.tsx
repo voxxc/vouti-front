@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { SystemType, TenantFormData } from '@/types/superadmin';
-import { Building2, User, Eye, EyeOff } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SystemType, TenantFormData, PlanoCodigo } from '@/types/superadmin';
+import { Building2, User, Eye, EyeOff, CreditCard, Info } from 'lucide-react';
 
 interface CreateTenantDialogProps {
   open: boolean;
@@ -13,6 +14,14 @@ interface CreateTenantDialogProps {
   systemType: SystemType | null;
   onSubmit: (data: TenantFormData) => Promise<void>;
 }
+
+const PLANOS_INFO: Record<PlanoCodigo, { nome: string; oabs: string; usuarios: string; processos: string; monitorados: string }> = {
+  solo: { nome: 'Solo', oabs: '1', usuarios: '1', processos: '30', monitorados: '30' },
+  essencial: { nome: 'Essencial', oabs: '3', usuarios: '3', processos: '100', monitorados: '100' },
+  estrutura: { nome: 'Estrutura', oabs: '10', usuarios: '10', processos: 'Ilimitado', monitorados: '200' },
+  expansao: { nome: 'Expansão', oabs: 'Personalizado', usuarios: 'Ilimitado', processos: 'Ilimitado', monitorados: '400' },
+  enterprise: { nome: 'Enterprise', oabs: 'Personalizado', usuarios: 'Ilimitado', processos: 'Ilimitado', monitorados: '800' },
+};
 
 export function CreateTenantDialog({
   open,
@@ -25,6 +34,8 @@ export function CreateTenantDialog({
     slug: '',
     email_domain: '',
     system_type_id: '',
+    plano: 'solo',
+    limite_oabs_personalizado: undefined,
     admin_email: '',
     admin_password: '',
     admin_name: '',
@@ -33,6 +44,9 @@ export function CreateTenantDialog({
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const planoNeedCustomOAB = formData.plano === 'expansao' || formData.plano === 'enterprise';
+  const planoInfo = PLANOS_INFO[formData.plano];
 
   useEffect(() => {
     if (systemType) {
@@ -82,6 +96,11 @@ export function CreateTenantDialog({
       newErrors.admin_password_confirm = 'As senhas não coincidem';
     }
 
+    // Validar limite de OABs para Expansão/Enterprise
+    if (planoNeedCustomOAB && (!formData.limite_oabs_personalizado || formData.limite_oabs_personalizado < 1)) {
+      newErrors.limite_oabs = 'Defina o limite de OABs para este plano';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,6 +122,8 @@ export function CreateTenantDialog({
         slug: '', 
         email_domain: '', 
         system_type_id: systemType?.id || '',
+        plano: 'solo',
+        limite_oabs_personalizado: undefined,
         admin_email: '',
         admin_password: '',
         admin_name: '',
@@ -182,6 +203,69 @@ export function CreateTenantDialog({
                 Usuários com este domínio serão associados automaticamente
               </p>
             </div>
+          </div>
+
+          <Separator />
+
+          {/* Seção: Plano */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
+              <CreditCard className="h-4 w-4" />
+              Plano
+            </h4>
+
+            <div className="space-y-2">
+              <Label htmlFor="plano">Selecione o Plano *</Label>
+              <Select 
+                value={formData.plano} 
+                onValueChange={(value: PlanoCodigo) => setFormData({ ...formData, plano: value, limite_oabs_personalizado: undefined })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="solo">Solo - R$ 99/mês</SelectItem>
+                  <SelectItem value="essencial">Essencial - R$ 200/mês</SelectItem>
+                  <SelectItem value="estrutura">Estrutura - R$ 400/mês</SelectItem>
+                  <SelectItem value="expansao">Expansão - R$ 600/mês</SelectItem>
+                  <SelectItem value="enterprise">Enterprise - R$ 1.000/mês</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Info do plano selecionado */}
+            <div className="p-3 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Limites do plano {planoInfo.nome}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div>OABs: <span className="font-medium text-foreground">{planoInfo.oabs}</span></div>
+                <div>Usuários: <span className="font-medium text-foreground">{planoInfo.usuarios}</span></div>
+                <div>Processos: <span className="font-medium text-foreground">{planoInfo.processos}</span></div>
+                <div>Monitorados: <span className="font-medium text-foreground">{planoInfo.monitorados}</span></div>
+              </div>
+            </div>
+
+            {/* Campo de limite personalizado para Expansão/Enterprise */}
+            {planoNeedCustomOAB && (
+              <div className="space-y-2">
+                <Label htmlFor="limite_oabs">Limite de OABs *</Label>
+                <Input
+                  id="limite_oabs"
+                  type="number"
+                  min="1"
+                  value={formData.limite_oabs_personalizado || ''}
+                  onChange={(e) => setFormData({ ...formData, limite_oabs_personalizado: parseInt(e.target.value) || undefined })}
+                  placeholder="Ex: 15"
+                  className={errors.limite_oabs ? 'border-destructive' : ''}
+                />
+                {errors.limite_oabs && <p className="text-xs text-destructive">{errors.limite_oabs}</p>}
+                <p className="text-xs text-muted-foreground">
+                  Defina manualmente o limite de OABs para este cliente
+                </p>
+              </div>
+            )}
           </div>
 
           <Separator />
