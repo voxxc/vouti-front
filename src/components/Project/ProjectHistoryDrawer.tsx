@@ -15,8 +15,10 @@ import {
   Upload, 
   ListTodo,
   Search,
-  History
+  History,
+  RefreshCw
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface HistoryEntry {
   id: string;
@@ -31,6 +33,7 @@ interface ProjectHistoryDrawerProps {
   projectId: string;
   isOpen: boolean;
   onClose: () => void;
+  refreshTrigger?: number;
 }
 
 const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
@@ -47,7 +50,7 @@ const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; la
   tarefa_deleted: { icon: ListTodo, color: "text-red-400", label: "Tarefa excluída" },
 };
 
-const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDrawerProps) => {
+const ProjectHistoryDrawer = ({ projectId, isOpen, onClose, refreshTrigger }: ProjectHistoryDrawerProps) => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +60,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
     if (isOpen) {
       loadHistory();
     }
-  }, [isOpen, projectId]);
+  }, [isOpen, projectId, refreshTrigger]);
 
   const loadHistory = async () => {
     setLoading(true);
@@ -184,6 +187,15 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
           <SheetTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
             Histórico do Projeto
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={loadHistory}
+              className="ml-auto h-8 w-8"
+              title="Atualizar histórico"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
           </SheetTitle>
         </SheetHeader>
 
