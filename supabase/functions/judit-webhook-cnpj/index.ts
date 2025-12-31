@@ -87,20 +87,74 @@ serve(async (req) => {
           continue;
         }
 
-        // Extrair partes do processo
+        // Extrair partes com lógica melhorada (suporte a 'side', 2ª instância, fallbacks)
         const partes = processo.parties || processo.partes || [];
         let parteAtiva = '';
         let partePassiva = '';
         
-        for (const parte of partes) {
-          const papel = (parte.role || parte.papel || '').toLowerCase();
-          const nome = parte.name || parte.nome || '';
-          
-          if (papel.includes('autor') || papel.includes('requerente') || papel.includes('exequente') || papel.includes('ativo')) {
-            parteAtiva = parteAtiva ? `${parteAtiva}, ${nome}` : nome;
-          } else if (papel.includes('reu') || papel.includes('requerido') || papel.includes('executado') || papel.includes('passivo')) {
-            partePassiva = partePassiva ? `${partePassiva}, ${nome}` : nome;
-          }
+        // Identificar autores/parte ativa
+        const autores = partes
+          .filter((p: any) => {
+            const tipo = (p.person_type || p.tipo || '').toUpperCase();
+            const side = (p.side || '').toLowerCase();
+            const papel = (p.role || p.papel || '').toLowerCase();
+            return side === 'active' || side === 'plaintiff' || side === 'author' ||
+                   tipo.includes('ATIVO') || tipo.includes('AUTOR') || tipo.includes('REQUERENTE') || tipo.includes('EXEQUENTE') ||
+                   papel.includes('autor') || papel.includes('requerente') || papel.includes('ativo');
+          })
+          .map((p: any) => p.name || p.nome)
+          .filter(Boolean);
+        
+        // Identificar réus/parte passiva
+        const reus = partes
+          .filter((p: any) => {
+            const tipo = (p.person_type || p.tipo || '').toUpperCase();
+            const side = (p.side || '').toLowerCase();
+            const papel = (p.role || p.papel || '').toLowerCase();
+            return side === 'passive' || side === 'defendant' ||
+                   tipo.includes('PASSIVO') || tipo.includes('REU') || tipo.includes('RÉU') || tipo.includes('REQUERIDO') || tipo.includes('EXECUTADO') ||
+                   papel.includes('réu') || papel.includes('reu') || papel.includes('requerido') || papel.includes('passivo');
+          })
+          .map((p: any) => p.name || p.nome)
+          .filter(Boolean);
+        
+        // Identificar interessados (comum em 2ª instância)
+        const interessados = partes
+          .filter((p: any) => {
+            const side = (p.side || '').toLowerCase();
+            const tipo = (p.person_type || p.tipo || '').toUpperCase();
+            return side === 'interested' || side === 'third_party' || 
+                   tipo.includes('INTERESSADO') || tipo.includes('TERCEIRO');
+          })
+          .map((p: any) => p.name || p.nome)
+          .filter(Boolean);
+        
+        parteAtiva = autores.length > 0 ? autores.join(' e ') : '';
+        partePassiva = reus.length > 0 ? reus.join(' e ') : '';
+        
+        // Fallback 1: Se não encontrou autor/réu mas tem interessado
+        if (!parteAtiva && !partePassiva && interessados.length > 0) {
+          parteAtiva = interessados.join(' e ');
+          partePassiva = '(Parte interessada - processo recursal)';
+        }
+        
+        // Fallback 2: Campo "name" com padrão " X "
+        if (!parteAtiva && !partePassiva && processo.name && processo.name.includes(' X ')) {
+          const partesName = processo.name.split(' X ');
+          parteAtiva = partesName[0]?.trim() || '';
+          partePassiva = partesName[1]?.trim() || '';
+        }
+        
+        // Fallback 3: Campo "name" direto para processos de 2ª instância
+        const instance = processo.instance || processo.instancia;
+        if (!parteAtiva && !partePassiva && processo.name && instance && instance >= 2) {
+          parteAtiva = processo.name;
+          partePassiva = '(Processo de 2ª instância)';
+        }
+        
+        // Fallback 4: Se ainda não tem partes mas tem "name"
+        if (!parteAtiva && !partePassiva && processo.name && !processo.name.includes(' X ')) {
+          parteAtiva = processo.name;
         }
 
         // Inserir novo processo
