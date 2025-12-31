@@ -11,10 +11,17 @@ interface NovaTarefaData {
   observacoes?: string;
 }
 
-export const useTaskTarefas = (taskId: string | null) => {
+interface UseTaskTarefasOptions {
+  projectId?: string;
+  taskTitle?: string;
+  columnName?: string;
+}
+
+export const useTaskTarefas = (taskId: string | null, options: UseTaskTarefasOptions = {}) => {
   const [tarefas, setTarefas] = useState<TaskTarefa[]>([]);
   const [loading, setLoading] = useState(false);
   const { user, tenantId } = useAuth();
+  const { projectId, taskTitle, columnName } = options;
 
   const fetchTarefas = useCallback(async () => {
     if (!taskId) return;
@@ -62,13 +69,19 @@ export const useTaskTarefas = (taskId: string | null) => {
       if (error) throw error;
 
       // Registrar no histórico do card
+      const detailsText = columnName 
+        ? `Tarefa adicionada no card "${taskTitle || 'tarefa'}" na coluna "${columnName}": "${novaTarefa.titulo}"`
+        : `Tarefa adicionada: "${novaTarefa.titulo}"`;
+      
       await supabase
         .from('task_history')
         .insert({
           task_id: taskId,
+          project_id: projectId,
+          task_title: taskTitle,
           user_id: user.id,
           action: 'tarefa_added',
-          details: `Tarefa adicionada: "${novaTarefa.titulo}"`,
+          details: detailsText,
           tenant_id: tenantId,
         });
 
@@ -100,13 +113,20 @@ export const useTaskTarefas = (taskId: string | null) => {
       if (error) throw error;
 
       // Registrar no histórico do card
+      const tarefaTitulo = dados.titulo || tarefaAtual?.titulo || 'tarefa';
+      const detailsText = columnName 
+        ? `Tarefa editada no card "${taskTitle || 'tarefa'}" na coluna "${columnName}": "${tarefaTitulo}"`
+        : `Tarefa editada: "${tarefaTitulo}"`;
+      
       await supabase
         .from('task_history')
         .insert({
           task_id: taskId,
+          project_id: projectId,
+          task_title: taskTitle,
           user_id: user.id,
           action: 'tarefa_edited',
-          details: `Tarefa editada: "${dados.titulo || tarefaAtual?.titulo || 'tarefa'}"`,
+          details: detailsText,
           tenant_id: tenantId,
         });
 
@@ -134,13 +154,20 @@ export const useTaskTarefas = (taskId: string | null) => {
       if (error) throw error;
 
       // Registrar no histórico do card
+      const tarefaTitulo = tarefaParaRemover?.titulo || 'tarefa';
+      const detailsText = columnName 
+        ? `Tarefa removida do card "${taskTitle || 'tarefa'}" na coluna "${columnName}": "${tarefaTitulo}"`
+        : `Tarefa removida: "${tarefaTitulo}"`;
+      
       await supabase
         .from('task_history')
         .insert({
           task_id: taskId,
+          project_id: projectId,
+          task_title: taskTitle,
           user_id: user.id,
           action: 'tarefa_deleted',
-          details: `Tarefa removida: "${tarefaParaRemover?.titulo || 'tarefa'}"`,
+          details: detailsText,
           tenant_id: tenantId,
         });
 

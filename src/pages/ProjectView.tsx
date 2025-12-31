@@ -46,6 +46,7 @@ const ProjectView = ({
 }: ProjectViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedColumnName, setSelectedColumnName] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isClientDataOpen, setIsClientDataOpen] = useState(false);
@@ -272,8 +273,9 @@ const ProjectView = ({
     }
   };
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (task: Task, columnName: string) => {
     setSelectedTask(task);
+    setSelectedColumnName(columnName);
     setIsModalOpen(true);
   };
 
@@ -1033,7 +1035,7 @@ const ProjectView = ({
                                       >
                                         <TaskCard 
                                           task={task} 
-                                          onClick={handleTaskClick}
+                                          onClick={(t) => handleTaskClick(t, column.name)}
                                           onDelete={handleDeleteTask}
                                           onUpdateTask={handleUpdateTask}
                                         />
@@ -1064,6 +1066,7 @@ const ProjectView = ({
           onUpdateTask={handleUpdateTask}
           currentUser={currentUser}
           projectId={project.id}
+          columnName={selectedColumnName}
         />
 
         <ProjectParticipants

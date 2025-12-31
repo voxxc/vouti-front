@@ -44,9 +44,10 @@ interface TaskModalProps {
   onUpdateTask: (task: Task) => void;
   currentUser?: User;
   projectId?: string;
+  columnName?: string;
 }
 
-const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId }: TaskModalProps) => {
+const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId, columnName }: TaskModalProps) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
@@ -59,7 +60,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
   const [processoOabId, setProcessoOabId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null);
+  const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null, { projectId, taskTitle: task?.title, columnName });
   const { processoVinculado } = useTaskVinculo(task?.id || null, processoOabId);
   const [processoTarefas, setProcessoTarefas] = useState<any[]>([]);
 
@@ -280,6 +281,10 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           updatedAt: new Date(insertedComment.updated_at)
         };
 
+        const detailsText = columnName 
+          ? `Comentário adicionado no card "${task.title}" na coluna "${columnName}": "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`
+          : `Comentário adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`;
+        
         await supabase
           .from('task_history')
           .insert({
@@ -288,7 +293,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
             task_title: task.title,
             user_id: currentUser.id,
             action: 'comment_added',
-            details: `Comentario adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`
+            details: detailsText
           });
 
         const updatedTask = {
@@ -361,16 +366,20 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         uploadedAt: new Date(insertedFile.created_at)
       };
 
-      await supabase
-        .from('task_history')
-        .insert({
-          task_id: task.id,
-          project_id: projectId,
-          task_title: task.title,
-          user_id: currentUser.id,
-          action: 'file_uploaded',
-          details: `Arquivo enviado: ${file.name}`
-        });
+        const detailsText = columnName 
+          ? `Arquivo enviado no card "${task.title}" na coluna "${columnName}": "${file.name}"`
+          : `Arquivo enviado: ${file.name}`;
+        
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: projectId,
+            task_title: task.title,
+            user_id: currentUser.id,
+            action: 'file_uploaded',
+            details: detailsText
+          });
 
       const updatedTask = {
         ...task,
@@ -417,16 +426,20 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (dbError) throw dbError;
 
-      await supabase
-        .from('task_history')
-        .insert({
-          task_id: task.id,
-          project_id: projectId,
-          task_title: task.title,
-          user_id: currentUser.id,
-          action: 'file_deleted',
-          details: `Arquivo excluido: ${fileData.file_name}`
-        });
+        const detailsText = columnName 
+          ? `Arquivo excluído do card "${task.title}" na coluna "${columnName}": "${fileData.file_name}"`
+          : `Arquivo excluído: ${fileData.file_name}`;
+        
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: projectId,
+            task_title: task.title,
+            user_id: currentUser.id,
+            action: 'file_deleted',
+            details: detailsText
+          });
 
       const updatedTask = {
         ...task,
@@ -473,16 +486,20 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           : comment
       );
 
-      await supabase
-        .from('task_history')
-        .insert({
-          task_id: task.id,
-          project_id: projectId,
-          task_title: task.title,
-          user_id: currentUser.id,
-          action: 'comment_edited',
-          details: 'Comentario editado'
-        });
+        const detailsText = columnName 
+          ? `Comentário editado no card "${task.title}" na coluna "${columnName}"`
+          : 'Comentário editado';
+        
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: projectId,
+            task_title: task.title,
+            user_id: currentUser.id,
+            action: 'comment_edited',
+            details: detailsText
+          });
 
       const updatedTask = {
         ...task,
@@ -517,16 +534,20 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
 
       if (error) throw error;
 
-      await supabase
-        .from('task_history')
-        .insert({
-          task_id: task.id,
-          project_id: projectId,
-          task_title: task.title,
-          user_id: currentUser.id,
-          action: 'comment_deleted',
-          details: `Comentario excluido: "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`
-        });
+        const detailsText = columnName 
+          ? `Comentário excluído do card "${task.title}" na coluna "${columnName}": "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`
+          : `Comentário excluído: "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`;
+        
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: projectId,
+            task_title: task.title,
+            user_id: currentUser.id,
+            action: 'comment_deleted',
+            details: detailsText
+          });
 
       const updatedTask = {
         ...task,
@@ -958,7 +979,9 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
               <TabsContent value="tarefas" className="mt-0">
                 <TaskTarefasTab
                   taskId={task.id}
+                  taskTitle={task.title}
                   projectId={projectId}
+                  columnName={columnName}
                   hasVinculo={!!processoOabId}
                   onGerarRelatorio={() => setRelatorioOpen(true)}
                 />

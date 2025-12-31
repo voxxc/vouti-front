@@ -26,6 +26,7 @@ interface AcordosViewProps {
 const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedColumnName, setSelectedColumnName] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const { tenantId } = useTenantId();
@@ -134,8 +135,9 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
     }
   };
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (task: Task, columnName: string) => {
     setSelectedTask(task);
+    setSelectedColumnName(columnName);
     setIsModalOpen(true);
   };
 
@@ -402,7 +404,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
                     >
                       <TaskCard 
                         task={task} 
-                        onClick={handleTaskClick}
+                        onClick={(t) => handleTaskClick(t, 'Processos/Dívidas')}
                         onDelete={handleDeleteTask}
                         onUpdateTask={handleUpdateTask}
                       />
@@ -432,7 +434,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
                     >
                       <TaskCard 
                         task={task} 
-                        onClick={handleTaskClick}
+                        onClick={(t) => handleTaskClick(t, 'Acordos Feitos')}
                         onDelete={handleDeleteTask}
                         onUpdateTask={handleUpdateTask}
                       />
@@ -449,6 +451,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onUpdateTask={handleUpdateTask}
+          columnName={selectedColumnName}
         />
 
         <ProjectParticipants
