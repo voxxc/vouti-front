@@ -1,9 +1,48 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Função para limpar arquivos de um bucket por tenant
+async function cleanStorageBucket(
+  supabase: SupabaseClient,
+  bucketName: string,
+  tenantId: string
+): Promise<number> {
+  try {
+    // Listar todos arquivos com prefixo do tenant
+    const { data: files, error } = await supabase.storage
+      .from(bucketName)
+      .list(tenantId);
+
+    if (error) {
+      console.log(`Bucket ${bucketName}: ${error.message}`);
+      return 0;
+    }
+
+    if (!files || files.length === 0) {
+      return 0;
+    }
+
+    const filePaths = files.map((f) => `${tenantId}/${f.name}`);
+    const { error: deleteError } = await supabase.storage
+      .from(bucketName)
+      .remove(filePaths);
+
+    if (deleteError) {
+      console.log(`Error deleting files from ${bucketName}: ${deleteError.message}`);
+      return 0;
+    }
+
+    console.log(`Deleted ${files.length} files from bucket ${bucketName}`);
+    return files.length;
+  } catch (e) {
+    console.log(`Exception cleaning bucket ${bucketName}: ${e}`);
+    return 0;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,7 +102,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Starting cascading delete for tenant: ${tenant_id}`);
+    console.log(`Starting complete cascading delete for tenant: ${tenant_id}`);
 
     // FASE 0: Buscar todos os user_ids do tenant ANTES de deletar profiles
     const { data: tenantProfiles, error: profilesError } = await supabase
@@ -78,13 +117,42 @@ Deno.serve(async (req) => {
     const userIdsToDelete = tenantProfiles?.map(p => p.user_id) || [];
     console.log(`Found ${userIdsToDelete.length} users to delete from auth.users`);
 
+    // FASE 1: Limpar arquivos do Storage ANTES de deletar registros do banco
+    console.log("Starting Storage cleanup...");
+    const bucketsToClean = [
+      "cliente-documentos",
+      "processo-documentos",
+      "reuniao-attachments",
+      "reuniao-cliente-attachments",
+      "task-attachments",
+      "comprovantes-pagamento",
+      "financial-documents",
+      "tribunal-certificates",
+      "advogado-logos",
+      "lead-attachments",
+      "message-attachments",
+      "op-fichas-tecnicas",
+    ];
+
+    const storageResults: Record<string, number> = {};
+    for (const bucket of bucketsToClean) {
+      storageResults[bucket] = await cleanStorageBucket(supabase, bucket, tenant_id);
+    }
+
+    const totalStorageFilesDeleted = Object.values(storageResults).reduce((a, b) => a + b, 0);
+    console.log(`Total storage files deleted: ${totalStorageFilesDeleted}`);
+
+    // FASE 2: Deletar registros do banco
     const deletionResults: Record<string, number> = {};
 
     // Ordem de delecao respeitando dependencias (de dependentes para principais)
+    // LISTA COMPLETA - 72 tabelas
     const tablesToDelete = [
-      // Nivel 1: Tabelas mais dependentes (sub-dependencias)
+      // ===== NIVEL 0: Sub-dependências mais profundas =====
       "task_files",
       "task_comments",
+      "task_history",
+      "task_tarefas",
       "cliente_pagamento_comentarios",
       "processos_oab_anexos",
       "processos_oab_tarefas",
@@ -103,7 +171,30 @@ Deno.serve(async (req) => {
       "processo_atualizacoes_escavador",
       "oab_request_historico",
       
-      // Nivel 2: Tabelas dependentes de tabelas principais
+      // ===== NIVEL 0.5: Colaboradores (dependências) =====
+      "colaborador_comentarios",
+      "colaborador_documentos",
+      "colaborador_pagamentos",
+      "colaborador_reajustes",
+      "colaborador_vales",
+      
+      // ===== NIVEL 0.5: Custos (dependências) =====
+      "custo_comprovantes",
+      "custo_parcelas",
+      
+      // ===== NIVEL 0.5: WhatsApp (dependências) =====
+      "whatsapp_messages",
+      "whatsapp_automations",
+      
+      // ===== NIVEL 0.5: Support =====
+      "support_ticket_messages",
+      
+      // ===== NIVEL 1: Tabelas principais dependentes =====
+      "colaboradores",
+      "custos",
+      "custo_categorias",
+      "whatsapp_instances",
+      "support_tickets",
       "project_columns",
       "project_sectors",
       "project_collaborators",
@@ -119,7 +210,7 @@ Deno.serve(async (req) => {
       "reuniao_clientes",
       "client_history",
       
-      // Nivel 3: Tabelas principais de dados
+      // ===== NIVEL 2: Tabelas principais de dados =====
       "tasks",
       "deadlines",
       "projects",
@@ -137,7 +228,7 @@ Deno.serve(async (req) => {
       "judit_api_logs",
       "controladoria_processos",
       
-      // Nivel 4: Tabelas de configuracao
+      // ===== NIVEL 3: Configurações =====
       "etiquetas",
       "grupos_acoes",
       "tipos_acao",
@@ -147,8 +238,10 @@ Deno.serve(async (req) => {
       "sector_templates",
       "zapi_config",
       "projudi_credentials",
+      "tribunal_credentials",
+      "tenant_ai_settings",
       
-      // Nivel 5: Usuarios do tenant
+      // ===== NIVEL 4: Usuarios do tenant =====
       "user_roles",
       "profiles",
     ];
@@ -223,14 +316,21 @@ Deno.serve(async (req) => {
     // Calcular total de registros deletados
     const totalDeleted = Object.values(deletionResults).reduce((a, b) => a + b, 0);
 
+    console.log(`=== DELETION COMPLETE ===`);
+    console.log(`Total DB records deleted: ${totalDeleted}`);
+    console.log(`Total Storage files deleted: ${totalStorageFilesDeleted}`);
+    console.log(`Auth users deleted: ${usersDeleted}/${userIdsToDelete.length}`);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Tenant deleted successfully",
+        message: "Tenant deleted successfully - all data removed",
         totalDeleted,
+        totalStorageFilesDeleted,
         usersDeleted,
         userDeletionErrors: userDeletionErrors.length > 0 ? userDeletionErrors : undefined,
-        deletionResults 
+        deletionResults,
+        storageResults 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
