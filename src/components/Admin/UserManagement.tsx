@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { usePlanoLimites } from "@/hooks/usePlanoLimites";
+import { LimiteAlert } from "@/components/Common/LimiteAlert";
 
 const ADDITIONAL_PERMISSIONS = [
   { id: 'agenda', role: 'agenda', label: 'Agenda' },
@@ -36,6 +38,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const { tenantId } = useTenantId();
+  const { podeAdicionarUsuario, uso, limites, porcentagemUso } = usePlanoLimites();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -468,15 +471,31 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
   return (
     <div className="space-y-6">
+      {/* Alerta de limite de usuários */}
+      <LimiteAlert
+        tipo="usuarios"
+        uso={uso.usuarios}
+        limite={limites.usuarios}
+        porcentagem={porcentagemUso.usuarios}
+      />
+
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Gerenciar Usuários</h2>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <UserPlus size={16} />
-              Adicionar Usuário
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold">Gerenciar Usuários</h2>
+          {limites.usuarios !== null && (
+            <Badge variant="outline">
+              {uso.usuarios}/{limites.usuarios}
+            </Badge>
+          )}
+        </div>
+        {podeAdicionarUsuario() && (
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus size={16} />
+                Adicionar Usuário
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Novo Usuário</DialogTitle>
@@ -571,6 +590,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
             </form>
           </DialogContent>
         </Dialog>
+        )}
 
         {/* Edit User Dialog */}
         <Dialog open={isEditOpen} onOpenChange={(open) => {

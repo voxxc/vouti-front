@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, X, FileStack, FileText } from 'lucide-react';
+import { Plus, RefreshCw, X, FileStack, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,6 +17,8 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { OABCadastrada } from '@/hooks/useOABs';
+import { usePlanoLimites } from '@/hooks/usePlanoLimites';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ImportarProcessoCNJDialogProps {
   open: boolean;
@@ -49,6 +51,7 @@ export const ImportarProcessoCNJDialog = ({
   onSuccess
 }: ImportarProcessoCNJDialogProps) => {
   const { user, tenantId } = useAuth();
+  const { podeCadastrarProcesso, uso, limites } = usePlanoLimites();
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
   
   // Modo único
@@ -61,6 +64,15 @@ export const ImportarProcessoCNJDialog = ({
 
   const handleImportar = async () => {
     if (!isValidCNJ(numeroCnj)) return;
+    
+    if (!podeCadastrarProcesso()) {
+      toast({
+        title: 'Limite atingido',
+        description: 'Você atingiu o limite de processos cadastrados do seu plano.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setImportando(true);
     try {

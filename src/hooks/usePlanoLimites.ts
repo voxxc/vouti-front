@@ -106,40 +106,36 @@ export function usePlanoLimites(): UsePlanoLimitesReturn {
       }
 
       // Contar OABs cadastradas
-      const { count: oabsCount } = await supabase
+      const oabsResult = await supabase
         .from('oabs_cadastradas')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId);
 
       // Contar usuários ativos
-      const { count: usuariosCount } = await supabase
+      const usuariosResult = await supabase
         .from('profiles')
         .select('user_id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId);
 
       // Contar processos cadastrados (importados por CNJ)
-      const { count: processosCount } = await supabase
+      const processosResult = await supabase
         .from('processos_oab')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId);
 
-      // Contar processos monitorados - usando RPC ou query simplificada
+      // Contar processos monitorados - usando count via data.length para evitar erro de tipo TS
       let monitoradosCount = 0;
-      try {
-        const { count } = await supabase
-          .from('processo_monitoramento_judit')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId)
-          .eq('ativo', true);
-        monitoradosCount = count || 0;
-      } catch {
-        monitoradosCount = 0;
-      }
+      const monitoradosResult = await supabase
+        .from('processo_monitoramento_judit' as any)
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('ativo', true);
+      monitoradosCount = monitoradosResult.data?.length || 0;
 
       setUso({
-        oabs: oabsCount || 0,
-        usuarios: usuariosCount || 0,
-        processos_cadastrados: processosCount || 0,
+        oabs: oabsResult.count || 0,
+        usuarios: usuariosResult.count || 0,
+        processos_cadastrados: processosResult.count || 0,
         processos_monitorados: monitoradosCount,
       });
     } catch (error) {
