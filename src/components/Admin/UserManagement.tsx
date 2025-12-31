@@ -190,18 +190,38 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
   const handleEdit = async (user: User) => {
     setEditingUser(user);
     
+    // Buscar o tenant_id do usuário sendo editado (mais confiável)
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single();
+    
+    const userTenantId = userProfile?.tenant_id || tenantId;
+    
+    if (!userTenantId) {
+      console.error('Não foi possível determinar o tenant do usuário');
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as permissões do usuário.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Buscar TODAS as roles do usuário diretamente do banco
     const { data: userRolesData, error: rolesError } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', userTenantId);
     
     if (rolesError) {
       console.error('Erro ao buscar roles:', rolesError);
     }
     
     const allRolesFromDB = userRolesData?.map(r => r.role as string) || [];
+    console.log('handleEdit - tenant_id usado:', userTenantId);
     console.log('handleEdit - todas as roles do banco:', allRolesFromDB);
     
     // Determinar role principal pela prioridade
@@ -244,18 +264,30 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     e.preventDefault();
     if (!editingUser) return;
     
-    if (!tenantId) {
-      toast({
-        title: "Erro",
-        description: "Nao foi possivel identificar o tenant. Recarregue a pagina.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setLoading(true);
 
     try {
+      // Buscar o tenant_id do usuário sendo editado
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', editingUser.id)
+        .single();
+      
+      const userTenantId = userProfile?.tenant_id || tenantId;
+      
+      if (!userTenantId) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível identificar o tenant. Recarregue a página.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      console.log('handleEditSubmit - tenant_id usado:', userTenantId);
+      
       // Se email foi alterado, atualizar em auth.users via Edge Function
       if (editFormData.email !== editingUser.email) {
         const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user-email', {
@@ -284,9 +316,12 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         .from('user_roles')
         .delete()
         .eq('user_id', editingUser.id)
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', userTenantId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Erro ao deletar roles:', deleteError);
+        throw deleteError;
+      }
 
       // Preparar todas as roles (principal + adicionais convertidas de permissões)
       const additionalRoles = permissionsToRoles(editFormData.additionalPermissions);
@@ -302,8 +337,10 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       const rolesToInsert = uniqueRoles.map(r => ({
         user_id: editingUser.id,
         role: r as AppRole,
-        tenant_id: tenantId!
+        tenant_id: userTenantId
       }));
+      
+      console.log('handleEditSubmit - roles a inserir:', rolesToInsert);
 
       const { error: roleError } = await supabase
         .from('user_roles')
