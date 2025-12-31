@@ -16,11 +16,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const ADDITIONAL_PERMISSIONS = [
   { id: 'projetos', role: 'advogado', label: 'Projetos' },
-  { id: 'agenda', role: 'controller', label: 'Agenda' },
+  { id: 'agenda', role: 'agenda', label: 'Agenda' },
   { id: 'clientes', role: 'comercial', label: 'Clientes' },
   { id: 'financeiro', role: 'financeiro', label: 'Financeiro' },
   { id: 'controladoria', role: 'controller', label: 'Controladoria' },
-  { id: 'reunioes', role: 'comercial', label: 'Reuniões' },
+  { id: 'reunioes', role: 'agenda', label: 'Reuniões' },
 ];
 
 interface UserManagementProps {

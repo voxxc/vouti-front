@@ -9,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   userRole: UserRole | null;
+  userRoles: UserRole[];
   tenantId: string | null;
   signIn: (email: string, password: string) => Promise<{ error?: any }>;
   signUp: (email: string, password: string, fullName?: string, tenantId?: string) => Promise<{ error?: any }>;
@@ -32,6 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }, 0);
         } else {
           setUserRole(null);
+          setUserRoles([]);
           setTenantId(null);
         }
       }
@@ -84,10 +87,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else if (!roleData || roleData.length === 0) {
         console.warn('[AuthContext] No roles found for user, defaulting to advogado');
         setUserRole('advogado');
+        setUserRoles(['advogado']);
       } else {
         console.log('[AuthContext] Roles found:', roleData);
         
-        // Se há múltiplos roles, pegar o de maior privilégio
+        // Guardar TODAS as roles
+        const allRoles = roleData.map(r => r.role as UserRole);
+        setUserRoles(allRoles);
+        console.log('[AuthContext] All roles set:', allRoles);
+        
+        // Se há múltiplos roles, pegar o de maior privilégio para userRole principal
         const rolePriority: Record<string, number> = {
           'admin': 6,
           'controller': 5,
@@ -181,6 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setSession(null);
       setUserRole(null);
+      setUserRoles([]);
       setTenantId(null);
       
       // Fazer logout no Supabase
@@ -198,6 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       setSession(null);
       setUserRole(null);
+      setUserRoles([]);
       setTenantId(null);
     }
   };
@@ -220,6 +231,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       session,
       loading,
       userRole,
+      userRoles,
       tenantId,
       signIn,
       signUp,
