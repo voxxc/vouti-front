@@ -422,6 +422,9 @@ const ProjectView = ({
 
       if (error) throw error;
 
+      // Buscar nome da coluna para registrar no histórico
+      const columnName = columns.find(c => c.id === columnId)?.name || 'Coluna desconhecida';
+
       // Registrar criação no histórico
       await supabase
         .from('task_history')
@@ -431,7 +434,7 @@ const ProjectView = ({
           task_title: data.title,
           user_id: currentUser.id,
           action: 'created',
-          details: `Card criado: "${data.title}"`,
+          details: `Card criado: "${data.title}" na coluna "${columnName}"`,
           tenant_id: profileData?.tenant_id
         });
 
