@@ -199,6 +199,9 @@ const ProjectView = ({
     const task = project.tasks.find(t => t.id === draggableId);
     if (!task) return;
 
+    const sourceColumn = columns.find(c => c.id === source.droppableId);
+    const destColumn = columns.find(c => c.id === destination.droppableId);
+
     try {
       const { error } = await supabase
         .from('tasks')
@@ -226,10 +229,24 @@ const ProjectView = ({
         updatedAt: new Date()
       });
 
-      const sourceColumn = columns.find(c => c.id === source.droppableId);
-      const destColumn = columns.find(c => c.id === destination.droppableId);
-
+      // Registrar movimento no histórico
       if (currentUser && sourceColumn && destColumn) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: draggableId,
+            user_id: currentUser.id,
+            action: 'moved',
+            details: `Movido de "${sourceColumn.name}" para "${destColumn.name}"`,
+            tenant_id: profileData?.tenant_id
+          });
+
         await notifyTaskMovement(
           project.id,
           task.title,
@@ -274,6 +291,25 @@ const ProjectView = ({
 
       if (error) throw error;
 
+      // Registrar edição no histórico
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: updatedTask.id,
+            user_id: currentUser.id,
+            action: 'edited',
+            details: `Card editado: "${updatedTask.title}"`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
+
       const updatedTasks = project.tasks.map(t =>
         t.id === updatedTask.id ? updatedTask : t
       );
@@ -301,6 +337,28 @@ const ProjectView = ({
 
   const handleDeleteTask = async (taskId: string) => {
     try {
+      // Buscar info do card antes de deletar para registrar no histórico
+      const taskToDelete = project.tasks.find(t => t.id === taskId);
+
+      // Registrar exclusão no histórico ANTES de deletar
+      if (currentUser && taskToDelete) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: taskId,
+            user_id: currentUser.id,
+            action: 'deleted',
+            details: `Card excluído: "${taskToDelete.title}"`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
+
       // Delete task from Supabase
       const { error } = await supabase
         .from('tasks')
@@ -357,6 +415,17 @@ const ProjectView = ({
         .single();
 
       if (error) throw error;
+
+      // Registrar criação no histórico
+      await supabase
+        .from('task_history')
+        .insert({
+          task_id: data.id,
+          user_id: currentUser.id,
+          action: 'created',
+          details: `Card criado: "${data.title}"`,
+          tenant_id: profileData?.tenant_id
+        });
 
       const newTask: Task = {
         id: data.id,
