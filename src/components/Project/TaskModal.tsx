@@ -284,6 +284,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
           .from('task_history')
           .insert({
             task_id: task.id,
+            project_id: projectId,
+            task_title: task.title,
             user_id: currentUser.id,
             action: 'comment_added',
             details: `Comentario adicionado: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`
@@ -363,6 +365,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         .from('task_history')
         .insert({
           task_id: task.id,
+          project_id: projectId,
+          task_title: task.title,
           user_id: currentUser.id,
           action: 'file_uploaded',
           details: `Arquivo enviado: ${file.name}`
@@ -417,6 +421,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         .from('task_history')
         .insert({
           task_id: task.id,
+          project_id: projectId,
+          task_title: task.title,
           user_id: currentUser.id,
           action: 'file_deleted',
           details: `Arquivo excluido: ${fileData.file_name}`
@@ -471,6 +477,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         .from('task_history')
         .insert({
           task_id: task.id,
+          project_id: projectId,
+          task_title: task.title,
           user_id: currentUser.id,
           action: 'comment_edited',
           details: 'Comentario editado'
@@ -513,6 +521,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, currentUser, projectId
         .from('task_history')
         .insert({
           task_id: task.id,
+          project_id: projectId,
+          task_title: task.title,
           user_id: currentUser.id,
           action: 'comment_deleted',
           details: `Comentario excluido: "${comment.text.slice(0, 50)}${comment.text.length > 50 ? '...' : ''}"`

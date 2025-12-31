@@ -55,7 +55,6 @@ const ProjectView = ({
   const [isCreateSectorOpen, setIsCreateSectorOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [historyRefresh, setHistoryRefresh] = useState(0);
   const { toast } = useToast();
 
   // Verificar se usuário é admin
@@ -242,14 +241,13 @@ const ProjectView = ({
           .from('task_history')
           .insert({
             task_id: draggableId,
+            project_id: project.id,
+            task_title: task.title,
             user_id: currentUser.id,
             action: 'moved',
             details: `Movido de "${sourceColumn.name}" para "${destColumn.name}"`,
             tenant_id: profileData?.tenant_id
           });
-        
-        // Atualizar drawer de histórico se estiver aberto
-        setHistoryRefresh(prev => prev + 1);
 
         await notifyTaskMovement(
           project.id,
@@ -307,14 +305,13 @@ const ProjectView = ({
           .from('task_history')
           .insert({
             task_id: updatedTask.id,
+            project_id: project.id,
+            task_title: updatedTask.title,
             user_id: currentUser.id,
             action: 'edited',
             details: `Card editado: "${updatedTask.title}"`,
             tenant_id: profileData?.tenant_id
           });
-        
-        // Atualizar drawer de histórico se estiver aberto
-        setHistoryRefresh(prev => prev + 1);
       }
 
       const updatedTasks = project.tasks.map(t =>
@@ -359,14 +356,13 @@ const ProjectView = ({
           .from('task_history')
           .insert({
             task_id: taskId,
+            project_id: project.id,
+            task_title: taskToDelete.title,
             user_id: currentUser.id,
             action: 'deleted',
             details: `Card excluído: "${taskToDelete.title}"`,
             tenant_id: profileData?.tenant_id
           });
-        
-        // Atualizar drawer de histórico se estiver aberto
-        setHistoryRefresh(prev => prev + 1);
       }
 
       // Delete task from Supabase
@@ -431,14 +427,13 @@ const ProjectView = ({
         .from('task_history')
         .insert({
           task_id: data.id,
+          project_id: project.id,
+          task_title: data.title,
           user_id: currentUser.id,
           action: 'created',
           details: `Card criado: "${data.title}"`,
           tenant_id: profileData?.tenant_id
         });
-      
-      // Atualizar drawer de histórico se estiver aberto
-      setHistoryRefresh(prev => prev + 1);
 
       const newTask: Task = {
         id: data.id,
@@ -1097,7 +1092,6 @@ const ProjectView = ({
           projectId={project.id}
           isOpen={isHistoryOpen}
           onClose={() => setIsHistoryOpen(false)}
-          refreshTrigger={historyRefresh}
         />
       </div>
     </DashboardLayout>
