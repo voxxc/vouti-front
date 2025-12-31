@@ -199,7 +199,9 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
 
       // Notificar o usuário que foi adicionado ao projeto
       if (currentUser?.id && tenantId) {
-        await supabase.from('notifications').insert({
+        console.log('[ProjectParticipants] Criando notificação para:', userId, 'tenant:', tenantId);
+        
+        const { error: notifError } = await supabase.from('notifications').insert({
           user_id: userId,
           tenant_id: tenantId,
           type: 'project_added',
@@ -208,6 +210,14 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
           related_project_id: projectId,
           triggered_by_user_id: currentUser.id,
         });
+        
+        if (notifError) {
+          console.error('[ProjectParticipants] Erro ao criar notificação:', notifError);
+        } else {
+          console.log('[ProjectParticipants] Notificação criada com sucesso');
+        }
+      } else {
+        console.warn('[ProjectParticipants] Não foi possível criar notificação - currentUser:', currentUser?.id, 'tenantId:', tenantId);
       }
 
       toast({
