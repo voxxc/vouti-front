@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import RoleMetricsPanel from "@/components/Dashboard/RoleMetricsPanel";
+import { DadosSensiveisProvider } from "@/contexts/DadosSensiveisContext";
 
 const Dashboard = () => {
   const { navigate } = useTenantNavigation();
@@ -172,15 +173,17 @@ const Dashboard = () => {
   }
 
   return (
-    <DashboardLayout
-      currentPage="dashboard"
-      isAdmin={currentUserRole === 'admin'}
-      onCreateUser={() => setShowUserManagement(true)}
-    >
-      <div className="space-y-6">
-        <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
-      </div>
-    </DashboardLayout>
+    <DadosSensiveisProvider>
+      <DashboardLayout
+        currentPage="dashboard"
+        isAdmin={currentUserRole === 'admin'}
+        onCreateUser={() => setShowUserManagement(true)}
+      >
+        <div className="space-y-6">
+          <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
+        </div>
+      </DashboardLayout>
+    </DadosSensiveisProvider>
   );
 };
 

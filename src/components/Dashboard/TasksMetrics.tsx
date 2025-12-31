@@ -4,11 +4,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { CheckCircle2, Clock, AlertCircle, ListTodo, TrendingUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useDadosSensiveis } from '@/contexts/DadosSensiveisContext';
 
 const COLORS_TASKS = ['#F59E0B', '#3B82F6', '#8B5CF6', '#22C55E'];
 
 export const TasksMetrics = () => {
   const { metrics, loading } = useTasksMetrics();
+  const { dadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
 
   if (loading) {
     return (
@@ -47,7 +49,7 @@ export const TasksMetrics = () => {
             <ListTodo className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalTasks}</div>
+            <div className="text-2xl font-bold">{formatarNumero(metrics.totalTasks)}</div>
             <p className="text-xs text-muted-foreground mt-1">Todas as tarefas</p>
           </CardContent>
         </Card>
@@ -58,7 +60,7 @@ export const TasksMetrics = () => {
             <Clock className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{metrics.tasksPorStatus.progress}</div>
+            <div className="text-2xl font-bold text-purple-600">{formatarNumero(metrics.tasksPorStatus.progress)}</div>
             <p className="text-xs text-muted-foreground mt-1">Tarefas ativas</p>
           </CardContent>
         </Card>
@@ -69,7 +71,7 @@ export const TasksMetrics = () => {
             <AlertCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{metrics.tasksAtrasadas}</div>
+            <div className="text-2xl font-bold text-red-600">{formatarNumero(metrics.tasksAtrasadas)}</div>
             <p className="text-xs text-muted-foreground mt-1">Sem atualização +7 dias</p>
           </CardContent>
         </Card>
@@ -80,7 +82,7 @@ export const TasksMetrics = () => {
             <ListTodo className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{metrics.tasksEmAberto}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatarNumero(metrics.tasksEmAberto)}</div>
             <p className="text-xs text-muted-foreground mt-1">Aguardando + A fazer</p>
           </CardContent>
         </Card>
@@ -91,8 +93,8 @@ export const TasksMetrics = () => {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{metrics.taxaConclusao}%</div>
-            <Progress value={metrics.taxaConclusao} className="mt-2" />
+            <div className="text-2xl font-bold text-green-600">{formatarPorcentagem(metrics.taxaConclusao)}</div>
+            <Progress value={dadosVisiveis ? metrics.taxaConclusao : 0} className="mt-2" />
           </CardContent>
         </Card>
       </div>
@@ -106,7 +108,7 @@ export const TasksMetrics = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {tasksData.length > 0 ? (
+          {tasksData.length > 0 && dadosVisiveis ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -127,6 +129,10 @@ export const TasksMetrics = () => {
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
+          ) : !dadosVisiveis ? (
+            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+              <p className="text-sm">Dados ocultos no modo privacidade</p>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">Nenhuma tarefa cadastrada</p>
           )}

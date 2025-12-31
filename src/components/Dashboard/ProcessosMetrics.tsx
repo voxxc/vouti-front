@@ -2,9 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useProcessosMetrics } from '@/hooks/useProcessosMetrics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileCheck, AlertTriangle, Clock, Eye, Radio, Users, Activity } from 'lucide-react';
+import { useDadosSensiveis } from '@/contexts/DadosSensiveisContext';
 
 export const ProcessosMetrics = () => {
   const { metrics, loading } = useProcessosMetrics();
+  const { formatarNumero } = useDadosSensiveis();
 
   if (loading) {
     return (
@@ -36,7 +38,7 @@ export const ProcessosMetrics = () => {
             <FileCheck className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalProcessos}</div>
+            <div className="text-2xl font-bold">{formatarNumero(metrics.totalProcessos)}</div>
             <p className="text-xs text-muted-foreground mt-1">Cadastrados no sistema</p>
           </CardContent>
         </Card>
@@ -47,7 +49,7 @@ export const ProcessosMetrics = () => {
             <Radio className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{metrics.processosMonitorando}</div>
+            <div className="text-2xl font-bold text-green-600">{formatarNumero(metrics.processosMonitorando)}</div>
             <p className="text-xs text-muted-foreground mt-1">Com monitoramento ativo</p>
           </CardContent>
         </Card>
@@ -58,7 +60,7 @@ export const ProcessosMetrics = () => {
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{metrics.proximosPrazos}</div>
+            <div className="text-2xl font-bold text-yellow-600">{formatarNumero(metrics.proximosPrazos)}</div>
             <p className="text-xs text-muted-foreground mt-1">Nos proximos 7 dias</p>
           </CardContent>
         </Card>
@@ -69,7 +71,7 @@ export const ProcessosMetrics = () => {
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{metrics.processosAtrasados}</div>
+            <div className="text-2xl font-bold text-red-600">{formatarNumero(metrics.processosAtrasados)}</div>
             <p className="text-xs text-muted-foreground mt-1">Prazo vencido</p>
           </CardContent>
         </Card>
@@ -83,7 +85,7 @@ export const ProcessosMetrics = () => {
             <Activity className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{metrics.totalAndamentos}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatarNumero(metrics.totalAndamentos)}</div>
             <p className="text-xs text-muted-foreground mt-1">Movimentacoes registradas</p>
           </CardContent>
         </Card>
@@ -94,7 +96,7 @@ export const ProcessosMetrics = () => {
             <Clock className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{metrics.andamentosRecentes}</div>
+            <div className="text-2xl font-bold text-purple-600">{formatarNumero(metrics.andamentosRecentes)}</div>
             <p className="text-xs text-muted-foreground mt-1">Ultimos 7 dias</p>
           </CardContent>
         </Card>
@@ -105,7 +107,7 @@ export const ProcessosMetrics = () => {
             <Eye className="h-4 w-4 text-cyan-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-cyan-600">{metrics.processosComDetalhes}</div>
+            <div className="text-2xl font-bold text-cyan-600">{formatarNumero(metrics.processosComDetalhes)}</div>
             <p className="text-xs text-muted-foreground mt-1">Processos com andamentos carregados</p>
           </CardContent>
         </Card>
@@ -116,7 +118,7 @@ export const ProcessosMetrics = () => {
             <Users className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{metrics.totalOABs}</div>
+            <div className="text-2xl font-bold text-orange-600">{formatarNumero(metrics.totalOABs)}</div>
             <p className="text-xs text-muted-foreground mt-1">Advogados no sistema</p>
           </CardContent>
         </Card>

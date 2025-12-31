@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useClienteAnalytics } from '@/hooks/useClienteAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { Users, Briefcase, MapPin, Calendar, DollarSign, TrendingUp, Eye, EyeOff } from 'lucide-react';
+import { Users, Briefcase, MapPin, Calendar, DollarSign, TrendingUp } from 'lucide-react';
+import { useDadosSensiveis } from '@/contexts/DadosSensiveisContext';
 
 const COLORS_PROFISSOES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF6B9D'];
 const COLORS_IDADES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#6366F1'];
@@ -12,14 +11,7 @@ const COLORS_REGIOES = ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '
 
 export const ClienteAnalytics = () => {
   const { analytics, loading } = useClienteAnalytics();
-  const [valoresVisiveis, setValoresVisiveis] = useState(false);
-
-  const formatarValorOculto = (valor: number): string => {
-    if (!valoresVisiveis) {
-      return "R$ ••••••••";
-    }
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-  };
+  const { dadosVisiveis, formatarValor, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
 
   if (loading) {
     return (
@@ -38,30 +30,9 @@ export const ClienteAnalytics = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold mb-2 text-foreground">Analytics de Clientes</h2>
-          <p className="text-muted-foreground">Analise completa do perfil dos clientes</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setValoresVisiveis(!valoresVisiveis)}
-          className="flex items-center gap-2"
-          title={valoresVisiveis ? "Ocultar valores" : "Mostrar valores"}
-        >
-          {valoresVisiveis ? (
-            <>
-              <EyeOff className="h-4 w-4" />
-              <span className="hidden sm:inline">Ocultar</span>
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">Mostrar</span>
-            </>
-          )}
-        </Button>
+      <div>
+        <h2 className="text-2xl font-semibold mb-2 text-foreground">Analytics de Clientes</h2>
+        <p className="text-muted-foreground">Analise completa do perfil dos clientes</p>
       </div>
 
       {/* KPIs Principais */}
@@ -72,9 +43,9 @@ export const ClienteAnalytics = () => {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.totalClientes}</div>
+            <div className="text-2xl font-bold">{formatarNumero(analytics.totalClientes)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {analytics.clientesAtivos} ativos • {analytics.clientesInativos} inativos
+              {formatarNumero(analytics.clientesAtivos)} ativos • {formatarNumero(analytics.clientesInativos)} inativos
             </p>
           </CardContent>
         </Card>
@@ -86,7 +57,7 @@ export const ClienteAnalytics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatarValorOculto(analytics.valorTotalContratos)}
+              {formatarValor(analytics.valorTotalContratos)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Receita total</p>
           </CardContent>
@@ -99,7 +70,7 @@ export const ClienteAnalytics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatarValorOculto(analytics.ticketMedio)}
+              {formatarValor(analytics.ticketMedio)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Por contrato</p>
           </CardContent>
@@ -113,12 +84,12 @@ export const ClienteAnalytics = () => {
           <CardContent>
             <div className="flex gap-3 text-sm">
               <div>
-                <div className="text-xl font-bold">{analytics.distribuicaoClassificacao.find(c => c.tipo === 'pf')?.count || 0}</div>
-                <p className="text-xs text-muted-foreground">PF ({analytics.distribuicaoClassificacao.find(c => c.tipo === 'pf')?.percentage.toFixed(1)}%)</p>
+                <div className="text-xl font-bold">{formatarNumero(analytics.distribuicaoClassificacao.find(c => c.tipo === 'pf')?.count || 0)}</div>
+                <p className="text-xs text-muted-foreground">PF ({formatarPorcentagem(parseFloat((analytics.distribuicaoClassificacao.find(c => c.tipo === 'pf')?.percentage || 0).toFixed(1)))})</p>
               </div>
               <div className="border-l pl-3">
-                <div className="text-xl font-bold">{analytics.distribuicaoClassificacao.find(c => c.tipo === 'pj')?.count || 0}</div>
-                <p className="text-xs text-muted-foreground">PJ ({analytics.distribuicaoClassificacao.find(c => c.tipo === 'pj')?.percentage.toFixed(1)}%)</p>
+                <div className="text-xl font-bold">{formatarNumero(analytics.distribuicaoClassificacao.find(c => c.tipo === 'pj')?.count || 0)}</div>
+                <p className="text-xs text-muted-foreground">PJ ({formatarPorcentagem(parseFloat((analytics.distribuicaoClassificacao.find(c => c.tipo === 'pj')?.percentage || 0).toFixed(1)))})</p>
               </div>
             </div>
           </CardContent>
@@ -136,7 +107,7 @@ export const ClienteAnalytics = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.distribuicaoProfissoes.length > 0 ? (
+            {analytics.distribuicaoProfissoes.length > 0 && dadosVisiveis ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -157,6 +128,10 @@ export const ClienteAnalytics = () => {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
+            ) : !dadosVisiveis ? (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <p className="text-sm">Dados ocultos no modo privacidade</p>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhuma profissão cadastrada ainda</p>
             )}
@@ -172,7 +147,7 @@ export const ClienteAnalytics = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.distribuicaoIdades.length > 0 ? (
+            {analytics.distribuicaoIdades.length > 0 && dadosVisiveis ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -193,6 +168,10 @@ export const ClienteAnalytics = () => {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
+            ) : !dadosVisiveis ? (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <p className="text-sm">Dados ocultos no modo privacidade</p>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhuma idade cadastrada ainda</p>
             )}
@@ -208,7 +187,7 @@ export const ClienteAnalytics = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {analytics.distribuicaoRegioes.length > 0 ? (
+            {analytics.distribuicaoRegioes.length > 0 && dadosVisiveis ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -229,6 +208,10 @@ export const ClienteAnalytics = () => {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
+            ) : !dadosVisiveis ? (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <p className="text-sm">Dados ocultos no modo privacidade</p>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhuma localização cadastrada ainda</p>
             )}
@@ -245,16 +228,20 @@ export const ClienteAnalytics = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {analytics.distribuicaoProfissoes.slice(0, 5).map((prof, index) => (
-                <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                  <span className="font-medium">{prof.profissao}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{prof.count} clientes</span>
-                    <span className="text-xs font-semibold text-primary">{prof.percentage.toFixed(1)}%</span>
+              {dadosVisiveis ? (
+                analytics.distribuicaoProfissoes.slice(0, 5).map((prof, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <span className="font-medium">{prof.profissao}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{prof.count} clientes</span>
+                      <span className="text-xs font-semibold text-primary">{prof.percentage.toFixed(1)}%</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {analytics.distribuicaoProfissoes.length === 0 && (
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Dados ocultos no modo privacidade</p>
+              )}
+              {analytics.distribuicaoProfissoes.length === 0 && dadosVisiveis && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma profissão cadastrada</p>
               )}
             </div>
@@ -268,16 +255,20 @@ export const ClienteAnalytics = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {analytics.distribuicaoRegioes.slice(0, 5).map((regiao, index) => (
-                <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                  <span className="font-medium">{regiao.uf}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{regiao.count} clientes</span>
-                    <span className="text-xs font-semibold text-primary">{regiao.percentage.toFixed(1)}%</span>
+              {dadosVisiveis ? (
+                analytics.distribuicaoRegioes.slice(0, 5).map((regiao, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <span className="font-medium">{regiao.uf}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{regiao.count} clientes</span>
+                      <span className="text-xs font-semibold text-primary">{regiao.percentage.toFixed(1)}%</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {analytics.distribuicaoRegioes.length === 0 && (
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Dados ocultos no modo privacidade</p>
+              )}
+              {analytics.distribuicaoRegioes.length === 0 && dadosVisiveis && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhum estado cadastrado</p>
               )}
             </div>
