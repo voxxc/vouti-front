@@ -322,6 +322,21 @@ const SectorView = ({
     }
   };
 
+  // Função para apenas atualizar estado local sem registrar histórico
+  const handleRefreshTask = (updatedTask: Task) => {
+    const updatedTasks = project.tasks.map(t =>
+      t.id === updatedTask.id ? updatedTask : t
+    );
+
+    setSelectedTask(updatedTask);
+
+    onUpdateProject({
+      ...project,
+      tasks: updatedTasks,
+      updatedAt: new Date()
+    });
+  };
+
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
       const { error } = await supabase
@@ -337,8 +352,16 @@ const SectorView = ({
 
       if (error) throw error;
 
-      // Registrar edição no histórico
-      if (currentUser) {
+      // Verificar se houve mudança real
+      const originalTask = project.tasks.find(t => t.id === updatedTask.id);
+      const hasRealChange = originalTask && (
+        originalTask.title !== updatedTask.title ||
+        originalTask.description !== updatedTask.description ||
+        originalTask.cardColor !== updatedTask.cardColor
+      );
+
+      // Registrar edição no histórico apenas se houve mudança real
+      if (currentUser && hasRealChange) {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('tenant_id')
@@ -621,6 +644,7 @@ const SectorView = ({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onUpdateTask={handleUpdateTask}
+          onRefreshTask={handleRefreshTask}
           currentUser={currentUser}
           projectId={project.id}
           columnName={selectedColumnName}

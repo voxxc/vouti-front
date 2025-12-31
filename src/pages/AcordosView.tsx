@@ -141,6 +141,23 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
     setIsModalOpen(true);
   };
 
+  // Função para apenas atualizar estado local sem registrar histórico
+  const handleRefreshTask = (updatedTask: Task) => {
+    const updatedAcordoTasks = acordoTasks.map(t =>
+      t.id === updatedTask.id ? updatedTask : t
+    );
+
+    setSelectedTask(updatedTask);
+
+    const updatedProject = {
+      ...project,
+      acordoTasks: updatedAcordoTasks,
+      updatedAt: new Date()
+    };
+
+    onUpdateProject(updatedProject);
+  };
+
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
       // Update task in Supabase
@@ -157,20 +174,30 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
 
       if (error) throw error;
 
-      // Registrar edição no histórico
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('task_history')
-          .insert({
-            task_id: updatedTask.id,
-            project_id: project.id,
-            task_title: updatedTask.title,
-            user_id: user.id,
-            action: 'edited',
-            details: `Card editado: "${updatedTask.title}" (Acordos)`,
-            tenant_id: tenantId
-          });
+      // Verificar se houve mudança real
+      const originalTask = acordoTasks.find(t => t.id === updatedTask.id);
+      const hasRealChange = originalTask && (
+        originalTask.title !== updatedTask.title ||
+        originalTask.description !== updatedTask.description ||
+        JSON.stringify(originalTask.acordoDetails) !== JSON.stringify(updatedTask.acordoDetails)
+      );
+
+      // Registrar edição no histórico apenas se houve mudança real
+      if (hasRealChange) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('task_history')
+            .insert({
+              task_id: updatedTask.id,
+              project_id: project.id,
+              task_title: updatedTask.title,
+              user_id: user.id,
+              action: 'edited',
+              details: `Card editado: "${updatedTask.title}" (Acordos)`,
+              tenant_id: tenantId
+            });
+        }
       }
 
       const updatedAcordoTasks = acordoTasks.map(t =>
@@ -183,6 +210,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
         updatedAt: new Date()
       };
 
+      setSelectedTask(updatedTask);
       onUpdateProject(updatedProject);
 
       toast({
@@ -451,6 +479,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onUpdateTask={handleUpdateTask}
+          onRefreshTask={handleRefreshTask}
           columnName={selectedColumnName}
         />
 
