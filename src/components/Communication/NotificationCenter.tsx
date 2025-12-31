@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, CheckCheck, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,30 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onProcessoNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
+  const [shouldPing, setShouldPing] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Animação de ping a cada 5 segundos quando há notificações não lidas
+  useEffect(() => {
+    if (unreadCount > 0 && !isOpen) {
+      // Ping imediato
+      setShouldPing(true);
+      const resetTimeout = setTimeout(() => setShouldPing(false), 1000);
+
+      // Ping a cada 5 segundos
+      const interval = setInterval(() => {
+        setShouldPing(true);
+        setTimeout(() => setShouldPing(false), 1000);
+      }, 5000);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(resetTimeout);
+      };
+    } else {
+      setShouldPing(false);
+    }
+  }, [unreadCount, isOpen]);
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
@@ -67,10 +91,18 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   }
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="relative">
           <Bell className="h-4 w-4" />
+          
+          {/* Onda de ping animada */}
+          {unreadCount > 0 && shouldPing && (
+            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="absolute h-4 w-4 rounded-full bg-primary/60 animate-notification-ping" />
+            </span>
+          )}
+          
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 

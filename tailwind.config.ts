@@ -117,6 +117,10 @@ export default {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-10px)" }
         },
+        "notification-ping": {
+          "0%": { transform: "scale(1)", opacity: "0.75" },
+          "75%, 100%": { transform: "scale(2.5)", opacity: "0" }
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -125,6 +129,7 @@ export default {
         "fade-in": "fade-in 0.6s ease-out",
         "slide-up": "slide-up 0.8s ease-out",
         "float": "float 3s ease-in-out infinite",
+        "notification-ping": "notification-ping 1s cubic-bezier(0, 0, 0.2, 1)",
       },
     },
   },
