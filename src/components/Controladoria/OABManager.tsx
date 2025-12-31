@@ -45,6 +45,8 @@ import { Progress } from '@/components/ui/progress';
 export const OABManager = () => {
   const { userRole, user, tenantId } = useAuth();
   const isAdmin = userRole === 'admin';
+  const isController = userRole === 'controller';
+  const canImportCNJ = isAdmin || isController;
   
   const { 
     oabs, 
@@ -294,70 +296,72 @@ export const OABManager = () => {
               )}
             </Button>
           )}
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Cadastrar OAB
-              </Button>
-            </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Cadastrar Nova OAB</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="oab-numero">Numero da OAB</Label>
-                  <Input
-                    id="oab-numero"
-                    placeholder="Ex: 92124"
-                    value={oabNumero}
-                    onChange={(e) => setOabNumero(e.target.value.replace(/\D/g, ''))}
-                  />
+          {isAdmin && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Cadastrar OAB
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Cadastrar Nova OAB</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="oab-numero">Numero da OAB</Label>
+                      <Input
+                        id="oab-numero"
+                        placeholder="Ex: 92124"
+                        value={oabNumero}
+                        onChange={(e) => setOabNumero(e.target.value.replace(/\D/g, ''))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="oab-uf">Estado (UF)</Label>
+                      <Select value={oabUf} onValueChange={setOabUf}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ESTADOS_BRASIL.map((estado) => (
+                            <SelectItem key={estado.value} value={estado.value}>
+                              {estado.value} - {estado.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nome-advogado">Nome do Advogado (opcional)</Label>
+                    <Input
+                      id="nome-advogado"
+                      placeholder="Ex: Dr. Joao Silva"
+                      value={nomeAdvogado}
+                      onChange={(e) => setNomeAdvogado(e.target.value)}
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleCadastrar} 
+                    disabled={!oabNumero || !oabUf || submitting}
+                    className="w-full"
+                  >
+                    {submitting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Cadastrando...
+                      </>
+                    ) : (
+                      'Cadastrar e Sincronizar'
+                    )}
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="oab-uf">Estado (UF)</Label>
-                  <Select value={oabUf} onValueChange={setOabUf}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADOS_BRASIL.map((estado) => (
-                        <SelectItem key={estado.value} value={estado.value}>
-                          {estado.value} - {estado.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nome-advogado">Nome do Advogado (opcional)</Label>
-                <Input
-                  id="nome-advogado"
-                  placeholder="Ex: Dr. Joao Silva"
-                  value={nomeAdvogado}
-                  onChange={(e) => setNomeAdvogado(e.target.value)}
-                />
-              </div>
-              <Button 
-                onClick={handleCadastrar} 
-                disabled={!oabNumero || !oabUf || submitting}
-                className="w-full"
-              >
-                {submitting ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Cadastrando...
-                  </>
-                ) : (
-                  'Cadastrar e Sincronizar'
-                )}
-              </Button>
-            </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -367,12 +371,16 @@ export const OABManager = () => {
           <Scale className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">Nenhuma OAB cadastrada</h3>
           <p className="text-muted-foreground mb-4">
-            Cadastre uma OAB para visualizar seus processos
+            {isAdmin 
+              ? 'Cadastre uma OAB para visualizar seus processos'
+              : 'Solicite ao administrador o cadastro de uma OAB'}
           </p>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Cadastrar OAB
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Cadastrar OAB
+            </Button>
+          )}
         </div>
       ) : (
         <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab}>
@@ -420,14 +428,16 @@ export const OABManager = () => {
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteClick(oab)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteClick(oab)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* Request ID Section - APENAS ADMIN */}
@@ -504,18 +514,20 @@ export const OABManager = () => {
                     </div>
                   </div>
                 )}
-                {/* Botao Importar Processo */}
-                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenImportCNJ(oab)}
-                    className="text-xs"
-                  >
-                    <FileInput className="w-4 h-4 mr-2" />
-                    Importar Processo por CNJ
-                  </Button>
-                </div>
+                {/* Botao Importar Processo - Admin ou Controller */}
+                {canImportCNJ && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenImportCNJ(oab)}
+                      className="text-xs"
+                    >
+                      <FileInput className="w-4 h-4 mr-2" />
+                      Importar Processo por CNJ
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Lista de Processos */}

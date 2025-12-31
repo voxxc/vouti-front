@@ -163,59 +163,63 @@ export const CNPJManager = () => {
         <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">Nenhum CNPJ cadastrado</h3>
         <p className="text-muted-foreground mb-4">
-          Cadastre um CNPJ para monitorar novos processos onde a empresa e parte
+          {isAdmin
+            ? 'Cadastre um CNPJ para monitorar novos processos onde a empresa e parte'
+            : 'Solicite ao administrador o cadastro de um CNPJ'}
         </p>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar CNPJ
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Cadastrar CNPJ</DialogTitle>
-              <DialogDescription>
-                Adicione um CNPJ para monitorar novos processos em distribuicao
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="cnpj">CNPJ</Label>
-                <Input
-                  id="cnpj"
-                  value={novoCnpj}
-                  onChange={(e) => setNovoCnpj(formatCNPJ(e.target.value))}
-                  placeholder="00.000.000/0000-00"
-                />
-              </div>
-              <div>
-                <Label htmlFor="razaoSocial">Razao Social (opcional)</Label>
-                <Input
-                  id="razaoSocial"
-                  value={novaRazaoSocial}
-                  onChange={(e) => setNovaRazaoSocial(e.target.value)}
-                  placeholder="Nome da empresa"
-                />
-              </div>
-              <div>
-                <Label htmlFor="nomeFantasia">Nome Fantasia (opcional)</Label>
-                <Input
-                  id="nomeFantasia"
-                  value={novoNomeFantasia}
-                  onChange={(e) => setNovoNomeFantasia(e.target.value)}
-                  placeholder="Nome fantasia"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
+        {isAdmin && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar CNPJ
               </Button>
-              <Button onClick={handleCadastrar}>Cadastrar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cadastrar CNPJ</DialogTitle>
+                <DialogDescription>
+                  Adicione um CNPJ para monitorar novos processos em distribuicao
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="cnpj">CNPJ</Label>
+                  <Input
+                    id="cnpj"
+                    value={novoCnpj}
+                    onChange={(e) => setNovoCnpj(formatCNPJ(e.target.value))}
+                    placeholder="00.000.000/0000-00"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="razaoSocial">Razao Social (opcional)</Label>
+                  <Input
+                    id="razaoSocial"
+                    value={novaRazaoSocial}
+                    onChange={(e) => setNovaRazaoSocial(e.target.value)}
+                    placeholder="Nome da empresa"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="nomeFantasia">Nome Fantasia (opcional)</Label>
+                  <Input
+                    id="nomeFantasia"
+                    value={novoNomeFantasia}
+                    onChange={(e) => setNovoNomeFantasia(e.target.value)}
+                    placeholder="Nome fantasia"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleCadastrar}>Cadastrar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     );
   }
@@ -241,57 +245,59 @@ export const CNPJManager = () => {
             ))}
           </TabsList>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar CNPJ
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Cadastrar CNPJ</DialogTitle>
-                <DialogDescription>
-                  Adicione um CNPJ para monitorar novos processos em distribuicao
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="cnpj2">CNPJ</Label>
-                  <Input
-                    id="cnpj2"
-                    value={novoCnpj}
-                    onChange={(e) => setNovoCnpj(formatCNPJ(e.target.value))}
-                    placeholder="00.000.000/0000-00"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="razaoSocial2">Razao Social (opcional)</Label>
-                  <Input
-                    id="razaoSocial2"
-                    value={novaRazaoSocial}
-                    onChange={(e) => setNovaRazaoSocial(e.target.value)}
-                    placeholder="Nome da empresa"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="nomeFantasia2">Nome Fantasia (opcional)</Label>
-                  <Input
-                    id="nomeFantasia2"
-                    value={novoNomeFantasia}
-                    onChange={(e) => setNovoNomeFantasia(e.target.value)}
-                    placeholder="Nome fantasia"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancelar
+          {isAdmin && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar CNPJ
                 </Button>
-                <Button onClick={handleCadastrar}>Cadastrar</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Cadastrar CNPJ</DialogTitle>
+                  <DialogDescription>
+                    Adicione um CNPJ para monitorar novos processos em distribuicao
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="cnpj2">CNPJ</Label>
+                    <Input
+                      id="cnpj2"
+                      value={novoCnpj}
+                      onChange={(e) => setNovoCnpj(formatCNPJ(e.target.value))}
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="razaoSocial2">Razao Social (opcional)</Label>
+                    <Input
+                      id="razaoSocial2"
+                      value={novaRazaoSocial}
+                      onChange={(e) => setNovaRazaoSocial(e.target.value)}
+                      placeholder="Nome da empresa"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nomeFantasia2">Nome Fantasia (opcional)</Label>
+                    <Input
+                      id="nomeFantasia2"
+                      value={novoNomeFantasia}
+                      onChange={(e) => setNovoNomeFantasia(e.target.value)}
+                      placeholder="Nome fantasia"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleCadastrar}>Cadastrar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         {cnpjs.map((cnpj) => (
@@ -312,14 +318,16 @@ export const CNPJManager = () => {
 
               <div className="flex-1" />
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full"
-                onClick={() => handleDeleteClick(cnpj.id)}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => handleDeleteClick(cnpj.id)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
 
               {isAdmin && (
                 <>
