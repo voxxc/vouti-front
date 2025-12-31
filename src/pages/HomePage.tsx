@@ -549,10 +549,7 @@ const HomePage = () => {
                   <ul className="space-y-2 text-left mb-4">
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
-                      {plan.unlimitedProcesses 
-                        ? `Até ${plan.processes} processos ou ilimitados`
-                        : `Monitoramento Diário de até ${plan.processes} processos`
-                      }
+                      Monitoramento Diário de até {plan.processes} processos
                     </li>
                     <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
@@ -574,6 +571,12 @@ const HomePage = () => {
                       <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
                       Financeiro Completo
                     </li>
+                    {plan.unlimitedProcesses && (
+                      <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                        <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                        Cadastro de processos ilimitados
+                      </li>
+                    )}
                   </ul>
 
                   {plan.showMore && (
