@@ -46,7 +46,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     if (section === 'clientes' && (currentUserRole === 'comercial')) return true;
     if (section === 'financeiro' && (currentUserRole === 'financeiro')) return true;
     if (section === 'controladoria' && (currentUserRole === 'advogado' || currentUserRole === 'controller')) return true;
-    if (section === 'reunioes' && (currentUserRole === 'advogado' || currentUserRole === 'comercial' || currentUserRole === 'controller')) return true;
+    if (section === 'reunioes' && (currentUserRole === 'comercial' || currentUserRole === 'agenda')) return true;
     return false;
   };
 
