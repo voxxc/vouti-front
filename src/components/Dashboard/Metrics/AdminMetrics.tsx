@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FolderKanban, UserCheck, Calendar, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, FolderKanban, UserCheck, Calendar, TrendingUp, Eye, EyeOff, ShieldAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
 import { ClienteAnalytics } from "../ClienteAnalytics";
@@ -9,6 +10,7 @@ import { ProcessosMetrics } from "../ProcessosMetrics";
 import { TasksMetrics } from "../TasksMetrics";
 import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
+import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 
 interface AdminMetricsProps {
   userId: string;
@@ -25,6 +27,7 @@ interface Metrics {
 const AdminMetrics = ({ userId }: AdminMetricsProps) => {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
 
   useEffect(() => {
     fetchMetrics();
@@ -71,9 +74,30 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">PAINEL ADMINISTRATIVO</h2>
-        <p className="text-muted-foreground">Visão consolidada do sistema completo</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold mb-2 text-foreground">PAINEL ADMINISTRATIVO</h2>
+          <p className="text-muted-foreground">Visão consolidada do sistema completo</p>
+        </div>
+        <Button
+          variant={dadosVisiveis ? "outline" : "secondary"}
+          size="sm"
+          onClick={toggleDadosVisiveis}
+          className="flex items-center gap-2"
+          title={dadosVisiveis ? "Ativar modo privacidade" : "Mostrar todos os dados"}
+        >
+          {dadosVisiveis ? (
+            <>
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">Dados Visíveis</span>
+            </>
+          ) : (
+            <>
+              <ShieldAlert className="h-4 w-4" />
+              <span className="hidden sm:inline">Modo Privacidade</span>
+            </>
+          )}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -83,7 +107,7 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
             <FolderKanban className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalProjects}</div>
+            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalProjects || 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Clientes ativos</p>
           </CardContent>
         </Card>
@@ -94,7 +118,7 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
             <UserCheck className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalLeads}</div>
+            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalLeads || 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Em captação</p>
           </CardContent>
         </Card>
@@ -105,7 +129,7 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalProcessos}</div>
+            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalProcessos || 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Em controladoria</p>
           </CardContent>
         </Card>
@@ -116,7 +140,7 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
             <Calendar className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.pendingDeadlines}</div>
+            <div className="text-2xl font-bold">{formatarNumero(metrics?.pendingDeadlines || 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Aguardando conclusão</p>
           </CardContent>
         </Card>
@@ -127,7 +151,7 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.conversionRate}%</div>
+            <div className="text-2xl font-bold">{formatarPorcentagem(metrics?.conversionRate || 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Leads convertidos</p>
           </CardContent>
         </Card>

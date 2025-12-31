@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useDadosSensiveis } from '@/contexts/DadosSensiveisContext';
 
 interface UserMetrics {
   userId: string;
@@ -46,6 +47,7 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userMetrics, setUserMetrics] = useState<UserMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const { dadosVisiveis, formatarNumero, formatarPorcentagem, formatarTexto } = useDadosSensiveis();
 
   useEffect(() => {
     fetchRealData();
@@ -201,9 +203,9 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalTasks}</div>
+            <div className="text-2xl font-bold">{formatarNumero(totalTasks)}</div>
             <p className="text-xs text-muted-foreground">
-              {totalCompleted} concluídas
+              {formatarNumero(totalCompleted)} concluídas
             </p>
           </CardContent>
         </Card>
@@ -214,8 +216,8 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{overallCompletionRate}%</div>
-            <Progress value={overallCompletionRate} className="mt-2" />
+            <div className="text-2xl font-bold text-green-600">{formatarPorcentagem(overallCompletionRate)}</div>
+            <Progress value={dadosVisiveis ? overallCompletionRate : 0} className="mt-2" />
           </CardContent>
         </Card>
 
@@ -225,7 +227,7 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             <Clock className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalInProgress}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatarNumero(totalInProgress)}</div>
             <p className="text-xs text-muted-foreground">
               tarefas ativas
             </p>
@@ -238,7 +240,7 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             <AlertCircle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{totalWaiting}</div>
+            <div className="text-2xl font-bold text-yellow-600">{formatarNumero(totalWaiting)}</div>
             <p className="text-xs text-muted-foreground">
               aguardando aprovação
             </p>
@@ -256,33 +258,37 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {userMetrics.length > 0 ? userMetrics.map((user) => (
+            {userMetrics.length > 0 && dadosVisiveis ? userMetrics.map((user) => (
               <div key={user.userId} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">{user.name}</span>
-                  <Badge variant="outline">{user.completionRate}%</Badge>
+                  <span className="font-medium">{formatarTexto(user.name, 15)}</span>
+                  <Badge variant="outline">{formatarPorcentagem(user.completionRate)}</Badge>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-xs">
                   <div className="flex items-center gap-1 text-green-600">
                     <CheckCircle size={12} />
-                    {user.completedTasks} concluídas
+                    {formatarNumero(user.completedTasks)} concluídas
                   </div>
                   <div className="flex items-center gap-1 text-blue-600">
                     <Clock size={12} />
-                    {user.inProgressTasks} em andamento
+                    {formatarNumero(user.inProgressTasks)} em andamento
                   </div>
                   <div className="flex items-center gap-1 text-yellow-600">
                     <AlertCircle size={12} />
-                    {user.waitingTasks} aguardando
+                    {formatarNumero(user.waitingTasks)} aguardando
                   </div>
                   <div className="flex items-center gap-1 text-muted-foreground">
                     <Target size={12} />
-                    {user.todoTasks} a fazer
+                    {formatarNumero(user.todoTasks)} a fazer
                   </div>
                 </div>
-                <Progress value={user.completionRate} className="h-2" />
+                <Progress value={dadosVisiveis ? user.completionRate : 0} className="h-2" />
               </div>
-            )) : (
+            )) : !dadosVisiveis ? (
+              <p className="text-muted-foreground text-center py-4">
+                Dados ocultos no modo privacidade
+              </p>
+            ) : (
               <p className="text-muted-foreground text-center py-4">
                 Nenhuma tarefa encontrada
               </p>
@@ -299,11 +305,11 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingDeadlines.length > 0 ? upcomingDeadlines.map((deadline, index) => (
+            {upcomingDeadlines.length > 0 && dadosVisiveis ? upcomingDeadlines.map((deadline, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{deadline.task}</p>
-                  <p className="text-xs text-muted-foreground">{deadline.client}</p>
+                  <p className="font-medium text-sm">{formatarTexto(deadline.task, 30)}</p>
+                  <p className="text-xs text-muted-foreground">{formatarTexto(deadline.client, 20)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
@@ -318,7 +324,11 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
                   </Badge>
                 </div>
               </div>
-            )) : (
+            )) : !dadosVisiveis ? (
+              <p className="text-muted-foreground text-center py-4">
+                Dados ocultos no modo privacidade
+              </p>
+            ) : (
               <p className="text-muted-foreground text-center py-4">
                 Nenhuma tarefa pendente
               </p>
