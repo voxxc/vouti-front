@@ -181,13 +181,42 @@ const HomePage = () => {
     },
   ];
 
-  const mockups = [
-    { title: 'Dashboard Principal', desc: 'Visão 360 da sua operação' },
-    { title: 'Kanban de Projetos', desc: 'Gestão visual de tarefas' },
-    { title: 'Calendário de Prazos', desc: 'Nunca perca uma deadline' },
-    { title: 'CRM de Clientes', desc: 'Pipeline de oportunidades' },
-    { title: 'Controladoria', desc: 'Andamentos em tempo real' },
-    { title: 'Sistema Sob Medida', desc: 'Demandas específicas para áreas trabalhista, bancária, criminal, consumidor e cível, com calculadoras e IA' },
+  const plans = [
+    { 
+      name: 'Solo', 
+      price: 99, 
+      processes: 30, 
+      usersLabel: '1 usuário',
+      popular: false 
+    },
+    { 
+      name: 'Essencial', 
+      price: 200, 
+      processes: 100, 
+      usersLabel: '3 usuários',
+      popular: false 
+    },
+    { 
+      name: 'Estrutura', 
+      price: 400, 
+      processes: 200, 
+      usersLabel: '10 usuários',
+      popular: true
+    },
+    { 
+      name: 'Expansão', 
+      price: 600, 
+      processes: 400, 
+      usersLabel: 'Usuários ilimitados',
+      popular: false 
+    },
+    { 
+      name: 'Enterprise', 
+      price: 1000, 
+      processes: 800, 
+      usersLabel: 'Usuários ilimitados',
+      popular: false 
+    },
   ];
 
   const scrollToDemo = () => {
@@ -236,6 +265,7 @@ const HomePage = () => {
           <nav className="hidden md:flex items-center gap-8">
             <a href="#about" className="text-sm text-gray-400 hover:text-white transition-colors">Sobre</a>
             <a href="#modules" className="text-sm text-gray-400 hover:text-white transition-colors">Módulos</a>
+            <a href="#plans" className="text-sm text-gray-400 hover:text-white transition-colors">Planos</a>
             <a href="#benefits" className="text-sm text-gray-400 hover:text-white transition-colors">Benefícios</a>
             <a href="#testimonials" className="text-sm text-gray-400 hover:text-white transition-colors">Depoimentos</a>
           </nav>
@@ -456,33 +486,77 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Visual Demos Section */}
-      <section className="py-20 relative">
+      {/* Plans Section */}
+      <section id="plans" className="py-20 relative">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Visualize o <span className="text-cyan-400">Sistema</span>
+              Nossos <span className="text-cyan-400">Planos</span>
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Interfaces modernas e intuitivas que facilitam o dia a dia
+              Escolha o plano ideal para o tamanho do seu escritório
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-            {mockups.map((mockup, i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            {plans.map((plan, i) => (
               <div 
                 key={i}
-                className="group relative rounded-xl sm:rounded-2xl overflow-hidden border border-white/10 min-h-[120px] sm:min-h-[140px]"
+                className={`relative rounded-xl sm:rounded-2xl p-4 sm:p-6 border transition-all duration-300 ${
+                  plan.popular 
+                    ? 'bg-gradient-to-b from-blue-600/30 to-cyan-500/10 border-cyan-500/50 lg:scale-105 shadow-lg shadow-cyan-500/20' 
+                    : 'bg-white/5 border-white/10 hover:border-blue-500/50'
+                }`}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 via-cyan-500/20 to-blue-900/50" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-3 sm:p-4 text-center">
-                  <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-white/10 flex items-center justify-center mb-2 sm:mb-3">
-                    <LayoutGrid className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-cyan-400" />
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="px-3 py-1 text-xs font-semibold bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full">
+                      Popular
+                    </span>
                   </div>
-                  <h3 className="font-semibold text-[11px] sm:text-sm mb-1 sm:mb-2">{mockup.title}</h3>
-                  <p className="text-[9px] sm:text-xs text-gray-400 leading-relaxed">{mockup.desc}</p>
+                )}
+                
+                <div className="text-center">
+                  <h3 className="text-sm sm:text-lg font-semibold mb-2">{plan.name}</h3>
+                  
+                  <div className="mb-4">
+                    <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-cyan-400 bg-clip-text text-transparent">
+                      R$ {plan.price.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-xs sm:text-sm text-gray-400">/mês</span>
+                  </div>
+
+                  <div className="inline-block px-2 py-1 rounded-full bg-blue-500/20 text-cyan-400 text-[10px] sm:text-xs mb-4">
+                    {plan.usersLabel}
+                  </div>
+
+                  <ul className="space-y-2 text-left mb-6">
+                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      Até {plan.processes} processos
+                    </li>
+                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      Monitoramento automático
+                    </li>
+                    <li className="flex items-center gap-2 text-[10px] sm:text-sm text-gray-300">
+                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                      Suporte especializado
+                    </li>
+                  </ul>
+
+                  <Button 
+                    onClick={scrollToDemo}
+                    size="sm"
+                    className={`w-full ${
+                      plan.popular 
+                        ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white' 
+                        : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                    }`}
+                  >
+                    Solicitar Demo
+                  </Button>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1a] via-transparent to-transparent opacity-60" />
               </div>
             ))}
           </div>
