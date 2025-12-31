@@ -132,6 +132,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       email,
       password
     });
+    
+    // Pré-carregar dados da Controladoria após login bem-sucedido
+    if (!error) {
+      // Importar dinamicamente para evitar dependência circular
+      import('@/hooks/useControladoriaCache').then(({ prefetchControladoriaData }) => {
+        prefetchControladoriaData();
+      });
+    }
+    
     return { error };
   };
 

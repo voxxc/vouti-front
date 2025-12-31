@@ -1,86 +1,31 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Bell, Scale, Building2 } from "lucide-react";
+import { FileText, Bell, Scale, Building2, RefreshCw } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
+import { useControladoriaCache } from "@/hooks/useControladoriaCache";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Controladoria = () => {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({
-    totalProcessos: 0,
-    totalOABs: 0,
-    monitorados: 0,
-    totalCNPJs: 0,
-    cnpjsMonitorados: 0
-  });
+  const { metrics, loading, isCacheLoaded, isRefreshing } = useControladoriaCache();
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
-  const fetchMetrics = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Buscar total de processos da tabela processos_oab
-      const { count: totalProcessos } = await supabase
-        .from('processos_oab')
-        .select('*', { count: 'exact', head: true });
-
-      // Buscar total de OABs cadastradas
-      const { count: totalOABs } = await supabase
-        .from('oabs_cadastradas')
-        .select('*', { count: 'exact', head: true });
-
-      // Buscar processos monitorados
-      const { count: monitorados } = await supabase
-        .from('processos_oab')
-        .select('*', { count: 'exact', head: true })
-        .eq('monitoramento_ativo', true);
-
-      // Buscar total de CNPJs cadastrados (Push-Docs)
-      const { count: totalCNPJs } = await supabase
-        .from('cnpjs_cadastrados')
-        .select('*', { count: 'exact', head: true });
-
-      // Buscar processos de CNPJ monitorados
-      const { count: cnpjsMonitorados } = await supabase
-        .from('processos_cnpj')
-        .select('*', { count: 'exact', head: true })
-        .eq('monitoramento_ativo', true);
-
-      setMetrics({
-        totalProcessos: totalProcessos || 0,
-        totalOABs: totalOABs || 0,
-        monitorados: monitorados || 0,
-        totalCNPJs: totalCNPJs || 0,
-        cnpjsMonitorados: cnpjsMonitorados || 0
-      });
-    } catch (error) {
-      console.error('Error fetching metrics:', error);
-      toast({
-        title: "Erro ao carregar metricas",
-        description: "Nao foi possivel carregar as metricas.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const showSkeleton = loading && !isCacheLoaded;
 
   return (
     <DashboardLayout currentPage="controladoria">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Controladoria</h1>
-          <p className="text-muted-foreground mt-2">Gestao e controle de processos juridicos</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Controladoria</h1>
+            <p className="text-muted-foreground mt-2">Gestao e controle de processos juridicos</p>
+          </div>
+          {isRefreshing && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span>Atualizando...</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -90,7 +35,11 @@ const Controladoria = () => {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.totalProcessos}</div>
+              {showSkeleton ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{metrics.totalProcessos}</div>
+              )}
             </CardContent>
           </Card>
 
@@ -100,7 +49,11 @@ const Controladoria = () => {
               <Scale className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.totalOABs}</div>
+              {showSkeleton ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{metrics.totalOABs}</div>
+              )}
             </CardContent>
           </Card>
 
@@ -110,7 +63,11 @@ const Controladoria = () => {
               <Bell className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.monitorados}</div>
+              {showSkeleton ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{metrics.monitorados}</div>
+              )}
             </CardContent>
           </Card>
 
@@ -120,7 +77,11 @@ const Controladoria = () => {
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.totalCNPJs}</div>
+              {showSkeleton ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{metrics.totalCNPJs}</div>
+              )}
             </CardContent>
           </Card>
 
@@ -130,7 +91,11 @@ const Controladoria = () => {
               <Bell className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loading ? "..." : metrics.cnpjsMonitorados}</div>
+              {showSkeleton ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{metrics.cnpjsMonitorados}</div>
+              )}
             </CardContent>
           </Card>
         </div>
