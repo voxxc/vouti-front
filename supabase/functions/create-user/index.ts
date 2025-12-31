@@ -86,7 +86,11 @@ Deno.serve(async (req) => {
       throw new Error('Email já cadastrado')
     }
 
-    console.log('Creating user with email:', email)
+    console.log('=== CREATE USER DEBUG ===')
+    console.log('Email:', email)
+    console.log('Role principal:', role)
+    console.log('Additional roles recebidas:', additional_roles)
+    console.log('Tenant ID:', tenant_id)
 
     // Create user using Admin API (does not auto-login)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -138,7 +142,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log('Assigning roles:', allRoles)
+      console.log('=== ROLES TO INSERT ===')
+      console.log('All roles array:', allRoles)
 
       // Assign all roles
       const rolesToInsert = allRoles.map(r => ({
@@ -146,6 +151,8 @@ Deno.serve(async (req) => {
         role: r,
         tenant_id: tenant_id
       }))
+
+      console.log('Roles to insert (formatted):', JSON.stringify(rolesToInsert, null, 2))
 
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')

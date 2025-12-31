@@ -42,16 +42,38 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     email: '',
     password: '',
     role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
-    additionalRoles: [] as string[]
+    additionalPermissions: [] as string[] // IDs das permissões (não roles)
   });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
     role: 'advogado' as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda',
-    password: '', // Optional - only update if provided
-    additionalRoles: [] as string[]
+    password: '',
+    additionalPermissions: [] as string[] // IDs das permissões (não roles)
   });
+
+  // Função para converter IDs de permissões para roles
+  const permissionsToRoles = (permissionIds: string[]): string[] => {
+    const roles = permissionIds.map(id => {
+      const perm = ADDITIONAL_PERMISSIONS.find(p => p.id === id);
+      return perm?.role;
+    }).filter(Boolean) as string[];
+    return [...new Set(roles)]; // Remove duplicatas
+  };
+
+  // Função para converter roles para IDs de permissões
+  const rolesToPermissions = (roles: string[]): string[] => {
+    const permIds: string[] = [];
+    roles.forEach(role => {
+      ADDITIONAL_PERMISSIONS.forEach(perm => {
+        if (perm.role === role) {
+          permIds.push(perm.id);
+        }
+      });
+    });
+    return [...new Set(permIds)];
+  };
 
   // Set up realtime subscription for profiles
   useEffect(() => {
@@ -94,7 +116,10 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     setLoading(true);
 
     try {
+      const additionalRoles = permissionsToRoles(formData.additionalPermissions);
       console.log("Creating user with email:", formData.email);
+      console.log("Additional permissions:", formData.additionalPermissions);
+      console.log("Converted to roles:", additionalRoles);
       
       // Call edge function to create user without logging out admin
       const { data, error } = await supabase.functions.invoke('create-user', {
@@ -103,7 +128,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
           password: formData.password,
           full_name: formData.name,
           role: formData.role,
-          additional_roles: formData.additionalRoles,
+          additional_roles: additionalRoles,
           tenant_id: tenantId
         }
       });
@@ -139,7 +164,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       });
 
       setIsOpen(false);
-      setFormData({ name: '', email: '', password: '', role: 'advogado', additionalRoles: [] });
+      setFormData({ name: '', email: '', password: '', role: 'advogado', additionalPermissions: [] });
     } catch (error: any) {
       console.error("Error creating user:", error);
       
@@ -177,12 +202,19 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     const primaryRole = user.role as 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda';
     const additionalRoles = allRoles.filter(r => r !== primaryRole);
     
+    // Converter roles para IDs de permissões
+    const additionalPermissions = rolesToPermissions(additionalRoles);
+    console.log('handleEdit - roles do banco:', allRoles);
+    console.log('handleEdit - role principal:', primaryRole);
+    console.log('handleEdit - roles adicionais:', additionalRoles);
+    console.log('handleEdit - permissões convertidas:', additionalPermissions);
+    
     setEditFormData({
       name: user.name,
       email: user.email,
       role: primaryRole,
-      password: '', // Reset password field
-      additionalRoles: additionalRoles
+      password: '',
+      additionalPermissions: additionalPermissions
     });
     setIsEditOpen(true);
   };
@@ -235,8 +267,9 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
 
       if (deleteError) throw deleteError;
 
-      // Preparar todas as roles (principal + adicionais)
-      const allRolesToInsert = [editFormData.role, ...editFormData.additionalRoles.filter(r => r !== editFormData.role)];
+      // Preparar todas as roles (principal + adicionais convertidas de permissões)
+      const additionalRoles = permissionsToRoles(editFormData.additionalPermissions);
+      const allRolesToInsert = [editFormData.role, ...additionalRoles.filter(r => r !== editFormData.role)];
       const uniqueRoles = [...new Set(allRolesToInsert)];
 
       // Insert all roles with tenant_id
@@ -418,17 +451,17 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                     <div key={perm.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`perm-${perm.id}`}
-                        checked={formData.additionalRoles.includes(perm.role)}
+                        checked={formData.additionalPermissions.includes(perm.id)}
                         onCheckedChange={(checked) => {
                           if (checked) {
                             setFormData({
                               ...formData,
-                              additionalRoles: [...new Set([...formData.additionalRoles, perm.role])]
+                              additionalPermissions: [...new Set([...formData.additionalPermissions, perm.id])]
                             });
                           } else {
                             setFormData({
                               ...formData,
-                              additionalRoles: formData.additionalRoles.filter(r => r !== perm.role)
+                              additionalPermissions: formData.additionalPermissions.filter(id => id !== perm.id)
                             });
                           }
                         }}
@@ -518,17 +551,17 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
                     <div key={perm.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`edit-perm-${perm.id}`}
-                        checked={editFormData.additionalRoles.includes(perm.role)}
+                        checked={editFormData.additionalPermissions.includes(perm.id)}
                         onCheckedChange={(checked) => {
                           if (checked) {
                             setEditFormData({
                               ...editFormData,
-                              additionalRoles: [...new Set([...editFormData.additionalRoles, perm.role])]
+                              additionalPermissions: [...new Set([...editFormData.additionalPermissions, perm.id])]
                             });
                           } else {
                             setEditFormData({
                               ...editFormData,
-                              additionalRoles: editFormData.additionalRoles.filter(r => r !== perm.role)
+                              additionalPermissions: editFormData.additionalPermissions.filter(id => id !== perm.id)
                             });
                           }
                         }}
