@@ -39,7 +39,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       const interval = setInterval(() => {
         setShouldPing(true);
         setTimeout(() => setShouldPing(false), 1000);
-      }, 5000);
+      }, 3000);
 
       return () => {
         clearInterval(interval);
@@ -104,7 +104,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
           {/* Onda de ping animada */}
           {unreadCount > 0 && shouldPing && (
             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="absolute h-4 w-4 rounded-full bg-primary/60 animate-notification-ping" />
+              <span className="absolute h-4 w-4 rounded-full bg-red-500/60 animate-notification-ping" />
             </span>
           )}
           
