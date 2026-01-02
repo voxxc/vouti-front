@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 
 export const useMonitoramentoJudit = () => {
   const [ativando, setAtivando] = useState<string | null>(null);
   const { toast } = useToast();
+  const { podeMonitorarProcesso } = usePlanoLimites();
 
   const toggleMonitoramento = async (processo: any) => {
     setAtivando(processo.id);
@@ -23,6 +25,16 @@ export const useMonitoramentoJudit = () => {
       console.log('[Judit] Status atual:', isAtivo ? 'ATIVO' : 'INATIVO');
 
       if (!isAtivo) {
+        // Verificar limite do plano
+        if (!podeMonitorarProcesso()) {
+          toast({
+            title: "Limite atingido",
+            description: "Você atingiu o limite de processos monitorados do seu plano.",
+            variant: 'destructive'
+          });
+          return false;
+        }
+        
         // ATIVAR: buscar + ativar monitoramento
         
         console.log('[Judit] 📡 Chamando judit-buscar-processo...');

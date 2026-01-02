@@ -147,7 +147,29 @@ export const ImportarProcessoCNJDialog = ({
   const handleImportarEmMassa = async () => {
     if (cnjList.length === 0) return;
 
-    const processosParaImportar = [...cnjList];
+    // Verificar limite de processos
+    const espacoDisponivel = (limites.processos_cadastrados ?? Infinity) - (uso.processos_cadastrados ?? 0);
+    
+    if (espacoDisponivel <= 0) {
+      toast({
+        title: 'Limite atingido',
+        description: 'Você atingiu o limite de processos cadastrados do seu plano.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    let processosParaImportar = [...cnjList];
+    
+    if (cnjList.length > espacoDisponivel && limites.processos_cadastrados !== null) {
+      toast({
+        title: 'Limite de processos',
+        description: `Você pode importar apenas ${espacoDisponivel} processo(s). Importando os primeiros da lista.`,
+        variant: 'destructive'
+      });
+      processosParaImportar = cnjList.slice(0, espacoDisponivel);
+    }
+
     const total = processosParaImportar.length;
 
     // Fecha o dialog imediatamente
