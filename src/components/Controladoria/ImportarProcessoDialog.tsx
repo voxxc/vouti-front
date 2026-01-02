@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+import { usePlanoLimites } from "@/hooks/usePlanoLimites";
 import type { ProcessoOAB } from "@/types/busca-oab";
 import { extrairTribunalDoNumeroProcesso } from "@/utils/processoHelpers";
 import { extrairPartesDoProcesso } from "@/utils/processoOABHelpers";
@@ -24,9 +27,19 @@ export const ImportarProcessoDialog = ({
 }: ImportarProcessoDialogProps) => {
   const { toast } = useToast();
   const { navigate } = useTenantNavigation();
+  const { podeMonitorarProcesso, uso, limites } = usePlanoLimites();
   const [importando, setImportando] = useState(false);
   const [ativarMonitoramento, setAtivarMonitoramento] = useState(true);
   const [importarAndamentos, setImportarAndamentos] = useState(true);
+  
+  const limiteMonitoramentoAtingido = !podeMonitorarProcesso();
+  
+  // Desabilitar monitoramento automaticamente se limite atingido
+  useEffect(() => {
+    if (limiteMonitoramentoAtingido && ativarMonitoramento) {
+      setAtivarMonitoramento(false);
+    }
+  }, [limiteMonitoramentoAtingido, ativarMonitoramento]);
 
   const handleImportar = async () => {
     if (!processo) return;
@@ -174,6 +187,17 @@ export const ImportarProcessoDialog = ({
             </div>
           </div>
 
+          {/* Alerta de limite de monitoramento */}
+          {limiteMonitoramentoAtingido && (
+            <Alert variant="destructive" className="py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Limite de monitoramento atingido ({uso.processos_monitorados}/{limites.processos_monitorados}). 
+                Você pode importar o processo, mas sem monitoramento.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Opções */}
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
@@ -181,13 +205,20 @@ export const ImportarProcessoDialog = ({
                 id="monitoramento"
                 checked={ativarMonitoramento}
                 onCheckedChange={(checked) => setAtivarMonitoramento(checked as boolean)}
+                disabled={limiteMonitoramentoAtingido}
               />
               <div className="flex-1 space-y-1">
-                <Label htmlFor="monitoramento" className="cursor-pointer font-medium">
+                <Label 
+                  htmlFor="monitoramento" 
+                  className={`cursor-pointer font-medium ${limiteMonitoramentoAtingido ? 'text-muted-foreground' : ''}`}
+                >
                   Ativar monitoramento diário
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Receba notificações automáticas de novos andamentos
+                  {limiteMonitoramentoAtingido 
+                    ? `Limite atingido (${uso.processos_monitorados}/${limites.processos_monitorados})`
+                    : 'Receba notificações automáticas de novos andamentos'
+                  }
                 </p>
               </div>
             </div>

@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 
 export const useToggleMonitoramento = () => {
   const [ativando, setAtivando] = useState<string | null>(null);
   const { toast } = useToast();
+  const { podeMonitorarProcesso } = usePlanoLimites();
 
   const toggleMonitoramento = async (processo: any) => {
     setAtivando(processo.id);
     
     try {
       if (!processo.monitoramento_ativo) {
+        // Verificar limite do plano
+        if (!podeMonitorarProcesso()) {
+          toast({
+            title: "Limite atingido",
+            description: "Você atingiu o limite de processos monitorados do seu plano.",
+            variant: 'destructive'
+          });
+          return false;
+        }
+        
         // ATIVAR: consultar + salvar + mostrar
         const { data, error } = await supabase.functions.invoke(
           'escavador-ativar-e-buscar',
