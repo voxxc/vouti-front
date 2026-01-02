@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, ShieldCheck, Eye, EyeOff, LogOut, Users, Headphones, Building2 } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2 } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
@@ -20,7 +20,6 @@ export default function SuperAdmin() {
     systemTypes,
     loading,
     isSuperAdmin,
-    noSuperAdminsExist,
     currentUserEmail,
     session,
     createTenant,
@@ -28,9 +27,7 @@ export default function SuperAdmin() {
     deleteTenant,
     toggleTenantStatus,
     getTenantsBySystemType,
-    becomeSuperAdmin,
     signInSuperAdmin,
-    signUpSuperAdmin,
     signOutSuperAdmin,
   } = useSuperAdmin();
 
@@ -44,9 +41,6 @@ export default function SuperAdmin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [signupName, setSignupName] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,29 +55,6 @@ export default function SuperAdmin() {
 
     if (error) {
       toast({ title: 'Erro ao entrar', description: error.message, variant: 'destructive' });
-    }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signupName || !signupEmail || !signupPassword) {
-      toast({ title: 'Erro', description: 'Preencha todos os campos', variant: 'destructive' });
-      return;
-    }
-
-    if (signupPassword.length < 6) {
-      toast({ title: 'Erro', description: 'A senha deve ter pelo menos 6 caracteres', variant: 'destructive' });
-      return;
-    }
-
-    setAuthLoading(true);
-    const { error } = await signUpSuperAdmin(signupEmail, signupPassword, signupName);
-    setAuthLoading(false);
-
-    if (error) {
-      toast({ title: 'Erro ao cadastrar', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Conta criada!', description: 'Você agora é um Super Admin.' });
     }
   };
 
@@ -119,7 +90,7 @@ export default function SuperAdmin() {
     );
   }
 
-  // Estado 1: Não autenticado - mostrar login/cadastro
+  // Estado 1: Não autenticado - mostrar APENAS login
   if (!session) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
@@ -142,150 +113,53 @@ export default function SuperAdmin() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="admin@vouti.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      disabled={authLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Senha</Label>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        disabled={authLoading}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={authLoading}>
-                    {authLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Entrar
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="admin@vouti.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  disabled={authLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Senha</Label>
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    disabled={authLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nome Completo</Label>
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="Seu nome"
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                      disabled={authLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="admin@vouti.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      disabled={authLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
-                    <div className="relative">
-                      <Input
-                        id="signup-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Mínimo 6 caracteres"
-                        value={signupPassword}
-                        onChange={(e) => setSignupPassword(e.target.value)}
-                        disabled={authLoading}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={authLoading}>
-                    {authLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Criar Conta
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Ao criar uma conta, você será registrado como Super Admin.
-                  </p>
-                </form>
-              </TabsContent>
-            </Tabs>
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={authLoading}>
+                {authLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Entrar
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Estado 2: Logado mas não é Super Admin
+  // Estado 2: Logado mas não é Super Admin - ACESSO NEGADO
   if (!isSuperAdmin) {
-    // Se não existem super admins, mostrar opção de bootstrap
-    if (noSuperAdminsExist) {
-      return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <ShieldCheck className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl">Configuração Inicial</CardTitle>
-              <CardDescription>
-                Nenhum Super Admin foi configurado ainda. Seja o primeiro!
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground text-center">
-                Você está logado como: <strong>{currentUserEmail}</strong>
-              </p>
-              <Button onClick={becomeSuperAdmin} className="w-full">
-                Tornar-me Super Admin
-              </Button>
-              <Button variant="outline" onClick={handleSignOut} className="w-full">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    // Já existem super admins mas este usuário não é um
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">

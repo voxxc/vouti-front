@@ -9,29 +9,13 @@ export function useSuperAdmin() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [noSuperAdminsExist, setNoSuperAdminsExist] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
 
   const checkSuperAdmin = useCallback(async () => {
     try {
-      // First check if any super admins exist (regardless of auth)
-      const { count } = await supabase
-        .from('super_admins')
-        .select('*', { count: 'exact', head: true });
-
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       setSession(currentSession);
-      
-      if (count === 0) {
-        // No super admins exist - allow bootstrap
-        setNoSuperAdminsExist(true);
-        setCurrentUserEmail(currentSession?.user?.email || null);
-        setIsSuperAdmin(false);
-        return false;
-      }
-
-      setNoSuperAdminsExist(false);
 
       if (!currentSession?.user) {
         setIsSuperAdmin(false);
@@ -63,33 +47,7 @@ export function useSuperAdmin() {
     }
   }, []);
 
-  const becomeSuperAdmin = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({ title: 'Erro', description: 'Você precisa estar logado.', variant: 'destructive' });
-        return false;
-      }
-
-      const { error } = await supabase
-        .from('super_admins')
-        .insert({ user_id: user.id, email: user.email || '' });
-
-      if (error) throw error;
-
-      toast({ title: 'Sucesso', description: 'Você agora é Super Admin!' });
-      setIsSuperAdmin(true);
-      setNoSuperAdminsExist(false);
-      await loadData();
-      return true;
-    } catch (error) {
-      console.error('Error becoming super admin:', error);
-      toast({ title: 'Erro', description: 'Não foi possível se tornar Super Admin.', variant: 'destructive' });
-      return false;
-    }
-  };
-
-  // Auth functions
+  // Auth functions - APENAS LOGIN, sem cadastro
   const signInSuperAdmin = async (email: string, password: string): Promise<{ error: AuthError | null }> => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -111,46 +69,6 @@ export function useSuperAdmin() {
     }
 
     return { error };
-  };
-
-  const signUpSuperAdmin = async (email: string, password: string, name: string): Promise<{ error: AuthError | null }> => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-        },
-        emailRedirectTo: `${window.location.origin}/super-admin`,
-      },
-    });
-
-    if (error) {
-      return { error };
-    }
-
-    // If signup successful and we have a user, register as super admin
-    if (data.user) {
-      const { error: insertError } = await supabase
-        .from('super_admins')
-        .insert({
-          user_id: data.user.id,
-          email: email,
-        });
-
-      if (insertError) {
-        console.error('Error registering super admin:', insertError);
-      }
-
-      if (data.session) {
-        setSession(data.session);
-        setCurrentUserEmail(email);
-        setIsSuperAdmin(true);
-        setNoSuperAdminsExist(false);
-      }
-    }
-
-    return { error: null };
   };
 
   const signOutSuperAdmin = async () => {
@@ -377,7 +295,6 @@ export function useSuperAdmin() {
     tenants,
     loading,
     isSuperAdmin,
-    noSuperAdminsExist,
     currentUserEmail,
     session,
     createTenant,
@@ -385,9 +302,7 @@ export function useSuperAdmin() {
     deleteTenant,
     toggleTenantStatus,
     getTenantsBySystemType,
-    becomeSuperAdmin,
     signInSuperAdmin,
-    signUpSuperAdmin,
     signOutSuperAdmin,
     refetch: loadData,
   };
