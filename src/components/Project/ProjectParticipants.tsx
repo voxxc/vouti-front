@@ -187,7 +187,8 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
         .insert({
           project_id: projectId,
           user_id: userId,
-          role: 'editor'
+          role: 'editor',
+          tenant_id: tenantId
         });
 
       if (error) {
