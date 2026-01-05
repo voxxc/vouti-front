@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, Plus, User } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from 'sonner';
 
 interface ClienteSelectorProps {
   value?: string;
@@ -48,6 +49,7 @@ export const ClienteSelector = ({
     email: '',
     observacoes: ''
   });
+  const [isCreating, setIsCreating] = useState(false);
 
   const selectedCliente = clientes.find(c => c.id === value);
 
@@ -68,11 +70,19 @@ export const ClienteSelector = ({
   };
 
   const handleCriarNovoCliente = async () => {
-    const cliente = await criarCliente(novoCliente);
-    if (cliente) {
-      handleSelectCliente(cliente);
-      setShowNewClienteDialog(false);
-      setNovoCliente({ nome: '', telefone: '', email: '', observacoes: '' });
+    if (isCreating) return;
+    
+    setIsCreating(true);
+    try {
+      const cliente = await criarCliente(novoCliente);
+      if (cliente) {
+        toast.success('Cliente cadastrado com sucesso!');
+        handleSelectCliente(cliente);
+        setShowNewClienteDialog(false);
+        setNovoCliente({ nome: '', telefone: '', email: '', observacoes: '' });
+      }
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -206,11 +216,25 @@ export const ClienteSelector = ({
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowNewClienteDialog(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowNewClienteDialog(false)}
+                disabled={isCreating}
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleCriarNovoCliente} disabled={!novoCliente.nome}>
-                Cadastrar
+              <Button 
+                onClick={handleCriarNovoCliente} 
+                disabled={!novoCliente.nome || isCreating}
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Cadastrando...
+                  </>
+                ) : (
+                  'Cadastrar'
+                )}
               </Button>
             </div>
           </div>

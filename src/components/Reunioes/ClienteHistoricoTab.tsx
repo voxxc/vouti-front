@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useReuniaoClientes } from '@/hooks/useReuniaoClientes';
 import { Calendar, Clock, MessageSquare, XCircle, CalendarClock, CheckCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -84,7 +84,7 @@ export const ClienteHistoricoTab = ({ clienteId }: ClienteHistoricoTabProps) => 
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
                       <span>
-                        {format(new Date(reuniao.data), 'dd/MM/yyyy', { locale: ptBR })}
+                        {format(parseISO(reuniao.data), 'dd/MM/yyyy', { locale: ptBR })}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
