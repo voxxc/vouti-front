@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-// Logo inline style (VOUTI. with red dot) - no import needed
 import CloudIcon from "@/components/CloudIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { useLocalTheme } from "@/hooks/useLocalTheme";
+import { AuthThemeToggle } from "@/components/Auth/AuthThemeToggle";
 import { ArrowLeft } from "lucide-react";
 
 const Auth = () => {
@@ -31,21 +32,8 @@ const Auth = () => {
     // useTenant throws if not in TenantProvider - that's ok for legacy routes
   }
 
-  // Force dark theme on auth page
-  useEffect(() => {
-    const root = document.documentElement;
-    const hadLightTheme = root.classList.contains('light');
-    
-    root.classList.remove('light');
-    root.classList.add('dark');
-    
-    return () => {
-      root.classList.remove('dark');
-      if (hadLightTheme) {
-        root.classList.add('light');
-      }
-    };
-  }, []);
+  // Apply saved theme from localStorage
+  useLocalTheme('auth-theme');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,7 +227,12 @@ const Auth = () => {
           </div>
 
 
-          <Card className="shadow-card border-0">
+          <Card className="shadow-card border-0 relative">
+            {/* Toggle de tema minimalista */}
+            <div className="absolute top-3 right-3">
+              <AuthThemeToggle />
+            </div>
+            
             <CardHeader className="space-y-1 text-center pb-4">
               <h3 className="text-xl font-semibold text-foreground">
                 {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
