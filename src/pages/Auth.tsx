@@ -199,7 +199,7 @@ const Auth = () => {
           <div className="mb-10 flex flex-col items-center">
             <CloudIcon className="w-32 h-24 mb-8 animate-float" />
             <span className="text-5xl md:text-6xl font-bold tracking-wider">
-              <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
+              <span className="bg-gradient-to-r from-gray-600 via-gray-800 to-blue-600 dark:from-gray-300 dark:via-white dark:to-blue-400 bg-clip-text text-transparent">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </div>
@@ -218,7 +218,7 @@ const Auth = () => {
           <div className="lg:hidden text-center mb-6">
             <CloudIcon className="w-16 h-12 mx-auto mb-4 animate-float" />
             <span className="text-3xl font-bold tracking-wider block mb-3">
-              <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
+              <span className="bg-gradient-to-r from-gray-600 via-gray-800 to-blue-600 dark:from-gray-300 dark:via-white dark:to-blue-400 bg-clip-text text-transparent">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
             <p className="text-sm font-medium tracking-wide text-muted-foreground">
