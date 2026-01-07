@@ -238,10 +238,6 @@ const Auth = () => {
             </p>
           </div>
 
-          {/* Show tenant name if available */}
-          {tenant && (
-            <p className="text-sm text-muted-foreground mb-2 text-center">{tenant.name}</p>
-          )}
 
           <Card className="shadow-card border-0">
             <CardHeader className="space-y-1 text-center pb-4">
