@@ -112,6 +112,52 @@ serve(async (req) => {
 
     console.log('admin-set-user-roles: Caller is admin, proceeding...');
 
+    // PROTEÇÃO 1: Impedir que admin remova sua própria role de admin
+    if (callerUser.id === target_user_id) {
+      const callerIsCurrentlyAdmin = callerRoles?.some(r => r.role === 'admin');
+      const willRemainAdmin = finalPrimaryRole === 'admin' || finalAdditionalRoles.includes('admin');
+      
+      if (callerIsCurrentlyAdmin && !willRemainAdmin) {
+        console.error('admin-set-user-roles: Admin trying to self-demote');
+        return new Response(
+          JSON.stringify({ error: 'Você não pode remover sua própria permissão de administrador' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // PROTEÇÃO 2: Garantir que sempre haja pelo menos 1 admin no tenant
+    const { data: otherAdmins, error: otherAdminsError } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('tenant_id', tenant_id)
+      .eq('role', 'admin')
+      .neq('user_id', target_user_id);
+
+    if (otherAdminsError) {
+      console.error('admin-set-user-roles: Error checking other admins:', otherAdminsError);
+    }
+
+    const isRemovingAdminRole = finalPrimaryRole !== 'admin' && !finalAdditionalRoles.includes('admin');
+    const noOtherAdmins = !otherAdmins || otherAdmins.length === 0;
+    
+    // Buscar role atual do target user para verificar se está removendo admin
+    const { data: targetCurrentRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', target_user_id)
+      .eq('tenant_id', tenant_id);
+    
+    const targetIsCurrentlyAdmin = targetCurrentRoles?.some(r => r.role === 'admin');
+    
+    if (targetIsCurrentlyAdmin && isRemovingAdminRole && noOtherAdmins) {
+      console.error('admin-set-user-roles: Trying to remove last admin');
+      return new Response(
+        JSON.stringify({ error: 'Não é possível remover o último administrador do sistema' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verificar se o usuário alvo pertence ao tenant
     const { data: targetProfile, error: targetProfileError } = await supabaseAdmin
       .from('profiles')

@@ -269,12 +269,35 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     }
   };
 
+  // Obter o usuário atual para verificar auto-edição
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id || null);
+    });
+  }, []);
+
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser || !editUserTenantId) {
       toast({
         title: "Erro",
         description: "Dados do usuário não carregados corretamente. Feche e abra novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // PROTEÇÃO: Impedir que admin remova sua própria role de admin
+    const isEditingSelf = editingUser.id === currentUserId;
+    const wasAdmin = editingUser.role === 'admin';
+    const isRemovingAdmin = wasAdmin && editFormData.role !== 'admin';
+    
+    if (isEditingSelf && isRemovingAdmin) {
+      toast({
+        title: "Operação não permitida",
+        description: "Você não pode remover sua própria permissão de administrador. Peça a outro admin para fazer isso.",
         variant: "destructive",
       });
       return;
