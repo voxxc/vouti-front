@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import Logo from "@/components/Logo";
+// Logo inline style (VOUTI. with red dot) - no import needed
 import CloudIcon from "@/components/CloudIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,16 +207,18 @@ const Auth = () => {
       <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative">
         {/* Conteúdo centralizado */}
         <div className="relative z-10 flex flex-col items-center text-center px-8">
-          {/* Nuvem + Logo */}
-          <div className="mb-8 flex flex-col items-center">
-            <CloudIcon className="w-28 h-20 mb-6 animate-float" />
-            <Logo size="lg" className="justify-center" />
+          {/* Nuvem + Logo estilo HomePage */}
+          <div className="mb-10 flex flex-col items-center">
+            <CloudIcon className="w-32 h-24 mb-8 animate-float" />
+            <span className="text-5xl md:text-6xl font-bold tracking-wider">
+              <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
+              <span className="text-red-500">.</span>
+            </span>
           </div>
           
-          {/* Slogan */}
-          <p className="text-2xl md:text-3xl font-light text-muted-foreground max-w-md leading-relaxed">
-            O melhor lugar de trabalho é{' '}
-            <span className="text-primary font-semibold">aqui</span>.
+          {/* Slogan em uma linha */}
+          <p className="text-xl md:text-2xl font-medium tracking-wide text-muted-foreground whitespace-nowrap">
+            O melhor lugar de trabalho é <span className="text-primary">aqui</span>.
           </p>
         </div>
       </div>
@@ -227,9 +229,12 @@ const Auth = () => {
           {/* Mobile: Logo aparece acima do card */}
           <div className="lg:hidden text-center mb-6">
             <CloudIcon className="w-16 h-12 mx-auto mb-4 animate-float" />
-            <Logo size="md" className="justify-center mb-2" />
-            <p className="text-sm text-muted-foreground">
-              O melhor lugar de trabalho é <span className="text-primary font-medium">aqui</span>.
+            <span className="text-3xl font-bold tracking-wider block mb-3">
+              <span className="bg-gradient-to-r from-gray-300 via-white to-blue-400 bg-clip-text text-transparent">VOUTI</span>
+              <span className="text-red-500">.</span>
+            </span>
+            <p className="text-sm font-medium tracking-wide text-muted-foreground">
+              O melhor lugar de trabalho é <span className="text-primary">aqui</span>.
             </p>
           </div>
 
