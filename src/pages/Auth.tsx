@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import Logo from "@/components/Logo";
+import CloudIcon from "@/components/CloudIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -184,10 +185,10 @@ const Auth = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-subtle flex items-center justify-center p-4 transition-opacity duration-500 relative overflow-hidden ${
+    <div className={`min-h-screen bg-gradient-subtle flex transition-opacity duration-500 relative overflow-hidden ${
       isTransitioning ? 'opacity-0 animate-fade-out' : 'opacity-100'
     }`}>
-      {/* Floating Elements */}
+      {/* Floating Elements - espalhados pela tela toda */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-1/4 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-60" />
         <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1s' }} />
@@ -202,108 +203,135 @@ const Auth = () => {
         <div className="absolute bottom-20 right-1/4 w-2 h-2 rounded-full bg-accent animate-float opacity-60" style={{ animationDelay: '2.3s' }} />
       </div>
 
-      <div className="w-full max-w-md space-y-8 relative z-10">
-        <div className="text-center">
+      {/* LADO ESQUERDO - Branding (60%) - Hidden on mobile */}
+      <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative">
+        {/* Conteúdo centralizado */}
+        <div className="relative z-10 flex flex-col items-center text-center px-8">
+          {/* Nuvem + Logo */}
+          <div className="mb-8 flex flex-col items-center">
+            <CloudIcon className="w-28 h-20 mb-6 animate-float" />
+            <Logo size="lg" className="justify-center" />
+          </div>
+          
+          {/* Slogan */}
+          <p className="text-2xl md:text-3xl font-light text-muted-foreground max-w-md leading-relaxed">
+            O melhor lugar de trabalho é{' '}
+            <span className="text-primary font-semibold">aqui</span>.
+          </p>
+        </div>
+      </div>
+
+      {/* LADO DIREITO - Formulário (40%) */}
+      <div className="w-full lg:w-2/5 flex items-center justify-center p-4 lg:pr-16">
+        <div className="w-full max-w-md animate-slide-in-left">
+          {/* Mobile: Logo aparece acima do card */}
+          <div className="lg:hidden text-center mb-6">
+            <CloudIcon className="w-16 h-12 mx-auto mb-4 animate-float" />
+            <Logo size="md" className="justify-center mb-2" />
+            <p className="text-sm text-muted-foreground">
+              O melhor lugar de trabalho é <span className="text-primary font-medium">aqui</span>.
+            </p>
+          </div>
+
           {/* Show tenant name if available */}
           {tenant && (
-            <p className="text-sm text-muted-foreground mb-2">{tenant.name}</p>
+            <p className="text-sm text-muted-foreground mb-2 text-center">{tenant.name}</p>
           )}
-          <Logo size="lg" className="justify-center mb-6" />
+
+          <Card className="shadow-card border-0">
+            <CardHeader className="space-y-1 text-center pb-4">
+              <h3 className="text-xl font-semibold text-foreground">
+                {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {mode === 'login' 
+                  ? 'Entre ou crie sua conta para continuar'
+                  : 'Informe seu email para receber o link de recuperacao'
+                }
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full">
+                {mode === 'login' ? (
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-email">Email</Label>
+                      <Input
+                        id="signin-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-password">Senha</Label>
+                      <Input
+                        id="signin-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setMode('recovery')}
+                      className="text-sm text-primary hover:underline w-full text-right"
+                    >
+                      Esqueceu sua senha?
+                    </button>
+
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      variant="professional"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Entrando..." : "Entrar"}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="recovery-email">Email</Label>
+                      <Input
+                        id="recovery-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      variant="professional"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Enviando..." : "Enviar link de recuperacao"}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMode('login')}
+                      className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      Voltar ao login
+                    </button>
+                  </form>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-
-        <Card className="shadow-card border-0">
-          <CardHeader className="space-y-1 text-center pb-4">
-            <h3 className="text-xl font-semibold text-foreground">
-              {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {mode === 'login' 
-                ? 'Entre ou crie sua conta para continuar'
-                : 'Informe seu email para receber o link de recuperacao'
-              }
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="w-full">
-              {mode === 'login' ? (
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <Input
-                      id="signin-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Senha</Label>
-                    <Input
-                      id="signin-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setMode('recovery')}
-                    className="text-sm text-primary hover:underline w-full text-right"
-                  >
-                    Esqueceu sua senha?
-                  </button>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    variant="professional"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Entrando..." : "Entrar"}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="recovery-email">Email</Label>
-                    <Input
-                      id="recovery-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    variant="professional"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Enviando..." : "Enviar link de recuperacao"}
-                  </Button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMode('login')}
-                    className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1"
-                  >
-                    <ArrowLeft className="h-3 w-3" />
-                    Voltar ao login
-                  </button>
-                </form>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
