@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantId } from '@/hooks/useTenantId';
 
@@ -13,90 +13,83 @@ export interface ProcessosMetrics {
   processosAtrasados: number;
 }
 
-export const useProcessosMetrics = () => {
-  const [metrics, setMetrics] = useState<ProcessosMetrics | null>(null);
-  const [loading, setLoading] = useState(false);
-  const { tenantId } = useTenantId();
+const fetchProcessosMetrics = async (tenantId: string): Promise<ProcessosMetrics> => {
+  const [processosRes, andamentosRes, prazosRes, oabsRes] = await Promise.all([
+    supabase
+      .from('processos_oab')
+      .select('id, monitoramento_ativo, detalhes_request_id')
+      .eq('tenant_id', tenantId),
+    supabase
+      .from('processos_oab_andamentos')
+      .select('id, created_at, processo_oab_id'),
+    supabase
+      .from('deadlines')
+      .select('date, completed')
+      .eq('tenant_id', tenantId),
+    supabase
+      .from('oabs_cadastradas')
+      .select('id')
+      .eq('tenant_id', tenantId)
+  ]);
 
-  const fetchMetrics = async () => {
-    if (!tenantId) return;
-    
-    setLoading(true);
-    try {
-      const [processosRes, andamentosRes, prazosRes, oabsRes] = await Promise.all([
-        supabase
-          .from('processos_oab')
-          .select('id, monitoramento_ativo, detalhes_request_id')
-          .eq('tenant_id', tenantId),
-        supabase
-          .from('processos_oab_andamentos')
-          .select('id, created_at, processo_oab_id'),
-        supabase
-          .from('deadlines')
-          .select('date, completed')
-          .eq('tenant_id', tenantId),
-        supabase
-          .from('oabs_cadastradas')
-          .select('id')
-          .eq('tenant_id', tenantId)
-      ]);
+  const processos = processosRes.data || [];
+  const andamentos = andamentosRes.data || [];
+  const prazos = prazosRes.data || [];
+  const oabs = oabsRes.data || [];
 
-      const processos = processosRes.data || [];
-      const andamentos = andamentosRes.data || [];
-      const prazos = prazosRes.data || [];
-      const oabs = oabsRes.data || [];
+  // Filtrar andamentos apenas dos processos do tenant
+  const processoIds = new Set(processos.map(p => p.id));
+  const andamentosTenant = andamentos.filter(a => processoIds.has(a.processo_oab_id));
 
-      // Filtrar andamentos apenas dos processos do tenant
-      const processoIds = new Set(processos.map(p => p.id));
-      const andamentosTenant = andamentos.filter(a => processoIds.has(a.processo_oab_id));
+  // Calcular andamentos recentes (ultimos 7 dias)
+  const seteDiasAtras = new Date();
+  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+  const andamentosRecentes = andamentosTenant.filter(a => 
+    a.created_at && new Date(a.created_at) >= seteDiasAtras
+  ).length;
 
-      // Calcular andamentos recentes (ultimos 7 dias)
-      const seteDiasAtras = new Date();
-      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-      const andamentosRecentes = andamentosTenant.filter(a => 
-        a.created_at && new Date(a.created_at) >= seteDiasAtras
-      ).length;
+  // Analisar prazos
+  let proximosPrazos = 0;
+  let processosAtrasados = 0;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
 
-      // Analisar prazos
-      let proximosPrazos = 0;
-      let processosAtrasados = 0;
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-
-      prazos.forEach(prazo => {
-        if (!prazo.completed && prazo.date) {
-          const dueDate = new Date(prazo.date);
-          dueDate.setHours(0, 0, 0, 0);
-          const diffDias = Math.ceil((dueDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDias < 0) processosAtrasados++;
-          else if (diffDias <= 7) proximosPrazos++;
-        }
-      });
-
-      setMetrics({
-        totalProcessos: processos.length,
-        processosMonitorando: processos.filter(p => p.monitoramento_ativo).length,
-        processosComDetalhes: processos.filter(p => p.detalhes_request_id).length,
-        totalAndamentos: andamentosTenant.length,
-        andamentosRecentes,
-        totalOABs: oabs.length,
-        proximosPrazos,
-        processosAtrasados,
-      });
-    } catch (error) {
-      console.error('Erro ao buscar metricas de processos:', error);
-    } finally {
-      setLoading(false);
+  prazos.forEach(prazo => {
+    if (!prazo.completed && prazo.date) {
+      const dueDate = new Date(prazo.date);
+      dueDate.setHours(0, 0, 0, 0);
+      const diffDias = Math.ceil((dueDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDias < 0) processosAtrasados++;
+      else if (diffDias <= 7) proximosPrazos++;
     }
-  };
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [tenantId]);
+  });
 
   return {
-    metrics,
+    totalProcessos: processos.length,
+    processosMonitorando: processos.filter(p => p.monitoramento_ativo).length,
+    processosComDetalhes: processos.filter(p => p.detalhes_request_id).length,
+    totalAndamentos: andamentosTenant.length,
+    andamentosRecentes,
+    totalOABs: oabs.length,
+    proximosPrazos,
+    processosAtrasados,
+  };
+};
+
+export const useProcessosMetrics = () => {
+  const { tenantId } = useTenantId();
+
+  const { data: metrics, isLoading: loading, refetch } = useQuery({
+    queryKey: ['processos-metrics', tenantId],
+    queryFn: () => fetchProcessosMetrics(tenantId!),
+    enabled: !!tenantId,
+    staleTime: 5 * 60 * 1000, // 5 minutos de cache
+    gcTime: 10 * 60 * 1000, // 10 minutos no garbage collector
+  });
+
+  return {
+    metrics: metrics ?? null,
     loading,
-    refreshMetrics: fetchMetrics,
+    refreshMetrics: refetch,
   };
 };

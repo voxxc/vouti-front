@@ -13,17 +13,17 @@ const LoadingTransition = ({ onComplete }: LoadingTransitionProps) => {
     // Start logo fade-in immediately
     setTimeout(() => {
       setShowLogo(true);
-    }, 100);
+    }, 50);
 
-    // Start logo fade-out after 2 seconds
+    // Start logo fade-out after 800ms
     setTimeout(() => {
       setFadingOut(true);
-    }, 2100);
+    }, 800);
 
     // Complete transition after fade-out animation
     setTimeout(() => {
       onComplete();
-    }, 2600);
+    }, 1200);
   }, [onComplete]);
 
   return (
