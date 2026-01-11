@@ -81,7 +81,12 @@ export function EditTenantDialog({
 
     setSubmitting(true);
     try {
-      await onSubmit(tenant.id, formData);
+      // Forçar slug em minúsculas
+      const dataToSubmit = {
+        ...formData,
+        slug: formData.slug.toLowerCase(),
+      };
+      await onSubmit(tenant.id, dataToSubmit);
       onOpenChange(false);
     } finally {
       setSubmitting(false);
