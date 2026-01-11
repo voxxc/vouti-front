@@ -55,7 +55,7 @@ export const TenantProvider = ({ children }: TenantProviderProps) => {
         const { data, error: fetchError } = await supabase
           .from('tenants')
           .select('*')
-          .eq('slug', tenantSlug)
+          .ilike('slug', tenantSlug)
           .single();
 
         if (fetchError) {
