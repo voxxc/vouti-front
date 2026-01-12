@@ -97,7 +97,7 @@ export function useSubscription() {
 
       // Get plano config
       const { data: planoData, error: planoError } = await supabase
-        .from('planos_config')
+        .from('planos_config' as any)
         .select('nome, valor_mensal')
         .eq('slug', tenantData?.plano || 'solo')
         .single();
@@ -107,10 +107,11 @@ export function useSubscription() {
         throw planoError;
       }
 
+      const plano = planoData as unknown as { nome: string; valor_mensal: number } | null;
       setPlanoInfo({
         plano: tenantData?.plano || 'solo',
-        valor_mensal: planoData?.valor_mensal || 0,
-        nome: planoData?.nome || 'Solo'
+        valor_mensal: plano?.valor_mensal || 0,
+        nome: plano?.nome || 'Solo'
       });
     } catch (error: any) {
       console.error('Erro ao buscar info do plano:', error);
