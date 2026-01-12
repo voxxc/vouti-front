@@ -309,7 +309,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           >
                             Li e aceito os{' '}
                             <a 
-                              href="/docs/termos-de-uso.pdf"
+                              href="/docs/termos-de-uso.pdf?v=20260112-2"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline"
@@ -319,7 +319,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                             </a>{' '}
                             e a{' '}
                             <a 
-                              href="/docs/politica-de-privacidade.pdf"
+                              href="/docs/politica-de-privacidade.pdf?v=20260112-2"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline"
