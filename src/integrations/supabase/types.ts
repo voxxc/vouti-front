@@ -4790,6 +4790,118 @@ export type Database = {
           },
         ]
       }
+      tenant_assinatura_perfil: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          cpf: string
+          created_at: string | null
+          email: string
+          endereco: string | null
+          estado: string | null
+          id: string
+          nome_responsavel: string
+          telefone: string | null
+          tenant_id: string
+          termos_aceitos: boolean | null
+          termos_aceitos_em: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          cpf: string
+          created_at?: string | null
+          email: string
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome_responsavel: string
+          telefone?: string | null
+          tenant_id: string
+          termos_aceitos?: boolean | null
+          termos_aceitos_em?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          cpf?: string
+          created_at?: string | null
+          email?: string
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome_responsavel?: string
+          telefone?: string | null
+          tenant_id?: string
+          termos_aceitos?: boolean | null
+          termos_aceitos_em?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_assinatura_perfil_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_boletos: {
+        Row: {
+          codigo_barras: string | null
+          created_at: string | null
+          created_by: string | null
+          data_vencimento: string
+          id: string
+          mes_referencia: string
+          observacao: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+          url_boleto: string | null
+          valor: number
+        }
+        Insert: {
+          codigo_barras?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_vencimento: string
+          id?: string
+          mes_referencia: string
+          observacao?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          url_boleto?: string | null
+          valor: number
+        }
+        Update: {
+          codigo_barras?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_vencimento?: string
+          id?: string
+          mes_referencia?: string
+          observacao?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          url_boleto?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_boletos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           cnpj: string | null

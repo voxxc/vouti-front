@@ -27,9 +27,11 @@ import {
   Send, 
   Loader2,
   ArrowLeft,
-  Clock
+  Clock,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SubscriptionDrawer } from './SubscriptionDrawer';
 
 interface SupportSheetProps {
   open: boolean;
@@ -44,6 +46,7 @@ export function SupportSheet({ open, onOpenChange }: SupportSheetProps) {
   const [newSubject, setNewSubject] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [creating, setCreating] = useState(false);
+  const [subscriptionDrawerOpen, setSubscriptionDrawerOpen] = useState(false);
 
   const handleCreateTicket = async () => {
     if (!newSubject.trim() || !newMessage.trim()) return;
@@ -95,8 +98,19 @@ export function SupportSheet({ open, onOpenChange }: SupportSheetProps) {
             <SupportChatView ticketId={selectedTicket.id} />
           ) : (
             <div className="flex flex-col h-[calc(100vh-80px)]">
-              {/* New Ticket Button */}
-              <div className="p-4 border-b">
+              {/* Buttons */}
+              <div className="p-4 border-b space-y-2">
+                {/* Subscription Button - Minimalist */}
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start text-muted-foreground hover:text-foreground"
+                  onClick={() => setSubscriptionDrawerOpen(true)}
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Assinatura
+                </Button>
+                
+                {/* New Ticket Button */}
                 <Button 
                   className="w-full"
                   onClick={() => setNewTicketDialog(true)}
@@ -196,6 +210,12 @@ export function SupportSheet({ open, onOpenChange }: SupportSheetProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Subscription Drawer */}
+      <SubscriptionDrawer 
+        open={subscriptionDrawerOpen} 
+        onOpenChange={setSubscriptionDrawerOpen} 
+      />
     </>
   );
 }

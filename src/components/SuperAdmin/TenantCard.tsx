@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tenant } from '@/types/superadmin';
 import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
+import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ interface TenantCardProps {
 export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
   const [showJuditLogs, setShowJuditLogs] = useState(false);
+  const [showBoletos, setShowBoletos] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -121,6 +123,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             variant="ghost" 
             size="sm" 
             className="gap-2"
+            onClick={() => setShowBoletos(true)}
+            title="Gerenciar boletos"
+          >
+            <FileText className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className="gap-2"
             onClick={handleOpenAuth}
             title={`Abrir /${tenant.slug}/auth`}
           >
@@ -178,6 +189,12 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         tenant={tenant}
         open={showJuditLogs}
         onOpenChange={setShowJuditLogs}
+      />
+
+      <SuperAdminBoletosDialog
+        tenant={tenant}
+        open={showBoletos}
+        onOpenChange={setShowBoletos}
       />
     </>
   );
