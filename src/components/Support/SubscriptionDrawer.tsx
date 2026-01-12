@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSubscription, TenantAssinaturaPerfil } from '@/hooks/useSubscription';
+import { useCredenciaisCliente } from '@/hooks/useCredenciaisCliente';
 import {
   Drawer,
   DrawerClose,
@@ -19,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   User, 
   FileText, 
@@ -27,7 +29,9 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Key,
+  Upload
 } from 'lucide-react';
 
 interface SubscriptionDrawerProps {
@@ -48,6 +52,7 @@ interface PerfilFormData {
 
 export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerProps) {
   const { perfil, boletos, planoInfo, loading, salvarPerfil, aceitarTermos } = useSubscription();
+  const { credenciais, oabs, isLoading: loadingCredenciais, uploading, createCredencial } = useCredenciaisCliente();
   const [saving, setSaving] = useState(false);
   const [termosChecked, setTermosChecked] = useState(false);
   const [formData, setFormData] = useState<PerfilFormData>({
@@ -60,6 +65,14 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
     estado: '',
     cep: ''
   });
+
+  // Form de credenciais
+  const [credencialForm, setCredencialForm] = useState({
+    oab_id: '',
+    cpf: '',
+    senha: '',
+  });
+  const [documento, setDocumento] = useState<File | null>(null);
 
   useEffect(() => {
     if (perfil) {
@@ -103,6 +116,40 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEnviarCredencial = async () => {
+    if (!credencialForm.oab_id || !credencialForm.cpf || !credencialForm.senha) {
+      return;
+    }
+
+    try {
+      await createCredencial.mutateAsync({
+        oab_id: credencialForm.oab_id,
+        cpf: credencialForm.cpf,
+        senha: credencialForm.senha,
+        documento: documento || undefined,
+      });
+      
+      // Limpar formulário
+      setCredencialForm({ oab_id: '', cpf: '', senha: '' });
+      setDocumento(null);
+    } catch (error) {
+      console.error('Erro ao enviar credencial:', error);
+    }
+  };
+
+  const getCredencialStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pendente':
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
+      case 'enviado':
+        return <Badge variant="outline" className="text-green-600 border-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Enviado</Badge>;
+      case 'erro':
+        return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Erro</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -170,6 +217,10 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                   {boletos.filter(b => b.status === 'pendente').length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="credenciais" className="gap-2">
+              <Key className="w-4 h-4" />
+              Credenciais
             </TabsTrigger>
           </TabsList>
 
@@ -417,6 +468,152 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Aba Credenciais */}
+            <TabsContent value="credenciais" className="p-4 m-0">
+              {loadingCredenciais ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Formulário de nova credencial */}
+                  <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                    <h4 className="font-medium text-sm">Cadastrar Nova Credencial</h4>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="cred-oab">OAB *</Label>
+                      <Select 
+                        value={credencialForm.oab_id} 
+                        onValueChange={(val) => setCredencialForm(prev => ({ ...prev, oab_id: val }))}
+                      >
+                        <SelectTrigger id="cred-oab">
+                          <SelectValue placeholder="Selecione uma OAB..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {oabs.map((oab) => (
+                            <SelectItem key={oab.id} value={oab.id}>
+                              {oab.oab_numero}/{oab.oab_uf}
+                              {oab.nome_advogado && ` - ${oab.nome_advogado}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cred-cpf">CPF *</Label>
+                      <Input
+                        id="cred-cpf"
+                        value={credencialForm.cpf}
+                        onChange={(e) => setCredencialForm(prev => ({ ...prev, cpf: e.target.value }))}
+                        placeholder="000.000.000-00"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cred-senha">Senha *</Label>
+                      <Input
+                        id="cred-senha"
+                        type="password"
+                        value={credencialForm.senha}
+                        onChange={(e) => setCredencialForm(prev => ({ ...prev, senha: e.target.value }))}
+                        placeholder="Senha do sistema"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cred-doc">Documento (Certificado PDF)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="cred-doc"
+                          type="file"
+                          accept=".pdf,.pfx,.p12"
+                          onChange={(e) => setDocumento(e.target.files?.[0] || null)}
+                          className="flex-1"
+                        />
+                        {documento && (
+                          <Badge variant="secondary" className="text-xs">
+                            {documento.name}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Envie o certificado digital ou outro documento necessário
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={handleEnviarCredencial}
+                      disabled={!credencialForm.oab_id || !credencialForm.cpf || !credencialForm.senha || createCredencial.isPending || uploading}
+                      className="w-full"
+                    >
+                      {(createCredencial.isPending || uploading) ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Upload className="w-4 h-4 mr-2" />
+                      )}
+                      Enviar Credencial
+                    </Button>
+                  </div>
+
+                  {/* Lista de credenciais enviadas */}
+                  {credenciais.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm">Credenciais Enviadas</h4>
+                      {credenciais.map((cred) => (
+                        <div 
+                          key={cred.id}
+                          className="p-4 rounded-lg border bg-card"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium">
+                                  {cred.oabs_cadastradas 
+                                    ? `OAB ${cred.oabs_cadastradas.oab_numero}/${cred.oabs_cadastradas.oab_uf}`
+                                    : `CPF ${cred.cpf}`}
+                                </span>
+                                {getCredencialStatusBadge(cred.status)}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Enviado em {format(new Date(cred.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </div>
+                              {cred.erro_mensagem && (
+                                <div className="text-sm text-destructive mt-1">
+                                  {cred.erro_mensagem}
+                                </div>
+                              )}
+                            </div>
+                            {cred.documento_url && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(cred.documento_url!, '_blank')}
+                                className="gap-2"
+                              >
+                                <Download className="w-4 h-4" />
+                                Doc
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {credenciais.length === 0 && oabs.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhuma OAB cadastrada.</p>
+                      <p className="text-sm">Cadastre uma OAB primeiro para enviar credenciais.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>
