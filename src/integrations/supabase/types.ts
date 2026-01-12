@@ -1096,6 +1096,133 @@ export type Database = {
           },
         ]
       }
+      credenciais_cliente: {
+        Row: {
+          cpf: string
+          created_at: string | null
+          documento_nome: string | null
+          documento_url: string | null
+          enviado_judit_em: string | null
+          enviado_por: string | null
+          erro_mensagem: string | null
+          id: string
+          oab_id: string | null
+          senha: string
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cpf: string
+          created_at?: string | null
+          documento_nome?: string | null
+          documento_url?: string | null
+          enviado_judit_em?: string | null
+          enviado_por?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          oab_id?: string | null
+          senha: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cpf?: string
+          created_at?: string | null
+          documento_nome?: string | null
+          documento_url?: string | null
+          enviado_judit_em?: string | null
+          enviado_por?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          oab_id?: string | null
+          senha?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credenciais_cliente_oab_id_fkey"
+            columns: ["oab_id"]
+            isOneToOne: false
+            referencedRelation: "oabs_cadastradas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credenciais_cliente_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credenciais_judit: {
+        Row: {
+          created_at: string | null
+          credencial_cliente_id: string | null
+          customer_key: string
+          enviado_por: string | null
+          id: string
+          oab_id: string | null
+          status: string | null
+          system_name: string
+          tenant_id: string
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          credencial_cliente_id?: string | null
+          customer_key: string
+          enviado_por?: string | null
+          id?: string
+          oab_id?: string | null
+          status?: string | null
+          system_name?: string
+          tenant_id: string
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          credencial_cliente_id?: string | null
+          customer_key?: string
+          enviado_por?: string | null
+          id?: string
+          oab_id?: string | null
+          status?: string | null
+          system_name?: string
+          tenant_id?: string
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credenciais_judit_credencial_cliente_id_fkey"
+            columns: ["credencial_cliente_id"]
+            isOneToOne: false
+            referencedRelation: "credenciais_cliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credenciais_judit_oab_id_fkey"
+            columns: ["oab_id"]
+            isOneToOne: false
+            referencedRelation: "oabs_cadastradas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credenciais_judit_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custo_categorias: {
         Row: {
           cor: string | null

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, FileText } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, FileText, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Tenant } from '@/types/superadmin';
 import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
+import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import {
   AlertDialog,
@@ -32,6 +33,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showStats, setShowStats] = useState(false);
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
+  const [showCredenciais, setShowCredenciais] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -123,6 +125,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             variant="ghost" 
             size="sm" 
             className="gap-2"
+            onClick={() => setShowCredenciais(true)}
+            title="Credenciais Judit"
+          >
+            <Key className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2"
             onClick={() => setShowBoletos(true)}
             title="Gerenciar boletos"
           >
@@ -195,6 +206,13 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         tenant={tenant}
         open={showBoletos}
         onOpenChange={setShowBoletos}
+      />
+
+      <TenantCredenciaisDialog
+        open={showCredenciais}
+        onOpenChange={setShowCredenciais}
+        tenantId={tenant.id}
+        tenantName={tenant.name}
       />
     </>
   );

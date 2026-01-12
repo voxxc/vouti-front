@@ -71,3 +71,6 @@ verify_jwt = true
 
 [functions.judit-webhook-cnpj]
 verify_jwt = false
+
+[functions.judit-cofre-credenciais]
+verify_jwt = true
