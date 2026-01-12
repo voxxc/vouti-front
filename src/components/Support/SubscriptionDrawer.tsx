@@ -284,6 +284,30 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                   <div className="pt-4 border-t space-y-3">
                     <h4 className="font-medium text-sm">Termos de Uso e Licença</h4>
                     
+                    {/* Links de Download dos Documentos */}
+                    <div className="flex flex-col gap-2 p-3 bg-muted/50 rounded-lg">
+                      <a 
+                        href="/docs/termos-de-uso.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <Download className="w-4 h-4" />
+                        Termos de Uso e Licença
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <a 
+                        href="/docs/politica-de-privacidade.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <Download className="w-4 h-4" />
+                        Política de Privacidade
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    
                     {perfil?.termos_aceitos ? (
                       <div className="flex items-center gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-lg">
                         <CheckCircle2 className="w-4 h-4" />
@@ -307,15 +331,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                             htmlFor="termos" 
                             className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
                           >
-                            Li e aceito os{' '}
-                            <a href="#" className="text-primary hover:underline">
-                              Termos de Uso
-                            </a>{' '}
-                            e a{' '}
-                            <a href="#" className="text-primary hover:underline">
-                              Política de Privacidade
-                            </a>{' '}
-                            do sistema.
+                            Li e aceito os Termos de Uso e Licença e a Política de Privacidade do sistema.
                           </label>
                         </div>
                         
