@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   Filter,
   Users,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,6 +124,7 @@ interface ProcessoCardProps {
   processo: ProcessoOAB;
   index: number;
   onVerDetalhes: (processo: ProcessoOAB) => void;
+  onExcluir: (processo: ProcessoOAB) => void;
   carregandoDetalhes: string | null;
   compartilhadoCom?: { advogadoNome: string; oabNumero: string }[];
   oabAtualNumero?: string;
@@ -133,6 +135,7 @@ const ProcessoCard = ({
   processo, 
   index, 
   onVerDetalhes, 
+  onExcluir,
   carregandoDetalhes,
   compartilhadoCom,
   oabAtualNumero,
@@ -235,6 +238,19 @@ const ProcessoCard = ({
 
             {/* Actions */}
             <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => onExcluir(processo)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Excluir processo</TooltipContent>
+              </Tooltip>
               <Button
                 variant="ghost"
                 size="sm"
@@ -267,6 +283,7 @@ interface InstanciaSectionProps {
   corText: string;
   icon: React.ReactNode;
   onVerDetalhes: (processo: ProcessoOAB) => void;
+  onExcluir: (processo: ProcessoOAB) => void;
   carregandoDetalhes: string | null;
   compartilhadosMap: CompartilhadosMap;
   oabAtualNumero?: string;
@@ -281,6 +298,7 @@ const InstanciaSection = ({
   corText,
   icon, 
   onVerDetalhes,
+  onExcluir,
   carregandoDetalhes,
   compartilhadosMap,
   oabAtualNumero
@@ -318,6 +336,7 @@ const InstanciaSection = ({
                   processo={processo}
                   index={index}
                   onVerDetalhes={onVerDetalhes}
+                  onExcluir={onExcluir}
                   carregandoDetalhes={carregandoDetalhes}
                   compartilhadoCom={compartilhadosMap[processo.numero_cnj]}
                   oabAtualNumero={oabAtualNumero}
@@ -341,7 +360,8 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     carregarDetalhes, 
     atualizarOrdem,
     toggleMonitoramento,
-    consultarDetalhesRequest
+    consultarDetalhesRequest,
+    excluirProcesso
   } = useProcessosOAB(oabId);
   
   const { tenantId } = useTenantId();
@@ -349,6 +369,8 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filtroUF, setFiltroUF] = useState<string>('todos');
   const [compartilhadosMap, setCompartilhadosMap] = useState<CompartilhadosMap>({});
+  const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOAB | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   // Buscar processos compartilhados (CNJs que aparecem em multiplas OABs)
   useEffect(() => {
@@ -503,6 +525,18 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     return result;
   };
 
+  const handleExcluirClick = (processo: ProcessoOAB) => {
+    setProcessoParaExcluir(processo);
+  };
+
+  const handleConfirmExcluir = async () => {
+    if (!processoParaExcluir) return;
+    setExcluindo(true);
+    await excluirProcesso(processoParaExcluir.id, processoParaExcluir.numero_cnj);
+    setExcluindo(false);
+    setProcessoParaExcluir(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -585,6 +619,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
             corText="text-blue-700 dark:text-blue-300"
             icon={<BookOpen className="w-5 h-5" />}
             onVerDetalhes={handleVerDetalhes}
+            onExcluir={handleExcluirClick}
             carregandoDetalhes={carregandoDetalhes}
             compartilhadosMap={compartilhadosMap}
             oabAtualNumero={oab?.oab_numero}
@@ -600,6 +635,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
             corText="text-green-700 dark:text-green-300"
             icon={<BookUp className="w-5 h-5" />}
             onVerDetalhes={handleVerDetalhes}
+            onExcluir={handleExcluirClick}
             carregandoDetalhes={carregandoDetalhes}
             compartilhadosMap={compartilhadosMap}
             oabAtualNumero={oab?.oab_numero}
@@ -616,6 +652,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
               corText="text-muted-foreground"
               icon={<FileQuestion className="w-5 h-5" />}
               onVerDetalhes={handleVerDetalhes}
+              onExcluir={handleExcluirClick}
               carregandoDetalhes={carregandoDetalhes}
               compartilhadosMap={compartilhadosMap}
               oabAtualNumero={oab?.oab_numero}
@@ -637,6 +674,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
                       processo={processo}
                       index={index}
                       onVerDetalhes={handleVerDetalhes}
+                      onExcluir={handleExcluirClick}
                       carregandoDetalhes={carregandoDetalhes}
                       compartilhadoCom={compartilhadosMap[processo.numero_cnj]}
                       oabAtualNumero={oab?.oab_numero}
@@ -661,6 +699,37 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
         onCarregarDetalhes={carregarDetalhes}
         oab={oab}
       />
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={!!processoParaExcluir} onOpenChange={(open) => !open && setProcessoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir processo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o processo <strong className="font-mono">{processoParaExcluir?.numero_cnj}</strong>?
+              <br /><br />
+              Esta ação irá remover o processo e todos os seus andamentos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmExcluir}
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluindo ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
