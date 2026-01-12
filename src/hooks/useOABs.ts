@@ -615,6 +615,46 @@ export const useProcessosOAB = (oabId: string | null) => {
     }
   };
 
+  const excluirProcesso = async (processoId: string, numeroCnj: string) => {
+    try {
+      // Primeiro excluir os andamentos do processo
+      const { error: andamentosError } = await supabase
+        .from('processos_oab_andamentos')
+        .delete()
+        .eq('processo_oab_id', processoId);
+
+      if (andamentosError) {
+        console.error('[useProcessosOAB] Erro ao excluir andamentos:', andamentosError);
+      }
+
+      // Depois excluir o processo
+      const { error } = await supabase
+        .from('processos_oab')
+        .delete()
+        .eq('id', processoId);
+
+      if (error) throw error;
+
+      // Atualizar state local
+      setProcessos(prev => prev.filter(p => p.id !== processoId));
+
+      toast({
+        title: 'Processo excluído',
+        description: `O processo ${numeroCnj} foi removido da lista`
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('[useProcessosOAB] Erro ao excluir processo:', error);
+      toast({
+        title: 'Erro ao excluir processo',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   return {
     processos,
     loading,
@@ -623,7 +663,8 @@ export const useProcessosOAB = (oabId: string | null) => {
     carregarDetalhes,
     atualizarOrdem,
     toggleMonitoramento,
-    consultarDetalhesRequest
+    consultarDetalhesRequest,
+    excluirProcesso
   };
 };
 
