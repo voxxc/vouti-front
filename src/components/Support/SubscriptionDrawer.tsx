@@ -309,7 +309,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           >
                             Li e aceito os{' '}
                             <a 
-                              href="/docs/termos-de-uso.pdf?v=20260112-2"
+                              href="/docs/termos-de-uso.pdf?v=20260112-3"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline"
