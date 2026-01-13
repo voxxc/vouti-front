@@ -153,7 +153,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
         </Card>
       </div>
 
-      <PrazosAbertosPanel userId={userId} isAdmin={false} maxItems={10} />
+      <PrazosAbertosPanel userId={userId} maxItems={10} />
     </div>
   );
 };
