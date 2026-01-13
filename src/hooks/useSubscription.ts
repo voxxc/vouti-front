@@ -213,6 +213,39 @@ export function useSubscription() {
     }
   }, [tenantId]);
 
+  const downloadBoleto = async (filePath: string, fileName?: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('tenant-boletos')
+        .createSignedUrl(filePath, 60, { download: fileName || true });
+
+      if (error || !data?.signedUrl) {
+        toast({
+          title: 'Erro ao baixar boleto',
+          description: error?.message || 'Não foi possível gerar o link',
+          variant: 'destructive'
+        });
+        return false;
+      }
+
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.download = fileName || 'boleto.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      return true;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao baixar',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   return {
     perfil,
     boletos,
@@ -220,6 +253,7 @@ export function useSubscription() {
     loading,
     salvarPerfil,
     aceitarTermos,
+    downloadBoleto,
     refetch: () => Promise.all([fetchPerfil(), fetchBoletos()])
   };
 }
