@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2 } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
+import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
 import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
@@ -8,7 +9,9 @@ import { SuperAdminThemeToggle } from '@/components/SuperAdmin/SuperAdminThemeTo
 import { SuperAdminLeads } from '@/components/SuperAdmin/SuperAdminLeads';
 import { SuperAdminSupport } from '@/components/SuperAdmin/SuperAdminSupport';
 import { SuperAdminAvisosDialog } from '@/components/SuperAdmin/SuperAdminAvisosDialog';
+import { CredenciaisCentralDialog } from '@/components/SuperAdmin/CredenciaisCentralDialog';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,9 +35,12 @@ export default function SuperAdmin() {
     signOutSuperAdmin,
   } = useSuperAdmin();
 
+  const { totalPendentes } = useAllCredenciaisPendentes();
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [avisosDialogOpen, setAvisosDialogOpen] = useState(false);
+  const [credenciaisDialogOpen, setCredenciaisDialogOpen] = useState(false);
   const [selectedSystemType, setSelectedSystemType] = useState<SystemType | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [selectedAvisosSystemType, setSelectedAvisosSystemType] = useState<{ id: string; name: string } | null>(null);
@@ -215,6 +221,23 @@ export default function SuperAdmin() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">{currentUserEmail}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCredenciaisDialogOpen(true)}
+                className="relative"
+              >
+                <KeyRound className="h-4 w-4 mr-2" />
+                Credenciais
+                {totalPendentes > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 min-w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {totalPendentes}
+                  </Badge>
+                )}
+              </Button>
               <SuperAdminThemeToggle />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -300,6 +323,11 @@ export default function SuperAdmin() {
           systemTypeName={selectedAvisosSystemType.name}
         />
       )}
+
+      <CredenciaisCentralDialog
+        open={credenciaisDialogOpen}
+        onOpenChange={setCredenciaisDialogOpen}
+      />
     </div>
   );
 }

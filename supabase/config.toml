@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.judit-cofre-credenciais]
 verify_jwt = true
+
+[functions.notify-nova-credencial]
+verify_jwt = false
