@@ -84,6 +84,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
     oab_uf: '',
     cpf: '',
     senha: '',
+    secret: '',
   });
   const [documento, setDocumento] = useState<File | null>(null);
 
@@ -147,11 +148,12 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
         oab_uf: credencialForm.oab_uf.trim().toUpperCase(),
         cpf: credencialForm.cpf,
         senha: credencialForm.senha,
+        secret: credencialForm.secret || undefined,
         documento: documento || undefined,
       });
       
       // Limpar formulário e fechar
-      setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '' });
+      setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '' });
       setDocumento(null);
       setShowCredencialForm(false);
     } catch (error) {
@@ -551,7 +553,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           size="sm"
                           onClick={() => {
                             setShowCredencialForm(false);
-                            setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '' });
+                            setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '' });
                             setDocumento(null);
                           }}
                         >
@@ -600,6 +602,20 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           onChange={(e) => setCredencialForm(prev => ({ ...prev, senha: e.target.value }))}
                           placeholder="Senha do sistema"
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cred-secret">Secret (opcional)</Label>
+                        <Input
+                          id="cred-secret"
+                          type="password"
+                          value={credencialForm.secret}
+                          onChange={(e) => setCredencialForm(prev => ({ ...prev, secret: e.target.value }))}
+                          placeholder="Token 2FA (se aplicável)"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Token de autenticação de dois fatores, se você possuir
+                        </p>
                       </div>
 
                       <div className="space-y-2">

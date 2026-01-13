@@ -1107,6 +1107,7 @@ export type Database = {
           erro_mensagem: string | null
           id: string
           oab_id: string | null
+          secret: string | null
           senha: string
           status: string | null
           tenant_id: string
@@ -1122,6 +1123,7 @@ export type Database = {
           erro_mensagem?: string | null
           id?: string
           oab_id?: string | null
+          secret?: string | null
           senha: string
           status?: string | null
           tenant_id: string
@@ -1137,6 +1139,7 @@ export type Database = {
           erro_mensagem?: string | null
           id?: string
           oab_id?: string | null
+          secret?: string | null
           senha?: string
           status?: string | null
           tenant_id?: string

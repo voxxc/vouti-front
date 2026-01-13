@@ -10,6 +10,7 @@ interface CredencialCliente {
   oab_id: string | null;
   cpf: string;
   senha: string;
+  secret: string | null;
   documento_url: string | null;
   documento_nome: string | null;
   status: string;
@@ -30,6 +31,7 @@ interface CreateCredencialData {
   oab_uf: string;
   cpf: string;
   senha: string;
+  secret?: string;
   documento?: File;
 }
 
@@ -98,6 +100,7 @@ export function useCredenciaisCliente() {
         tenant_id: tenantId,
         cpf: data.cpf.replace(/\D/g, ''),
         senha: data.senha,
+        secret: data.secret || null,
         documento_url: documentoUrl,
         documento_nome: documentoNome,
         oab_id: null as string | null,

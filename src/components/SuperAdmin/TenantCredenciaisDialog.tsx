@@ -131,6 +131,7 @@ export function TenantCredenciaisDialog({
                       <TableHead>OAB</TableHead>
                       <TableHead>CPF</TableHead>
                       <TableHead>Senha</TableHead>
+                      <TableHead>Secret</TableHead>
                       <TableHead>Documento</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Data</TableHead>
@@ -174,6 +175,29 @@ export function TenantCredenciaisDialog({
                               )}
                             </Button>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {credencial.secret ? (
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono">
+                                {senhasVisiveis[`secret-${credencial.id}`] ? credencial.secret : '••••••••'}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => toggleSenhaVisivel(`secret-${credencial.id}`)}
+                              >
+                                {senhasVisiveis[`secret-${credencial.id}`] ? (
+                                  <EyeOff className="w-3 h-3" />
+                                ) : (
+                                  <Eye className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {credencial.documento_url ? (
