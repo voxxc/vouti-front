@@ -158,8 +158,8 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
         </Card>
       </div>
 
-      {/* Painel de Prazos em Aberto */}
-      <PrazosAbertosPanel userId={userId} isAdmin={true} maxItems={15} />
+      {/* Painel de Tarefas e Prazos do Usuário */}
+      <PrazosAbertosPanel userId={userId} maxItems={15} />
 
       <ClienteAnalytics />
 
