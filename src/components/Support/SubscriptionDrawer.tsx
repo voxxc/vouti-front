@@ -41,8 +41,10 @@ import {
   Upload,
   Plus,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Repeat
 } from 'lucide-react';
+import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 
 interface SubscriptionDrawerProps {
   open: boolean;
@@ -229,19 +231,38 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
         <DrawerHeader className="border-b pb-4">
           <DrawerTitle className="flex items-center gap-2">
             Minha Assinatura
+            {planoInfo && (
+              <PlanoIndicator plano={planoInfo.plano} size="md" />
+            )}
           </DrawerTitle>
-          {planoInfo && (
+          {planoInfo && planoInfo.valor_mensal > 0 && (
             <DrawerDescription>
-              Plano: <span className="font-medium text-foreground">{planoInfo.nome}</span>
-              {planoInfo.valor_mensal > 0 && (
-                <span className="ml-2">• {formatCurrency(planoInfo.valor_mensal)}/mês</span>
-              )}
+              {formatCurrency(planoInfo.valor_mensal)}/mês
             </DrawerDescription>
           )}
         </DrawerHeader>
 
+        {/* Banner de Troca de Plano */}
+        <div className="mx-4 mt-3 p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
+              <Repeat className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">
+                TROCA DE PLANO
+              </h4>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                Quer trocar de plano? Downgrade ou Upgrade?
+                <br />
+                <span className="font-medium">Abra um Ticket e fale com nosso suporte.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <Tabs defaultValue="perfil" className="flex-1">
-          <TabsList className="w-full justify-start rounded-none border-b px-4">
+          <TabsList className="w-full justify-start rounded-none border-b px-4 mt-3">
             <TabsTrigger value="perfil" className="gap-2">
               <User className="w-4 h-4" />
               Perfil
