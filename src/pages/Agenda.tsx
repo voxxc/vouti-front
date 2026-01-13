@@ -142,10 +142,10 @@ const Agenda = () => {
   }, [user]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && tenantId) {
       fetchAllUsers();
     }
-  }, [isAdmin]);
+  }, [isAdmin, tenantId]);
 
   const fetchProjects = async () => {
     try {
