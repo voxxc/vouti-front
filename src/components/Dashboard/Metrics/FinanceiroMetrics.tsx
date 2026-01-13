@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getFullGreeting } from "@/utils/greetingHelper";
 
 interface FinanceiroMetricsProps {
   userId: string;
@@ -91,8 +92,8 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">PAINEL FINANCEIRO - {userName.toUpperCase()}</h2>
-        <p className="text-muted-foreground">Controle financeiro e inadimplências</p>
+        <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
+        <p className="text-muted-foreground">Painel Financeiro</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

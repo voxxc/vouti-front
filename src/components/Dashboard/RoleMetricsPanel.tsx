@@ -31,7 +31,7 @@ const RoleMetricsPanel = ({ userId, userRole, userName }: RoleMetricsPanelProps)
 
   switch (userRole) {
     case 'admin':
-      return <AdminMetrics userId={userId} />;
+      return <AdminMetrics userId={userId} userName={displayName} />;
     case 'controller':
       return <AdvogadoMetrics userId={userId} userName={displayName} />;
     case 'advogado':
