@@ -253,11 +253,6 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
               </Popover>
             )}
           </DrawerTitle>
-          {planoInfo && planoInfo.valor_mensal > 0 && (
-            <DrawerDescription>
-              {formatCurrency(planoInfo.valor_mensal)}/mês
-            </DrawerDescription>
-          )}
         </DrawerHeader>
 
         <Tabs defaultValue="perfil" className="flex-1">
