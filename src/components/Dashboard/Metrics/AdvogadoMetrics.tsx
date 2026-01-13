@@ -3,9 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderKanban, Calendar, CheckCircle2, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import PrazosAbertosPanel from "../PrazosAbertosPanel";
 
 interface AdvogadoMetricsProps {
   userId: string;
@@ -19,16 +17,8 @@ interface Metrics {
   completionRate: number;
 }
 
-interface Deadline {
-  id: string;
-  title: string;
-  date: string;
-  project_id: string;
-}
-
 const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState<Deadline[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,7 +47,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       const collabIds = collaboratorProjects?.map(p => p.project_id) || [];
       const allProjectIds = [...new Set([...createdIds, ...collabIds])];
 
-      const [deadlinesRes, tasksRes, completedTasksRes, upcomingRes] = await Promise.all([
+      const [deadlinesRes, tasksRes, completedTasksRes] = await Promise.all([
         supabase
           .from('deadlines')
           .select('id', { count: 'exact', head: true })
@@ -79,14 +69,6 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
               .in('project_id', allProjectIds)
               .eq('status', 'done')
           : Promise.resolve({ count: 0 }),
-        supabase
-          .from('deadlines')
-          .select('id, title, date, project_id')
-          .eq('user_id', userId)
-          .eq('completed', false)
-          .gte('date', today.toISOString().split('T')[0])
-          .order('date', { ascending: true })
-          .limit(5)
       ]);
 
       const totalTasks = (tasksRes.count || 0) + (completedTasksRes.count || 0);
@@ -98,8 +80,6 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
         activeTasks: tasksRes.count || 0,
         completionRate: parseFloat(completionRate.toFixed(1))
       });
-
-      setUpcomingDeadlines(upcomingRes.data || []);
     } catch (error) {
       console.error('Erro ao buscar métricas advogado:', error);
     } finally {
@@ -173,33 +153,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
         </Card>
       </div>
 
-      <Card className="bg-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Próximos Prazos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {upcomingDeadlines.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum prazo pendente nos próximos dias</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingDeadlines.map((deadline) => (
-                <div key={deadline.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{deadline.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(deadline.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="ml-2">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    Pendente
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <PrazosAbertosPanel userId={userId} isAdmin={false} maxItems={10} />
     </div>
   );
 };
