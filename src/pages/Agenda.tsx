@@ -808,9 +808,9 @@ const Agenda = () => {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex justify-center">
           {/* Selected Date Deadlines */}
-          <div>
+          <div className="w-full max-w-2xl">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">
