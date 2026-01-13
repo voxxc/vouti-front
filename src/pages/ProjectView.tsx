@@ -545,6 +545,27 @@ const ProjectView = ({
 
       setColumns([...columns, newColumn]);
 
+      // Registrar criação de coluna no histórico
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: null,
+            project_id: project.id,
+            task_title: null,
+            user_id: currentUser.id,
+            action: 'column_created',
+            details: `Coluna "${name}" criada no projeto`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
+
       toast({
         title: "Coluna criada",
         description: `Coluna "${name}" adicionada com sucesso!`,
@@ -561,6 +582,9 @@ const ProjectView = ({
 
   const handleUpdateColumnName = async (columnId: string, newName: string) => {
     try {
+      const coluna = columns.find(c => c.id === columnId);
+      const nomeAntigo = coluna?.name || 'Coluna desconhecida';
+
       const { error } = await supabase
         .from('project_columns')
         .update({ name: newName })
@@ -571,6 +595,27 @@ const ProjectView = ({
       setColumns(columns.map(col => 
         col.id === columnId ? { ...col, name: newName } : col
       ));
+
+      // Registrar renomeação de coluna no histórico
+      if (currentUser && nomeAntigo !== newName) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: null,
+            project_id: project.id,
+            task_title: null,
+            user_id: currentUser.id,
+            action: 'column_renamed',
+            details: `Coluna renomeada de "${nomeAntigo}" para "${newName}"`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
 
       toast({
         title: "Coluna atualizada",
@@ -599,12 +644,36 @@ const ProjectView = ({
         return;
       }
 
+      const coluna = columns.find(c => c.id === columnId);
+      const nomeColuna = coluna?.name || 'Coluna desconhecida';
+
       const { error } = await supabase
         .from('project_columns')
         .delete()
         .eq('id', columnId);
 
       if (error) throw error;
+
+      // Registrar exclusão de coluna no histórico ANTES de remover do estado
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: null,
+            project_id: project.id,
+            task_title: null,
+            user_id: currentUser.id,
+            action: 'column_deleted',
+            details: `Coluna "${nomeColuna}" excluída do projeto`,
+            tenant_id: profileData?.tenant_id
+          });
+      }
 
       setColumns(columns.filter(col => col.id !== columnId));
 
