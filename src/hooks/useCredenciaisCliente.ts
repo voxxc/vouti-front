@@ -12,8 +12,9 @@ interface CredencialCliente {
   senha: string;
   documento_url: string | null;
   documento_nome: string | null;
-  status: 'pendente' | 'enviado' | 'erro';
+  status: string;
   enviado_judit_em: string | null;
+  enviado_por: string | null;
   erro_mensagem: string | null;
   created_at: string;
   updated_at: string;
@@ -21,11 +22,12 @@ interface CredencialCliente {
     oab_numero: string;
     oab_uf: string;
     nome_advogado: string | null;
-  };
+  } | null;
 }
 
 interface CreateCredencialData {
-  oab_id: string;
+  oab_numero: string;
+  oab_uf: string;
   cpf: string;
   senha: string;
   documento?: File;
@@ -56,23 +58,6 @@ export function useCredenciaisCliente() {
 
       if (error) throw error;
       return data as CredencialCliente[];
-    },
-    enabled: !!tenantId,
-  });
-
-  const { data: oabs } = useQuery({
-    queryKey: ['oabs-para-credenciais', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return [];
-
-      const { data, error } = await supabase
-        .from('oabs_cadastradas')
-        .select('id, oab_numero, oab_uf, nome_advogado')
-        .eq('tenant_id', tenantId)
-        .order('oab_numero');
-
-      if (error) throw error;
-      return data;
     },
     enabled: !!tenantId,
   });
@@ -108,16 +93,32 @@ export function useCredenciaisCliente() {
         setUploading(false);
       }
 
+      // Inserir credencial com OAB número e UF diretamente
+      const insertData = {
+        tenant_id: tenantId,
+        cpf: data.cpf.replace(/\D/g, ''),
+        senha: data.senha,
+        documento_url: documentoUrl,
+        documento_nome: documentoNome,
+        oab_id: null as string | null,
+      };
+
+      // Buscar OAB existente pelo número e UF
+      const { data: oabExistente } = await supabase
+        .from('oabs_cadastradas')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('oab_numero', data.oab_numero.trim())
+        .eq('oab_uf', data.oab_uf.trim().toUpperCase())
+        .single();
+
+      if (oabExistente) {
+        insertData.oab_id = oabExistente.id;
+      }
+
       const { data: credencial, error } = await supabase
         .from('credenciais_cliente')
-        .insert({
-          tenant_id: tenantId,
-          oab_id: data.oab_id,
-          cpf: data.cpf.replace(/\D/g, ''),
-          senha: data.senha,
-          documento_url: documentoUrl,
-          documento_nome: documentoNome,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -154,7 +155,6 @@ export function useCredenciaisCliente() {
 
   return {
     credenciais: credenciais || [],
-    oabs: oabs || [],
     isLoading,
     uploading,
     createCredencial,
