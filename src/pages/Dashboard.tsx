@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import RoleMetricsPanel from "@/components/Dashboard/RoleMetricsPanel";
 import { DadosSensiveisProvider } from "@/contexts/DadosSensiveisContext";
-import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useTenantId } from "@/hooks/useTenantId";
 
 const Dashboard = () => {
   const { navigate } = useTenantNavigation();
@@ -18,23 +19,16 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [showOverview, setShowOverview] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
-  const [systemUsers, setSystemUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tenantId } = useTenantId();
 
-  useEffect(() => {
-    if (!authLoading) {
-      fetchUsers();
-    }
-  }, [authLoading]);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
+  // Optimized: Use React Query with cache for users
+  const { data: systemUsers = [], refetch: refetchUsers } = useQuery({
+    queryKey: ['system-users', tenantId],
+    queryFn: async () => {
       const { data, error } = await supabase.rpc('get_users_with_roles');
-
       if (error) throw error;
-
-      const mappedUsers: User[] = (data || []).map((user: any) => ({
+      
+      return (data || []).map((user: any) => ({
         id: user.user_id,
         email: user.email,
         name: user.full_name || user.email,
@@ -43,27 +37,16 @@ const Dashboard = () => {
         personalInfo: {},
         createdAt: new Date(user.created_at),
         updatedAt: new Date(user.updated_at)
-      }));
+      })) as User[];
+    },
+    enabled: !!tenantId && !authLoading,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
 
-      setSystemUsers(mappedUsers);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar usuarios.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleAddUser = () => {
+    refetchUsers();
   };
 
-  const handleAddUser = (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
-    fetchUsers();
-  };
-
-  // IMPORTANTE: user_roles são gerenciadas EXCLUSIVAMENTE pela Edge Function admin-set-user-roles
-  // Esta função apenas atualiza dados do perfil (nome/avatar)
   const handleEditUser = async (userId: string, userData: Partial<User>) => {
     try {
       const { error: profileError } = await supabase
@@ -82,7 +65,7 @@ const Dashboard = () => {
         description: "Usuario atualizado com sucesso!",
       });
 
-      fetchUsers();
+      refetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
       toast({
@@ -102,12 +85,12 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      setSystemUsers(systemUsers.filter(user => user.id !== userId));
-
       toast({
         title: "Sucesso",
         description: "Usuario removido com sucesso!",
       });
+
+      refetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
       toast({
@@ -120,17 +103,12 @@ const Dashboard = () => {
 
   const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' = (userRole as any) || 'advogado';
 
-  // Loading state
-  if (loading || authLoading) {
-    return (
-      <DashboardLayout currentPage="dashboard">
-        <div className="flex flex-col items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Carregando dashboard...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // Get current user's name from auth metadata or systemUsers (whichever loads first)
+  const currentUserName = useMemo(() => {
+    const fromAuth = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
+    const fromUsers = systemUsers.find(u => u.id === user?.id)?.name;
+    return fromUsers || fromAuth;
+  }, [user, systemUsers]);
 
   if (showUserManagement) {
     return (
@@ -167,6 +145,7 @@ const Dashboard = () => {
     );
   }
 
+  // Optimized: Render immediately without blocking on users loading
   return (
     <DadosSensiveisProvider>
       <DashboardLayout
@@ -175,7 +154,11 @@ const Dashboard = () => {
         onCreateUser={() => setShowUserManagement(true)}
       >
         <div className="space-y-6">
-          <RoleMetricsPanel currentUser={systemUsers.find(u => u.id === user?.id) || null} />
+          <RoleMetricsPanel 
+            userId={user?.id}
+            userRole={currentUserRole}
+            userName={currentUserName}
+          />
         </div>
       </DashboardLayout>
     </DadosSensiveisProvider>

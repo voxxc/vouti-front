@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, FolderKanban, UserCheck, Calendar, TrendingUp, Eye, ShieldAlert } from "lucide-react";
@@ -12,30 +10,20 @@ import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdminMetricsProps {
   userId: string;
 }
 
-interface Metrics {
-  totalProjects: number;
-  totalLeads: number;
-  totalProcessos: number;
-  pendingDeadlines: number;
-  conversionRate: number;
-}
-
 const AdminMetrics = ({ userId }: AdminMetricsProps) => {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [loading, setLoading] = useState(true);
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [userId]);
-
-  const fetchMetrics = async () => {
-    try {
+  // Optimized: Use React Query with cache for faster subsequent loads
+  const { data: metrics, isLoading: loading } = useQuery({
+    queryKey: ['admin-metrics', userId],
+    queryFn: async () => {
       const [projectsRes, leadsRes, processosRes, deadlinesRes] = await Promise.all([
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.from('leads_captacao').select('id, status', { count: 'exact' }),
@@ -47,19 +35,17 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
       const convertedLeads = leadsRes.data?.filter(lead => lead.status === 'convertido').length || 0;
       const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
-      setMetrics({
+      return {
         totalProjects: projectsRes.count || 0,
         totalLeads: totalLeads,
         totalProcessos: processosRes.count || 0,
         pendingDeadlines: deadlinesRes.count || 0,
         conversionRate: parseFloat(conversionRate.toFixed(1))
-      });
-    } catch (error) {
-      console.error('Erro ao buscar métricas admin:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      };
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: !!userId,
+  });
 
   if (loading) {
     return (

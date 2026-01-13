@@ -52,7 +52,7 @@ import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext"
 import VeridictoLanding from "@/pages/VeridictoLanding";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
-import LoadingTransition from "@/components/LoadingTransition";
+import Logo from "@/components/Logo";
 import { 
   LegacyProjectRedirect, 
   LegacyProjectAcordosRedirect, 
@@ -62,31 +62,19 @@ import {
 } from "@/components/Routing/LegacyRedirects";
 import "./App.css";
 
-// Protected Route for tenant-based auth
+// Optimized: Minimal loading state with logo pulse instead of 1.2s artificial delay
 const TenantProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
   const { tenant, loading: tenantLoading, error: tenantError, tenantSlug } = useTenant();
-  const [showTransition, setShowTransition] = useState(false);
-  const [transitionComplete, setTransitionComplete] = useState(false);
-  
-  useEffect(() => {
-    if (user && !authLoading) {
-      const shouldShowTransition = !sessionStorage.getItem('transition_completed');
-      setShowTransition(shouldShowTransition);
-      
-      if (!shouldShowTransition) {
-        setTransitionComplete(true);
-      }
-    }
-  }, [user, authLoading]);
-
-  const handleTransitionComplete = () => {
-    setTransitionComplete(true);
-    sessionStorage.setItem('transition_completed', 'true');
-  };
 
   if (tenantLoading || authLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse">
+          <Logo size="lg" />
+        </div>
+      </div>
+    );
   }
 
   if (tenantError || !tenant) {
@@ -103,31 +91,23 @@ const TenantProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!user) {
     return <Navigate to={`/${tenantSlug}/auth`} replace />;
   }
-
-  if (showTransition && !transitionComplete) {
-    return <LoadingTransition onComplete={handleTransitionComplete} />;
-  }
   
-  return <div className="animate-fade-in">{children}</div>;
+  return <>{children}</>;
 };
 
 // Public Route for tenant-based auth
 const TenantPublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
   const { tenant, loading: tenantLoading, error: tenantError, tenantSlug } = useTenant();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.pathname.includes('/auth') && typeof window !== 'undefined') {
-      const intent = localStorage.getItem('auth_intent');
-      if (intent === '1') {
-        localStorage.removeItem('auth_intent');
-      }
-    }
-  }, [location.pathname]);
 
   if (tenantLoading || authLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse">
+          <Logo size="lg" />
+        </div>
+      </div>
+    );
   }
 
   if (tenantError || !tenant) {
@@ -148,58 +128,38 @@ const TenantPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Legacy routes support - redirect old routes to solvenza
+// Legacy routes support - redirect old routes to solvenza (optimized)
 const LegacyProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  const [showTransition, setShowTransition] = useState(false);
-  const [transitionComplete, setTransitionComplete] = useState(false);
-  
-  useEffect(() => {
-    if (user && !loading) {
-      const shouldShowTransition = !sessionStorage.getItem('transition_completed');
-      setShowTransition(shouldShowTransition);
-      
-      if (!shouldShowTransition) {
-        setTransitionComplete(true);
-      }
-    }
-  }, [user, loading]);
-
-  const handleTransitionComplete = () => {
-    setTransitionComplete(true);
-    sessionStorage.setItem('transition_completed', 'true');
-  };
   
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse">
+          <Logo size="lg" />
+        </div>
+      </div>
+    );
   }
   
   if (!user) {
     return <Navigate to="/solvenza/auth" replace />;
   }
-
-  if (showTransition && !transitionComplete) {
-    return <LoadingTransition onComplete={handleTransitionComplete} />;
-  }
   
-  return <div className="animate-fade-in">{children}</div>;
+  return <>{children}</>;
 };
 
 const LegacyPublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.pathname === '/auth' && typeof window !== 'undefined') {
-      const intent = localStorage.getItem('auth_intent');
-      if (intent === '1') {
-        localStorage.removeItem('auth_intent');
-      }
-    }
-  }, [location.pathname]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse">
+          <Logo size="lg" />
+        </div>
+      </div>
+    );
   }
   
   if (user) {
@@ -208,6 +168,7 @@ const LegacyPublicRoute = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+
 
 const MetalProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useMetalAuth();
