@@ -38,7 +38,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Enviar e-mail
     const emailResponse = await resend.emails.send({
-      from: "VOUTI Sistema <onboarding@resend.dev>",
+      from: "VOUTI Sistema <noreply@vouti.co>",
       to: ["danieldemorais@vouti.co"],
       subject: `📬 Nova Credencial Recebida - ${tenant_name}`,
       html: `
