@@ -28,7 +28,12 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+interface AuthProviderProps {
+  children: React.ReactNode;
+  urlTenantId?: string | null;
+}
+
+export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,6 +80,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('[AuthContext] Fetching role for user:', userId);
       
+      // 1. Verificar se é super admin
+      const { data: superAdmin } = await supabase
+        .from('super_admins')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (superAdmin && urlTenantId) {
+        // Super admin acessando tenant via URL - dar acesso completo
+        console.log('[AuthContext] Super admin detectado, usando tenant da URL:', urlTenantId);
+        setTenantId(urlTenantId);
+        setUserRole('admin');
+        setUserRoles(['admin']);
+        return;
+      }
+      
+      // 2. Fluxo normal para usuários regulares
       // Primeiro buscar o tenant_id do profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')

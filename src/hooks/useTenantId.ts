@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Hook to get the current user's tenant_id from their profile
+ * For super admins accessing a tenant via URL, returns the URL tenant_id
  * This is used to ensure data isolation between tenants
  */
-export const useTenantId = () => {
+export const useTenantId = (urlTenantId?: string | null) => {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,6 +20,22 @@ export const useTenantId = () => {
           return;
         }
 
+        // Verificar se é super admin
+        const { data: superAdmin } = await supabase
+          .from('super_admins')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (superAdmin && urlTenantId) {
+          // Super admin: usar tenant da URL
+          console.log('[useTenantId] Super admin usando tenant da URL:', urlTenantId);
+          setTenantId(urlTenantId);
+          setLoading(false);
+          return;
+        }
+
+        // Usuário normal: usar tenant do profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('tenant_id')
@@ -42,7 +59,7 @@ export const useTenantId = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [urlTenantId]);
 
   return { tenantId, loading };
 };

@@ -37,8 +37,8 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleOpenAuth = () => {
-    window.open(`/${tenant.slug}/auth`, '_blank');
+  const handleOpenTenant = () => {
+    window.open(`/${tenant.slug}/dashboard`, '_blank');
   };
 
   const handleDelete = async () => {
@@ -143,8 +143,8 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             variant="ghost" 
             size="sm"
             className="gap-2"
-            onClick={handleOpenAuth}
-            title={`Abrir /${tenant.slug}/auth`}
+            onClick={handleOpenTenant}
+            title={`Acessar ${tenant.name}`}
           >
             <ExternalLink className="h-4 w-4" />
           </Button>

@@ -46,6 +46,13 @@ export default function RoleManagement() {
 
   const fetchUsers = async () => {
     try {
+      // Buscar lista de super admins para excluir
+      const { data: superAdmins } = await supabase
+        .from('super_admins')
+        .select('user_id');
+      
+      const superAdminIds = new Set((superAdmins || []).map(sa => sa.user_id));
+
       // Buscar perfis de usuários
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
@@ -54,6 +61,11 @@ export default function RoleManagement() {
 
       if (profilesError) throw profilesError;
 
+      // Filtrar super admins da lista
+      const filteredProfiles = (profiles || []).filter(
+        p => !superAdminIds.has(p.user_id)
+      );
+
       // Buscar roles de cada usuário
       const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
@@ -61,8 +73,8 @@ export default function RoleManagement() {
 
       if (rolesError) throw rolesError;
 
-      // Combinar dados
-      const usersWithRoles: UserWithRoles[] = (profiles || []).map((profile) => ({
+      // Combinar dados (usando filteredProfiles)
+      const usersWithRoles: UserWithRoles[] = filteredProfiles.map((profile) => ({
         id: profile.user_id,
         email: profile.email || '',
         full_name: profile.full_name || profile.email || 'Sem nome',
