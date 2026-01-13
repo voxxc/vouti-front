@@ -4,6 +4,7 @@ import AdvogadoMetrics from "./Metrics/AdvogadoMetrics";
 import ComercialMetrics from "./Metrics/ComercialMetrics";
 import FinanceiroMetrics from "./Metrics/FinanceiroMetrics";
 import AgendaMetrics from "./Metrics/AgendaMetrics";
+import { Loader2 } from "lucide-react";
 
 interface RoleMetricsPanelProps {
   currentUser: User | null;
@@ -12,7 +13,8 @@ interface RoleMetricsPanelProps {
 const RoleMetricsPanel = ({ currentUser }: RoleMetricsPanelProps) => {
   if (!currentUser) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Carregando informações do usuário...</p>
       </div>
     );
