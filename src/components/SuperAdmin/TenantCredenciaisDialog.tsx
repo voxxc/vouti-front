@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -96,17 +97,43 @@ const [enviando, setEnviando] = useState(false);
     setDownloadingId(id);
     try {
       const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Erro ao baixar arquivo');
+      }
+      
+      // Pegar o content-type da resposta
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
       const blob = await response.blob();
       
+      // Criar blob com o tipo correto
+      const blobWithType = new Blob([blob], { type: contentType });
+      
+      // Extrair extensão da URL se o nome não tiver
+      let nomeArquivo = nome || 'documento';
+      if (!nomeArquivo.includes('.')) {
+        // Tentar extrair extensão da URL
+        try {
+          const urlPath = new URL(url).pathname;
+          const extensao = urlPath.substring(urlPath.lastIndexOf('.'));
+          if (extensao && extensao.length <= 5 && extensao.includes('.')) {
+            nomeArquivo += extensao;
+          }
+        } catch {
+          // URL inválida, manter nome sem extensão
+        }
+      }
+      
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = nome || 'documento';
+      link.href = URL.createObjectURL(blobWithType);
+      link.download = nomeArquivo;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
     } catch (error) {
       console.error('Erro ao baixar documento:', error);
+      toast.error('Erro ao baixar documento');
     } finally {
       setDownloadingId(null);
     }
