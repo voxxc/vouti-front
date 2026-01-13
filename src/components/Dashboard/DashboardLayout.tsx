@@ -140,17 +140,8 @@ const DashboardLayout = ({
     loadUsers();
   }, [tenantId]);
 
-  // Loading state while auth or tenant is loading
-  if (authLoading || tenantLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
+  // Determine if we're in a loading state
+  const isLoading = authLoading || tenantLoading;
 
   const currentUser: UserType | undefined = user
     ? {
@@ -229,7 +220,14 @@ const DashboardLayout = ({
 
         {/* Main Content */}
         <main className="flex-1 container max-w-7xl mx-auto px-6 py-8 relative z-10">
-          {children}
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">Carregando...</p>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>
