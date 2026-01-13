@@ -99,7 +99,7 @@ export function useSubscription() {
       const { data: planoData, error: planoError } = await supabase
         .from('planos_config' as any)
         .select('nome, valor_mensal')
-        .eq('slug', tenantData?.plano || 'solo')
+        .eq('codigo', tenantData?.plano || 'solo')
         .single();
 
       if (planoError && planoError.code !== 'PGRST116') {
