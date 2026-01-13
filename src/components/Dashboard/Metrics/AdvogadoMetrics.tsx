@@ -1,50 +1,38 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderKanban, Calendar, CheckCircle2, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdvogadoMetricsProps {
   userId: string;
   userName: string;
 }
 
-interface Metrics {
-  myProjects: number;
-  deadlinesThisWeek: number;
-  activeTasks: number;
-  completionRate: number;
-}
-
 const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [userId]);
-
-  const fetchMetrics = async () => {
-    try {
+  // Optimized: Use React Query with cache for faster subsequent loads
+  const { data: metrics, isLoading: loading } = useQuery({
+    queryKey: ['advogado-metrics', userId],
+    queryFn: async () => {
       const today = new Date();
       const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      // Buscar projetos criados pelo usuário
-      const { data: createdProjects } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('created_by', userId);
+      // Buscar projetos criados pelo usuário e onde é participante em PARALELO
+      const [createdProjectsRes, collaboratorProjectsRes] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('id')
+          .eq('created_by', userId),
+        supabase
+          .from('project_collaborators')
+          .select('project_id')
+          .eq('user_id', userId)
+      ]);
 
-      // Buscar projetos onde o usuário é participante
-      const { data: collaboratorProjects } = await supabase
-        .from('project_collaborators')
-        .select('project_id')
-        .eq('user_id', userId);
-
-      // Combinar IDs únicos (evitar duplicatas se for criador E participante)
-      const createdIds = createdProjects?.map(p => p.id) || [];
-      const collabIds = collaboratorProjects?.map(p => p.project_id) || [];
+      // Combinar IDs únicos
+      const createdIds = createdProjectsRes.data?.map(p => p.id) || [];
+      const collabIds = collaboratorProjectsRes.data?.map(p => p.project_id) || [];
       const allProjectIds = [...new Set([...createdIds, ...collabIds])];
 
       const [deadlinesRes, tasksRes, completedTasksRes] = await Promise.all([
@@ -74,18 +62,16 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       const totalTasks = (tasksRes.count || 0) + (completedTasksRes.count || 0);
       const completionRate = totalTasks > 0 ? ((completedTasksRes.count || 0) / totalTasks) * 100 : 0;
 
-      setMetrics({
+      return {
         myProjects: allProjectIds.length,
         deadlinesThisWeek: deadlinesRes.count || 0,
         activeTasks: tasksRes.count || 0,
         completionRate: parseFloat(completionRate.toFixed(1))
-      });
-    } catch (error) {
-      console.error('Erro ao buscar métricas advogado:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      };
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: !!userId,
+  });
 
   if (loading) {
     return (

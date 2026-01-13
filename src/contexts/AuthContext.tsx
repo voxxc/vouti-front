@@ -76,16 +76,28 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Optimized: Parallel queries for faster loading
   const fetchUserRoleAndTenant = async (userId: string) => {
     try {
       console.log('[AuthContext] Fetching role for user:', userId);
       
-      // 1. Verificar se é super admin
-      const { data: superAdmin } = await supabase
-        .from('super_admins')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
+      // 1. Fetch super admin and profile in PARALLEL
+      const [superAdminRes, profileRes] = await Promise.all([
+        supabase
+          .from('super_admins')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', userId)
+          .single()
+      ]);
+
+      const superAdmin = superAdminRes.data;
+      const profileData = profileRes.data;
+      const profileError = profileRes.error;
 
       if (superAdmin && urlTenantId) {
         // Super admin acessando tenant via URL - dar acesso completo
@@ -96,14 +108,7 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
         return;
       }
       
-      // 2. Fluxo normal para usuários regulares
-      // Primeiro buscar o tenant_id do profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', userId)
-        .single();
-
+      // 2. Set tenant from profile
       if (profileError) {
         console.error('[AuthContext] Error fetching user profile:', profileError);
         setTenantId(null);
@@ -114,7 +119,7 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
       
       const userTenantId = profileData?.tenant_id;
       
-      // Buscar roles filtrando por tenant_id se disponível
+      // 3. Fetch roles (needs tenant_id from previous step)
       let roleQuery = supabase
         .from('user_roles')
         .select('role')
@@ -162,8 +167,6 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
         console.log('[AuthContext] Highest role selected:', highestRole.role);
         setUserRole(highestRole.role as UserRole);
       }
-
-      // Tenant já foi buscado no início da função
     } catch (error) {
       console.error('[AuthContext] Critical error in fetchUserRoleAndTenant:', error);
       setUserRole('advogado');
