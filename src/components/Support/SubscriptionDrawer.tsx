@@ -20,7 +20,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   User, 
   FileText, 
@@ -29,9 +37,11 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  ExternalLink,
   Key,
-  Upload
+  Upload,
+  Plus,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SubscriptionDrawerProps {
@@ -52,7 +62,7 @@ interface PerfilFormData {
 
 export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerProps) {
   const { perfil, boletos, planoInfo, loading, salvarPerfil, aceitarTermos, downloadBoleto } = useSubscription();
-  const { credenciais, oabs, isLoading: loadingCredenciais, uploading, createCredencial } = useCredenciaisCliente();
+  const { credenciais, isLoading: loadingCredenciais, uploading, createCredencial, deleteCredencial } = useCredenciaisCliente();
   const [saving, setSaving] = useState(false);
   const [downloadingBoletoId, setDownloadingBoletoId] = useState<string | null>(null);
   const [termosChecked, setTermosChecked] = useState(false);
@@ -68,12 +78,18 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
   });
 
   // Form de credenciais
+  const [showCredencialForm, setShowCredencialForm] = useState(false);
   const [credencialForm, setCredencialForm] = useState({
-    oab_id: '',
+    oab_numero: '',
+    oab_uf: '',
     cpf: '',
     senha: '',
   });
   const [documento, setDocumento] = useState<File | null>(null);
+
+  // Estado para exclusão com dupla confirmação
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
 
   useEffect(() => {
     if (perfil) {
@@ -121,23 +137,41 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
   };
 
   const handleEnviarCredencial = async () => {
-    if (!credencialForm.oab_id || !credencialForm.cpf || !credencialForm.senha) {
+    if (!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha) {
       return;
     }
 
     try {
       await createCredencial.mutateAsync({
-        oab_id: credencialForm.oab_id,
+        oab_numero: credencialForm.oab_numero.trim(),
+        oab_uf: credencialForm.oab_uf.trim().toUpperCase(),
         cpf: credencialForm.cpf,
         senha: credencialForm.senha,
         documento: documento || undefined,
       });
       
-      // Limpar formulário
-      setCredencialForm({ oab_id: '', cpf: '', senha: '' });
+      // Limpar formulário e fechar
+      setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '' });
       setDocumento(null);
+      setShowCredencialForm(false);
     } catch (error) {
       console.error('Erro ao enviar credencial:', error);
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmStep(1);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    
+    try {
+      await deleteCredencial.mutateAsync(deleteConfirmId);
+    } finally {
+      setDeleteConfirmId(null);
+      setDeleteConfirmStep(1);
     }
   };
 
@@ -492,90 +526,122 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Formulário de nova credencial */}
-                  <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                    <h4 className="font-medium text-sm">Cadastrar Nova Credencial</h4>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="cred-oab">OAB *</Label>
-                      <Select 
-                        value={credencialForm.oab_id} 
-                        onValueChange={(val) => setCredencialForm(prev => ({ ...prev, oab_id: val }))}
+                  {/* Header com botão Adicionar */}
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Minhas Credenciais</h4>
+                    {!showCredencialForm && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowCredencialForm(true)}
                       >
-                        <SelectTrigger id="cred-oab">
-                          <SelectValue placeholder="Selecione uma OAB..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {oabs.map((oab) => (
-                            <SelectItem key={oab.id} value={oab.id}>
-                              {oab.oab_numero}/{oab.oab_uf}
-                              {oab.nome_advogado && ` - ${oab.nome_advogado}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cred-cpf">CPF *</Label>
-                      <Input
-                        id="cred-cpf"
-                        value={credencialForm.cpf}
-                        onChange={(e) => setCredencialForm(prev => ({ ...prev, cpf: e.target.value }))}
-                        placeholder="000.000.000-00"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cred-senha">Senha *</Label>
-                      <Input
-                        id="cred-senha"
-                        type="password"
-                        value={credencialForm.senha}
-                        onChange={(e) => setCredencialForm(prev => ({ ...prev, senha: e.target.value }))}
-                        placeholder="Senha do sistema"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cred-doc">Documento (Certificado PDF)</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="cred-doc"
-                          type="file"
-                          accept=".pdf,.pfx,.p12"
-                          onChange={(e) => setDocumento(e.target.files?.[0] || null)}
-                          className="flex-1"
-                        />
-                        {documento && (
-                          <Badge variant="secondary" className="text-xs">
-                            {documento.name}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Envie o certificado digital ou outro documento necessário
-                      </p>
-                    </div>
-
-                    <Button
-                      onClick={handleEnviarCredencial}
-                      disabled={!credencialForm.oab_id || !credencialForm.cpf || !credencialForm.senha || createCredencial.isPending || uploading}
-                      className="w-full"
-                    >
-                      {(createCredencial.isPending || uploading) ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Upload className="w-4 h-4 mr-2" />
-                      )}
-                      Enviar Credencial
-                    </Button>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar Nova Credencial
+                      </Button>
+                    )}
                   </div>
+
+                  {/* Formulário de nova credencial (colapsável) */}
+                  {showCredencialForm && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Nova Credencial</h4>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setShowCredencialForm(false);
+                            setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '' });
+                            setDocumento(null);
+                          }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="col-span-3 space-y-2">
+                          <Label htmlFor="cred-oab-numero">Número OAB *</Label>
+                          <Input
+                            id="cred-oab-numero"
+                            value={credencialForm.oab_numero}
+                            onChange={(e) => setCredencialForm(prev => ({ ...prev, oab_numero: e.target.value }))}
+                            placeholder="123456"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cred-oab-uf">UF *</Label>
+                          <Input
+                            id="cred-oab-uf"
+                            value={credencialForm.oab_uf}
+                            onChange={(e) => setCredencialForm(prev => ({ ...prev, oab_uf: e.target.value.toUpperCase() }))}
+                            placeholder="SP"
+                            maxLength={2}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cred-cpf">CPF *</Label>
+                        <Input
+                          id="cred-cpf"
+                          value={credencialForm.cpf}
+                          onChange={(e) => setCredencialForm(prev => ({ ...prev, cpf: e.target.value }))}
+                          placeholder="000.000.000-00"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cred-senha">Senha *</Label>
+                        <Input
+                          id="cred-senha"
+                          type="password"
+                          value={credencialForm.senha}
+                          onChange={(e) => setCredencialForm(prev => ({ ...prev, senha: e.target.value }))}
+                          placeholder="Senha do sistema"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cred-doc">Documento (Certificado PDF)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="cred-doc"
+                            type="file"
+                            accept=".pdf,.pfx,.p12"
+                            onChange={(e) => setDocumento(e.target.files?.[0] || null)}
+                            className="flex-1"
+                          />
+                          {documento && (
+                            <Badge variant="secondary" className="text-xs">
+                              {documento.name}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Envie o certificado digital ou outro documento necessário
+                        </p>
+                      </div>
+
+                      <Button
+                        onClick={handleEnviarCredencial}
+                        disabled={!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha || createCredencial.isPending || uploading}
+                        className="w-full"
+                      >
+                        {(createCredencial.isPending || uploading) ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        Enviar Credencial
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Lista de credenciais enviadas */}
                   {credenciais.length > 0 && (
                     <div className="space-y-3">
-                      <h4 className="font-medium text-sm">Credenciais Enviadas</h4>
+                      <h4 className="font-medium text-sm text-muted-foreground">Credenciais Enviadas</h4>
                       {credenciais.map((cred) => (
                         <div 
                           key={cred.id}
@@ -600,33 +666,93 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                                 </div>
                               )}
                             </div>
-                            {cred.documento_url && (
+                            <div className="flex items-center gap-2">
+                              {cred.documento_url && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(cred.documento_url!, '_blank')}
+                                  className="gap-2"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Doc
+                                </Button>
+                              )}
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                onClick={() => window.open(cred.documento_url!, '_blank')}
-                                className="gap-2"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteClick(cred.id)}
                               >
-                                <Download className="w-4 h-4" />
-                                Doc
+                                <Trash2 className="w-4 h-4" />
                               </Button>
-                            )}
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {credenciais.length === 0 && oabs.length === 0 && (
+                  {credenciais.length === 0 && !showCredencialForm && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>Nenhuma OAB cadastrada.</p>
-                      <p className="text-sm">Cadastre uma OAB primeiro para enviar credenciais.</p>
+                      <p>Nenhuma credencial cadastrada.</p>
+                      <p className="text-sm">Clique em "Adicionar Nova Credencial" para começar.</p>
                     </div>
                   )}
                 </div>
               )}
             </TabsContent>
+
+            {/* AlertDialog para exclusão com dupla confirmação */}
+            <AlertDialog open={!!deleteConfirmId} onOpenChange={() => { setDeleteConfirmId(null); setDeleteConfirmStep(1); }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="w-5 h-5" />
+                    {deleteConfirmStep === 1 ? 'Atenção!' : 'Confirmar Exclusão'}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    {deleteConfirmStep === 1 ? (
+                      <>
+                        <p className="font-medium text-foreground">
+                          Apagar esta credencial afetará o funcionamento da Controladoria sobre a OAB vinculada.
+                        </p>
+                        <p>
+                          Os processos dessa OAB não poderão mais ser atualizados automaticamente pelo sistema.
+                          Deseja continuar?
+                        </p>
+                      </>
+                    ) : (
+                      <p>
+                        Esta ação não pode ser desfeita. Tem certeza que deseja remover permanentemente esta credencial?
+                      </p>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => { setDeleteConfirmId(null); setDeleteConfirmStep(1); }}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  {deleteConfirmStep === 1 ? (
+                    <Button variant="destructive" onClick={() => setDeleteConfirmStep(2)}>
+                      Sim, continuar
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleConfirmDelete}
+                      disabled={deleteCredencial.isPending}
+                    >
+                      {deleteCredencial.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : null}
+                      Confirmar Exclusão
+                    </Button>
+                  )}
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </ScrollArea>
         </Tabs>
 

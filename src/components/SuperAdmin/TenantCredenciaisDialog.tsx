@@ -30,6 +30,7 @@ export function TenantCredenciaisDialog({
   const [senhasVisiveis, setSenhasVisiveis] = useState<Record<string, boolean>>({});
   const [selectedCredencialId, setSelectedCredencialId] = useState<string>('');
   const [secret, setSecret] = useState('');
+  const [customerKey, setCustomerKey] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   const toggleSenhaVisivel = (id: string) => {
@@ -39,15 +40,23 @@ export function TenantCredenciaisDialog({
   const credenciaisPendentes = credenciaisCliente.filter((c) => c.status === 'pendente');
   const selectedCredencial = credenciaisCliente.find((c) => c.id === selectedCredencialId);
 
+  // Atualizar customerKey quando selecionar credencial
+  const handleSelectCredencial = (id: string) => {
+    setSelectedCredencialId(id);
+    const cred = credenciaisCliente.find((c) => c.id === id);
+    if (cred) {
+      const defaultKey = cred.oabs_cadastradas
+        ? `${cred.oabs_cadastradas.oab_numero}/${cred.oabs_cadastradas.oab_uf}`
+        : cred.cpf;
+      setCustomerKey(defaultKey);
+    }
+  };
+
   const handleEnviarParaJudit = async () => {
-    if (!selectedCredencial) return;
+    if (!selectedCredencial || !customerKey) return;
 
     setEnviando(true);
     try {
-      const customerKey = selectedCredencial.oabs_cadastradas
-        ? `${selectedCredencial.oabs_cadastradas.oab_numero}/${selectedCredencial.oabs_cadastradas.oab_uf}`
-        : selectedCredencial.cpf;
-
       await enviarParaJudit.mutateAsync({
         credencialId: selectedCredencial.id,
         cpf: selectedCredencial.cpf,
@@ -59,6 +68,7 @@ export function TenantCredenciaisDialog({
 
       setSelectedCredencialId('');
       setSecret('');
+      setCustomerKey('');
     } finally {
       setEnviando(false);
     }
@@ -209,7 +219,7 @@ export function TenantCredenciaisDialog({
                 <>
                   <div className="space-y-2">
                     <Label>Selecionar Credencial Pendente</Label>
-                    <Select value={selectedCredencialId} onValueChange={setSelectedCredencialId}>
+                    <Select value={selectedCredencialId} onValueChange={handleSelectCredencial}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma credencial..." />
                       </SelectTrigger>
@@ -241,16 +251,15 @@ export function TenantCredenciaisDialog({
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Customer Key (OAB)</Label>
+                        <Label>Customer Key (OAB) *</Label>
                         <Input
-                          value={
-                            selectedCredencial.oabs_cadastradas
-                              ? `${selectedCredencial.oabs_cadastradas.oab_numero}/${selectedCredencial.oabs_cadastradas.oab_uf}`
-                              : selectedCredencial.cpf
-                          }
-                          readOnly
-                          className="bg-background"
+                          value={customerKey}
+                          onChange={(e) => setCustomerKey(e.target.value)}
+                          placeholder="123456/SP"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Formato padrão: NUMERO_OAB/UF (ex: 123456/SP). Pode ser editado conforme necessário.
+                        </p>
                       </div>
 
                       <div className="space-y-2">
@@ -269,7 +278,7 @@ export function TenantCredenciaisDialog({
                       <Button
                         className="w-full"
                         onClick={handleEnviarParaJudit}
-                        disabled={!secret || enviando}
+                        disabled={!secret || !customerKey || enviando}
                       >
                         {enviando ? (
                           <>
