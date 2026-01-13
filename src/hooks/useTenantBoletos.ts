@@ -63,7 +63,7 @@ export function useTenantBoletos(tenantId: string | null) {
       
       let url_boleto = null;
 
-      // Upload file if provided
+      // Upload file if provided - save only the path (not URL)
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${tenantId}/${Date.now()}.${fileExt}`;
@@ -74,11 +74,8 @@ export function useTenantBoletos(tenantId: string | null) {
 
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
-          .from('tenant-boletos')
-          .getPublicUrl(fileName);
-
-        url_boleto = urlData.publicUrl;
+        // Save only the file path, not the full URL
+        url_boleto = fileName;
       }
 
       const { error } = await supabase
@@ -138,12 +135,9 @@ export function useTenantBoletos(tenantId: string | null) {
     try {
       const boleto = boletos.find(b => b.id === boletoId);
       
-      // Delete file from storage if exists
+      // Delete file from storage if exists (url_boleto now stores just the path)
       if (boleto?.url_boleto) {
-        const path = boleto.url_boleto.split('/tenant-boletos/').pop();
-        if (path) {
-          await supabase.storage.from('tenant-boletos').remove([path]);
-        }
+        await supabase.storage.from('tenant-boletos').remove([boleto.url_boleto]);
       }
 
       const { error } = await supabase
@@ -166,6 +160,33 @@ export function useTenantBoletos(tenantId: string | null) {
     }
   };
 
+  // Generate signed URL for private bucket access
+  const getSignedUrl = async (filePath: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('tenant-boletos')
+        .createSignedUrl(filePath, 3600); // URL valid for 1 hour
+
+      if (error) {
+        toast({
+          title: 'Erro ao gerar link',
+          description: error.message,
+          variant: 'destructive'
+        });
+        return null;
+      }
+
+      return data.signedUrl;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao gerar link',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (tenantId) {
       fetchBoletos();
@@ -178,6 +199,7 @@ export function useTenantBoletos(tenantId: string | null) {
     createBoleto,
     updateBoletoStatus,
     deleteBoleto,
+    getSignedUrl,
     refetch: fetchBoletos
   };
 }

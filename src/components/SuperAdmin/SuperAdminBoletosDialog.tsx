@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useTenantBoletos, CreateBoletoData } from '@/hooks/useTenantBoletos';
+import { useTenantBoletos, CreateBoletoData, TenantBoleto } from '@/hooks/useTenantBoletos';
 import { Tenant } from '@/types/superadmin';
 import {
   Dialog,
@@ -52,11 +52,12 @@ interface SuperAdminBoletosDialogProps {
 }
 
 export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdminBoletosDialogProps) {
-  const { boletos, loading, createBoleto, updateBoletoStatus, deleteBoleto } = useTenantBoletos(tenant.id);
+  const { boletos, loading, createBoleto, updateBoletoStatus, deleteBoleto, getSignedUrl } = useTenantBoletos(tenant.id);
   const [showAddForm, setShowAddForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
@@ -110,6 +111,20 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
+    }
+  };
+
+  const handleViewBoleto = async (boleto: TenantBoleto) => {
+    if (!boleto.url_boleto) return;
+    
+    setDownloadingId(boleto.id);
+    try {
+      const signedUrl = await getSignedUrl(boleto.url_boleto);
+      if (signedUrl) {
+        window.open(signedUrl, '_blank');
+      }
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -341,10 +356,15 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => window.open(boleto.url_boleto!, '_blank')}
+                              onClick={() => handleViewBoleto(boleto)}
+                              disabled={downloadingId === boleto.id}
                               title="Ver boleto"
                             >
-                              <ExternalLink className="w-4 h-4" />
+                              {downloadingId === boleto.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <ExternalLink className="w-4 h-4" />
+                              )}
                             </Button>
                           )}
                           <Button
