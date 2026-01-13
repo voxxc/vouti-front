@@ -572,7 +572,16 @@ const Agenda = () => {
 
   const fetchUserDeadlines = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Buscar IDs de deadlines onde o usuário está tagueado
+      const { data: taggedDeadlineIds } = await supabase
+        .from('deadline_tags')
+        .select('deadline_id')
+        .eq('tagged_user_id', userId);
+
+      const taggedIds = taggedDeadlineIds?.map(t => t.deadline_id) || [];
+
+      // Construir query base
+      let query = supabase
         .from('deadlines')
         .select(`
           *,
@@ -594,8 +603,16 @@ const Agenda = () => {
             )
           )
         `)
-        .eq('user_id', userId)
         .order('date', { ascending: true });
+
+      // Aplicar filtro: advogado_responsavel_id = userId OU id in (taggedIds)
+      if (taggedIds.length > 0) {
+        query = query.or(`advogado_responsavel_id.eq.${userId},id.in.(${taggedIds.join(',')})`);
+      } else {
+        query = query.eq('advogado_responsavel_id', userId);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         const mapped: Deadline[] = data.map(deadline => ({
