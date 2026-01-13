@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
+import AgendaCalendar from "@/components/Agenda/AgendaCalendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -790,37 +791,24 @@ const Agenda = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Calendario
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setSelectedDate(date)}
-                  className="pointer-events-auto"
-                  modifiers={{
-                    hasDeadlines: (date) => hasDeadlines(date)
-                  }}
-                  modifiersStyles={{
-                    hasDeadlines: { 
-                      backgroundColor: 'hsl(var(--primary))', 
-                      color: 'white',
-                      fontWeight: 'bold'
-                    }
-                  }}
-                />
-              </CardContent>
-            </Card>
-          </div>
+        {/* Calendar - Full Width */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Calendario
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AgendaCalendar
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              deadlines={filteredDeadlines}
+            />
+          </CardContent>
+        </Card>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Selected Date Deadlines */}
           <div>
             <Card>
