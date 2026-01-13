@@ -50,7 +50,7 @@ const PrazosAbertosPanel = ({ userId, isAdmin = false, maxItems = 10 }: PrazosAb
           date,
           user_id,
           advogado_responsavel_id,
-          project:projects(name, client_name),
+          project:projects(name, client),
           advogado:profiles!deadlines_advogado_responsavel_id_fkey(full_name)
         `)
         .eq('completed', false)
@@ -79,7 +79,7 @@ const PrazosAbertosPanel = ({ userId, isAdmin = false, maxItems = 10 }: PrazosAb
         title: prazo.title,
         date: prazo.date,
         projectName: prazo.project?.name || 'Sem projeto',
-        clientName: prazo.project?.client_name || 'Sem cliente',
+        clientName: prazo.project?.client || 'Sem cliente',
         advogadoName: prazo.advogado?.full_name || undefined,
       }));
 
