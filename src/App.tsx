@@ -293,11 +293,21 @@ const BatinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Component that passes tenant.id to AuthProvider for super admin access
+const TenantAwareAuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const { tenant } = useTenant();
+  return (
+    <AuthProvider urlTenantId={tenant?.id}>
+      {children}
+    </AuthProvider>
+  );
+};
+
 // Helper component for tenant routes
 const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.ReactNode; isPublic?: boolean }) => {
   return (
     <TenantProvider>
-      <AuthProvider>
+      <TenantAwareAuthProvider>
         <ThemeProvider>
           {isPublic ? (
             <TenantPublicRoute>{children}</TenantPublicRoute>
@@ -305,7 +315,7 @@ const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.Re
             <TenantProtectedRoute>{children}</TenantProtectedRoute>
           )}
         </ThemeProvider>
-      </AuthProvider>
+      </TenantAwareAuthProvider>
     </TenantProvider>
   );
 };
