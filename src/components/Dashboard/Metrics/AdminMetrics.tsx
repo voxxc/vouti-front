@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, FolderKanban, UserCheck, Calendar, TrendingUp, Eye, ShieldAlert } from "lucide-react";
+import { getFullGreeting } from "@/utils/greetingHelper";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
 import { ClienteAnalytics } from "../ClienteAnalytics";
@@ -15,9 +16,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface AdminMetricsProps {
   userId: string;
+  userName: string;
 }
 
-const AdminMetrics = ({ userId }: AdminMetricsProps) => {
+const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
 
   // Optimized: Use React Query with cache for faster subsequent loads
@@ -63,8 +65,8 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold mb-2 text-foreground">PAINEL ADMINISTRATIVO</h2>
-          <p className="text-muted-foreground">Visão consolidada do sistema completo</p>
+          <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
+          <p className="text-muted-foreground">Painel Administrativo</p>
         </div>
         <Button
           variant={dadosVisiveis ? "outline" : "secondary"}

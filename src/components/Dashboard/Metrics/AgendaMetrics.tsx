@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Reuniao } from "@/types/reuniao";
 import { useReuniaoStatus } from "@/hooks/useReuniaoStatus";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getFullGreeting } from "@/utils/greetingHelper";
 
 interface AgendaMetricsProps {
   userId: string;
@@ -82,12 +83,10 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-2">
-          {isAdminView ? 'Métricas de Reuniões' : 'Painel de Reuniões'}
+          {getFullGreeting(userName)}
         </h2>
         <p className="text-muted-foreground">
-          {isAdminView 
-            ? 'Acompanhe todas as reuniões do sistema' 
-            : 'Acompanhe suas reuniões e conversões'}
+          {isAdminView ? 'Métricas de Reuniões' : 'Painel de Reuniões'}
         </p>
       </div>
 

@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getFullGreeting } from "@/utils/greetingHelper";
 
 interface AdvogadoMetricsProps {
   userId: string;
@@ -89,7 +90,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">BEM-VINDO, {userName.toUpperCase()}</h2>
+        <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
         <p className="text-muted-foreground">Seus casos e prazos em um só lugar</p>
       </div>
 
