@@ -31,7 +31,8 @@ export function TenantCredenciaisDialog({
   const [selectedCredencialId, setSelectedCredencialId] = useState<string>('');
   const [secret, setSecret] = useState('');
   const [customerKey, setCustomerKey] = useState('');
-  const [enviando, setEnviando] = useState(false);
+const [enviando, setEnviando] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const toggleSenhaVisivel = (id: string) => {
     setSenhasVisiveis((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -89,6 +90,26 @@ export function TenantCredenciaisDialog({
 
   const formatCpf = (cpf: string) => {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
+  const handleDownloadDocumento = async (url: string, nome: string, id: string) => {
+    setDownloadingId(id);
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = nome || 'documento';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Erro ao baixar documento:', error);
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -205,16 +226,19 @@ export function TenantCredenciaisDialog({
                               variant="ghost"
                               size="sm"
                               className="h-7 px-2"
-                              asChild
+                              onClick={() => handleDownloadDocumento(
+                                credencial.documento_url!,
+                                credencial.documento_nome || 'documento',
+                                credencial.id
+                              )}
+                              disabled={downloadingId === credencial.id}
                             >
-                              <a
-                                href={credencial.documento_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <FileText className="w-3 h-3 mr-1" />
-                                {credencial.documento_nome || 'Download'}
-                              </a>
+                              {downloadingId === credencial.id ? (
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <Download className="w-3 h-3 mr-1" />
+                              )}
+                              {credencial.documento_nome || 'Baixar'}
                             </Button>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
