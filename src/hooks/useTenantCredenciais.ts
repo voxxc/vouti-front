@@ -8,6 +8,7 @@ interface CredencialCliente {
   oab_id: string | null;
   cpf: string;
   senha: string;
+  secret: string | null;
   documento_url: string | null;
   documento_nome: string | null;
   status: 'pendente' | 'enviado' | 'erro';
