@@ -84,6 +84,13 @@ export const useTaskVinculo = (taskId: string | null, processoOabId: string | nu
     if (!taskId) return false;
 
     try {
+      // Buscar dados da task para o histórico
+      const { data: taskData } = await supabase
+        .from('tasks')
+        .select('title, project_id')
+        .eq('id', taskId)
+        .single();
+
       const { error } = await supabase
         .from('tasks')
         .update({ processo_oab_id: novoProcessoOabId })
@@ -105,6 +112,24 @@ export const useTaskVinculo = (taskId: string | null, processoOabId: string | nu
           .single();
 
         setProcessoVinculado({ ...processo, oab: oab || undefined });
+
+        // Registrar vínculo no histórico
+        if (taskData?.project_id) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase
+              .from('task_history')
+              .insert({
+                task_id: taskId,
+                project_id: taskData.project_id,
+                task_title: taskData.title,
+                user_id: user.id,
+                action: 'vinculo_created',
+                details: `Processo ${processo.numero_cnj} vinculado ao card "${taskData.title}"`,
+                tenant_id: tenantId
+              });
+          }
+        }
       }
 
       return true;
@@ -118,12 +143,40 @@ export const useTaskVinculo = (taskId: string | null, processoOabId: string | nu
     if (!taskId) return false;
 
     try {
+      // Buscar dados da task e processo antes de desvincular
+      const { data: taskData } = await supabase
+        .from('tasks')
+        .select('title, project_id, processo_oab_id')
+        .eq('id', taskId)
+        .single();
+
+      const processoAnterior = processoVinculado;
+
       const { error } = await supabase
         .from('tasks')
         .update({ processo_oab_id: null })
         .eq('id', taskId);
 
       if (error) throw error;
+
+      // Registrar desvínculo no histórico
+      if (taskData?.project_id) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('task_history')
+            .insert({
+              task_id: taskId,
+              project_id: taskData.project_id,
+              task_title: taskData.title,
+              user_id: user.id,
+              action: 'vinculo_removed',
+              details: `Processo ${processoAnterior?.numero_cnj || 'desconhecido'} desvinculado do card "${taskData.title}"`,
+              tenant_id: tenantId
+            });
+        }
+      }
+
       setProcessoVinculado(null);
       return true;
     } catch (error) {

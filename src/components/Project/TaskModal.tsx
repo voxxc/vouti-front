@@ -572,7 +572,43 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
     }
   };
 
-  const handleColorChange = (color: string) => {
+  const handleColorChange = async (color: string) => {
+    const corAnterior = task.cardColor || 'default';
+    
+    // Se não houve mudança, não fazer nada
+    if (color === corAnterior) return;
+
+    const coresNomes: Record<string, string> = {
+      default: 'Padrão', blue: 'Azul', green: 'Verde',
+      yellow: 'Amarelo', purple: 'Roxo', pink: 'Rosa',
+      orange: 'Laranja', red: 'Vermelho'
+    };
+
+    // Registrar mudança de cor no histórico
+    if (currentUser && projectId) {
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        await supabase
+          .from('task_history')
+          .insert({
+            task_id: task.id,
+            project_id: projectId,
+            task_title: task.title,
+            user_id: currentUser.id,
+            action: 'color_changed',
+            details: `Cor do card "${task.title}" alterada de "${coresNomes[corAnterior]}" para "${coresNomes[color]}"`,
+            tenant_id: profileData?.tenant_id
+          });
+      } catch (error) {
+        console.error('Error logging color change:', error);
+      }
+    }
+
     const updatedTask = {
       ...task,
       cardColor: color as Task['cardColor'],

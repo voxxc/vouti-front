@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -16,7 +17,13 @@ import {
   ListTodo,
   Search,
   History,
-  RefreshCw
+  RefreshCw,
+  Palette,
+  Link2,
+  Unlink,
+  Columns,
+  PenLine,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -49,6 +56,13 @@ const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; la
   tarefa_added: { icon: ListTodo, color: "text-green-400", label: "Tarefa adicionada" },
   tarefa_edited: { icon: ListTodo, color: "text-yellow-500", label: "Tarefa editada" },
   tarefa_deleted: { icon: ListTodo, color: "text-red-400", label: "Tarefa excluída" },
+  // Novas ações
+  color_changed: { icon: Palette, color: "text-pink-500", label: "Cor alterada" },
+  vinculo_created: { icon: Link2, color: "text-indigo-500", label: "Vínculo criado" },
+  vinculo_removed: { icon: Unlink, color: "text-gray-500", label: "Vínculo removido" },
+  column_created: { icon: Columns, color: "text-green-400", label: "Coluna criada" },
+  column_renamed: { icon: PenLine, color: "text-blue-400", label: "Coluna renomeada" },
+  column_deleted: { icon: Trash2, color: "text-red-400", label: "Coluna excluída" },
 };
 
 const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDrawerProps) => {
@@ -129,7 +143,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
         `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(500);
 
       if (historyError) throw historyError;
 
@@ -219,9 +233,44 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
         return `Editou tarefa no card "${task_title}"`;
       case 'tarefa_deleted':
         return `Excluiu tarefa do card "${task_title}"`;
+      case 'color_changed':
+        return `Alterou cor do card "${task_title}"`;
+      case 'vinculo_created':
+        return `Vinculou processo ao card "${task_title}"`;
+      case 'vinculo_removed':
+        return `Desvinculou processo do card "${task_title}"`;
+      case 'column_created':
+        return `Criou nova coluna`;
+      case 'column_renamed':
+        return `Renomeou coluna`;
+      case 'column_deleted':
+        return `Excluiu coluna`;
       default:
         return `Ação em "${task_title}"`;
     }
+  };
+
+  const exportarHistorico = () => {
+    if (filteredHistory.length === 0) return;
+
+    const csvHeaders = ['Data', 'Hora', 'Usuário', 'Ação', 'Detalhes', 'Card'];
+    const csvRows = filteredHistory.map(entry => [
+      format(new Date(entry.created_at), 'dd/MM/yyyy'),
+      format(new Date(entry.created_at), 'HH:mm:ss'),
+      entry.user_name,
+      getActionConfig(entry.action).label,
+      `"${entry.details.replace(/"/g, '""')}"`,
+      `"${entry.task_title.replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [csvHeaders.join(';'), ...csvRows.map(row => row.join(';'))].join('\n');
+    
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `historico-projeto-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   return (
@@ -231,15 +280,27 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
           <SheetTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
             Histórico do Projeto
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={loadHistory}
-              className="ml-auto h-8 w-8"
-              title="Atualizar histórico"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
+            <div className="ml-auto flex gap-1">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={exportarHistorico}
+                className="h-8 w-8"
+                title="Exportar histórico (CSV)"
+                disabled={filteredHistory.length === 0}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={loadHistory}
+                className="h-8 w-8"
+                title="Atualizar histórico"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </SheetTitle>
         </SheetHeader>
 
@@ -268,6 +329,9 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
                 <SelectItem value="comment_added">Comentários</SelectItem>
                 <SelectItem value="file_uploaded">Arquivos</SelectItem>
                 <SelectItem value="tarefa_added">Tarefas</SelectItem>
+                <SelectItem value="color_changed">Cores</SelectItem>
+                <SelectItem value="vinculo_created">Vínculos</SelectItem>
+                <SelectItem value="column_created">Colunas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -287,6 +351,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
                 {filteredHistory.map((entry) => {
                   const config = getActionConfig(entry.action);
                   const Icon = config.icon;
+                  const isDeletedCard = entry.task_title === 'Tarefa removida' || entry.action === 'deleted';
                   
                   return (
                     <div 
@@ -297,9 +362,16 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground">
-                          {entry.user_name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm text-foreground">
+                            {entry.user_name}
+                          </p>
+                          {isDeletedCard && (
+                            <Badge variant="outline" className="text-xs text-red-500 border-red-500/30">
+                              Excluído
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground mt-0.5 break-words">
                           {formatActionText(entry)}
                         </p>
