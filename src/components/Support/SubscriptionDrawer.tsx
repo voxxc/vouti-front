@@ -41,10 +41,10 @@ import {
   Upload,
   Plus,
   Trash2,
-  AlertTriangle,
-  Repeat
+  AlertTriangle
 } from 'lucide-react';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface SubscriptionDrawerProps {
   open: boolean;
@@ -232,7 +232,25 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
           <DrawerTitle className="flex items-center gap-2">
             Minha Assinatura
             {planoInfo && (
-              <PlanoIndicator plano={planoInfo.plano} size="md" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="cursor-pointer hover:opacity-80 transition-opacity">
+                    <PlanoIndicator plano={planoInfo.plano} size="md" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-sm">
+                      TROCA DE PLANO:
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Quer trocar de plano? Downgrade ou Upgrade?
+                      <br />
+                      Abra um Ticket e fale com nosso suporte.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
           </DrawerTitle>
           {planoInfo && planoInfo.valor_mensal > 0 && (
@@ -242,27 +260,8 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
           )}
         </DrawerHeader>
 
-        {/* Banner de Troca de Plano */}
-        <div className="mx-4 mt-3 p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
-              <Repeat className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">
-                TROCA DE PLANO
-              </h4>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                Quer trocar de plano? Downgrade ou Upgrade?
-                <br />
-                <span className="font-medium">Abra um Ticket e fale com nosso suporte.</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
         <Tabs defaultValue="perfil" className="flex-1">
-          <TabsList className="w-full justify-start rounded-none border-b px-4 mt-3">
+          <TabsList className="w-full justify-start rounded-none border-b px-4">
             <TabsTrigger value="perfil" className="gap-2">
               <User className="w-4 h-4" />
               Perfil
