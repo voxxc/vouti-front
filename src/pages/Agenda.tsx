@@ -616,6 +616,7 @@ const Agenda = () => {
             )
           )
         `)
+        .eq('completed', false)
         .order('date', { ascending: true });
 
       // Aplicar filtro: advogado_responsavel_id = userId OU id in (taggedIds)
