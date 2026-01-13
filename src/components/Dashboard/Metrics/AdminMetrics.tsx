@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FolderKanban, UserCheck, Calendar, TrendingUp, Eye, EyeOff, ShieldAlert } from "lucide-react";
+import { Users, FolderKanban, UserCheck, Calendar, TrendingUp, Eye, ShieldAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
 import { ClienteAnalytics } from "../ClienteAnalytics";
@@ -10,6 +10,7 @@ import { ProcessosMetrics } from "../ProcessosMetrics";
 import { TasksMetrics } from "../TasksMetrics";
 import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
+import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 
 interface AdminMetricsProps {
@@ -156,6 +157,9 @@ const AdminMetrics = ({ userId }: AdminMetricsProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Painel de Prazos em Aberto */}
+      <PrazosAbertosPanel userId={userId} isAdmin={true} maxItems={15} />
 
       <ClienteAnalytics />
 
