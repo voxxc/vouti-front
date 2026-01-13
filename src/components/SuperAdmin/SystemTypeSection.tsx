@@ -1,4 +1,4 @@
-import { Scale, Factory, Link, Plus, LucideIcon } from 'lucide-react';
+import { Scale, Factory, Link, Plus, Bell, LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SystemType, Tenant } from '@/types/superadmin';
@@ -10,6 +10,9 @@ const iconMap: Record<string, LucideIcon> = {
   Link,
 };
 
+// ID do sistema "Gestão Jurídica"
+const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
+
 interface SystemTypeSectionProps {
   systemType: SystemType;
   tenants: Tenant[];
@@ -17,6 +20,7 @@ interface SystemTypeSectionProps {
   onEditTenant: (tenant: Tenant) => void;
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
   onDeleteTenant: (tenantId: string, tenantName: string) => void;
+  onOpenAvisos?: (systemTypeId: string, systemTypeName: string) => void;
 }
 
 export function SystemTypeSection({
@@ -26,7 +30,9 @@ export function SystemTypeSection({
   onEditTenant,
   onToggleStatus,
   onDeleteTenant,
+  onOpenAvisos,
 }: SystemTypeSectionProps) {
+  const isGestaoJuridica = systemType.id === GESTAO_JURIDICA_ID;
   const Icon = systemType.icon ? iconMap[systemType.icon] || Scale : Scale;
 
   return (
@@ -44,15 +50,28 @@ export function SystemTypeSection({
             <p className="text-sm text-muted-foreground">{systemType.description}</p>
           </div>
         </div>
-        <Button
-          onClick={() => onCreateTenant(systemType.id)}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Criar Novo Cliente
-        </Button>
+        <div className="flex items-center gap-2">
+          {isGestaoJuridica && onOpenAvisos && (
+            <Button
+              onClick={() => onOpenAvisos(systemType.id, systemType.name)}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Bell className="h-4 w-4" />
+              Avisos
+            </Button>
+          )}
+          <Button
+            onClick={() => onCreateTenant(systemType.id)}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Criar Novo Cliente
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {tenants.length === 0 ? (

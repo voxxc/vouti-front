@@ -7,6 +7,7 @@ import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
 import { SuperAdminThemeToggle } from '@/components/SuperAdmin/SuperAdminThemeToggle';
 import { SuperAdminLeads } from '@/components/SuperAdmin/SuperAdminLeads';
 import { SuperAdminSupport } from '@/components/SuperAdmin/SuperAdminSupport';
+import { SuperAdminAvisosDialog } from '@/components/SuperAdmin/SuperAdminAvisosDialog';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,8 +34,10 @@ export default function SuperAdmin() {
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [avisosDialogOpen, setAvisosDialogOpen] = useState(false);
   const [selectedSystemType, setSelectedSystemType] = useState<SystemType | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [selectedAvisosSystemType, setSelectedAvisosSystemType] = useState<{ id: string; name: string } | null>(null);
 
   // Auth form states
   const [authLoading, setAuthLoading] = useState(false);
@@ -72,6 +75,11 @@ export default function SuperAdmin() {
   const handleEditTenant = (tenant: Tenant) => {
     setSelectedTenant(tenant);
     setEditDialogOpen(true);
+  };
+
+  const handleOpenAvisos = (systemTypeId: string, systemTypeName: string) => {
+    setSelectedAvisosSystemType({ id: systemTypeId, name: systemTypeName });
+    setAvisosDialogOpen(true);
   };
 
   const handleSubmitCreate = async (data: TenantFormData) => {
@@ -253,6 +261,7 @@ export default function SuperAdmin() {
                   onEditTenant={handleEditTenant}
                   onToggleStatus={toggleTenantStatus}
                   onDeleteTenant={deleteTenant}
+                  onOpenAvisos={handleOpenAvisos}
                 />
               ))}
             </div>
@@ -282,6 +291,15 @@ export default function SuperAdmin() {
         tenant={selectedTenant}
         onSubmit={handleSubmitEdit}
       />
+
+      {selectedAvisosSystemType && (
+        <SuperAdminAvisosDialog
+          open={avisosDialogOpen}
+          onOpenChange={setAvisosDialogOpen}
+          systemTypeId={selectedAvisosSystemType.id}
+          systemTypeName={selectedAvisosSystemType.name}
+        />
+      )}
     </div>
   );
 }

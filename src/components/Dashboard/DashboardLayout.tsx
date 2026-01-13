@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
+import { AvisoBanner } from "@/components/Common/AvisoBanner";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
@@ -10,7 +11,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
 import DashboardSidebar from "./DashboardSidebar";
+
+// ID do sistema "Gestão Jurídica" para avisos
+const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -143,6 +148,19 @@ const DashboardLayout = ({
   // Determine if we're in a loading state
   const isLoading = authLoading || tenantLoading;
 
+  // Check if user is admin
+  const isCurrentUserAdmin = users.find((u) => u.id === user?.id)?.role === 'admin';
+
+  // Fetch pending avisos for admins
+  const { avisosPendentes, confirmarCiencia } = useAvisosPendentes(
+    isCurrentUserAdmin ? user?.id || null : null,
+    GESTAO_JURIDICA_ID
+  );
+
+  const handleConfirmarCiencia = async (avisoId: string) => {
+    await confirmarCiencia.mutateAsync(avisoId);
+  };
+
   const currentUser: UserType | undefined = user
     ? {
         id: user.id,
@@ -163,7 +181,16 @@ const DashboardLayout = ({
   };
 
   return (
-    <div className="min-h-screen bg-background flex w-full">
+    <>
+      {/* Banner de Avisos para Administradores */}
+      {isCurrentUserAdmin && avisosPendentes.length > 0 && (
+        <AvisoBanner 
+          avisos={avisosPendentes}
+          onConfirmarCiencia={handleConfirmarCiencia}
+        />
+      )}
+      
+      <div className="min-h-screen bg-background flex w-full">
       {/* Sidebar */}
       <DashboardSidebar currentPage={currentPage} />
 
@@ -230,7 +257,8 @@ const DashboardLayout = ({
           )}
         </main>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

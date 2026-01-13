@@ -14,6 +14,76 @@ export type Database = {
   }
   public: {
     Tables: {
+      avisos_ciencia: {
+        Row: {
+          aviso_id: string
+          confirmado_em: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          aviso_id: string
+          confirmado_em?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          aviso_id?: string
+          confirmado_em?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_ciencia_aviso_id_fkey"
+            columns: ["aviso_id"]
+            isOneToOne: false
+            referencedRelation: "avisos_sistema"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avisos_sistema: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          created_by: string | null
+          descricao: string | null
+          id: string
+          imagem_url: string
+          system_type_id: string | null
+          titulo: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          imagem_url: string
+          system_type_id?: string | null
+          titulo: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          imagem_url?: string
+          system_type_id?: string | null
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_sistema_system_type_id_fkey"
+            columns: ["system_type_id"]
+            isOneToOne: false
+            referencedRelation: "system_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batink_audit_logs: {
         Row: {
           action: string
