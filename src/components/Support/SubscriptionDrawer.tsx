@@ -51,9 +51,10 @@ interface PerfilFormData {
 }
 
 export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerProps) {
-  const { perfil, boletos, planoInfo, loading, salvarPerfil, aceitarTermos } = useSubscription();
+  const { perfil, boletos, planoInfo, loading, salvarPerfil, aceitarTermos, downloadBoleto } = useSubscription();
   const { credenciais, oabs, isLoading: loadingCredenciais, uploading, createCredencial } = useCredenciaisCliente();
   const [saving, setSaving] = useState(false);
+  const [downloadingBoletoId, setDownloadingBoletoId] = useState<string | null>(null);
   const [termosChecked, setTermosChecked] = useState(false);
   const [formData, setFormData] = useState<PerfilFormData>({
     nome_responsavel: '',
@@ -449,10 +450,19 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(boleto.url_boleto!, '_blank')}
+                            disabled={downloadingBoletoId === boleto.id}
+                            onClick={async () => {
+                              setDownloadingBoletoId(boleto.id);
+                              await downloadBoleto(boleto.url_boleto!, `boleto-${boleto.mes_referencia}.pdf`);
+                              setDownloadingBoletoId(null);
+                            }}
                             className="gap-2"
                           >
-                            <Download className="w-4 h-4" />
+                            {downloadingBoletoId === boleto.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
                             Baixar
                           </Button>
                         )}
