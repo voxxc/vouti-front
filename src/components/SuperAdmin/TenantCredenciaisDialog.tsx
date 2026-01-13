@@ -141,7 +141,7 @@ const [enviando, setEnviando] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="w-5 h-5" />
@@ -173,29 +173,29 @@ const [enviando, setEnviando] = useState(false);
                   Nenhuma credencial recebida deste tenant.
                 </div>
               ) : (
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>OAB</TableHead>
-                      <TableHead>CPF</TableHead>
-                      <TableHead>Senha</TableHead>
-                      <TableHead>Secret</TableHead>
-                      <TableHead>Documento</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Data</TableHead>
+                      <TableHead className="w-[120px]">OAB</TableHead>
+                      <TableHead className="w-[130px]">CPF</TableHead>
+                      <TableHead className="w-[140px]">Senha</TableHead>
+                      <TableHead className="w-[140px]">Secret</TableHead>
+                      <TableHead className="w-[100px]">Doc</TableHead>
+                      <TableHead className="w-[90px]">Status</TableHead>
+                      <TableHead className="w-[80px]">Data</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {credenciaisCliente.map((credencial) => (
                       <TableRow key={credencial.id}>
-                        <TableCell>
+                        <TableCell className="w-[120px]">
                           {credencial.oabs_cadastradas ? (
-                            <div>
-                              <div className="font-medium">
+                            <div className="truncate">
+                              <div className="font-medium text-sm truncate">
                                 {credencial.oabs_cadastradas.oab_numero}/{credencial.oabs_cadastradas.oab_uf}
                               </div>
                               {credencial.oabs_cadastradas.nome_advogado && (
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground truncate" title={credencial.oabs_cadastradas.nome_advogado}>
                                   {credencial.oabs_cadastradas.nome_advogado}
                                 </div>
                               )}
@@ -204,16 +204,16 @@ const [enviando, setEnviando] = useState(false);
                             <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell className="font-mono">{formatCpf(credencial.cpf)}</TableCell>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">{formatCpf(credencial.cpf)}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono">
-                              {senhasVisiveis[credencial.id] ? credencial.senha : '••••••••'}
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-xs truncate max-w-[80px]">
+                              {senhasVisiveis[credencial.id] ? credencial.senha : '••••••'}
                             </span>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6"
+                              className="h-5 w-5 flex-shrink-0"
                               onClick={() => toggleSenhaVisivel(credencial.id)}
                             >
                               {senhasVisiveis[credencial.id] ? (
@@ -226,14 +226,14 @@ const [enviando, setEnviando] = useState(false);
                         </TableCell>
                         <TableCell>
                           {credencial.secret ? (
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono">
-                                {senhasVisiveis[`secret-${credencial.id}`] ? credencial.secret : '••••••••'}
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-xs truncate max-w-[80px]">
+                                {senhasVisiveis[`secret-${credencial.id}`] ? credencial.secret : '••••••'}
                               </span>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6"
+                                className="h-5 w-5 flex-shrink-0"
                                 onClick={() => toggleSenhaVisivel(`secret-${credencial.id}`)}
                               >
                                 {senhasVisiveis[`secret-${credencial.id}`] ? (
@@ -244,15 +244,15 @@ const [enviando, setEnviando] = useState(false);
                               </Button>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
+                            <span className="text-muted-foreground text-xs">-</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="w-[100px]">
                           {credencial.documento_url ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2"
+                              className="h-7 px-2 max-w-full"
                               onClick={() => handleDownloadDocumento(
                                 credencial.documento_url!,
                                 credencial.documento_nome || 'documento',
@@ -261,19 +261,21 @@ const [enviando, setEnviando] = useState(false);
                               disabled={downloadingId === credencial.id}
                             >
                               {downloadingId === credencial.id ? (
-                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin flex-shrink-0" />
                               ) : (
-                                <Download className="w-3 h-3 mr-1" />
+                                <Download className="w-3 h-3 mr-1 flex-shrink-0" />
                               )}
-                              {credencial.documento_nome || 'Baixar'}
+                              <span className="truncate max-w-[50px] text-xs" title={credencial.documento_nome || 'Baixar'}>
+                                {credencial.documento_nome || 'Baixar'}
+                              </span>
                             </Button>
                           ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
+                            <span className="text-muted-foreground text-xs">-</span>
                           )}
                         </TableCell>
                         <TableCell>{getStatusBadge(credencial.status)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {format(new Date(credencial.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(credencial.created_at), 'dd/MM/yy', { locale: ptBR })}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -382,39 +384,39 @@ const [enviando, setEnviando] = useState(false);
                   Nenhuma credencial enviada para a Judit ainda.
                 </div>
               ) : (
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Customer Key</TableHead>
-                      <TableHead>Username (CPF)</TableHead>
-                      <TableHead>System Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Data Envio</TableHead>
+                      <TableHead className="w-[150px]">Customer Key</TableHead>
+                      <TableHead className="w-[150px]">Username (CPF)</TableHead>
+                      <TableHead className="w-[120px]">System Name</TableHead>
+                      <TableHead className="w-[100px]">Status</TableHead>
+                      <TableHead className="w-[100px]">Data Envio</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {credenciaisJudit.map((credencial) => (
                       <TableRow key={credencial.id}>
-                        <TableCell className="font-mono">{credencial.customer_key}</TableCell>
-                        <TableCell className="font-mono">{formatCpf(credencial.username)}</TableCell>
+                        <TableCell className="font-mono text-xs truncate" title={credencial.customer_key}>{credencial.customer_key}</TableCell>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">{formatCpf(credencial.username)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{credencial.system_name}</Badge>
+                          <Badge variant="outline" className="text-xs">{credencial.system_name}</Badge>
                         </TableCell>
                         <TableCell>
                           {credencial.status === 'active' ? (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
+                            <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Ativo
                             </Badge>
                           ) : (
-                            <Badge variant="destructive">
+                            <Badge variant="destructive" className="text-xs">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               Erro
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {format(new Date(credencial.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(credencial.created_at), 'dd/MM/yy', { locale: ptBR })}
                         </TableCell>
                       </TableRow>
                     ))}
