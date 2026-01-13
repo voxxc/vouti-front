@@ -142,7 +142,9 @@ const Agenda = () => {
   }, [user]);
 
   useEffect(() => {
+    console.log('[Agenda] Admin check - isAdmin:', isAdmin, 'tenantId:', tenantId);
     if (isAdmin && tenantId) {
+      console.log('[Agenda] Calling fetchAllUsers...');
       fetchAllUsers();
     }
   }, [isAdmin, tenantId]);
@@ -551,22 +553,33 @@ const Agenda = () => {
   };
 
   const fetchAllUsers = async () => {
-    if (!tenantId) return;
+    console.log('[Agenda] fetchAllUsers called, tenantId:', tenantId);
+    if (!tenantId) {
+      console.log('[Agenda] fetchAllUsers - No tenantId, returning early');
+      return;
+    }
     
-    let query = supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('user_id, full_name, email')
       .eq('tenant_id', tenantId)
       .order('full_name');
     
-    const { data, error } = await query;
+    console.log('[Agenda] fetchAllUsers result - data:', data?.length, 'error:', error);
     
-    if (!error && data) {
-      setAllUsers(data.map(u => ({
+    if (error) {
+      console.error('[Agenda] Error fetching users:', error);
+      return;
+    }
+    
+    if (data) {
+      const mapped = data.map(u => ({
         id: u.user_id,
         name: u.full_name || u.email,
         email: u.email
-      })));
+      }));
+      console.log('[Agenda] Setting allUsers:', mapped.length, 'users');
+      setAllUsers(mapped);
     }
   };
 
@@ -1019,6 +1032,9 @@ const Agenda = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {allUsers.length === 0 ? 'Carregando usuários...' : `${allUsers.length} usuários encontrados`}
+                  </p>
                 </div>
                 
                 {filteredUserId && filteredUserDeadlines.length > 0 && (
