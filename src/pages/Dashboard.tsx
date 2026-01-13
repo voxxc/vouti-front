@@ -10,20 +10,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import RoleMetricsPanel from "@/components/Dashboard/RoleMetricsPanel";
 import { DadosSensiveisProvider } from "@/contexts/DadosSensiveisContext";
+import { Loader2 } from "lucide-react";
 
 const Dashboard = () => {
   const { navigate } = useTenantNavigation();
-  const { user, userRole } = useAuth();
+  const { user, userRole, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [showOverview, setShowOverview] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [systemUsers, setSystemUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!authLoading) {
+      fetchUsers();
+    }
+  }, [authLoading]);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_users_with_roles');
 
@@ -48,6 +53,8 @@ const Dashboard = () => {
         description: "Erro ao carregar usuarios.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -112,6 +119,18 @@ const Dashboard = () => {
   };
 
   const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' = (userRole as any) || 'advogado';
+
+  // Loading state
+  if (loading || authLoading) {
+    return (
+      <DashboardLayout currentPage="dashboard">
+        <div className="flex flex-col items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Carregando dashboard...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (showUserManagement) {
     return (

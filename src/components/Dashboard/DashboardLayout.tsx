@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
@@ -33,10 +33,11 @@ const DashboardLayout = ({
 }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
-  const { user, signOut } = useAuth();
-  const { tenantId } = useTenantId();
+  const { user, signOut, loading: authLoading } = useAuth();
+  const { tenantId, loading: tenantLoading } = useTenantId();
 
   const [users, setUsers] = useState<UserType[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -49,8 +50,11 @@ const DashboardLayout = ({
   useEffect(() => {
     const loadUsers = async () => {
       if (!tenantId) {
+        setUsersLoading(false);
         return;
       }
+      
+      setUsersLoading(true);
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
@@ -59,10 +63,12 @@ const DashboardLayout = ({
 
       if (profilesError) {
         console.error('DashboardLayout - Error loading profiles:', profilesError);
+        setUsersLoading(false);
         return;
       }
 
       if (!profilesData || profilesData.length === 0) {
+        setUsersLoading(false);
         return;
       }
 
@@ -109,6 +115,7 @@ const DashboardLayout = ({
       });
 
       setUsers(mappedUsers);
+      setUsersLoading(false);
 
       const channel = supabase
         .channel('profiles-changes')
@@ -132,6 +139,18 @@ const DashboardLayout = ({
     
     loadUsers();
   }, [tenantId]);
+
+  // Loading state while auth or tenant is loading
+  if (authLoading || tenantLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentUser: UserType | undefined = user
     ? {
