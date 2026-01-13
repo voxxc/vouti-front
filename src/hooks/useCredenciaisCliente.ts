@@ -128,7 +128,30 @@ export function useCredenciaisCliente() {
       if (error) throw error;
       return credencial;
     },
-    onSuccess: () => {
+    onSuccess: async (credencial, variables) => {
+      // Buscar nome do tenant para notificação
+      try {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('name')
+          .eq('id', tenantId)
+          .single();
+
+        // Enviar notificação por e-mail
+        await supabase.functions.invoke('notify-nova-credencial', {
+          body: {
+            tenant_id: tenantId,
+            tenant_name: tenant?.name || 'Desconhecido',
+            cpf: credencial.cpf,
+            oab_numero: variables.oab_numero,
+            oab_uf: variables.oab_uf,
+          },
+        });
+      } catch (emailError) {
+        console.error('Erro ao enviar notificação de credencial:', emailError);
+        // Não bloquear o fluxo se o e-mail falhar
+      }
+
       queryClient.invalidateQueries({ queryKey: ['credenciais-cliente'] });
       toast.success('Credencial enviada com sucesso!');
     },
