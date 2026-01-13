@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Calendar, Trash2, FileText, Loader2, Pencil, CalendarPlus } from 'lucide-react';
+import { Plus, Calendar, Trash2, FileText, Loader2, Pencil, CalendarPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,18 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +49,7 @@ import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 import { TaskTarefa } from '@/types/taskTarefa';
+import { cn } from '@/lib/utils';
 
 const FASES_SUGERIDAS = [
   'Analise Inicial',
@@ -113,6 +120,12 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGer
   const [novaTarefaResponsavelId, setNovaTarefaResponsavelId] = useState<string | null>(null);
   const [novaTarefaTaggedUsers, setNovaTarefaTaggedUsers] = useState<string[]>([]);
 
+  // States para combobox de fase
+  const [fasePopoverOpen, setFasePopoverOpen] = useState(false);
+  const [editFasePopoverOpen, setEditFasePopoverOpen] = useState(false);
+  const [faseInputValue, setFaseInputValue] = useState('');
+  const [editFaseInputValue, setEditFaseInputValue] = useState('');
+
   const resetForm = () => {
     setFormData({
       titulo: '',
@@ -124,6 +137,7 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGer
     setCriarPrazoAutomatico(false);
     setNovaTarefaResponsavelId(null);
     setNovaTarefaTaggedUsers([]);
+    setFaseInputValue('');
   };
 
   const handleSubmit = async () => {
@@ -506,21 +520,88 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGer
               </div>
               <div>
                 <label className="text-sm font-medium">Fase</label>
-                <Select
-                  value={formData.fase}
-                  onValueChange={(value) => setFormData({ ...formData, fase: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FASES_SUGERIDAS.map((fase) => (
-                      <SelectItem key={fase} value={fase}>
-                        {fase}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={fasePopoverOpen} onOpenChange={setFasePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={fasePopoverOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {formData.fase || "Selecionar..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar ou digitar..." 
+                        value={faseInputValue}
+                        onValueChange={setFaseInputValue}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {faseInputValue.trim() ? (
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setFormData({ ...formData, fase: faseInputValue.trim() });
+                                setFaseInputValue('');
+                                setFasePopoverOpen(false);
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Usar "{faseInputValue.trim()}"
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-muted-foreground p-2">Nenhuma fase encontrada</span>
+                          )}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {FASES_SUGERIDAS.filter(fase => 
+                            fase.toLowerCase().includes(faseInputValue.toLowerCase())
+                          ).map((fase) => (
+                            <CommandItem
+                              key={fase}
+                              value={fase}
+                              onSelect={() => {
+                                setFormData({ ...formData, fase });
+                                setFaseInputValue('');
+                                setFasePopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.fase === fase ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {fase}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      {faseInputValue.trim() && !FASES_SUGERIDAS.some(f => f.toLowerCase() === faseInputValue.toLowerCase()) && (
+                        <div className="border-t p-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              setFormData({ ...formData, fase: faseInputValue.trim() });
+                              setFaseInputValue('');
+                              setFasePopoverOpen(false);
+                            }}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Usar "{faseInputValue.trim()}"
+                          </Button>
+                        </div>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
@@ -635,21 +716,88 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGer
               </div>
               <div>
                 <label className="text-sm font-medium">Fase</label>
-                <Select
-                  value={editFormData.fase}
-                  onValueChange={(value) => setEditFormData({ ...editFormData, fase: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FASES_SUGERIDAS.map((fase) => (
-                      <SelectItem key={fase} value={fase}>
-                        {fase}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={editFasePopoverOpen} onOpenChange={setEditFasePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={editFasePopoverOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {editFormData.fase || "Selecionar..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar ou digitar..." 
+                        value={editFaseInputValue}
+                        onValueChange={setEditFaseInputValue}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {editFaseInputValue.trim() ? (
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setEditFormData({ ...editFormData, fase: editFaseInputValue.trim() });
+                                setEditFaseInputValue('');
+                                setEditFasePopoverOpen(false);
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Usar "{editFaseInputValue.trim()}"
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-muted-foreground p-2">Nenhuma fase encontrada</span>
+                          )}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {FASES_SUGERIDAS.filter(fase => 
+                            fase.toLowerCase().includes(editFaseInputValue.toLowerCase())
+                          ).map((fase) => (
+                            <CommandItem
+                              key={fase}
+                              value={fase}
+                              onSelect={() => {
+                                setEditFormData({ ...editFormData, fase });
+                                setEditFaseInputValue('');
+                                setEditFasePopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  editFormData.fase === fase ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {fase}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      {editFaseInputValue.trim() && !FASES_SUGERIDAS.some(f => f.toLowerCase() === editFaseInputValue.toLowerCase()) && (
+                        <div className="border-t p-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              setEditFormData({ ...editFormData, fase: editFaseInputValue.trim() });
+                              setEditFaseInputValue('');
+                              setEditFasePopoverOpen(false);
+                            }}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Usar "{editFaseInputValue.trim()}"
+                          </Button>
+                        </div>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
