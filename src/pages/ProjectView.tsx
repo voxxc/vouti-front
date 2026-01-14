@@ -19,6 +19,7 @@ import { ProjectClientDataDialog } from "@/components/Project/ProjectClientDataD
 import ProjectHistoryDrawer from "@/components/Project/ProjectHistoryDrawer";
 import { ProjectProtocolosList } from "@/components/Project/ProjectProtocolosList";
 import { ProjectWorkspaceTabs } from "@/components/Project/ProjectWorkspaceTabs";
+import { ProjectProcessos } from "@/components/Project/ProjectProcessos";
 import { useProjectWorkspaces } from "@/hooks/useProjectWorkspaces";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
@@ -60,7 +61,7 @@ const ProjectView = ({
   const [isCreateSectorOpen, setIsCreateSectorOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'protocolos' | 'colunas'>('protocolos');
+  const [activeTab, setActiveTab] = useState<'protocolos' | 'processos' | 'colunas'>('protocolos');
   const { toast } = useToast();
   
   // Workspaces hook
@@ -1122,6 +1123,20 @@ const ProjectView = ({
               )}
             </button>
             <button
+              onClick={() => setActiveTab('processos')}
+              className={cn(
+                "pb-2 text-sm font-medium transition-colors relative",
+                activeTab === 'processos'
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Processos
+              {activeTab === 'processos' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('colunas')}
               className={cn(
                 "pb-2 text-sm font-medium transition-colors relative",
@@ -1141,6 +1156,8 @@ const ProjectView = ({
           <div className="w-full">
             {activeTab === 'protocolos' ? (
               <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} />
+            ) : activeTab === 'processos' ? (
+              <ProjectProcessos projectId={project.id} />
             ) : (
               <>
                 {/* Search */}

@@ -4229,6 +4229,52 @@ export type Database = {
           },
         ]
       }
+      project_processos: {
+        Row: {
+          created_at: string
+          id: string
+          processo_oab_id: string
+          projeto_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          processo_oab_id: string
+          projeto_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          processo_oab_id?: string
+          projeto_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_processos_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_processos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_processos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_protocolo_etapas: {
         Row: {
           comentario_conclusao: string | null
