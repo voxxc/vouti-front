@@ -159,10 +159,62 @@ serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
+    // Se não recebeu dados completos, cadastrar processo com informações mínimas
     if (!resultData) {
-      // Retornar o request_id para que o usuário possa tentar novamente depois
-      console.log('[Judit Import CNJ] Timeout - request_id:', requestId);
-      throw new Error(`Timeout aguardando resposta da API Judit. O processo pode estar sendo consultado. Tente novamente em alguns minutos. (Request ID: ${requestId})`);
+      console.log('[Judit Import CNJ] Sem dados detalhados - cadastrando com informações mínimas');
+      
+      // Criar processo com dados mínimos (sigilo ou indisponível)
+      const novoProcessoMinimo = {
+        oab_id: oabId,
+        tenant_id: tenantId || null,
+        numero_cnj: numeroCnj,
+        parte_ativa: '(Processo em sigilo ou dados indisponíveis)',
+        parte_passiva: '',
+        tribunal: '',
+        tribunal_sigla: '',
+        capa_completa: { sigilo: true, request_id: requestId },
+        detalhes_completos: null,
+        detalhes_carregados: false,
+        detalhes_request_id: requestId,
+        detalhes_request_data: new Date().toISOString(),
+        importado_manualmente: true
+      };
+
+      const { data: processoInserido, error: insertError } = await supabase
+        .from('processos_oab')
+        .insert(novoProcessoMinimo)
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('[Judit Import CNJ] Erro ao inserir processo mínimo:', insertError);
+        throw new Error('Erro ao salvar processo: ' + insertError.message);
+      }
+
+      // Atualizar contador de processos na OAB
+      const { count } = await supabase
+        .from('processos_oab')
+        .select('id', { count: 'exact', head: true })
+        .eq('oab_id', oabId);
+
+      await supabase
+        .from('oabs_cadastradas')
+        .update({ total_processos: count || 0 })
+        .eq('id', oabId);
+
+      console.log('[Judit Import CNJ] Processo mínimo criado:', processoInserido.id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          processoId: processoInserido.id,
+          andamentosInseridos: 0,
+          totalAndamentos: 0,
+          dadosCompletos: false,
+          mensagem: 'Processo cadastrado sem dados detalhados (sigilo ou indisponível)'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Extrair dados do resultado

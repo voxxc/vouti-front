@@ -88,10 +88,17 @@ export const ImportarProcessoCNJDialog = ({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Erro ao importar processo');
 
-      toast({
-        title: 'Processo importado',
-        description: `${data.andamentosInseridos} andamentos registrados`
-      });
+      if (data.dadosCompletos === false) {
+        toast({
+          title: 'Processo cadastrado',
+          description: 'Processo em sigilo ou dados indisponíveis. Cadastrado com informações mínimas.',
+        });
+      } else {
+        toast({
+          title: 'Processo importado',
+          description: `${data.andamentosInseridos} andamentos registrados`
+        });
+      }
 
       setNumeroCnj('');
       onOpenChange(false);
