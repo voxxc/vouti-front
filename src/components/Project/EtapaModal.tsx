@@ -434,7 +434,7 @@ export function EtapaModal({
               </TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="flex-1 mt-4">
+            <ScrollArea className="flex-1 min-h-0 mt-4">
               {/* Detalhes Tab */}
               <TabsContent value="detalhes" className="m-0 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
