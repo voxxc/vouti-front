@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { AvisoBanner } from "@/components/Common/AvisoBanner";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
+import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { LogOut, Settings, Loader2 } from "lucide-react";
@@ -13,7 +14,6 @@ import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
 import DashboardSidebar from "./DashboardSidebar";
-
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
 
@@ -199,13 +199,15 @@ const DashboardLayout = ({
         {/* Header - Sticky */}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="flex items-center justify-between px-6 py-3">
-            {/* Left spacer for mobile menu */}
+            {/* Left side - Quick search */}
+            <div className="hidden md:flex items-center">
+              <ProjectQuickSearch tenantPath={tenantPath} />
+            </div>
             <div className="w-10 md:hidden" />
             
             {/* Right Side - Tools */}
             <div className="flex items-center gap-3 ml-auto">
               <GlobalSearch projects={projects} />
-
               {currentUser && (
                 <InternalMessaging currentUser={currentUser} users={users} />
               )}
