@@ -33,6 +33,7 @@ import Reunioes from "@/pages/Reunioes";
 import ReuniaoClientes from "@/pages/ReuniaoClientes";
 import ReuniaoMetricas from "@/pages/ReuniaoMetricas";
 import ReuniaoRelatorios from "@/pages/ReuniaoRelatorios";
+import Extras from "@/pages/Extras";
 import AdminReuniaoStatus from "@/pages/AdminReuniaoStatus";
 import AdminBackendCode from "@/pages/AdminBackendCode";
 import HomePage from "@/pages/HomePage";
@@ -412,6 +413,13 @@ function App() {
             <Route path="/:tenant/reuniao-clientes" element={
               <TenantRouteWrapper>
                 <ReuniaoClientes />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Extras - Tenant Dynamic */}
+            <Route path="/:tenant/extras" element={
+              <TenantRouteWrapper>
+                <Extras />
               </TenantRouteWrapper>
             } />
             
