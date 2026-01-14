@@ -18,6 +18,9 @@ import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
+import UserTagSelector from '@/components/Agenda/UserTagSelector';
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 
 interface CreateDeadlineDialogProps {
   open: boolean;
@@ -37,6 +40,8 @@ export function CreateDeadlineDialog({
   const [title, setTitle] = useState(etapaNome);
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
+  const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
+  const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -45,6 +50,15 @@ export function CreateDeadlineDialog({
       toast({
         title: 'Campos obrigatórios',
         description: 'Preencha o título e a data do prazo.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!selectedAdvogado) {
+      toast({
+        title: 'Responsável obrigatório',
+        description: 'Selecione o advogado responsável pelo prazo.',
         variant: 'destructive'
       });
       return;
@@ -71,8 +85,10 @@ export function CreateDeadlineDialog({
         .eq('user_id', user.id)
         .single();
 
+      const tenantId = profile?.tenant_id;
+
       // Create deadline
-      const { error: deadlineError } = await supabase
+      const { data: deadlineData, error: deadlineError } = await supabase
         .from('deadlines')
         .insert({
           user_id: user.id,
@@ -80,10 +96,49 @@ export function CreateDeadlineDialog({
           description: description.trim() || null,
           date: date.toISOString().split('T')[0],
           project_id: protocolo.project_id,
-          tenant_id: profile?.tenant_id
-        });
+          advogado_responsavel_id: selectedAdvogado,
+          tenant_id: tenantId
+        })
+        .select()
+        .single();
 
       if (deadlineError) throw deadlineError;
+
+      // Insert tags if any
+      if (taggedUsers.length > 0 && deadlineData) {
+        const tags = taggedUsers.map(userId => ({
+          deadline_id: deadlineData.id,
+          tagged_user_id: userId,
+          tenant_id: tenantId
+        }));
+
+        await supabase.from('deadline_tags').insert(tags);
+      }
+
+      // Send notifications
+      if (deadlineData && tenantId) {
+        // Notify responsible user
+        await notifyDeadlineAssigned(
+          deadlineData.id,
+          title.trim(),
+          selectedAdvogado,
+          user.id,
+          tenantId,
+          protocolo.project_id
+        );
+
+        // Notify tagged users
+        if (taggedUsers.length > 0) {
+          await notifyDeadlineTagged(
+            deadlineData.id,
+            title.trim(),
+            taggedUsers,
+            user.id,
+            tenantId,
+            protocolo.project_id
+          );
+        }
+      }
 
       // Add history entry for the etapa
       await supabase.from('project_etapa_history').insert({
@@ -91,7 +146,7 @@ export function CreateDeadlineDialog({
         user_id: user.id,
         action: 'Prazo criado',
         details: `${title.trim()} - ${format(date, 'dd/MM/yyyy', { locale: ptBR })}`,
-        tenant_id: profile?.tenant_id
+        tenant_id: tenantId
       });
 
       toast({ title: 'Prazo criado com sucesso!' });
@@ -101,6 +156,8 @@ export function CreateDeadlineDialog({
       setTitle(etapaNome);
       setDescription('');
       setDate(undefined);
+      setSelectedAdvogado(null);
+      setTaggedUsers([]);
     } catch (error) {
       console.error('Error creating deadline:', error);
       toast({
@@ -115,7 +172,7 @@ export function CreateDeadlineDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Criar Prazo</DialogTitle>
         </DialogHeader>
@@ -156,6 +213,20 @@ export function CreateDeadlineDialog({
                 />
               </PopoverContent>
             </Popover>
+          </div>
+
+          <AdvogadoSelector
+            value={selectedAdvogado}
+            onChange={setSelectedAdvogado}
+          />
+
+          <div className="space-y-2">
+            <Label>Marcar Outros Usuários</Label>
+            <UserTagSelector
+              selectedUsers={taggedUsers}
+              onChange={setTaggedUsers}
+              excludeCurrentUser={false}
+            />
           </div>
 
           <div className="space-y-2">

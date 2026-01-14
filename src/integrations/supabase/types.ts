@@ -1614,7 +1614,7 @@ export type Database = {
           description: string | null
           id: string
           processo_oab_id: string | null
-          project_id: string
+          project_id: string | null
           tenant_id: string | null
           title: string
           updated_at: string
@@ -1628,7 +1628,7 @@ export type Database = {
           description?: string | null
           id?: string
           processo_oab_id?: string | null
-          project_id: string
+          project_id?: string | null
           tenant_id?: string | null
           title: string
           updated_at?: string
@@ -1642,7 +1642,7 @@ export type Database = {
           description?: string | null
           id?: string
           processo_oab_id?: string | null
-          project_id?: string
+          project_id?: string | null
           tenant_id?: string | null
           title?: string
           updated_at?: string

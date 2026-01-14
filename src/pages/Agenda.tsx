@@ -30,6 +30,7 @@ import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificationHelpers";
 
 const Agenda = () => {
   const { user } = useAuth();
@@ -325,7 +326,23 @@ const Agenda = () => {
   };
 
   const handleCreateDeadline = async () => {
-    if (!formData.title.trim() || !formData.projectId || !user) return;
+    if (!formData.title.trim() || !formData.projectId || !user) {
+      toast({
+        title: "Campos obrigatorios",
+        description: "Preencha o titulo e selecione o projeto.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedAdvogado) {
+      toast({
+        title: "Responsavel obrigatorio",
+        description: "Selecione o advogado responsavel pelo prazo.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -377,6 +394,31 @@ const Agenda = () => {
 
         if (tagsError) {
           console.error('[Agenda] Error creating tags:', tagsError);
+        }
+      }
+
+      // Send notifications
+      if (tenantId) {
+        // Notify responsible user
+        await notifyDeadlineAssigned(
+          data.id,
+          formData.title,
+          selectedAdvogado,
+          user.id,
+          tenantId,
+          formData.projectId
+        );
+
+        // Notify tagged users
+        if (taggedUsers.length > 0) {
+          await notifyDeadlineTagged(
+            data.id,
+            formData.title,
+            taggedUsers,
+            user.id,
+            tenantId,
+            formData.projectId
+          );
         }
       }
 
