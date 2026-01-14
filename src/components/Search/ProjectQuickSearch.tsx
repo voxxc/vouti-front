@@ -68,7 +68,7 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
   return (
     <div ref={containerRef} className="relative">
       <Input
-        placeholder="Ir para cliente..."
+        placeholder=""
         value={searchTerm}
         onChange={(e) => {
           setSearchTerm(e.target.value);
