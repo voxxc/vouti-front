@@ -315,16 +315,17 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
 
   const updateEtapa = async (id: string, data: Partial<CreateEtapaData> & { status?: ProjectProtocoloEtapa['status']; dataConclusao?: Date }) => {
     // Atualização otimista - atualiza o estado local ANTES da resposta do banco
+    // Usa !== undefined para permitir valores null (ex: limpar descrição)
     setProtocolos(prev => prev.map(protocolo => ({
       ...protocolo,
       etapas: protocolo.etapas?.map(etapa => 
         etapa.id === id 
           ? { 
               ...etapa, 
-              nome: data.nome ?? etapa.nome,
-              descricao: data.descricao ?? etapa.descricao,
-              status: data.status ?? etapa.status,
-              responsavelId: data.responsavelId ?? etapa.responsavelId,
+              nome: data.nome !== undefined ? data.nome : etapa.nome,
+              descricao: data.descricao !== undefined ? data.descricao : etapa.descricao,
+              status: data.status !== undefined ? data.status : etapa.status,
+              responsavelId: data.responsavelId !== undefined ? data.responsavelId : etapa.responsavelId,
               dataConclusao: data.dataConclusao !== undefined ? data.dataConclusao : etapa.dataConclusao,
               updatedAt: new Date()
             } 

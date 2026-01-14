@@ -49,8 +49,13 @@ export function ProjectProtocolosList({ projectId, workspaceId }: ProjectProtoco
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedProtocolo, setSelectedProtocolo] = useState<ProjectProtocolo | null>(null);
+  const [selectedProtocoloId, setSelectedProtocoloId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Deriva o protocolo selecionado do array - sempre atualizado!
+  const selectedProtocolo = selectedProtocoloId 
+    ? protocolos.find(p => p.id === selectedProtocoloId) ?? null 
+    : null;
 
   const filteredProtocolos = protocolos.filter(protocolo => {
     const matchesSearch = protocolo.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,7 +67,7 @@ export function ProjectProtocolosList({ projectId, workspaceId }: ProjectProtoco
   });
 
   const handleProtocoloClick = (protocolo: ProjectProtocolo) => {
-    setSelectedProtocolo(protocolo);
+    setSelectedProtocoloId(protocolo.id);
     setIsDrawerOpen(true);
   };
 
@@ -213,9 +218,15 @@ export function ProjectProtocolosList({ projectId, workspaceId }: ProjectProtoco
       <ProjectProtocoloDrawer
         protocolo={selectedProtocolo}
         open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        onOpenChange={(open) => {
+          setIsDrawerOpen(open);
+          if (!open) setSelectedProtocoloId(null);
+        }}
         onUpdate={updateProtocolo}
-        onDelete={deleteProtocolo}
+        onDelete={async (id) => {
+          await deleteProtocolo(id);
+          setSelectedProtocoloId(null);
+        }}
         onAddEtapa={addEtapa}
         onUpdateEtapa={updateEtapa}
         onDeleteEtapa={deleteEtapa}

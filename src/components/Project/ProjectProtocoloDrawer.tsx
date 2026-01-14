@@ -96,18 +96,14 @@ export function ProjectProtocoloDrawer({
     if (selectedEtapa && protocolo?.etapas) {
       const updatedEtapa = protocolo.etapas.find(e => e.id === selectedEtapa.id);
       if (updatedEtapa) {
-        // Só atualiza se houver diferenças
-        const hasChanges = 
-          updatedEtapa.nome !== selectedEtapa.nome ||
-          updatedEtapa.descricao !== selectedEtapa.descricao ||
-          updatedEtapa.status !== selectedEtapa.status;
-        
-        if (hasChanges) {
-          setSelectedEtapa(updatedEtapa);
-        }
+        // Sempre sincroniza com a versão mais recente
+        setSelectedEtapa(updatedEtapa);
+      } else {
+        // Etapa foi deletada - fecha a modal
+        setSelectedEtapa(null);
       }
     }
-  }, [protocolo?.etapas, selectedEtapa?.id]);
+  }, [protocolo?.etapas]);
 
   if (!protocolo) return null;
 
