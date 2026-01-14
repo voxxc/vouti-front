@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Users, Lock, LockOpen, FileText, History, FolderKanban, Columns } from "lucide-react";
+import { ArrowLeft, Search, Users, Lock, LockOpen, FileText, History } from "lucide-react";
+import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
@@ -1104,24 +1105,36 @@ const ProjectView = ({
 
         {/* Tabs Navigation - Horizontal */}
         <div className="space-y-4">
-          {/* Tab Buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant={activeTab === 'protocolos' ? 'default' : 'ghost'}
+        {/* Tab Buttons */}
+          <div className="flex gap-6">
+            <button
               onClick={() => setActiveTab('protocolos')}
-              className="gap-2"
+              className={cn(
+                "pb-2 text-sm font-medium transition-colors relative",
+                activeTab === 'protocolos'
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              <FolderKanban size={16} />
-              PROTOCOLOS
-            </Button>
-            <Button
-              variant={activeTab === 'colunas' ? 'default' : 'ghost'}
+              Protocolos
+              {activeTab === 'protocolos' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('colunas')}
-              className="gap-2"
+              className={cn(
+                "pb-2 text-sm font-medium transition-colors relative",
+                activeTab === 'colunas'
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              <Columns size={16} />
-              COLUNAS
-            </Button>
+              Colunas
+              {activeTab === 'colunas' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
           </div>
 
           {/* Content Area - Full Width */}
