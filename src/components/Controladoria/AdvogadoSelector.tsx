@@ -54,14 +54,14 @@ const AdvogadoSelector = ({ value, onChange }: AdvogadoSelectorProps) => {
 
   return (
     <div>
-      <Label htmlFor="advogado">Advogado Responsável</Label>
+      <Label htmlFor="advogado">Responsável</Label>
       <Select
         value={value || undefined}
         onValueChange={onChange}
         disabled={loading}
       >
         <SelectTrigger>
-          <SelectValue placeholder="Selecione o advogado responsável" />
+          <SelectValue placeholder="Selecione o responsável" />
         </SelectTrigger>
         <SelectContent>
           {advogados.map((advogado) => (

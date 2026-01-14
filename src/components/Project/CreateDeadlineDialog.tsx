@@ -58,7 +58,7 @@ export function CreateDeadlineDialog({
     if (!selectedAdvogado) {
       toast({
         title: 'Responsável obrigatório',
-        description: 'Selecione o advogado responsável pelo prazo.',
+        description: 'Selecione o responsável pelo prazo.',
         variant: 'destructive'
       });
       return;
