@@ -105,8 +105,12 @@ export function EtapaModal({
     deleteComment,
     uploadFile,
     deleteFile,
+    updateFileDescription,
     addHistoryEntry
   } = useEtapaData(etapa?.id || null);
+
+  const [editingFileDescription, setEditingFileDescription] = useState<string | null>(null);
+  const [fileDescriptionText, setFileDescriptionText] = useState('');
 
   // Get current user ID
   useEffect(() => {
@@ -203,8 +207,31 @@ export function EtapaModal({
     }
   };
 
-  const getFileUrl = (filePath: string) => {
-    return supabase.storage.from('task-attachments').getPublicUrl(filePath).data.publicUrl;
+  const handleDownload = async (file: { filePath: string; fileName: string }) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('task-attachments')
+        .createSignedUrl(file.filePath, 60, {
+          download: file.fileName
+        });
+
+      if (error) throw error;
+
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.download = file.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
+  const handleSaveFileDescription = async (fileId: string) => {
+    await updateFileDescription(fileId, fileDescriptionText);
+    setEditingFileDescription(null);
+    setFileDescriptionText('');
   };
 
   const renderComment = (comment: EtapaComment, isReply = false) => (
@@ -530,34 +557,80 @@ export function EtapaModal({
                 ) : (
                   <div className="space-y-2">
                     {files.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-3 rounded-lg border group">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{file.fileName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {file.uploaderName} • {format(file.createdAt, "dd/MM/yyyy", { locale: ptBR })}
-                            {file.fileSize && ` • ${(file.fileSize / 1024).toFixed(1)} KB`}
-                          </p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            asChild
-                          >
-                            <a href={getFileUrl(file.filePath)} target="_blank" rel="noopener noreferrer">
+                      <div key={file.id} className="p-3 rounded-lg border group space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{file.fileName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {file.uploaderName} • {format(file.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                              {file.fileSize && ` • ${(file.fileSize / 1024).toFixed(1)} KB`}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleDownload(file)}
+                              title="Baixar arquivo"
+                            >
                               <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                            onClick={() => deleteFile(file.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                              onClick={() => deleteFile(file.id)}
+                              title="Excluir arquivo"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
+                        
+                        {/* File Description */}
+                        {editingFileDescription === file.id ? (
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              placeholder="Adicionar descrição..."
+                              value={fileDescriptionText}
+                              onChange={(e) => setFileDescriptionText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveFileDescription(file.id);
+                                if (e.key === 'Escape') {
+                                  setEditingFileDescription(null);
+                                  setFileDescriptionText('');
+                                }
+                              }}
+                              className="flex-1 h-8 text-sm"
+                              autoFocus
+                            />
+                            <Button size="sm" variant="ghost" className="h-8" onClick={() => handleSaveFileDescription(file.id)}>
+                              <Save className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8" onClick={() => {
+                              setEditingFileDescription(null);
+                              setFileDescriptionText('');
+                            }}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div 
+                            className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors flex items-center gap-1"
+                            onClick={() => {
+                              setEditingFileDescription(file.id);
+                              setFileDescriptionText(file.description || '');
+                            }}
+                          >
+                            <Edit className="h-3 w-3" />
+                            {file.description ? (
+                              <span>{file.description}</span>
+                            ) : (
+                              <span className="italic">Adicionar descrição...</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

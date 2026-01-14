@@ -21,6 +21,7 @@ export interface EtapaFile {
   filePath: string;
   fileSize: number | null;
   fileType: string | null;
+  description: string | null;
   uploadedBy: string;
   uploaderName: string;
   createdAt: Date;
@@ -120,6 +121,7 @@ export function useEtapaData(etapaId: string | null) {
         filePath: f.file_path,
         fileSize: f.file_size,
         fileType: f.file_type,
+        description: f.description || null,
         uploadedBy: f.uploaded_by,
         uploaderName: profileMap.get(f.uploaded_by) || 'Usuário',
         createdAt: new Date(f.created_at)
@@ -374,6 +376,7 @@ export function useEtapaData(etapaId: string | null) {
         filePath: fileName,
         fileSize: file.size,
         fileType: file.type,
+        description: null,
         uploadedBy: user.id,
         uploaderName: profile?.full_name || 'Você',
         createdAt: new Date()
@@ -500,6 +503,32 @@ export function useEtapaData(etapaId: string | null) {
     }
   };
 
+  const updateFileDescription = async (fileId: string, description: string) => {
+    try {
+      // Optimistic update
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, description: description || null } : f
+      ));
+
+      const { error } = await supabase
+        .from('project_etapa_files')
+        .update({ description: description || null })
+        .eq('id', fileId);
+
+      if (error) throw error;
+
+      toast({ title: 'Descrição atualizada' });
+    } catch (error) {
+      console.error('Error updating file description:', error);
+      await fetchData();
+      toast({
+        title: 'Erro',
+        description: 'Erro ao atualizar descrição.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return {
     comments,
     files,
@@ -511,6 +540,7 @@ export function useEtapaData(etapaId: string | null) {
     deleteComment,
     uploadFile,
     deleteFile,
+    updateFileDescription,
     addHistoryEntry
   };
 }
