@@ -43,10 +43,16 @@ import {
   X,
   Calendar,
   User,
-  CheckCircle2
+  CheckCircle2,
+  Printer,
+  Settings
 } from 'lucide-react';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
+import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
 import { EtapaModal } from './EtapaModal';
+import { ConcluirEtapaModal } from './ConcluirEtapaModal';
+import { RelatorioProtocolo } from './RelatorioProtocolo';
+import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
 
 interface ProjectProtocoloDrawerProps {
   protocolo: ProjectProtocolo | null;
@@ -91,6 +97,17 @@ export function ProjectProtocoloDrawer({
   const [addingEtapa, setAddingEtapa] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<ProjectProtocoloEtapa | null>(null);
   const [togglingEtapaId, setTogglingEtapaId] = useState<string | null>(null);
+  
+  // Estados para modal de conclusão
+  const [etapaToComplete, setEtapaToComplete] = useState<ProjectProtocoloEtapa | null>(null);
+  const [showConcluirModal, setShowConcluirModal] = useState(false);
+  
+  // Estados para relatório
+  const [showRelatorioModal, setShowRelatorioModal] = useState(false);
+  const [showAdvogadoModal, setShowAdvogadoModal] = useState(false);
+  
+  // Hook para perfil do advogado
+  const { advogado, refetch: refetchAdvogado } = useProjectAdvogado(projectId || '');
 
   // Sincroniza selectedEtapa quando as etapas do protocolo mudam
   useEffect(() => {
@@ -150,15 +167,38 @@ export function ProjectProtocoloDrawer({
   };
 
   const handleToggleEtapa = async (etapa: ProjectProtocoloEtapa) => {
-    setTogglingEtapaId(etapa.id);
+    if (etapa.status !== 'concluido') {
+      // Vai concluir -> Abre modal para comentário obrigatório
+      setEtapaToComplete(etapa);
+      setShowConcluirModal(true);
+    } else {
+      // Já está concluído -> Reabre (sem modal)
+      setTogglingEtapaId(etapa.id);
+      try {
+        await onUpdateEtapa(etapa.id, { 
+          status: 'pendente',
+          dataConclusao: undefined,
+          comentarioConclusao: undefined
+        });
+      } finally {
+        setTogglingEtapaId(null);
+      }
+    }
+  };
+
+  const handleConfirmConclusao = async (comentario: string) => {
+    if (!etapaToComplete) return;
+    
+    setTogglingEtapaId(etapaToComplete.id);
     try {
-      const newStatus = etapa.status === 'concluido' ? 'pendente' : 'concluido';
-      await onUpdateEtapa(etapa.id, { 
-        status: newStatus,
-        dataConclusao: newStatus === 'concluido' ? new Date() : undefined
+      await onUpdateEtapa(etapaToComplete.id, {
+        status: 'concluido',
+        dataConclusao: new Date(),
+        comentarioConclusao: comentario
       });
     } finally {
       setTogglingEtapaId(null);
+      setEtapaToComplete(null);
     }
   };
 
@@ -210,6 +250,10 @@ export function ProjectProtocoloDrawer({
               <TabsTrigger value="historico" className="gap-2">
                 <History className="w-4 h-4" />
                 Histórico
+              </TabsTrigger>
+              <TabsTrigger value="relatorio" className="gap-2">
+                <Printer className="w-4 h-4" />
+                Relatório
               </TabsTrigger>
             </TabsList>
 
@@ -373,6 +417,11 @@ export function ProjectProtocoloDrawer({
                               Concluído em {format(etapa.dataConclusao, "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           )}
+                          {etapa.comentarioConclusao && (
+                            <p className="text-xs text-green-600 mt-1 italic">
+                              "{etapa.comentarioConclusao}"
+                            </p>
+                          )}
                         </div>
                         <Button 
                           variant="ghost" 
@@ -397,6 +446,63 @@ export function ProjectProtocoloDrawer({
                   <p>Histórico em breve</p>
                   <p className="text-sm">Aqui você verá todas as alterações do protocolo</p>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="relatorio" className="p-4 m-0 space-y-4">
+                {/* Configurar Perfil do Advogado */}
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                  <div className="flex items-center gap-3">
+                    {advogado?.logoUrl ? (
+                      <img src={advogado.logoUrl} alt="Logo" className="w-12 h-12 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                        <User className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-medium">
+                        {advogado?.nomeAdvogado || 'Perfil não configurado'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {advogado?.emailAdvogado || 'Configure o perfil do advogado para o relatório'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="outline" onClick={() => setShowAdvogadoModal(true)}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Configurar
+                  </Button>
+                </div>
+
+                {/* Preview resumido */}
+                <div className="p-4 rounded-lg border bg-muted/30 space-y-3">
+                  <h3 className="font-semibold">Preview do Relatório</h3>
+                  <p className="text-sm text-muted-foreground">
+                    O relatório incluirá:
+                  </p>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    <li>• Dados do advogado (logo, nome, contato)</li>
+                    <li>• Informações do protocolo</li>
+                    <li>• Timeline de etapas concluídas ({etapasConcluidas} etapa{etapasConcluidas !== 1 ? 's' : ''})</li>
+                    <li>• Comentários de conclusão de cada etapa</li>
+                  </ul>
+                </div>
+
+                {/* Botão Gerar Relatório */}
+                <Button 
+                  className="w-full gap-2" 
+                  onClick={() => setShowRelatorioModal(true)}
+                  disabled={etapasConcluidas === 0}
+                >
+                  <Printer className="w-4 h-4" />
+                  Visualizar e Imprimir Relatório
+                </Button>
+                
+                {etapasConcluidas === 0 && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Conclua pelo menos uma etapa para gerar o relatório
+                  </p>
+                )}
               </TabsContent>
             </ScrollArea>
           </Tabs>
@@ -434,6 +540,36 @@ export function ProjectProtocoloDrawer({
         protocoloId={protocolo.id}
         projectId={projectId}
       />
+
+      {/* Modal de Conclusão Obrigatória */}
+      <ConcluirEtapaModal
+        open={showConcluirModal}
+        onOpenChange={setShowConcluirModal}
+        etapaNome={etapaToComplete?.nome || ''}
+        onConfirm={handleConfirmConclusao}
+      />
+
+      {/* Modal de Relatório */}
+      {projectId && (
+        <RelatorioProtocolo
+          open={showRelatorioModal}
+          onOpenChange={setShowRelatorioModal}
+          protocolo={protocolo}
+          advogado={advogado}
+        />
+      )}
+
+      {/* Modal de Edição do Advogado */}
+      {projectId && (
+        <EditarAdvogadoProjectModal
+          projectId={projectId}
+          open={showAdvogadoModal}
+          onOpenChange={(open) => {
+            setShowAdvogadoModal(open);
+            if (!open) refetchAdvogado();
+          }}
+        />
+      )}
     </>
   );
 }
