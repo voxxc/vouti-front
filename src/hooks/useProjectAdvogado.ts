@@ -158,9 +158,13 @@ export function useProjectAdvogado(projectId: string) {
 
   const uploadLogo = async (file: File): Promise<string | null> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${projectId}-${Date.now()}.${fileExt}`;
-      const filePath = `project-logos/${fileName}`;
+      // Usar user.id como primeiro nível para atender à política RLS
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('advogado-logos')
@@ -188,13 +192,15 @@ export function useProjectAdvogado(projectId: string) {
     if (!advogado?.logoUrl) return;
 
     try {
-      // Extract file path from URL
-      const urlParts = advogado.logoUrl.split('/');
-      const filePath = urlParts.slice(-2).join('/');
+      // Extrair caminho do arquivo da URL
+      // O caminho será algo como: /storage/v1/object/public/advogado-logos/{userId}/{filename}
+      const url = new URL(advogado.logoUrl);
+      const pathParts = url.pathname.split('/');
+      const filePath = pathParts.slice(-2).join('/');
 
       await supabase.storage.from('advogado-logos').remove([filePath]);
 
-      await updateAdvogado({ ...advogado, logoUrl: null });
+      await updateAdvogado({ logoUrl: null });
     } catch (error) {
       console.error('Erro ao remover logo:', error);
     }
