@@ -8,6 +8,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -48,18 +50,23 @@ import {
   Settings,
   Link2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Info,
+  MessageSquare
 } from 'lucide-react';
 import { isPast, isToday } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
 import { useProtocoloVinculo } from '@/hooks/useProtocoloVinculo';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { EtapaModal } from './EtapaModal';
 import { ConcluirEtapaModal } from './ConcluirEtapaModal';
 import { RelatorioProtocolo } from './RelatorioProtocolo';
 import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
 import { ProtocoloVinculoTab } from './ProtocoloVinculoTab';
+import { DeadlineComentarios } from '@/components/Agenda/DeadlineComentarios';
 
 interface ProjectProtocoloDrawerProps {
   protocolo: ProjectProtocolo | null;
@@ -117,6 +124,15 @@ export function ProjectProtocoloDrawer({
   const [prazosVinculados, setPrazosVinculados] = useState<any[]>([]);
   const [loadingPrazos, setLoadingPrazos] = useState(false);
   
+  // Estados para dialog de detalhes do prazo
+  const [selectedDeadline, setSelectedDeadline] = useState<any | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
+  
+  // Hooks de autenticação e toast
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
   // Hook para perfil do advogado
   const { advogado, refetch: refetchAdvogado } = useProjectAdvogado(projectId || '');
   
@@ -127,25 +143,86 @@ export function ProjectProtocoloDrawer({
   );
 
   // Buscar prazos vinculados às etapas do protocolo
-  useEffect(() => {
-    const fetchPrazosVinculados = async () => {
-      if (!protocolo?.etapas?.length || !open) return;
-      
-      setLoadingPrazos(true);
-      const etapaIds = protocolo.etapas.map(e => e.id);
-      
-      const { data, error } = await supabase
-        .from('deadlines')
-        .select('id, title, date, completed, protocolo_etapa_id')
-        .in('protocolo_etapa_id', etapaIds)
-        .order('date', { ascending: true });
-      
-      if (!error) setPrazosVinculados(data || []);
-      setLoadingPrazos(false);
-    };
+  const fetchPrazosVinculados = async () => {
+    if (!protocolo?.etapas?.length || !open) return;
+    
+    setLoadingPrazos(true);
+    const etapaIds = protocolo.etapas.map(e => e.id);
+    
+    const { data, error } = await supabase
+      .from('deadlines')
+      .select(`
+        id, 
+        title, 
+        description,
+        date, 
+        completed, 
+        protocolo_etapa_id,
+        project_id,
+        projects (name, client),
+        advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+          user_id,
+          full_name,
+          avatar_url
+        ),
+        deadline_tags (
+          tagged_user_id,
+          tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
+            user_id,
+            full_name,
+            avatar_url
+          )
+        )
+      `)
+      .in('protocolo_etapa_id', etapaIds)
+      .order('date', { ascending: true });
+    
+    if (!error) setPrazosVinculados(data || []);
+    setLoadingPrazos(false);
+  };
 
+  useEffect(() => {
     fetchPrazosVinculados();
   }, [protocolo?.etapas, open]);
+
+  // Funções para detalhes do prazo
+  const openDeadlineDetails = (prazo: any) => {
+    setSelectedDeadline(prazo);
+    setIsDetailDialogOpen(true);
+  };
+
+  const toggleDeadlineCompletion = async (deadlineId: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('deadlines')
+      .update({ completed: !currentStatus })
+      .eq('id', deadlineId);
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status do prazo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Atualizar lista local
+    setPrazosVinculados(prev => prev.map(p => 
+      p.id === deadlineId ? { ...p, completed: !currentStatus } : p
+    ));
+    
+    // Atualizar selectedDeadline se for o mesmo
+    if (selectedDeadline?.id === deadlineId) {
+      setSelectedDeadline((prev: any) => prev ? { ...prev, completed: !currentStatus } : null);
+    }
+    
+    setConfirmCompleteId(null);
+    
+    toast({
+      title: "Status atualizado",
+      description: `Prazo marcado como ${!currentStatus ? 'concluído' : 'pendente'}.`,
+    });
+  };
 
   // Sincroniza selectedEtapa quando as etapas do protocolo mudam
   useEffect(() => {
@@ -532,6 +609,14 @@ export function ProjectProtocoloDrawer({
                               <Badge variant={isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "destructive" : "outline"}>
                                 {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "Atrasado" : isToday(new Date(prazo.date)) ? "Hoje" : "Pendente"}
                               </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openDeadlineDetails(prazo)}
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
                             </div>
                           ))}
                         </div>
@@ -558,6 +643,14 @@ export function ProjectProtocoloDrawer({
                               <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
                                 Concluído
                               </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openDeadlineDetails(prazo)}
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
                             </div>
                           ))}
                         </div>
@@ -703,6 +796,175 @@ export function ProjectProtocoloDrawer({
           }}
         />
       )}
+
+      {/* Dialog de Detalhes do Prazo */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          {selectedDeadline && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  {selectedDeadline.title}
+                </DialogTitle>
+              </DialogHeader>
+              <Tabs defaultValue="info" className="flex-1 overflow-hidden flex flex-col">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="info">
+                    <Info className="h-4 w-4 mr-2" />
+                    Informações
+                  </TabsTrigger>
+                  <TabsTrigger value="comments">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Comentários
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="info" className="flex-1 overflow-auto space-y-4 mt-4">
+                  {/* Descrição */}
+                  <div>
+                    <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
+                    <p className="mt-1 text-sm">{selectedDeadline.description || 'Sem descrição'}</p>
+                  </div>
+                  
+                  {/* Data e Projeto */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Data</Label>
+                      <p className="mt-1 font-medium">
+                        {format(new Date(selectedDeadline.date), "dd/MM/yyyy", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Projeto</Label>
+                      <p className="mt-1">{selectedDeadline.projects?.name || 'Não vinculado'}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Cliente */}
+                  {selectedDeadline.projects?.client && (
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Cliente</Label>
+                      <p className="mt-1">{selectedDeadline.projects.client}</p>
+                    </div>
+                  )}
+                  
+                  {/* Advogado Responsável */}
+                  {selectedDeadline.advogado && (
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Advogado Responsável</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={selectedDeadline.advogado.avatar_url} />
+                          <AvatarFallback className="text-xs">
+                            {selectedDeadline.advogado.full_name?.charAt(0).toUpperCase() || 'A'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{selectedDeadline.advogado.full_name}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Usuários Marcados */}
+                  {selectedDeadline.deadline_tags?.length > 0 && (
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Usuários Marcados</Label>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {selectedDeadline.deadline_tags.map((tag: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-1 bg-muted px-2 py-1 rounded">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={tag.tagged_user?.avatar_url} />
+                              <AvatarFallback className="text-xs">
+                                {tag.tagged_user?.full_name?.charAt(0).toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{tag.tagged_user?.full_name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Status */}
+                  <div>
+                    <Label className="text-muted-foreground text-xs uppercase">Status</Label>
+                    <div className="mt-1">
+                      <Badge 
+                        variant={selectedDeadline.completed ? "default" : isPast(new Date(selectedDeadline.date)) && !isToday(new Date(selectedDeadline.date)) ? "destructive" : "secondary"}
+                        className={selectedDeadline.completed ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}
+                      >
+                        {selectedDeadline.completed 
+                          ? "Concluído" 
+                          : isPast(new Date(selectedDeadline.date)) && !isToday(new Date(selectedDeadline.date))
+                            ? "Atrasado" 
+                            : isToday(new Date(selectedDeadline.date))
+                              ? "Hoje"
+                              : "Pendente"
+                        }
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Ações */}
+                  <div className="flex gap-2 pt-4 border-t">
+                    {!selectedDeadline.completed ? (
+                      <Button 
+                        onClick={() => setConfirmCompleteId(selectedDeadline.id)}
+                        className="flex-1"
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Marcar como Concluído
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        onClick={() => toggleDeadlineCompletion(selectedDeadline.id, selectedDeadline.completed)}
+                        className="flex-1"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Reabrir Prazo
+                      </Button>
+                    )}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="comments" className="flex-1 overflow-auto mt-4">
+                  <DeadlineComentarios 
+                    deadlineId={selectedDeadline.id} 
+                    currentUserId={user?.id || ''} 
+                  />
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialog de confirmação para concluir prazo */}
+      <AlertDialog 
+        open={!!confirmCompleteId} 
+        onOpenChange={(open) => !open && setConfirmCompleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja marcar este prazo como concluído?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (confirmCompleteId) {
+                const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
+                if (prazo) toggleDeadlineCompletion(confirmCompleteId, prazo.completed);
+              }
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
