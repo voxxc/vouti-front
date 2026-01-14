@@ -32,24 +32,57 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines }: AgendaCalenda
     return deadlines.filter(deadline => isSameDay(deadline.date, date));
   };
 
-  const getUniqueUsersForDate = (date: Date): string[] => {
+  const getDeadlineStatusColor = (deadline: Deadline): string => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const deadlineDate = new Date(deadline.date);
+    deadlineDate.setHours(0, 0, 0, 0);
+    
+    if (deadline.completed) {
+      return 'bg-green-500'; // Concluído
+    }
+    
+    if (deadlineDate <= today) {
+      return 'bg-red-500'; // Atrasado ou vence hoje
+    }
+    
+    return 'bg-yellow-500'; // Pendente
+  };
+
+  const getColorPriority = (color: string): number => {
+    if (color === 'bg-red-500') return 3;
+    if (color === 'bg-yellow-500') return 2;
+    return 1; // green
+  };
+
+  const getUsersWithStatusForDate = (date: Date): { name: string; color: string }[] => {
     const dayDeadlines = getDeadlinesForDate(date);
-    const userNames = new Set<string>();
+    const usersMap = new Map<string, string>();
 
     dayDeadlines.forEach(deadline => {
+      const color = getDeadlineStatusColor(deadline);
+      
       if (deadline.advogadoResponsavel?.name) {
         const firstName = deadline.advogadoResponsavel.name.split(' ')[0];
-        userNames.add(firstName);
+        const existingColor = usersMap.get(firstName);
+        if (!existingColor || getColorPriority(color) > getColorPriority(existingColor)) {
+          usersMap.set(firstName, color);
+        }
       }
+      
       deadline.taggedUsers?.forEach(tagged => {
         if (tagged.name) {
           const firstName = tagged.name.split(' ')[0];
-          userNames.add(firstName);
+          const existingColor = usersMap.get(firstName);
+          if (!existingColor || getColorPriority(color) > getColorPriority(existingColor)) {
+            usersMap.set(firstName, color);
+          }
         }
       });
     });
 
-    return Array.from(userNames);
+    return Array.from(usersMap.entries()).map(([name, color]) => ({ name, color }));
   };
 
   const renderHeader = () => {
@@ -106,7 +139,7 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines }: AgendaCalenda
       for (let i = 0; i < 7; i++) {
         const currentDay = day;
         const dayDeadlines = getDeadlinesForDate(currentDay);
-        const uniqueUsers = getUniqueUsersForDate(currentDay);
+        const usersWithStatus = getUsersWithStatusForDate(currentDay);
         const isCurrentMonth = isSameMonth(currentDay, monthStart);
         const isSelected = isSameDay(currentDay, selectedDate);
         const isTodayDate = isToday(currentDay);
@@ -144,21 +177,21 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines }: AgendaCalenda
               )}
             </div>
 
-            {/* User names list */}
-            {uniqueUsers.length > 0 && (
+            {/* User names list with status colors */}
+            {usersWithStatus.length > 0 && (
               <div className="space-y-0.5 overflow-hidden">
-                {uniqueUsers.slice(0, 3).map((name, idx) => (
+                {usersWithStatus.slice(0, 3).map((user, idx) => (
                   <div
                     key={idx}
                     className="text-[10px] text-muted-foreground truncate flex items-center gap-1"
                   >
-                    <span className="w-1 h-1 rounded-full bg-primary/60 flex-shrink-0" />
-                    {name}
+                    <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", user.color)} />
+                    {user.name}
                   </div>
                 ))}
-                {uniqueUsers.length > 3 && (
+                {usersWithStatus.length > 3 && (
                   <div className="text-[10px] text-muted-foreground/70 italic">
-                    +{uniqueUsers.length - 3} mais
+                    +{usersWithStatus.length - 3} mais
                   </div>
                 )}
               </div>
