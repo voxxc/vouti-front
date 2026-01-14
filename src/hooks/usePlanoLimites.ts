@@ -129,7 +129,7 @@ export function usePlanoLimites(): UsePlanoLimitesReturn {
         .from('processo_monitoramento_judit' as any)
         .select('id')
         .eq('tenant_id', tenantId)
-        .eq('ativo', true);
+        .eq('monitoramento_ativo', true);
       monitoradosCount = monitoradosResult.data?.length || 0;
 
       setUso({
