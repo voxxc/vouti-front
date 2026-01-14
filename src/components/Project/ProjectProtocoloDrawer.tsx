@@ -47,6 +47,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
+import { EtapaModal } from './EtapaModal';
 
 interface ProjectProtocoloDrawerProps {
   protocolo: ProjectProtocolo | null;
@@ -87,6 +88,7 @@ export function ProjectProtocoloDrawer({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [newEtapaNome, setNewEtapaNome] = useState('');
   const [addingEtapa, setAddingEtapa] = useState(false);
+  const [selectedEtapa, setSelectedEtapa] = useState<ProjectProtocoloEtapa | null>(null);
 
   if (!protocolo) return null;
 
@@ -320,15 +322,19 @@ export function ProjectProtocoloDrawer({
                     {protocolo.etapas.map((etapa) => (
                       <div 
                         key={etapa.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer hover:bg-accent/50 ${
                           etapa.status === 'concluido' ? 'bg-green-500/5 border-green-500/20' : 'bg-card'
                         }`}
                       >
                         <Checkbox
                           checked={etapa.status === 'concluido'}
                           onCheckedChange={() => handleToggleEtapa(etapa)}
+                          onClick={(e) => e.stopPropagation()}
                         />
-                        <div className="flex-1">
+                        <div 
+                          className="flex-1"
+                          onClick={() => setSelectedEtapa(etapa)}
+                        >
                           <p className={`font-medium ${etapa.status === 'concluido' ? 'line-through text-muted-foreground' : ''}`}>
                             {etapa.nome}
                           </p>
@@ -345,7 +351,10 @@ export function ProjectProtocoloDrawer({
                           variant="ghost" 
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteEtapa(etapa.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEtapa(etapa.id);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -388,6 +397,14 @@ export function ProjectProtocoloDrawer({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EtapaModal
+        etapa={selectedEtapa}
+        open={!!selectedEtapa}
+        onOpenChange={(open) => !open && setSelectedEtapa(null)}
+        onUpdate={onUpdateEtapa}
+        onDelete={onDeleteEtapa}
+      />
     </>
   );
 }
