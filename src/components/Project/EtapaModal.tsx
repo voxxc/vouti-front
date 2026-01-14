@@ -139,23 +139,16 @@ export function EtapaModal({
   const handleSave = async () => {
     if (!editedNome.trim()) return;
     
-    console.log('[EtapaModal] handleSave iniciado:', { 
-      id: etapa.id, 
-      novoNome: editedNome.trim(), 
-      novaDescricao: editedDescricao.trim() || null 
-    });
-    
     setSaving(true);
     try {
       await onUpdate(etapa.id, {
         nome: editedNome.trim(),
         descricao: editedDescricao.trim() || null
       });
-      console.log('[EtapaModal] onUpdate concluído com sucesso');
       await addHistoryEntry('Etapa editada', `Nome: ${editedNome.trim()}`);
       setIsEditing(false);
     } catch (error) {
-      console.error('[EtapaModal] Erro ao salvar etapa:', error);
+      console.error('Erro ao salvar etapa:', error);
     } finally {
       setSaving(false);
     }
@@ -354,7 +347,16 @@ export function EtapaModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col relative">
+          {/* Loading Overlay */}
+          {saving && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50 rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Salvando...</span>
+              </div>
+            </div>
+          )}
           <DialogHeader className="pb-2">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
