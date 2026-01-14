@@ -95,13 +95,30 @@ export function ProjectProtocoloDrawer({
   useEffect(() => {
     if (selectedEtapa && protocolo?.etapas) {
       const updatedEtapa = protocolo.etapas.find(e => e.id === selectedEtapa.id);
+      console.log('[ProjectProtocoloDrawer] useEffect sync - selectedEtapa.id:', selectedEtapa.id, 
+        'updatedEtapa encontrada:', !!updatedEtapa,
+        'nome atual:', updatedEtapa?.nome
+      );
       if (updatedEtapa) {
-        // Sempre sincroniza com a versão mais recente
-        setSelectedEtapa(updatedEtapa);
+        // Sempre sincroniza com a versão mais recente (comparação por referência)
+        if (updatedEtapa !== selectedEtapa) {
+          console.log('[ProjectProtocoloDrawer] Atualizando selectedEtapa com nova referência');
+          setSelectedEtapa(updatedEtapa);
+        }
       } else {
         // Etapa foi deletada - fecha a modal
+        console.log('[ProjectProtocoloDrawer] Etapa não encontrada, fechando modal');
         setSelectedEtapa(null);
       }
+    }
+  }, [protocolo?.etapas, protocolo?.id, selectedEtapa?.id]);
+
+  // Log para debug - mostra quando protocolo.etapas muda
+  useEffect(() => {
+    if (protocolo?.etapas) {
+      console.log('[ProjectProtocoloDrawer] protocolo.etapas atualizado:', 
+        protocolo.etapas.map(e => `${e.id.slice(0,8)}:${e.nome}`).join(' | ')
+      );
     }
   }, [protocolo?.etapas]);
 
