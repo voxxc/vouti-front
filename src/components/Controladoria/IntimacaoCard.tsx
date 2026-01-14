@@ -117,7 +117,7 @@ export const IntimacaoCard = ({
     if (!selectedAdvogado) {
       toast({
         title: 'Responsavel obrigatorio',
-        description: 'Selecione o advogado responsavel pelo prazo',
+        description: 'Selecione o responsável pelo prazo',
         variant: 'destructive',
       });
       return;

@@ -852,7 +852,7 @@ export function ProjectProtocoloDrawer({
                   {/* Advogado Responsável */}
                   {selectedDeadline.advogado && (
                     <div>
-                      <Label className="text-muted-foreground text-xs uppercase">Advogado Responsável</Label>
+                      <Label className="text-muted-foreground text-xs uppercase">Responsável</Label>
                       <div className="flex items-center gap-2 mt-1">
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={selectedDeadline.advogado.avatar_url} />
