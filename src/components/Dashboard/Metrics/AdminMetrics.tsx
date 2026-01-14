@@ -26,10 +26,10 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const { data: metrics, isLoading: loading } = useQuery({
     queryKey: ['admin-metrics', userId],
     queryFn: async () => {
-      const [projectsRes, leadsRes, processosRes, deadlinesRes, protocolosRes] = await Promise.all([
+      const [projectsRes, leadsRes, processosCountRes, deadlinesRes, protocolosRes] = await Promise.all([
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.from('leads_captacao').select('id, status', { count: 'exact' }),
-        supabase.from('processos_oab').select('id', { count: 'exact', head: true }),
+        supabase.rpc('get_dashboard_processos_count'),
         supabase.from('deadlines').select('id', { count: 'exact', head: true }).eq('completed', false),
         supabase.from('project_protocolos').select('id, status, data_previsao')
       ]);
@@ -52,7 +52,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       return {
         totalProjects: projectsRes.count || 0,
         totalLeads: totalLeads,
-        totalProcessos: processosRes.count || 0,
+        totalProcessos: (processosCountRes.data as number | null) || 0,
         pendingDeadlines: deadlinesRes.count || 0,
         conversionRate: parseFloat(conversionRate.toFixed(1)),
         totalProtocolos,
