@@ -27,13 +27,20 @@ export function TenantCredenciaisDialog({
   tenantId,
   tenantName,
 }: TenantCredenciaisDialogProps) {
-  const { credenciaisCliente, credenciaisJudit, isLoading, enviarParaJudit } = useTenantCredenciais(tenantId);
+  const { credenciaisCliente, credenciaisJudit, isLoading, enviarParaJudit, enviarDiretoParaJudit } = useTenantCredenciais(tenantId);
   const [senhasVisiveis, setSenhasVisiveis] = useState<Record<string, boolean>>({});
   const [selectedCredencialId, setSelectedCredencialId] = useState<string>('');
   const [secret, setSecret] = useState('');
   const [customerKey, setCustomerKey] = useState('');
-const [enviando, setEnviando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  
+  // Estados para envio direto
+  const [diretoCpf, setDiretoCpf] = useState('');
+  const [diretoSenha, setDiretoSenha] = useState('');
+  const [diretoSecret, setDiretoSecret] = useState('');
+  const [diretoCustomerKey, setDiretoCustomerKey] = useState('');
+  const [enviandoDireto, setEnviandoDireto] = useState(false);
 
   const toggleSenhaVisivel = (id: string) => {
     setSenhasVisiveis((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -73,6 +80,31 @@ const [enviando, setEnviando] = useState(false);
       setCustomerKey('');
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const handleEnviarDireto = async () => {
+    if (!diretoCpf || !diretoSenha || !diretoCustomerKey || !diretoSecret) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    setEnviandoDireto(true);
+    try {
+      await enviarDiretoParaJudit.mutateAsync({
+        cpf: diretoCpf,
+        senha: diretoSenha,
+        secret: diretoSecret,
+        customerKey: diretoCustomerKey,
+      });
+
+      // Limpar formulário após sucesso
+      setDiretoCpf('');
+      setDiretoSenha('');
+      setDiretoSecret('');
+      setDiretoCustomerKey('');
+    } finally {
+      setEnviandoDireto(false);
     }
   };
 
@@ -150,15 +182,16 @@ const [enviando, setEnviando] = useState(false);
         </DialogHeader>
 
         <Tabs defaultValue="recebidas" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="recebidas">
-              Credenciais Recebidas
+              Recebidas
               {credenciaisPendentes.length > 0 && (
                 <Badge variant="secondary" className="ml-2">{credenciaisPendentes.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="enviar">Enviar para Judit</TabsTrigger>
-            <TabsTrigger value="historico">Histórico Judit</TabsTrigger>
+            <TabsTrigger value="enviar">Enviar Pendente</TabsTrigger>
+            <TabsTrigger value="direto">Envio Direto</TabsTrigger>
+            <TabsTrigger value="historico">Histórico</TabsTrigger>
           </TabsList>
 
           {/* Aba: Credenciais Recebidas */}
@@ -373,6 +406,95 @@ const [enviando, setEnviando] = useState(false);
                   )}
                 </>
               )}
+            </div>
+          </TabsContent>
+
+          {/* Aba: Envio Direto */}
+          <TabsContent value="direto" className="mt-4">
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              <div className="text-sm text-muted-foreground mb-4">
+                Use esta aba para enviar credenciais diretamente ao cofre Judit sem precisar de uma credencial cadastrada pelo cliente.
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>CPF *</Label>
+                  <Input
+                    value={diretoCpf}
+                    onChange={(e) => setDiretoCpf(e.target.value)}
+                    placeholder="000.000.000-00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type={senhasVisiveis['direto-senha'] ? 'text' : 'password'}
+                      value={diretoSenha}
+                      onChange={(e) => setDiretoSenha(e.target.value)}
+                      placeholder="Senha do sistema"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => toggleSenhaVisivel('direto-senha')}
+                    >
+                      {senhasVisiveis['direto-senha'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Customer Key (OAB) *</Label>
+                <Input
+                  value={diretoCustomerKey}
+                  onChange={(e) => setDiretoCustomerKey(e.target.value)}
+                  placeholder="123456/SP"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Formato padrão: NUMERO_OAB/UF (ex: 123456/SP)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Secret (Token 2FA) *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type={senhasVisiveis['direto-secret'] ? 'text' : 'password'}
+                    value={diretoSecret}
+                    onChange={(e) => setDiretoSecret(e.target.value)}
+                    placeholder="Token de autenticação 2FA"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => toggleSenhaVisivel('direto-secret')}
+                  >
+                    {senhasVisiveis['direto-secret'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleEnviarDireto}
+                disabled={!diretoCpf || !diretoSenha || !diretoSecret || !diretoCustomerKey || enviandoDireto}
+              >
+                {enviandoDireto ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Enviar para Cofre Judit
+                  </>
+                )}
+              </Button>
             </div>
           </TabsContent>
 

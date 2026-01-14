@@ -47,6 +47,13 @@ interface EnviarParaJuditData {
   oabId?: string;
 }
 
+interface EnviarDiretoData {
+  cpf: string;
+  senha: string;
+  secret: string;
+  customerKey: string;
+}
+
 export function useTenantCredenciais(tenantId: string | null) {
   const queryClient = useQueryClient();
 
@@ -173,11 +180,58 @@ export function useTenantCredenciais(tenantId: string | null) {
     },
   });
 
+  const enviarDiretoParaJudit = useMutation({
+    mutationFn: async (data: EnviarDiretoData) => {
+      if (!tenantId) throw new Error('Tenant não encontrado');
+
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Não autenticado');
+
+      // Chamar edge function para enviar credenciais
+      const response = await supabase.functions.invoke('judit-cofre-credenciais', {
+        body: {
+          cpf: data.cpf,
+          senha: data.senha,
+          secret: data.secret,
+          customerKey: data.customerKey,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao enviar para Judit');
+      }
+
+      // Registrar na tabela credenciais_judit (sem credencial_cliente_id)
+      const { error: insertError } = await supabase
+        .from('credenciais_judit')
+        .insert({
+          tenant_id: tenantId,
+          customer_key: data.customerKey,
+          system_name: '*',
+          username: data.cpf.replace(/\D/g, ''),
+          enviado_por: session.session.user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-credenciais-judit', tenantId] });
+      toast.success('Credencial enviada para o cofre Judit com sucesso!');
+    },
+    onError: (error: Error) => {
+      console.error('Erro ao enviar direto para Judit:', error);
+      toast.error('Erro ao enviar para Judit: ' + error.message);
+    },
+  });
+
   return {
     credenciaisCliente: credenciaisCliente || [],
     credenciaisJudit: credenciaisJudit || [],
     isLoading: loadingCliente || loadingJudit,
     enviarParaJudit,
+    enviarDiretoParaJudit,
     marcarComoErro,
   };
 }
