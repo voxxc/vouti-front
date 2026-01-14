@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FolderKanban, UserCheck, Calendar, TrendingUp, Eye, ShieldAlert, FileText } from "lucide-react";
+import { Users, FolderKanban, UserCheck, TrendingUp, Eye, ShieldAlert, FileText } from "lucide-react";
 import { getFullGreeting } from "@/utils/greetingHelper";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
@@ -13,6 +13,7 @@ import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantId } from "@/hooks/useTenantId";
 
 interface AdminMetricsProps {
   userId: string;
@@ -21,16 +22,18 @@ interface AdminMetricsProps {
 
 const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
+  const { tenantId } = useTenantId();
 
   // Optimized: Use React Query with cache for faster subsequent loads
   const { data: metrics, isLoading: loading } = useQuery({
-    queryKey: ['admin-metrics', userId],
+    queryKey: ['admin-metrics', userId, tenantId],
     queryFn: async () => {
-      const [projectsRes, leadsRes, processosCountRes, deadlinesRes, protocolosRes] = await Promise.all([
+      if (!tenantId) return null;
+
+      const [projectsRes, leadsRes, processosCountRes, protocolosRes] = await Promise.all([
         supabase.from('projects').select('id', { count: 'exact', head: true }),
-        supabase.from('leads_captacao').select('id, status', { count: 'exact' }),
+        supabase.from('leads_captacao').select('id, status', { count: 'exact' }).eq('tenant_id', tenantId),
         supabase.rpc('get_dashboard_processos_count'),
-        supabase.from('deadlines').select('id', { count: 'exact', head: true }).eq('completed', false),
         supabase.from('project_protocolos').select('id, status, data_previsao')
       ]);
 
@@ -53,7 +56,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         totalProjects: projectsRes.count || 0,
         totalLeads: totalLeads,
         totalProcessos: (processosCountRes.data as number | null) || 0,
-        pendingDeadlines: deadlinesRes.count || 0,
         conversionRate: parseFloat(conversionRate.toFixed(1)),
         totalProtocolos,
         protocolosPendentes,
@@ -63,14 +65,14 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
-    enabled: !!userId,
+    enabled: !!userId && !!tenantId,
   });
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-32" />
           ))}
         </div>
@@ -113,7 +115,8 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* 1. Total de Projetos */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Projetos</CardTitle>
@@ -125,17 +128,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
           </CardContent>
         </Card>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Leads no CRM</CardTitle>
-            <UserCheck className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalLeads || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Em captação</p>
-          </CardContent>
-        </Card>
-
+        {/* 2. Processos */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Processos</CardTitle>
@@ -147,29 +140,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
           </CardContent>
         </Card>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Prazos Pendentes</CardTitle>
-            <Calendar className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarNumero(metrics?.pendingDeadlines || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Aguardando conclusão</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarPorcentagem(metrics?.conversionRate || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Leads convertidos</p>
-          </CardContent>
-        </Card>
-
-        {/* Card de Protocolos com mini-barras visuais */}
+        {/* 3. Protocolos com mini-barras visuais */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Protocolos</CardTitle>
@@ -219,6 +190,30 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
                 <span className="text-muted-foreground">{metrics?.protocolosConcluidos || 0} concl.</span>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* 4. Leads no CRM */}
+        <Card className="bg-card hover:shadow-elegant transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Leads no CRM</CardTitle>
+            <UserCheck className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalLeads || 0)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Em captação</p>
+          </CardContent>
+        </Card>
+
+        {/* 5. Taxa de Conversão */}
+        <Card className="bg-card hover:shadow-elegant transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatarPorcentagem(metrics?.conversionRate || 0)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Leads convertidos</p>
           </CardContent>
         </Card>
       </div>
