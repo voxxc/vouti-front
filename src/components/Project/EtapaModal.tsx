@@ -347,7 +347,7 @@ export function EtapaModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col relative">
+        <DialogContent className="max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[calc(100vh-6rem)] flex flex-col overflow-hidden">
           {/* Loading Overlay */}
           {saving && (
             <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50 rounded-lg">
