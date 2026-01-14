@@ -47,6 +47,7 @@ import { useEtapaData, EtapaComment } from '@/hooks/useEtapaData';
 import { supabase } from '@/integrations/supabase/client';
 import { MentionInput } from './MentionInput';
 import { CreateDeadlineDialog } from './CreateDeadlineDialog';
+import { ConcluirEtapaModal } from './ConcluirEtapaModal';
 
 interface EtapaModalProps {
   etapa: ProjectProtocoloEtapa | null;
@@ -92,6 +93,7 @@ export function EtapaModal({
   const [editCommentText, setEditCommentText] = useState('');
   const [showDeadlineDialog, setShowDeadlineDialog] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showConcluirModal, setShowConcluirModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -155,13 +157,35 @@ export function EtapaModal({
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === 'concluido' && etapa.status !== 'concluido') {
+      // Vai concluir -> Abre modal para comentário obrigatório
+      setShowConcluirModal(true);
+      return;
+    }
+    
+    // Para outros status, atualiza direto
     setSaving(true);
     try {
       await onUpdate(etapa.id, {
         status: newStatus,
-        dataConclusao: newStatus === 'concluido' ? new Date() : null
+        dataConclusao: null,
+        comentarioConclusao: null
       });
       await addHistoryEntry('Status alterado', `Para: ${STATUS_LABELS[newStatus]}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmConclusao = async (comentario: string) => {
+    setSaving(true);
+    try {
+      await onUpdate(etapa.id, {
+        status: 'concluido',
+        dataConclusao: new Date(),
+        comentarioConclusao: comentario
+      });
+      await addHistoryEntry('Etapa concluída', comentario);
     } finally {
       setSaving(false);
     }
@@ -717,6 +741,14 @@ export function EtapaModal({
           protocoloId={protocoloId}
         />
       )}
+
+      {/* Modal de Conclusão Obrigatória */}
+      <ConcluirEtapaModal
+        open={showConcluirModal}
+        onOpenChange={setShowConcluirModal}
+        etapaNome={etapa.nome}
+        onConfirm={handleConfirmConclusao}
+      />
     </>
   );
 }

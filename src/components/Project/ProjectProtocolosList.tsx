@@ -230,6 +230,7 @@ export function ProjectProtocolosList({ projectId, workspaceId }: ProjectProtoco
         onAddEtapa={addEtapa}
         onUpdateEtapa={updateEtapa}
         onDeleteEtapa={deleteEtapa}
+        projectId={projectId}
       />
     </div>
   );
