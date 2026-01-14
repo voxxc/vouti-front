@@ -4233,6 +4233,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          ordem: number | null
           processo_oab_id: string
           projeto_id: string
           tenant_id: string | null
@@ -4240,6 +4241,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          ordem?: number | null
           processo_oab_id: string
           projeto_id: string
           tenant_id?: string | null
@@ -4247,6 +4249,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          ordem?: number | null
           processo_oab_id?: string
           projeto_id?: string
           tenant_id?: string | null
