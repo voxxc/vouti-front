@@ -4054,6 +4054,7 @@ export type Database = {
       project_etapa_files: {
         Row: {
           created_at: string | null
+          description: string | null
           etapa_id: string
           file_name: string
           file_path: string
@@ -4065,6 +4066,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          description?: string | null
           etapa_id: string
           file_name: string
           file_path: string
@@ -4076,6 +4078,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          description?: string | null
           etapa_id?: string
           file_name?: string
           file_path?: string
