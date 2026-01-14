@@ -3957,6 +3957,147 @@ export type Database = {
           },
         ]
       }
+      project_etapa_comments: {
+        Row: {
+          comment_text: string
+          created_at: string | null
+          etapa_id: string
+          id: string
+          tenant_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string | null
+          etapa_id: string
+          id?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string | null
+          etapa_id?: string
+          id?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_etapa_comments_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolo_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_etapa_comments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_etapa_files: {
+        Row: {
+          created_at: string | null
+          etapa_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          tenant_id: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          etapa_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          tenant_id?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string | null
+          etapa_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          tenant_id?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_etapa_files_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolo_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_etapa_files_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_etapa_history: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: string | null
+          etapa_id: string
+          id: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: string | null
+          etapa_id: string
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: string | null
+          etapa_id?: string
+          id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_etapa_history_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolo_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_etapa_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_protocolo_etapas: {
         Row: {
           created_at: string | null

@@ -1,0 +1,469 @@
+import { useState, useEffect, useRef } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { 
+  FileText, 
+  MessageSquare, 
+  Files, 
+  History,
+  Send,
+  Trash2,
+  Upload,
+  Download,
+  Loader2,
+  Edit,
+  Save,
+  X,
+  CheckCircle2,
+  Clock
+} from 'lucide-react';
+import { ProjectProtocoloEtapa } from '@/hooks/useProjectProtocolos';
+import { useEtapaData } from '@/hooks/useEtapaData';
+import { supabase } from '@/integrations/supabase/client';
+
+interface EtapaModalProps {
+  etapa: ProjectProtocoloEtapa | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdate: (id: string, data: any) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pendente: 'Pendente',
+  em_andamento: 'Em Andamento',
+  concluido: 'Concluído'
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  pendente: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+  em_andamento: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  concluido: 'bg-green-500/10 text-green-600 border-green-500/20'
+};
+
+export function EtapaModal({
+  etapa,
+  open,
+  onOpenChange,
+  onUpdate,
+  onDelete
+}: EtapaModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedNome, setEditedNome] = useState('');
+  const [editedDescricao, setEditedDescricao] = useState('');
+  const [newComment, setNewComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    comments,
+    files,
+    history,
+    loading,
+    fetchData,
+    addComment,
+    deleteComment,
+    uploadFile,
+    deleteFile,
+    addHistoryEntry
+  } = useEtapaData(etapa?.id || null);
+
+  useEffect(() => {
+    if (etapa && open) {
+      setEditedNome(etapa.nome);
+      setEditedDescricao(etapa.descricao || '');
+      fetchData();
+    }
+  }, [etapa?.id, open, fetchData]);
+
+  if (!etapa) return null;
+
+  const handleSave = async () => {
+    if (!editedNome.trim()) return;
+    
+    setSaving(true);
+    try {
+      await onUpdate(etapa.id, {
+        nome: editedNome.trim(),
+        descricao: editedDescricao.trim() || null
+      });
+      await addHistoryEntry('Etapa editada', `Nome: ${editedNome.trim()}`);
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    setSaving(true);
+    try {
+      await onUpdate(etapa.id, {
+        status: newStatus,
+        dataConclusao: newStatus === 'concluido' ? new Date() : null
+      });
+      await addHistoryEntry('Status alterado', `Para: ${STATUS_LABELS[newStatus]}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await onDelete(etapa.id);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+      setDeleteConfirm(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    await addComment(newComment);
+    setNewComment('');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadFile(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const getFileUrl = (filePath: string) => {
+    return supabase.storage.from('task-attachments').getPublicUrl(filePath).data.publicUrl;
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="pb-2">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={editedNome}
+                      onChange={(e) => setEditedNome(e.target.value)}
+                      className="text-lg font-semibold"
+                      placeholder="Nome da etapa"
+                    />
+                    <Textarea
+                      value={editedDescricao}
+                      onChange={(e) => setEditedDescricao(e.target.value)}
+                      placeholder="Descrição (opcional)"
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSave} disabled={saving}>
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        <span className="ml-1">Salvar</span>
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <DialogTitle className="text-xl truncate">{etapa.nome}</DialogTitle>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setIsEditing(true)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {etapa.descricao && (
+                      <p className="text-sm text-muted-foreground mt-1">{etapa.descricao}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Badge className={STATUS_COLORS[etapa.status]}>
+                {STATUS_LABELS[etapa.status]}
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          <Tabs defaultValue="detalhes" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="detalhes" className="gap-1.5">
+                <FileText className="w-4 h-4" />
+                Detalhes
+              </TabsTrigger>
+              <TabsTrigger value="comentarios" className="gap-1.5">
+                <MessageSquare className="w-4 h-4" />
+                Comentários
+                {comments.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {comments.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="arquivos" className="gap-1.5">
+                <Files className="w-4 h-4" />
+                Arquivos
+                {files.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {files.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="historico" className="gap-1.5">
+                <History className="w-4 h-4" />
+                Histórico
+              </TabsTrigger>
+            </TabsList>
+
+            <ScrollArea className="flex-1 mt-4">
+              {/* Detalhes Tab */}
+              <TabsContent value="detalhes" className="m-0 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase">Status</p>
+                    <div className="flex gap-2">
+                      {['pendente', 'em_andamento', 'concluido'].map((status) => (
+                        <Button
+                          key={status}
+                          size="sm"
+                          variant={etapa.status === status ? 'default' : 'outline'}
+                          onClick={() => handleStatusChange(status)}
+                          disabled={saving}
+                          className="text-xs"
+                        >
+                          {status === 'concluido' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                          {status === 'em_andamento' && <Clock className="h-3 w-3 mr-1" />}
+                          {STATUS_LABELS[status]}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {etapa.dataConclusao && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase">Concluído em</p>
+                      <p className="font-medium">
+                        {format(etapa.dataConclusao, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="pt-2">
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setDeleteConfirm(true)}
+                    disabled={saving}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir Etapa
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Comentários Tab */}
+              <TabsContent value="comentarios" className="m-0 space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Adicionar comentário..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                  />
+                  <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : comments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p>Nenhum comentário</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="p-3 rounded-lg bg-muted/50 group">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{comment.authorName}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(comment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                            <p className="text-sm mt-1">{comment.commentText}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => deleteComment(comment.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Arquivos Tab */}
+              <TabsContent value="arquivos" className="m-0 space-y-4">
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Enviar Arquivo
+                  </Button>
+                </div>
+
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : files.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Files className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p>Nenhum arquivo</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {files.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 rounded-lg border group">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{file.fileName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.uploaderName} • {format(file.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                            {file.fileSize && ` • ${(file.fileSize / 1024).toFixed(1)} KB`}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            asChild
+                          >
+                            <a href={getFileUrl(file.filePath)} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                            onClick={() => deleteFile(file.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Histórico Tab */}
+              <TabsContent value="historico" className="m-0">
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <History className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p>Nenhuma atividade registrada</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {history.map((entry) => (
+                      <div key={entry.id} className="flex gap-3 text-sm">
+                        <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                        <div className="flex-1">
+                          <p>
+                            <span className="font-medium">{entry.userName}</span>
+                            <span className="text-muted-foreground"> • {entry.action}</span>
+                          </p>
+                          {entry.details && (
+                            <p className="text-muted-foreground text-xs mt-0.5">{entry.details}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {format(entry.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir etapa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A etapa "{etapa.nome}" será excluída permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={saving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
