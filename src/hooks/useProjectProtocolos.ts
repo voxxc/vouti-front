@@ -263,7 +263,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       const etapas = protocolo?.etapas || [];
       const maxOrdem = etapas.length > 0 ? Math.max(...etapas.map(e => e.ordem)) : -1;
 
-      const { error } = await supabase
+      const { data: newEtapa, error } = await supabase
         .from('project_protocolo_etapas')
         .insert({
           protocolo_id: protocoloId,
@@ -272,16 +272,36 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
           responsavel_id: data.responsavelId,
           ordem: maxOrdem + 1,
           tenant_id: protocolo?.tenantId
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Atualização otimista - adiciona a nova etapa localmente
+      setProtocolos(prev => prev.map(p => {
+        if (p.id !== protocoloId) return p;
+        return {
+          ...p,
+          etapas: [...(p.etapas || []), {
+            id: newEtapa.id,
+            protocoloId: newEtapa.protocolo_id,
+            nome: newEtapa.nome,
+            descricao: newEtapa.descricao,
+            status: newEtapa.status as ProjectProtocoloEtapa['status'],
+            ordem: newEtapa.ordem,
+            responsavelId: newEtapa.responsavel_id,
+            dataConclusao: newEtapa.data_conclusao ? new Date(newEtapa.data_conclusao) : undefined,
+            createdAt: new Date(newEtapa.created_at),
+            updatedAt: new Date(newEtapa.updated_at)
+          }].sort((a, b) => a.ordem - b.ordem)
+        };
+      }));
 
       toast({
         title: 'Sucesso',
         description: 'Etapa adicionada'
       });
-
-      await fetchProtocolos();
     } catch (error) {
       console.error('Erro ao adicionar etapa:', error);
       toast({
@@ -294,22 +314,44 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
   };
 
   const updateEtapa = async (id: string, data: Partial<CreateEtapaData> & { status?: ProjectProtocoloEtapa['status']; dataConclusao?: Date }) => {
+    // Atualização otimista - atualiza o estado local ANTES da resposta do banco
+    setProtocolos(prev => prev.map(protocolo => ({
+      ...protocolo,
+      etapas: protocolo.etapas?.map(etapa => 
+        etapa.id === id 
+          ? { 
+              ...etapa, 
+              nome: data.nome ?? etapa.nome,
+              descricao: data.descricao ?? etapa.descricao,
+              status: data.status ?? etapa.status,
+              responsavelId: data.responsavelId ?? etapa.responsavelId,
+              dataConclusao: data.dataConclusao !== undefined ? data.dataConclusao : etapa.dataConclusao,
+              updatedAt: new Date()
+            } 
+          : etapa
+      )
+    })));
+
     try {
       const updateData: any = {};
       if (data.nome !== undefined) updateData.nome = data.nome;
       if (data.descricao !== undefined) updateData.descricao = data.descricao;
       if (data.responsavelId !== undefined) updateData.responsavel_id = data.responsavelId;
       if (data.status !== undefined) updateData.status = data.status;
-      if (data.dataConclusao !== undefined) updateData.data_conclusao = data.dataConclusao?.toISOString();
+      if (data.dataConclusao !== undefined) updateData.data_conclusao = data.dataConclusao?.toISOString() || null;
 
       const { error } = await supabase
         .from('project_protocolo_etapas')
         .update(updateData)
         .eq('id', id);
 
-      if (error) throw error;
-
-      await fetchProtocolos();
+      if (error) {
+        // Se falhar, recarrega para reverter ao estado correto
+        await fetchProtocolos();
+        throw error;
+      }
+      
+      // NÃO chama fetchProtocolos() - o estado já está atualizado!
     } catch (error) {
       console.error('Erro ao atualizar etapa:', error);
       toast({
@@ -322,20 +364,29 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
   };
 
   const deleteEtapa = async (id: string) => {
+    // Atualização otimista - remove a etapa localmente ANTES da resposta do banco
+    const previousState = [...protocolos];
+    setProtocolos(prev => prev.map(protocolo => ({
+      ...protocolo,
+      etapas: protocolo.etapas?.filter(etapa => etapa.id !== id)
+    })));
+
     try {
       const { error } = await supabase
         .from('project_protocolo_etapas')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        // Se falhar, reverte ao estado anterior
+        setProtocolos(previousState);
+        throw error;
+      }
 
       toast({
         title: 'Sucesso',
         description: 'Etapa excluída'
       });
-
-      await fetchProtocolos();
     } catch (error) {
       console.error('Erro ao excluir etapa:', error);
       toast({
