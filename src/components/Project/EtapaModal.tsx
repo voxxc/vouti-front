@@ -139,14 +139,23 @@ export function EtapaModal({
   const handleSave = async () => {
     if (!editedNome.trim()) return;
     
+    console.log('[EtapaModal] handleSave iniciado:', { 
+      id: etapa.id, 
+      novoNome: editedNome.trim(), 
+      novaDescricao: editedDescricao.trim() || null 
+    });
+    
     setSaving(true);
     try {
       await onUpdate(etapa.id, {
         nome: editedNome.trim(),
         descricao: editedDescricao.trim() || null
       });
+      console.log('[EtapaModal] onUpdate concluído com sucesso');
       await addHistoryEntry('Etapa editada', `Nome: ${editedNome.trim()}`);
       setIsEditing(false);
+    } catch (error) {
+      console.error('[EtapaModal] Erro ao salvar etapa:', error);
     } finally {
       setSaving(false);
     }
