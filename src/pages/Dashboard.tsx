@@ -22,10 +22,13 @@ const Dashboard = () => {
   const { tenantId } = useTenantId();
 
   // Optimized: Use React Query with cache for users
+  // Usa a função com parâmetro para suportar Super Admin acessando tenants
   const { data: systemUsers = [], refetch: refetchUsers } = useQuery({
     queryKey: ['system-users', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_users_with_roles');
+      const { data, error } = await supabase.rpc('get_users_with_roles_by_tenant', {
+        target_tenant_id: tenantId
+      });
       if (error) throw error;
       
       return (data || []).map((user: any) => ({
