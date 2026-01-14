@@ -37,6 +37,9 @@ import {
 } from '@/utils/intimacaoParser';
 import { AndamentoAnexos } from './AndamentoAnexos';
 import { ProcessoAnexo } from '@/hooks/useProcessoAnexos';
+import AdvogadoSelector from './AdvogadoSelector';
+import UserTagSelector from '@/components/Agenda/UserTagSelector';
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 
 interface IntimacaoCardProps {
   andamento: {
@@ -73,6 +76,8 @@ export const IntimacaoCard = ({
   const [prazoTitulo, setPrazoTitulo] = useState('');
   const [prazoDescricao, setPrazoDescricao] = useState('');
   const [prazoData, setPrazoData] = useState('');
+  const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
+  const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
 
   const parsed = parseIntimacao(andamento.descricao);
   const temAnexos = anexos.length > 0;
@@ -94,6 +99,8 @@ export const IntimacaoCard = ({
     if (parsed.dataFinal) {
       setPrazoData(format(parsed.dataFinal, 'yyyy-MM-dd'));
     }
+    setSelectedAdvogado(null);
+    setTaggedUsers([]);
     setCriarPrazoOpen(true);
   };
 
@@ -107,48 +114,80 @@ export const IntimacaoCard = ({
       return;
     }
 
+    if (!selectedAdvogado) {
+      toast({
+        title: 'Responsavel obrigatorio',
+        description: 'Selecione o advogado responsavel pelo prazo',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setCriandoPrazo(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
 
-      // Get default project for deadlines
-      const { data: projects } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .limit(1);
-
-      const projectId = projects?.[0]?.id;
-      if (!projectId) {
-        toast({
-          title: 'Projeto nao encontrado',
-          description: 'Crie um projeto primeiro para adicionar prazos',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const { error } = await supabase
+      // Create deadline without project_id (linked by processo_oab_id)
+      const { data: deadlineData, error } = await supabase
         .from('deadlines')
         .insert({
           title: prazoTitulo,
           description: prazoDescricao,
           date: prazoData,
-          project_id: projectId,
+          project_id: null, // No project required for controladoria deadlines
           processo_oab_id: processoOabId,
+          advogado_responsavel_id: selectedAdvogado,
           user_id: user.id,
           tenant_id: tenantId,
           completed: false,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Insert tags if any
+      if (taggedUsers.length > 0 && deadlineData) {
+        const tags = taggedUsers.map(userId => ({
+          deadline_id: deadlineData.id,
+          tagged_user_id: userId,
+          tenant_id: tenantId
+        }));
+
+        await supabase.from('deadline_tags').insert(tags);
+      }
+
+      // Send notifications
+      if (deadlineData && tenantId) {
+        // Notify responsible user
+        await notifyDeadlineAssigned(
+          deadlineData.id,
+          prazoTitulo,
+          selectedAdvogado,
+          user.id,
+          tenantId
+        );
+
+        // Notify tagged users
+        if (taggedUsers.length > 0) {
+          await notifyDeadlineTagged(
+            deadlineData.id,
+            prazoTitulo,
+            taggedUsers,
+            user.id,
+            tenantId
+          );
+        }
+      }
 
       toast({
         title: 'Prazo criado',
         description: 'O prazo foi adicionado a sua agenda',
       });
       setCriarPrazoOpen(false);
+      setSelectedAdvogado(null);
+      setTaggedUsers([]);
     } catch (error: any) {
       toast({
         title: 'Erro ao criar prazo',
@@ -353,7 +392,7 @@ export const IntimacaoCard = ({
 
       {/* Dialog para criar prazo */}
       <Dialog open={criarPrazoOpen} onOpenChange={setCriarPrazoOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarPlus className="w-5 h-5" />
@@ -382,6 +421,21 @@ export const IntimacaoCard = ({
                 onChange={(e) => setPrazoData(e.target.value)}
               />
             </div>
+
+            <AdvogadoSelector
+              value={selectedAdvogado}
+              onChange={setSelectedAdvogado}
+            />
+
+            <div className="space-y-2">
+              <Label>Marcar Outros Usuarios</Label>
+              <UserTagSelector
+                selectedUsers={taggedUsers}
+                onChange={setTaggedUsers}
+                excludeCurrentUser={false}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="descricao">Descricao</Label>
               <Textarea
