@@ -93,6 +93,18 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
 
       if (error) throw error;
 
+      // Link existing orphan columns to this new default workspace
+      const { error: updateError } = await supabase
+        .from('project_columns')
+        .update({ workspace_id: newWorkspace.id })
+        .eq('project_id', projectId)
+        .is('workspace_id', null)
+        .is('sector_id', null);
+
+      if (updateError) {
+        console.error('Erro ao vincular colunas existentes ao workspace:', updateError);
+      }
+
       const workspace: ProjectWorkspace = {
         id: newWorkspace.id,
         projectId: newWorkspace.project_id,
