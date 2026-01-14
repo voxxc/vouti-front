@@ -87,7 +87,7 @@ export function CreateDeadlineDialog({
 
       const tenantId = profile?.tenant_id;
 
-      // Create deadline
+      // Create deadline with protocolo_etapa_id for traceability
       const { data: deadlineData, error: deadlineError } = await supabase
         .from('deadlines')
         .insert({
@@ -97,7 +97,8 @@ export function CreateDeadlineDialog({
           date: date.toISOString().split('T')[0],
           project_id: protocolo.project_id,
           advogado_responsavel_id: selectedAdvogado,
-          tenant_id: tenantId
+          tenant_id: tenantId,
+          protocolo_etapa_id: etapaId
         })
         .select()
         .single();

@@ -23,6 +23,7 @@ interface PrazoAberto {
   date: string;
   projectName: string;
   clientName: string;
+  protocoloEtapaId: string | null;
 }
 
 interface TarefaItem {
@@ -71,6 +72,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10 }: PrazosAbertosPanelProps) 
           date,
           user_id,
           advogado_responsavel_id,
+          protocolo_etapa_id,
           project:projects(name, client)
         `)
         .eq('completed', false)
@@ -89,6 +91,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10 }: PrazosAbertosPanelProps) 
         date: prazo.date,
         projectName: prazo.project?.name || 'Sem projeto',
         clientName: prazo.project?.client || 'Sem cliente',
+        protocoloEtapaId: prazo.protocolo_etapa_id,
       }));
 
       setPrazos(formattedPrazos);
@@ -357,9 +360,16 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10 }: PrazosAbertosPanelProps) 
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm truncate">
-                      {prazo.title}
-                    </p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {prazo.title}
+                      </p>
+                      {prazo.protocoloEtapaId && (
+                        <Badge variant="outline" className="text-xs shrink-0 px-1.5 py-0 h-5">
+                          Protocolo
+                        </Badge>
+                      )}
+                    </div>
                     {getUrgencyBadge(prazo.date)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 truncate">
