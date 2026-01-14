@@ -17,6 +17,8 @@ import CreateSectorDialog from "@/components/Project/CreateSectorDialog";
 import { ProjectClientDataDialog } from "@/components/Project/ProjectClientDataDialog";
 import ProjectHistoryDrawer from "@/components/Project/ProjectHistoryDrawer";
 import { ProjectProtocolosList } from "@/components/Project/ProjectProtocolosList";
+import { ProjectWorkspaceTabs } from "@/components/Project/ProjectWorkspaceTabs";
+import { useProjectWorkspaces } from "@/hooks/useProjectWorkspaces";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTaskMovement, notifyTaskCreated } from "@/utils/notificationHelpers";
@@ -59,6 +61,17 @@ const ProjectView = ({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'protocolos' | 'colunas'>('protocolos');
   const { toast } = useToast();
+  
+  // Workspaces hook
+  const {
+    workspaces,
+    loading: workspacesLoading,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    createWorkspace,
+    updateWorkspace,
+    deleteWorkspace
+  } = useProjectWorkspaces(project.id, project.name);
 
   // Verificar se usuário é admin
   useEffect(() => {
@@ -75,20 +88,30 @@ const ProjectView = ({
     checkAdmin();
   }, [currentUser?.id]);
 
-  // Load columns from database
+  // Load columns from database when workspace changes
   useEffect(() => {
-    loadColumns();
+    if (activeWorkspaceId) {
+      loadColumns();
+    }
     loadSectors();
-  }, [project.id]);
+  }, [project.id, activeWorkspaceId]);
 
   const loadColumns = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('project_columns')
         .select('*')
         .eq('project_id', project.id)
-        .is('sector_id', null)
-        .order('column_order');
+        .is('sector_id', null);
+
+      // Filtrar por workspace se existir
+      if (activeWorkspaceId) {
+        query = query.eq('workspace_id', activeWorkspaceId);
+      } else {
+        query = query.is('workspace_id', null);
+      }
+
+      const { data, error } = await query.order('column_order');
 
       if (error) throw error;
 
@@ -443,6 +466,7 @@ const ProjectView = ({
           status: 'todo',
           column_id: columnId,
           project_id: project.id,
+          workspace_id: activeWorkspaceId || null,
           task_type: 'regular',
           tenant_id: profileData?.tenant_id
         })
@@ -524,6 +548,7 @@ const ProjectView = ({
         .from('project_columns')
         .insert({
           project_id: project.id,
+          workspace_id: activeWorkspaceId || null,
           name,
           color,
           column_order: maxOrder + 1,
@@ -1066,6 +1091,17 @@ const ProjectView = ({
           </div>
         </div>
 
+        {/* Workspace Tabs */}
+        <ProjectWorkspaceTabs
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onSelectWorkspace={setActiveWorkspaceId}
+          onCreateWorkspace={createWorkspace}
+          onUpdateWorkspace={updateWorkspace}
+          onDeleteWorkspace={deleteWorkspace}
+          loading={workspacesLoading}
+        />
+
         {/* Tabs Navigation - Horizontal */}
         <div className="space-y-4">
           {/* Tab Buttons */}
@@ -1091,7 +1127,7 @@ const ProjectView = ({
           {/* Content Area - Full Width */}
           <div className="w-full">
             {activeTab === 'protocolos' ? (
-              <ProjectProtocolosList projectId={project.id} />
+              <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} />
             ) : (
               <>
                 {/* Search */}

@@ -3898,6 +3898,7 @@ export type Database = {
           sector_id: string | null
           tenant_id: string | null
           updated_at: string
+          workspace_id: string | null
         }
         Insert: {
           color?: string
@@ -3910,6 +3911,7 @@ export type Database = {
           sector_id?: string | null
           tenant_id?: string | null
           updated_at?: string
+          workspace_id?: string | null
         }
         Update: {
           color?: string
@@ -3922,6 +3924,7 @@ export type Database = {
           sector_id?: string | null
           tenant_id?: string | null
           updated_at?: string
+          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -3943,6 +3946,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_columns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "project_workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -4020,6 +4030,7 @@ export type Database = {
           status: string | null
           tenant_id: string | null
           updated_at: string | null
+          workspace_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -4036,6 +4047,7 @@ export type Database = {
           status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
+          workspace_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -4052,6 +4064,7 @@ export type Database = {
           status?: string | null
           tenant_id?: string | null
           updated_at?: string | null
+          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -4066,6 +4079,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_protocolos_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "project_workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -4127,6 +4147,57 @@ export type Database = {
           },
           {
             foreignKeyName: "project_sectors_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_workspaces: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          is_default: boolean
+          nome: string
+          ordem: number
+          project_id: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_default?: boolean
+          nome: string
+          ordem?: number
+          project_id: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_default?: boolean
+          nome?: string
+          ordem?: number
+          project_id?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_workspaces_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_workspaces_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5010,6 +5081,7 @@ export type Database = {
           tenant_id: string | null
           title: string
           updated_at: string
+          workspace_id: string | null
         }
         Insert: {
           acordo_details?: Json | null
@@ -5026,6 +5098,7 @@ export type Database = {
           tenant_id?: string | null
           title: string
           updated_at?: string
+          workspace_id?: string | null
         }
         Update: {
           acordo_details?: Json | null
@@ -5042,6 +5115,7 @@ export type Database = {
           tenant_id?: string | null
           title?: string
           updated_at?: string
+          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -5077,6 +5151,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "project_workspaces"
             referencedColumns: ["id"]
           },
         ]
