@@ -64,6 +64,7 @@ const Agenda = () => {
   const [filteredUserDeadlines, setFilteredUserDeadlines] = useState<Deadline[]>([]);
   const [completedFilterUserId, setCompletedFilterUserId] = useState<string | null>(null);
   const [confirmCompleteDeadlineId, setConfirmCompleteDeadlineId] = useState<string | null>(null);
+  const [comentarioConclusao, setComentarioConclusao] = useState("");
   const { toast } = useToast();
 
   // Funcao helper para parsear data com seguranca
@@ -326,10 +327,10 @@ const Agenda = () => {
   };
 
   const handleCreateDeadline = async () => {
-    if (!formData.title.trim() || !formData.projectId || !user) {
+    if (!formData.title.trim() || !user) {
       toast({
         title: "Campos obrigatorios",
-        description: "Preencha o titulo e selecione o projeto.",
+        description: "Preencha o título do prazo.",
         variant: "destructive",
       });
       return;
@@ -353,7 +354,7 @@ const Agenda = () => {
           title: formData.title,
           description: formData.description,
           date: format(formData.date, 'yyyy-MM-dd'),
-          project_id: formData.projectId,
+          project_id: formData.projectId || null,
           advogado_responsavel_id: selectedAdvogado,
           processo_oab_id: processoOabIdForDeadline
         })
@@ -514,21 +515,56 @@ const Agenda = () => {
   };
 
   const handleConfirmComplete = async () => {
-    if (!confirmCompleteDeadlineId) return;
+    if (!confirmCompleteDeadlineId || !comentarioConclusao.trim()) return;
     
     const deadline = deadlines.find(d => d.id === confirmCompleteDeadlineId);
     if (!deadline) return;
     
-    await toggleDeadlineCompletion(deadline.id);
-    await createClientHistory(deadline, 'deadline_completed');
-    
-    setConfirmCompleteDeadlineId(null);
-    setIsDetailDialogOpen(false);
-    
-    toast({
-      title: "Prazo concluido",
-      description: "Prazo marcado como concluido e adicionado ao historico do cliente.",
-    });
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .update({ 
+          completed: true,
+          comentario_conclusao: comentarioConclusao.trim(),
+          concluido_por: user?.id,
+          concluido_em: new Date().toISOString()
+        })
+        .eq('id', confirmCompleteDeadlineId);
+
+      if (error) {
+        console.error('Error completing deadline:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível concluir o prazo.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setDeadlines(deadlines.map(d =>
+        d.id === confirmCompleteDeadlineId
+          ? { ...d, completed: true, updatedAt: new Date() }
+          : d
+      ));
+
+      await createClientHistory(deadline, 'deadline_completed');
+      
+      setConfirmCompleteDeadlineId(null);
+      setComentarioConclusao("");
+      setIsDetailDialogOpen(false);
+      
+      toast({
+        title: "Prazo concluído",
+        description: "Prazo marcado como concluído com comentário registrado.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao concluir prazo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openDeadlineDetails = (deadline: Deadline) => {
@@ -759,21 +795,6 @@ const Agenda = () => {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="min-h-[60px]"
                   />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Projeto</label>
-                  <Select value={formData.projectId} onValueChange={(value) => setFormData({ ...formData, projectId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um projeto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name} - {project.client}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div>
                   <AdvogadoSelector 
@@ -1324,19 +1345,44 @@ const Agenda = () => {
         {/* AlertDialog de confirmação para concluir prazo */}
         <AlertDialog 
           open={!!confirmCompleteDeadlineId} 
-          onOpenChange={(open) => !open && setConfirmCompleteDeadlineId(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConfirmCompleteDeadlineId(null);
+              setComentarioConclusao("");
+            }
+          }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja marcar este prazo como concluído? 
-                Essa ação será registrada no histórico do cliente.
+                Descreva o que foi realizado para concluir este prazo.
+                Este comentário ficará registrado para conferência.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            
+            <div className="py-4">
+              <label className="text-sm font-medium">Comentário de Conclusão *</label>
+              <Textarea
+                value={comentarioConclusao}
+                onChange={(e) => setComentarioConclusao(e.target.value)}
+                placeholder="Descreva o que foi realizado para concluir este prazo..."
+                rows={4}
+                className="mt-2"
+              />
+              {!comentarioConclusao.trim() && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  O comentário é obrigatório para concluir o prazo.
+                </p>
+              )}
+            </div>
+            
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmComplete}>
+              <AlertDialogAction 
+                onClick={handleConfirmComplete}
+                disabled={!comentarioConclusao.trim()}
+              >
                 Confirmar Conclusão
               </AlertDialogAction>
             </AlertDialogFooter>

@@ -1608,7 +1608,10 @@ export type Database = {
       deadlines: {
         Row: {
           advogado_responsavel_id: string | null
+          comentario_conclusao: string | null
           completed: boolean
+          concluido_em: string | null
+          concluido_por: string | null
           created_at: string
           date: string
           description: string | null
@@ -1623,7 +1626,10 @@ export type Database = {
         }
         Insert: {
           advogado_responsavel_id?: string | null
+          comentario_conclusao?: string | null
           completed?: boolean
+          concluido_em?: string | null
+          concluido_por?: string | null
           created_at?: string
           date: string
           description?: string | null
@@ -1638,7 +1644,10 @@ export type Database = {
         }
         Update: {
           advogado_responsavel_id?: string | null
+          comentario_conclusao?: string | null
           completed?: boolean
+          concluido_em?: string | null
+          concluido_por?: string | null
           created_at?: string
           date?: string
           description?: string | null
