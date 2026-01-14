@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Plus, Users, Lock, LockOpen, FileText, History } from "lucide-react";
+import { ArrowLeft, Search, Users, Lock, LockOpen, FileText, History, FolderKanban, Columns } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
@@ -16,6 +16,7 @@ import SetoresDropdown from "@/components/Project/SetoresDropdown";
 import CreateSectorDialog from "@/components/Project/CreateSectorDialog";
 import { ProjectClientDataDialog } from "@/components/Project/ProjectClientDataDialog";
 import ProjectHistoryDrawer from "@/components/Project/ProjectHistoryDrawer";
+import { ProjectProtocolosList } from "@/components/Project/ProjectProtocolosList";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTaskMovement, notifyTaskCreated } from "@/utils/notificationHelpers";
@@ -56,6 +57,7 @@ const ProjectView = ({
   const [isCreateSectorOpen, setIsCreateSectorOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'protocolos' | 'colunas'>('protocolos');
   const { toast } = useToast();
 
   // Verificar se usuário é admin
@@ -1064,94 +1066,122 @@ const ProjectView = ({
           </div>
         </div>
 
-        {/* Search and Actions */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Buscar tarefas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {/* Tabs Navigation */}
+        <div className="flex gap-6">
+          {/* Sidebar Tabs */}
+          <div className="flex flex-col gap-2 w-36 shrink-0">
+            <Button
+              variant={activeTab === 'protocolos' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('protocolos')}
+              className="justify-start gap-2"
+            >
+              <FolderKanban size={16} />
+              PROTOCOLOS
+            </Button>
+            <Button
+              variant={activeTab === 'colunas' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('colunas')}
+              className="justify-start gap-2"
+            >
+              <Columns size={16} />
+              COLUNAS
+            </Button>
           </div>
-          <Button variant="professional" className="gap-2">
-            <Plus size={16} />
-            Nova Tarefa
-          </Button>
-        </div>
 
-        {/* Kanban Board */}
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <ScrollArea className="w-full">
-            <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
-              {(provided) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className="flex gap-3 pb-4"
-                >
-                  {columns.map((column, columnIndex) => {
-                    const tasks = getTasksByColumn(column.id);
-                    return (
-                      <Draggable
-                        key={column.id}
-                        draggableId={column.id}
-                        index={columnIndex}
-                        isDragDisabled={isColumnsLocked}
-                      >
-                        {(columnProvided, columnSnapshot) => (
-                          <div
-                            ref={columnProvided.innerRef}
-                            {...columnProvided.draggableProps}
-                          >
-                            <div {...columnProvided.dragHandleProps}>
-                              <KanbanColumn
-                                id={column.id}
-                                title={column.name}
-                                taskCount={tasks.length}
-                                color={column.color}
-                                isDefault={column.isDefault}
-                                isDraggingColumn={columnSnapshot.isDragging}
-                                isColumnsLocked={isColumnsLocked}
-                                onAddTask={() => handleAddTask(column.id)}
-                                onUpdateName={(newName) => handleUpdateColumnName(column.id, newName)}
-                                onDeleteColumn={() => handleDeleteColumn(column.id)}
-                              >
-                                {tasks.map((task, index) => (
-                                  <Draggable key={task.id} draggableId={task.id} index={index}>
-                                    {(provided, snapshot) => (
-                                      <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
-                                        className={snapshot.isDragging ? 'opacity-50' : ''}
-                                      >
-                                        <TaskCard 
-                                          task={task} 
-                                          onClick={(t) => handleTaskClick(t, column.name)}
-                                          onDelete={handleDeleteTask}
-                                          onUpdateTask={handleUpdateTask}
-                                        />
-                                      </div>
-                                    )}
-                                  </Draggable>
-                                ))}
-                              </KanbanColumn>
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {provided.placeholder}
-                  <AddColumnButton onAddColumn={handleAddColumn} />
+          {/* Content Area */}
+          <div className="flex-1 min-w-0">
+            {activeTab === 'protocolos' ? (
+              <ProjectProtocolosList projectId={project.id} />
+            ) : (
+              <>
+                {/* Search */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                      placeholder="Buscar tarefas..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
-              )}
-            </Droppable>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </DragDropContext>
+
+                {/* Kanban Board */}
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <ScrollArea className="w-full">
+                    <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className="flex gap-3 pb-4"
+                        >
+                          {columns.map((column, columnIndex) => {
+                            const tasks = getTasksByColumn(column.id);
+                            return (
+                              <Draggable
+                                key={column.id}
+                                draggableId={column.id}
+                                index={columnIndex}
+                                isDragDisabled={isColumnsLocked}
+                              >
+                                {(columnProvided, columnSnapshot) => (
+                                  <div
+                                    ref={columnProvided.innerRef}
+                                    {...columnProvided.draggableProps}
+                                  >
+                                    <div {...columnProvided.dragHandleProps}>
+                                      <KanbanColumn
+                                        id={column.id}
+                                        title={column.name}
+                                        taskCount={tasks.length}
+                                        color={column.color}
+                                        isDefault={column.isDefault}
+                                        isDraggingColumn={columnSnapshot.isDragging}
+                                        isColumnsLocked={isColumnsLocked}
+                                        onAddTask={() => handleAddTask(column.id)}
+                                        onUpdateName={(newName) => handleUpdateColumnName(column.id, newName)}
+                                        onDeleteColumn={() => handleDeleteColumn(column.id)}
+                                      >
+                                        {tasks.map((task, index) => (
+                                          <Draggable key={task.id} draggableId={task.id} index={index}>
+                                            {(provided, snapshot) => (
+                                              <div
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                {...provided.dragHandleProps}
+                                                className={snapshot.isDragging ? 'opacity-50' : ''}
+                                              >
+                                                <TaskCard 
+                                                  task={task} 
+                                                  onClick={(t) => handleTaskClick(t, column.name)}
+                                                  onDelete={handleDeleteTask}
+                                                  onUpdateTask={handleUpdateTask}
+                                                />
+                                              </div>
+                                            )}
+                                          </Draggable>
+                                        ))}
+                                      </KanbanColumn>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          })}
+                          {provided.placeholder}
+                          <AddColumnButton onAddColumn={handleAddColumn} />
+                        </div>
+                      )}
+                    </Droppable>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                </DragDropContext>
+              </>
+            )}
+          </div>
+        </div>
 
         <TaskModal
           task={selectedTask}

@@ -3947,6 +3947,129 @@ export type Database = {
           },
         ]
       }
+      project_protocolo_etapas: {
+        Row: {
+          created_at: string | null
+          data_conclusao: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          protocolo_id: string
+          responsavel_id: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_conclusao?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+          protocolo_id: string
+          responsavel_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_conclusao?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          protocolo_id?: string
+          responsavel_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_protocolo_etapas_protocolo_id_fkey"
+            columns: ["protocolo_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_protocolo_etapas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_protocolos: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          data_conclusao: string | null
+          data_inicio: string | null
+          data_previsao: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          project_id: string
+          responsavel_id: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          data_previsao?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          project_id: string
+          responsavel_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          data_previsao?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          project_id?: string
+          responsavel_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_protocolos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_protocolos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_sectors: {
         Row: {
           created_at: string | null
