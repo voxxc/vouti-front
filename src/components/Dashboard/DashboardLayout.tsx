@@ -61,29 +61,34 @@ const DashboardLayout = ({
       
       setUsersLoading(true);
       
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, email, full_name, avatar_url, created_at, updated_at, tenant_id')
-        .eq('tenant_id', tenantId);
+      // Carregar profiles e roles em paralelo
+      const [profilesResult, rolesResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_id, email, full_name, avatar_url, created_at, updated_at, tenant_id')
+          .eq('tenant_id', tenantId),
+        supabase
+          .from('user_roles')
+          .select('user_id, role, tenant_id')
+          .eq('tenant_id', tenantId)
+      ]);
 
-      if (profilesError) {
-        console.error('DashboardLayout - Error loading profiles:', profilesError);
+      if (profilesResult.error) {
+        console.error('DashboardLayout - Error loading profiles:', profilesResult.error);
         setUsersLoading(false);
         return;
+      }
+
+      const profilesData = profilesResult.data;
+      const rolesData = rolesResult.data;
+
+      if (rolesResult.error) {
+        console.error('DashboardLayout - Error loading roles:', rolesResult.error);
       }
 
       if (!profilesData || profilesData.length === 0) {
         setUsersLoading(false);
         return;
-      }
-
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role, tenant_id')
-        .eq('tenant_id', tenantId);
-
-      if (rolesError) {
-        console.error('DashboardLayout - Error loading roles:', rolesError);
       }
 
       const rolePriority: Record<string, number> = {

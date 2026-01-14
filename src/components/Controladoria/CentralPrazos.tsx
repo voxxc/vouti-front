@@ -44,7 +44,7 @@ interface PrazoConcluido {
     nome: string;
     protocolo: {
       id: string;
-      titulo: string;
+      nome: string;
     } | null;
   } | null;
 }
@@ -123,7 +123,7 @@ export const CentralPrazos = () => {
             nome,
             protocolo:project_protocolos (
               id,
-              titulo
+              nome
             )
           )
         `)
@@ -271,7 +271,7 @@ export const CentralPrazos = () => {
                       {prazo.protocolo_etapa && (
                         <Badge variant="outline" className="text-xs mt-1">
                           <FileText className="h-3 w-3 mr-1" />
-                          {prazo.protocolo_etapa.protocolo?.titulo}
+                          {prazo.protocolo_etapa.protocolo?.nome}
                         </Badge>
                       )}
                     </TableCell>
@@ -394,7 +394,7 @@ export const CentralPrazos = () => {
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline">
                         <FileText className="h-3 w-3 mr-1" />
-                        {selectedPrazo.protocolo_etapa.protocolo?.titulo}
+                        {selectedPrazo.protocolo_etapa.protocolo?.nome}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
                         Etapa: {selectedPrazo.protocolo_etapa.nome}
