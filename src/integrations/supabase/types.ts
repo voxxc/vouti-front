@@ -6157,6 +6157,19 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_users_with_roles_by_tenant: {
+        Args: { target_tenant_id: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          full_name: string
+          highest_role: string
+          primary_role: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       has_batink_role: {
         Args: {
           _role: Database["public"]["Enums"]["batink_role"]
