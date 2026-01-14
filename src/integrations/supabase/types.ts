@@ -3836,10 +3836,17 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          contato_emergencia_nome: string | null
+          contato_emergencia_relacao: string | null
+          contato_emergencia_telefone: string | null
           created_at: string
+          data_nascimento: string | null
           email: string
+          email_pessoal: string | null
+          endereco: string | null
           full_name: string | null
           id: string
+          telefone: string | null
           tenant_id: string | null
           theme_preference: string | null
           updated_at: string
@@ -3847,10 +3854,17 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_relacao?: string | null
+          contato_emergencia_telefone?: string | null
           created_at?: string
+          data_nascimento?: string | null
           email: string
+          email_pessoal?: string | null
+          endereco?: string | null
           full_name?: string | null
           id?: string
+          telefone?: string | null
           tenant_id?: string | null
           theme_preference?: string | null
           updated_at?: string
@@ -3858,10 +3872,17 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_relacao?: string | null
+          contato_emergencia_telefone?: string | null
           created_at?: string
+          data_nascimento?: string | null
           email?: string
+          email_pessoal?: string | null
+          endereco?: string | null
           full_name?: string | null
           id?: string
+          telefone?: string | null
           tenant_id?: string | null
           theme_preference?: string | null
           updated_at?: string

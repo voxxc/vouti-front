@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  Headphones
+  Headphones,
+  Star
 } from "lucide-react";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,6 +76,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
+    { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
 
   const isActive = (itemId: string) => {
@@ -85,6 +87,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     if (itemId === 'financeiro' && currentPage === 'financial') return true;
     if (itemId === 'controladoria' && currentPage === 'controladoria') return true;
     if (itemId === 'reunioes' && currentPage === 'reunioes') return true;
+    if (itemId === 'extras' && currentPage === 'extras') return true;
     return false;
   };
 
