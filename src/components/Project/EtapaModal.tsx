@@ -38,11 +38,15 @@ import {
   Save,
   X,
   CheckCircle2,
-  Clock
+  Clock,
+  Reply,
+  Calendar
 } from 'lucide-react';
 import { ProjectProtocoloEtapa } from '@/hooks/useProjectProtocolos';
-import { useEtapaData } from '@/hooks/useEtapaData';
+import { useEtapaData, EtapaComment } from '@/hooks/useEtapaData';
 import { supabase } from '@/integrations/supabase/client';
+import { MentionInput } from './MentionInput';
+import { CreateDeadlineDialog } from './CreateDeadlineDialog';
 
 interface EtapaModalProps {
   etapa: ProjectProtocoloEtapa | null;
@@ -50,6 +54,8 @@ interface EtapaModalProps {
   onOpenChange: (open: boolean) => void;
   onUpdate: (id: string, data: any) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  protocoloId?: string;
+  projectId?: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -69,14 +75,23 @@ export function EtapaModal({
   open,
   onOpenChange,
   onUpdate,
-  onDelete
+  onDelete,
+  protocoloId,
+  projectId
 }: EtapaModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNome, setEditedNome] = useState('');
   const [editedDescricao, setEditedDescricao] = useState('');
   const [newComment, setNewComment] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [showDeadlineDialog, setShowDeadlineDialog] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -86,11 +101,19 @@ export function EtapaModal({
     loading,
     fetchData,
     addComment,
+    updateComment,
     deleteComment,
     uploadFile,
     deleteFile,
     addHistoryEntry
   } = useEtapaData(etapa?.id || null);
+
+  // Get current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id || null);
+    });
+  }, []);
 
   // Sincroniza os campos de edição quando a etapa muda (via props atualizadas otimisticamente)
   useEffect(() => {
@@ -151,8 +174,23 @@ export function EtapaModal({
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
-    await addComment(newComment);
+    await addComment(newComment, undefined, mentionedUserIds);
     setNewComment('');
+    setMentionedUserIds([]);
+  };
+
+  const handleAddReply = async (parentCommentId: string) => {
+    if (!replyText.trim()) return;
+    await addComment(replyText, parentCommentId);
+    setReplyText('');
+    setReplyingTo(null);
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editCommentText.trim()) return;
+    await updateComment(commentId, editCommentText);
+    setEditingComment(null);
+    setEditCommentText('');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,6 +206,114 @@ export function EtapaModal({
   const getFileUrl = (filePath: string) => {
     return supabase.storage.from('task-attachments').getPublicUrl(filePath).data.publicUrl;
   };
+
+  const renderComment = (comment: EtapaComment, isReply = false) => (
+    <div 
+      key={comment.id} 
+      className={`p-3 rounded-lg bg-muted/50 group ${isReply ? 'ml-6 mt-2' : ''}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">{comment.authorName}</span>
+            <span className="text-xs text-muted-foreground">
+              {format(comment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+            {comment.updatedAt > comment.createdAt && (
+              <span className="text-xs text-muted-foreground">(editado)</span>
+            )}
+          </div>
+          
+          {editingComment === comment.id ? (
+            <div className="mt-2 space-y-2">
+              <Textarea
+                value={editCommentText}
+                onChange={(e) => setEditCommentText(e.target.value)}
+                rows={2}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleUpdateComment(comment.id)}>
+                  Salvar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  setEditingComment(null);
+                  setEditCommentText('');
+                }}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm mt-1 whitespace-pre-wrap">{comment.commentText}</p>
+          )}
+        </div>
+        
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {!isReply && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => {
+                setReplyingTo(replyingTo === comment.id ? null : comment.id);
+                setReplyText('');
+              }}
+              title="Responder"
+            >
+              <Reply className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          
+          {currentUserId === comment.userId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => {
+                setEditingComment(comment.id);
+                setEditCommentText(comment.commentText);
+              }}
+              title="Editar"
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => deleteComment(comment.id)}
+            title="Excluir"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Reply input */}
+      {replyingTo === comment.id && (
+        <div className="mt-3 flex gap-2">
+          <Input
+            placeholder="Escreva sua resposta..."
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddReply(comment.id)}
+          />
+          <Button size="sm" onClick={() => handleAddReply(comment.id)} disabled={!replyText.trim()}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="mt-2 space-y-2">
+          {comment.replies.map(reply => renderComment(reply, true))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -256,7 +402,7 @@ export function EtapaModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground uppercase">Status</p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       {['pendente', 'em_andamento', 'concluido'].map((status) => (
                         <Button
                           key={status}
@@ -286,6 +432,21 @@ export function EtapaModal({
 
                 <Separator />
 
+                {/* Botão Criar Prazo */}
+                {protocoloId && (
+                  <div>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowDeadlineDialog(true)}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Criar Prazo
+                    </Button>
+                  </div>
+                )}
+
+                <Separator />
+
                 <div className="pt-2">
                   <Button 
                     variant="destructive" 
@@ -301,13 +462,26 @@ export function EtapaModal({
 
               {/* Comentários Tab */}
               <TabsContent value="comentarios" className="m-0 space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Adicionar comentário..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
-                  />
+                <div className="flex gap-2 items-start">
+                  {projectId ? (
+                    <MentionInput
+                      value={newComment}
+                      onChange={setNewComment}
+                      onMentionsChange={setMentionedUserIds}
+                      projectId={projectId}
+                      placeholder="Adicionar comentário... Use @ para mencionar"
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                      className="flex-1"
+                    />
+                  ) : (
+                    <Input
+                      placeholder="Adicionar comentário..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                      className="flex-1"
+                    />
+                  )}
                   <Button onClick={handleAddComment} disabled={!newComment.trim()}>
                     <Send className="h-4 w-4" />
                   </Button>
@@ -324,29 +498,7 @@ export function EtapaModal({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="p-3 rounded-lg bg-muted/50 group">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{comment.authorName}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(comment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                              </span>
-                            </div>
-                            <p className="text-sm mt-1">{comment.commentText}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => deleteComment(comment.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                    {comments.map((comment) => renderComment(comment))}
                   </div>
                 )}
               </TabsContent>
@@ -465,12 +617,22 @@ export function EtapaModal({
               disabled={saving}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {protocoloId && (
+        <CreateDeadlineDialog
+          open={showDeadlineDialog}
+          onOpenChange={setShowDeadlineDialog}
+          etapaId={etapa.id}
+          etapaNome={etapa.nome}
+          protocoloId={protocoloId}
+        />
+      )}
     </>
   );
 }
