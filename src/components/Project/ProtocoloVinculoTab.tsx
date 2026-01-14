@@ -25,6 +25,8 @@ export const ProtocoloVinculoTab = ({ protocoloId, processoOabId, onVinculoChang
     loading,
     loadingProcessos,
     fetchProcessosDisponiveis,
+    vincularProcesso,
+    desvincularProcesso,
   } = useProtocoloVinculo(protocoloId, processoOabId);
 
   useEffect(() => {
@@ -34,39 +36,23 @@ export const ProtocoloVinculoTab = ({ protocoloId, processoOabId, onVinculoChang
   }, [mostrarBusca, busca, fetchProcessosDisponiveis]);
 
   const handleVincular = async (novoProcessoId: string) => {
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { error } = await supabase
-        .from('project_protocolos')
-        .update({ processo_oab_id: novoProcessoId })
-        .eq('id', protocoloId);
-
-      if (error) throw error;
-
+    const success = await vincularProcesso(novoProcessoId);
+    if (success) {
       onVinculoChange(novoProcessoId);
       setMostrarBusca(false);
       setBusca('');
       toast({ title: 'Processo vinculado com sucesso' });
-    } catch (error) {
-      console.error('Erro ao vincular:', error);
+    } else {
       toast({ title: 'Erro ao vincular processo', variant: 'destructive' });
     }
   };
 
   const handleDesvincular = async () => {
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { error } = await supabase
-        .from('project_protocolos')
-        .update({ processo_oab_id: null })
-        .eq('id', protocoloId);
-
-      if (error) throw error;
-
+    const success = await desvincularProcesso();
+    if (success) {
       onVinculoChange(null);
       toast({ title: 'Processo desvinculado' });
-    } catch (error) {
-      console.error('Erro ao desvincular:', error);
+    } else {
       toast({ title: 'Erro ao desvincular processo', variant: 'destructive' });
     }
   };

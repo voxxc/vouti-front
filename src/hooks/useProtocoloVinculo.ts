@@ -7,12 +7,18 @@ interface ProcessoVinculado extends ProcessoOAB {
   oab?: OABCadastrada;
 }
 
-export const useProtocoloVinculo = (protocoloId: string | null, processoOabId: string | null | undefined) => {
+export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdInicial: string | null | undefined) => {
+  const [processoOabId, setProcessoOabId] = useState<string | null | undefined>(processoOabIdInicial);
   const [processoVinculado, setProcessoVinculado] = useState<ProcessoVinculado | null>(null);
   const [processosDisponiveis, setProcessosDisponiveis] = useState<ProcessoVinculado[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
   const { tenantId } = useAuth();
+
+  // Sincroniza com prop inicial quando muda
+  useEffect(() => {
+    setProcessoOabId(processoOabIdInicial);
+  }, [processoOabIdInicial]);
 
   const fetchProcessoVinculado = useCallback(async () => {
     if (!processoOabId) {
@@ -91,6 +97,10 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabId: s
 
       if (error) throw error;
 
+      // Atualiza o estado local imediatamente
+      setProcessoOabId(novoProcessoOabId);
+
+      // Busca os dados do processo vinculado
       const { data: processo } = await supabase
         .from('processos_oab')
         .select('*')
@@ -125,6 +135,8 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabId: s
 
       if (error) throw error;
 
+      // Atualiza o estado local imediatamente
+      setProcessoOabId(null);
       setProcessoVinculado(null);
       return true;
     } catch (error) {
