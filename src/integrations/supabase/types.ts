@@ -1669,6 +1669,13 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
           {
+            foreignKeyName: "deadlines_concluido_por_fkey"
+            columns: ["concluido_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "deadlines_processo_oab_id_fkey"
             columns: ["processo_oab_id"]
             isOneToOne: false
