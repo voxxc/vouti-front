@@ -1615,6 +1615,7 @@ export type Database = {
           id: string
           processo_oab_id: string | null
           project_id: string | null
+          protocolo_etapa_id: string | null
           tenant_id: string | null
           title: string
           updated_at: string
@@ -1629,6 +1630,7 @@ export type Database = {
           id?: string
           processo_oab_id?: string | null
           project_id?: string | null
+          protocolo_etapa_id?: string | null
           tenant_id?: string | null
           title: string
           updated_at?: string
@@ -1643,6 +1645,7 @@ export type Database = {
           id?: string
           processo_oab_id?: string | null
           project_id?: string | null
+          protocolo_etapa_id?: string | null
           tenant_id?: string | null
           title?: string
           updated_at?: string
@@ -1668,6 +1671,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deadlines_protocolo_etapa_id_fkey"
+            columns: ["protocolo_etapa_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolo_etapas"
             referencedColumns: ["id"]
           },
           {
