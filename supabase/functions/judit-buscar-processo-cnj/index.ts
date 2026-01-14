@@ -114,14 +114,15 @@ serve(async (req) => {
     
     console.log('[Judit Import CNJ] Request ID:', requestId);
 
-    // Polling para obter resultado
+    // Polling para obter resultado - aumentado para 90 segundos (45 tentativas x 2s)
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 45;
     let resultData = null;
 
+    // Aguardar 3 segundos iniciais para dar tempo da API processar
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       const statusResponse = await fetch(
         `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
         {
@@ -136,23 +137,32 @@ serve(async (req) => {
       if (!statusResponse.ok) {
         console.log('[Judit Import CNJ] Polling erro:', statusResponse.status);
         attempts++;
+        await new Promise(resolve => setTimeout(resolve, 2000));
         continue;
       }
 
       const statusData = await statusResponse.json();
-      console.log('[Judit Import CNJ] Polling - page_data:', statusData.page_data?.length || 0);
+      const pageDataLength = statusData.page_data?.length || 0;
+      
+      // Log a cada 5 tentativas para reduzir ruído
+      if (attempts % 5 === 0 || pageDataLength > 0) {
+        console.log('[Judit Import CNJ] Polling tentativa', attempts + 1, '- page_data:', pageDataLength);
+      }
 
       if (statusData.page_data && statusData.page_data.length > 0) {
         resultData = statusData;
-        console.log('[Judit Import CNJ] Dados recebidos');
+        console.log('[Judit Import CNJ] Dados recebidos após', attempts + 1, 'tentativas');
         break;
       }
 
       attempts++;
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     if (!resultData) {
-      throw new Error('Timeout aguardando resposta da API Judit');
+      // Retornar o request_id para que o usuário possa tentar novamente depois
+      console.log('[Judit Import CNJ] Timeout - request_id:', requestId);
+      throw new Error(`Timeout aguardando resposta da API Judit. O processo pode estar sendo consultado. Tente novamente em alguns minutos. (Request ID: ${requestId})`);
     }
 
     // Extrair dados do resultado
