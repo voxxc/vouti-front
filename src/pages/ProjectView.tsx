@@ -1066,14 +1066,14 @@ const ProjectView = ({
           </div>
         </div>
 
-        {/* Tabs Navigation */}
-        <div className="flex gap-6">
-          {/* Sidebar Tabs */}
-          <div className="flex flex-col gap-2 w-36 shrink-0">
+        {/* Tabs Navigation - Horizontal */}
+        <div className="space-y-4">
+          {/* Tab Buttons */}
+          <div className="flex gap-2">
             <Button
               variant={activeTab === 'protocolos' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('protocolos')}
-              className="justify-start gap-2"
+              className="gap-2"
             >
               <FolderKanban size={16} />
               PROTOCOLOS
@@ -1081,15 +1081,15 @@ const ProjectView = ({
             <Button
               variant={activeTab === 'colunas' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('colunas')}
-              className="justify-start gap-2"
+              className="gap-2"
             >
               <Columns size={16} />
               COLUNAS
             </Button>
           </div>
 
-          {/* Content Area */}
-          <div className="flex-1 min-w-0">
+          {/* Content Area - Full Width */}
+          <div className="w-full">
             {activeTab === 'protocolos' ? (
               <ProjectProtocolosList projectId={project.id} />
             ) : (
