@@ -92,10 +92,17 @@ export function EtapaModal({
     addHistoryEntry
   } = useEtapaData(etapa?.id || null);
 
+  // Sincroniza os campos de edição quando a etapa muda (via props atualizadas otimisticamente)
   useEffect(() => {
-    if (etapa && open) {
+    if (etapa) {
       setEditedNome(etapa.nome);
       setEditedDescricao(etapa.descricao || '');
+    }
+  }, [etapa?.nome, etapa?.descricao]);
+
+  // Carrega dados (comentários, arquivos, histórico) apenas ao abrir o modal
+  useEffect(() => {
+    if (etapa?.id && open) {
       fetchData();
     }
   }, [etapa?.id, open, fetchData]);
