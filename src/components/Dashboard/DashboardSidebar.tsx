@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import {
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
+import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -30,6 +31,22 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [supportOpen, setSupportOpen] = useState(false);
   const { navigate } = useTenantNavigation();
   const { userRoles = [] } = useAuth();
+  const { prefetchDashboard, prefetchProjects, prefetchControladoria } = usePrefetchPages();
+
+  // Prefetch on hover para navegação instantânea
+  const handleMouseEnter = useCallback((itemId: string) => {
+    switch (itemId) {
+      case 'dashboard':
+        prefetchDashboard();
+        break;
+      case 'projetos':
+        prefetchProjects();
+        break;
+      case 'controladoria':
+        prefetchControladoria();
+        break;
+    }
+  }, [prefetchDashboard, prefetchProjects, prefetchControladoria]);
 
   // Mapeamento de seções para roles que têm acesso
   const sectionRoleMap: Record<string, string[]> = {
@@ -130,6 +147,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
               <Button
                 key={item.id}
                 variant={isActive(item.id) ? "secondary" : "ghost"}
+                onMouseEnter={() => handleMouseEnter(item.id)}
                 onClick={() => {
                   navigate(item.route);
                   setIsMobileOpen(false);

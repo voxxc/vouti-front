@@ -175,17 +175,39 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
     
-    // Pré-carregar dados da Controladoria após login bem-sucedido
-    if (!error) {
-      // Importar dinamicamente para evitar dependência circular
-      import('@/hooks/useControladoriaCache').then(({ prefetchControladoriaData }) => {
-        prefetchControladoriaData();
-      });
+    // Pré-carregar dados em background após login bem-sucedido
+    if (!error && data.user) {
+      setTimeout(async () => {
+        try {
+          // Buscar tenant_id do usuário
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', data.user.id)
+            .single();
+          
+          if (profile?.tenant_id) {
+            // Importar e executar prefetch de todas as páginas principais
+            const { prefetchAllPagesAfterLogin } = await import('@/hooks/usePrefetchPages');
+            const { QueryClient } = await import('@tanstack/react-query');
+            
+            // Usar o queryClient global (será substituído pelo contexto quando disponível)
+            const queryClient = new QueryClient();
+            await prefetchAllPagesAfterLogin(queryClient, profile.tenant_id, data.user.id);
+          }
+          
+          // Controladoria (cache local)
+          const { prefetchControladoriaData } = await import('@/hooks/useControladoriaCache');
+          prefetchControladoriaData();
+        } catch (err) {
+          console.error('[AuthContext] Prefetch error:', err);
+        }
+      }, 100);
     }
     
     return { error };
