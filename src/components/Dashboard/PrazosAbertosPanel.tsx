@@ -283,7 +283,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10 }: PrazosAbertosPanelProps) 
   };
 
   const handleNavigateToProjetos = () => {
-    navigate('projetos');
+    navigate('projects');
   };
 
   const handleNavigateToControladoria = () => {

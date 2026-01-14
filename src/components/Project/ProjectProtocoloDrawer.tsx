@@ -46,8 +46,12 @@ import {
   CheckCircle2,
   Printer,
   Settings,
-  Link2
+  Link2,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
+import { isPast, isToday } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
 import { useProtocoloVinculo } from '@/hooks/useProtocoloVinculo';
@@ -109,6 +113,10 @@ export function ProjectProtocoloDrawer({
   const [showRelatorioModal, setShowRelatorioModal] = useState(false);
   const [showAdvogadoModal, setShowAdvogadoModal] = useState(false);
   
+  // Estados para prazos vinculados
+  const [prazosVinculados, setPrazosVinculados] = useState<any[]>([]);
+  const [loadingPrazos, setLoadingPrazos] = useState(false);
+  
   // Hook para perfil do advogado
   const { advogado, refetch: refetchAdvogado } = useProjectAdvogado(projectId || '');
   
@@ -117,6 +125,27 @@ export function ProjectProtocoloDrawer({
     protocolo?.id || null, 
     protocolo?.processoOabId
   );
+
+  // Buscar prazos vinculados às etapas do protocolo
+  useEffect(() => {
+    const fetchPrazosVinculados = async () => {
+      if (!protocolo?.etapas?.length || !open) return;
+      
+      setLoadingPrazos(true);
+      const etapaIds = protocolo.etapas.map(e => e.id);
+      
+      const { data, error } = await supabase
+        .from('deadlines')
+        .select('id, title, date, completed, protocolo_etapa_id')
+        .in('protocolo_etapa_id', etapaIds)
+        .order('date', { ascending: true });
+      
+      if (!error) setPrazosVinculados(data || []);
+      setLoadingPrazos(false);
+    };
+
+    fetchPrazosVinculados();
+  }, [protocolo?.etapas, open]);
 
   // Sincroniza selectedEtapa quando as etapas do protocolo mudam
   useEffect(() => {
@@ -253,6 +282,15 @@ export function ProjectProtocoloDrawer({
                 {totalEtapas > 0 && (
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                     {etapasConcluidas}/{totalEtapas}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="prazos" className="gap-2">
+                <Clock className="w-4 h-4" />
+                Prazos
+                {prazosVinculados.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {prazosVinculados.filter(p => !p.completed).length}/{prazosVinculados.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -459,6 +497,74 @@ export function ProjectProtocoloDrawer({
                   processoOabId={protocolo.processoOabId}
                   onVinculoChange={() => refetchVinculo()}
                 />
+              </TabsContent>
+
+              <TabsContent value="prazos" className="p-4 m-0 space-y-4">
+                {loadingPrazos ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : prazosVinculados.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum prazo vinculado às etapas</p>
+                    <p className="text-xs mt-1">Crie prazos nas etapas do protocolo</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Prazos Pendentes */}
+                    {prazosVinculados.filter(p => !p.completed).length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-orange-500" />
+                          Pendentes ({prazosVinculados.filter(p => !p.completed).length})
+                        </h4>
+                        <div className="space-y-2">
+                          {prazosVinculados.filter(p => !p.completed).map(prazo => (
+                            <div key={prazo.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{prazo.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}
+                                </p>
+                              </div>
+                              <Badge variant={isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "destructive" : "outline"}>
+                                {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "Atrasado" : isToday(new Date(prazo.date)) ? "Hoje" : "Pendente"}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Prazos Concluídos */}
+                    {prazosVinculados.filter(p => p.completed).length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          Concluídos ({prazosVinculados.filter(p => p.completed).length})
+                        </h4>
+                        <div className="space-y-2">
+                          {prazosVinculados.filter(p => p.completed).map(prazo => (
+                            <div key={prazo.id} className="flex items-center gap-3 p-3 rounded-lg border bg-green-500/5">
+                              <Calendar className="h-4 w-4 text-green-500" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium line-through opacity-70">{prazo.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                                Concluído
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="historico" className="p-4 m-0">
