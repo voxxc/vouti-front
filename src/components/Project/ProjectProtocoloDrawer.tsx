@@ -90,37 +90,23 @@ export function ProjectProtocoloDrawer({
   const [newEtapaNome, setNewEtapaNome] = useState('');
   const [addingEtapa, setAddingEtapa] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<ProjectProtocoloEtapa | null>(null);
+  const [togglingEtapaId, setTogglingEtapaId] = useState<string | null>(null);
 
-  // Sincroniza selectedEtapa quando as etapas do protocolo mudam (atualização otimista)
+  // Sincroniza selectedEtapa quando as etapas do protocolo mudam
   useEffect(() => {
     if (selectedEtapa && protocolo?.etapas) {
       const updatedEtapa = protocolo.etapas.find(e => e.id === selectedEtapa.id);
-      console.log('[ProjectProtocoloDrawer] useEffect sync - selectedEtapa.id:', selectedEtapa.id, 
-        'updatedEtapa encontrada:', !!updatedEtapa,
-        'nome atual:', updatedEtapa?.nome
-      );
       if (updatedEtapa) {
-        // Sempre sincroniza com a versão mais recente (comparação por referência)
+        // Sempre sincroniza com a versão mais recente
         if (updatedEtapa !== selectedEtapa) {
-          console.log('[ProjectProtocoloDrawer] Atualizando selectedEtapa com nova referência');
           setSelectedEtapa(updatedEtapa);
         }
       } else {
         // Etapa foi deletada - fecha a modal
-        console.log('[ProjectProtocoloDrawer] Etapa não encontrada, fechando modal');
         setSelectedEtapa(null);
       }
     }
   }, [protocolo?.etapas, protocolo?.id, selectedEtapa?.id]);
-
-  // Log para debug - mostra quando protocolo.etapas muda
-  useEffect(() => {
-    if (protocolo?.etapas) {
-      console.log('[ProjectProtocoloDrawer] protocolo.etapas atualizado:', 
-        protocolo.etapas.map(e => `${e.id.slice(0,8)}:${e.nome}`).join(' | ')
-      );
-    }
-  }, [protocolo?.etapas]);
 
   if (!protocolo) return null;
 
@@ -164,11 +150,16 @@ export function ProjectProtocoloDrawer({
   };
 
   const handleToggleEtapa = async (etapa: ProjectProtocoloEtapa) => {
-    const newStatus = etapa.status === 'concluido' ? 'pendente' : 'concluido';
-    await onUpdateEtapa(etapa.id, { 
-      status: newStatus,
-      dataConclusao: newStatus === 'concluido' ? new Date() : undefined
-    });
+    setTogglingEtapaId(etapa.id);
+    try {
+      const newStatus = etapa.status === 'concluido' ? 'pendente' : 'concluido';
+      await onUpdateEtapa(etapa.id, { 
+        status: newStatus,
+        dataConclusao: newStatus === 'concluido' ? new Date() : undefined
+      });
+    } finally {
+      setTogglingEtapaId(null);
+    }
   };
 
   const handleDeleteEtapa = async (etapaId: string) => {
@@ -354,15 +345,19 @@ export function ProjectProtocoloDrawer({
                     {protocolo.etapas.map((etapa) => (
                       <div 
                         key={etapa.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer hover:bg-accent/50 ${
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer hover:bg-accent/50 relative ${
                           etapa.status === 'concluido' ? 'bg-green-500/5 border-green-500/20' : 'bg-card'
                         }`}
                       >
-                        <Checkbox
-                          checked={etapa.status === 'concluido'}
-                          onCheckedChange={() => handleToggleEtapa(etapa)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        {togglingEtapaId === etapa.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        ) : (
+                          <Checkbox
+                            checked={etapa.status === 'concluido'}
+                            onCheckedChange={() => handleToggleEtapa(etapa)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
                         <div 
                           className="flex-1"
                           onClick={() => setSelectedEtapa(etapa)}
