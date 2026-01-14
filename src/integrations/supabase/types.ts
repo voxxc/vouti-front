@@ -3957,12 +3957,52 @@ export type Database = {
           },
         ]
       }
+      project_etapa_comment_mentions: {
+        Row: {
+          comment_id: string
+          created_at: string | null
+          id: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_etapa_comment_mentions_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "project_etapa_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_etapa_comment_mentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_etapa_comments: {
         Row: {
           comment_text: string
           created_at: string | null
           etapa_id: string
           id: string
+          parent_comment_id: string | null
           tenant_id: string | null
           updated_at: string | null
           user_id: string
@@ -3972,6 +4012,7 @@ export type Database = {
           created_at?: string | null
           etapa_id: string
           id?: string
+          parent_comment_id?: string | null
           tenant_id?: string | null
           updated_at?: string | null
           user_id: string
@@ -3981,6 +4022,7 @@ export type Database = {
           created_at?: string | null
           etapa_id?: string
           id?: string
+          parent_comment_id?: string | null
           tenant_id?: string | null
           updated_at?: string | null
           user_id?: string
@@ -3991,6 +4033,13 @@ export type Database = {
             columns: ["etapa_id"]
             isOneToOne: false
             referencedRelation: "project_protocolo_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_etapa_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "project_etapa_comments"
             referencedColumns: ["id"]
           },
           {

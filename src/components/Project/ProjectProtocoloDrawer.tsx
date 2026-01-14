@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -58,6 +57,7 @@ interface ProjectProtocoloDrawerProps {
   onAddEtapa: (protocoloId: string, data: CreateEtapaData) => Promise<void>;
   onUpdateEtapa: (id: string, data: any) => Promise<void>;
   onDeleteEtapa: (id: string) => Promise<void>;
+  projectId?: string;
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -82,13 +82,32 @@ export function ProjectProtocoloDrawer({
   onDelete,
   onAddEtapa,
   onUpdateEtapa,
-  onDeleteEtapa
+  onDeleteEtapa,
+  projectId
 }: ProjectProtocoloDrawerProps) {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [newEtapaNome, setNewEtapaNome] = useState('');
   const [addingEtapa, setAddingEtapa] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<ProjectProtocoloEtapa | null>(null);
+
+  // Sincroniza selectedEtapa quando as etapas do protocolo mudam (atualização otimista)
+  useEffect(() => {
+    if (selectedEtapa && protocolo?.etapas) {
+      const updatedEtapa = protocolo.etapas.find(e => e.id === selectedEtapa.id);
+      if (updatedEtapa) {
+        // Só atualiza se houver diferenças
+        const hasChanges = 
+          updatedEtapa.nome !== selectedEtapa.nome ||
+          updatedEtapa.descricao !== selectedEtapa.descricao ||
+          updatedEtapa.status !== selectedEtapa.status;
+        
+        if (hasChanges) {
+          setSelectedEtapa(updatedEtapa);
+        }
+      }
+    }
+  }, [protocolo?.etapas, selectedEtapa?.id]);
 
   if (!protocolo) return null;
 
@@ -404,6 +423,8 @@ export function ProjectProtocoloDrawer({
         onOpenChange={(open) => !open && setSelectedEtapa(null)}
         onUpdate={onUpdateEtapa}
         onDelete={onDeleteEtapa}
+        protocoloId={protocolo.id}
+        projectId={projectId}
       />
     </>
   );
