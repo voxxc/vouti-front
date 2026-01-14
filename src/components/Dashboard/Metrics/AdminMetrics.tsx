@@ -29,7 +29,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       const [projectsRes, leadsRes, processosRes, deadlinesRes, protocolosRes] = await Promise.all([
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.from('leads_captacao').select('id, status', { count: 'exact' }),
-        supabase.from('controladoria_processos').select('id', { count: 'exact', head: true }),
+        supabase.from('processos_oab').select('id', { count: 'exact', head: true }),
         supabase.from('deadlines').select('id', { count: 'exact', head: true }).eq('completed', false),
         supabase.from('project_protocolos').select('id, status, data_previsao')
       ]);
