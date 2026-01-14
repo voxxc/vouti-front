@@ -4281,6 +4281,7 @@ export type Database = {
           id: string
           nome: string
           observacoes: string | null
+          processo_oab_id: string | null
           project_id: string
           responsavel_id: string | null
           status: string | null
@@ -4298,6 +4299,7 @@ export type Database = {
           id?: string
           nome: string
           observacoes?: string | null
+          processo_oab_id?: string | null
           project_id: string
           responsavel_id?: string | null
           status?: string | null
@@ -4315,6 +4317,7 @@ export type Database = {
           id?: string
           nome?: string
           observacoes?: string | null
+          processo_oab_id?: string | null
           project_id?: string
           responsavel_id?: string | null
           status?: string | null
@@ -4323,6 +4326,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "project_protocolos_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_protocolos_project_id_fkey"
             columns: ["project_id"]
