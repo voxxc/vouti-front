@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 export interface ProjectProtocolo {
   id: string;
   projectId: string;
+  workspaceId?: string;
   nome: string;
   descricao?: string;
   status: 'pendente' | 'em_andamento' | 'concluido' | 'cancelado';
@@ -49,7 +50,7 @@ export interface CreateEtapaData {
   responsavelId?: string;
 }
 
-export function useProjectProtocolos(projectId: string) {
+export function useProjectProtocolos(projectId: string, workspaceId?: string | null) {
   const [protocolos, setProtocolos] = useState<ProjectProtocolo[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -60,14 +61,22 @@ export function useProjectProtocolos(projectId: string) {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('project_protocolos')
         .select(`
           *,
           etapas:project_protocolo_etapas(*)
         `)
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
+        .eq('project_id', projectId);
+
+      // Filtrar por workspace se fornecido
+      if (workspaceId) {
+        query = query.eq('workspace_id', workspaceId);
+      } else {
+        query = query.is('workspace_id', null);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -92,6 +101,7 @@ export function useProjectProtocolos(projectId: string) {
       const mappedProtocolos: ProjectProtocolo[] = (data || []).map(p => ({
         id: p.id,
         projectId: p.project_id,
+        workspaceId: p.workspace_id,
         nome: p.nome,
         descricao: p.descricao,
         status: p.status as ProjectProtocolo['status'],
@@ -130,7 +140,7 @@ export function useProjectProtocolos(projectId: string) {
     } finally {
       setLoading(false);
     }
-  }, [projectId, toast]);
+  }, [projectId, workspaceId, toast]);
 
   useEffect(() => {
     fetchProtocolos();
@@ -151,6 +161,7 @@ export function useProjectProtocolos(projectId: string) {
         .from('project_protocolos')
         .insert({
           project_id: projectId,
+          workspace_id: workspaceId || null,
           nome: data.nome,
           descricao: data.descricao,
           responsavel_id: data.responsavelId,
