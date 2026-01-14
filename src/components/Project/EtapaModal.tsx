@@ -649,7 +649,7 @@ export function EtapaModal({
               </TabsContent>
 
               {/* Histórico Tab */}
-              <TabsContent value="historico" className="m-0">
+              <TabsContent value="historico" className="m-0 h-full">
                 {loading ? (
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -660,17 +660,17 @@ export function EtapaModal({
                     <p>Nenhuma atividade registrada</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 pr-4">
                     {history.map((entry) => (
                       <div key={entry.id} className="flex gap-3 text-sm">
                         <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                        <div className="flex-1">
-                          <p>
+                        <div className="flex-1 min-w-0">
+                          <p className="break-words">
                             <span className="font-medium">{entry.userName}</span>
                             <span className="text-muted-foreground"> • {entry.action}</span>
                           </p>
                           {entry.details && (
-                            <p className="text-muted-foreground text-xs mt-0.5">{entry.details}</p>
+                            <p className="text-muted-foreground text-xs mt-0.5 break-words">{entry.details}</p>
                           )}
                           <p className="text-xs text-muted-foreground">
                             {format(entry.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
