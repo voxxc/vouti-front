@@ -275,8 +275,8 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-lg">
-        <SheetHeader className="mb-4">
+      <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col h-full">
+        <SheetHeader className="mb-4 flex-shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
             Histórico do Projeto
@@ -304,9 +304,9 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="flex flex-col flex-1 min-h-0 gap-4">
           {/* Filters */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -337,7 +337,7 @@ const ProjectHistoryDrawer = ({ projectId, isOpen, onClose }: ProjectHistoryDraw
           </div>
 
           {/* History List */}
-          <ScrollArea className="h-[calc(100vh-200px)]">
+          <ScrollArea className="flex-1 min-h-0">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
