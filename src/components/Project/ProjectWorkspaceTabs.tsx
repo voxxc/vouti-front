@@ -153,22 +153,22 @@ export function ProjectWorkspaceTabs({
                     <span className="max-w-[120px] truncate">{workspace.nome}</span>
                   </Button>
                   
-                  {!workspace.isDefault && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -ml-2"
-                        >
-                          <MoreVertical className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => handleStartEdit(workspace)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Renomear
-                        </DropdownMenuItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -ml-2"
+                      >
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => handleStartEdit(workspace)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Renomear
+                      </DropdownMenuItem>
+                      {!workspace.isDefault && (
                         <DropdownMenuItem 
                           onClick={() => setDeleteConfirmId(workspace.id)}
                           className="text-destructive focus:text-destructive"
@@ -176,9 +176,9 @@ export function ProjectWorkspaceTabs({
                           <Trash2 className="h-4 w-4 mr-2" />
                           Excluir
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </div>
