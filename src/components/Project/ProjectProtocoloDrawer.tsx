@@ -45,14 +45,17 @@ import {
   User,
   CheckCircle2,
   Printer,
-  Settings
+  Settings,
+  Link2
 } from 'lucide-react';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
+import { useProtocoloVinculo } from '@/hooks/useProtocoloVinculo';
 import { EtapaModal } from './EtapaModal';
 import { ConcluirEtapaModal } from './ConcluirEtapaModal';
 import { RelatorioProtocolo } from './RelatorioProtocolo';
 import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
+import { ProtocoloVinculoTab } from './ProtocoloVinculoTab';
 
 interface ProjectProtocoloDrawerProps {
   protocolo: ProjectProtocolo | null;
@@ -108,6 +111,12 @@ export function ProjectProtocoloDrawer({
   
   // Hook para perfil do advogado
   const { advogado, refetch: refetchAdvogado } = useProjectAdvogado(projectId || '');
+  
+  // Hook para vínculo com processo
+  const { processoVinculado, refetch: refetchVinculo } = useProtocoloVinculo(
+    protocolo?.id || null, 
+    protocolo?.processoOabId
+  );
 
   // Sincroniza selectedEtapa quando as etapas do protocolo mudam
   useEffect(() => {
@@ -246,6 +255,10 @@ export function ProjectProtocoloDrawer({
                     {etapasConcluidas}/{totalEtapas}
                   </Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="vinculo" className="gap-2">
+                <Link2 className="w-4 h-4" />
+                Vínculo
               </TabsTrigger>
               <TabsTrigger value="historico" className="gap-2">
                 <History className="w-4 h-4" />
@@ -440,6 +453,14 @@ export function ProjectProtocoloDrawer({
                 )}
               </TabsContent>
 
+              <TabsContent value="vinculo" className="p-4 m-0">
+                <ProtocoloVinculoTab
+                  protocoloId={protocolo.id}
+                  processoOabId={protocolo.processoOabId}
+                  onVinculoChange={() => refetchVinculo()}
+                />
+              </TabsContent>
+
               <TabsContent value="historico" className="p-4 m-0">
                 <div className="text-center py-8 text-muted-foreground">
                   <History className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -482,10 +503,15 @@ export function ProjectProtocoloDrawer({
                   </p>
                   <ul className="text-sm space-y-1 text-muted-foreground">
                     <li>• Dados do advogado (logo, nome, contato)</li>
-                    <li>• Informações do protocolo</li>
-                    <li>• Timeline de etapas concluídas ({etapasConcluidas} etapa{etapasConcluidas !== 1 ? 's' : ''})</li>
+                    {processoVinculado && <li>• Dados do processo vinculado</li>}
+                    <li>• Histórico do protocolo ({etapasConcluidas} etapa{etapasConcluidas !== 1 ? 's' : ''} concluída{etapasConcluidas !== 1 ? 's' : ''})</li>
                     <li>• Comentários de conclusão de cada etapa</li>
                   </ul>
+                  {!processoVinculado && (
+                    <p className="text-xs text-amber-600">
+                      Dica: Vincule um processo na aba "Vínculo" para incluir dados do processo no relatório.
+                    </p>
+                  )}
                 </div>
 
                 {/* Botão Gerar Relatório */}
@@ -556,6 +582,7 @@ export function ProjectProtocoloDrawer({
           onOpenChange={setShowRelatorioModal}
           protocolo={protocolo}
           advogado={advogado}
+          processoVinculado={processoVinculado}
         />
       )}
 

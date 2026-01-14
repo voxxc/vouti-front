@@ -15,6 +15,7 @@ export interface ProjectProtocolo {
   dataPrevisao?: Date;
   dataConclusao?: Date;
   observacoes?: string;
+  processoOabId?: string | null;
   etapas?: ProjectProtocoloEtapa[];
   createdBy: string;
   createdAt: Date;
@@ -112,6 +113,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
         dataPrevisao: p.data_previsao ? new Date(p.data_previsao) : undefined,
         dataConclusao: p.data_conclusao ? new Date(p.data_conclusao) : undefined,
         observacoes: p.observacoes,
+        processoOabId: p.processo_oab_id,
         etapas: (p.etapas || []).map((e: any) => ({
           id: e.id,
           protocoloId: e.protocolo_id,
