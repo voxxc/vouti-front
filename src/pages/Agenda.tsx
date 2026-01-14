@@ -137,22 +137,29 @@ const Agenda = () => {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (user) {
-      fetchProjects();
-      fetchDeadlines();
-      checkIfAdmin();
-    }
+    const loadInitialData = async () => {
+      if (!user) return;
+      
+      // Carregar projects, deadlines e admin status em paralelo
+      const [projectsPromise, deadlinesPromise, adminPromise] = await Promise.all([
+        fetchProjectsAsync(),
+        fetchDeadlinesAsync(),
+        checkIfUserIsAdminOrController(user.id)
+      ]);
+      
+      setIsAdmin(adminPromise);
+    };
+    
+    loadInitialData();
   }, [user]);
 
   useEffect(() => {
-    console.log('[Agenda] Admin check - isAdmin:', isAdmin, 'tenantId:', tenantId);
     if (isAdmin && tenantId) {
-      console.log('[Agenda] Calling fetchAllUsers...');
       fetchAllUsers();
     }
   }, [isAdmin, tenantId]);
 
-  const fetchProjects = async () => {
+  const fetchProjectsAsync = async () => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -161,11 +168,6 @@ const Agenda = () => {
 
       if (error) {
         console.error('Error fetching projects:', error);
-        toast({
-          title: "Erro",
-          description: "Nao foi possivel carregar os projetos.",
-          variant: "destructive",
-        });
         return;
       }
 
@@ -182,17 +184,14 @@ const Agenda = () => {
       }));
 
       setProjects(mappedProjects);
+      return mappedProjects;
     } catch (error) {
       console.error('Error:', error);
-      toast({
-        title: "Erro",
-        description: "Erro inesperado ao carregar projetos.",
-        variant: "destructive",
-      });
+      return [];
     }
   };
 
-  const fetchDeadlines = async () => {
+  const fetchDeadlinesAsync = async () => {
     try {
       const { data, error } = await supabase
         .from('deadlines')
@@ -220,11 +219,6 @@ const Agenda = () => {
 
       if (error) {
         console.error('[Agenda] Error fetching deadlines:', error);
-        toast({
-          title: "Erro",
-          description: "Nao foi possivel carregar os prazos.",
-          variant: "destructive",
-        });
         return;
       }
 
@@ -255,15 +249,16 @@ const Agenda = () => {
       }));
 
       setDeadlines(mappedDeadlines);
+      return mappedDeadlines;
     } catch (error) {
       console.error('[Agenda] Error:', error);
-      toast({
-        title: "Erro",
-        description: "Erro inesperado ao carregar prazos.",
-        variant: "destructive",
-      });
+      return [];
     }
   };
+
+  // Mantém a função original para refresh manual
+  const fetchProjects = () => fetchProjectsAsync();
+  const fetchDeadlines = () => fetchDeadlinesAsync();
 
   const filteredDeadlines = deadlines.filter(deadline =>
     deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
