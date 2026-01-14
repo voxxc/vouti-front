@@ -1,9 +1,10 @@
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Bell, Scale, Building2, RefreshCw } from "lucide-react";
+import { FileText, Bell, Scale, Building2, RefreshCw, ClipboardCheck } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
+import { CentralPrazos } from "@/components/Controladoria/CentralPrazos";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -100,8 +101,12 @@ const Controladoria = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="minhas-oabs" className="space-y-4">
+        <Tabs defaultValue="central" className="space-y-4">
           <TabsList>
+            <TabsTrigger value="central">
+              <ClipboardCheck className="mr-2 h-4 w-4" />
+              Central
+            </TabsTrigger>
             <TabsTrigger value="minhas-oabs">
               <Scale className="mr-2 h-4 w-4" />
               OABs
@@ -111,6 +116,14 @@ const Controladoria = () => {
               Push-Doc
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="central">
+            <Card>
+              <CardContent className="pt-6">
+                <CentralPrazos />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="minhas-oabs">
             <Card>
