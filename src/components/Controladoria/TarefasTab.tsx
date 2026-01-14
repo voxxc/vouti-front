@@ -233,6 +233,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
               date: dataExecucao,
               project_id: novaTarefaProjetoId,
               processo_oab_id: processo.id,
+              advogado_responsavel_id: novaTarefaResponsavelId,
             })
             .select('id')
             .single();
@@ -371,6 +372,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
           date: format(prazoData, 'yyyy-MM-dd'),
           project_id: prazoProjetoId,
           processo_oab_id: processo.id,
+          advogado_responsavel_id: prazoResponsavelId,
         })
         .select('id')
         .single();
