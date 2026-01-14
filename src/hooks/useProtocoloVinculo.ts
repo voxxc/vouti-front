@@ -156,3 +156,4 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
     refetch: fetchProcessoVinculado,
   };
 };
+
