@@ -3851,6 +3851,66 @@ export type Database = {
           },
         ]
       }
+      project_advogados: {
+        Row: {
+          cep_advogado: string | null
+          cidade_advogado: string | null
+          created_at: string | null
+          email_advogado: string | null
+          endereco_advogado: string | null
+          id: string
+          logo_url: string | null
+          nome_advogado: string | null
+          project_id: string
+          telefone_advogado: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cep_advogado?: string | null
+          cidade_advogado?: string | null
+          created_at?: string | null
+          email_advogado?: string | null
+          endereco_advogado?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_advogado?: string | null
+          project_id: string
+          telefone_advogado?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cep_advogado?: string | null
+          cidade_advogado?: string | null
+          created_at?: string | null
+          email_advogado?: string | null
+          endereco_advogado?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_advogado?: string | null
+          project_id?: string
+          telefone_advogado?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_advogados_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_advogados_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_collaborators: {
         Row: {
           added_at: string
@@ -4152,6 +4212,7 @@ export type Database = {
       }
       project_protocolo_etapas: {
         Row: {
+          comentario_conclusao: string | null
           created_at: string | null
           data_conclusao: string | null
           descricao: string | null
@@ -4165,6 +4226,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          comentario_conclusao?: string | null
           created_at?: string | null
           data_conclusao?: string | null
           descricao?: string | null
@@ -4178,6 +4240,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          comentario_conclusao?: string | null
           created_at?: string | null
           data_conclusao?: string | null
           descricao?: string | null

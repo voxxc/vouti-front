@@ -32,6 +32,7 @@ export interface ProjectProtocoloEtapa {
   responsavelId?: string;
   responsavelNome?: string;
   dataConclusao?: Date;
+  comentarioConclusao?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -120,6 +121,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
           ordem: e.ordem,
           responsavelId: e.responsavel_id,
           dataConclusao: e.data_conclusao ? new Date(e.data_conclusao) : undefined,
+          comentarioConclusao: e.comentario_conclusao,
           createdAt: new Date(e.created_at),
           updatedAt: new Date(e.updated_at)
         })).sort((a: ProjectProtocoloEtapa, b: ProjectProtocoloEtapa) => a.ordem - b.ordem),
@@ -313,7 +315,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
     }
   };
 
-  const updateEtapa = async (id: string, data: Partial<CreateEtapaData> & { status?: ProjectProtocoloEtapa['status']; dataConclusao?: Date }) => {
+  const updateEtapa = async (id: string, data: Partial<CreateEtapaData> & { status?: ProjectProtocoloEtapa['status']; dataConclusao?: Date; comentarioConclusao?: string }) => {
     // Atualização otimista - atualiza o estado local ANTES da resposta do banco
     // Usa !== undefined para permitir valores null (ex: limpar descrição)
     setProtocolos(prev => prev.map(protocolo => ({
@@ -327,6 +329,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
               status: data.status !== undefined ? data.status : etapa.status,
               responsavelId: data.responsavelId !== undefined ? data.responsavelId : etapa.responsavelId,
               dataConclusao: data.dataConclusao !== undefined ? data.dataConclusao : etapa.dataConclusao,
+              comentarioConclusao: data.comentarioConclusao !== undefined ? data.comentarioConclusao : etapa.comentarioConclusao,
               updatedAt: new Date()
             } 
           : etapa
@@ -342,6 +345,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       if (data.responsavelId !== undefined) updateData.responsavel_id = data.responsavelId;
       if (data.status !== undefined) updateData.status = data.status;
       if (data.dataConclusao !== undefined) updateData.data_conclusao = data.dataConclusao?.toISOString() || null;
+      if (data.comentarioConclusao !== undefined) updateData.comentario_conclusao = data.comentarioConclusao;
 
       const { error } = await supabase
         .from('project_protocolo_etapas')
