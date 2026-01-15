@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   FileText, 
   ListChecks, 
@@ -52,7 +53,9 @@ import {
   Clock,
   AlertCircle,
   Info,
-  MessageSquare
+  MessageSquare,
+  Pencil,
+  Save
 } from 'lucide-react';
 import { isPast, isToday } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,6 +117,13 @@ export function ProjectProtocoloDrawer({
   const [addingEtapa, setAddingEtapa] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<ProjectProtocoloEtapa | null>(null);
   const [togglingEtapaId, setTogglingEtapaId] = useState<string | null>(null);
+  
+  // Estados para modo de edição
+  const [isEditing, setIsEditing] = useState(false);
+  const [editNome, setEditNome] = useState('');
+  const [editDescricao, setEditDescricao] = useState('');
+  const [editDataPrevisao, setEditDataPrevisao] = useState('');
+  const [editObservacoes, setEditObservacoes] = useState('');
   
   // Estados para modal de conclusão
   const [etapaToComplete, setEtapaToComplete] = useState<ProjectProtocoloEtapa | null>(null);
@@ -347,6 +357,40 @@ export function ProjectProtocoloDrawer({
     await onDeleteEtapa(etapaId);
   };
 
+  // Funções de edição do protocolo
+  const startEditing = () => {
+    setEditNome(protocolo.nome);
+    setEditDescricao(protocolo.descricao || '');
+    setEditDataPrevisao(protocolo.dataPrevisao ? format(protocolo.dataPrevisao, 'yyyy-MM-dd') : '');
+    setEditObservacoes(protocolo.observacoes || '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditNome('');
+    setEditDescricao('');
+    setEditDataPrevisao('');
+    setEditObservacoes('');
+  };
+
+  const saveEditing = async () => {
+    if (!editNome.trim()) return;
+    
+    setSaving(true);
+    try {
+      await onUpdate(protocolo.id, {
+        nome: editNome.trim(),
+        descricao: editDescricao.trim() || null,
+        dataPrevisao: editDataPrevisao ? new Date(editDataPrevisao + 'T12:00:00') : null,
+        observacoes: editObservacoes.trim() || null
+      });
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
@@ -413,100 +457,186 @@ export function ProjectProtocoloDrawer({
 
             <ScrollArea className="h-[50vh]">
               <TabsContent value="resumo" className="p-4 m-0 space-y-6">
-                {/* Descrição */}
-                {protocolo.descricao && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
-                    <p className="mt-1">{protocolo.descricao}</p>
+                {isEditing ? (
+                  // Modo de Edição
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-nome">Nome do Protocolo *</Label>
+                      <Input
+                        id="edit-nome"
+                        value={editNome}
+                        onChange={(e) => setEditNome(e.target.value)}
+                        placeholder="Nome do protocolo"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-descricao">Descrição</Label>
+                      <Textarea
+                        id="edit-descricao"
+                        value={editDescricao}
+                        onChange={(e) => setEditDescricao(e.target.value)}
+                        placeholder="Descrição do protocolo"
+                        disabled={saving}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-previsao">Data de Previsão</Label>
+                      <Input
+                        id="edit-previsao"
+                        type="date"
+                        value={editDataPrevisao}
+                        onChange={(e) => setEditDataPrevisao(e.target.value)}
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-observacoes">Observações</Label>
+                      <Textarea
+                        id="edit-observacoes"
+                        value={editObservacoes}
+                        onChange={(e) => setEditObservacoes(e.target.value)}
+                        placeholder="Observações adicionais"
+                        disabled={saving}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={cancelEditing}
+                        disabled={saving}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar
+                      </Button>
+                      <Button 
+                        className="flex-1"
+                        onClick={saveEditing}
+                        disabled={saving || !editNome.trim()}
+                      >
+                        {saving ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        Salvar Alterações
+                      </Button>
+                    </div>
                   </div>
+                ) : (
+                  // Modo de Visualização
+                  <>
+                    {/* Botão Editar */}
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" onClick={startEditing}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                    </div>
+
+                    {/* Descrição */}
+                    {protocolo.descricao && (
+                      <div>
+                        <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
+                        <p className="mt-1">{protocolo.descricao}</p>
+                      </div>
+                    )}
+
+                    {/* Informações */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Data de Início
+                        </Label>
+                        <p className="mt-1 font-medium">
+                          {format(protocolo.dataInicio, "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                      
+                      {protocolo.dataPrevisao && (
+                        <div>
+                          <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Previsão
+                          </Label>
+                          <p className="mt-1 font-medium">
+                            {format(protocolo.dataPrevisao, "dd/MM/yyyy", { locale: ptBR })}
+                          </p>
+                        </div>
+                      )}
+
+                      {protocolo.dataConclusao && (
+                        <div>
+                          <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Concluído em
+                          </Label>
+                          <p className="mt-1 font-medium">
+                            {format(protocolo.dataConclusao, "dd/MM/yyyy", { locale: ptBR })}
+                          </p>
+                        </div>
+                      )}
+
+                      {protocolo.responsavelNome && (
+                        <div>
+                          <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            Responsável
+                          </Label>
+                          <p className="mt-1 font-medium">{protocolo.responsavelNome}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Observações */}
+                    {protocolo.observacoes && (
+                      <div>
+                        <Label className="text-muted-foreground text-xs uppercase">Observações</Label>
+                        <p className="mt-1 text-sm">{protocolo.observacoes}</p>
+                      </div>
+                    )}
+
+                    {/* Ações */}
+                    <div className="pt-4 border-t space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground text-xs uppercase mb-2 block">Alterar Status</Label>
+                        <Select 
+                          value={protocolo.status} 
+                          onValueChange={(value) => handleStatusChange(value as ProjectProtocolo['status'])}
+                          disabled={saving}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pendente">Pendente</SelectItem>
+                            <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                            <SelectItem value="concluido">Concluído</SelectItem>
+                            <SelectItem value="cancelado">Cancelado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Button 
+                        variant="destructive" 
+                        className="w-full"
+                        onClick={() => setDeleteConfirm(true)}
+                        disabled={saving}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir Protocolo
+                      </Button>
+                    </div>
+                  </>
                 )}
-
-                {/* Informações */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Data de Início
-                    </Label>
-                    <p className="mt-1 font-medium">
-                      {format(protocolo.dataInicio, "dd/MM/yyyy", { locale: ptBR })}
-                    </p>
-                  </div>
-                  
-                  {protocolo.dataPrevisao && (
-                    <div>
-                      <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Previsão
-                      </Label>
-                      <p className="mt-1 font-medium">
-                        {format(protocolo.dataPrevisao, "dd/MM/yyyy", { locale: ptBR })}
-                      </p>
-                    </div>
-                  )}
-
-                  {protocolo.dataConclusao && (
-                    <div>
-                      <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Concluído em
-                      </Label>
-                      <p className="mt-1 font-medium">
-                        {format(protocolo.dataConclusao, "dd/MM/yyyy", { locale: ptBR })}
-                      </p>
-                    </div>
-                  )}
-
-                  {protocolo.responsavelNome && (
-                    <div>
-                      <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        Responsável
-                      </Label>
-                      <p className="mt-1 font-medium">{protocolo.responsavelNome}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Observações */}
-                {protocolo.observacoes && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs uppercase">Observações</Label>
-                    <p className="mt-1 text-sm">{protocolo.observacoes}</p>
-                  </div>
-                )}
-
-                {/* Ações */}
-                <div className="pt-4 border-t space-y-3">
-                  <div>
-                    <Label className="text-muted-foreground text-xs uppercase mb-2 block">Alterar Status</Label>
-                    <Select 
-                      value={protocolo.status} 
-                      onValueChange={(value) => handleStatusChange(value as ProjectProtocolo['status'])}
-                      disabled={saving}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pendente">Pendente</SelectItem>
-                        <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                        <SelectItem value="concluido">Concluído</SelectItem>
-                        <SelectItem value="cancelado">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button 
-                    variant="destructive" 
-                    className="w-full"
-                    onClick={() => setDeleteConfirm(true)}
-                    disabled={saving}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir Protocolo
-                  </Button>
-                </div>
               </TabsContent>
 
               <TabsContent value="etapas" className="p-4 m-0 space-y-4">
