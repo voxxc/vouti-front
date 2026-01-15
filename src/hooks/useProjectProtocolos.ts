@@ -72,11 +72,11 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
         .eq('project_id', projectId);
 
       // Filtrar por workspace se fornecido
+      // Na aba principal (sem workspace), mostra TODOS os protocolos
       if (workspaceId) {
         query = query.eq('workspace_id', workspaceId);
-      } else {
-        query = query.is('workspace_id', null);
       }
+      // Se workspaceId for null/undefined, não aplica filtro - mostra todos
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
