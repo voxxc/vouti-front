@@ -47,6 +47,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       nome_pessoa_juridica: cliente.nome_pessoa_juridica || '',
       cpf: cliente.cpf || '',
       cnpj: cliente.cnpj || '',
+      cnh: cliente.cnh || '',
       telefone: cliente.telefone || '',
       email: cliente.email || '',
       data_nascimento: cliente.data_nascimento || '',
@@ -73,6 +74,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       status_cliente: 'ativo',
       cpf: '',
       cnpj: '',
+      cnh: '',
       profissao: '',
       uf: '',
     },
@@ -112,6 +114,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       nome_pessoa_juridica: data.nome_pessoa_juridica || undefined,
       cpf: data.cpf || undefined,
       cnpj: data.cnpj || undefined,
+      cnh: data.cnh || undefined,
       telefone: data.telefone || undefined,
       email: data.email || undefined,
       data_nascimento: data.data_nascimento || undefined,
@@ -240,6 +243,19 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             {errors.cnpj && (
               <p className="text-sm text-destructive">{errors.cnpj.message}</p>
             )}
+          </div>
+
+          {/* CNH - opcional */}
+          <div className="space-y-2">
+            <Label htmlFor="cnh">
+              CNH <span className="text-xs text-muted-foreground">(opcional)</span>
+            </Label>
+            <Input 
+              id="cnh" 
+              {...register('cnh')} 
+              placeholder="00000000000"
+              maxLength={11}
+            />
           </div>
 
           <div className="space-y-2">
