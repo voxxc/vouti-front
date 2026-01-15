@@ -18,12 +18,22 @@ interface ProcessoVinculado extends ProcessoOAB {
   oab?: OABCadastrada;
 }
 
+interface TarefaOAB {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  fase: string | null;
+  data_execucao: string;
+  observacoes: string | null;
+}
+
 interface RelatorioProtocoloProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   protocolo: ProjectProtocolo;
   advogado: ProjectAdvogado | null;
   processoVinculado?: ProcessoVinculado | null;
+  tarefasProcesso?: TarefaOAB[];
 }
 
 export function RelatorioProtocolo({
@@ -32,6 +42,7 @@ export function RelatorioProtocolo({
   protocolo,
   advogado,
   processoVinculado,
+  tarefasProcesso,
 }: RelatorioProtocoloProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +172,9 @@ export function RelatorioProtocolo({
               background: #22c55e;
               border: 2px solid #fff;
             }
+            .timeline-item.judicial::before {
+              background: #3b82f6;
+            }
             .timeline-title {
               font-weight: 600;
               margin: 0 0 5px 0;
@@ -172,6 +186,9 @@ export function RelatorioProtocolo({
               border-left: 3px solid #22c55e;
               font-size: 12px;
               color: #333;
+            }
+            .timeline-comment.judicial {
+              border-left: 3px solid #3b82f6;
             }
             .footer {
               margin-top: 30px;
@@ -296,6 +313,9 @@ export function RelatorioProtocolo({
                   {etapasConcluidas.map((etapa) => (
                     <div key={etapa.id} className="timeline-item">
                       <div className="timeline-title">{etapa.nome}</div>
+                      <p style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>
+                        {formatData(etapa.dataConclusao)}
+                      </p>
                       {etapa.comentarioConclusao && (
                         <div className="timeline-comment">
                           {etapa.comentarioConclusao}
@@ -306,6 +326,37 @@ export function RelatorioProtocolo({
                 </div>
               )}
             </div>
+
+            {/* Atividades Judiciais do Processo */}
+            {processoVinculado && tarefasProcesso && tarefasProcesso.length > 0 && (
+              <div className="section">
+                <div className="section-title">Atividades Judiciais</div>
+                <div className="timeline">
+                  {[...tarefasProcesso]
+                    .sort((a, b) => new Date(b.data_execucao).getTime() - new Date(a.data_execucao).getTime())
+                    .map((tarefa) => (
+                      <div key={tarefa.id} className="timeline-item judicial">
+                        <div className="timeline-title">
+                          {tarefa.fase && `[${tarefa.fase}] `}{tarefa.titulo}
+                        </div>
+                        <p style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>
+                          {formatData(tarefa.data_execucao)}
+                        </p>
+                        {(tarefa.descricao || tarefa.observacoes) && (
+                          <div className="timeline-comment judicial">
+                            {tarefa.descricao}
+                            {tarefa.observacoes && (
+                              <p style={{ marginTop: '5px', fontStyle: 'italic' }}>
+                                Obs: {tarefa.observacoes}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Rodapé */}
             <div className="footer">
