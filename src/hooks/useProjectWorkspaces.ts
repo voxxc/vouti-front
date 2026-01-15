@@ -18,6 +18,7 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
   const [workspaces, setWorkspaces] = useState<ProjectWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [defaultWorkspaceId, setDefaultWorkspaceId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchWorkspaces = useCallback(async () => {
@@ -49,10 +50,13 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
 
         setWorkspaces(mappedWorkspaces);
         
+        // Identify and set default workspace
+        const defaultWs = mappedWorkspaces.find(w => w.isDefault) || mappedWorkspaces[0];
+        setDefaultWorkspaceId(defaultWs?.id || null);
+        
         // Set active workspace to default or first
         if (!activeWorkspaceId) {
-          const defaultWorkspace = mappedWorkspaces.find(w => w.isDefault) || mappedWorkspaces[0];
-          setActiveWorkspaceId(defaultWorkspace?.id || null);
+          setActiveWorkspaceId(defaultWs?.id || null);
         }
       } else {
         // No workspaces exist, create default one
@@ -119,6 +123,7 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
 
       setWorkspaces([workspace]);
       setActiveWorkspaceId(workspace.id);
+      setDefaultWorkspaceId(workspace.id);
     } catch (error) {
       console.error('Erro ao criar workspace padrão:', error);
     }
@@ -249,6 +254,7 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
     workspaces,
     loading,
     activeWorkspaceId,
+    defaultWorkspaceId,
     setActiveWorkspaceId,
     refetch: fetchWorkspaces,
     createWorkspace,

@@ -27,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface ProjectProtocolosListProps {
   projectId: string;
   workspaceId?: string | null;
+  defaultWorkspaceId?: string | null;
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -43,8 +44,8 @@ const STATUS_COLORS: Record<ProjectProtocolo['status'], string> = {
   cancelado: 'bg-muted text-muted-foreground border-muted'
 };
 
-export function ProjectProtocolosList({ projectId, workspaceId }: ProjectProtocolosListProps) {
-  const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa } = useProjectProtocolos(projectId, workspaceId);
+export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId }: ProjectProtocolosListProps) {
+  const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [isExpanded, setIsExpanded] = useState(true);
