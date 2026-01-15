@@ -61,6 +61,8 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProjectProcessosProps {
   projectId: string;
+  workspaceId: string | null;
+  defaultWorkspaceId: string | null;
 }
 
 interface ProcessoVinculado {
@@ -317,7 +319,7 @@ const InstanciaSection = ({
   );
 };
 
-export function ProjectProcessos({ projectId }: ProjectProcessosProps) {
+export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId }: ProjectProcessosProps) {
   const [processosVinculados, setProcessosVinculados] = useState<ProcessoVinculado[]>([]);
   const [processosDisponiveis, setProcessosDisponiveis] = useState<ProcessoOAB[]>([]);
   const [loading, setLoading] = useState(true);
@@ -336,12 +338,14 @@ export function ProjectProcessos({ projectId }: ProjectProcessosProps) {
   const loadProcessosVinculados = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('project_processos')
         .select(`
           id,
           projeto_id,
           processo_oab_id,
+          workspace_id,
           ordem,
           created_at,
           processos_oab (
@@ -372,8 +376,22 @@ export function ProjectProcessos({ projectId }: ProjectProcessosProps) {
             processos_oab_andamentos!left(id, lida)
           )
         `)
-        .eq('projeto_id', projectId)
-        .order('ordem', { ascending: true });
+        .eq('projeto_id', projectId);
+
+      // CORREÇÃO: Isolar processos por workspace
+      // - Workspace padrão: mostra seus processos + órfãos (NULL)
+      // - Outros workspaces: mostra APENAS seus processos (filtro estrito)
+      if (workspaceId) {
+        if (defaultWorkspaceId && workspaceId === defaultWorkspaceId) {
+          // Workspace padrão inclui órfãos para compatibilidade
+          query = query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+        } else {
+          // Outros workspaces: filtro estrito
+          query = query.eq('workspace_id', workspaceId);
+        }
+      }
+
+      const { data, error } = await query.order('ordem', { ascending: true });
 
       if (error) throw error;
 
@@ -403,7 +421,7 @@ export function ProjectProcessos({ projectId }: ProjectProcessosProps) {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, workspaceId, defaultWorkspaceId]);
 
   useEffect(() => {
     loadProcessosVinculados();
@@ -437,6 +455,15 @@ export function ProjectProcessos({ projectId }: ProjectProcessosProps) {
 
   const handleVincularProcesso = async (processoOabId: string) => {
     try {
+      if (!workspaceId) {
+        toast({
+          title: "Erro",
+          description: "Nenhum workspace selecionado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const novaOrdem = processosVinculados.length;
       
       const { error } = await supabase
@@ -444,6 +471,7 @@ export function ProjectProcessos({ projectId }: ProjectProcessosProps) {
         .insert({
           projeto_id: projectId,
           processo_oab_id: processoOabId,
+          workspace_id: workspaceId,
           tenant_id: tenantId,
           ordem: novaOrdem
         });
