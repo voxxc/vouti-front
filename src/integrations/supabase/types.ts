@@ -4268,6 +4268,7 @@ export type Database = {
           processo_oab_id: string
           projeto_id: string
           tenant_id: string | null
+          workspace_id: string | null
         }
         Insert: {
           created_at?: string
@@ -4276,6 +4277,7 @@ export type Database = {
           processo_oab_id: string
           projeto_id: string
           tenant_id?: string | null
+          workspace_id?: string | null
         }
         Update: {
           created_at?: string
@@ -4284,6 +4286,7 @@ export type Database = {
           processo_oab_id?: string
           projeto_id?: string
           tenant_id?: string | null
+          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -4305,6 +4308,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_processos_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "project_workspaces"
             referencedColumns: ["id"]
           },
         ]
