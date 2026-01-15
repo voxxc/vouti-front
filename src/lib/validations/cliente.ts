@@ -101,6 +101,7 @@ export const clienteSchema = z.object({
     (val) => !val || validarCNPJ(val),
     { message: 'CNPJ inválido' }
   ),
+  cnh: z.string().optional(),
   telefone: z.string().min(10, 'Telefone deve ter no mínimo 10 dígitos').optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   data_nascimento: z.string().optional().or(z.literal('')),

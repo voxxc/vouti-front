@@ -34,6 +34,7 @@ export interface Cliente {
   nome_pessoa_juridica?: string;
   cpf?: string;
   cnpj?: string;
+  cnh?: string;
   telefone?: string;
   email?: string;
   data_nascimento?: string;

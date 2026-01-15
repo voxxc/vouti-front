@@ -531,6 +531,7 @@ export type Database = {
       clientes: {
         Row: {
           classificacao: string | null
+          cnh: string | null
           cnpj: string | null
           cpf: string | null
           created_at: string | null
@@ -565,6 +566,7 @@ export type Database = {
         }
         Insert: {
           classificacao?: string | null
+          cnh?: string | null
           cnpj?: string | null
           cpf?: string | null
           created_at?: string | null
@@ -599,6 +601,7 @@ export type Database = {
         }
         Update: {
           classificacao?: string | null
+          cnh?: string | null
           cnpj?: string | null
           cpf?: string | null
           created_at?: string | null
