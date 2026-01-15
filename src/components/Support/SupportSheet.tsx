@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSupportTickets, useSupportMessages, SupportTicket } from '@/hooks/useSupportTickets';
 import { useTenantId } from '@/hooks/useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -40,6 +41,8 @@ interface SupportSheetProps {
 
 export function SupportSheet({ open, onOpenChange }: SupportSheetProps) {
   const { tenantId } = useTenantId();
+  const { userRoles } = useAuth();
+  const isAdmin = userRoles.includes('admin');
   const { tickets, loading, createTicket } = useSupportTickets(false);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [newTicketDialog, setNewTicketDialog] = useState(false);
@@ -100,15 +103,17 @@ export function SupportSheet({ open, onOpenChange }: SupportSheetProps) {
             <div className="flex flex-col h-[calc(100vh-80px)]">
               {/* Buttons */}
               <div className="p-4 border-b space-y-2">
-                {/* Subscription Button - Minimalist */}
-                <Button 
-                  variant="ghost"
-                  className="w-full justify-start text-muted-foreground hover:text-foreground"
-                  onClick={() => setSubscriptionDrawerOpen(true)}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Assinatura
-                </Button>
+                {/* Subscription Button - Apenas para Admins */}
+                {isAdmin && (
+                  <Button 
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground hover:text-foreground"
+                    onClick={() => setSubscriptionDrawerOpen(true)}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Assinatura
+                  </Button>
+                )}
                 
                 {/* New Ticket Button */}
                 <Button 
