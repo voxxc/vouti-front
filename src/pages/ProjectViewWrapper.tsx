@@ -16,6 +16,7 @@ const ProjectViewWrapper = () => {
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [defaultWorkspaceId, setDefaultWorkspaceId] = useState<string | null>(null);
   
   const isSectorView = location.pathname.includes('/sector/');
   const sectorId = isSectorView ? location.pathname.split('/sector/')[1] : null;
@@ -184,6 +185,18 @@ const ProjectViewWrapper = () => {
         };
 
         setProject(transformedProject);
+
+        // Buscar workspace padrão do projeto para uso no SectorView
+        const { data: defaultWs } = await supabase
+          .from('project_workspaces')
+          .select('id')
+          .eq('project_id', projectData.id)
+          .eq('is_default', true)
+          .maybeSingle();
+        
+        if (defaultWs) {
+          setDefaultWorkspaceId(defaultWs.id);
+        }
       } catch (error) {
         console.error('Error:', error);
         toast({
@@ -294,6 +307,7 @@ const ProjectViewWrapper = () => {
         sector={sector}
         onUpdateProject={handleUpdateProject}
         currentUser={currentUser}
+        workspaceId={defaultWorkspaceId}
       />
     );
   }

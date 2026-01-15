@@ -191,7 +191,7 @@ export function ProjectProtocoloDrawer({
         )
       `)
       .in('protocolo_etapa_id', etapaIds)
-      .order('date', { ascending: true });
+      .order('created_at', { ascending: false });
     
     if (!error) setPrazosVinculados(data || []);
     setLoadingPrazos(false);

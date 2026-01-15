@@ -20,6 +20,7 @@ interface SectorViewProps {
   sector: ProjectSector;
   onUpdateProject: (project: Project) => void;
   currentUser?: User;
+  workspaceId?: string | null;
 }
 
 const SectorView = ({ 
@@ -27,7 +28,8 @@ const SectorView = ({
   project, 
   sector,
   onUpdateProject,
-  currentUser
+  currentUser,
+  workspaceId
 }: SectorViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -284,6 +286,7 @@ const SectorView = ({
         .insert({
           project_id: project.id,
           sector_id: sector.id,
+          workspace_id: workspaceId || null,
           name,
           color,
           column_order: maxOrder + 1,
