@@ -177,7 +177,7 @@ export const CentralPrazos = () => {
 
   const handleGoToProtocol = (prazo: PrazoConcluido) => {
     if (prazo.projects?.id) {
-      navigate(`/project/${prazo.projects.id}`);
+      window.open(`/project/${prazo.projects.id}`, '_blank');
     }
   };
 
