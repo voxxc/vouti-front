@@ -79,6 +79,7 @@ interface ProjectProtocoloDrawerProps {
   onUpdateEtapa: (id: string, data: any) => Promise<void>;
   onDeleteEtapa: (id: string) => Promise<void>;
   projectId?: string;
+  onRefetch?: () => Promise<void>;
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -104,7 +105,8 @@ export function ProjectProtocoloDrawer({
   onAddEtapa,
   onUpdateEtapa,
   onDeleteEtapa,
-  projectId
+  projectId,
+  onRefetch
 }: ProjectProtocoloDrawerProps) {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -596,7 +598,13 @@ export function ProjectProtocoloDrawer({
                 <ProtocoloVinculoTab
                   protocoloId={protocolo.id}
                   processoOabId={protocolo.processoOabId}
-                  onVinculoChange={() => refetchVinculo()}
+                  onVinculoChange={async () => {
+                    refetchVinculo();
+                    // Recarrega a lista de protocolos para atualizar o processoOabId
+                    if (onRefetch) await onRefetch();
+                    // Também recarrega as tarefas do processo vinculado
+                    fetchTarefasProcesso();
+                  }}
                 />
               </TabsContent>
 
