@@ -52,7 +52,7 @@ export interface CreateEtapaData {
   responsavelId?: string;
 }
 
-export function useProjectProtocolos(projectId: string, workspaceId?: string | null) {
+export function useProjectProtocolos(projectId: string, workspaceId?: string | null, defaultWorkspaceId?: string | null) {
   const [protocolos, setProtocolos] = useState<ProjectProtocolo[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -71,10 +71,10 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
         `)
         .eq('project_id', projectId);
 
-      // Filtrar por workspace se fornecido
-      // Na aba principal (sem workspace), mostra TODOS os protocolos
+      // CORREÇÃO: Incluir protocolos do workspace ativo E protocolos órfãos (workspace_id NULL)
+      // Isso garante que protocolos criados antes do workspace existir continuem visíveis
       if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
+        query = query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
       }
       // Se workspaceId for null/undefined, não aplica filtro - mostra todos
 
@@ -161,11 +161,16 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
         .eq('user_id', userData.user.id)
         .single();
 
+      // CORREÇÃO: Usar defaultWorkspaceId como fallback se workspaceId não estiver definido
+      const effectiveWorkspaceId = workspaceId ?? defaultWorkspaceId ?? null;
+      
+      console.log('[createProtocolo] workspaceId:', workspaceId, 'defaultWorkspaceId:', defaultWorkspaceId, 'effectiveWorkspaceId:', effectiveWorkspaceId);
+      
       const { data: newProtocolo, error } = await supabase
         .from('project_protocolos')
         .insert({
           project_id: projectId,
-          workspace_id: workspaceId || null,
+          workspace_id: effectiveWorkspaceId,
           nome: data.nome,
           descricao: data.descricao,
           responsavel_id: data.responsavelId,

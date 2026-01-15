@@ -69,6 +69,7 @@ const ProjectView = ({
     workspaces,
     loading: workspacesLoading,
     activeWorkspaceId,
+    defaultWorkspaceId,
     setActiveWorkspaceId,
     createWorkspace,
     updateWorkspace,
@@ -1155,7 +1156,7 @@ const ProjectView = ({
           {/* Content Area - Full Width */}
           <div className="w-full">
             {activeTab === 'protocolos' ? (
-              <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} />
+              <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} />
             ) : activeTab === 'processos' ? (
               <ProjectProcessos projectId={project.id} />
             ) : (
