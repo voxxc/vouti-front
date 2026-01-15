@@ -59,6 +59,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
 import { useProtocoloVinculo } from '@/hooks/useProtocoloVinculo';
+import { TarefaOAB } from '@/hooks/useTarefasOAB';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { EtapaModal } from './EtapaModal';
@@ -129,6 +130,9 @@ export function ProjectProtocoloDrawer({
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   
+  // Estados para tarefas do processo vinculado
+  const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
+  
   // Hooks de autenticação e toast
   const { user } = useAuth();
   const { toast } = useToast();
@@ -184,6 +188,26 @@ export function ProjectProtocoloDrawer({
   useEffect(() => {
     fetchPrazosVinculados();
   }, [protocolo?.etapas, open]);
+
+  // Buscar tarefas do processo vinculado
+  const fetchTarefasProcesso = async () => {
+    if (!protocolo?.processoOabId || !open) {
+      setTarefasProcesso([]);
+      return;
+    }
+    
+    const { data, error } = await supabase
+      .from('processos_oab_tarefas')
+      .select('*')
+      .eq('processo_oab_id', protocolo.processoOabId)
+      .order('data_execucao', { ascending: true });
+    
+    if (!error) setTarefasProcesso((data as TarefaOAB[]) || []);
+  };
+
+  useEffect(() => {
+    fetchTarefasProcesso();
+  }, [protocolo?.processoOabId, open]);
 
   // Funções para detalhes do prazo
   const openDeadlineDetails = (prazo: any) => {
@@ -581,79 +605,118 @@ export function ProjectProtocoloDrawer({
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
-                ) : prazosVinculados.length === 0 ? (
+                ) : prazosVinculados.length === 0 && tarefasProcesso.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>Nenhum prazo vinculado às etapas</p>
                     <p className="text-xs mt-1">Crie prazos nas etapas do protocolo</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Prazos Pendentes */}
-                    {prazosVinculados.filter(p => !p.completed).length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-orange-500" />
-                          Pendentes ({prazosVinculados.filter(p => !p.completed).length})
-                        </h4>
-                        <div className="space-y-2">
-                          {prazosVinculados.filter(p => !p.completed).map(prazo => (
-                            <div key={prazo.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">{prazo.title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}
-                                </p>
-                              </div>
-                              <Badge variant={isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "destructive" : "outline"}>
-                                {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "Atrasado" : isToday(new Date(prazo.date)) ? "Hoje" : "Pendente"}
-                              </Badge>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openDeadlineDetails(prazo)}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
+                  <div className="space-y-6">
+                    {/* Prazos das Etapas */}
+                    {prazosVinculados.length > 0 && (
+                      <div className="space-y-4">
+                        {/* Prazos Pendentes */}
+                        {prazosVinculados.filter(p => !p.completed).length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 text-orange-500" />
+                              Pendentes ({prazosVinculados.filter(p => !p.completed).length})
+                            </h4>
+                            <div className="space-y-2">
+                              {prazosVinculados.filter(p => !p.completed).map(prazo => (
+                                <div key={prazo.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium">{prazo.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}
+                                    </p>
+                                  </div>
+                                  <Badge variant={isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "destructive" : "outline"}>
+                                    {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "Atrasado" : isToday(new Date(prazo.date)) ? "Hoje" : "Pendente"}
+                                  </Badge>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => openDeadlineDetails(prazo)}
+                                  >
+                                    <Info className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        )}
+                        
+                        {/* Prazos Concluídos */}
+                        {prazosVinculados.filter(p => p.completed).length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              Concluídos ({prazosVinculados.filter(p => p.completed).length})
+                            </h4>
+                            <div className="space-y-2">
+                              {prazosVinculados.filter(p => p.completed).map(prazo => (
+                                <div key={prazo.id} className="flex items-center gap-3 p-3 rounded-lg border bg-green-500/5">
+                                  <Calendar className="h-4 w-4 text-green-500" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium line-through opacity-70">{prazo.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}
+                                    </p>
+                                  </div>
+                                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                                    Concluído
+                                  </Badge>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => openDeadlineDetails(prazo)}
+                                  >
+                                    <Info className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                    
-                    {/* Prazos Concluídos */}
-                    {prazosVinculados.filter(p => p.completed).length > 0 && (
-                      <div>
+
+                    {/* Tarefas do Processo Vinculado */}
+                    {processoVinculado && (
+                      <div className="border-t pt-4">
                         <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          Concluídos ({prazosVinculados.filter(p => p.completed).length})
+                          <FileText className="h-4 w-4 text-primary" />
+                          Tarefas do Processo ({tarefasProcesso.length})
                         </h4>
-                        <div className="space-y-2">
-                          {prazosVinculados.filter(p => p.completed).map(prazo => (
-                            <div key={prazo.id} className="flex items-center gap-3 p-3 rounded-lg border bg-green-500/5">
-                              <Calendar className="h-4 w-4 text-green-500" />
-                              <div className="flex-1">
-                                <p className="text-sm font-medium line-through opacity-70">{prazo.title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}
-                                </p>
+                        {tarefasProcesso.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">Nenhuma tarefa registrada no processo vinculado</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {tarefasProcesso.map(tarefa => (
+                              <div key={tarefa.id} className="flex items-center gap-3 p-3 rounded-lg border bg-primary/5">
+                                <Calendar className="h-4 w-4 text-primary" />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">{tarefa.titulo}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(tarefa.data_execucao), "dd/MM/yyyy", { locale: ptBR })}
+                                    {tarefa.fase && ` • ${tarefa.fase}`}
+                                  </p>
+                                  {tarefa.descricao && (
+                                    <p className="text-xs mt-1 text-muted-foreground">{tarefa.descricao}</p>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                                  Processo
+                                </Badge>
                               </div>
-                              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                                Concluído
-                              </Badge>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openDeadlineDetails(prazo)}
-                              >
-                                <Info className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -782,6 +845,7 @@ export function ProjectProtocoloDrawer({
           protocolo={protocolo}
           advogado={advogado}
           processoVinculado={processoVinculado}
+          tarefasProcesso={tarefasProcesso}
         />
       )}
 
