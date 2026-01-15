@@ -231,6 +231,7 @@ export function ProjectProtocolosList({ projectId, workspaceId }: ProjectProtoco
         onUpdateEtapa={updateEtapa}
         onDeleteEtapa={deleteEtapa}
         projectId={projectId}
+        onRefetch={refetch}
       />
     </div>
   );
