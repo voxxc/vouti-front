@@ -71,10 +71,17 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
         `)
         .eq('project_id', projectId);
 
-      // CORREÇÃO: Incluir protocolos do workspace ativo E protocolos órfãos (workspace_id NULL)
-      // Isso garante que protocolos criados antes do workspace existir continuem visíveis
+      // CORREÇÃO: Isolar protocolos por workspace
+      // - Workspace padrão: mostra seus protocolos + órfãos (NULL)
+      // - Outros workspaces: mostra APENAS seus protocolos (filtro estrito)
       if (workspaceId) {
-        query = query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+        if (defaultWorkspaceId && workspaceId === defaultWorkspaceId) {
+          // Workspace padrão inclui órfãos para compatibilidade
+          query = query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+        } else {
+          // Outros workspaces: filtro estrito
+          query = query.eq('workspace_id', workspaceId);
+        }
       }
       // Se workspaceId for null/undefined, não aplica filtro - mostra todos
 
