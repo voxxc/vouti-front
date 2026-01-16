@@ -60,6 +60,13 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
   const fetchProtocolos = useCallback(async () => {
     if (!projectId) return;
     
+    // CRITICAL: Don't fetch if workspaceId is undefined (still loading)
+    // Distinguishes: undefined = loading, null = no workspace filter
+    if (workspaceId === undefined) {
+      console.log('[fetchProtocolos] Aguardando workspaceId...');
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -83,7 +90,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
           query = query.eq('workspace_id', workspaceId);
         }
       }
-      // Se workspaceId for null/undefined, não aplica filtro - mostra todos
+      // Se workspaceId for null explicitamente, não aplica filtro - mostra todos
 
       const { data, error } = await query.order('created_at', { ascending: false });
 

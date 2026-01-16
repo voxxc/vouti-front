@@ -21,12 +21,18 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Reset state immediately when projectId changes - prevents stale data
+  useEffect(() => {
+    setWorkspaces([]);
+    setActiveWorkspaceId(null);
+    setDefaultWorkspaceId(null);
+    setLoading(true);
+  }, [projectId]);
+
   const fetchWorkspaces = useCallback(async () => {
     if (!projectId) return;
     
     try {
-      setLoading(true);
-      
       const { data, error } = await supabase
         .from('project_workspaces')
         .select('*')
@@ -54,10 +60,8 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
         const defaultWs = mappedWorkspaces.find(w => w.isDefault) || mappedWorkspaces[0];
         setDefaultWorkspaceId(defaultWs?.id || null);
         
-        // Set active workspace to default or first
-        if (!activeWorkspaceId) {
-          setActiveWorkspaceId(defaultWs?.id || null);
-        }
+        // ALWAYS set active workspace to default (reset on project change)
+        setActiveWorkspaceId(defaultWs?.id || null);
       } else {
         // No workspaces exist, create default one
         await createDefaultWorkspace();
@@ -67,7 +71,7 @@ export function useProjectWorkspaces(projectId: string, projectName?: string) {
     } finally {
       setLoading(false);
     }
-  }, [projectId, activeWorkspaceId]);
+  }, [projectId]); // Removed activeWorkspaceId dependency to prevent cyclic updates
 
   const createDefaultWorkspace = async () => {
     try {

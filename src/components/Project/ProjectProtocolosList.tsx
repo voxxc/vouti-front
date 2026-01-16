@@ -58,6 +58,24 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     ? protocolos.find(p => p.id === selectedProtocoloId) ?? null 
     : null;
 
+  // Early return: Wait for workspace to be defined before rendering
+  // Prevents flash of empty state when switching projects
+  if (workspaceId === undefined && defaultWorkspaceId === undefined) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const filteredProtocolos = protocolos.filter(protocolo => {
     const matchesSearch = protocolo.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       protocolo.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
