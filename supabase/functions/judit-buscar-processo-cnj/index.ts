@@ -222,6 +222,18 @@ serve(async (req) => {
     const firstResult = pageData[0] || {};
     const responseData = firstResult.response_data || firstResult;
     
+    // Log da estrutura para debug
+    console.log('[Judit Import CNJ] Estrutura resposta:', {
+      hasSteps: !!responseData.steps,
+      stepsLength: responseData.steps?.length || 0,
+      hasMovements: !!responseData.movements,
+      hasAndamentos: !!responseData.andamentos,
+      hasLastSteps: !!responseData.last_steps,
+      hasHistory: !!responseData.history,
+      pageDataItems: pageData.length,
+      responseKeys: Object.keys(responseData).slice(0, 15).join(', ')
+    });
+    
     // Extrair partes com lógica melhorada (suporte a 'side', 2ª instância, fallbacks)
     let parteAtiva = '';
     let partePassiva = '';
@@ -328,13 +340,93 @@ serve(async (req) => {
     const processoOabId = processoInserido.id;
     console.log('[Judit Import CNJ] Processo criado:', processoOabId);
 
-    // Inserir andamentos
-    const steps = responseData?.steps || responseData?.movements || [];
+    // Buscar andamentos em múltiplos locais possíveis
+    let steps = responseData?.steps 
+      || responseData?.movements 
+      || responseData?.andamentos
+      || responseData?.history
+      || responseData?.last_steps
+      || [];
+    
+    // Se ainda vazio, verificar em page_data separadamente
+    if (steps.length === 0 && pageData.length > 1) {
+      console.log('[Judit Import CNJ] Buscando steps em page_data alternativo...');
+      for (const item of pageData) {
+        const itemData = item.response_data || item;
+        const itemSteps = itemData.steps || itemData.movements || itemData.andamentos || [];
+        if (itemSteps.length > 0) {
+          steps = itemSteps;
+          console.log('[Judit Import CNJ] Encontrado steps em page_data alternativo:', itemSteps.length);
+          break;
+        }
+      }
+    }
+
     let andamentosInseridos = 0;
 
+    // Se steps ainda vazio, fazer segunda tentativa de busca
+    if (steps.length === 0) {
+      console.log('[Judit Import CNJ] Steps vazios - fazendo segunda busca com delay...');
+      
+      // Aguardar 5 segundos para API processar
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Polling adicional (até 3 tentativas)
+      let stepsAttempts = 0;
+      const maxStepsAttempts = 3;
+      
+      while (steps.length === 0 && stepsAttempts < maxStepsAttempts) {
+        console.log('[Judit Import CNJ] Tentativa steps', stepsAttempts + 1);
+        
+        const retryResponse = await fetch(
+          `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
+          {
+            method: 'GET',
+            headers: {
+              'api-key': juditApiKey.trim(),
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          console.log('[Judit Import CNJ] Retry page_data:', retryData.page_data?.length || 0);
+          
+          // Procurar steps em todos os items
+          for (const item of (retryData.page_data || [])) {
+            const itemData = item.response_data || item;
+            const itemSteps = itemData.steps 
+              || itemData.movements 
+              || itemData.andamentos 
+              || itemData.history
+              || itemData.last_steps
+              || [];
+            
+            if (itemSteps.length > 0) {
+              steps = itemSteps;
+              console.log('[Judit Import CNJ] Steps encontrados no retry:', itemSteps.length);
+              break;
+            }
+          }
+        }
+        
+        if (steps.length === 0) {
+          stepsAttempts++;
+          await new Promise(resolve => setTimeout(resolve, 5000)); // 5s entre tentativas
+        }
+      }
+      
+      if (steps.length === 0) {
+        console.log('[Judit Import CNJ] Nenhum step encontrado após todas as tentativas');
+      }
+    }
+
+    // Inserir andamentos encontrados
     for (const step of steps) {
-      const dataMovimentacao = step.step_date || step.date || step.data;
-      const descricao = step.content || step.description || '';
+      const dataMovimentacao = step.step_date || step.date || step.data || step.created_at;
+      const descricao = step.content || step.description || step.descricao || step.text || '';
+      const tipoMovimentacao = step.type || step.tipo || step.step_type || null;
       
       if (descricao) {
         const { error } = await supabase
@@ -342,7 +434,7 @@ serve(async (req) => {
           .insert({
             processo_oab_id: processoOabId,
             data_movimentacao: dataMovimentacao,
-            tipo_movimentacao: step.type || null,
+            tipo_movimentacao: tipoMovimentacao,
             descricao: descricao,
             dados_completos: step,
             lida: false
@@ -363,7 +455,10 @@ serve(async (req) => {
       .update({ total_processos: count || 0 })
       .eq('id', oabId);
 
-    console.log('[Judit Import CNJ] Concluido:', { andamentosInseridos });
+    console.log('[Judit Import CNJ] Concluido:', { 
+      andamentosInseridos, 
+      totalStepsEncontrados: steps.length 
+    });
 
     return new Response(
       JSON.stringify({
