@@ -291,6 +291,32 @@ const SectorView = ({
     }
 
     try {
+      // Buscar tenant_id do usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Erro",
+          description: "Usuário não autenticado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profileData?.tenant_id) {
+        toast({
+          title: "Erro",
+          description: "Tenant não encontrado. Tente recarregar a página.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const maxOrder = Math.max(...columns.map(c => c.columnOrder), -1);
       
       const { data, error } = await supabase
@@ -299,6 +325,7 @@ const SectorView = ({
           project_id: project.id,
           sector_id: sector.id,
           workspace_id: workspaceId,
+          tenant_id: profileData.tenant_id,
           name,
           color,
           column_order: maxOrder + 1,
