@@ -17,10 +17,10 @@ import {
   Headphones,
   Star
 } from "lucide-react";
-import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -30,24 +30,43 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const { navigate } = useTenantNavigation();
+  const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
-  const { prefetchDashboard, prefetchProjects, prefetchControladoria } = usePrefetchPages();
+  const { 
+    prefetchDashboard, 
+    prefetchProjects, 
+    prefetchControladoria,
+    prefetchAgenda,
+    prefetchCRM,
+    prefetchFinancial,
+    prefetchReunioes
+  } = usePrefetchPages();
+
+  // Mapeamento de rotas para funções de prefetch
+  const prefetchMap: Record<string, () => Promise<void>> = {
+    'dashboard': prefetchDashboard,
+    'projetos': prefetchProjects,
+    'controladoria': prefetchControladoria,
+    'agenda': prefetchAgenda,
+    'clientes': prefetchCRM,
+    'financeiro': prefetchFinancial,
+    'reunioes': prefetchReunioes,
+  };
 
   // Prefetch on hover para navegação instantânea
   const handleMouseEnter = useCallback((itemId: string) => {
-    switch (itemId) {
-      case 'dashboard':
-        prefetchDashboard();
-        break;
-      case 'projetos':
-        prefetchProjects();
-        break;
-      case 'controladoria':
-        prefetchControladoria();
-        break;
+    const prefetchFn = prefetchMap[itemId];
+    if (prefetchFn) {
+      prefetchFn();
     }
-  }, [prefetchDashboard, prefetchProjects, prefetchControladoria]);
+  }, [prefetchDashboard, prefetchProjects, prefetchControladoria, prefetchAgenda, prefetchCRM, prefetchFinancial, prefetchReunioes]);
+
+  // Navegação com loading overlay
+  const handleNavigation = useCallback((itemId: string, route: string) => {
+    const prefetchFn = prefetchMap[itemId];
+    navigateWithPrefetch(route, prefetchFn);
+    setIsMobileOpen(false);
+  }, [navigateWithPrefetch, prefetchDashboard, prefetchProjects, prefetchControladoria, prefetchAgenda, prefetchCRM, prefetchFinancial, prefetchReunioes]);
 
   // Mapeamento de seções para roles que têm acesso
   const sectionRoleMap: Record<string, string[]> = {
@@ -125,7 +144,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
           isCollapsed ? "justify-center" : "justify-start"
         )}>
         <button 
-          onClick={() => navigate('/dashboard')}
+          onClick={() => handleNavigation('dashboard', '/dashboard')}
           className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
         >
             {isCollapsed ? (
@@ -142,7 +161,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const hasAccessToItem = item.id === 'dashboard' || hasAccess(item.id);
+            const hasAccessToItem = item.id === 'dashboard' || item.id === 'extras' || hasAccess(item.id);
             
             if (!hasAccessToItem) return null;
 
@@ -151,10 +170,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                 key={item.id}
                 variant={isActive(item.id) ? "secondary" : "ghost"}
                 onMouseEnter={() => handleMouseEnter(item.id)}
-                onClick={() => {
-                  navigate(item.route);
-                  setIsMobileOpen(false);
-                }}
+                onClick={() => handleNavigation(item.id, item.route)}
                 className={cn(
                   "w-full justify-start gap-3 h-11",
                   isCollapsed && "justify-center px-2",

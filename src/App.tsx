@@ -7,6 +7,8 @@ import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
 import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { NavigationLoadingProvider } from "@/contexts/NavigationLoadingContext";
+import { NavigationLoadingOverlay } from "@/components/Common/NavigationLoadingOverlay";
 import { useState, useEffect } from 'react';
 
 const queryClient = new QueryClient({
@@ -265,17 +267,20 @@ const TenantAwareAuthProvider = ({ children }: { children: React.ReactNode }) =>
   );
 };
 
-// Helper component for tenant routes
+// Helper component for tenant routes with NavigationLoadingProvider
 const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.ReactNode; isPublic?: boolean }) => {
   return (
     <TenantProvider>
       <TenantAwareAuthProvider>
         <ThemeProvider>
-          {isPublic ? (
-            <TenantPublicRoute>{children}</TenantPublicRoute>
-          ) : (
-            <TenantProtectedRoute>{children}</TenantProtectedRoute>
-          )}
+          <NavigationLoadingProvider>
+            <NavigationLoadingOverlay />
+            {isPublic ? (
+              <TenantPublicRoute>{children}</TenantPublicRoute>
+            ) : (
+              <TenantProtectedRoute>{children}</TenantProtectedRoute>
+            )}
+          </NavigationLoadingProvider>
         </ThemeProvider>
       </TenantAwareAuthProvider>
     </TenantProvider>
