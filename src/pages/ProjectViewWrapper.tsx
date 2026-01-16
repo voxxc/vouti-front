@@ -5,6 +5,7 @@ import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project, Task, ProjectSector } from '@/types/project';
 import { useToast } from '@/hooks/use-toast';
+import { useProjectWorkspaces } from '@/hooks/useProjectWorkspaces';
 import ProjectView from './ProjectView';
 import SectorView from './SectorView';
 
@@ -16,10 +17,16 @@ const ProjectViewWrapper = () => {
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [defaultWorkspaceId, setDefaultWorkspaceId] = useState<string | null>(null);
   
   const isSectorView = location.pathname.includes('/sector/');
   const sectorId = isSectorView ? location.pathname.split('/sector/')[1] : null;
+
+  // Usar o hook de workspaces para obter o workspace ativo/padrão
+  const { 
+    activeWorkspaceId, 
+    defaultWorkspaceId, 
+    loading: workspacesLoading 
+  } = useProjectWorkspaces(id || '', project?.name);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -186,17 +193,7 @@ const ProjectViewWrapper = () => {
 
         setProject(transformedProject);
 
-        // Buscar workspace padrão do projeto para uso no SectorView
-        const { data: defaultWs } = await supabase
-          .from('project_workspaces')
-          .select('id')
-          .eq('project_id', projectData.id)
-          .eq('is_default', true)
-          .maybeSingle();
-        
-        if (defaultWs) {
-          setDefaultWorkspaceId(defaultWs.id);
-        }
+        // Workspace é carregado via useProjectWorkspaces hook
       } catch (error) {
         console.error('Error:', error);
         toast({
@@ -300,6 +297,9 @@ const ProjectViewWrapper = () => {
       );
     }
 
+    // Usar o workspace ativo (se disponível) ou o padrão como fallback
+    const effectiveWorkspaceId = activeWorkspaceId ?? defaultWorkspaceId;
+
     return (
       <SectorView
         onBack={handleBack}
@@ -307,7 +307,8 @@ const ProjectViewWrapper = () => {
         sector={sector}
         onUpdateProject={handleUpdateProject}
         currentUser={currentUser}
-        workspaceId={defaultWorkspaceId}
+        workspaceId={effectiveWorkspaceId}
+        workspacesLoading={workspacesLoading}
       />
     );
   }
