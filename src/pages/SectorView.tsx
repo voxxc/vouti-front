@@ -21,6 +21,7 @@ interface SectorViewProps {
   onUpdateProject: (project: Project) => void;
   currentUser?: User;
   workspaceId?: string | null;
+  workspacesLoading?: boolean;
 }
 
 const SectorView = ({ 
@@ -29,7 +30,8 @@ const SectorView = ({
   sector,
   onUpdateProject,
   currentUser,
-  workspaceId
+  workspaceId,
+  workspacesLoading = false
 }: SectorViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -278,6 +280,16 @@ const SectorView = ({
   };
 
   const handleAddColumn = async (name: string, color: string) => {
+    // Bloquear criação se workspace ainda não carregou
+    if (!workspaceId) {
+      toast({
+        title: "Aguarde",
+        description: "Carregando workspace... Tente novamente em instantes.",
+        variant: "default",
+      });
+      return;
+    }
+
     try {
       const maxOrder = Math.max(...columns.map(c => c.columnOrder), -1);
       
@@ -286,7 +298,7 @@ const SectorView = ({
         .insert({
           project_id: project.id,
           sector_id: sector.id,
-          workspace_id: workspaceId || null,
+          workspace_id: workspaceId,
           name,
           color,
           column_order: maxOrder + 1,
@@ -336,11 +348,11 @@ const SectorView = ({
         title: "Coluna criada",
         description: `Coluna "${name}" adicionada com sucesso!`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating column:', error);
       toast({
-        title: "Erro",
-        description: "Erro ao criar coluna.",
+        title: "Erro ao criar coluna",
+        description: error?.message || "Erro desconhecido ao criar coluna.",
         variant: "destructive",
       });
     }
