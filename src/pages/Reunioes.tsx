@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import { Plus, Search, Filter, Edit, Trash2, Users, BarChart3, FileText, Setting
 import { useReunioes } from '@/hooks/useReunioes';
 import { useReunioesDoMes } from '@/hooks/useReunioesDoMes';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
+import { useNavigationLoading } from '@/contexts/NavigationLoadingContext';
 import { ReuniaoFormWrapper } from '@/components/Reunioes/ReuniaoFormWrapper';
 import { ReuniaoCard } from '@/components/Reunioes/ReuniaoCard';
 import { AlterarSituacaoDialog } from '@/components/Reunioes/AlterarSituacaoDialog';
@@ -37,6 +38,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function Reunioes() {
   const { navigate } = useTenantNavigation();
   const { userRole } = useAuth();
+  const { stopLoading, navigationId } = useNavigationLoading();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [mesAtual, setMesAtual] = useState<Date>(startOfMonth(new Date()));
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,6 +54,13 @@ export default function Reunioes() {
 
   const { reunioes, loading, createReuniao, updateReuniao, deleteReuniao, alterarSituacaoReuniao } = useReunioes(selectedDate);
   const { diasComReunioes } = useReunioesDoMes(mesAtual);
+
+  // Sinalizar que a página está pronta quando reuniões carregarem
+  useEffect(() => {
+    if (!loading) {
+      stopLoading(navigationId);
+    }
+  }, [loading, stopLoading, navigationId]);
 
   const filteredReunioes = reunioes.filter((reuniao) => {
     const matchesSearch = searchTerm

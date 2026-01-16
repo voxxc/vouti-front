@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,11 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectsOptimized, ProjectBasic } from "@/hooks/useProjectsOptimized";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
 const Projects = () => {
   const { navigate } = useTenantNavigation();
+  const { stopLoading, navigationId } = useNavigationLoading();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -31,6 +33,13 @@ const Projects = () => {
     createProject,
     deleteProject
   } = useProjectsOptimized();
+
+  // Sinalizar que a página está pronta quando dados básicos carregarem
+  useEffect(() => {
+    if (isBasicLoaded) {
+      stopLoading(navigationId);
+    }
+  }, [isBasicLoaded, stopLoading, navigationId]);
 
   const handleCreateProject = async () => {
     if (!newProject.name || !newProject.client) return;
