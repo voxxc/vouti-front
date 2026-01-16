@@ -26,6 +26,7 @@ import {
 import { Cliente } from '@/types/cliente';
 import { toast } from 'sonner';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
+import { useNavigationLoading } from '@/contexts/NavigationLoadingContext';
 import { differenceInDays, format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceiroDialog';
@@ -42,6 +43,7 @@ interface ClienteFinanceiro extends Cliente {
 
 const Financial = () => {
   const { navigate } = useTenantNavigation();
+  const { stopLoading, navigationId } = useNavigationLoading();
   const [clientes, setClientes] = useState<ClienteFinanceiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCliente, setSelectedCliente] = useState<ClienteFinanceiro | null>(null);
@@ -51,7 +53,10 @@ const Financial = () => {
   const [parcelasPorClienteState, setParcelasPorClienteState] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
-    loadClientes();
+    const navId = navigationId;
+    loadClientes().finally(() => {
+      stopLoading(navId);
+    });
   }, []);
 
   const loadClientes = async () => {

@@ -1,5 +1,5 @@
 import { useNavigationLoading } from '@/contexts/NavigationLoadingContext';
-import Logo from '@/components/Logo';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const NavigationLoadingOverlay = () => {
@@ -11,32 +11,12 @@ export const NavigationLoadingOverlay = () => {
     <div 
       className={cn(
         "fixed inset-0 z-[100] flex items-center justify-center",
-        "bg-background/80 backdrop-blur-sm",
-        "animate-in fade-in duration-200"
+        "bg-background/60 backdrop-blur-sm",
+        "animate-in fade-in duration-150"
       )}
     >
-      <div className="flex flex-col items-center gap-4">
-        {/* Logo com animação de pulse */}
-        <div className="animate-pulse">
-          <Logo size="lg" />
-        </div>
-        
-        {/* Indicador de loading minimalista */}
-        <div className="flex items-center gap-1.5">
-          <div 
-            className="w-2 h-2 rounded-full bg-primary animate-bounce"
-            style={{ animationDelay: '0ms' }}
-          />
-          <div 
-            className="w-2 h-2 rounded-full bg-primary animate-bounce"
-            style={{ animationDelay: '150ms' }}
-          />
-          <div 
-            className="w-2 h-2 rounded-full bg-primary animate-bounce"
-            style={{ animationDelay: '300ms' }}
-          />
-        </div>
-      </div>
+      {/* Spinner minimalista */}
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
 };

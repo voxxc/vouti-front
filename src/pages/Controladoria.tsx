@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,12 +7,21 @@ import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
 import { CentralPrazos } from "@/components/Controladoria/CentralPrazos";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Controladoria = () => {
   const { metrics, loading, isCacheLoaded, isRefreshing } = useControladoriaCache();
+  const { stopLoading, navigationId } = useNavigationLoading();
 
   const showSkeleton = loading && !isCacheLoaded;
+
+  // Sinalizar que a página está pronta quando cache carregar
+  useEffect(() => {
+    if (isCacheLoaded) {
+      stopLoading(navigationId);
+    }
+  }, [isCacheLoaded, stopLoading, navigationId]);
 
   return (
     <DashboardLayout currentPage="controladoria">

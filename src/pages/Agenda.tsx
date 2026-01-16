@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificationHelpers";
@@ -36,6 +37,7 @@ const Agenda = () => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
+  const { stopLoading, navigationId } = useNavigationLoading();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const handleBack = () => {
@@ -137,8 +139,12 @@ const Agenda = () => {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
+    const navId = navigationId;
     const loadInitialData = async () => {
-      if (!user) return;
+      if (!user) {
+        stopLoading(navId);
+        return;
+      }
       
       // Carregar projects, deadlines e admin status em paralelo
       const [projectsPromise, deadlinesPromise, adminPromise] = await Promise.all([
@@ -148,6 +154,8 @@ const Agenda = () => {
       ]);
       
       setIsAdmin(adminPromise);
+      // Sinalizar que a página está pronta
+      stopLoading(navId);
     };
     
     loadInitialData();

@@ -3,26 +3,35 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 interface NavigationLoadingContextType {
   isNavigating: boolean;
-  navigateWithPrefetch: (path: string, prefetchFn?: () => Promise<void>) => Promise<void>;
+  navigationId: number;
+  navigateWithPrefetch: (path: string, prefetchFn?: () => Promise<void>) => void;
   startLoading: () => void;
-  stopLoading: () => void;
+  stopLoading: (navId?: number) => void;
 }
 
 const NavigationLoadingContext = createContext<NavigationLoadingContextType | null>(null);
 
-const NAVIGATION_TIMEOUT = 5000; // 5 seconds max
+// Timeout de segurança máximo (10 segundos) - overlay só some quando página sinaliza ou timeout
+const NAVIGATION_TIMEOUT = 10000;
 
 export const NavigationLoadingProvider = ({ children }: { children: React.ReactNode }) => {
   const [isNavigating, setIsNavigating] = useState(false);
+  const [navigationId, setNavigationId] = useState(0);
   const navigate = useNavigate();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentNavIdRef = useRef(0);
 
   const startLoading = useCallback(() => {
     setIsNavigating(true);
   }, []);
 
-  const stopLoading = useCallback(() => {
+  const stopLoading = useCallback((navId?: number) => {
+    // Se foi passado um navId, só para se for o atual (evita race conditions)
+    if (navId !== undefined && navId !== currentNavIdRef.current) {
+      return;
+    }
+    
     setIsNavigating(false);
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -30,58 +39,52 @@ export const NavigationLoadingProvider = ({ children }: { children: React.ReactN
     }
   }, []);
 
-  const navigateWithPrefetch = useCallback(async (path: string, prefetchFn?: () => Promise<void>) => {
+  const navigateWithPrefetch = useCallback((path: string, prefetchFn?: () => Promise<void>) => {
     // Construir path com tenant
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     const fullPath = tenantSlug ? `/${tenantSlug}/${cleanPath}` : `/${cleanPath}`;
 
-    // Se não há função de prefetch, navegar diretamente
+    // Incrementar navigation ID
+    const newNavId = navigationId + 1;
+    setNavigationId(newNavId);
+    currentNavIdRef.current = newNavId;
+
+    // Se não há função de prefetch, navegar diretamente sem overlay
     if (!prefetchFn) {
       navigate(fullPath);
       return;
     }
 
-    // Iniciar loading
+    // Iniciar loading (overlay aparece)
     setIsNavigating(true);
 
-    // Timeout de segurança - navega mesmo se prefetch demorar muito
+    // Limpar timeout anterior se existir
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Timeout de segurança - força parar o overlay após X segundos
     timeoutRef.current = setTimeout(() => {
-      console.log('[Navigation] Timeout atingido, navegando de qualquer forma');
+      console.log('[Navigation] Timeout de segurança atingido');
       setIsNavigating(false);
-      navigate(fullPath);
     }, NAVIGATION_TIMEOUT);
 
-    try {
-      // Executar prefetch
-      console.log('[Navigation] Iniciando prefetch para:', fullPath);
-      await prefetchFn();
-      console.log('[Navigation] Prefetch concluído, navegando');
-      
-      // Limpar timeout e navegar
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      
-      setIsNavigating(false);
-      navigate(fullPath);
-    } catch (error) {
-      console.error('[Navigation] Erro no prefetch:', error);
-      
-      // Em caso de erro, ainda navega
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      
-      setIsNavigating(false);
-      navigate(fullPath);
-    }
-  }, [navigate, tenantSlug]);
+    // Executar prefetch em background e navegar
+    prefetchFn()
+      .catch((error) => {
+        console.error('[Navigation] Erro no prefetch:', error);
+      })
+      .finally(() => {
+        // Navegar após prefetch (sucesso ou erro)
+        // O overlay continua ativo até a página destino chamar stopLoading()
+        navigate(fullPath);
+      });
+  }, [navigate, tenantSlug, navigationId]);
 
   return (
     <NavigationLoadingContext.Provider value={{
       isNavigating,
+      navigationId,
       navigateWithPrefetch,
       startLoading,
       stopLoading
@@ -97,7 +100,8 @@ export const useNavigationLoading = () => {
     // Retornar fallback para rotas que não usam o provider
     return {
       isNavigating: false,
-      navigateWithPrefetch: async () => {},
+      navigationId: 0,
+      navigateWithPrefetch: () => {},
       startLoading: () => {},
       stopLoading: () => {}
     };

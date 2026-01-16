@@ -12,6 +12,7 @@ import RoleMetricsPanel from "@/components/Dashboard/RoleMetricsPanel";
 import { DadosSensiveisProvider } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
 const Dashboard = () => {
   const { navigate } = useTenantNavigation();
@@ -20,10 +21,11 @@ const Dashboard = () => {
   const [showOverview, setShowOverview] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const { tenantId } = useTenantId();
+  const { stopLoading, navigationId } = useNavigationLoading();
 
   // Optimized: Use React Query with cache for users
   // Usa a função com parâmetro para suportar Super Admin acessando tenants
-  const { data: systemUsers = [], refetch: refetchUsers } = useQuery({
+  const { data: systemUsers = [], refetch: refetchUsers, isFetched } = useQuery({
     queryKey: ['system-users', tenantId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_users_with_roles_by_tenant', {
@@ -45,6 +47,13 @@ const Dashboard = () => {
     enabled: !!tenantId && !authLoading,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
+
+  // Sinalizar que a página está pronta quando os dados carregarem
+  useEffect(() => {
+    if (isFetched || (!authLoading && !tenantId)) {
+      stopLoading(navigationId);
+    }
+  }, [isFetched, authLoading, tenantId, stopLoading, navigationId]);
 
   const handleAddUser = () => {
     refetchUsers();

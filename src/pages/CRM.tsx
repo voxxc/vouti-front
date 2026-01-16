@@ -38,6 +38,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useClientes } from "@/hooks/useClientes";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { Cliente as ClienteType } from "@/types/cliente";
 
 
@@ -70,6 +71,7 @@ const CRM = () => {
   const { toast } = useToast();
   const { tenantPath } = useTenantNavigation();
   const { fetchClientes, deleteCliente } = useClientes();
+  const { stopLoading, navigationId } = useNavigationLoading();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [activeTab, setActiveTab] = useState("clientes");
@@ -123,7 +125,11 @@ const CRM = () => {
 
 
   useEffect(() => {
-    loadClientes();
+    const navId = navigationId;
+    loadClientes().finally(() => {
+      // Sinaliza que a página está pronta
+      stopLoading(navId);
+    });
   }, []);
 
   const loadClientes = async () => {

@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
+import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import DashboardSidebar from "./DashboardSidebar";
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
@@ -40,6 +41,7 @@ const DashboardLayout = ({
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const { user, signOut, loading: authLoading } = useAuth();
   const { tenantId, loading: tenantLoading } = useTenantId();
+  const { isNavigating } = useNavigationLoading();
 
   const [users, setUsers] = useState<UserType[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -151,7 +153,8 @@ const DashboardLayout = ({
   }, [tenantId]);
 
   // Determine if we're in a loading state
-  const isLoading = authLoading || tenantLoading;
+  // Não mostrar loader interno se estamos em navegação global (overlay já está cobrindo)
+  const isLoading = (authLoading || tenantLoading) && !isNavigating;
 
   // Check if user is admin
   const isCurrentUserAdmin = users.find((u) => u.id === user?.id)?.role === 'admin';
