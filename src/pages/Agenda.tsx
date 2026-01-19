@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DeadlineComentarios } from "@/components/Agenda/DeadlineComentarios";
@@ -221,6 +221,21 @@ const Agenda = () => {
               full_name,
               avatar_url
             )
+          ),
+          processo_oab:processos_oab (
+            id,
+            numero_cnj,
+            parte_ativa,
+            parte_passiva,
+            tribunal
+          ),
+          protocolo_etapa:project_protocolo_etapas (
+            id,
+            nome,
+            protocolo:project_protocolos (
+              nome,
+              project_id
+            )
           )
         `)
         .order('date', { ascending: true });
@@ -253,7 +268,22 @@ const Agenda = () => {
           })),
         processoOabId: deadline.processo_oab_id || undefined,
         createdAt: safeParseTimestamp(deadline.created_at),
-        updatedAt: safeParseTimestamp(deadline.updated_at)
+        updatedAt: safeParseTimestamp(deadline.updated_at),
+        // Origem: Processo Judicial
+        processoOrigem: deadline.processo_oab ? {
+          id: deadline.processo_oab.id,
+          numeroCnj: deadline.processo_oab.numero_cnj,
+          parteAtiva: deadline.processo_oab.parte_ativa,
+          partePassiva: deadline.processo_oab.parte_passiva,
+          tribunal: deadline.processo_oab.tribunal
+        } : undefined,
+        // Origem: Protocolo/Etapa
+        protocoloOrigem: deadline.protocolo_etapa ? {
+          etapaId: deadline.protocolo_etapa.id,
+          etapaNome: deadline.protocolo_etapa.nome,
+          protocoloNome: deadline.protocolo_etapa.protocolo?.nome,
+          projectId: deadline.protocolo_etapa.protocolo?.project_id
+        } : undefined
       }));
 
       setDeadlines(mappedDeadlines);
@@ -1289,6 +1319,74 @@ const Agenda = () => {
                               <span className="text-sm">{tagged.name}</span>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Origem: Processo Judicial */}
+                    {selectedDeadline.processoOrigem && (
+                      <div className="border rounded-lg p-3 bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Scale className="h-4 w-4 text-primary" />
+                          <label className="text-sm font-medium">Processo Judicial</label>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          {selectedDeadline.processoOrigem.numeroCnj && (
+                            <p><strong>CNJ:</strong> {selectedDeadline.processoOrigem.numeroCnj}</p>
+                          )}
+                          {selectedDeadline.processoOrigem.parteAtiva && (
+                            <p><strong>Autor:</strong> {selectedDeadline.processoOrigem.parteAtiva}</p>
+                          )}
+                          {selectedDeadline.processoOrigem.partePassiva && (
+                            <p><strong>Réu:</strong> {selectedDeadline.processoOrigem.partePassiva}</p>
+                          )}
+                          {selectedDeadline.processoOrigem.tribunal && (
+                            <p><strong>Tribunal:</strong> {selectedDeadline.processoOrigem.tribunal}</p>
+                          )}
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="p-0 h-auto text-primary"
+                            onClick={() => {
+                              setIsDetailDialogOpen(false);
+                              navigate(`/controladoria?processo=${selectedDeadline.processoOrigem?.id}`);
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Ver Processo Completo
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Origem: Protocolo/Etapa */}
+                    {selectedDeadline.protocoloOrigem && (
+                      <div className="border rounded-lg p-3 bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <label className="text-sm font-medium">Protocolo de Origem</label>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          {selectedDeadline.protocoloOrigem.protocoloNome && (
+                            <p><strong>Protocolo:</strong> {selectedDeadline.protocoloOrigem.protocoloNome}</p>
+                          )}
+                          {selectedDeadline.protocoloOrigem.etapaNome && (
+                            <p><strong>Etapa:</strong> {selectedDeadline.protocoloOrigem.etapaNome}</p>
+                          )}
+                          {selectedDeadline.protocoloOrigem.projectId && (
+                            <Button 
+                              variant="link" 
+                              size="sm" 
+                              className="p-0 h-auto text-primary"
+                              onClick={() => {
+                                setIsDetailDialogOpen(false);
+                                navigate(`/projects/${selectedDeadline.protocoloOrigem?.projectId}`);
+                              }}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Ver Projeto
+                            </Button>
+                          )}
                         </div>
                       </div>
                     )}
