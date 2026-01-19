@@ -11,7 +11,6 @@ import { useLocalTheme } from "@/hooks/useLocalTheme";
 import { AuthThemeToggle } from "@/components/Auth/AuthThemeToggle";
 import { ArrowLeft } from "lucide-react";
 import authOfficeBg from "@/assets/auth-office-bg.jpg";
-
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,9 +18,15 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [mode, setMode] = useState<'login' | 'recovery'>('login');
-  const { toast } = useToast();
-  const { signIn, signUp, resetPassword } = useAuth();
-  
+  const {
+    toast
+  } = useToast();
+  const {
+    signIn,
+    signUp,
+    resetPassword
+  } = useAuth();
+
   // Try to get tenant context (may not exist on legacy routes)
   let tenant = null;
   let tenantSlug = 'solvenza';
@@ -35,129 +40,117 @@ const Auth = () => {
 
   // Apply saved theme from localStorage
   useLocalTheme('auth-theme');
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!email || !password) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setIsLoading(true);
-    
     try {
-      const { error } = await signIn(email, password);
-      
+      const {
+        error
+      } = await signIn(email, password);
       if (error) {
         toast({
           title: "Erro",
           description: error.message || "Erro ao fazer login.",
-          variant: "destructive",
+          variant: "destructive"
         });
       } else {
         // Remove transition flag from session to ensure it shows
         sessionStorage.removeItem('transition_completed');
-        
+
         // Start transition fade-out
         setIsTransitioning(true);
-        
       }
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro inesperado ao fazer login.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!email || !password || !fullName) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     if (password.length < 6) {
       toast({
         title: "Erro",
         description: "A senha deve ter pelo menos 6 caracteres.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setIsLoading(true);
-    
     try {
       // Pass tenant_id when signing up if we have one
-      const { error } = await signUp(email, password, fullName, tenant?.id);
-      
+      const {
+        error
+      } = await signUp(email, password, fullName, tenant?.id);
       if (error) {
         toast({
           title: "Erro",
           description: error.message || "Erro ao criar conta.",
-          variant: "destructive",
+          variant: "destructive"
         });
       } else {
         // Remove transition flag from session to ensure it shows
         sessionStorage.removeItem('transition_completed');
-        
+
         // Start transition fade-out
         setIsTransitioning(true);
-        
       }
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro inesperado ao criar conta.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!email) {
       toast({
         title: "Erro",
         description: "Por favor, informe seu email.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setIsLoading(true);
-    
     try {
       const redirectUrl = `${window.location.origin}/${tenantSlug}/reset-password`;
-      const { error } = await resetPassword(email, redirectUrl);
-      
+      const {
+        error
+      } = await resetPassword(email, redirectUrl);
       if (error) {
         toast({
           title: "Erro",
           description: error.message || "Erro ao enviar email de recuperacao.",
-          variant: "destructive",
+          variant: "destructive"
         });
       } else {
         toast({
           title: "Email enviado",
-          description: "Verifique sua caixa de entrada para redefinir sua senha.",
+          description: "Verifique sua caixa de entrada para redefinir sua senha."
         });
         setMode('login');
         setEmail("");
@@ -166,39 +159,54 @@ const Auth = () => {
       toast({
         title: "Erro",
         description: "Erro inesperado ao enviar email.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-
-  return (
-    <div className={`min-h-screen bg-gradient-subtle flex transition-opacity duration-500 relative overflow-hidden ${
-      isTransitioning ? 'opacity-0 animate-fade-out' : 'opacity-100'
-    }`}>
+  return <div className={`min-h-screen bg-gradient-subtle flex transition-opacity duration-500 relative overflow-hidden ${isTransitioning ? 'opacity-0 animate-fade-out' : 'opacity-100'}`}>
       {/* Floating Elements - espalhados pela tela toda */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-1/4 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-60" />
-        <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 right-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-20 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute top-40 right-1/3 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '2.5s' }} />
-        <div className="absolute top-1/3 right-12 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '0.3s' }} />
-        <div className="absolute bottom-1/4 left-16 w-3 h-3 rounded-full bg-accent animate-float opacity-50" style={{ animationDelay: '1.8s' }} />
-        <div className="absolute top-2/3 right-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-40" style={{ animationDelay: '3s' }} />
-        <div className="absolute top-10 left-1/3 w-3 h-3 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.7s' }} />
-        <div className="absolute bottom-20 right-1/4 w-2 h-2 rounded-full bg-accent animate-float opacity-60" style={{ animationDelay: '2.3s' }} />
+        <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{
+        animationDelay: '1s'
+      }} />
+        <div className="absolute top-1/2 right-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{
+        animationDelay: '2s'
+      }} />
+        <div className="absolute top-20 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{
+        animationDelay: '0.5s'
+      }} />
+        <div className="absolute top-40 right-1/3 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{
+        animationDelay: '1.5s'
+      }} />
+        <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{
+        animationDelay: '2.5s'
+      }} />
+        <div className="absolute top-1/3 right-12 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{
+        animationDelay: '0.3s'
+      }} />
+        <div className="absolute bottom-1/4 left-16 w-3 h-3 rounded-full bg-accent animate-float opacity-50" style={{
+        animationDelay: '1.8s'
+      }} />
+        <div className="absolute top-2/3 right-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-40" style={{
+        animationDelay: '3s'
+      }} />
+        <div className="absolute top-10 left-1/3 w-3 h-3 rounded-full bg-primary animate-float opacity-50" style={{
+        animationDelay: '0.7s'
+      }} />
+        <div className="absolute bottom-20 right-1/4 w-2 h-2 rounded-full bg-accent animate-float opacity-60" style={{
+        animationDelay: '2.3s'
+      }} />
       </div>
 
       {/* LADO ESQUERDO - Branding com imagem de fundo (60%) - Hidden on mobile */}
       <div className="hidden lg:flex lg:w-3/5 flex-col items-start justify-start relative">
         {/* Imagem de fundo */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${authOfficeBg})` }}
-        />
+        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{
+        backgroundImage: `url(${authOfficeBg})`
+      }} />
         
         {/* Overlay escuro para melhorar legibilidade */}
         <div className="absolute inset-0 bg-black/50" />
@@ -207,9 +215,9 @@ const Auth = () => {
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
           {/* Nuvem + Logo */}
           <div className="mb-2 flex flex-col items-start">
-            <CloudIcon className="w-16 h-12 mb-2 animate-float text-white" />
+            <CloudIcon className="w-16 h-12 mb-2 animate-float text-white mx-[99px] py-0 pb-0 px-0 my-[4px]" />
             <span className="text-2xl md:text-3xl font-bold tracking-wider">
-              <span className="text-white">VOUTI</span>
+              <span className="text-white text-7xl">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </div>
@@ -248,97 +256,49 @@ const Auth = () => {
                 {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {mode === 'login' 
-                  ? 'Entre ou crie sua conta para continuar'
-                  : 'Informe seu email para receber o link de recuperacao'
-                }
+                {mode === 'login' ? 'Entre ou crie sua conta para continuar' : 'Informe seu email para receber o link de recuperacao'}
               </p>
             </CardHeader>
             <CardContent>
               <div className="w-full">
-                {mode === 'login' ? (
-                  <form onSubmit={handleSignIn} className="space-y-4">
+                {mode === 'login' ? <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="signin-email">Email</Label>
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                      />
+                      <Input id="signin-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} />
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="signin-password">Senha</Label>
-                      <Input
-                        id="signin-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoading}
-                      />
+                      <Input id="signin-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={isLoading} />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setMode('recovery')}
-                      className="text-sm text-primary hover:underline w-full text-right"
-                    >
+                    <button type="button" onClick={() => setMode('recovery')} className="text-sm text-primary hover:underline w-full text-right">
                       Esqueceu sua senha?
                     </button>
 
-                    <Button 
-                      type="submit" 
-                      className="w-full"
-                      variant="professional"
-                      disabled={isLoading}
-                    >
+                    <Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
                       {isLoading ? "Entrando..." : "Entrar"}
                     </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleResetPassword} className="space-y-4">
+                  </form> : <form onSubmit={handleResetPassword} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="recovery-email">Email</Label>
-                      <Input
-                        id="recovery-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                      />
+                      <Input id="recovery-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} />
                     </div>
 
-                    <Button 
-                      type="submit" 
-                      className="w-full"
-                      variant="professional"
-                      disabled={isLoading}
-                    >
+                    <Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
                       {isLoading ? "Enviando..." : "Enviar link de recuperacao"}
                     </Button>
 
-                    <button
-                      type="button"
-                      onClick={() => setMode('login')}
-                      className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1"
-                    >
+                    <button type="button" onClick={() => setMode('login')} className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1">
                       <ArrowLeft className="h-3 w-3" />
                       Voltar ao login
                     </button>
-                  </form>
-                )}
+                  </form>}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Auth;
