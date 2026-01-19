@@ -193,7 +193,7 @@ const Auth = () => {
       </div>
 
       {/* LADO ESQUERDO - Branding com imagem de fundo (60%) - Hidden on mobile */}
-      <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative">
+      <div className="hidden lg:flex lg:w-3/5 flex-col items-start justify-start relative">
         {/* Imagem de fundo */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -203,19 +203,19 @@ const Auth = () => {
         {/* Overlay escuro para melhorar legibilidade */}
         <div className="absolute inset-0 bg-black/50" />
         
-        {/* Conteúdo centralizado */}
-        <div className="relative z-10 flex flex-col items-center text-center px-8">
-          {/* Nuvem + Logo estilo HomePage */}
-          <div className="mb-10 flex flex-col items-center">
-            <CloudIcon className="w-32 h-24 mb-8 animate-float text-white" />
-            <span className="text-5xl md:text-6xl font-bold tracking-wider">
+        {/* Conteúdo posicionado no topo esquerdo */}
+        <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
+          {/* Nuvem + Logo */}
+          <div className="mb-6 flex flex-col items-start">
+            <CloudIcon className="w-20 h-14 mb-4 animate-float text-white" />
+            <span className="text-3xl md:text-4xl font-bold tracking-wider">
               <span className="text-white">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </div>
           
-          {/* Slogan em uma linha */}
-          <p className="text-xl md:text-2xl font-medium tracking-wide text-white/90 whitespace-nowrap">
+          {/* Slogan */}
+          <p className="text-base md:text-lg font-medium tracking-wide text-white/90">
             O melhor lugar de trabalho é <span className="text-white font-semibold">aqui</span>.
           </p>
         </div>
