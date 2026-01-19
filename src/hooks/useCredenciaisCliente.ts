@@ -17,6 +17,7 @@ interface CredencialCliente {
   enviado_judit_em: string | null;
   enviado_por: string | null;
   erro_mensagem: string | null;
+  system_name: string | null;
   created_at: string;
   updated_at: string;
   oabs_cadastradas?: {
@@ -33,6 +34,7 @@ interface CreateCredencialData {
   senha: string;
   secret?: string;
   documento?: File;
+  system_name: string;
 }
 
 export function useCredenciaisCliente() {
@@ -104,6 +106,7 @@ export function useCredenciaisCliente() {
         documento_url: documentoUrl,
         documento_nome: documentoNome,
         oab_id: null as string | null,
+        system_name: data.system_name,
       };
 
       // Buscar OAB existente pelo número e UF
@@ -145,6 +148,7 @@ export function useCredenciaisCliente() {
             cpf: credencial.cpf,
             oab_numero: variables.oab_numero,
             oab_uf: variables.oab_uf,
+            system_name: variables.system_name,
           },
         });
       } catch (emailError) {

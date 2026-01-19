@@ -1183,6 +1183,7 @@ export type Database = {
           secret: string | null
           senha: string
           status: string | null
+          system_name: string | null
           tenant_id: string
           updated_at: string | null
         }
@@ -1199,6 +1200,7 @@ export type Database = {
           secret?: string | null
           senha: string
           status?: string | null
+          system_name?: string | null
           tenant_id: string
           updated_at?: string | null
         }
@@ -1215,6 +1217,7 @@ export type Database = {
           secret?: string | null
           senha?: string
           status?: string | null
+          system_name?: string | null
           tenant_id?: string
           updated_at?: string | null
         }
