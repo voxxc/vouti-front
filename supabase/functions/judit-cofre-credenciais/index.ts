@@ -34,22 +34,30 @@ serve(async (req) => {
       );
     }
 
+    // Limpar CPF - apenas números
+    const cleanCpf = cpf.replace(/\D/g, '');
+    
+    // Preparar secret - trim e verificar se não está vazio
+    const cleanSecret = secret?.trim() || '';
+
     // Payload para o cofre de credenciais da Judit
     const payload = {
       credentials: [{
         system_name: systemName,
         customer_key: customerKey,
-        username: cpf.replace(/\D/g, ''), // Apenas números
+        username: cleanCpf,
         password: senha,
-        ...(secret ? { custom_data: { secret } } : {}),
+        // Enviar custom_data APENAS se secret existir e não for vazio
+        ...(cleanSecret !== '' ? { custom_data: { secret: cleanSecret } } : {}),
       }]
     };
 
-    console.log('Enviando credenciais para Judit:', {
-      customer_key: customerKey,
-      username: cpf.replace(/\D/g, '').substring(0, 3) + '***', // Log parcial por segurança
-      system_name: systemName
-    });
+    console.log('=== JUDIT COFRE CREDENCIAIS ===');
+    console.log('Customer Key:', customerKey);
+    console.log('Username (CPF):', cleanCpf.substring(0, 3) + '***'); // Log parcial por segurança
+    console.log('System Name:', systemName);
+    console.log('Secret presente:', cleanSecret !== '');
+    console.log('Payload enviado:', JSON.stringify(payload, null, 2));
 
     const response = await fetch('https://crawler.prod.judit.io/credentials', {
       method: 'POST',
@@ -61,7 +69,8 @@ serve(async (req) => {
     });
 
     const responseText = await response.text();
-    console.log('Resposta Judit:', response.status, responseText);
+    console.log('Resposta Judit Status:', response.status);
+    console.log('Resposta Judit Body:', responseText);
 
     if (!response.ok) {
       return new Response(
@@ -80,6 +89,8 @@ serve(async (req) => {
     } catch {
       data = { message: responseText || 'Credenciais enviadas com sucesso' };
     }
+
+    console.log('=== SUCESSO ===');
 
     return new Response(
       JSON.stringify({ 
