@@ -213,11 +213,10 @@ const Auth = () => {
         
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
-          {/* Nuvem + Logo */}
+          {/* Logo */}
           <div className="mb-2 flex flex-col items-start">
-            <CloudIcon className="w-16 h-12 mb-2 animate-float text-white mx-[99px] py-0 pb-0 px-0 my-[4px]" />
-            <span className="text-2xl md:text-3xl font-bold tracking-wider">
-              <span className="text-white text-7xl">VOUTI</span>
+            <span className="text-5xl md:text-7xl font-bold tracking-wider">
+              <span className="bg-gradient-to-r from-white via-white to-blue-300 bg-clip-text text-transparent">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </div>
