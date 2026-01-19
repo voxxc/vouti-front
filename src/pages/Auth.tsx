@@ -206,16 +206,16 @@ const Auth = () => {
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
           {/* Nuvem + Logo */}
-          <div className="mb-6 flex flex-col items-start">
-            <CloudIcon className="w-20 h-14 mb-4 animate-float text-white" />
-            <span className="text-3xl md:text-4xl font-bold tracking-wider">
+          <div className="mb-2 flex flex-col items-start">
+            <CloudIcon className="w-16 h-12 mb-2 animate-float text-white" />
+            <span className="text-2xl md:text-3xl font-bold tracking-wider">
               <span className="text-white">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </div>
           
           {/* Slogan */}
-          <p className="text-base md:text-lg font-medium tracking-wide text-white/90">
+          <p className="text-sm md:text-base font-medium tracking-wide text-white/90">
             O melhor lugar de trabalho é <span className="text-white font-semibold">aqui</span>.
           </p>
         </div>
