@@ -10,6 +10,23 @@ interface AdvogadoResponsavel {
   avatar?: string;
 }
 
+// Origem: Processo Judicial
+interface ProcessoOrigem {
+  id: string;
+  numeroCnj?: string;
+  parteAtiva?: string;
+  partePassiva?: string;
+  tribunal?: string;
+}
+
+// Origem: Protocolo/Etapa
+interface ProtocoloOrigem {
+  etapaId: string;
+  etapaNome?: string;
+  protocoloNome?: string;
+  projectId?: string;
+}
+
 export interface Deadline {
   id: string;
   title: string;
@@ -24,6 +41,12 @@ export interface Deadline {
   processoOabId?: string;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Origem: Processo Judicial
+  processoOrigem?: ProcessoOrigem;
+  
+  // Origem: Protocolo/Etapa
+  protocoloOrigem?: ProtocoloOrigem;
 }
 
 export interface DeadlineFormData {

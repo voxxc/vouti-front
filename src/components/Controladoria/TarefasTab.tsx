@@ -199,11 +199,11 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   const handleSubmit = async () => {
     if (!titulo.trim()) return;
     
-    // Validar campos do prazo se checkbox marcado
-    if (criarPrazoAutomatico && (!novaTarefaProjetoId || !novaTarefaResponsavelId)) {
+    // Validar apenas responsavel se checkbox marcado (projeto é opcional)
+    if (criarPrazoAutomatico && !novaTarefaResponsavelId) {
       toast({
         title: "Erro",
-        description: "Selecione o projeto e o responsavel para criar o prazo.",
+        description: "Selecione o responsável para criar o prazo.",
         variant: "destructive",
       });
       return;
@@ -231,7 +231,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
               title: titulo.trim(),
               description: descricao.trim() || observacoes.trim() || null,
               date: dataExecucao,
-              project_id: novaTarefaProjetoId,
+              project_id: novaTarefaProjetoId || null, // Agora opcional
               processo_oab_id: processo.id,
               advogado_responsavel_id: novaTarefaResponsavelId,
             })
@@ -258,7 +258,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
               novaTarefaResponsavelId!,
               userId,
               tenantId,
-              novaTarefaProjetoId
+              novaTarefaProjetoId || null
             );
 
             if (novaTarefaTaggedUsers.length > 0) {
@@ -268,7 +268,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
                 novaTarefaTaggedUsers,
                 userId,
                 tenantId,
-                novaTarefaProjetoId
+                novaTarefaProjetoId || null
               );
             }
           }
@@ -350,10 +350,10 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
   };
 
   const handleCriarPrazoSubmit = async () => {
-    if (!prazoTitulo.trim() || !prazoProjetoId || !prazoResponsavelId || !tenantId) {
+    if (!prazoTitulo.trim() || !prazoResponsavelId || !tenantId) {
       toast({
         title: "Erro",
-        description: "Preencha todos os campos obrigatorios.",
+        description: "Preencha o título e selecione o responsável.",
         variant: "destructive",
       });
       return;
@@ -370,7 +370,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
           title: prazoTitulo.trim(),
           description: prazoDescricao.trim() || null,
           date: format(prazoData, 'yyyy-MM-dd'),
-          project_id: prazoProjetoId,
+          project_id: prazoProjetoId || null, // Agora opcional
           processo_oab_id: processo.id,
           advogado_responsavel_id: prazoResponsavelId,
         })
@@ -405,7 +405,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
           prazoResponsavelId,
           userId,
           tenantId,
-          prazoProjetoId
+          prazoProjetoId || null
         );
 
         // Notificar usuarios tagueados
@@ -416,7 +416,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
             prazoTaggedUsers,
             userId,
             tenantId,
-            prazoProjetoId
+            prazoProjetoId || null
           );
         }
       }
@@ -569,12 +569,12 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
                 {/* Campos do Prazo - Colapsavel */}
                 <Collapsible open={criarPrazoAutomatico}>
                   <CollapsibleContent className="space-y-4 pt-2">
-                    {/* Projeto */}
+                    {/* Projeto (opcional) */}
                     <div className="space-y-1.5">
-                      <Label>Projeto *</Label>
+                      <Label>Projeto <span className="text-muted-foreground text-xs">(opcional)</span></Label>
                       <Select value={novaTarefaProjetoId} onValueChange={setNovaTarefaProjetoId}>
                         <SelectTrigger>
-                          <SelectValue placeholder={loadingProjetos ? "Carregando..." : "Selecione o projeto"} />
+                          <SelectValue placeholder={loadingProjetos ? "Carregando..." : "Selecione o projeto (opcional)"} />
                         </SelectTrigger>
                         <SelectContent>
                           {projetos.map((p) => (
@@ -609,7 +609,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
 
                 <Button 
                   onClick={handleSubmit} 
-                  disabled={!titulo.trim() || submitting || (criarPrazoAutomatico && (!novaTarefaProjetoId || !novaTarefaResponsavelId))} 
+                  disabled={!titulo.trim() || submitting || (criarPrazoAutomatico && !novaTarefaResponsavelId)} 
                   className="w-full"
                 >
                   {submitting ? (
@@ -862,12 +862,12 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
               </Popover>
             </div>
 
-            {/* Projeto (obrigatorio) */}
+            {/* Projeto (opcional) */}
             <div className="space-y-1.5">
-              <Label>Projeto *</Label>
+              <Label>Projeto <span className="text-muted-foreground text-xs">(opcional)</span></Label>
               <Select value={prazoProjetoId} onValueChange={setPrazoProjetoId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingProjetos ? "Carregando..." : "Selecione o projeto"} />
+                  <SelectValue placeholder={loadingProjetos ? "Carregando..." : "Selecione o projeto (opcional)"} />
                 </SelectTrigger>
                 <SelectContent>
                   {projetos.map((p) => (
@@ -912,7 +912,7 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
 
             <Button 
               onClick={handleCriarPrazoSubmit} 
-              disabled={!prazoTitulo.trim() || !prazoProjetoId || !prazoResponsavelId || submittingPrazo} 
+              disabled={!prazoTitulo.trim() || !prazoResponsavelId || submittingPrazo} 
               className="w-full"
             >
               {submittingPrazo ? (
