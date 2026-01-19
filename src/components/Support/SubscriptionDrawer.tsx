@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSubscription, TenantAssinaturaPerfil } from '@/hooks/useSubscription';
 import { useCredenciaisCliente } from '@/hooks/useCredenciaisCliente';
+import { TRIBUNAIS_CREDENCIAIS, getTribunalByValue } from '@/constants/tribunaisCredenciais';
 import {
   Drawer,
   DrawerClose,
@@ -29,6 +30,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   User, 
   FileText, 
@@ -41,7 +51,8 @@ import {
   Upload,
   Plus,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Building2
 } from 'lucide-react';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -87,12 +98,26 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
     cpf: '',
     senha: '',
     secret: '',
+    system_name: '',
   });
   const [documento, setDocumento] = useState<File | null>(null);
 
   // Estado para exclusão com dupla confirmação
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
+
+  // Agrupar tribunais por categoria
+  const tribunaisPorCategoria = useMemo(() => {
+    const grouped = new Map<string, typeof TRIBUNAIS_CREDENCIAIS>();
+    
+    TRIBUNAIS_CREDENCIAIS.forEach(tribunal => {
+      const existing = grouped.get(tribunal.category) || [];
+      existing.push(tribunal);
+      grouped.set(tribunal.category, existing);
+    });
+    
+    return grouped;
+  }, []);
 
   useEffect(() => {
     if (perfil) {
@@ -140,7 +165,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
   };
 
   const handleEnviarCredencial = async () => {
-    if (!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha) {
+    if (!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha || !credencialForm.system_name) {
       return;
     }
 
@@ -152,10 +177,11 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
         senha: credencialForm.senha,
         secret: credencialForm.secret || undefined,
         documento: documento || undefined,
+        system_name: credencialForm.system_name,
       });
       
       // Limpar formulário e fechar
-      setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '' });
+      setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '', system_name: '' });
       setDocumento(null);
       setShowCredencialForm(false);
     } catch (error) {
@@ -568,12 +594,43 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           size="sm"
                           onClick={() => {
                             setShowCredencialForm(false);
-                            setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '' });
+                            setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '', system_name: '' });
                             setDocumento(null);
                           }}
                         >
                           Cancelar
                         </Button>
+                      </div>
+
+                      {/* Seletor de Tribunal */}
+                      <div className="space-y-2">
+                        <Label htmlFor="cred-tribunal">Tribunal/Sistema *</Label>
+                        <Select
+                          value={credencialForm.system_name}
+                          onValueChange={(value) => setCredencialForm(prev => ({ ...prev, system_name: value }))}
+                        >
+                          <SelectTrigger id="cred-tribunal" className="w-full">
+                            <SelectValue placeholder="Selecione o tribunal..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {Array.from(tribunaisPorCategoria.entries()).map(([category, tribunais]) => (
+                              <SelectGroup key={category}>
+                                <SelectLabel className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Building2 className="w-3 h-3" />
+                                  {category}
+                                </SelectLabel>
+                                {tribunais.map((tribunal) => (
+                                  <SelectItem key={tribunal.value} value={tribunal.value}>
+                                    {tribunal.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Selecione o tribunal onde esta credencial será usada
+                        </p>
                       </div>
                       
                       <div className="grid grid-cols-4 gap-2">
@@ -656,7 +713,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
 
                       <Button
                         onClick={handleEnviarCredencial}
-                        disabled={!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha || createCredencial.isPending || uploading}
+                        disabled={!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha || !credencialForm.system_name || createCredencial.isPending || uploading}
                         className="w-full"
                       >
                         {(createCredencial.isPending || uploading) ? (
@@ -688,6 +745,12 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                                 </span>
                                 {getCredencialStatusBadge(cred.status)}
                               </div>
+                              {cred.system_name && (
+                                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-1">
+                                  <Building2 className="w-3.5 h-3.5" />
+                                  <span>{getTribunalByValue(cred.system_name)?.label || cred.system_name}</span>
+                                </div>
+                              )}
                               <div className="text-sm text-muted-foreground">
                                 Enviado em {format(new Date(cred.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                               </div>

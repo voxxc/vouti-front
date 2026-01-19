@@ -8,8 +8,9 @@ const corsHeaders = {
 interface CredentialRequest {
   cpf: string;
   senha: string;
-  secret: string;
+  secret?: string;
   customerKey: string;
+  systemName: string;
 }
 
 serve(async (req) => {
@@ -24,11 +25,11 @@ serve(async (req) => {
       throw new Error('JUDIT_API_KEY não configurada');
     }
 
-    const { cpf, senha, secret, customerKey }: CredentialRequest = await req.json();
+    const { cpf, senha, secret, customerKey, systemName }: CredentialRequest = await req.json();
 
-    if (!cpf || !senha || !secret || !customerKey) {
+    if (!cpf || !senha || !customerKey || !systemName) {
       return new Response(
-        JSON.stringify({ error: 'Campos obrigatórios: cpf, senha, secret, customerKey' }),
+        JSON.stringify({ error: 'Campos obrigatórios: cpf, senha, customerKey, systemName' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -36,20 +37,18 @@ serve(async (req) => {
     // Payload para o cofre de credenciais da Judit
     const payload = {
       credentials: [{
-        system_name: '*', // Global - funciona para todos os sistemas
+        system_name: systemName,
         customer_key: customerKey,
         username: cpf.replace(/\D/g, ''), // Apenas números
         password: senha,
-        custom_data: {
-          secret: secret
-        }
+        ...(secret ? { custom_data: { secret } } : {}),
       }]
     };
 
     console.log('Enviando credenciais para Judit:', {
       customer_key: customerKey,
       username: cpf.replace(/\D/g, '').substring(0, 3) + '***', // Log parcial por segurança
-      system_name: '*'
+      system_name: systemName
     });
 
     const response = await fetch('https://crawler.prod.judit.io/credentials', {
