@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Key, Eye, EyeOff, FileText, Send, Loader2, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { Key, Eye, EyeOff, FileText, Send, Loader2, Download, AlertCircle, CheckCircle, Scale } from 'lucide-react';
 import { useTenantCredenciais } from '@/hooks/useTenantCredenciais';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { TRIBUNAIS_CREDENCIAIS, getTribunaisPorCategoria, getTribunalByValue } from '@/constants/tribunaisCredenciais';
 
 interface TenantCredenciaisDialogProps {
   open: boolean;
@@ -35,12 +36,19 @@ export function TenantCredenciaisDialog({
   const [enviando, setEnviando] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   
+  // Estado para tribunal selecionado (aba Enviar Pendente)
+  const [systemName, setSystemName] = useState('');
+  
   // Estados para envio direto
   const [diretoCpf, setDiretoCpf] = useState('');
   const [diretoSenha, setDiretoSenha] = useState('');
   const [diretoSecret, setDiretoSecret] = useState('');
   const [diretoCustomerKey, setDiretoCustomerKey] = useState('');
+  const [diretoSystemName, setDiretoSystemName] = useState('');
   const [enviandoDireto, setEnviandoDireto] = useState(false);
+
+  // Agrupar tribunais por categoria
+  const tribunaisPorCategoria = useMemo(() => getTribunaisPorCategoria(), []);
 
   const toggleSenhaVisivel = (id: string) => {
     setSenhasVisiveis((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -62,7 +70,10 @@ export function TenantCredenciaisDialog({
   };
 
   const handleEnviarParaJudit = async () => {
-    if (!selectedCredencial || !customerKey) return;
+    if (!selectedCredencial || !customerKey || !systemName) {
+      toast.error('Selecione o tribunal/sistema');
+      return;
+    }
 
     setEnviando(true);
     try {
@@ -72,19 +83,21 @@ export function TenantCredenciaisDialog({
         senha: selectedCredencial.senha,
         secret,
         customerKey,
+        systemName,
         oabId: selectedCredencial.oab_id || undefined,
       });
 
       setSelectedCredencialId('');
       setSecret('');
       setCustomerKey('');
+      setSystemName('');
     } finally {
       setEnviando(false);
     }
   };
 
   const handleEnviarDireto = async () => {
-    if (!diretoCpf || !diretoSenha || !diretoCustomerKey || !diretoSecret) {
+    if (!diretoCpf || !diretoSenha || !diretoCustomerKey || !diretoSecret || !diretoSystemName) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -96,6 +109,7 @@ export function TenantCredenciaisDialog({
         senha: diretoSenha,
         secret: diretoSecret,
         customerKey: diretoCustomerKey,
+        systemName: diretoSystemName,
       });
 
       // Limpar formulário após sucesso
@@ -103,6 +117,7 @@ export function TenantCredenciaisDialog({
       setDiretoSenha('');
       setDiretoSecret('');
       setDiretoCustomerKey('');
+      setDiretoSystemName('');
     } finally {
       setEnviandoDireto(false);
     }
@@ -385,10 +400,39 @@ export function TenantCredenciaisDialog({
                         </p>
                       </div>
 
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Scale className="w-4 h-4" />
+                          Tribunal/Sistema *
+                        </Label>
+                        <Select value={systemName} onValueChange={setSystemName}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tribunal..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <ScrollArea className="h-[300px]">
+                              {Array.from(tribunaisPorCategoria.entries()).map(([categoria, tribunais]) => (
+                                <SelectGroup key={categoria}>
+                                  <SelectLabel className="text-xs font-semibold text-muted-foreground">{categoria}</SelectLabel>
+                                  {tribunais.map((tribunal) => (
+                                    <SelectItem key={tribunal.value} value={tribunal.value}>
+                                      {tribunal.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              ))}
+                            </ScrollArea>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Sistema onde a credencial será cadastrada no cofre Judit
+                        </p>
+                      </div>
+
                       <Button
                         className="w-full"
                         onClick={handleEnviarParaJudit}
-                        disabled={!secret || !customerKey || enviando}
+                        disabled={!secret || !customerKey || !systemName || enviando}
                       >
                         {enviando ? (
                           <>
@@ -478,10 +522,39 @@ export function TenantCredenciaisDialog({
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Scale className="w-4 h-4" />
+                  Tribunal/Sistema *
+                </Label>
+                <Select value={diretoSystemName} onValueChange={setDiretoSystemName}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tribunal..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <ScrollArea className="h-[300px]">
+                      {Array.from(tribunaisPorCategoria.entries()).map(([categoria, tribunais]) => (
+                        <SelectGroup key={categoria}>
+                          <SelectLabel className="text-xs font-semibold text-muted-foreground">{categoria}</SelectLabel>
+                          {tribunais.map((tribunal) => (
+                            <SelectItem key={tribunal.value} value={tribunal.value}>
+                              {tribunal.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </ScrollArea>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Sistema onde a credencial será cadastrada no cofre Judit
+                </p>
+              </div>
+
               <Button
                 className="w-full"
                 onClick={handleEnviarDireto}
-                disabled={!diretoCpf || !diretoSenha || !diretoSecret || !diretoCustomerKey || enviandoDireto}
+                disabled={!diretoCpf || !diretoSenha || !diretoSecret || !diretoCustomerKey || !diretoSystemName || enviandoDireto}
               >
                 {enviandoDireto ? (
                   <>
@@ -522,7 +595,9 @@ export function TenantCredenciaisDialog({
                         <TableCell className="font-mono text-xs truncate" title={credencial.customer_key}>{credencial.customer_key}</TableCell>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{formatCpf(credencial.username)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">{credencial.system_name}</Badge>
+                          <Badge variant="outline" className="text-xs" title={credencial.system_name}>
+                            {getTribunalByValue(credencial.system_name)?.label || credencial.system_name}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {credencial.status === 'active' ? (
