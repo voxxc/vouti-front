@@ -208,8 +208,8 @@ const Auth = () => {
         backgroundImage: `url(${authOfficeBg})`
       }} />
         
-        {/* Overlay escuro para melhorar legibilidade */}
-        <div className="absolute inset-0 bg-black/50" />
+        {/* Overlay suave para melhorar legibilidade */}
+        <div className="absolute inset-0 bg-black/35" />
         
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
