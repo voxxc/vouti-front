@@ -10,6 +10,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useLocalTheme } from "@/hooks/useLocalTheme";
 import { AuthThemeToggle } from "@/components/Auth/AuthThemeToggle";
 import { ArrowLeft } from "lucide-react";
+import authOfficeBg from "@/assets/auth-office-bg.jpg";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -191,22 +192,31 @@ const Auth = () => {
         <div className="absolute bottom-20 right-1/4 w-2 h-2 rounded-full bg-accent animate-float opacity-60" style={{ animationDelay: '2.3s' }} />
       </div>
 
-      {/* LADO ESQUERDO - Branding (60%) - Hidden on mobile */}
+      {/* LADO ESQUERDO - Branding com imagem de fundo (60%) - Hidden on mobile */}
       <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative">
+        {/* Imagem de fundo */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${authOfficeBg})` }}
+        />
+        
+        {/* Overlay escuro para melhorar legibilidade */}
+        <div className="absolute inset-0 bg-black/50" />
+        
         {/* Conteúdo centralizado */}
         <div className="relative z-10 flex flex-col items-center text-center px-8">
           {/* Nuvem + Logo estilo HomePage */}
           <div className="mb-10 flex flex-col items-center">
-            <CloudIcon className="w-32 h-24 mb-8 animate-float" />
+            <CloudIcon className="w-32 h-24 mb-8 animate-float text-white" />
             <span className="text-5xl md:text-6xl font-bold tracking-wider">
-              <span className="bg-gradient-to-r from-gray-600 via-gray-800 to-blue-600 dark:from-gray-300 dark:via-white dark:to-blue-400 bg-clip-text text-transparent">VOUTI</span>
+              <span className="text-white">VOUTI</span>
               <span className="text-red-500">.</span>
             </span>
           </div>
           
           {/* Slogan em uma linha */}
-          <p className="text-xl md:text-2xl font-medium tracking-wide text-muted-foreground whitespace-nowrap">
-            O melhor lugar de trabalho é <span className="text-primary">aqui</span>.
+          <p className="text-xl md:text-2xl font-medium tracking-wide text-white/90 whitespace-nowrap">
+            O melhor lugar de trabalho é <span className="text-white font-semibold">aqui</span>.
           </p>
         </div>
       </div>
