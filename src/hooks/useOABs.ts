@@ -655,6 +655,47 @@ export const useProcessosOAB = (oabId: string | null) => {
     }
   };
 
+  // Atualizar dados do processo manualmente
+  const atualizarProcesso = async (
+    processoId: string, 
+    dados: Partial<Omit<ProcessoOAB, 'id' | 'created_at'>>
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('processos_oab')
+        .update({
+          ...dados,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', processoId);
+
+      if (error) throw error;
+
+      // Atualizar state local
+      setProcessos(prev => 
+        prev.map(p => p.id === processoId 
+          ? { ...p, ...dados } 
+          : p
+        )
+      );
+
+      toast({
+        title: 'Processo atualizado',
+        description: 'As informações foram salvas com sucesso'
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('[useProcessosOAB] Erro ao atualizar processo:', error);
+      toast({
+        title: 'Erro ao atualizar',
+        description: error.message,
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   return {
     processos,
     loading,
@@ -664,7 +705,8 @@ export const useProcessosOAB = (oabId: string | null) => {
     atualizarOrdem,
     toggleMonitoramento,
     consultarDetalhesRequest,
-    excluirProcesso
+    excluirProcesso,
+    atualizarProcesso
   };
 };
 
