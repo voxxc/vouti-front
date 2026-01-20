@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -25,7 +25,12 @@ import {
   Paperclip,
   AlertTriangle,
   Download,
-  MessageSquareWarning
+  MessageSquareWarning,
+  Pencil,
+  X,
+  Save,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import {
   Sheet,
@@ -51,6 +56,15 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ProcessoOAB, OABCadastrada, useAndamentosOAB } from '@/hooks/useOABs';
 import { TarefasTab } from './TarefasTab';
 import { VoutiIATab } from './VoutiIATab';
@@ -67,7 +81,18 @@ interface ProcessoOABDetalhesProps {
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
   onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
+  onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
+}
+
+// Interface para parte editável
+interface ParteEditavel {
+  id: string;
+  nome: string;
+  tipo: 'ATIVO' | 'PASSIVO' | 'OUTRO';
+  documento: string;
+  advogado_nome: string;
+  advogado_oab: string;
 }
 
 // Traduzir person_type para portugues
@@ -165,6 +190,7 @@ export const ProcessoOABDetalhes = ({
   onRefreshProcessos,
   onConsultarDetalhesRequest,
   onCarregarDetalhes,
+  onAtualizarProcesso,
   oab
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
@@ -176,6 +202,27 @@ export const ProcessoOABDetalhes = ({
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
 
+  // Estados de edição - Resumo
+  const [editandoResumo, setEditandoResumo] = useState(false);
+  const [salvandoResumo, setSalvandoResumo] = useState(false);
+  const [formResumo, setFormResumo] = useState({
+    parte_ativa: '',
+    parte_passiva: '',
+    valor_causa: '',
+    data_distribuicao: '',
+    status_processual: '',
+    fase_processual: '',
+    juizo: '',
+    link_tribunal: '',
+    tribunal: '',
+    tribunal_sigla: ''
+  });
+
+  // Estados de edição - Partes
+  const [editandoPartes, setEditandoPartes] = useState(false);
+  const [salvandoPartes, setSalvandoPartes] = useState(false);
+  const [formPartes, setFormPartes] = useState<ParteEditavel[]>([]);
+
   // Memoizacoes ANTES do early return para evitar erro React #310
   const intimacoesUrgentes = useMemo(() => countIntimacoesUrgentes(andamentos), [andamentos]);
   const andamentosNaoLidos = andamentos.filter(a => !a.lida).length;
@@ -184,6 +231,50 @@ export const ProcessoOABDetalhes = ({
     a.descricao?.toLowerCase().includes('intimacao')
   );
   const intimacoesNaoLidas = intimacoes.filter(a => !a.lida).length;
+
+  // Popular formulário de resumo quando processo muda
+  useEffect(() => {
+    if (processo) {
+      setFormResumo({
+        parte_ativa: processo.parte_ativa || '',
+        parte_passiva: processo.parte_passiva || '',
+        valor_causa: processo.valor_causa?.toString() || '',
+        data_distribuicao: processo.data_distribuicao || '',
+        status_processual: processo.status_processual || '',
+        fase_processual: processo.fase_processual || '',
+        juizo: processo.juizo || '',
+        link_tribunal: processo.link_tribunal || '',
+        tribunal: processo.tribunal || '',
+        tribunal_sigla: processo.tribunal_sigla || ''
+      });
+      
+      // Popular partes editáveis
+      if (processo.partes_completas && Array.isArray(processo.partes_completas)) {
+        const partesEditaveis = processo.partes_completas
+          .filter((p: any) => p.person_type?.toUpperCase() !== 'ADVOGADO')
+          .map((p: any, idx: number) => ({
+            id: `parte-${idx}`,
+            nome: p.name || p.nome || '',
+            tipo: (p.person_type?.toUpperCase() === 'PASSIVO' ? 'PASSIVO' : 
+                   p.person_type?.toUpperCase() === 'ATIVO' ? 'ATIVO' : 'OUTRO') as 'ATIVO' | 'PASSIVO' | 'OUTRO',
+            documento: getDocumentoInfo(p.documents) || '',
+            advogado_nome: p.lawyers?.[0]?.name || '',
+            advogado_oab: getDocumentoInfo(p.lawyers?.[0]?.documents) || ''
+          }));
+        setFormPartes(partesEditaveis);
+      } else {
+        setFormPartes([]);
+      }
+    }
+  }, [processo]);
+
+  // Resetar modo edição ao fechar drawer
+  useEffect(() => {
+    if (!open) {
+      setEditandoResumo(false);
+      setEditandoPartes(false);
+    }
+  }, [open]);
 
   if (!processo) return null;
   
@@ -225,9 +316,103 @@ export const ProcessoOABDetalhes = ({
       setCarregandoAndamentos(false);
     }
   };
+
+  // Salvar Resumo
+  const handleSalvarResumo = async () => {
+    if (!onAtualizarProcesso) return;
+    
+    setSalvandoResumo(true);
+    try {
+      const dados: Partial<ProcessoOAB> = {
+        parte_ativa: formResumo.parte_ativa || null,
+        parte_passiva: formResumo.parte_passiva || null,
+        valor_causa: formResumo.valor_causa ? parseFloat(formResumo.valor_causa) : null,
+        data_distribuicao: formResumo.data_distribuicao || null,
+        status_processual: formResumo.status_processual || null,
+        fase_processual: formResumo.fase_processual || null,
+        juizo: formResumo.juizo || null,
+        link_tribunal: formResumo.link_tribunal || null,
+        tribunal: formResumo.tribunal || null,
+        tribunal_sigla: formResumo.tribunal_sigla || null
+      };
+
+      const sucesso = await onAtualizarProcesso(processo.id, dados);
+      if (sucesso) {
+        setEditandoResumo(false);
+      }
+    } finally {
+      setSalvandoResumo(false);
+    }
+  };
+
+  // Salvar Partes
+  const handleSalvarPartes = async () => {
+    if (!onAtualizarProcesso) return;
+    
+    setSalvandoPartes(true);
+    try {
+      // Converter formPartes para o formato partes_completas
+      const partesCompletas = formPartes.map(p => ({
+        name: p.nome,
+        person_type: p.tipo,
+        documents: p.documento ? [{ document_type: 'DOC', document: p.documento }] : [],
+        lawyers: p.advogado_nome ? [{
+          name: p.advogado_nome,
+          documents: p.advogado_oab ? [{ document_type: 'OAB', document: p.advogado_oab }] : []
+        }] : []
+      }));
+
+      // Extrair parte_ativa e parte_passiva dos nomes
+      const autores = formPartes.filter(p => p.tipo === 'ATIVO').map(p => p.nome).filter(Boolean);
+      const reus = formPartes.filter(p => p.tipo === 'PASSIVO').map(p => p.nome).filter(Boolean);
+
+      const dados: Partial<ProcessoOAB> = {
+        partes_completas: partesCompletas,
+        parte_ativa: autores.join(', ') || null,
+        parte_passiva: reus.join(', ') || null
+      };
+
+      const sucesso = await onAtualizarProcesso(processo.id, dados);
+      if (sucesso) {
+        setEditandoPartes(false);
+      }
+    } finally {
+      setSalvandoPartes(false);
+    }
+  };
+
+  // Adicionar nova parte
+  const handleAdicionarParte = () => {
+    setFormPartes(prev => [...prev, {
+      id: `parte-${Date.now()}`,
+      nome: '',
+      tipo: 'ATIVO',
+      documento: '',
+      advogado_nome: '',
+      advogado_oab: ''
+    }]);
+  };
+
+  // Remover parte
+  const handleRemoverParte = (id: string) => {
+    setFormPartes(prev => prev.filter(p => p.id !== id));
+  };
+
+  // Atualizar parte
+  const handleAtualizarParte = (id: string, campo: keyof ParteEditavel, valor: string) => {
+    setFormPartes(prev => prev.map(p => 
+      p.id === id ? { ...p, [campo]: valor } : p
+    ));
+  };
   
   // Extrair dados da capa_completa
   const capa = processo.capa_completa || {};
+
+  // Verificar se processo é sigiloso
+  const isProcessoSigiloso = capa.secrecy_level >= 1;
+  const partesVazias = !processo.partes_completas || 
+    !Array.isArray(processo.partes_completas) || 
+    processo.partes_completas.length === 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -253,6 +438,12 @@ export const ProcessoOABDetalhes = ({
               {isValidValue(capa.instance) && (
                 <Badge variant="outline">{getInstancia(capa.instance)}</Badge>
               )}
+              {isProcessoSigiloso && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Sigiloso
+                </Badge>
+              )}
             </div>
             {/* Valor da Causa em destaque */}
             {(processo.valor_causa || capa.amount) && (
@@ -264,6 +455,23 @@ export const ProcessoOABDetalhes = ({
               </div>
             )}
           </div>
+
+          {/* Alerta de Processo Sigiloso */}
+          {isProcessoSigiloso && (
+            <Card className="p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200 text-sm">
+                    Processo em Segredo de Justiça
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Algumas informações podem estar indisponíveis. Use o modo edição para preencher manualmente.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Toggle de Monitoramento */}
           <Card className="p-4">
@@ -351,16 +559,95 @@ export const ProcessoOABDetalhes = ({
               </TabsTrigger>
             </TabsList>
 
-            {/* Resumo - TODAS AS INFORMACOES */}
+            {/* Resumo - COM MODO EDIÇÃO */}
             <TabsContent value="resumo" className="mt-4">
               <ScrollArea className="h-[calc(100vh-420px)]">
                 <div className="space-y-6 pr-4">
                   
+                  {/* Barra de edição */}
+                  {editandoResumo ? (
+                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 sticky top-0 z-10">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Pencil className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium text-blue-800 dark:text-blue-200 text-sm">
+                            Modo Edição
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setEditandoResumo(false)}
+                            disabled={salvandoResumo}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Cancelar
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={handleSalvarResumo}
+                            disabled={salvandoResumo || !onAtualizarProcesso}
+                          >
+                            {salvandoResumo ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            ) : (
+                              <Save className="w-4 h-4 mr-1" />
+                            )}
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="flex justify-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setEditandoResumo(true)}
+                        disabled={!onAtualizarProcesso}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                    </div>
+                  )}
+
                   {/* SECAO: PARTES */}
                   <SectionHeader icon={Users} title="Partes" />
                   <div className="space-y-3 pl-1">
-                    <InfoItem label="Parte Ativa (Autor)" value={processo.parte_ativa} />
-                    <InfoItem label="Parte Passiva (Reu)" value={processo.parte_passiva} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Parte Ativa (Autor)</Label>
+                          <Textarea
+                            value={formResumo.parte_ativa}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, parte_ativa: e.target.value }))}
+                            placeholder="Nome do autor..."
+                            className="min-h-[60px]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Parte Passiva (Réu)</Label>
+                          <Textarea
+                            value={formResumo.parte_passiva}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, parte_passiva: e.target.value }))}
+                            placeholder="Nome do réu..."
+                            className="min-h-[60px]"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Parte Ativa (Autor)" value={processo.parte_ativa} />
+                        <InfoItem label="Parte Passiva (Reu)" value={processo.parte_passiva} />
+                        {isProcessoSigiloso && !processo.parte_ativa && !processo.parte_passiva && (
+                          <p className="text-sm text-muted-foreground italic">
+                            Informações das partes não disponíveis (processo sigiloso)
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   <Separator />
@@ -368,8 +655,33 @@ export const ProcessoOABDetalhes = ({
                   {/* SECAO: DADOS DO PROCESSO */}
                   <SectionHeader icon={Scale} title="Dados do Processo" />
                   <div className="grid grid-cols-2 gap-3 pl-1">
-                    <InfoItem label="Valor da Causa" value={formatValor(processo.valor_causa || capa.amount)} highlight />
-                    <InfoItem label="Data Distribuicao" value={formatData(processo.data_distribuicao || capa.distribution_date)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Valor da Causa (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formResumo.valor_causa}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, valor_causa: e.target.value }))}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Data Distribuição</Label>
+                          <Input
+                            type="date"
+                            value={formResumo.data_distribuicao}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, data_distribuicao: e.target.value }))}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Valor da Causa" value={formatValor(processo.valor_causa || capa.amount)} highlight />
+                        <InfoItem label="Data Distribuicao" value={formatData(processo.data_distribuicao || capa.distribution_date)} />
+                      </>
+                    )}
                     <InfoItem label="Area do Direito" value={capa.area} />
                     <InfoItem label="Sistema" value={capa.system} />
                   </div>
@@ -383,14 +695,48 @@ export const ProcessoOABDetalhes = ({
                   {/* SECAO: LOCALIZACAO */}
                   <SectionHeader icon={MapPin} title="Localizacao" />
                   <div className="grid grid-cols-2 gap-3 pl-1">
-                    <InfoItem label="Tribunal" value={processo.tribunal || capa.court?.name} />
-                    <InfoItem label="Sigla" value={processo.tribunal_sigla || capa.court?.acronym} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Tribunal</Label>
+                          <Input
+                            value={formResumo.tribunal}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, tribunal: e.target.value }))}
+                            placeholder="Nome do tribunal..."
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Sigla</Label>
+                          <Input
+                            value={formResumo.tribunal_sigla}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, tribunal_sigla: e.target.value }))}
+                            placeholder="Ex: TJSP"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Tribunal" value={processo.tribunal || capa.court?.name} />
+                        <InfoItem label="Sigla" value={processo.tribunal_sigla || capa.court?.acronym} />
+                      </>
+                    )}
                     <InfoItem label="Estado" value={capa.state} />
                     <InfoItem label="Cidade" value={capa.city} />
                     <InfoItem label="Instancia" value={getInstancia(capa.instance)} />
                   </div>
                   <div className="space-y-3 pl-1">
-                    <InfoItem label="Juizo/Vara" value={processo.juizo || capa.county} />
+                    {editandoResumo ? (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Juízo/Vara</Label>
+                        <Input
+                          value={formResumo.juizo}
+                          onChange={(e) => setFormResumo(prev => ({ ...prev, juizo: e.target.value }))}
+                          placeholder="Ex: 1ª Vara Cível de São Paulo"
+                        />
+                      </div>
+                    ) : (
+                      <InfoItem label="Juizo/Vara" value={processo.juizo || capa.county} />
+                    )}
                   </div>
 
                   <Separator />
@@ -398,8 +744,31 @@ export const ProcessoOABDetalhes = ({
                   {/* SECAO: SITUACAO ATUAL */}
                   <SectionHeader icon={Gavel} title="Situacao Atual" />
                   <div className="grid grid-cols-2 gap-3 pl-1">
-                    <InfoItem label="Status" value={processo.status_processual || capa.situation} />
-                    <InfoItem label="Fase" value={processo.fase_processual} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Status</Label>
+                          <Input
+                            value={formResumo.status_processual}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, status_processual: e.target.value }))}
+                            placeholder="Ex: Ativo, Arquivado..."
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Fase</Label>
+                          <Input
+                            value={formResumo.fase_processual}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, fase_processual: e.target.value }))}
+                            placeholder="Ex: Conhecimento, Execução..."
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Status" value={processo.status_processual || capa.situation} />
+                        <InfoItem label="Fase" value={processo.fase_processual} />
+                      </>
+                    )}
                     <InfoItem label="Juiz Responsavel" value={capa.judge} />
                     <InfoItem label="Sigilo" value={getSigilo(capa.secrecy_level)} />
                   </div>
@@ -428,7 +797,20 @@ export const ProcessoOABDetalhes = ({
                   )}
 
                   {/* SECAO: LINK TRIBUNAL */}
-                  {isValidValue(processo.link_tribunal) && (
+                  {editandoResumo ? (
+                    <>
+                      <Separator />
+                      <div className="space-y-1 pl-1">
+                        <Label className="text-xs text-muted-foreground">Link do Tribunal</Label>
+                        <Input
+                          type="url"
+                          value={formResumo.link_tribunal}
+                          onChange={(e) => setFormResumo(prev => ({ ...prev, link_tribunal: e.target.value }))}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </>
+                  ) : isValidValue(processo.link_tribunal) && (
                     <>
                       <Separator />
                       <Button
@@ -443,7 +825,7 @@ export const ProcessoOABDetalhes = ({
                     </>
                   )}
 
-                  {/* DEBUG: Mostrar campos extras da capa se existirem */}
+                  {/* Processos Relacionados */}
                   {capa.related_lawsuits && capa.related_lawsuits.length > 0 && (
                     <>
                       <Separator />
@@ -542,7 +924,6 @@ export const ProcessoOABDetalhes = ({
                     ) : (
                   <div className="space-y-3 pr-4">
                     {andamentos.map((andamento) => {
-                      // Get step_id from dados_completos to find linked attachments
                       const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                       const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
                       const temAnexos = anexosDoAndamento.length > 0;
@@ -712,72 +1093,249 @@ export const ProcessoOABDetalhes = ({
               </ScrollArea>
             </TabsContent>
 
-            {/* Partes - Separadas por Polo */}
+            {/* Partes - COM MODO EDIÇÃO */}
             <TabsContent value="partes" className="mt-4">
               <ScrollArea className="h-[calc(100vh-350px)]">
                 <div className="space-y-6 pr-4">
-                  {processo.partes_completas && Array.isArray(processo.partes_completas) ? (
-                    (() => {
-                      // Agrupar partes por tipo (Polo Ativo vs Polo Passivo)
-                      const autores: any[] = [];
-                      const reus: any[] = [];
-                      const outros: any[] = [];
-                      
-                      processo.partes_completas.forEach((parte: any) => {
-                        const tipo = parte.person_type?.toUpperCase();
-                        if (tipo === 'ATIVO') {
-                          autores.push(parte);
-                        } else if (tipo === 'PASSIVO') {
-                          reus.push(parte);
-                        } else if (tipo !== 'ADVOGADO') {
-                          outros.push(parte);
-                        }
-                      });
-
-                      return (
-                        <>
-                          {/* POLO ATIVO (Autores) */}
-                          {autores.length > 0 && (
-                            <PoloSection 
-                              titulo="Polo Ativo (Autores)" 
-                              partes={autores} 
-                              corBorda="border-blue-500"
-                            />
-                          )}
-
-                          {/* POLO PASSIVO (Reus) */}
-                          {reus.length > 0 && (
-                            <PoloSection 
-                              titulo="Polo Passivo (Reus)" 
-                              partes={reus} 
-                              corBorda="border-muted-foreground"
-                            />
-                          )}
-
-                          {/* OUTROS PARTICIPANTES */}
-                          {outros.length > 0 && (
-                            <PoloSection 
-                              titulo="Outros Participantes" 
-                              partes={outros} 
-                              corBorda="border-yellow-500"
-                            />
-                          )}
-
-                          {/* Se nao houver partes agrupadas, mostra vazio */}
-                          {autores.length === 0 && reus.length === 0 && outros.length === 0 && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <Users className="w-8 h-8 mx-auto mb-2" />
-                              <p>Nenhuma parte encontrada</p>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()
+                  
+                  {/* Barra de edição de partes */}
+                  {editandoPartes ? (
+                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 sticky top-0 z-10">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Pencil className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium text-blue-800 dark:text-blue-200 text-sm">
+                            Editando Partes
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setEditandoPartes(false)}
+                            disabled={salvandoPartes}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Cancelar
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={handleSalvarPartes}
+                            disabled={salvandoPartes || !onAtualizarProcesso}
+                          >
+                            {salvandoPartes ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            ) : (
+                              <Save className="w-4 h-4 mr-1" />
+                            )}
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users className="w-8 h-8 mx-auto mb-2" />
-                      <p>Informacoes de partes nao disponiveis</p>
+                    <div className="flex justify-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setEditandoPartes(true)}
+                        disabled={!onAtualizarProcesso}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
                     </div>
+                  )}
+
+                  {editandoPartes ? (
+                    /* Modo edição de partes */
+                    <>
+                      {formPartes.map((parte, index) => (
+                        <Card key={parte.id} className="p-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <Badge variant={parte.tipo === 'ATIVO' ? 'default' : parte.tipo === 'PASSIVO' ? 'secondary' : 'outline'}>
+                              Parte #{index + 1}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => handleRemoverParte(parte.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2 space-y-1">
+                              <Label className="text-xs text-muted-foreground">Nome</Label>
+                              <Input
+                                value={parte.nome}
+                                onChange={(e) => handleAtualizarParte(parte.id, 'nome', e.target.value)}
+                                placeholder="Nome completo da parte..."
+                              />
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Polo</Label>
+                              <Select 
+                                value={parte.tipo} 
+                                onValueChange={(val) => handleAtualizarParte(parte.id, 'tipo', val)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ATIVO">Polo Ativo (Autor)</SelectItem>
+                                  <SelectItem value="PASSIVO">Polo Passivo (Réu)</SelectItem>
+                                  <SelectItem value="OUTRO">Outro</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">CPF/CNPJ</Label>
+                              <Input
+                                value={parte.documento}
+                                onChange={(e) => handleAtualizarParte(parte.id, 'documento', e.target.value)}
+                                placeholder="Documento..."
+                              />
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Advogado</Label>
+                              <Input
+                                value={parte.advogado_nome}
+                                onChange={(e) => handleAtualizarParte(parte.id, 'advogado_nome', e.target.value)}
+                                placeholder="Nome do advogado..."
+                              />
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">OAB</Label>
+                              <Input
+                                value={parte.advogado_oab}
+                                onChange={(e) => handleAtualizarParte(parte.id, 'advogado_oab', e.target.value)}
+                                placeholder="Ex: OAB 12345/SP"
+                              />
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                      
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleAdicionarParte}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar Parte
+                      </Button>
+                    </>
+                  ) : (
+                    /* Modo visualização de partes */
+                    processo.partes_completas && Array.isArray(processo.partes_completas) ? (
+                      (() => {
+                        const autores: any[] = [];
+                        const reus: any[] = [];
+                        const outros: any[] = [];
+                        
+                        processo.partes_completas.forEach((parte: any) => {
+                          const tipo = parte.person_type?.toUpperCase();
+                          if (tipo === 'ATIVO') {
+                            autores.push(parte);
+                          } else if (tipo === 'PASSIVO') {
+                            reus.push(parte);
+                          } else if (tipo !== 'ADVOGADO') {
+                            outros.push(parte);
+                          }
+                        });
+
+                        return (
+                          <>
+                            {/* POLO ATIVO (Autores) */}
+                            {autores.length > 0 && (
+                              <PoloSection 
+                                titulo="Polo Ativo (Autores)" 
+                                partes={autores} 
+                                corBorda="border-blue-500"
+                              />
+                            )}
+
+                            {/* POLO PASSIVO (Reus) */}
+                            {reus.length > 0 && (
+                              <PoloSection 
+                                titulo="Polo Passivo (Reus)" 
+                                partes={reus} 
+                                corBorda="border-muted-foreground"
+                              />
+                            )}
+
+                            {/* OUTROS PARTICIPANTES */}
+                            {outros.length > 0 && (
+                              <PoloSection 
+                                titulo="Outros Participantes" 
+                                partes={outros} 
+                                corBorda="border-yellow-500"
+                              />
+                            )}
+
+                            {/* Se nao houver partes agrupadas */}
+                            {autores.length === 0 && reus.length === 0 && outros.length === 0 && (
+                              <div className="text-center py-8 text-muted-foreground">
+                                {isProcessoSigiloso ? (
+                                  <>
+                                    <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p>Informações das partes não disponíveis</p>
+                                    <p className="text-xs mt-1">Processo em segredo de justiça</p>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="mt-3"
+                                      onClick={() => setEditandoPartes(true)}
+                                      disabled={!onAtualizarProcesso}
+                                    >
+                                      <Pencil className="w-4 h-4 mr-1" />
+                                      Preencher manualmente
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Users className="w-8 h-8 mx-auto mb-2" />
+                                    <p>Nenhuma parte encontrada</p>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {isProcessoSigiloso ? (
+                          <>
+                            <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p>Informações das partes não disponíveis</p>
+                            <p className="text-xs mt-1">Processo em segredo de justiça</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-3"
+                              onClick={() => setEditandoPartes(true)}
+                              disabled={!onAtualizarProcesso}
+                            >
+                              <Pencil className="w-4 h-4 mr-1" />
+                              Preencher manualmente
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Users className="w-8 h-8 mx-auto mb-2" />
+                            <p>Informacoes de partes nao disponiveis</p>
+                          </>
+                        )}
+                      </div>
+                    )
                   )}
                 </div>
               </ScrollArea>
