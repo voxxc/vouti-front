@@ -11,7 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink, MoreVertical, CalendarClock } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DeadlineComentarios } from "@/components/Agenda/DeadlineComentarios";
@@ -67,6 +73,14 @@ const Agenda = () => {
   const [completedFilterUserId, setCompletedFilterUserId] = useState<string | null>(null);
   const [confirmCompleteDeadlineId, setConfirmCompleteDeadlineId] = useState<string | null>(null);
   const [comentarioConclusao, setComentarioConclusao] = useState("");
+  
+  // Estado para modal de extensão de prazo
+  const [isExtendDialogOpen, setIsExtendDialogOpen] = useState(false);
+  const [extendDeadline, setExtendDeadline] = useState<Deadline | null>(null);
+  const [novaDataExtensao, setNovaDataExtensao] = useState<Date | undefined>(undefined);
+  const [motivoExtensao, setMotivoExtensao] = useState("");
+  const [salvandoExtensao, setSalvandoExtensao] = useState(false);
+  
   const { toast } = useToast();
 
   // Funcao helper para parsear data com seguranca
@@ -605,6 +619,69 @@ const Agenda = () => {
     setIsDetailDialogOpen(true);
   };
 
+  // Função para abrir dialog de extensão de prazo
+  const openExtendDialog = (deadline: Deadline) => {
+    setExtendDeadline(deadline);
+    setNovaDataExtensao(undefined);
+    setMotivoExtensao("");
+    setIsExtendDialogOpen(true);
+  };
+
+  // Função para executar a extensão do prazo (apenas admin/controller)
+  const handleExtenderPrazo = async () => {
+    if (!extendDeadline || !novaDataExtensao || !motivoExtensao.trim()) return;
+    
+    setSalvandoExtensao(true);
+    try {
+      const dataOriginal = extendDeadline.date;
+      
+      // Atualizar a data do prazo
+      const { error } = await supabase
+        .from('deadlines')
+        .update({ 
+          date: format(novaDataExtensao, 'yyyy-MM-dd'),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', extendDeadline.id);
+      
+      if (error) throw error;
+      
+      // Registrar comentário automático com histórico
+      await supabase
+        .from('deadline_comentarios')
+        .insert({
+          deadline_id: extendDeadline.id,
+          user_id: user?.id,
+          comentario: `📅 Prazo estendido de ${format(dataOriginal, 'dd/MM/yyyy')} para ${format(novaDataExtensao, 'dd/MM/yyyy')}\n\nMotivo: ${motivoExtensao}`,
+          tenant_id: tenantId
+        });
+      
+      toast({
+        title: "Prazo estendido",
+        description: "A nova data do prazo foi registrada com sucesso.",
+      });
+      
+      // Fechar modal e limpar estados
+      setIsExtendDialogOpen(false);
+      setExtendDeadline(null);
+      setNovaDataExtensao(undefined);
+      setMotivoExtensao("");
+      
+      // Recarregar prazos
+      await fetchDeadlinesAsync();
+      
+    } catch (error) {
+      console.error('Erro ao estender prazo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível estender o prazo.",
+        variant: "destructive",
+      });
+    } finally {
+      setSalvandoExtensao(false);
+    }
+  };
+
   const handleDeleteDeadline = async (deadlineId: string) => {
     if (!user) return;
 
@@ -923,21 +1000,50 @@ const Agenda = () => {
                     >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium text-sm">{deadline.title}</h4>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!deadline.completed) {
-                              setConfirmCompleteDeadlineId(deadline.id);
-                            } else {
-                              toggleDeadlineCompletion(deadline.id);
-                            }
-                          }}
-                          className={deadline.completed ? "text-green-600" : "text-muted-foreground"}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!deadline.completed) {
+                                setConfirmCompleteDeadlineId(deadline.id);
+                              } else {
+                                toggleDeadlineCompletion(deadline.id);
+                              }
+                            }}
+                            className={deadline.completed ? "text-green-600" : "text-muted-foreground"}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                          
+                          {/* Menu de 3 pontos - APENAS ADMIN/CONTROLLER */}
+                          {!deadline.completed && isAdmin && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openExtendDialog(deadline);
+                                  }}
+                                >
+                                  <CalendarClock className="h-4 w-4 mr-2" />
+                                  Estender Prazo
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">{deadline.description}</p>
                       
@@ -1019,14 +1125,31 @@ const Agenda = () => {
                           {safeFormatDate(deadline.date)}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDeadlineDetails(deadline)}
-                        className="ml-2"
-                      >
-                        Detalhes
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDeadlineDetails(deadline)}
+                        >
+                          Detalhes
+                        </Button>
+                        {/* Menu de 3 pontos - APENAS ADMIN/CONTROLLER */}
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
+                                <CalendarClock className="h-4 w-4 mr-2" />
+                                Estender Prazo
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1059,14 +1182,31 @@ const Agenda = () => {
                           {safeFormatDate(deadline.date)}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDeadlineDetails(deadline)}
-                        className="ml-2"
-                      >
-                        Detalhes
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDeadlineDetails(deadline)}
+                        >
+                          Detalhes
+                        </Button>
+                        {/* Menu de 3 pontos - APENAS ADMIN/CONTROLLER */}
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
+                                <CalendarClock className="h-4 w-4 mr-2" />
+                                Estender Prazo
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1489,6 +1629,94 @@ const Agenda = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Dialog de Estender Prazo - APENAS ADMIN/CONTROLLER */}
+        <Dialog open={isExtendDialogOpen} onOpenChange={(open) => {
+          setIsExtendDialogOpen(open);
+          if (!open) {
+            setExtendDeadline(null);
+            setNovaDataExtensao(undefined);
+            setMotivoExtensao("");
+          }
+        }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarClock className="h-5 w-5" />
+                Estender Prazo
+              </DialogTitle>
+            </DialogHeader>
+            
+            {extendDeadline && (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium text-sm">{extendDeadline.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Data atual: {safeFormatDate(extendDeadline.date)}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Nova Data *</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal mt-1",
+                          !novaDataExtensao && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {novaDataExtensao 
+                          ? format(novaDataExtensao, "dd/MM/yyyy", { locale: ptBR }) 
+                          : "Selecionar nova data"
+                        }
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={novaDataExtensao}
+                        onSelect={setNovaDataExtensao}
+                        disabled={(date) => date < new Date()}
+                        className="pointer-events-auto"
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Motivo da Extensão *</label>
+                  <Textarea
+                    value={motivoExtensao}
+                    onChange={(e) => setMotivoExtensao(e.target.value)}
+                    placeholder="Descreva o motivo da extensão do prazo..."
+                    className="mt-1 min-h-[80px]"
+                  />
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setIsExtendDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={handleExtenderPrazo}
+                    disabled={!novaDataExtensao || !motivoExtensao.trim() || salvandoExtensao}
+                  >
+                    {salvandoExtensao ? "Salvando..." : "Confirmar"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
