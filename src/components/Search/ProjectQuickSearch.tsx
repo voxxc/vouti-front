@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
 
 interface ProjectQuickSearchProps {
   tenantPath: (path: string) => string;
@@ -23,17 +24,55 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Carregar projetos na montagem
+  // Carregar projetos na montagem com filtro de permissão
   useEffect(() => {
     if (!user) return;
     
     const loadProjects = async () => {
-      const { data } = await supabase
-        .from('projects')
-        .select('id, name, client')
-        .order('updated_at', { ascending: false });
+      // Verificar se é admin ou controller
+      const isAdminOrController = await checkIfUserIsAdminOrController(user.id);
       
-      if (data) setProjects(data);
+      if (isAdminOrController) {
+        // Admin/Controller: ver todos os projetos
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, name, client')
+          .order('updated_at', { ascending: false });
+        
+        if (error) {
+          console.error('[ProjectQuickSearch] Error loading projects:', error);
+          return;
+        }
+        if (data) setProjects(data);
+      } else {
+        // Usuário normal: ver apenas projetos onde é criador ou participante
+        const { data: collaboratorProjects } = await supabase
+          .from('project_collaborators')
+          .select('project_id')
+          .eq('user_id', user.id);
+        
+        const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
+        
+        // Buscar projetos criados pelo usuário
+        let orFilter = `created_by.eq.${user.id}`;
+        
+        // Adicionar projetos onde é colaborador
+        if (collaboratorProjectIds.length > 0) {
+          orFilter += `,id.in.(${collaboratorProjectIds.join(',')})`;
+        }
+        
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, name, client')
+          .or(orFilter)
+          .order('updated_at', { ascending: false });
+        
+        if (error) {
+          console.error('[ProjectQuickSearch] Error loading projects:', error);
+          return;
+        }
+        if (data) setProjects(data);
+      }
     };
 
     loadProjects();
