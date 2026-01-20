@@ -102,16 +102,18 @@ export const RelatorioReunioesExport = ({ dados, escopo, formato, onComplete }: 
           l.nome,
           format(new Date(l.dataCadastro), 'dd/MM/yyyy', { locale: ptBR }),
           l.telefone || '-',
-          l.email || '-'
+          l.responsavel || '-',
+          l.observacoes?.substring(0, 40) || '-'
         ]);
 
         autoTable(doc, {
           startY: currentY + 5,
-          head: [['Nome', 'Data Cadastro', 'Telefone', 'Email']],
+          head: [['Nome', 'Data Cadastro', 'Telefone', 'Agendado por', 'Observacoes']],
           body: leadsData,
           theme: 'grid',
           headStyles: { fillColor: [99, 102, 241] },
-          styles: { fontSize: 9 }
+          styles: { fontSize: 8 },
+          columnStyles: { 4: { cellWidth: 50 } }
         });
 
         currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -225,10 +227,12 @@ export const RelatorioReunioesExport = ({ dados, escopo, formato, onComplete }: 
 
       // Aba Leads (cadastrados via agendamento de reunioes)
       if (dados.leads.length > 0) {
-        const leadsHeader = ['Nome', 'Email', 'Telefone', 'Data Cadastro'];
+        const leadsHeader = ['Nome', 'Email', 'Telefone', 'Data Cadastro', 'Agendado por', 'Observacoes'];
         const leadsRows = dados.leads.map(l => [
           l.nome, l.email || '', l.telefone || '',
-          format(new Date(l.dataCadastro), 'dd/MM/yyyy')
+          format(new Date(l.dataCadastro), 'dd/MM/yyyy'),
+          l.responsavel || '',
+          l.observacoes || ''
         ]);
         const wsLeads = XLSX.utils.aoa_to_sheet([leadsHeader, ...leadsRows]);
         XLSX.utils.book_append_sheet(wb, wsLeads, 'Leads');

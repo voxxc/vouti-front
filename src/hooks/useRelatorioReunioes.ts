@@ -43,7 +43,10 @@ export const useRelatorioReunioes = () => {
           email,
           telefone,
           observacoes,
-          created_at
+          origem,
+          created_at,
+          created_by,
+          profiles:created_by (full_name)
         `)
         .gte('created_at', config.periodo.inicio.toISOString())
         .lte('created_at', config.periodo.fim.toISOString());
@@ -59,10 +62,11 @@ export const useRelatorioReunioes = () => {
         nome: lead.nome,
         email: lead.email,
         telefone: lead.telefone,
-        origem: null, // Nao existe origem em reuniao_clientes
-        status: null, // Nao existe status em reuniao_clientes
+        origem: lead.origem || null,
+        status: null, // Calculado baseado nas reunioes
         dataCadastro: lead.created_at,
-        responsavel: null // Nao tem responsavel direto em reuniao_clientes
+        responsavel: (lead.profiles as any)?.full_name || null,
+        observacoes: lead.observacoes || null
       }));
 
       // Calcular novos leads (ultimos 7 dias do periodo)

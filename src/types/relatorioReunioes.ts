@@ -40,6 +40,7 @@ export interface LeadRelatorio {
   status: string | null;
   dataCadastro: string;
   responsavel: string | null;
+  observacoes: string | null;
 }
 
 export interface ReuniaoRelatorio {
