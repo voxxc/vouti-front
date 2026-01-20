@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useTenantId } from '@/hooks/useTenantId';
 import type { 
   RelatorioReunioesConfig, 
   DadosRelatorioReunioes,
@@ -12,13 +11,27 @@ import type {
 
 export const useRelatorioReunioes = () => {
   const [loading, setLoading] = useState(false);
-  const { tenantId } = useTenantId();
 
   const gerarRelatorio = async (config: RelatorioReunioesConfig): Promise<DadosRelatorioReunioes | null> => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
+
+      // Buscar perfil do usuario com tenant_id ANTES de qualquer outra query
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, tenant_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.tenant_id) {
+        toast.error('Tenant não encontrado para o usuário');
+        throw new Error('Tenant não encontrado');
+      }
+
+      const tenantId = profile.tenant_id;
+      console.log('[Relatório] TenantId:', tenantId);
 
       // Buscar dados do escritorio (tenant)
       const { data: tenant } = await supabase
@@ -27,15 +40,16 @@ export const useRelatorioReunioes = () => {
         .eq('id', tenantId)
         .single();
 
-      // Buscar perfil do usuario que gera o relatorio
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', user.id)
-        .single();
+      // Ajustar datas para incluir todo o período corretamente
+      const dataInicio = config.periodo.inicio.toISOString();
+      const dataFim = new Date(config.periodo.fim);
+      dataFim.setHours(23, 59, 59, 999);
+      const dataFimISO = dataFim.toISOString();
+      
+      console.log('[Relatório] Período:', dataInicio, 'até', dataFimISO);
 
       // Buscar leads no periodo (de reuniao_clientes - leads criados via agendamento)
-      let leadsQuery = supabase
+      const { data: leadsData } = await supabase
         .from('reuniao_clientes')
         .select(`
           id,
@@ -48,14 +62,11 @@ export const useRelatorioReunioes = () => {
           created_by,
           profiles:created_by (full_name)
         `)
-        .gte('created_at', config.periodo.inicio.toISOString())
-        .lte('created_at', config.periodo.fim.toISOString());
+        .gte('created_at', dataInicio)
+        .lte('created_at', dataFimISO)
+        .eq('tenant_id', tenantId);
 
-      if (tenantId) {
-        leadsQuery = leadsQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: leadsData } = await leadsQuery;
+      console.log('[Relatório] Leads encontrados:', leadsData?.length || 0);
 
       const leads: LeadRelatorio[] = (leadsData || []).map(lead => ({
         id: lead.id,
@@ -75,7 +86,7 @@ export const useRelatorioReunioes = () => {
       const novosLeads = leads.filter(l => new Date(l.dataCadastro) >= seteDiasAntes).length;
 
       // Buscar reunioes no periodo
-      let reunioesQuery = supabase
+      const { data: reunioesData } = await supabase
         .from('reunioes')
         .select(`
           id,
@@ -86,14 +97,11 @@ export const useRelatorioReunioes = () => {
           reuniao_status (nome),
           profiles:user_id (full_name)
         `)
-        .gte('created_at', config.periodo.inicio.toISOString())
-        .lte('created_at', config.periodo.fim.toISOString());
+        .gte('created_at', dataInicio)
+        .lte('created_at', dataFimISO)
+        .eq('tenant_id', tenantId);
 
-      if (tenantId) {
-        reunioesQuery = reunioesQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: reunioesData } = await reunioesQuery;
+      console.log('[Relatório] Reuniões encontradas:', reunioesData?.length || 0);
 
       const reunioes: ReuniaoRelatorio[] = (reunioesData || []).map(r => ({
         id: r.id,
