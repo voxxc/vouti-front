@@ -15,19 +15,45 @@ export const useRelatorioReunioes = () => {
   const gerarRelatorio = async (config: RelatorioReunioesConfig): Promise<DadosRelatorioReunioes | null> => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario nao autenticado');
+      console.log('[Relatório] Iniciando geração do relatório...');
+      console.log('[Relatório] Config recebida:', {
+        inicio: config.periodo.inicio.toISOString(),
+        fim: config.periodo.fim.toISOString()
+      });
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('[Relatório] Erro de autenticação:', authError);
+        toast.error('Erro de autenticação');
+        return null;
+      }
+      
+      if (!user) {
+        console.error('[Relatório] Usuário não autenticado');
+        toast.error('Usuário não autenticado');
+        return null;
+      }
+      
+      console.log('[Relatório] Usuário autenticado:', user.id);
 
       // Buscar perfil do usuario com tenant_id ANTES de qualquer outra query
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('full_name, tenant_id')
         .eq('user_id', user.id)
         .single();
 
+      if (profileError) {
+        console.error('[Relatório] Erro ao buscar perfil:', profileError);
+        toast.error('Erro ao buscar perfil do usuário');
+        return null;
+      }
+
       if (!profile?.tenant_id) {
+        console.error('[Relatório] Tenant não encontrado para o usuário');
         toast.error('Tenant não encontrado para o usuário');
-        throw new Error('Tenant não encontrado');
+        return null;
       }
 
       const tenantId = profile.tenant_id;
@@ -41,15 +67,21 @@ export const useRelatorioReunioes = () => {
         .single();
 
       // Ajustar datas para incluir todo o período corretamente
-      const dataInicio = config.periodo.inicio.toISOString();
-      const dataFim = new Date(config.periodo.fim);
-      dataFim.setHours(23, 59, 59, 999);
-      const dataFimISO = dataFim.toISOString();
+      // Início do dia para data de início (00:00:00)
+      const dataInicioObj = new Date(config.periodo.inicio);
+      dataInicioObj.setHours(0, 0, 0, 0);
+      const dataInicio = dataInicioObj.toISOString();
+      
+      // Fim do dia para data de fim (23:59:59)
+      const dataFimObj = new Date(config.periodo.fim);
+      dataFimObj.setHours(23, 59, 59, 999);
+      const dataFimISO = dataFimObj.toISOString();
       
       console.log('[Relatório] Período:', dataInicio, 'até', dataFimISO);
+      console.log('[Relatório] TenantId utilizado:', tenantId);
 
       // Buscar leads no periodo (de reuniao_clientes - leads criados via agendamento)
-      const { data: leadsData } = await supabase
+      const { data: leadsData, error: leadsError } = await supabase
         .from('reuniao_clientes')
         .select(`
           id,
@@ -66,6 +98,9 @@ export const useRelatorioReunioes = () => {
         .lte('created_at', dataFimISO)
         .eq('tenant_id', tenantId);
 
+      if (leadsError) {
+        console.error('[Relatório] Erro ao buscar leads:', leadsError);
+      }
       console.log('[Relatório] Leads encontrados:', leadsData?.length || 0);
 
       const leads: LeadRelatorio[] = (leadsData || []).map(lead => ({
@@ -86,7 +121,7 @@ export const useRelatorioReunioes = () => {
       const novosLeads = leads.filter(l => new Date(l.dataCadastro) >= seteDiasAntes).length;
 
       // Buscar reunioes no periodo
-      const { data: reunioesData } = await supabase
+      const { data: reunioesData, error: reunioesError } = await supabase
         .from('reunioes')
         .select(`
           id,
@@ -101,6 +136,9 @@ export const useRelatorioReunioes = () => {
         .lte('created_at', dataFimISO)
         .eq('tenant_id', tenantId);
 
+      if (reunioesError) {
+        console.error('[Relatório] Erro ao buscar reuniões:', reunioesError);
+      }
       console.log('[Relatório] Reuniões encontradas:', reunioesData?.length || 0);
 
       const reunioes: ReuniaoRelatorio[] = (reunioesData || []).map(r => ({
