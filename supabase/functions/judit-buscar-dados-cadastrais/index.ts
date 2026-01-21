@@ -91,7 +91,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api_key': JUDIT_API_KEY,
+        'api-key': JUDIT_API_KEY,
       },
       body: JSON.stringify(payload),
     });
@@ -140,7 +140,7 @@ serve(async (req) => {
         const pollResponse = await fetch(`https://lawsuits.prod.judit.io/requests/${juditData.request_id}`, {
           method: 'GET',
           headers: {
-            'api_key': JUDIT_API_KEY,
+            'api-key': JUDIT_API_KEY,
           },
         });
         
