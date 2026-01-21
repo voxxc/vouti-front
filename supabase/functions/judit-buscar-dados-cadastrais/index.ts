@@ -40,26 +40,30 @@ serve(async (req) => {
       );
     }
 
-    // Limpar search_key baseado no tipo
-    let cleanedSearchKey = search_key.trim();
+    // Formatar search_key baseado no tipo (API Judit espera CPF/CNPJ COM pontuação)
+    let formattedSearchKey = search_key.trim();
     if (search_type === 'cpf') {
-      cleanedSearchKey = search_key.replace(/\D/g, '');
-      if (cleanedSearchKey.length !== 11) {
+      const digits = search_key.replace(/\D/g, '');
+      if (digits.length !== 11) {
         return new Response(
           JSON.stringify({ error: 'CPF deve conter 11 dígitos' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      // Formatar: XXX.XXX.XXX-XX
+      formattedSearchKey = `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
     } else if (search_type === 'cnpj') {
-      cleanedSearchKey = search_key.replace(/\D/g, '');
-      if (cleanedSearchKey.length !== 14) {
+      const digits = search_key.replace(/\D/g, '');
+      if (digits.length !== 14) {
         return new Response(
           JSON.stringify({ error: 'CNPJ deve conter 14 dígitos' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      // Formatar: XX.XXX.XXX/XXXX-XX
+      formattedSearchKey = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12)}`;
     } else if (search_type === 'name') {
-      if (cleanedSearchKey.length < 3) {
+      if (formattedSearchKey.length < 3) {
         return new Response(
           JSON.stringify({ error: 'Nome deve ter pelo menos 3 caracteres' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -71,14 +75,14 @@ serve(async (req) => {
     const payload: any = {
       search: {
         search_type,
-        search_key: cleanedSearchKey,
+        search_key: formattedSearchKey,
         response_type: 'entity',
       }
     };
 
-    // Adicionar opções extras
+    // Adicionar opções extras (nota: API usa "on-demand" com hífen)
     if (on_demand) {
-      payload.search.on_demand = true;
+      payload.search['on-demand'] = true;
     }
     if (search_type === 'cnpj' && reveal_partners_documents) {
       payload.search.reveal_partners_documents = true;
