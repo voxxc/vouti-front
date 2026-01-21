@@ -261,19 +261,35 @@ serve(async (req) => {
         console.log(`[Busca Cadastral] Polling resposta - page_data: ${pollData.page_data?.length || 0}`);
         
         if (pollData.page_data && pollData.page_data.length > 0) {
-          const firstResult = pollData.page_data[0];
-          let responseData = firstResult.response_data || firstResult;
+          let responseData;
+          
+          // Para busca por nome, cada item do page_data é uma entidade diferente
+          if (search_type === 'name') {
+            responseData = pollData.page_data.map((item: any) => item.response_data || item);
+            console.log(`[Busca Cadastral] ${responseData.length} resultados encontrados para busca por nome`);
+          } else {
+            // Para CPF/CNPJ, o response_data está no primeiro item
+            const firstResult = pollData.page_data[0];
+            responseData = firstResult.response_data || firstResult;
+          }
+          
           console.log('[Busca Cadastral] Dados obtidos após polling');
           
-          // Se for busca por nome e enriquecimento ativo, buscar detalhes
-          if (search_type === 'name' && enrich_name_results && Array.isArray(responseData)) {
-            console.log(`[Busca Cadastral] Enriquecendo ${responseData.length} resultados de nome (pós-polling)`);
+          // Se for busca por nome e enriquecimento ativo, buscar detalhes (limitar a 5 para evitar timeout)
+          if (search_type === 'name' && enrich_name_results && Array.isArray(responseData) && responseData.length > 0) {
+            const maxEnrich = 5;
+            const toEnrich = responseData.slice(0, maxEnrich);
+            const remaining = responseData.slice(maxEnrich);
+            
+            console.log(`[Busca Cadastral] Enriquecendo ${toEnrich.length} de ${responseData.length} resultados de nome`);
             
             const enrichedResults = [];
-            for (const entity of responseData) {
-              if (entity.main_document) {
-                const docType = entity.entity_type === 'company' ? 'cnpj' : 'cpf';
-                const detailedData = await fetchEntityDetails(JUDIT_API_KEY.trim(), docType, entity.main_document);
+            for (const entity of toEnrich) {
+              const doc = entity.main_document || entity.document || entity.cpf || entity.cnpj;
+              if (doc) {
+                const isCompany = entity.entity_type === 'company' || entity.type === 'company' || !!entity.cnpj;
+                const docType = isCompany ? 'cnpj' : 'cpf';
+                const detailedData = await fetchEntityDetails(JUDIT_API_KEY.trim(), docType, doc);
                 
                 if (detailedData) {
                   const enriched = Array.isArray(detailedData) ? detailedData[0] : detailedData;
@@ -286,7 +302,9 @@ serve(async (req) => {
               }
             }
             
-            responseData = enrichedResults;
+            // Combinar enriquecidos + restantes não enriquecidos
+            responseData = [...enrichedResults, ...remaining];
+            console.log(`[Busca Cadastral] Enriquecimento concluído: ${enrichedResults.length} enriquecidos, ${remaining.length} básicos`);
           }
           
           return new Response(
