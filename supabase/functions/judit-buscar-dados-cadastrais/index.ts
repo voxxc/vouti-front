@@ -10,6 +10,75 @@ interface BuscaCadastralRequest {
   search_key: string;
   on_demand?: boolean;
   reveal_partners_documents?: boolean;
+  enrich_name_results?: boolean; // Buscar detalhes completos para resultados de nome
+}
+
+// Função auxiliar para buscar detalhes de uma entidade por documento
+async function fetchEntityDetails(
+  apiKey: string,
+  docType: 'cpf' | 'cnpj',
+  document: string
+): Promise<any> {
+  // Formatar documento
+  const digits = document.replace(/\D/g, '');
+  let formattedDoc = document;
+  
+  if (docType === 'cpf' && digits.length === 11) {
+    formattedDoc = `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
+  } else if (docType === 'cnpj' && digits.length === 14) {
+    formattedDoc = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12)}`;
+  }
+
+  const payload = {
+    search: {
+      search_type: docType,
+      search_key: formattedDoc,
+      response_type: 'entity',
+      on_demand: true
+    }
+  };
+
+  console.log(`[Busca Cadastral] Enriquecendo ${docType}: ${formattedDoc.substring(0, 5)}***`);
+
+  const response = await fetch('https://requests.prod.judit.io/requests', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (data.response_data) {
+    return data.response_data;
+  }
+
+  // Fazer polling se necessário
+  if (data.request_id) {
+    const maxAttempts = 5;
+    const delayMs = 2000;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      const pollUrl = `https://requests.prod.judit.io/responses?request_id=${data.request_id}&page=1&page_size=100`;
+      const pollResponse = await fetch(pollUrl, {
+        method: 'GET',
+        headers: { 'api-key': apiKey },
+      });
+      
+      const pollData = await pollResponse.json();
+      
+      if (pollData.page_data && pollData.page_data.length > 0) {
+        const firstResult = pollData.page_data[0];
+        return firstResult.response_data || firstResult;
+      }
+    }
+  }
+
+  return null;
 }
 
 serve(async (req) => {
@@ -29,7 +98,13 @@ serve(async (req) => {
     }
 
     const body: BuscaCadastralRequest = await req.json();
-    const { search_type, search_key, on_demand = true, reveal_partners_documents = false } = body;
+    const { 
+      search_type, 
+      search_key, 
+      on_demand = true, 
+      reveal_partners_documents = false,
+      enrich_name_results = true // Por padrão, enriquecer resultados de nome
+    } = body;
 
     console.log('[Busca Cadastral] Iniciando busca:', { search_type, search_key: search_key.substring(0, 5) + '***' });
 
@@ -117,10 +192,39 @@ serve(async (req) => {
     // Verificar se a resposta contém dados
     if (juditData.response_data) {
       console.log('[Busca Cadastral] Dados encontrados');
+      
+      let finalData = juditData.response_data;
+      
+      // Se for busca por nome e enriquecimento ativo, buscar detalhes de cada resultado
+      if (search_type === 'name' && enrich_name_results && Array.isArray(finalData)) {
+        console.log(`[Busca Cadastral] Enriquecendo ${finalData.length} resultados de nome`);
+        
+        const enrichedResults = [];
+        for (const entity of finalData) {
+          if (entity.main_document) {
+            const docType = entity.entity_type === 'company' ? 'cnpj' : 'cpf';
+            const detailedData = await fetchEntityDetails(JUDIT_API_KEY.trim(), docType, entity.main_document);
+            
+            if (detailedData) {
+              // Se retornou array, pegar primeiro item
+              const enriched = Array.isArray(detailedData) ? detailedData[0] : detailedData;
+              enrichedResults.push(enriched);
+            } else {
+              enrichedResults.push(entity); // Fallback para dados originais
+            }
+          } else {
+            enrichedResults.push(entity);
+          }
+        }
+        
+        finalData = enrichedResults;
+        console.log(`[Busca Cadastral] Enriquecimento concluído: ${enrichedResults.length} resultados`);
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: true,
-          data: juditData.response_data,
+          data: finalData,
           request_id: juditData.request_id,
           status: juditData.status
         }),
@@ -154,8 +258,33 @@ serve(async (req) => {
         
         if (pollData.page_data && pollData.page_data.length > 0) {
           const firstResult = pollData.page_data[0];
-          const responseData = firstResult.response_data || firstResult;
+          let responseData = firstResult.response_data || firstResult;
           console.log('[Busca Cadastral] Dados obtidos após polling');
+          
+          // Se for busca por nome e enriquecimento ativo, buscar detalhes
+          if (search_type === 'name' && enrich_name_results && Array.isArray(responseData)) {
+            console.log(`[Busca Cadastral] Enriquecendo ${responseData.length} resultados de nome (pós-polling)`);
+            
+            const enrichedResults = [];
+            for (const entity of responseData) {
+              if (entity.main_document) {
+                const docType = entity.entity_type === 'company' ? 'cnpj' : 'cpf';
+                const detailedData = await fetchEntityDetails(JUDIT_API_KEY.trim(), docType, entity.main_document);
+                
+                if (detailedData) {
+                  const enriched = Array.isArray(detailedData) ? detailedData[0] : detailedData;
+                  enrichedResults.push(enriched);
+                } else {
+                  enrichedResults.push(entity);
+                }
+              } else {
+                enrichedResults.push(entity);
+              }
+            }
+            
+            responseData = enrichedResults;
+          }
+          
           return new Response(
             JSON.stringify({ 
               success: true,
