@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
@@ -10,6 +10,7 @@ import { SuperAdminLeads } from '@/components/SuperAdmin/SuperAdminLeads';
 import { SuperAdminSupport } from '@/components/SuperAdmin/SuperAdminSupport';
 import { SuperAdminAvisosDialog } from '@/components/SuperAdmin/SuperAdminAvisosDialog';
 import { CredenciaisCentralDialog } from '@/components/SuperAdmin/CredenciaisCentralDialog';
+import { SuperAdminBuscaGeral } from '@/components/SuperAdmin/SuperAdminBuscaGeral';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -251,7 +252,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tenants" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-lg grid-cols-4">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -263,6 +264,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="support" className="flex items-center gap-2">
               <Headphones className="w-4 h-4" />
               Suporte
+            </TabsTrigger>
+            <TabsTrigger value="busca-geral" className="flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Busca Geral
             </TabsTrigger>
           </TabsList>
 
@@ -296,6 +301,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="support">
             <SuperAdminSupport />
+          </TabsContent>
+
+          <TabsContent value="busca-geral">
+            <SuperAdminBuscaGeral />
           </TabsContent>
         </Tabs>
       </main>

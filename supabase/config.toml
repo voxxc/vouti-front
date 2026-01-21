@@ -77,3 +77,6 @@ verify_jwt = true
 
 [functions.notify-nova-credencial]
 verify_jwt = false
+
+[functions.judit-buscar-dados-cadastrais]
+verify_jwt = true
