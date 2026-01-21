@@ -151,9 +151,13 @@ serve(async (req) => {
       search: {
         search_type,
         search_key: formattedSearchKey,
-        response_type: 'entity',
       }
     };
+
+    // response_type só é válido para CPF/CNPJ, não para nome
+    if (search_type !== 'name') {
+      payload.search.response_type = 'entity';
+    }
 
     // Adicionar opções extras (padrão da API funcional usa underscore)
     if (on_demand) {
