@@ -90,15 +90,12 @@ serve(async (req) => {
 
     console.log('[Busca Cadastral] Payload para Judit:', JSON.stringify(payload));
 
-    // Fazer requisição para API Judit
+    // Fazer requisição para API Judit (conforme documentação oficial: apenas header 'api-key')
     const juditResponse = await fetch('https://lawsuits.prod.judit.io/requests/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // A docs indica `api-key`, mas alguns serviços também validam `Authorization: Bearer ...`
-        // Enviamos ambos para evitar falha por variação de gateway.
         'api-key': JUDIT_API_KEY,
-        'Authorization': `Bearer ${JUDIT_API_KEY}`,
       },
       body: JSON.stringify(payload),
     });
@@ -148,7 +145,6 @@ serve(async (req) => {
           method: 'GET',
           headers: {
             'api-key': JUDIT_API_KEY,
-            'Authorization': `Bearer ${JUDIT_API_KEY}`,
           },
         });
         
