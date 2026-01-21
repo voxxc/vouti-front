@@ -153,10 +153,8 @@ serve(async (req) => {
       }
     };
 
-    // response_type só é válido para CPF/CNPJ, não para nome
-    if (search_type !== 'name') {
-      payload.search.response_type = 'entity';
-    }
+    // Nota: a API Judit rejeita `search.response_type` neste endpoint.
+    // Portanto, não enviamos `response_type` em nenhum tipo de busca.
 
     // Adicionar opções extras (padrão da API funcional usa underscore)
     if (on_demand) {
