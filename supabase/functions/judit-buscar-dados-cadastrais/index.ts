@@ -80,9 +80,9 @@ serve(async (req) => {
       }
     };
 
-    // Adicionar opções extras (nota: API usa "on-demand" com hífen)
+    // Adicionar opções extras (padrão da API funcional usa underscore)
     if (on_demand) {
-      payload.search['on-demand'] = true;
+      payload.search.on_demand = true;
     }
     if (search_type === 'cnpj' && reveal_partners_documents) {
       payload.search.reveal_partners_documents = true;
@@ -90,12 +90,12 @@ serve(async (req) => {
 
     console.log('[Busca Cadastral] Payload para Judit:', JSON.stringify(payload));
 
-    // Fazer requisição para API Judit (conforme documentação oficial: apenas header 'api-key')
-    const juditResponse = await fetch('https://lawsuits.prod.judit.io/requests/create', {
+    // Fazer requisição para API Judit (seguindo padrão da função que funciona)
+    const juditResponse = await fetch('https://requests.prod.judit.io/requests', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': JUDIT_API_KEY,
+        'api-key': JUDIT_API_KEY.trim(),
       },
       body: JSON.stringify(payload),
     });
@@ -141,29 +141,33 @@ serve(async (req) => {
         
         await new Promise(resolve => setTimeout(resolve, delayMs));
         
-        const pollResponse = await fetch(`https://lawsuits.prod.judit.io/requests/${juditData.request_id}`, {
+        const pollUrl = `https://requests.prod.judit.io/responses?request_id=${juditData.request_id}&page=1&page_size=100`;
+        const pollResponse = await fetch(pollUrl, {
           method: 'GET',
           headers: {
-            'api-key': JUDIT_API_KEY,
+            'api-key': JUDIT_API_KEY.trim(),
           },
         });
         
         const pollData = await pollResponse.json();
+        console.log(`[Busca Cadastral] Polling resposta - page_data: ${pollData.page_data?.length || 0}`);
         
-        if (pollData.status === 'done' && pollData.response_data) {
+        if (pollData.page_data && pollData.page_data.length > 0) {
+          const firstResult = pollData.page_data[0];
+          const responseData = firstResult.response_data || firstResult;
           console.log('[Busca Cadastral] Dados obtidos após polling');
           return new Response(
             JSON.stringify({ 
               success: true,
-              data: pollData.response_data,
-              request_id: pollData.request_id,
-              status: pollData.status
+              data: responseData,
+              request_id: juditData.request_id,
+              status: 'done'
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
-        if (pollData.status === 'error') {
+        if (pollData.error) {
           console.error('[Busca Cadastral] Erro no processamento:', pollData);
           return new Response(
             JSON.stringify({ 
