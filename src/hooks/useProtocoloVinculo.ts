@@ -103,29 +103,30 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
 
       if (error) throw error;
 
-      // 2. Buscar dados do protocolo (project_id e tenant_id se não informados)
+      // 2. Buscar dados do protocolo (project_id, tenant_id e workspace_id se não informados)
       const { data: protocolo } = await supabase
         .from('project_protocolos')
-        .select('project_id, tenant_id')
+        .select('project_id, tenant_id, workspace_id')
         .eq('id', protocoloId)
         .single();
 
       const projectIdFinal = options?.projectId || protocolo?.project_id;
       const tenantIdFinal = tenantId || protocolo?.tenant_id;
+      const workspaceIdFinal = options?.workspaceId || protocolo?.workspace_id;
 
       console.log('[vincularProcesso] projectId:', projectIdFinal, 
-                  'workspaceId:', options?.workspaceId, 
+                  'workspaceId:', workspaceIdFinal, 
                   'tenantId:', tenantIdFinal);
 
       // 3. Vincular automaticamente à aba Processos do workspace
-      if (projectIdFinal && options?.workspaceId && tenantIdFinal) {
+      if (projectIdFinal && workspaceIdFinal && tenantIdFinal) {
         // Verificar se já existe
         const { data: existente } = await supabase
           .from('project_processos')
           .select('id')
           .eq('projeto_id', projectIdFinal)
           .eq('processo_oab_id', novoProcessoOabId)
-          .eq('workspace_id', options.workspaceId)
+          .eq('workspace_id', workspaceIdFinal)
           .maybeSingle();
 
         // Se não existe, criar vínculo
@@ -134,7 +135,7 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
             .from('project_processos')
             .select('ordem')
             .eq('projeto_id', projectIdFinal)
-            .eq('workspace_id', options.workspaceId)
+            .eq('workspace_id', workspaceIdFinal)
             .order('ordem', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -144,7 +145,7 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
             .insert({
               projeto_id: projectIdFinal,
               processo_oab_id: novoProcessoOabId,
-              workspace_id: options.workspaceId,
+              workspace_id: workspaceIdFinal,
               tenant_id: tenantIdFinal,
               ordem: (maxOrdem?.ordem ?? -1) + 1
             });
@@ -159,7 +160,7 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
         }
       } else {
         console.warn('[vincularProcesso] Não foi possível vincular à aba Processos. Valores faltando:', 
-                     { projectIdFinal, workspaceId: options?.workspaceId, tenantIdFinal });
+                     { projectIdFinal, workspaceId: workspaceIdFinal, tenantIdFinal });
       }
 
       // Atualiza o estado local imediatamente
