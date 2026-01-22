@@ -617,6 +617,22 @@ export const useProcessosOAB = (oabId: string | null) => {
 
   const excluirProcesso = async (processoId: string, numeroCnj: string) => {
     try {
+      // VALIDAÇÃO: Verificar se o processo está em monitoramento ativo
+      const { data: processoCheck } = await supabase
+        .from('processos_oab')
+        .select('monitoramento_ativo')
+        .eq('id', processoId)
+        .single();
+      
+      if (processoCheck?.monitoramento_ativo) {
+        toast({
+          title: 'Exclusão bloqueada',
+          description: 'Não é possível excluir processos com monitoramento ativo. Desative o monitoramento primeiro.',
+          variant: 'destructive'
+        });
+        return false;
+      }
+
       // Primeiro excluir os andamentos do processo
       const { error: andamentosError } = await supabase
         .from('processos_oab_andamentos')
