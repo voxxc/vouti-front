@@ -728,6 +728,8 @@ export function ProjectProtocoloDrawer({
                 <ProtocoloVinculoTab
                   protocoloId={protocolo.id}
                   processoOabId={protocolo.processoOabId}
+                  workspaceId={protocolo.workspaceId}
+                  projectId={projectId}
                   onVinculoChange={async () => {
                     refetchVinculo();
                     // Recarrega a lista de protocolos para atualizar o processoOabId

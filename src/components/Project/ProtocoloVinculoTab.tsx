@@ -12,9 +12,17 @@ interface ProtocoloVinculoTabProps {
   protocoloId: string;
   processoOabId: string | null | undefined;
   onVinculoChange: (novoProcessoOabId: string | null) => void;
+  workspaceId?: string | null;
+  projectId?: string | null;
 }
 
-export const ProtocoloVinculoTab = ({ protocoloId, processoOabId, onVinculoChange }: ProtocoloVinculoTabProps) => {
+export const ProtocoloVinculoTab = ({ 
+  protocoloId, 
+  processoOabId, 
+  onVinculoChange,
+  workspaceId,
+  projectId
+}: ProtocoloVinculoTabProps) => {
   const [busca, setBusca] = useState('');
   const [mostrarBusca, setMostrarBusca] = useState(false);
   const { toast } = useToast();
@@ -36,12 +44,15 @@ export const ProtocoloVinculoTab = ({ protocoloId, processoOabId, onVinculoChang
   }, [mostrarBusca, busca, fetchProcessosDisponiveis]);
 
   const handleVincular = async (novoProcessoId: string) => {
-    const success = await vincularProcesso(novoProcessoId);
+    const success = await vincularProcesso(novoProcessoId, { workspaceId, projectId });
     if (success) {
       onVinculoChange(novoProcessoId);
       setMostrarBusca(false);
       setBusca('');
-      toast({ title: 'Processo vinculado com sucesso' });
+      toast({ 
+        title: 'Processo vinculado com sucesso',
+        description: workspaceId ? 'Também adicionado à aba Processos' : undefined
+      });
     } else {
       toast({ title: 'Erro ao vincular processo', variant: 'destructive' });
     }
