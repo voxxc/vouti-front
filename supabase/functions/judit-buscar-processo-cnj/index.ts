@@ -433,6 +433,7 @@ serve(async (req) => {
           .from('processos_oab_andamentos')
           .insert({
             processo_oab_id: processoOabId,
+            tenant_id: tenantId,
             data_movimentacao: dataMovimentacao,
             tipo_movimentacao: tipoMovimentacao,
             descricao: descricao,
@@ -440,7 +441,11 @@ serve(async (req) => {
             lida: false
           });
 
-        if (!error) andamentosInseridos++;
+        if (!error) {
+          andamentosInseridos++;
+        } else {
+          console.error('[Judit Import CNJ] Erro ao inserir andamento:', error.message);
+        }
       }
     }
 
