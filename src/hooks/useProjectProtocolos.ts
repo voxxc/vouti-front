@@ -180,6 +180,24 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       
       console.log('[createProtocolo] workspaceId:', workspaceId, 'defaultWorkspaceId:', defaultWorkspaceId, 'effectiveWorkspaceId:', effectiveWorkspaceId);
       
+      // VALIDAÇÃO: Garantir que o workspace pertence ao projeto atual
+      if (effectiveWorkspaceId) {
+        const { data: wsCheck } = await supabase
+          .from('project_workspaces')
+          .select('project_id')
+          .eq('id', effectiveWorkspaceId)
+          .single();
+        
+        if (wsCheck && wsCheck.project_id !== projectId) {
+          toast({
+            title: 'Erro',
+            description: 'Workspace inválido para este projeto',
+            variant: 'destructive'
+          });
+          throw new Error('Workspace não pertence ao projeto');
+        }
+      }
+      
       const { data: newProtocolo, error } = await supabase
         .from('project_protocolos')
         .insert({
