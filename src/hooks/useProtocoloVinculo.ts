@@ -103,24 +103,27 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
 
       if (error) throw error;
 
-      // 2. Buscar project_id do protocolo se não foi informado
-      let projectId = options?.projectId;
-      if (!projectId) {
-        const { data: protocolo } = await supabase
-          .from('project_protocolos')
-          .select('project_id')
-          .eq('id', protocoloId)
-          .single();
-        projectId = protocolo?.project_id;
-      }
+      // 2. Buscar dados do protocolo (project_id e tenant_id se não informados)
+      const { data: protocolo } = await supabase
+        .from('project_protocolos')
+        .select('project_id, tenant_id')
+        .eq('id', protocoloId)
+        .single();
 
-      // 3. Vincular automaticamente à aba Processos do workspace (se tiver workspaceId e projectId)
-      if (projectId && options?.workspaceId && tenantId) {
+      const projectIdFinal = options?.projectId || protocolo?.project_id;
+      const tenantIdFinal = tenantId || protocolo?.tenant_id;
+
+      console.log('[vincularProcesso] projectId:', projectIdFinal, 
+                  'workspaceId:', options?.workspaceId, 
+                  'tenantId:', tenantIdFinal);
+
+      // 3. Vincular automaticamente à aba Processos do workspace
+      if (projectIdFinal && options?.workspaceId && tenantIdFinal) {
         // Verificar se já existe
         const { data: existente } = await supabase
           .from('project_processos')
           .select('id')
-          .eq('projeto_id', projectId)
+          .eq('projeto_id', projectIdFinal)
           .eq('processo_oab_id', novoProcessoOabId)
           .eq('workspace_id', options.workspaceId)
           .maybeSingle();
@@ -130,20 +133,33 @@ export const useProtocoloVinculo = (protocoloId: string | null, processoOabIdIni
           const { data: maxOrdem } = await supabase
             .from('project_processos')
             .select('ordem')
-            .eq('projeto_id', projectId)
+            .eq('projeto_id', projectIdFinal)
             .eq('workspace_id', options.workspaceId)
             .order('ordem', { ascending: false })
             .limit(1)
             .maybeSingle();
 
-          await supabase.from('project_processos').insert({
-            projeto_id: projectId,
-            processo_oab_id: novoProcessoOabId,
-            workspace_id: options.workspaceId,
-            tenant_id: tenantId,
-            ordem: (maxOrdem?.ordem ?? -1) + 1
-          });
+          const { error: insertError } = await supabase
+            .from('project_processos')
+            .insert({
+              projeto_id: projectIdFinal,
+              processo_oab_id: novoProcessoOabId,
+              workspace_id: options.workspaceId,
+              tenant_id: tenantIdFinal,
+              ordem: (maxOrdem?.ordem ?? -1) + 1
+            });
+
+          if (insertError) {
+            console.error('[vincularProcesso] Erro ao inserir em project_processos:', insertError);
+          } else {
+            console.log('[vincularProcesso] Processo adicionado à aba Processos com sucesso');
+          }
+        } else {
+          console.log('[vincularProcesso] Processo já existe na aba Processos');
         }
+      } else {
+        console.warn('[vincularProcesso] Não foi possível vincular à aba Processos. Valores faltando:', 
+                     { projectIdFinal, workspaceId: options?.workspaceId, tenantIdFinal });
       }
 
       // Atualiza o estado local imediatamente
