@@ -54,7 +54,7 @@ interface UserOption {
   name: string;
 }
 
-export const CentralPrazos = () => {
+export const CentralPrazosConcluidos = () => {
   const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
   const [prazos, setPrazos] = useState<PrazoConcluido[]>([]);
@@ -465,4 +465,4 @@ export const CentralPrazos = () => {
   );
 };
 
-export default CentralPrazos;
+export default CentralPrazosConcluidos;

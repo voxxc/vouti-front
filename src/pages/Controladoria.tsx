@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Bell, Scale, Building2, RefreshCw, ClipboardCheck } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
-import { CentralPrazos } from "@/components/Controladoria/CentralPrazos";
+import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,7 +130,7 @@ const Controladoria = () => {
           <TabsContent value="central">
             <Card>
               <CardContent className="pt-6">
-                <CentralPrazos />
+                <CentralControladoria />
               </CardContent>
             </Card>
           </TabsContent>
