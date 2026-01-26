@@ -58,6 +58,7 @@ export interface Cliente {
   status_cliente?: 'ativo' | 'inativo' | 'contrato_encerrado';
   pessoas_adicionais?: PessoaAdicional[];
   grupos_parcelas?: GruposParcelasConfig;
+  proveito_economico?: number; // Percentual de proveito econômico
   created_at?: string;
   updated_at?: string;
 }

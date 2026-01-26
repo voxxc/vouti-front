@@ -108,6 +108,13 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
               </div>
             )}
 
+            {cliente.proveito_economico && (
+              <div>
+                <p className="text-sm text-muted-foreground">Proveito Econômico</p>
+                <p className="font-medium">{cliente.proveito_economico}%</p>
+              </div>
+            )}
+
             {cliente.data_nascimento && (
               <div>
                 <p className="text-sm text-muted-foreground">Data de Nascimento</p>
