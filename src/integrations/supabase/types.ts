@@ -465,6 +465,7 @@ export type Database = {
           metodo_pagamento: string | null
           numero_parcela: number
           observacoes: string | null
+          saldo_restante: number | null
           status: string
           tenant_id: string | null
           updated_at: string | null
@@ -483,6 +484,7 @@ export type Database = {
           metodo_pagamento?: string | null
           numero_parcela: number
           observacoes?: string | null
+          saldo_restante?: number | null
           status?: string
           tenant_id?: string | null
           updated_at?: string | null
@@ -501,6 +503,7 @@ export type Database = {
           metodo_pagamento?: string | null
           numero_parcela?: number
           observacoes?: string | null
+          saldo_restante?: number | null
           status?: string
           tenant_id?: string | null
           updated_at?: string | null

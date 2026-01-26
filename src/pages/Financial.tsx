@@ -122,8 +122,9 @@ const Financial = () => {
           const parcelasPagas = parcelas.filter(p => p.status === 'pago');
           const parcelasAtrasadas = parcelas.filter(p => p.status === 'atrasado');
           const parcelasPendentes = parcelas.filter(p => p.status === 'pendente');
+          const parcelasParciais = parcelas.filter(p => p.status === 'parcial');
 
-          // Contrato encerrado: todas parcelas pagas
+          // Contrato encerrado: todas parcelas pagas (não contar parciais)
           if (parcelasPagas.length === parcelas.length) {
             status = 'contrato_encerrado';
           }
@@ -141,13 +142,15 @@ const Financial = () => {
               status = 'inadimplente';
             }
           }
-          // Adimplente: tem parcelas pendentes mas nenhuma atrasada
-          else if (parcelasPendentes.length > 0) {
+          // Adimplente: tem parcelas pendentes ou parciais mas nenhuma atrasada
+          else if (parcelasPendentes.length > 0 || parcelasParciais.length > 0) {
             status = 'adimplente';
-            const proximaParcela = parcelasPendentes.sort((a, b) => 
+            const proximaParcela = [...parcelasPendentes, ...parcelasParciais].sort((a, b) => 
               new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime()
             )[0];
-            proximoVencimento = new Date(proximaParcela.data_vencimento);
+            if (proximaParcela) {
+              proximoVencimento = new Date(proximaParcela.data_vencimento);
+            }
           }
         } else if (cliente.forma_pagamento === 'a_vista') {
           // Cliente à vista é considerado encerrado após pagamento
@@ -212,10 +215,13 @@ const Financial = () => {
   const clientesEncerrados = clientes.filter(c => c.status === 'contrato_encerrado').length;
   const clientesInativos = clientes.filter(c => c.status === 'inativo').length;
   
-  // Calcular receita mensal usando dados reais das parcelas pendentes
+  // Calcular receita mensal usando dados reais das parcelas pendentes e parciais
   const receitaMensal = Object.values(parcelasPorClienteState).flat()
-    .filter(p => p.status === 'pendente')
-    .reduce((sum, p) => sum + (p.valor_parcela || 0), 0);
+    .filter(p => p.status === 'pendente' || p.status === 'parcial')
+    .reduce((sum, p) => {
+      // Para parciais, usar saldo_restante; para pendentes, usar valor_parcela
+      return sum + (p.status === 'parcial' ? (p.saldo_restante || 0) : (p.valor_parcela || 0));
+    }, 0);
   
   const receitaPendente = Object.values(parcelasPorClienteState).flat()
     .filter(p => p.status === 'atrasado')

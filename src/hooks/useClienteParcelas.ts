@@ -74,14 +74,35 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
         comprovanteUrl = publicUrl;
       }
 
-      // Atualizar parcela com valor_pago
+      // Buscar parcela para calcular saldo restante
+      const parcela = parcelas.find(p => p.id === parcelaId);
+      const valorParcela = parcela?.valor_parcela || 0;
+      const valorPagoAnterior = parcela?.valor_pago || 0;
+      
+      // Se é pagamento parcial, considerar valor pago anterior + novo valor
+      const valorPagoTotal = parcela?.status === 'parcial' 
+        ? valorPagoAnterior + dados.valor_pago 
+        : dados.valor_pago;
+      
+      const saldoRestante = valorParcela - valorPagoTotal;
+      
+      // Determinar status baseado no pagamento
+      let novoStatus: string;
+      if (dados.pagamento_parcial && saldoRestante > 0.01) {
+        novoStatus = 'parcial';
+      } else {
+        novoStatus = 'pago';
+      }
+
+      // Atualizar parcela com valor_pago e saldo_restante
       const { error: updateError } = await supabase
         .from('cliente_parcelas')
         .update({
-          status: 'pago',
+          status: novoStatus,
           data_pagamento: dados.data_pagamento,
           metodo_pagamento: dados.metodo_pagamento,
-          valor_pago: dados.valor_pago, // Salvar o valor efetivamente pago
+          valor_pago: valorPagoTotal,
+          saldo_restante: saldoRestante > 0 ? saldoRestante : 0,
           comprovante_url: comprovanteUrl,
           observacoes: dados.observacoes,
         })
@@ -89,22 +110,28 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
 
       if (updateError) throw updateError;
 
-      // Adicionar comentário automático
+      // Adicionar comentário automático com detalhes
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const comentario = novoStatus === 'parcial'
+          ? `Pagamento parcial de R$ ${dados.valor_pago.toFixed(2)} via ${dados.metodo_pagamento}. Saldo restante: R$ ${saldoRestante.toFixed(2)}`
+          : `Pagamento registrado via ${dados.metodo_pagamento}`;
+        
         await supabase
           .from('cliente_pagamento_comentarios')
           .insert({
             parcela_id: parcelaId,
             user_id: user.id,
-            comentario: `Pagamento registrado via ${dados.metodo_pagamento}`,
+            comentario,
             tenant_id: tenantId
           });
       }
 
       toast({
-        title: 'Pagamento registrado',
-        description: 'A baixa da parcela foi registrada com sucesso.',
+        title: novoStatus === 'parcial' ? 'Pagamento parcial registrado' : 'Pagamento registrado',
+        description: novoStatus === 'parcial' 
+          ? `Saldo restante: R$ ${saldoRestante.toFixed(2)}`
+          : 'A baixa da parcela foi registrada com sucesso.',
       });
 
       await fetchParcelas();
