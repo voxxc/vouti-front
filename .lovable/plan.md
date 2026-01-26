@@ -1,109 +1,115 @@
 
+## Ajuste do Chat Interno - Scroll e Resposta a Mensagens
 
-## Correção da Busca Geral no Super Admin
+### Problemas Identificados
 
-### Diagnóstico Confirmado
-
-Analisei a documentação oficial da API Judit e encontrei os seguintes problemas:
-
-| Problema | Atual | Correto |
+| Problema | Causa | Solução |
 |----------|-------|---------|
-| Endpoint | `requests.prod.judit.io/requests` | `lawsuits.prod.judit.io/requests/create` |
-| Parâmetro | Não envia `response_type` | Precisa `response_type: 'entity'` |
-| Polling URL | `requests.prod.judit.io/responses` | `lawsuits.prod.judit.io/responses` |
-
-**Por que não aparece CPF/cidade nas buscas por nome:**
-- A API retorna `main_document` mas o frontend espera `document`
-- A API retorna `contacts[].contact_type` mas o frontend espera `contacts[].type`
-- Sem o `response_type: 'entity'`, a API não retorna dados cadastrais completos
+| Interface "rasgando" | `DialogContent` sem altura fixa adequada | Definir `h-[80vh] max-h-[600px]` com `overflow-hidden` |
+| Scroll não funciona | `ScrollArea` sem altura calculada | Usar `h-[calc(80vh-200px)]` para área de mensagens |
+| Não há resposta a mensagem | Sem campo `reply_to_id` no banco | Adicionar coluna e UI de reply |
 
 ---
 
 ### Alterações Planejadas
 
-#### 1. Corrigir Edge Function
+#### 1. Migração de Banco de Dados
 
-Arquivo: `supabase/functions/judit-buscar-dados-cadastrais/index.ts`
-
-Mudanças:
-- Endpoint: `https://lawsuits.prod.judit.io/requests/create`
-- Adicionar `response_type: 'entity'` no payload
-- Polling URL: `https://lawsuits.prod.judit.io/responses`
-- Adicionar logs para debug dos dados retornados
-
-#### 2. Adicionar Função de Normalização no Frontend
-
-Arquivo: `src/components/SuperAdmin/SuperAdminBuscaGeral.tsx`
-
-Criar função para mapear campos da API Judit para estrutura esperada:
-
-| Campo API Judit | Campo Frontend |
-|-----------------|----------------|
-| `main_document` | `document` |
-| `entity_type` | `type` |
-| `parents[kinship='mother'].name` | `mother_name` |
-| `parents[kinship='father'].name` | `father_name` |
-| `contacts[].contact_type` | `contacts[].type` |
-| `contacts[].description` | `contacts[].value` |
-| `social_name` | `trading_name` |
-| `legal_nature.name` | `legal_nature` |
-| `branch_activities` | `economic_activities` |
-| `branch_activities[].name` | `economic_activities[].description` |
-| `branch_activities[].main_activity` | `economic_activities[].is_main` |
-| `partners[].position` | `partners[].qualification` |
-
-#### 3. Criar Tabela de Histórico
-
-Nova migração SQL para armazenar buscas anteriores:
+Adicionar coluna `reply_to_id` na tabela `messages`:
 
 ```text
-busca_cadastral_historico
-├── id (uuid, PK)
-├── search_type (text: 'cpf' | 'cnpj' | 'name')
-├── search_key_display (text: valor mascarado)
-├── search_key_hash (text: hash para detectar duplicatas)
-├── resultado (jsonb: dados retornados)
-├── total_resultados (integer)
-├── request_id (text: ID da Judit)
-├── user_id (uuid: quem fez a busca)
-├── created_at (timestamptz)
-└── updated_at (timestamptz)
+ALTER TABLE messages ADD COLUMN reply_to_id UUID REFERENCES messages(id);
+CREATE INDEX idx_messages_reply_to ON messages(reply_to_id);
 ```
 
-RLS: apenas super_admins podem ler/escrever
+#### 2. Corrigir Layout do InternalMessaging.tsx
 
-#### 4. Adicionar Aba de Histórico na Interface
+**Arquivo:** `src/components/Communication/InternalMessaging.tsx`
 
-Reorganizar componente com tabs:
+- `DialogContent`: `className="max-w-4xl h-[80vh] max-h-[600px] p-0 overflow-hidden"`
+- Container flex: `className="flex h-full overflow-hidden"`
+- Lista usuários: `className="w-1/3 border-r bg-muted/20 flex flex-col h-full overflow-hidden"`
+- ScrollArea usuários: `className="flex-1 overflow-hidden"`
+- Área de chat: `className="flex-1 flex flex-col h-full overflow-hidden"`
+- ScrollArea mensagens: `className="flex-1 overflow-auto p-4"` (com ref para auto-scroll)
+
+#### 3. Adicionar Estado de Resposta
+
+Novo estado no InternalMessaging:
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│  Busca Geral                                              │
-├──────────────────────────────────────────────────────────┤
-│  [Nova Busca]  [Histórico (12)]                           │
-├──────────────────────────────────────────────────────────┤
-│                                                           │
-│  Lista de buscas anteriores:                             │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │ CPF  ●  João da Silva           23/01/2026 14:30    │ │
-│  │         091.632.***-**          [Ver] [Atualizar]   │ │
-│  └─────────────────────────────────────────────────────┘ │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │ Nome ●  Maria Santos           22/01/2026 10:15     │ │
-│  │         5 resultados           [Ver] [Atualizar]    │ │
-│  └─────────────────────────────────────────────────────┘ │
-│                                                           │
-└──────────────────────────────────────────────────────────┘
+const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 ```
 
-#### 5. Criar Hook para Histórico
+#### 4. Atualizar MessageBubble.tsx
 
-Arquivo: `src/hooks/useBuscaCadastralHistorico.ts`
+**Arquivo:** `src/components/Communication/MessageBubble.tsx`
 
-Funções:
-- `fetchHistorico()` - listar buscas anteriores
-- `salvarBusca(search, results)` - salvar nova busca
-- `atualizarBusca(id, results)` - atualizar busca existente
+Adicionar:
+- Prop `onReply?: () => void`
+- Prop `replyToContent?: string` (conteúdo da mensagem sendo respondida)
+- Botão de responder (ícone Reply) que aparece no hover
+- Preview da mensagem original quando for uma resposta
+
+Visualização da mensagem com resposta:
+
+```text
+┌─────────────────────────────────────────┐
+│ ┌─────────────────────────────────────┐ │
+│ │ ↩ Respondendo a:                    │ │
+│ │ "Texto da mensagem original..."     │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ Nova mensagem de resposta               │
+│                                  14:30  │
+└─────────────────────────────────────────┘
+```
+
+#### 5. Atualizar MessageInput.tsx
+
+**Arquivo:** `src/components/Communication/MessageInput.tsx`
+
+Adicionar:
+- Prop `replyingTo?: { id: string; content: string }`
+- Prop `onCancelReply?: () => void`
+- Preview acima do input mostrando mensagem sendo respondida
+- Botão X para cancelar resposta
+
+Visualização:
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ ↩ Respondendo a: "Texto truncado da msg..."    [X] │
+├─────────────────────────────────────────────────────┤
+│ [📎] [Digite sua mensagem...              ] [Send] │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 6. Atualizar useMessages Hook
+
+**Arquivo:** `src/hooks/useMessages.ts`
+
+- Adicionar `reply_to_id` na interface `Message`
+- Atualizar `sendMessage` para aceitar `replyToId?: string`
+- Função para buscar conteúdo da mensagem original
+
+#### 7. Atualizar Types
+
+**Arquivo:** `src/types/communication.ts`
+
+```typescript
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  replyToId?: string;      // NOVO
+  replyToContent?: string; // NOVO (para cache local)
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
 
 ---
 
@@ -111,22 +117,54 @@ Funções:
 
 | Arquivo | Tipo | Descrição |
 |---------|------|-----------|
-| `supabase/functions/judit-buscar-dados-cadastrais/index.ts` | Modificar | Corrigir endpoint e adicionar response_type |
-| `supabase/migrations/xxx_create_busca_cadastral_historico.sql` | Criar | Tabela de histórico |
-| `src/components/SuperAdmin/SuperAdminBuscaGeral.tsx` | Modificar | Normalização de dados + tabs + histórico |
-| `src/hooks/useBuscaCadastralHistorico.ts` | Criar | Hook para gerenciar histórico |
+| `supabase/migrations/xxx_add_reply_to_messages.sql` | Criar | Adicionar coluna reply_to_id |
+| `src/components/Communication/InternalMessaging.tsx` | Modificar | Corrigir layout + estado de reply |
+| `src/components/Communication/MessageBubble.tsx` | Modificar | Adicionar botão reply + preview |
+| `src/components/Communication/MessageInput.tsx` | Modificar | Preview de reply + cancelar |
+| `src/hooks/useMessages.ts` | Modificar | Suportar reply_to_id |
+| `src/types/communication.ts` | Modificar | Adicionar campos de reply |
 
 ---
 
 ### Resultado Esperado
 
-Após as correções:
+1. **Scroll funcionando**: Área de mensagens com scroll suave e barra visível
+2. **Layout estável**: Dialog não "rasga" independente da quantidade de mensagens
+3. **Auto-scroll**: Rola automaticamente para nova mensagem
+4. **Resposta visual clara**: Ao clicar em responder, aparece preview acima do input
+5. **Contexto preservado**: Mensagem de resposta mostra citação da original
 
-1. **Busca por CPF** retornará: nome, documento completo, data nascimento, filiação (mãe/pai), endereços com cidade/UF, contatos (telefone/email), nacionalidade, gênero
+---
 
-2. **Busca por CNPJ** retornará: razão social, nome fantasia, CNPJ, capital social, natureza jurídica, sócios, atividades econômicas (CNAE), endereços, contatos
+### Seção Técnica
 
-3. **Busca por Nome** retornará: lista de pessoas/empresas com **documento completo (CPF/CNPJ)**, data nascimento, cidade, e ao clicar pode ver detalhes completos
+**Cálculo de altura para ScrollArea:**
 
-4. **Histórico** permitirá: ver buscas anteriores, re-consultar para dados atualizados, filtrar por tipo
+```css
+/* Container do dialog */
+h-[80vh] max-h-[600px]
 
+/* Header do dialog: ~60px */
+/* Header do chat: ~72px */  
+/* Input area: ~80px */
+/* Total fixo: ~212px */
+
+/* Área de mensagens */
+h-[calc(100%-152px)] /* 72px header + 80px input */
+```
+
+**Estrutura de dados para reply:**
+
+```typescript
+// Ao enviar mensagem com reply
+{
+  sender_id: currentUserId,
+  receiver_id: selectedUserId,
+  content: "Nova mensagem",
+  reply_to_id: "uuid-da-msg-original", // NOVO
+  tenant_id: tenantId
+}
+
+// Ao exibir, buscar conteúdo original
+const replyContent = messages.find(m => m.id === message.reply_to_id)?.content;
+```
