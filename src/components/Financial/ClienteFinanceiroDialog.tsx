@@ -23,7 +23,7 @@ import { DividaContent } from './DividaContent';
 import { ClienteParcela, DadosBaixaPagamento } from '@/types/financeiro';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon, MoreVertical, RotateCcw, Edit } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon, MoreVertical, RotateCcw, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -72,15 +72,22 @@ export const ClienteFinanceiroDialog = ({
   const parcelasPagas = parcelas.filter((p) => p.status === 'pago');
   const parcelasAtrasadas = parcelas.filter((p) => p.status === 'atrasado');
   const parcelasPendentes = parcelas.filter((p) => p.status === 'pendente');
+  const parcelasParciais = parcelas.filter((p) => p.status === 'parcial');
 
-  // Usar valor_pago quando disponível, senão usar valor_parcela
-  const totalPago = parcelasPagas.reduce((acc, p) => acc + Number(p.valor_pago ?? p.valor_parcela), 0);
-  const totalPendente = [...parcelasAtrasadas, ...parcelasPendentes].reduce(
-    (acc, p) => acc + Number(p.valor_parcela),
-    0
+  // Usar valor_pago quando disponível para parcelas pagas e parciais
+  const totalPago = [...parcelasPagas, ...parcelasParciais].reduce(
+    (acc, p) => acc + Number(p.valor_pago ?? 0), 0
   );
+  
+  // Pendente inclui parcelas atrasadas, pendentes e o saldo restante das parciais
+  const totalPendente = [...parcelasAtrasadas, ...parcelasPendentes].reduce(
+    (acc, p) => acc + Number(p.valor_parcela), 0
+  ) + parcelasParciais.reduce(
+    (acc, p) => acc + Number(p.saldo_restante ?? 0), 0
+  );
+  
   const progressoPagamento = parcelas.length > 0 
-    ? (parcelasPagas.length / parcelas.length) * 100 
+    ? ((parcelasPagas.length + parcelasParciais.length * 0.5) / parcelas.length) * 100 
     : 0;
 
   const formatCurrency = (value: number) => {
@@ -95,17 +102,18 @@ export const ClienteFinanceiroDialog = ({
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; icon: any; label: string }> = {
+    const variants: Record<string, { variant: any; icon: any; label: string; className?: string }> = {
       pago: { variant: 'default', icon: CheckCircle2, label: 'Pago' },
       pendente: { variant: 'secondary', icon: Clock, label: 'Pendente' },
       atrasado: { variant: 'destructive', icon: AlertCircle, label: 'Atrasado' },
+      parcial: { variant: 'outline', icon: AlertTriangle, label: 'Parcial', className: 'bg-amber-500/20 text-amber-700 border-amber-500' },
     };
 
     const config = variants[status] || variants.pendente;
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className="gap-1">
+      <Badge variant={config.variant} className={cn("gap-1", config.className)}>
         <Icon className="w-3 h-3" />
         {config.label}
       </Badge>
@@ -380,16 +388,34 @@ export const ClienteFinanceiroDialog = ({
                                       Ver comprovante
                                     </Button>
                                   )}
+
+                                  {/* Mostrar saldo em aberto para parcelas parciais */}
+                                  {parcela.status === 'parcial' && (
+                                    <div className="mt-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                                      <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        <div className="text-sm">
+                                          <p className="font-medium">
+                                            Saldo em aberto: {formatCurrency(Number(parcela.saldo_restante ?? 0))}
+                                          </p>
+                                          <p className="text-xs opacity-80">
+                                            Já pago: {formatCurrency(Number(parcela.valor_pago ?? 0))}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="flex flex-col gap-2">
-                                  {(parcela.status === 'pendente' || parcela.status === 'atrasado') && (
+                                  {(parcela.status === 'pendente' || parcela.status === 'atrasado' || parcela.status === 'parcial') && (
                                     <Button
                                       size="sm"
                                       onClick={() => handleDarBaixa(parcela)}
-                                      variant={parcela.status === 'atrasado' ? 'destructive' : 'default'}
+                                      variant={parcela.status === 'atrasado' ? 'destructive' : parcela.status === 'parcial' ? 'outline' : 'default'}
+                                      className={parcela.status === 'parcial' ? 'border-amber-500 text-amber-700 hover:bg-amber-50' : ''}
                                     >
-                                      Dar Baixa
+                                      {parcela.status === 'parcial' ? 'Completar Pagamento' : 'Dar Baixa'}
                                     </Button>
                                   )}
                                   

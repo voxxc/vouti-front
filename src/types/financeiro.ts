@@ -4,9 +4,10 @@ export interface ClienteParcela {
   numero_parcela: number;
   valor_parcela: number;
   valor_pago?: number; // Valor efetivamente pago (pode ser diferente do valor_parcela)
+  saldo_restante?: number; // Saldo em aberto para pagamentos parciais
   data_vencimento: string;
   data_pagamento?: string;
-  status: 'pendente' | 'pago' | 'atrasado';
+  status: 'pendente' | 'pago' | 'atrasado' | 'parcial';
   metodo_pagamento?: string;
   comprovante_url?: string;
   observacoes?: string;
@@ -34,6 +35,7 @@ export interface DadosBaixaPagamento {
   valor_pago: number;
   comprovante?: File;
   observacoes?: string;
+  pagamento_parcial?: boolean;
 }
 
 export interface ClienteDivida {
