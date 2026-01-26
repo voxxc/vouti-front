@@ -74,13 +74,14 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
         comprovanteUrl = publicUrl;
       }
 
-      // Atualizar parcela
+      // Atualizar parcela com valor_pago
       const { error: updateError } = await supabase
         .from('cliente_parcelas')
         .update({
           status: 'pago',
           data_pagamento: dados.data_pagamento,
           metodo_pagamento: dados.metodo_pagamento,
+          valor_pago: dados.valor_pago, // Salvar o valor efetivamente pago
           comprovante_url: comprovanteUrl,
           observacoes: dados.observacoes,
         })
@@ -119,11 +120,59 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
     }
   };
 
+  const reabrirParcela = async (parcelaId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cliente_parcelas')
+        .update({
+          status: 'pendente',
+          data_pagamento: null,
+          metodo_pagamento: null,
+          valor_pago: null,
+          comprovante_url: null,
+          observacoes: null,
+        })
+        .eq('id', parcelaId);
+
+      if (error) throw error;
+
+      // Adicionar comentário automático
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('cliente_pagamento_comentarios')
+          .insert({
+            parcela_id: parcelaId,
+            user_id: user.id,
+            comentario: 'Pagamento reaberto para correção',
+            tenant_id: tenantId
+          });
+      }
+
+      toast({
+        title: 'Pagamento reaberto',
+        description: 'A parcela foi reaberta e pode ser editada.',
+      });
+
+      await fetchParcelas();
+      return true;
+    } catch (error) {
+      console.error('Erro ao reabrir parcela:', error);
+      toast({
+        title: 'Erro ao reabrir pagamento',
+        description: 'Não foi possível reabrir a parcela.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   return {
     parcelas,
     loading,
     fetchParcelas,
     darBaixaParcela,
+    reabrirParcela,
   };
 };
 

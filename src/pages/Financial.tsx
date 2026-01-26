@@ -462,6 +462,22 @@ const Financial = () => {
                           </>
                         );
                       })()}
+                      
+                      {/* CNH e Proveito Econômico - Dados Rápidos */}
+                      {cliente.cnh && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">CNH:</span>
+                          <span className="text-sm font-medium">{cliente.cnh}</span>
+                        </div>
+                      )}
+                      
+                      {cliente.proveito_economico && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Proveito:</span>
+                          <span className="text-sm font-medium">{cliente.proveito_economico}%</span>
+                        </div>
+                      )}
+                      
                       {cliente.proximoVencimento && (
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Próximo Venc.:</span>

@@ -468,6 +468,7 @@ export type Database = {
           status: string
           tenant_id: string | null
           updated_at: string | null
+          valor_pago: number | null
           valor_parcela: number
         }
         Insert: {
@@ -485,6 +486,7 @@ export type Database = {
           status?: string
           tenant_id?: string | null
           updated_at?: string | null
+          valor_pago?: number | null
           valor_parcela: number
         }
         Update: {
@@ -502,6 +504,7 @@ export type Database = {
           status?: string
           tenant_id?: string | null
           updated_at?: string | null
+          valor_pago?: number | null
           valor_parcela?: number
         }
         Relationships: [
@@ -553,6 +556,7 @@ export type Database = {
           origem_tipo: string | null
           pessoas_adicionais: Json | null
           profissao: string | null
+          proveito_economico: number | null
           status_cliente: string
           telefone: string | null
           tenant_id: string | null
@@ -588,6 +592,7 @@ export type Database = {
           origem_tipo?: string | null
           pessoas_adicionais?: Json | null
           profissao?: string | null
+          proveito_economico?: number | null
           status_cliente?: string
           telefone?: string | null
           tenant_id?: string | null
@@ -623,6 +628,7 @@ export type Database = {
           origem_tipo?: string | null
           pessoas_adicionais?: Json | null
           profissao?: string | null
+          proveito_economico?: number | null
           status_cliente?: string
           telefone?: string | null
           tenant_id?: string | null

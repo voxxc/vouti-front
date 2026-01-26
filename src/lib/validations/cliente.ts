@@ -128,6 +128,7 @@ export const clienteSchema = z.object({
   status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
   grupos_parcelas: z.any().optional(), // JSONB field
+  proveito_economico: z.string().optional(), // Percentual de proveito econômico
 }).refine(
   (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
   {

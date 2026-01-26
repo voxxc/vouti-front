@@ -3,6 +3,7 @@ export interface ClienteParcela {
   cliente_id: string;
   numero_parcela: number;
   valor_parcela: number;
+  valor_pago?: number; // Valor efetivamente pago (pode ser diferente do valor_parcela)
   data_vencimento: string;
   data_pagamento?: string;
   status: 'pendente' | 'pago' | 'atrasado';

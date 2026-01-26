@@ -68,6 +68,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       observacoes: cliente.observacoes || '',
       classificacao: cliente.classificacao || 'pf',
       status_cliente: cliente.status_cliente || 'ativo',
+      proveito_economico: cliente.proveito_economico?.toString() || '',
     } : {
       forma_pagamento: 'a_vista',
       classificacao: 'pf',
@@ -140,6 +141,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
         p.nome_pessoa_fisica || p.nome_pessoa_juridica
       ),
       grupos_parcelas: usarGruposParcelas ? gruposParcelas : undefined,
+      proveito_economico: data.proveito_economico ? parseFloat(data.proveito_economico) : undefined,
     };
 
     let result;
@@ -598,6 +600,25 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
               )}
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="proveito_economico">
+              Proveito Econômico <span className="text-xs text-muted-foreground">(% opcional)</span>
+            </Label>
+            <div className="relative">
+              <Input 
+                id="proveito_economico" 
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                {...register('proveito_economico')} 
+                placeholder="0"
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+            </div>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="vendedor">Vendedor</Label>

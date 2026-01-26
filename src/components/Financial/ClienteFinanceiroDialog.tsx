@@ -7,16 +7,23 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useClienteParcelas } from '@/hooks/useClienteParcelas';
 import { useClienteDividas } from '@/hooks/useClienteDividas';
 import { BaixaPagamentoDialog } from './BaixaPagamentoDialog';
+import { EditarPagamentoDialog } from './EditarPagamentoDialog';
 import { ParcelaComentarios } from './ParcelaComentarios';
 import { CreateDividaDialog } from './CreateDividaDialog';
 import { DividaContent } from './DividaContent';
 import { ClienteParcela, DadosBaixaPagamento } from '@/types/financeiro';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon, MoreVertical, RotateCcw, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +41,7 @@ export const ClienteFinanceiroDialog = ({
   onUpdate,
 }: ClienteFinanceiroDialogProps) => {
   // Hook para parcelas do contrato original (sem divida_id)
-  const { parcelas, loading, darBaixaParcela, fetchParcelas } = useClienteParcelas(
+  const { parcelas, loading, darBaixaParcela, reabrirParcela, fetchParcelas } = useClienteParcelas(
     cliente?.id || null,
     null // null significa buscar apenas parcelas sem divida_id (contrato original)
   );
@@ -48,6 +55,8 @@ export const ClienteFinanceiroDialog = ({
   const [baixaDialogOpen, setBaixaDialogOpen] = useState(false);
   const [createDividaOpen, setCreateDividaOpen] = useState(false);
   const [selectedParcelaForComments, setSelectedParcelaForComments] = useState<string | null>(null);
+  const [editarPagamentoOpen, setEditarPagamentoOpen] = useState(false);
+  const [parcelaParaEditar, setParcelaParaEditar] = useState<ClienteParcela | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
@@ -64,7 +73,8 @@ export const ClienteFinanceiroDialog = ({
   const parcelasAtrasadas = parcelas.filter((p) => p.status === 'atrasado');
   const parcelasPendentes = parcelas.filter((p) => p.status === 'pendente');
 
-  const totalPago = parcelasPagas.reduce((acc, p) => acc + Number(p.valor_parcela), 0);
+  // Usar valor_pago quando disponível, senão usar valor_parcela
+  const totalPago = parcelasPagas.reduce((acc, p) => acc + Number(p.valor_pago ?? p.valor_parcela), 0);
   const totalPendente = [...parcelasAtrasadas, ...parcelasPendentes].reduce(
     (acc, p) => acc + Number(p.valor_parcela),
     0
@@ -116,6 +126,23 @@ export const ClienteFinanceiroDialog = ({
       onUpdate();
     }
     return success;
+  };
+
+  const handleReabrirParcela = async (parcelaId: string) => {
+    const success = await reabrirParcela(parcelaId);
+    if (success) {
+      onUpdate();
+    }
+  };
+
+  const handleEditarParcela = (parcela: ClienteParcela) => {
+    setParcelaParaEditar(parcela);
+    setEditarPagamentoOpen(true);
+  };
+
+  const handleEditarSuccess = async () => {
+    await fetchParcelas();
+    onUpdate();
   };
 
   const handleCreateDivida = async (dados: any) => {
@@ -365,6 +392,33 @@ export const ClienteFinanceiroDialog = ({
                                       Dar Baixa
                                     </Button>
                                   )}
+                                  
+                                  {parcela.status === 'pago' && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="bg-background border">
+                                        <DropdownMenuItem 
+                                          onClick={() => handleEditarParcela(parcela)}
+                                          className="gap-2 cursor-pointer"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                          Editar Pagamento
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                          onClick={() => handleReabrirParcela(parcela.id)}
+                                          className="gap-2 cursor-pointer text-destructive"
+                                        >
+                                          <RotateCcw className="h-4 w-4" />
+                                          Reabrir Pagamento
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                  
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -421,6 +475,13 @@ export const ClienteFinanceiroDialog = ({
         open={createDividaOpen}
         onOpenChange={setCreateDividaOpen}
         onConfirm={handleCreateDivida}
+      />
+
+      <EditarPagamentoDialog
+        parcela={parcelaParaEditar}
+        open={editarPagamentoOpen}
+        onOpenChange={setEditarPagamentoOpen}
+        onSuccess={handleEditarSuccess}
       />
     </>
   );
