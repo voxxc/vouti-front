@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ClienteParcela, ParcelaComentario, DadosBaixaPagamento } from '@/types/financeiro';
 import { toast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
+import { useCommentMentions } from '@/hooks/useCommentMentions';
 
 export const useClienteParcelas = (clienteId: string | null, dividaId?: string | null) => {
   const { tenantId } = useTenantId();
@@ -130,6 +131,7 @@ export const useParcelaComentarios = (parcelaId: string | null) => {
   const [comentarios, setComentarios] = useState<ParcelaComentario[]>([]);
   const [loading, setLoading] = useState(false);
   const { tenantId } = useTenantId();
+  const { saveMentions, deleteMentions } = useCommentMentions();
 
   const fetchComentarios = async () => {
     if (!parcelaId) return;
@@ -167,23 +169,39 @@ export const useParcelaComentarios = (parcelaId: string | null) => {
     fetchComentarios();
   }, [parcelaId]);
 
-  const addComentario = async (comentario: string) => {
+  const addComentario = async (
+    comentario: string,
+    mentionedUserIds?: string[],
+    contextTitle?: string
+  ) => {
     if (!parcelaId) return false;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase
+      const { data: insertedComment, error } = await supabase
         .from('cliente_pagamento_comentarios')
         .insert({
           parcela_id: parcelaId,
           user_id: user.id,
           comentario,
           tenant_id: tenantId
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Salvar menções e notificar
+      if (mentionedUserIds?.length && insertedComment) {
+        await saveMentions({
+          commentType: 'parcela',
+          commentId: insertedComment.id,
+          mentionedUserIds,
+          contextTitle,
+        });
+      }
 
       await fetchComentarios();
       return true;
@@ -200,6 +218,9 @@ export const useParcelaComentarios = (parcelaId: string | null) => {
 
   const deleteComentario = async (comentarioId: string) => {
     try {
+      // Deletar menções primeiro
+      await deleteMentions('parcela', comentarioId);
+
       const { error } = await supabase
         .from('cliente_pagamento_comentarios')
         .delete()

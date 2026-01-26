@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
+import { useCommentMentions } from '@/hooks/useCommentMentions';
 
 interface DeadlineComentario {
   id: string;
@@ -22,6 +23,7 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { tenantId } = useTenantId();
+  const { saveMentions, deleteMentions } = useCommentMentions();
 
   const fetchComentarios = async () => {
     if (!deadlineId) return;
@@ -65,23 +67,39 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
     }
   };
 
-  const addComentario = async (comentario: string): Promise<boolean> => {
+  const addComentario = async (
+    comentario: string,
+    mentionedUserIds?: string[],
+    contextTitle?: string
+  ): Promise<boolean> => {
     if (!deadlineId) return false;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase
+      const { data: insertedComment, error } = await supabase
         .from('deadline_comentarios')
         .insert({
           deadline_id: deadlineId,
           user_id: user.id,
           comentario: comentario.trim(),
           tenant_id: tenantId
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Salvar menções e notificar
+      if (mentionedUserIds?.length && insertedComment) {
+        await saveMentions({
+          commentType: 'deadline',
+          commentId: insertedComment.id,
+          mentionedUserIds,
+          contextTitle,
+        });
+      }
 
       await fetchComentarios();
       
@@ -104,6 +122,9 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
 
   const deleteComentario = async (comentarioId: string): Promise<boolean> => {
     try {
+      // Deletar menções primeiro
+      await deleteMentions('deadline', comentarioId);
+
       const { error } = await supabase
         .from('deadline_comentarios')
         .delete()

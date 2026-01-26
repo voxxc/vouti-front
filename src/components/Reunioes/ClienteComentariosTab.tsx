@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Send } from 'lucide-react';
@@ -8,14 +7,18 @@ import { useReuniaoClienteComentarios } from '@/hooks/useReuniaoClienteComentari
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { TenantMentionInput } from '@/components/Common/TenantMentionInput';
+import { CommentText } from '@/components/Common/CommentText';
 
 interface ClienteComentariosTabProps {
   clienteId: string;
+  clienteName?: string;
 }
 
-export const ClienteComentariosTab = ({ clienteId }: ClienteComentariosTabProps) => {
+export const ClienteComentariosTab = ({ clienteId, clienteName }: ClienteComentariosTabProps) => {
   const { comentarios, loading, addComentario, deleteComentario } = useReuniaoClienteComentarios(clienteId);
   const [novoComentario, setNovoComentario] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
@@ -30,8 +33,13 @@ export const ClienteComentariosTab = ({ clienteId }: ClienteComentariosTabProps)
 
     try {
       setSubmitting(true);
-      await addComentario(novoComentario);
+      await addComentario(
+        novoComentario,
+        mentionedUserIds,
+        clienteName ? `cliente "${clienteName}"` : undefined
+      );
       setNovoComentario('');
+      setMentionedUserIds([]);
     } finally {
       setSubmitting(false);
     }
@@ -86,9 +94,7 @@ export const ClienteComentariosTab = ({ clienteId }: ClienteComentariosTabProps)
                       )}
                     </div>
                   </div>
-                  <p className="text-sm mt-1 whitespace-pre-wrap break-words">
-                    {comentario.comentario}
-                  </p>
+                  <CommentText text={comentario.comentario} className="mt-1" />
                 </div>
               </div>
             ))}
@@ -98,11 +104,13 @@ export const ClienteComentariosTab = ({ clienteId }: ClienteComentariosTabProps)
 
       {/* Formulário de novo comentário */}
       <div className="space-y-2 pt-4 border-t">
-        <Textarea
-          placeholder="Adicionar comentário sobre o cliente..."
+        <TenantMentionInput
           value={novoComentario}
-          onChange={(e) => setNovoComentario(e.target.value)}
-          className="min-h-24"
+          onChange={setNovoComentario}
+          onMentionsChange={setMentionedUserIds}
+          placeholder="Adicionar comentário... Use @ para mencionar"
+          rows={3}
+          disabled={submitting}
         />
         <Button
           onClick={handleSubmit}
