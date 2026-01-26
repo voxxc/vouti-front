@@ -64,8 +64,11 @@ export const TenantMentionInput = ({
         .order('full_name');
 
       if (!error && data) {
-        // Filtrar usuário atual
-        const filteredData = data.filter(u => u.user_id !== currentUserId);
+        // Filtrar usuário atual usando variável local para evitar closure issues
+        const currentId = currentUserId;
+        const filteredData = currentId 
+          ? data.filter((u) => u.user_id !== currentId)
+          : data;
         setUsers(filteredData as TenantUser[]);
       }
     };
@@ -75,14 +78,20 @@ export const TenantMentionInput = ({
 
   // Extrair menções do texto
   const extractMentions = useCallback((text: string): string[] => {
+    // Usar variável local para evitar closure issues
+    const currentUsers = users || [];
+    if (!text || currentUsers.length === 0) return [];
+    
     const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
     const mentions: string[] = [];
     let match;
 
     while ((match = mentionRegex.exec(text)) !== null) {
-      const mentionName = match[1].trim();
-      const user = users.find(
-        u => u.full_name?.toLowerCase() === mentionName.toLowerCase()
+      const mentionName = match[1]?.trim();
+      if (!mentionName) continue;
+      
+      const user = currentUsers.find(
+        (u) => (u.full_name || '').toLowerCase() === mentionName.toLowerCase()
       );
       if (user) {
         mentions.push(user.user_id);
@@ -102,15 +111,18 @@ export const TenantMentionInput = ({
 
   // Filtrar usuários baseado na busca
   useEffect(() => {
-    if (mentionSearch) {
-      const search = mentionSearch.toLowerCase();
-      setFilteredUsers(
-        users.filter(user =>
-          user.full_name?.toLowerCase().includes(search)
-        ).slice(0, 5)
-      );
+    // Usar variáveis locais para evitar TDZ issues
+    const currentUsers = users || [];
+    const search = mentionSearch?.toLowerCase() || '';
+    
+    if (search) {
+      const filtered = currentUsers.filter((user) => {
+        const name = user.full_name || '';
+        return name.toLowerCase().includes(search);
+      });
+      setFilteredUsers(filtered.slice(0, 5));
     } else {
-      setFilteredUsers(users.slice(0, 5));
+      setFilteredUsers(currentUsers.slice(0, 5));
     }
     setSelectedIndex(0);
   }, [mentionSearch, users]);
