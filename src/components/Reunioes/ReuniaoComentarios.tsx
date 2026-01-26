@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Trash2, Send } from 'lucide-react';
 import { useReuniaoComentarios } from '@/hooks/useReuniaoComentarios';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { TenantMentionInput } from '@/components/Common/TenantMentionInput';
+import { CommentText } from '@/components/Common/CommentText';
 
 interface ReuniaoComentariosProps {
   reuniaoId: string;
+  reuniaoTitle?: string;
 }
 
-export const ReuniaoComentarios = ({ reuniaoId }: ReuniaoComentariosProps) => {
+export const ReuniaoComentarios = ({ reuniaoId, reuniaoTitle }: ReuniaoComentariosProps) => {
   const { comentarios, loading, addComentario, deleteComentario } = useReuniaoComentarios(reuniaoId);
   const [novoComentario, setNovoComentario] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
@@ -29,8 +32,13 @@ export const ReuniaoComentarios = ({ reuniaoId }: ReuniaoComentariosProps) => {
 
     try {
       setSubmitting(true);
-      await addComentario(novoComentario);
+      await addComentario(
+        novoComentario,
+        mentionedUserIds,
+        reuniaoTitle ? `reunião "${reuniaoTitle}"` : undefined
+      );
       setNovoComentario('');
+      setMentionedUserIds([]);
     } finally {
       setSubmitting(false);
     }
@@ -82,9 +90,7 @@ export const ReuniaoComentarios = ({ reuniaoId }: ReuniaoComentariosProps) => {
                     )}
                   </div>
                 </div>
-                <p className="text-sm mt-1 whitespace-pre-wrap break-words">
-                  {comentario.comentario}
-                </p>
+                <CommentText text={comentario.comentario} className="mt-1" />
               </div>
             </div>
           ))
@@ -93,11 +99,13 @@ export const ReuniaoComentarios = ({ reuniaoId }: ReuniaoComentariosProps) => {
 
       {/* Formulário de novo comentário */}
       <div className="space-y-2">
-        <Textarea
-          placeholder="Adicionar comentário..."
+        <TenantMentionInput
           value={novoComentario}
-          onChange={(e) => setNovoComentario(e.target.value)}
-          className="min-h-20"
+          onChange={setNovoComentario}
+          onMentionsChange={setMentionedUserIds}
+          placeholder="Adicionar comentário... Use @ para mencionar"
+          rows={3}
+          disabled={submitting}
         />
         <Button
           onClick={handleSubmit}

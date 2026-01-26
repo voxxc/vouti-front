@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useDeadlineComentarios } from '@/hooks/useDeadlineComentarios';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MessageSquare, Trash2 } from 'lucide-react';
+import { MessageSquare, Trash2, Send } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,24 +18,37 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { TenantMentionInput } from '@/components/Common/TenantMentionInput';
+import { CommentText } from '@/components/Common/CommentText';
 
 interface DeadlineComentariosProps {
   deadlineId: string | null;
   currentUserId: string;
+  deadlineTitle?: string;
 }
 
-export const DeadlineComentarios = ({ deadlineId, currentUserId }: DeadlineComentariosProps) => {
+export const DeadlineComentarios = ({ 
+  deadlineId, 
+  currentUserId,
+  deadlineTitle 
+}: DeadlineComentariosProps) => {
   const { comentarios, loading, addComentario, deleteComentario } = useDeadlineComentarios(deadlineId);
   const [novoComentario, setNovoComentario] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleAddComentario = async () => {
     if (!novoComentario.trim()) return;
 
     setSubmitting(true);
-    const success = await addComentario(novoComentario);
+    const success = await addComentario(
+      novoComentario,
+      mentionedUserIds,
+      deadlineTitle ? `prazo "${deadlineTitle}"` : undefined
+    );
     if (success) {
       setNovoComentario('');
+      setMentionedUserIds([]);
     }
     setSubmitting(false);
   };
@@ -55,17 +67,20 @@ export const DeadlineComentarios = ({ deadlineId, currentUserId }: DeadlineComen
       </div>
 
       <div className="space-y-2">
-        <Textarea
-          placeholder="Adicionar comentário sobre este prazo..."
+        <TenantMentionInput
           value={novoComentario}
-          onChange={(e) => setNovoComentario(e.target.value)}
+          onChange={setNovoComentario}
+          onMentionsChange={setMentionedUserIds}
+          placeholder="Adicionar comentário... Use @ para mencionar"
           rows={3}
+          disabled={submitting}
         />
         <Button
           onClick={handleAddComentario}
           disabled={!novoComentario.trim() || submitting}
           size="sm"
         >
+          <Send className="w-4 h-4 mr-2" />
           {submitting ? 'Adicionando...' : 'Adicionar Comentário'}
         </Button>
       </div>
@@ -133,9 +148,7 @@ export const DeadlineComentarios = ({ deadlineId, currentUserId }: DeadlineComen
                     </AlertDialog>
                   )}
                 </div>
-                <p className="text-sm whitespace-pre-wrap break-words">
-                  {comentario.comentario}
-                </p>
+                <CommentText text={comentario.comentario} />
               </div>
             ))
           )}

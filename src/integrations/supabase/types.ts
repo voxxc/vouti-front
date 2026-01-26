@@ -1119,6 +1119,44 @@ export type Database = {
           },
         ]
       }
+      comment_mentions: {
+        Row: {
+          comment_id: string
+          comment_type: string
+          created_at: string | null
+          id: string
+          mentioned_by_user_id: string
+          mentioned_user_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          comment_id: string
+          comment_type: string
+          created_at?: string | null
+          id?: string
+          mentioned_by_user_id: string
+          mentioned_user_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          comment_id?: string
+          comment_type?: string
+          created_at?: string | null
+          id?: string
+          mentioned_by_user_id?: string
+          mentioned_user_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_mentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       controladoria_processos: {
         Row: {
           assunto: string

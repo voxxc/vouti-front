@@ -3,11 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { ReuniaoComentario } from '@/types/reuniao';
 import { toast } from 'sonner';
 import { useTenantId } from '@/hooks/useTenantId';
+import { useCommentMentions } from '@/hooks/useCommentMentions';
 
 export const useReuniaoComentarios = (reuniaoId: string) => {
   const { tenantId } = useTenantId();
   const [comentarios, setComentarios] = useState<ReuniaoComentario[]>([]);
   const [loading, setLoading] = useState(false);
+  const { saveMentions, deleteMentions } = useCommentMentions();
 
   const fetchComentarios = async () => {
     if (!reuniaoId) return;
@@ -47,22 +49,37 @@ export const useReuniaoComentarios = (reuniaoId: string) => {
     }
   };
 
-  const addComentario = async (comentario: string) => {
+  const addComentario = async (
+    comentario: string,
+    mentionedUserIds?: string[],
+    contextTitle?: string
+  ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const { error } = await supabase
+      const { data: insertedComment, error } = await supabase
         .from('reuniao_comentarios')
         .insert([{
           reuniao_id: reuniaoId,
           user_id: user.id,
           comentario,
           tenant_id: tenantId
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
+      // Salvar menções e notificar
+      if (mentionedUserIds?.length && insertedComment) {
+        await saveMentions({
+          commentType: 'reuniao',
+          commentId: insertedComment.id,
+          mentionedUserIds,
+          contextTitle,
+        });
+      }
       
       await fetchComentarios();
     } catch (error: any) {
@@ -74,13 +91,15 @@ export const useReuniaoComentarios = (reuniaoId: string) => {
 
   const deleteComentario = async (comentarioId: string) => {
     try {
+      // Deletar menções primeiro
+      await deleteMentions('reuniao', comentarioId);
+
       const { error } = await supabase
         .from('reuniao_comentarios')
         .delete()
         .eq('id', comentarioId);
 
       if (error) throw error;
-
       
       await fetchComentarios();
     } catch (error: any) {

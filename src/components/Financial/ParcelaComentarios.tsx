@@ -1,31 +1,39 @@
 import { useState } from 'react';
 import { useParcelaComentarios } from '@/hooks/useClienteParcelas';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MessageSquare, Trash2 } from 'lucide-react';
+import { MessageSquare, Trash2, Send } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { TenantMentionInput } from '@/components/Common/TenantMentionInput';
+import { CommentText } from '@/components/Common/CommentText';
 
 interface ParcelaComentariosProps {
   parcelaId: string | null;
   currentUserId: string;
+  parcelaInfo?: string;
 }
 
-export const ParcelaComentarios = ({ parcelaId, currentUserId }: ParcelaComentariosProps) => {
+export const ParcelaComentarios = ({ parcelaId, currentUserId, parcelaInfo }: ParcelaComentariosProps) => {
   const { comentarios, loading, addComentario, deleteComentario } = useParcelaComentarios(parcelaId);
   const [novoComentario, setNovoComentario] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleAddComentario = async () => {
     if (!novoComentario.trim()) return;
 
     setSubmitting(true);
-    const success = await addComentario(novoComentario);
+    const success = await addComentario(
+      novoComentario,
+      mentionedUserIds,
+      parcelaInfo ? `parcela ${parcelaInfo}` : undefined
+    );
     if (success) {
       setNovoComentario('');
+      setMentionedUserIds([]);
     }
     setSubmitting(false);
   };
@@ -44,17 +52,20 @@ export const ParcelaComentarios = ({ parcelaId, currentUserId }: ParcelaComentar
       </div>
 
       <div className="space-y-2">
-        <Textarea
-          placeholder="Adicionar comentário sobre esta parcela..."
+        <TenantMentionInput
           value={novoComentario}
-          onChange={(e) => setNovoComentario(e.target.value)}
+          onChange={setNovoComentario}
+          onMentionsChange={setMentionedUserIds}
+          placeholder="Adicionar comentário... Use @ para mencionar"
           rows={3}
+          disabled={submitting}
         />
         <Button
           onClick={handleAddComentario}
           disabled={!novoComentario.trim() || submitting}
           size="sm"
         >
+          <Send className="w-4 h-4 mr-2" />
           {submitting ? 'Adicionando...' : 'Adicionar Comentário'}
         </Button>
       </div>
@@ -114,9 +125,7 @@ export const ParcelaComentarios = ({ parcelaId, currentUserId }: ParcelaComentar
                     </AlertDialog>
                   )}
                 </div>
-                <p className="text-sm whitespace-pre-wrap break-words">
-                  {comentario.comentario}
-                </p>
+                <CommentText text={comentario.comentario} />
               </div>
             ))
           )}
