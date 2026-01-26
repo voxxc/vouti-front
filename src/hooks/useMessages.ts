@@ -10,6 +10,7 @@ export interface Message {
   is_read: boolean;
   related_project_id?: string;
   message_type: 'direct' | 'mention' | 'notification';
+  reply_to_id?: string;
   created_at: string;
   updated_at: string;
   tenant_id?: string;
@@ -105,7 +106,8 @@ export const useMessages = (userId?: string) => {
     content: string, 
     messageType: 'direct' | 'mention' | 'notification' = 'direct',
     relatedProjectId?: string,
-    attachments?: File[]
+    attachments?: File[],
+    replyToId?: string
   ) => {
     try {
       // Insert message first - include tenant_id for data isolation
@@ -117,6 +119,7 @@ export const useMessages = (userId?: string) => {
           content,
           message_type: messageType,
           related_project_id: relatedProjectId,
+          reply_to_id: replyToId,
           tenant_id: tenantId
         })
         .select()

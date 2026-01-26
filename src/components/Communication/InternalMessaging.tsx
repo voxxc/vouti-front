@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useMessages } from '@/hooks/useMessages';
+import { useMessages, Message } from '@/hooks/useMessages';
 import { User as UserType } from '@/types/user';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
@@ -39,15 +39,27 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { messages, sendMessage, deleteMessage, getUserMessages, getUnreadCount, markAsRead } = useMessages(currentUser.id);
   const totalUnread = messages.filter(m => m.receiver_id === currentUser.id && !m.is_read).length;
+
+  const selectedUserMessages = selectedUser ? getUserMessages(selectedUser.id) : [];
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [selectedUserMessages.length]);
 
   const handleSendMessage = async (message: string, attachments: File[]) => {
     if (!selectedUser) return;
 
     try {
-      await sendMessage(selectedUser.id, message, 'direct', undefined, attachments);
+      await sendMessage(selectedUser.id, message, 'direct', undefined, attachments, replyingTo?.id);
+      setReplyingTo(null);
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
@@ -67,11 +79,22 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
 
   const handleUserSelect = (user: UserType) => {
     setSelectedUser(user);
+    setReplyingTo(null);
     // Mark messages from this user as read
     const userMessages = getUserMessages(user.id);
     userMessages
       .filter(msg => msg.sender_id === user.id && !msg.is_read)
       .forEach(msg => markAsRead(msg.id));
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
+  };
+
+  const getReplyContent = (replyToId: string | undefined) => {
+    if (!replyToId) return undefined;
+    const originalMessage = messages.find(m => m.id === replyToId);
+    return originalMessage?.content;
   };
 
   const otherUsers = users.filter(user => user.id !== currentUser.id);
@@ -91,21 +114,21 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[600px] p-0">
-        <div className="flex h-full">
+      <DialogContent className="max-w-4xl h-[80vh] max-h-[600px] p-0 overflow-hidden">
+        <div className="flex h-full overflow-hidden">
           {/* Users List */}
-          <div className="w-1/3 border-r bg-muted/20">
-            <DialogHeader className="p-4 border-b">
+          <div className="w-1/3 border-r bg-muted/20 flex flex-col h-full overflow-hidden">
+            <DialogHeader className="p-4 border-b shrink-0">
               <DialogTitle className="text-base">Mensagens</DialogTitle>
             </DialogHeader>
-            <div className="p-2">
+            <div className="p-2 shrink-0">
               <NewConversationModal
                 users={users}
                 onSelectUser={handleUserSelect}
                 currentUserId={currentUser.id}
               />
             </div>
-            <ScrollArea className="h-[calc(600px-140px)]">
+            <ScrollArea className="flex-1">
               <div className="p-2">
                 {otherUsers.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
@@ -149,11 +172,11 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
           </div>
 
           {/* Chat Area */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
             {selectedUser ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 border-b bg-muted/10">
+                <div className="p-4 border-b bg-muted/10 shrink-0">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={selectedUser.avatar} />
@@ -168,9 +191,9 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
                 </div>
 
                 {/* Messages */}
-                <ScrollArea className="flex-1 p-4">
-                  <div className="space-y-4">
-                    {getUserMessages(selectedUser.id).map((message) => {
+                <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-4">
+                    {selectedUserMessages.map((message) => {
                       const isFromCurrentUser = message.sender_id === currentUser.id;
                       return (
                         <MessageBubble
@@ -179,16 +202,23 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
                           content={message.content}
                           isFromCurrentUser={isFromCurrentUser}
                           createdAt={message.created_at}
+                          replyToContent={getReplyContent(message.reply_to_id)}
                           onDelete={isFromCurrentUser ? () => setMessageToDelete(message.id) : undefined}
+                          onReply={() => handleReply(message)}
                         />
                       );
                     })}
+                    <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
 
                 {/* Message Input */}
-                <div className="p-4 border-t">
-                  <MessageInput onSend={handleSendMessage} />
+                <div className="p-4 border-t shrink-0">
+                  <MessageInput 
+                    onSend={handleSendMessage}
+                    replyingTo={replyingTo ? { id: replyingTo.id, content: replyingTo.content } : undefined}
+                    onCancelReply={() => setReplyingTo(null)}
+                  />
                 </div>
               </>
             ) : (

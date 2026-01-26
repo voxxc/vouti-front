@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Send, Paperclip, X } from 'lucide-react';
+import { Send, Paperclip, X, Reply } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -7,18 +7,23 @@ import { useToast } from '@/hooks/use-toast';
 interface MessageInputProps {
   onSend: (message: string, attachments: File[]) => Promise<void>;
   disabled?: boolean;
+  replyingTo?: { id: string; content: string };
+  onCancelReply?: () => void;
 }
 
-export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
+export const MessageInput = ({ onSend, disabled, replyingTo, onCancelReply }: MessageInputProps) => {
   const [messageText, setMessageText] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim() && attachments.length === 0) return;
+    if (isSending) return;
 
+    setIsSending(true);
     try {
       await onSend(messageText.trim() || '📎 Arquivo(s) anexado(s)', attachments);
       setMessageText('');
@@ -30,6 +35,8 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
         title: 'Erro ao enviar mensagem',
         description: 'Não foi possível enviar a mensagem.'
       });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -57,6 +64,27 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
 
   return (
     <div className="space-y-2">
+      {/* Reply Preview */}
+      {replyingTo && (
+        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded border-l-2 border-primary">
+          <Reply className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Respondendo a:</p>
+            <p className="text-sm truncate">{replyingTo.content}</p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 shrink-0"
+            onClick={onCancelReply}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Attachments */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded">
           {attachments.map((file, index) => (
@@ -93,7 +121,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
           size="sm"
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
+          disabled={disabled || isSending}
         >
           <Paperclip className="h-4 w-4" />
         </Button>
@@ -103,13 +131,13 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           className="flex-1"
-          disabled={disabled}
+          disabled={disabled || isSending}
         />
         
         <Button 
           type="submit" 
           size="sm" 
-          disabled={disabled || (!messageText.trim() && attachments.length === 0)}
+          disabled={disabled || isSending || (!messageText.trim() && attachments.length === 0)}
         >
           <Send className="h-4 w-4" />
         </Button>
