@@ -190,6 +190,11 @@ const Financial = () => {
     }
   };
 
+  // Helper: nome do cliente (definido antes do uso)
+  const getNomeCliente = (cliente: Cliente) => {
+    return cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || 'Sem nome';
+  };
+
   // Filtrar clientes
   const clientesFiltrados = clientes.filter((cliente) => {
     const matchesSearch = searchTerm === '' || 
@@ -232,10 +237,6 @@ const Financial = () => {
       inativo: { variant: 'outline', label: 'Inativo' },
     };
     return variants[status] || variants.adimplente;
-  };
-
-  const getNomeCliente = (cliente: Cliente) => {
-    return cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || 'Sem nome';
   };
 
   if (loading) {
