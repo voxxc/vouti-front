@@ -1,438 +1,249 @@
 
-## Sistema de Menções (@usuario) em Comentários - Implementação Completa
+## Plano de Correções - Financeiro e Clientes
 
-### Contexto Atual
+### Problemas Identificados
 
-| Componente | Status | Observação |
-|------------|--------|------------|
-| `MentionInput` | Existe | Funciona apenas para projetos (usa `project_collaborators`) |
-| `project_etapa_comment_mentions` | Existe | Tabela de menções apenas para etapas de protocolo |
-| `useEtapaData` | Já tem | Lógica de salvar menções e notificar |
-| Outros comentários | Sem suporte | Deadline, Reunião, Parcelas, Tasks, etc. |
-
-### Arquitetura Proposta
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                    COMPONENTE REUTILIZÁVEL                          │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                  TenantMentionInput                          │   │
-│  │  - Busca usuários do TENANT (não só do projeto)             │   │
-│  │  - Detecta @nome e mostra sugestões                         │   │
-│  │  - Retorna lista de user_ids mencionados                    │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│   Agenda      │     │   Reuniões    │     │  Financeiro   │
-│   (Deadline)  │     │   (Meeting)   │     │   (Parcelas)  │
-└───────────────┘     └───────────────┘     └───────────────┘
-```
+| Problema | Causa | Complexidade |
+|----------|-------|--------------|
+| 1. Crash ao pesquisar | Ja corrigido - funcao `getNomeCliente` movida para antes do uso | Resolvido |
+| 2. Datas das parcelas incorretas | Funcao SQL `gerar_parcelas_cliente` distribui dias uniformemente entre datas inicial/final em vez de manter dia fixo mensal | Alta |
+| 3. Reabrir pagamento | Nao existe opcao para estornar/reabrir parcela paga | Media |
+| 4. Dashboard com valor errado | Usa `valor_parcela` ao inves de `valor_pago` (coluna nao existe) | Alta |
+| 5. Campo proveito economico + CNH em dados rapidos | Campo nao existe na tabela; CNH nao aparece nos cards do financeiro | Media |
 
 ---
 
-### 1. Migração de Banco de Dados
+### Correcao 1: Datas das Parcelas (Parcelamento Simples)
 
-**Criar tabela genérica de menções:**
-
+**Problema atual:** A funcao SQL calcula dias proporcionais:
 ```sql
-CREATE TABLE IF NOT EXISTS public.comment_mentions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
-    -- Tipo do comentário (deadline, reuniao, reuniao_cliente, parcela, task)
-    comment_type TEXT NOT NULL,
-    
-    -- ID do comentário (referência flexível)
-    comment_id UUID NOT NULL,
-    
-    -- Usuário mencionado
-    mentioned_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    
-    -- Quem fez a menção
-    mentioned_by_user_id UUID NOT NULL REFERENCES auth.users(id),
-    
-    -- Multi-tenant
-    tenant_id UUID REFERENCES public.tenants(id),
-    
-    created_at TIMESTAMPTZ DEFAULT now(),
-    
-    -- Evitar duplicatas
-    UNIQUE(comment_type, comment_id, mentioned_user_id)
-);
+dias_por_parcela := intervalo_dias / (numero_parcelas - 1);
+data_vencimento := data_inicial + ((i-1) * dias_por_parcela)::INTEGER;
+```
+Isso gera: 10/09, 12/10, 13/11, 16/12... (dias aleatorios)
 
--- RLS Policies
-ALTER TABLE public.comment_mentions ENABLE ROW LEVEL SECURITY;
+**Solucao:** Modificar para usar intervalos mensais mantendo o dia fixo:
+```sql
+-- Extrair o dia do mes da data inicial
+dia_vencimento := EXTRACT(DAY FROM data_vencimento_inicial);
 
-CREATE POLICY "tenant_select" ON public.comment_mentions
-FOR SELECT USING (tenant_id IS NOT NULL AND tenant_id = get_user_tenant_id());
+-- Para cada parcela, adicionar meses mantendo o dia
+data_vencimento := data_vencimento_inicial + ((i-1) || ' months')::INTERVAL;
 
-CREATE POLICY "tenant_insert" ON public.comment_mentions
-FOR INSERT WITH CHECK (tenant_id IS NOT NULL AND tenant_id = get_user_tenant_id());
+-- Se o dia nao existir no mes (ex: 31 em fevereiro), ajusta para ultimo dia
+IF EXTRACT(DAY FROM data_vencimento) != dia_vencimento THEN
+  data_vencimento := (DATE_TRUNC('month', data_vencimento) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
+END IF;
+```
 
-CREATE POLICY "tenant_delete" ON public.comment_mentions
-FOR DELETE USING (tenant_id IS NOT NULL AND tenant_id = get_user_tenant_id());
+Resultado esperado: 10/05, 10/06, 10/07, 10/08...
 
--- Índices
-CREATE INDEX idx_comment_mentions_type_id ON public.comment_mentions(comment_type, comment_id);
-CREATE INDEX idx_comment_mentions_user ON public.comment_mentions(mentioned_user_id);
-CREATE INDEX idx_comment_mentions_tenant ON public.comment_mentions(tenant_id);
+**Arquivos a modificar:**
+- Criar nova migration SQL para atualizar `gerar_parcelas_cliente()`
+- Adicionar opcao de regenerar parcelas para clientes existentes
+
+---
+
+### Correcao 2: Adicionar Coluna `valor_pago` na Tabela `cliente_parcelas`
+
+**Problema:** Quando o cliente paga valor diferente do esperado, nao ha onde registrar.
+
+**Solucao:**
+```sql
+ALTER TABLE cliente_parcelas ADD COLUMN valor_pago NUMERIC;
+```
+
+**Arquivos a modificar:**
+- Nova migration SQL
+- `src/types/financeiro.ts` - adicionar `valor_pago?: number`
+- `src/hooks/useClienteParcelas.ts` - salvar `valor_pago` no `darBaixaParcela`
+- `src/components/Financial/BaixaPagamentoDialog.tsx` - ja tem o campo
+- `src/components/Financial/ClienteFinanceiroDialog.tsx` - usar `valor_pago` no calculo do `totalPago`
+- `src/pages/Financial.tsx` - ajustar calculo no dashboard
+
+**Logica de calculo:**
+```typescript
+// ANTES (errado):
+const totalPago = parcelasPagas.reduce((acc, p) => acc + Number(p.valor_parcela), 0);
+
+// DEPOIS (correto):
+const totalPago = parcelasPagas.reduce((acc, p) => {
+  // Se tem valor_pago registrado, usar ele. Senao, usar valor_parcela
+  return acc + Number(p.valor_pago ?? p.valor_parcela);
+}, 0);
 ```
 
 ---
 
-### 2. Componente TenantMentionInput
+### Correcao 3: Opcao para Reabrir Pagamento
 
-**Arquivo:** `src/components/Common/TenantMentionInput.tsx`
+**Implementacao:**
+1. Adicionar menu "3 pontinhos" (DropdownMenu) em cada parcela paga
+2. Opcoes: "Reabrir Pagamento", "Editar Informacoes"
+3. Ao reabrir: alterar status para 'pendente' e limpar campos de pagamento
 
-Diferenças do `MentionInput` existente:
-- Busca usuários do **tenant**, não do projeto
-- Aceita `tenantId` como prop (ou usa hook `useTenantId`)
-- Funciona em qualquer contexto de comentários
+**Arquivos a modificar:**
+- `src/components/Financial/ClienteFinanceiroDialog.tsx`:
+  - Importar `DropdownMenu` do shadcn
+  - Adicionar botao "..." com opcoes "Reabrir" e "Editar"
+  - Criar funcao `handleReabrirParcela(parcelaId)`
+- `src/hooks/useClienteParcelas.ts`:
+  - Adicionar funcao `reabrirParcela(parcelaId)`
+- `src/components/Financial/EditarPagamentoDialog.tsx`:
+  - Novo componente para editar informacoes de pagamento ja feito
 
-**Props:**
-```typescript
-interface TenantMentionInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  onMentionsChange?: (mentionedUserIds: string[]) => void;
-  placeholder?: string;
-  onKeyDown?: (e: React.KeyboardEvent) => void;
-  className?: string;
-  rows?: number;
-  // Opcional: filtrar por participantes específicos (ex: de um projeto)
-  filterUserIds?: string[];
-}
-```
-
-**Lógica principal:**
-```typescript
-// Buscar usuários do tenant
-const { data: profiles } = await supabase
-  .from('profiles')
-  .select('user_id, full_name, avatar_url')
-  .eq('tenant_id', tenantId)
-  .order('full_name');
-
-// Detecção de @
-const handleInputChange = (e) => {
-  const textBeforeCursor = value.slice(0, cursorPos);
-  const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-  // ... mostrar sugestões
-};
-
-// Seleção de participante
-const handleSelectUser = (user) => {
-  const newValue = `${beforeMention}@${user.full_name} ${afterCursor}`;
-  // Extrair todas as menções do texto
-  const mentionedIds = extractMentions(newValue, users);
-  onMentionsChange?.(mentionedIds);
-};
+**UI proposta:**
+```text
++--------------------------------------------+
+| Parcela #3      [Pago]          [...]      |
+|                                  |         |
+| Valor: R$ 500                    | Reabrir |
+| Pago em: 15/01/2026              | Editar  |
++--------------------------------------------+
 ```
 
 ---
 
-### 3. Hook Utilitário para Menções
+### Correcao 4: Campo "Proveito Economico" e CNH nos Dados Rapidos
 
-**Arquivo:** `src/hooks/useCommentMentions.ts`
+**Banco de dados:**
+```sql
+ALTER TABLE clientes ADD COLUMN proveito_economico NUMERIC;
+-- CNH ja existe na tabela
+```
 
-```typescript
-export const useCommentMentions = () => {
-  const { tenantId } = useTenantId();
+**Arquivos a modificar:**
 
-  // Salvar menções após inserir comentário
-  const saveMentions = async (
-    commentType: 'deadline' | 'reuniao' | 'reuniao_cliente' | 'parcela' | 'task',
-    commentId: string,
-    mentionedUserIds: string[]
-  ) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // Inserir menções
-    const inserts = mentionedUserIds.map(userId => ({
-      comment_type: commentType,
-      comment_id: commentId,
-      mentioned_user_id: userId,
-      mentioned_by_user_id: user.id,
-      tenant_id: tenantId
-    }));
-    
-    await supabase.from('comment_mentions').insert(inserts);
-    
-    // Enviar notificações
-    const { data: authorProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('user_id', user.id)
-      .single();
-    
-    for (const userId of mentionedUserIds) {
-      if (userId !== user.id) {
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          triggered_by_user_id: user.id,
-          type: 'comment_mention',
-          title: 'Você foi mencionado',
-          content: `${authorProfile?.full_name || 'Alguém'} mencionou você em um comentário.`,
-          tenant_id: tenantId
-        });
-      }
-    }
-  };
+**A) Formulario de cadastro:**
+- `src/components/CRM/ClienteForm.tsx`:
+  - Adicionar campo "Proveito Economico (%)" na secao de contrato
+  - Campo numerico com sufixo "%"
+- `src/lib/validations/cliente.ts`:
+  - Adicionar `proveito_economico: z.string().optional()`
+- `src/types/cliente.ts`:
+  - Adicionar `proveito_economico?: number`
 
-  return { saveMentions };
-};
+**B) Visualizacao no projeto (Dados):**
+- `src/components/CRM/ClienteDetails.tsx`:
+  - Adicionar exibicao de CNH (ja tem, verificar visibilidade)
+  - Adicionar exibicao de Proveito Economico
+  - Mover esses campos para uma secao destacada "Dados Rapidos"
+
+**C) Cards do Financeiro:**
+- `src/pages/Financial.tsx`:
+  - No card do cliente, adicionar CNH e Proveito Economico (se existirem)
+
+**UI proposta no card:**
+```text
++--------------------------------+
+| Joao Silva         [Adimplente]|
+| Contrato: R$ 15.000           |
+| Parcela: R$ 1.250             |
+| CNH: 12345678901              |  <-- NOVO
+| Proveito: 25%                 |  <-- NOVO
++--------------------------------+
 ```
 
 ---
 
-### 4. Atualizar Hooks de Comentários
+### Resumo de Arquivos
 
-#### A) `useDeadlineComentarios.ts`
+**Migrations SQL (criar):**
+1. `fix_parcelas_datas_mensais.sql` - corrigir funcao de geracao
+2. `add_valor_pago_coluna.sql` - adicionar coluna valor_pago
+3. `add_proveito_economico.sql` - adicionar coluna proveito_economico
 
-```typescript
-// Adicionar parâmetro mentionedUserIds
-const addComentario = async (
-  comentario: string, 
-  mentionedUserIds?: string[]
-): Promise<boolean> => {
-  // ... código existente de insert ...
-  
-  const { data: insertedComment } = await supabase
-    .from('deadline_comentarios')
-    .insert({ ... })
-    .select()
-    .single();
-  
-  // NOVO: Salvar menções
-  if (mentionedUserIds?.length && insertedComment) {
-    await saveMentions('deadline', insertedComment.id, mentionedUserIds);
-  }
-  
-  return true;
-};
-```
+**Componentes a modificar:**
+- `src/components/Financial/ClienteFinanceiroDialog.tsx`
+- `src/components/Financial/BaixaPagamentoDialog.tsx`
+- `src/components/CRM/ClienteForm.tsx`
+- `src/components/CRM/ClienteDetails.tsx`
+- `src/pages/Financial.tsx`
 
-#### B) `useReuniaoComentarios.ts`
+**Hooks a modificar:**
+- `src/hooks/useClienteParcelas.ts`
 
-```typescript
-const addComentario = async (
-  comentario: string,
-  mentionedUserIds?: string[]
-) => {
-  // ... insert comentário ...
-  
-  if (mentionedUserIds?.length && insertedComment) {
-    await saveMentions('reuniao', insertedComment.id, mentionedUserIds);
-  }
-};
-```
+**Types a modificar:**
+- `src/types/cliente.ts`
+- `src/types/financeiro.ts`
 
-#### C) `useReuniaoClienteComentarios.ts`
-
-```typescript
-const addComentario = async (
-  comentario: string,
-  mentionedUserIds?: string[]
-) => {
-  // ... insert comentário ...
-  
-  if (mentionedUserIds?.length && insertedComment) {
-    await saveMentions('reuniao_cliente', insertedComment.id, mentionedUserIds);
-  }
-};
-```
+**Novos componentes:**
+- `src/components/Financial/EditarPagamentoDialog.tsx`
 
 ---
 
-### 5. Atualizar Componentes de Comentários
+### Secao Tecnica
 
-#### A) `DeadlineComentarios.tsx`
-
-```typescript
-import { TenantMentionInput } from '@/components/Common/TenantMentionInput';
-
-export const DeadlineComentarios = ({ deadlineId, currentUserId }) => {
-  const [novoComentario, setNovoComentario] = useState('');
-  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+**Funcao SQL corrigida para datas:**
+```sql
+CREATE OR REPLACE FUNCTION public.gerar_parcelas_cliente()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  -- variaveis existentes...
+  dia_vencimento INTEGER;
+  data_calc DATE;
+BEGIN
+  -- ... codigo existente para grupos_parcelas ...
   
-  const handleAddComentario = async () => {
-    const success = await addComentario(novoComentario, mentionedUserIds);
-    if (success) {
-      setNovoComentario('');
-      setMentionedUserIds([]);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <TenantMentionInput
-        value={novoComentario}
-        onChange={setNovoComentario}
-        onMentionsChange={setMentionedUserIds}
-        placeholder="Adicionar comentário... Use @ para mencionar"
-      />
-      <Button onClick={handleAddComentario}>
-        Adicionar Comentário
-      </Button>
-      {/* ... lista de comentários ... */}
-    </div>
-  );
-};
+  -- MODELO SIMPLES (corrigido)
+  ELSIF NEW.forma_pagamento = 'parcelado' 
+     AND NEW.numero_parcelas > 0 THEN
+    
+    IF NEW.data_vencimento_inicial IS NOT NULL THEN
+      -- Extrair o dia do vencimento inicial
+      dia_vencimento := EXTRACT(DAY FROM NEW.data_vencimento_inicial);
+      
+      FOR i IN 1..NEW.numero_parcelas LOOP
+        -- Adicionar meses mantendo o mesmo dia
+        data_calc := NEW.data_vencimento_inicial + ((i - 1) || ' months')::INTERVAL;
+        
+        INSERT INTO public.cliente_parcelas (
+          cliente_id,
+          numero_parcela,
+          valor_parcela,
+          data_vencimento,
+          status,
+          tenant_id
+        ) VALUES (
+          NEW.id,
+          i,
+          NEW.valor_parcela,
+          data_calc,
+          CASE WHEN data_calc < CURRENT_DATE THEN 'atrasado' ELSE 'pendente' END,
+          NEW.tenant_id
+        );
+      END LOOP;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$function$;
 ```
 
-#### B) `ReuniaoComentarios.tsx`
-
-Mesma lógica - substituir `Textarea` por `TenantMentionInput`.
-
-#### C) `ClienteComentariosTab.tsx`
-
-Mesma lógica - substituir `Textarea` por `TenantMentionInput`.
-
----
-
-### 6. Destacar Menções no Texto
-
-**Criar componente para renderizar comentário com menções destacadas:**
-
-**Arquivo:** `src/components/Common/CommentText.tsx`
-
+**Calculo correto de totalPago:**
 ```typescript
-interface CommentTextProps {
-  text: string;
-  className?: string;
+const totalPago = parcelasPagas.reduce((acc, p) => {
+  const valorEfetivamentePago = p.valor_pago ?? p.valor_parcela;
+  return acc + Number(valorEfetivamentePago);
+}, 0);
+```
+
+**Interface atualizada:**
+```typescript
+// src/types/financeiro.ts
+export interface ClienteParcela {
+  // ... campos existentes
+  valor_pago?: number; // NOVO: valor efetivamente pago
 }
 
-export const CommentText = ({ text, className }: CommentTextProps) => {
-  // Regex para encontrar @NomeCompleto
-  const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
-  
-  const parts = text.split(mentionRegex);
-  
-  return (
-    <p className={cn("text-sm whitespace-pre-wrap break-words", className)}>
-      {parts.map((part, i) => {
-        // Partes ímpares são os nomes mencionados
-        if (i % 2 === 1) {
-          return (
-            <span 
-              key={i} 
-              className="bg-primary/10 text-primary font-medium px-1 rounded"
-            >
-              @{part}
-            </span>
-          );
-        }
-        return part;
-      })}
-    </p>
-  );
-};
-```
-
-**Uso nos componentes:**
-```typescript
-// Antes
-<p className="text-sm">{comentario.comentario}</p>
-
-// Depois
-<CommentText text={comentario.comentario} />
-```
-
----
-
-### 7. Arquivos a Criar/Modificar
-
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| `supabase/migrations/xxx_add_comment_mentions.sql` | Criar | Tabela genérica de menções |
-| `src/components/Common/TenantMentionInput.tsx` | Criar | Input com autocomplete por tenant |
-| `src/components/Common/CommentText.tsx` | Criar | Renderizar texto com menções destacadas |
-| `src/hooks/useCommentMentions.ts` | Criar | Hook para salvar menções e notificar |
-| `src/hooks/useDeadlineComentarios.ts` | Modificar | Suportar mentionedUserIds |
-| `src/hooks/useReuniaoComentarios.ts` | Modificar | Suportar mentionedUserIds |
-| `src/hooks/useReuniaoClienteComentarios.ts` | Modificar | Suportar mentionedUserIds |
-| `src/hooks/useClienteParcelas.ts` | Modificar | Suportar mentionedUserIds (parcela comments) |
-| `src/components/Agenda/DeadlineComentarios.tsx` | Modificar | Usar TenantMentionInput |
-| `src/components/Reunioes/ReuniaoComentarios.tsx` | Modificar | Usar TenantMentionInput |
-| `src/components/Reunioes/ClienteComentariosTab.tsx` | Modificar | Usar TenantMentionInput |
-| `src/components/Financial/ParcelaComentarios.tsx` | Modificar | Usar TenantMentionInput |
-
----
-
-### 8. Fluxo de Notificação
-
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│ Usuário digita "@" no comentário                                 │
-└───────────────────────────────┬──────────────────────────────────┘
-                                │
-                                ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ TenantMentionInput mostra lista de usuários do tenant           │
-└───────────────────────────────┬──────────────────────────────────┘
-                                │
-                                ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ Usuário seleciona nome → "@João Silva" inserido                  │
-└───────────────────────────────┬──────────────────────────────────┘
-                                │
-                                ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ Ao enviar comentário:                                            │
-│ 1. INSERT em {type}_comentarios                                  │
-│ 2. INSERT em comment_mentions (para cada @mencionado)            │
-│ 3. INSERT em notifications (para cada @mencionado)               │
-└───────────────────────────────┬──────────────────────────────────┘
-                                │
-                                ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ Usuário mencionado vê notificação:                               │
-│ "João mencionou você em um comentário"                           │
-└──────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### Resultado Esperado
-
-1. **Menções funcionando em todos os comentários** - Agenda, Reuniões, Parcelas, etc.
-2. **Autocomplete de usuários** - Ao digitar `@`, aparece lista do tenant
-3. **Notificações automáticas** - Usuário mencionado recebe notificação
-4. **Destaque visual** - Menções aparecem em cor diferente no texto
-5. **Consistência** - Mesmo comportamento em todos os módulos
-
----
-
-### Seção Técnica
-
-**Regex para extrair menções:**
-```typescript
-const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
-// Captura: @João Silva, @Maria, @Ana Clara
-```
-
-**Estrutura da tabela:**
-```sql
-comment_mentions
-├── id (UUID PK)
-├── comment_type (TEXT) -- 'deadline', 'reuniao', 'task', etc.
-├── comment_id (UUID) -- ID do comentário original
-├── mentioned_user_id (UUID FK → auth.users)
-├── mentioned_by_user_id (UUID FK → auth.users)
-├── tenant_id (UUID FK → tenants)
-└── created_at (TIMESTAMPTZ)
-```
-
-**Query para buscar usuários do tenant:**
-```typescript
-const { data: users } = await supabase
-  .from('profiles')
-  .select('user_id, full_name, avatar_url')
-  .eq('tenant_id', tenantId)
-  .neq('user_id', currentUserId) // Não mostrar o próprio usuário
-  .order('full_name');
+// src/types/cliente.ts
+export interface Cliente {
+  // ... campos existentes
+  proveito_economico?: number; // NOVO: percentual de proveito economico
+}
 ```
