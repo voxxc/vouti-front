@@ -64,12 +64,16 @@ export const TenantMentionInput = ({
         .order('full_name');
 
       if (!error && data) {
-        // Filtrar usuário atual usando variável local para evitar closure issues
+        // Evitar callback de Array.filter no bundle (já apareceu no stack minificado)
+        // e manter comportamento determinístico.
         const currentId = currentUserId;
-        const filteredData = currentId 
-          ? data.filter((u) => u.user_id !== currentId)
-          : data;
-        setUsers(filteredData as TenantUser[]);
+        const nextUsers: TenantUser[] = [];
+        for (const u of data as any[]) {
+          if (!currentId || u.user_id !== currentId) {
+            nextUsers.push(u as TenantUser);
+          }
+        }
+        setUsers(nextUsers);
       }
     };
 
@@ -116,11 +120,16 @@ export const TenantMentionInput = ({
     const search = mentionSearch?.toLowerCase() || '';
     
     if (search) {
-      const filtered = currentUsers.filter((user) => {
+      // Evitar callback de Array.filter no bundle
+      const filtered: TenantUser[] = [];
+      for (const user of currentUsers) {
         const name = user.full_name || '';
-        return name.toLowerCase().includes(search);
-      });
-      setFilteredUsers(filtered.slice(0, 5));
+        if (name.toLowerCase().includes(search)) {
+          filtered.push(user);
+          if (filtered.length >= 5) break;
+        }
+      }
+      setFilteredUsers(filtered);
     } else {
       setFilteredUsers(currentUsers.slice(0, 5));
     }
