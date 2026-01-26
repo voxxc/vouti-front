@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Trash2, Download, FileText, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Download, FileText, Image as ImageIcon, Reply } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +19,9 @@ interface MessageBubbleProps {
   content: string;
   isFromCurrentUser: boolean;
   createdAt: string;
+  replyToContent?: string;
   onDelete?: () => void;
+  onReply?: () => void;
 }
 
 export const MessageBubble = ({ 
@@ -27,7 +29,9 @@ export const MessageBubble = ({
   content, 
   isFromCurrentUser, 
   createdAt,
-  onDelete 
+  replyToContent,
+  onDelete,
+  onReply
 }: MessageBubbleProps) => {
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const { toast } = useToast();
@@ -96,6 +100,25 @@ export const MessageBubble = ({
             : 'bg-muted'
         }`}
       >
+        {/* Reply Preview */}
+        {replyToContent && (
+          <div 
+            className={`mb-2 p-2 rounded text-xs border-l-2 ${
+              isFromCurrentUser 
+                ? 'bg-primary-foreground/10 border-primary-foreground/50' 
+                : 'bg-background/50 border-muted-foreground/50'
+            }`}
+          >
+            <div className={`flex items-center gap-1 mb-1 ${
+              isFromCurrentUser ? 'text-primary-foreground/70' : 'text-muted-foreground'
+            }`}>
+              <Reply className="h-3 w-3" />
+              <span>Respondendo a:</span>
+            </div>
+            <p className="truncate italic">{replyToContent}</p>
+          </div>
+        )}
+
         <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
         
         {attachments.length > 0 && (
@@ -138,16 +161,30 @@ export const MessageBubble = ({
             {format(new Date(createdAt), "HH:mm", { locale: ptBR })}
           </p>
           
-          {isFromCurrentUser && onDelete && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {onReply && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={onReply}
+                title="Responder"
+              >
+                <Reply className="h-3 w-3" />
+              </Button>
+            )}
+            {isFromCurrentUser && onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={onDelete}
+                title="Deletar"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -4,6 +4,8 @@ export interface Message {
   receiverId: string;
   content: string;
   isRead: boolean;
+  replyToId?: string;
+  replyToContent?: string;
   createdAt: Date;
   updatedAt: Date;
 }

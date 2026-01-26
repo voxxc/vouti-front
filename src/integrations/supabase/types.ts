@@ -2205,6 +2205,7 @@ export type Database = {
           message_type: string | null
           receiver_id: string
           related_project_id: string | null
+          reply_to_id: string | null
           sender_id: string
           tenant_id: string | null
           updated_at: string
@@ -2217,6 +2218,7 @@ export type Database = {
           message_type?: string | null
           receiver_id: string
           related_project_id?: string | null
+          reply_to_id?: string | null
           sender_id: string
           tenant_id?: string | null
           updated_at?: string
@@ -2229,11 +2231,19 @@ export type Database = {
           message_type?: string | null
           receiver_id?: string
           related_project_id?: string | null
+          reply_to_id?: string | null
           sender_id?: string
           tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_tenant_id_fkey"
             columns: ["tenant_id"]
