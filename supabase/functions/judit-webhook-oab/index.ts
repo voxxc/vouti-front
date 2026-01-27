@@ -40,15 +40,19 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Extrair tracking_id do payload
-    const trackingId = payload.tracking_id;
+    // Judit envia o tracking_id no campo reference_id (ou origin_id)
+    // quando reference_type é "tracking"
+    const trackingId = payload.reference_id || payload.origin_id || payload.tracking_id;
     
     if (!trackingId) {
-      console.error('[Judit Webhook OAB] tracking_id nao encontrado no payload');
+      console.error('[Judit Webhook OAB] tracking_id nao encontrado no payload. Campos disponiveis:', Object.keys(payload));
       return new Response(
-        JSON.stringify({ success: false, error: 'tracking_id ausente' }),
+        JSON.stringify({ success: false, error: 'reference_id/tracking_id ausente' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('[Judit Webhook OAB] Tracking ID extraido:', trackingId, '| reference_type:', payload.reference_type);
 
     // Buscar processo pelo tracking_id COM tenant_id
     const { data: processo, error: fetchError } = await supabase
@@ -68,7 +72,8 @@ serve(async (req) => {
     console.log('[Judit Webhook OAB] Processo encontrado:', processo.numero_cnj);
 
     // Extrair novos andamentos do payload
-    const responseData = payload.response_data || payload.data || payload;
+    // Judit envia em payload.payload.response_data (nivel aninhado)
+    const responseData = payload.payload?.response_data || payload.response_data || payload.data || payload;
     const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
 
     console.log('[Judit Webhook OAB] Andamentos no payload:', steps.length);
