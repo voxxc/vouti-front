@@ -13,17 +13,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useClienteParcelas } from '@/hooks/useClienteParcelas';
 import { useClienteDividas } from '@/hooks/useClienteDividas';
 import { BaixaPagamentoDialog } from './BaixaPagamentoDialog';
 import { EditarPagamentoDialog } from './EditarPagamentoDialog';
 import { ParcelaComentarios } from './ParcelaComentarios';
+import { ParcelaHistorico } from './ParcelaHistorico';
 import { CreateDividaDialog } from './CreateDividaDialog';
 import { DividaContent } from './DividaContent';
 import { ClienteParcela, DadosBaixaPagamento } from '@/types/financeiro';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon, MoreVertical, RotateCcw, Edit } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon, MoreVertical, RotateCcw, Edit, History, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +61,7 @@ export const ClienteFinanceiroDialog = ({
   const [baixaDialogOpen, setBaixaDialogOpen] = useState(false);
   const [createDividaOpen, setCreateDividaOpen] = useState(false);
   const [selectedParcelaForComments, setSelectedParcelaForComments] = useState<string | null>(null);
+  const [selectedParcelaForHistory, setSelectedParcelaForHistory] = useState<string | null>(null);
   const [editarPagamentoOpen, setEditarPagamentoOpen] = useState(false);
   const [parcelaParaEditar, setParcelaParaEditar] = useState<ClienteParcela | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
@@ -445,6 +452,21 @@ export const ClienteFinanceiroDialog = ({
                                     </DropdownMenu>
                                   )}
                                   
+                                  {/* Botão Histórico para parcelas pagas ou parciais */}
+                                  {(parcela.status === 'pago' || parcela.status === 'parcial') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="gap-1"
+                                      onClick={() => setSelectedParcelaForHistory(
+                                        selectedParcelaForHistory === parcela.id ? null : parcela.id
+                                      )}
+                                    >
+                                      <History className="h-3 w-3" />
+                                      Histórico
+                                    </Button>
+                                  )}
+
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -456,6 +478,17 @@ export const ClienteFinanceiroDialog = ({
                                   </Button>
                                 </div>
                               </div>
+
+                              {/* Área expandível de Histórico */}
+                              {selectedParcelaForHistory === parcela.id && (
+                                <div className="mt-4 pt-4 border-t">
+                                  <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                                    <History className="h-4 w-4" />
+                                    Histórico de Pagamentos
+                                  </h4>
+                                  <ParcelaHistorico parcelaId={parcela.id} />
+                                </div>
+                              )}
 
                               {selectedParcelaForComments === parcela.id && (
                                 <div className="mt-4 pt-4 border-t">

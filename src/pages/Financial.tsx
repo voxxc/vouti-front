@@ -500,6 +500,29 @@ const Financial = () => {
                         </div>
                       )}
 
+                      {/* Badge de parcelas parciais */}
+                      {(() => {
+                        const parcelas = parcelasPorClienteState[cliente.id] || [];
+                        const parcelasParciais = parcelas.filter((p: any) => p.status === 'parcial');
+                        const saldoTotal = parcelasParciais.reduce((acc: number, p: any) => acc + Number(p.saldo_restante || 0), 0);
+                        
+                        if (parcelasParciais.length === 0) return null;
+                        
+                        return (
+                          <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-md border border-amber-500/30">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                            <div className="text-xs">
+                              <span className="font-medium text-amber-700 dark:text-amber-400">
+                                {parcelasParciais.length} parcela(s) com saldo
+                              </span>
+                              <span className="text-amber-600 dark:text-amber-500 ml-1">
+                                ({formatCurrency(saldoTotal)} em aberto)
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {cliente.diasAtraso && cliente.diasAtraso > 0 && (
                         <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded">
                           <AlertTriangle className="h-4 w-4 text-destructive" />
