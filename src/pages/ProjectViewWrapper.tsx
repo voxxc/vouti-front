@@ -119,6 +119,7 @@ const ProjectViewWrapper = () => {
               id: c.id,
               text: c.comment_text,
               author: commentProfileMap.get(c.user_id) || 'Usuario',
+              userId: c.user_id,
               createdAt: new Date(c.created_at),
               updatedAt: new Date(c.updated_at)
             })),

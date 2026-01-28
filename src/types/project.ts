@@ -26,6 +26,7 @@ export interface Comment {
   id: string;
   text: string;
   author: string;
+  userId: string;
   createdAt: Date;
   updatedAt: Date;
 }
