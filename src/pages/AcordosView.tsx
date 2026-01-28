@@ -13,6 +13,7 @@ import { Project, Task } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AcordosViewProps {
   onLogout: () => void;
@@ -31,6 +32,17 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const { tenantId } = useTenantId();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Criar currentUser baseado no usuário autenticado
+  const currentUser = user ? {
+    id: user.id,
+    email: user.email || '',
+    name: user.user_metadata?.full_name || user.email || '',
+    role: 'advogado' as const,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  } : undefined;
 
   // Filtrar apenas as tarefas de acordo usando o type
   const acordoTasks = project.acordoTasks || [];
@@ -480,6 +492,8 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           onClose={() => setIsModalOpen(false)}
           onUpdateTask={handleUpdateTask}
           onRefreshTask={handleRefreshTask}
+          currentUser={currentUser}
+          projectId={project.id}
           columnName={selectedColumnName}
         />
 

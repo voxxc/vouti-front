@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Edit, Save, X, Plus, Edit2, Trash2, Link2, ListTodo, MessageSquare, Files, History, Loader2 } from "lucide-react";
+import { Edit, Save, X, Plus, Edit2, Trash2, Link2, ListTodo, MessageSquare, Files, History, Loader2, Reply } from "lucide-react";
 import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry, AcordoDetails } from "@/types/project";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +60,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [processoOabId, setProcessoOabId] = useState<string | null>(null);
   const [isAddingComment, setIsAddingComment] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const { toast } = useToast();
 
   const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null, { projectId, taskTitle: task?.title, columnName });
@@ -94,6 +95,37 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
       loadProcessoOabId();
       loadTaskData();
     }
+
+    // Reset reply state when modal closes or task changes
+    if (!isOpen) {
+      setReplyingTo(null);
+    }
+  }, [task?.id, isOpen]);
+
+  // Real-time subscription for comments
+  useEffect(() => {
+    if (!task || !isOpen) return;
+
+    const channel = supabase
+      .channel(`task-comments-${task.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_comments',
+          filter: `task_id=eq.${task.id}`
+        },
+        () => {
+          // Reload task data when comments change
+          loadTaskData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [task?.id, isOpen]);
 
   // Buscar tarefas judiciais do processo vinculado
@@ -181,6 +213,9 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           text: c.comment_text,
           author: profileMap.get(c.user_id) || 'Usuario',
           userId: c.user_id,
+          replyToId: c.reply_to_id || undefined,
+          replyToText: c.reply_to_text || undefined,
+          replyToAuthor: c.reply_to_author || undefined,
           createdAt: new Date(c.created_at),
           updatedAt: new Date(c.updated_at)
         })),
@@ -275,7 +310,10 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           .insert({
             task_id: task.id,
             user_id: currentUser.id,
-            comment_text: newComment.trim()
+            comment_text: newComment.trim(),
+            reply_to_id: replyingTo?.id || null,
+            reply_to_text: replyingTo?.text?.slice(0, 100) || null,
+            reply_to_author: replyingTo?.author || null
           })
           .select()
           .single();
@@ -287,6 +325,9 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           text: insertedComment.comment_text,
           author: currentUser.name || "Usuario Atual",
           userId: currentUser.id,
+          replyToId: replyingTo?.id,
+          replyToText: replyingTo?.text?.slice(0, 100),
+          replyToAuthor: replyingTo?.author,
           createdAt: new Date(insertedComment.created_at),
           updatedAt: new Date(insertedComment.updated_at)
         };
@@ -314,6 +355,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
 
         onUpdateTask(updatedTask);
         setNewComment("");
+        setReplyingTo(null);
 
         if (projectId) {
           await notifyCommentAdded(
@@ -334,6 +376,14 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
         setIsAddingComment(false);
       }
     }
+  };
+
+  const handleReplyComment = (comment: Comment) => {
+    setReplyingTo(comment);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
   };
 
   const handleUploadFile = async (file: File) => {
@@ -916,8 +966,24 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                   <h3 className="text-sm font-medium mb-4">Comentarios ({task.comments.length})</h3>
                   
                   <div className="space-y-3 mb-6">
+                    {replyingTo && (
+                      <div className="bg-muted/50 border-l-2 border-primary p-2 rounded text-xs flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium">{replyingTo.author}</span>
+                          <p className="text-muted-foreground line-clamp-2">{replyingTo.text}</p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={handleCancelReply} 
+                          className="h-5 w-5 shrink-0 ml-2"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                     <Textarea
-                      placeholder="Adicionar um comentario..."
+                      placeholder={replyingTo ? "Escreva sua resposta..." : "Adicionar um comentario..."}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       className="min-h-[80px]"
@@ -930,10 +996,12 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                     >
                       {isAddingComment ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : replyingTo ? (
+                        <Reply className="h-3 w-3" />
                       ) : (
                         <Plus className="h-3 w-3" />
                       )}
-                      {isAddingComment ? 'Enviando...' : 'Adicionar Comentario'}
+                      {isAddingComment ? 'Enviando...' : replyingTo ? 'Responder' : 'Adicionar Comentario'}
                     </Button>
                   </div>
 
@@ -970,48 +1038,68 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                             </div>
                           ) : (
                             <>
+                              {/* Reply quote display */}
+                              {comment.replyToId && (
+                                <div className="bg-muted/30 border-l-2 border-muted-foreground/30 p-2 rounded text-xs mb-2">
+                                  <span className="font-medium text-muted-foreground">{comment.replyToAuthor}</span>
+                                  <p className="text-muted-foreground line-clamp-1">{comment.replyToText}</p>
+                                </div>
+                              )}
                               <div className="flex items-start justify-between mb-2">
                                 <p className="text-sm flex-1">{comment.text}</p>
-                                {currentUser && comment.userId === currentUser.id && (
-                                  <div className="flex gap-1 ml-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleEditComment(comment.id)}
-                                      className="h-6 w-6"
-                                    >
-                                      <Edit2 className="h-3 w-3" />
-                                    </Button>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6 text-destructive hover:text-destructive"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Tem certeza que deseja excluir este comentario?
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() => handleDeleteComment(comment.id)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                <div className="flex gap-1 ml-2">
+                                  {/* Reply button - always visible */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleReplyComment(comment)}
+                                    className="h-6 w-6"
+                                    title="Responder"
+                                  >
+                                    <Reply className="h-3 w-3" />
+                                  </Button>
+                                  {/* Edit/Delete buttons - only for comment owner */}
+                                  {currentUser && comment.userId === currentUser.id && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleEditComment(comment.id)}
+                                        className="h-6 w-6"
+                                      >
+                                        <Edit2 className="h-3 w-3" />
+                                      </Button>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-destructive hover:text-destructive"
                                           >
-                                            Excluir
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </div>
-                                )}
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Tem certeza que deseja excluir este comentario?
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() => handleDeleteComment(comment.id)}
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                              Excluir
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 <span className="font-medium text-foreground">{comment.author}</span>

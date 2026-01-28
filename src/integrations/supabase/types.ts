@@ -5294,6 +5294,9 @@ export type Database = {
           comment_text: string
           created_at: string
           id: string
+          reply_to_author: string | null
+          reply_to_id: string | null
+          reply_to_text: string | null
           task_id: string
           tenant_id: string | null
           updated_at: string
@@ -5303,6 +5306,9 @@ export type Database = {
           comment_text: string
           created_at?: string
           id?: string
+          reply_to_author?: string | null
+          reply_to_id?: string | null
+          reply_to_text?: string | null
           task_id: string
           tenant_id?: string | null
           updated_at?: string
@@ -5312,12 +5318,22 @@ export type Database = {
           comment_text?: string
           created_at?: string
           id?: string
+          reply_to_author?: string | null
+          reply_to_id?: string | null
+          reply_to_text?: string | null
           task_id?: string
           tenant_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_comments_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "task_comments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_comments_task_id_fkey"
             columns: ["task_id"]
