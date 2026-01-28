@@ -12,10 +12,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Calendar, MessageSquare } from "lucide-react";
+import { Trash2, Calendar, MessageSquare, Loader2 } from "lucide-react";
 import { Task, TASK_STATUSES } from "@/types/project";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskCardProps {
   task: Task;
@@ -26,6 +29,8 @@ interface TaskCardProps {
 }
 
 const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClick?.(task);
@@ -71,68 +76,86 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
     };
   };
 
-  const handleGenerateMessage = (e: React.MouseEvent) => {
+  const handleGenerateMessage = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    if (!task.acordoDetails || !onUpdateTask) return;
+    if (!task.acordoDetails || isGenerating) return;
     
-    const details = task.acordoDetails;
-    let message = `Falamos com o jurídico do ${details.banco || '[BANCO/COOPERATIVA]'}, e informo a título de conhecimento:\n\n`;
+    setIsGenerating(true);
     
-    message += `CLIENTE: ${task.title}\n\n`;
-    
-    if (details.contratoProcesso) {
-      message += `CONTRATO: ${details.contratoProcesso}\n\n`;
+    try {
+      // Buscar usuário e tenant
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: 'Erro', description: 'Usuário não autenticado', variant: 'destructive' });
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      const details = task.acordoDetails;
+      let message = `Falamos com o jurídico do ${details.banco || '[BANCO/COOPERATIVA]'}, e informo a título de conhecimento:\n\n`;
+      
+      message += `CLIENTE: ${task.title}\n\n`;
+      
+      if (details.contratoProcesso) {
+        message += `CONTRATO: ${details.contratoProcesso}\n\n`;
+      }
+      
+      if (details.valorOriginal !== undefined) {
+        message += `SALDO ORIGINAL: R$ ${details.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+      }
+      
+      if (details.valorAtualizado !== undefined) {
+        message += `SALDO DEVEDOR ATUALIZADO: R$ ${details.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+      }
+      
+      if (details.aVista !== undefined) {
+        message += `PARA PAGAMENTO À VISTA: R$ ${details.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
+      }
+      
+      if (details.parcelado) {
+        const entrada = details.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        const parcelas = details.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        const quantidade = details.parcelado.quantidadeParcelas;
+        message += `PARA PAGAMENTO PARCELADO: Entrada + R$ ${entrada} + ${quantidade}x de R$ ${parcelas}\n\n`;
+      }
+      
+      if (details.honorarios !== undefined) {
+        message += `Honorários do Banco: R$ ${details.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      }
+
+      // Inserir comentário diretamente no banco
+      const { error: commentError } = await supabase
+        .from('task_comments')
+        .insert({
+          task_id: task.id,
+          user_id: user.id,
+          comment_text: message,
+          tenant_id: profile?.tenant_id
+        });
+
+      if (commentError) throw commentError;
+
+      toast({ title: 'Mensagem gerada com sucesso!' });
+
+      // Se tiver onUpdateTask, apenas atualiza a data para trigger um refresh
+      if (onUpdateTask) {
+        onUpdateTask({
+          ...task,
+          updatedAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao gerar mensagem:', error);
+      toast({ title: 'Erro', description: 'Erro ao gerar mensagem', variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
     }
-    
-    if (details.valorOriginal !== undefined) {
-      message += `SALDO ORIGINAL: R$ ${details.valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
-    }
-    
-    if (details.valorAtualizado !== undefined) {
-      message += `SALDO DEVEDOR ATUALIZADO: R$ ${details.valorAtualizado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
-    }
-    
-    if (details.aVista !== undefined) {
-      message += `PARA PAGAMENTO À VISTA: R$ ${details.aVista.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n`;
-    }
-    
-    if (details.parcelado) {
-      const entrada = details.parcelado.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      const parcelas = details.parcelado.parcelas.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      const quantidade = details.parcelado.quantidadeParcelas;
-      message += `PARA PAGAMENTO PARCELADO: Entrada + R$ ${entrada} + ${quantidade}x de R$ ${parcelas}\n\n`;
-    }
-    
-    if (details.honorarios !== undefined) {
-      message += `Honorários do Banco: R$ ${details.honorarios.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    }
-    
-    const newComment = {
-      id: `comment-${Date.now()}`,
-      text: message,
-      author: 'Mensagem Automatica',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    const updatedTask = {
-      ...task,
-      comments: [...task.comments, newComment],
-      updatedAt: new Date(),
-      history: [
-        ...task.history,
-        {
-          id: `history-${Date.now()}`,
-          action: 'comment_added' as const,
-          details: 'Mensagem automatica gerada',
-          user: 'Mensagem Automatica',
-          timestamp: new Date()
-        }
-      ]
-    };
-    
-    onUpdateTask(updatedTask);
   };
 
   return (
@@ -259,10 +282,15 @@ const TaskCard = ({ task, onClick, onDelete, onUpdateTask }: TaskCardProps) => {
                 variant="outline"
                 size="sm"
                 onClick={handleGenerateMessage}
+                disabled={isGenerating}
                 className={`w-full text-xs gap-1 ${task.cardColor && task.cardColor !== 'default' ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700' : ''}`}
               >
-                <MessageSquare className={`h-3 w-3 ${getTextColorClasses(task.cardColor).icon}`} />
-                GERAR MENSAGEM
+                {isGenerating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <MessageSquare className={`h-3 w-3 ${getTextColorClasses(task.cardColor).icon}`} />
+                )}
+                {isGenerating ? 'GERANDO...' : 'GERAR MENSAGEM'}
               </Button>
             </div>
           </div>
