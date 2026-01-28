@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Edit, Save, X, Plus, Edit2, Trash2, Link2, ListTodo, MessageSquare, Files, History } from "lucide-react";
+import { Edit, Save, X, Plus, Edit2, Trash2, Link2, ListTodo, MessageSquare, Files, History, Loader2 } from "lucide-react";
 import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry, AcordoDetails } from "@/types/project";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +59,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
   const [activeTab, setActiveTab] = useState("detalhes");
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [processoOabId, setProcessoOabId] = useState<string | null>(null);
+  const [isAddingComment, setIsAddingComment] = useState(false);
   const { toast } = useToast();
 
   const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null, { projectId, taskTitle: task?.title, columnName });
@@ -179,6 +180,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           id: c.id,
           text: c.comment_text,
           author: profileMap.get(c.user_id) || 'Usuario',
+          userId: c.user_id,
           createdAt: new Date(c.created_at),
           updatedAt: new Date(c.updated_at)
         })),
@@ -266,6 +268,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
 
   const handleAddComment = async () => {
     if (newComment.trim() && task && currentUser) {
+      setIsAddingComment(true);
       try {
         const { data: insertedComment, error } = await supabase
           .from('task_comments')
@@ -283,6 +286,7 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           id: insertedComment.id,
           text: insertedComment.comment_text,
           author: currentUser.name || "Usuario Atual",
+          userId: currentUser.id,
           createdAt: new Date(insertedComment.created_at),
           updatedAt: new Date(insertedComment.updated_at)
         };
@@ -326,6 +330,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           description: "Erro ao adicionar comentario.",
           variant: "destructive",
         });
+      } finally {
+        setIsAddingComment(false);
       }
     }
   };
@@ -916,9 +922,18 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                       onChange={(e) => setNewComment(e.target.value)}
                       className="min-h-[80px]"
                     />
-                    <Button onClick={handleAddComment} className="gap-2" size="sm">
-                      <Plus className="h-3 w-3" />
-                      Adicionar Comentario
+                    <Button 
+                      onClick={handleAddComment} 
+                      className="gap-2" 
+                      size="sm"
+                      disabled={isAddingComment || !newComment.trim()}
+                    >
+                      {isAddingComment ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
+                      {isAddingComment ? 'Enviando...' : 'Adicionar Comentario'}
                     </Button>
                   </div>
 
@@ -957,44 +972,46 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                             <>
                               <div className="flex items-start justify-between mb-2">
                                 <p className="text-sm flex-1">{comment.text}</p>
-                                <div className="flex gap-1 ml-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleEditComment(comment.id)}
-                                    className="h-6 w-6"
-                                  >
-                                    <Edit2 className="h-3 w-3" />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-destructive hover:text-destructive"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Tem certeza que deseja excluir este comentario?
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => handleDeleteComment(comment.id)}
-                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                {currentUser && comment.userId === currentUser.id && (
+                                  <div className="flex gap-1 ml-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleEditComment(comment.id)}
+                                      className="h-6 w-6"
+                                    >
+                                      <Edit2 className="h-3 w-3" />
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-destructive hover:text-destructive"
                                         >
-                                          Excluir
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Tem certeza que deseja excluir este comentario?
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDeleteComment(comment.id)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Excluir
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                )}
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 <span className="font-medium text-foreground">{comment.author}</span>
