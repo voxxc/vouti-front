@@ -27,6 +27,9 @@ export interface Comment {
   text: string;
   author: string;
   userId: string;
+  replyToId?: string;
+  replyToText?: string;
+  replyToAuthor?: string;
   createdAt: Date;
   updatedAt: Date;
 }
