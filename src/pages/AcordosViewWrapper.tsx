@@ -34,7 +34,7 @@ const AcordosViewWrapper = () => {
             description: "Projeto não encontrado",
             variant: "destructive",
           });
-          navigate('/projects');
+          navigate('projects');
           return;
         }
 
@@ -87,7 +87,7 @@ const AcordosViewWrapper = () => {
           description: "Erro ao carregar dados",
           variant: "destructive",
         });
-        navigate('/projects');
+        navigate('projects');
       }
     };
 
@@ -120,11 +120,15 @@ const AcordosViewWrapper = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/auth');
+    navigate('auth');
   };
 
   const handleBack = () => {
-    navigate(`/project/${id}`);
+    if (id) {
+      navigate(`project/${id}`);
+    } else {
+      navigate('projects');
+    }
   };
 
   if (loading) {
