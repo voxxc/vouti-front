@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { RefreshCw, AlertCircle, CheckCircle2, Activity, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RefreshCw, AlertCircle, CheckCircle2, Activity, Loader2, XCircle, MinusCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   Select,
@@ -14,6 +15,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface ProcessoDetalhe {
+  numero_cnj: string;
+  novos_andamentos: number;
+  ultimo_andamento_data: string | null;
+  status: 'atualizado' | 'sem_novos' | 'erro';
+  erro?: string;
+}
+
+interface TenantResult {
+  tenant_id: string;
+  tenant_name: string;
+  processos_verificados: number;
+  processos_atualizados: number;
+  novos_andamentos: number;
+  processos_detalhes: ProcessoDetalhe[];
+}
 
 interface SyncResult {
   total_processos: number;
@@ -21,10 +49,13 @@ interface SyncResult {
   processos_atualizados: number;
   novos_andamentos: number;
   erros: string[];
+  por_tenant: TenantResult[];
 }
 
 export function SuperAdminMonitoramento() {
   const [selectedTenant, setSelectedTenant] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('resumo');
+  const [showOnlyUpdated, setShowOnlyUpdated] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch tenants for filter
@@ -100,6 +131,10 @@ export function SuperAdminMonitoramento() {
         description: `${data.processos_verificados} processos verificados, ${data.novos_andamentos} novos andamentos`,
       });
       queryClient.invalidateQueries({ queryKey: ['super-admin-monitoramento-stats'] });
+      // Switch to first tenant tab if we have results
+      if (data.por_tenant.length > 0) {
+        setActiveTab(data.por_tenant[0].tenant_id);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -109,6 +144,44 @@ export function SuperAdminMonitoramento() {
       });
     },
   });
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    try {
+      return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getStatusIcon = (status: ProcessoDetalhe['status']) => {
+    switch (status) {
+      case 'atualizado':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'sem_novos':
+        return <MinusCircle className="h-4 w-4 text-muted-foreground" />;
+      case 'erro':
+        return <XCircle className="h-4 w-4 text-destructive" />;
+    }
+  };
+
+  const getStatusBadge = (status: ProcessoDetalhe['status']) => {
+    switch (status) {
+      case 'atualizado':
+        return <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20">Atualizado</Badge>;
+      case 'sem_novos':
+        return <Badge variant="secondary">Sem novos</Badge>;
+      case 'erro':
+        return <Badge variant="destructive">Erro</Badge>;
+    }
+  };
+
+  const filterProcessos = (processos: ProcessoDetalhe[]) => {
+    if (showOnlyUpdated) {
+      return processos.filter(p => p.status === 'atualizado');
+    }
+    return processos;
+  };
 
   return (
     <div className="space-y-6">
@@ -193,20 +266,34 @@ export function SuperAdminMonitoramento() {
         </Card>
       </div>
 
-      {/* Sync Results */}
+      {/* Sync Results with Tabs */}
       {syncMutation.data && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              Resultado da Sincronização
-            </CardTitle>
-            <CardDescription>
-              Última execução concluída com sucesso
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Resultado da Sincronização
+                </CardTitle>
+                <CardDescription>
+                  {syncMutation.data.por_tenant.length} tenant(s) processado(s)
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={showOnlyUpdated ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setShowOnlyUpdated(!showOnlyUpdated)}
+                >
+                  {showOnlyUpdated ? 'Mostrar Todos' : 'Apenas Atualizados'}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            {/* Global Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-2xl font-bold">{syncMutation.data.total_processos}</div>
                 <div className="text-xs text-muted-foreground">Total</div>
@@ -229,6 +316,121 @@ export function SuperAdminMonitoramento() {
               </div>
             </div>
 
+            {/* Tenant Tabs */}
+            {syncMutation.data.por_tenant.length > 0 && (
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="w-full flex flex-wrap h-auto gap-1 justify-start bg-muted/50 p-1">
+                  <TabsTrigger value="resumo" className="text-xs">
+                    Resumo
+                  </TabsTrigger>
+                  {syncMutation.data.por_tenant.map((tenant) => (
+                    <TabsTrigger 
+                      key={tenant.tenant_id} 
+                      value={tenant.tenant_id}
+                      className="text-xs"
+                    >
+                      {tenant.tenant_name}
+                      {tenant.novos_andamentos > 0 && (
+                        <Badge className="ml-1.5 h-5 px-1.5 bg-green-500 text-white">
+                          {tenant.novos_andamentos}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                <TabsContent value="resumo" className="mt-4">
+                  <div className="space-y-3">
+                    {syncMutation.data.por_tenant.map((tenant) => (
+                      <div 
+                        key={tenant.tenant_id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => setActiveTab(tenant.tenant_id)}
+                      >
+                        <div>
+                          <p className="font-medium">{tenant.tenant_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {tenant.processos_verificados} processos verificados
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-center">
+                            <p className="font-bold text-green-600">{tenant.processos_atualizados}</p>
+                            <p className="text-xs text-muted-foreground">Atualizados</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-bold text-blue-600">{tenant.novos_andamentos}</p>
+                            <p className="text-xs text-muted-foreground">Novos</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                {syncMutation.data.por_tenant.map((tenant) => (
+                  <TabsContent key={tenant.tenant_id} value={tenant.tenant_id} className="mt-4">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">{tenant.tenant_name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {tenant.processos_verificados} processos • {tenant.processos_atualizados} atualizados • {tenant.novos_andamentos} novos andamentos
+                      </p>
+                    </div>
+                    
+                    <ScrollArea className="h-[400px] rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">Status</TableHead>
+                            <TableHead>Número CNJ</TableHead>
+                            <TableHead className="text-center w-[100px]">Novos</TableHead>
+                            <TableHead className="w-[180px]">Último Andamento</TableHead>
+                            <TableHead className="w-[100px]">Situação</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filterProcessos(tenant.processos_detalhes).map((processo, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>{getStatusIcon(processo.status)}</TableCell>
+                              <TableCell className="font-mono text-sm">
+                                {processo.numero_cnj}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {processo.novos_andamentos > 0 ? (
+                                  <Badge className="bg-green-500 text-white">
+                                    +{processo.novos_andamentos}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">0</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {formatDate(processo.ultimo_andamento_data)}
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(processo.status)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {filterProcessos(tenant.processos_detalhes).length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                {showOnlyUpdated 
+                                  ? 'Nenhum processo atualizado neste tenant'
+                                  : 'Nenhum processo encontrado'
+                                }
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
+
+            {/* Errors */}
             {syncMutation.data.erros.length > 0 && (
               <div className="mt-4">
                 <h4 className="font-medium text-destructive mb-2">
