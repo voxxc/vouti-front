@@ -1,102 +1,138 @@
 
 
-## Plano: Criar Ferramenta de Diagnóstico de Tracking Judit
+## Plano: Ferramenta de Teste de Importação CNJ no Super Admin
 
 ### Objetivo
-Criar uma edge function e interface no Super Admin para consultar diretamente o status de um `tracking_id` na API Judit e verificar se há um novo `request_id` disponível.
-
-### Por que isso é necessário?
-Atualmente, não existe nenhuma forma de consultar diretamente o endpoint `GET /tracking/{tracking_id}` para verificar o status de um monitoramento. A função `judit-sync-monitorados` faz isso internamente, mas não expõe os resultados de forma isolada para diagnóstico.
+Criar uma aba ou seção no painel Super Admin para importação manual de processos por CNJ com toggle para `with_attachments`, permitindo testar a resposta da API Judit antes de habilitar anexos globalmente.
 
 ---
 
-## Etapas de Implementação
+## Arquitetura
 
-### 1. Criar Edge Function `judit-consultar-tracking`
+### 1. Novo Componente React
+**Arquivo:** `src/components/SuperAdmin/SuperAdminImportCNJTest.tsx`
 
-**Arquivo:** `supabase/functions/judit-consultar-tracking/index.ts`
+Interface para:
+- Campo de entrada do número CNJ
+- Toggle "Incluir Anexos" (with_attachments: true/false)
+- Botão "Testar Importação"
+- Exibição do resultado em JSON formatado
+- Exibição de anexos retornados (se houver)
 
-**Funcionalidade:**
-- Receber um `tracking_id` como parâmetro
-- Fazer `GET https://tracking.prod.judit.io/tracking/{tracking_id}`
-- Retornar o JSON completo da Judit incluindo:
-  - `request_id` atual
-  - `status` do monitoramento
-  - `page_data` com histórico de requests
-  - Timestamps relevantes
+### 2. Nova Edge Function de Teste
+**Arquivo:** `supabase/functions/judit-test-import-cnj/index.ts`
 
-**Exemplo de resposta:**
-```json
-{
-  "success": true,
-  "tracking_id": "f4f02f6d-0b2a-4381-bf89-2202505e2291",
-  "request_id_atual": "ce56249a-a9f5-4b7e-b16e-36e9c1da9207",
-  "raw_response": { ... dados completos da Judit ... }
-}
-```
+Função dedicada para Super Admins que:
+- **NÃO** salva nada no banco (apenas retorna dados)
+- Aceita parâmetro `withAttachments: boolean`
+- Retorna JSON completo para análise
 
-### 2. Adicionar Interface no Super Admin
+### 3. Integração na página Super Admin
+**Arquivo:** `src/pages/SuperAdmin.tsx`
 
-**Localização:** Nova aba "Diagnóstico Judit" ou dentro da aba "Monitoramento" existente
-
-**Componentes:**
-- Campo de input para inserir `tracking_id` ou número CNJ
-- Botão "Consultar Status"
-- Área de exibição do resultado com:
-  - Request ID atual retornado pela Judit
-  - Request ID salvo no banco de dados
-  - Indicador visual de diferença (novo vs. mesmo)
-  - JSON completo da resposta para debug
-
-### 3. Comparar com Dados do Banco
-
-A interface mostrará lado a lado:
-- **Da Judit API:** request_id retornado agora
-- **Do Banco:** request_id salvo (`detalhes_request_id`)
-- **Status:** "NOVO REQUEST ID DISPONÍVEL" ou "MESMO REQUEST ID"
+Adicionar nova aba "Teste CNJ" ao lado das abas existentes (Diagnóstico, Busca Geral, etc.)
 
 ---
 
 ## Detalhes Técnicos
 
-### Edge Function - Estrutura
+### Nova Edge Function: `judit-test-import-cnj`
 
 ```typescript
-// GET /tracking/{tracking_id} na Judit
-const response = await fetch(
-  `https://tracking.prod.judit.io/tracking/${trackingId}`,
-  {
-    method: 'GET',
-    headers: {
-      'api-key': juditApiKey,
-      'Content-Type': 'application/json',
-    },
-  }
-);
+// Estrutura básica da edge function
+const requestPayload = {
+  search: {
+    search_type: 'lawsuit_cnj',
+    search_key: numeroLimpo,
+    on_demand: true
+  },
+  with_attachments: withAttachments  // ← toggle do usuário
+};
 ```
 
-### Segurança
-- Apenas Super Admins podem acessar essa função
-- Validação do JWT obrigatória
-- Verificação na tabela `super_admins`
+Funcionalidades:
+- Valida se o usuário é Super Admin
+- Faz chamada POST para `/requests` da Judit
+- Faz polling em `/responses` para obter resultado
+- **Retorna JSON completo SEM salvar no banco**
+- Mostra especificamente: `attachments[]` retornado
 
 ---
 
-## Caso de Uso Imediato
+## Interface do Componente
 
-Após implementação, você poderá:
-1. Acessar Super Admin > Diagnóstico
-2. Inserir tracking_id: `f4f02f6d-0b2a-4381-bf89-2202505e2291`
-3. Ver se a Judit retorna um novo `request_id` ou o mesmo `ce56249a...`
-4. Se retornar o mesmo, confirma que a Judit não está gerando novos dados
+```
+┌─────────────────────────────────────────────────┐
+│  🧪 Teste de Importação CNJ                      │
+│                                                 │
+│  Número CNJ: [__________________________]       │
+│                                                 │
+│  ☐ Incluir Anexos (with_attachments: true)      │
+│                                                 │
+│  [🔍 Testar Importação]                          │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│  📄 Resultado                                    │
+│  ─────────────────────────────────────────────  │
+│  ✓ Status: Sucesso                              │
+│  📋 Partes: João Silva x Empresa XPTO           │
+│  🏛️ Tribunal: TJPR                               │
+│  📎 Anexos encontrados: 3                       │
+│     - Petição Inicial (pdf)                     │
+│     - Contestação (pdf)                         │
+│     - Despacho (pdf)                            │
+│                                                 │
+│  [JSON Completo ▼]                              │
+│  ┌─────────────────────────────────────────┐   │
+│  │ {                                       │   │
+│  │   "attachments": [                      │   │
+│  │     { "attachment_id": "...",           │   │
+│  │       "status": "done", ...}            │   │
+│  │   ]                                     │   │
+│  │ }                                       │   │
+│  └─────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Arquivos a Criar/Modificar
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/judit-consultar-tracking/index.ts` | Criar |
-| `src/pages/super-admin/components/JuditDiagnosticoTab.tsx` | Criar |
-| `src/pages/super-admin/SuperAdminPage.tsx` | Modificar (adicionar aba) |
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `src/components/SuperAdmin/SuperAdminImportCNJTest.tsx` | Criar | Componente de teste de importação |
+| `supabase/functions/judit-test-import-cnj/index.ts` | Criar | Edge function de teste (não salva no banco) |
+| `src/pages/SuperAdmin.tsx` | Modificar | Adicionar aba "Teste CNJ" |
+| `supabase/config.toml` | Modificar | Adicionar configuração da nova função |
+
+---
+
+## Fluxo de Uso
+
+1. Super Admin acessa aba "Teste CNJ"
+2. Digita número CNJ (ex: `0045144-39.2025.8.16.0021`)
+3. Habilita ou não o toggle "Incluir Anexos"
+4. Clica em "Testar Importação"
+5. Edge function faz chamada à Judit com `with_attachments: true/false`
+6. Resultado é exibido na tela com destaque para:
+   - Array `attachments[]` retornado
+   - Status de cada anexo (`done`, `pending`, etc.)
+   - Custo estimado (se visível)
+
+---
+
+## Segurança
+
+- Edge function valida JWT do Super Admin antes de processar
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para verificar `super_admins`
+- Logs são registrados em `judit_api_logs` com `tipo_chamada: 'test_import_cnj'`
+
+---
+
+## Benefícios
+
+1. **Teste isolado**: Não afeta dados de produção
+2. **Visibilidade de custos**: Permite ver se anexos geram custo extra
+3. **Debug**: JSON completo para análise da estrutura de resposta
+4. **Decisão informada**: Baseado nos testes, você pode decidir se habilita globalmente
 
