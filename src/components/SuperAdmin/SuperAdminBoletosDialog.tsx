@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
 import { useTenantBoletos, CreateBoletoData, TenantBoleto, PaymentMethod } from '@/hooks/useTenantBoletos';
 import { Tenant } from '@/types/superadmin';
@@ -428,7 +429,7 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
                               {formatCurrency(boleto.valor)}
                             </div>
                             <div className="text-sm text-muted-foreground mt-1">
-                              Vencimento: {format(new Date(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
+                              Vencimento: {format(parseLocalDate(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
                             </div>
                             {boleto.observacao && (
                               <div className="text-xs text-muted-foreground mt-2 italic">
