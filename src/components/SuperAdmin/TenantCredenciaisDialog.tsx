@@ -226,11 +226,12 @@ export function TenantCredenciaisDialog({
                     <TableRow>
                       <TableHead className="w-[120px]">OAB</TableHead>
                       <TableHead className="w-[130px]">CPF</TableHead>
-                      <TableHead className="w-[140px]">Senha</TableHead>
-                      <TableHead className="w-[140px]">Secret</TableHead>
-                      <TableHead className="w-[100px]">Doc</TableHead>
+                      <TableHead className="w-[150px]">Tribunal</TableHead>
+                      <TableHead className="w-[120px]">Senha</TableHead>
+                      <TableHead className="w-[120px]">Secret</TableHead>
+                      <TableHead className="w-[80px]">Doc</TableHead>
                       <TableHead className="w-[90px]">Status</TableHead>
-                      <TableHead className="w-[80px]">Data</TableHead>
+                      <TableHead className="w-[70px]">Data</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -253,6 +254,15 @@ export function TenantCredenciaisDialog({
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{formatCpf(credencial.cpf)}</TableCell>
+                        <TableCell>
+                          {credencial.system_name ? (
+                            <Badge variant="outline" className="text-xs truncate max-w-[140px]" title={credencial.system_name}>
+                              {credencial.system_name}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <span className="font-mono text-xs truncate max-w-[80px]">

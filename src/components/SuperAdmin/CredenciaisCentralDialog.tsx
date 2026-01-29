@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Building2, User, Calendar, KeyRound, RefreshCw } from 'lucide-react';
+import { Building2, User, Calendar, KeyRound, RefreshCw, Scale } from 'lucide-react';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import {
   Dialog,
@@ -120,6 +120,14 @@ export function CredenciaisCentralDialog({ open, onOpenChange }: CredenciaisCent
                                 CPF: {formatCPF(cred.cpf)}
                               </span>
                             </div>
+                            {cred.system_name && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Scale className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground">
+                                  {cred.system_name}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
