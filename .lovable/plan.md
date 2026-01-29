@@ -1,119 +1,181 @@
 
-## Exibir Tribunal nas Credenciais do Super Admin
+## Melhorias na Visualização e Edição de Credenciais
 
-### Problema Identificado
+### Contexto
 
-O campo `system_name` (tribunal) já está sendo salvo corretamente no banco de dados quando o usuário cadastra credenciais. Porém, esse campo **não está sendo exibido** no painel Super Admin.
-
-Dados no banco (credenciais do Alan/Solvenza):
-- EPROC - TJSC - 1º grau
-- EPROC - TJRS - 1º grau  
-- EPROC - TRF4 - 1º grau
-- PJE TJRO - 1º grau
-- PJE TJMG - 1º grau
+O usuário identificou duas necessidades:
+1. No formulário de credenciais do cliente: não há como verificar se a senha/secret digitados estão corretos antes de enviar
+2. No Super Admin "Enviar Pendente": os campos estão read-only e não podem ser corrigidos se houver erro
 
 ---
 
-### Correções Necessárias
+### Alterações Planejadas
 
-#### 1. Hook `useAllCredenciaisPendentes.ts`
+#### 1. SubscriptionDrawer - Adicionar Botão Visualizar Senha
 
-Adicionar o campo `system_name` na query e interface:
+**Arquivo:** `src/components/Support/SubscriptionDrawer.tsx`
 
+Adicionar estados para controlar visibilidade:
 ```typescript
-interface CredencialPendenteComTenant {
-  // ... campos existentes ...
-  system_name: string | null;  // ADICIONAR
-}
-
-// Na query SELECT:
-.select(`
-  id,
-  tenant_id,
-  cpf,
-  status,
-  created_at,
-  system_name,  // ADICIONAR
-  oabs_cadastradas (...)
-`)
-
-// No mapeamento:
-system_name: c.system_name || null,
+const [showSenha, setShowSenha] = useState(false);
+const [showSecret, setShowSecret] = useState(false);
 ```
+
+Adicionar import do ícone Eye/EyeOff (já existe no projeto).
+
+Modificar os inputs de senha e secret (linhas 668-691):
+
+**Campo Senha (antes):**
+```tsx
+<Input
+  id="cred-senha"
+  type="password"
+  value={credencialForm.senha}
+  onChange={...}
+  placeholder="Senha do sistema"
+/>
+```
+
+**Campo Senha (depois):**
+```tsx
+<div className="flex gap-2">
+  <Input
+    id="cred-senha"
+    type={showSenha ? "text" : "password"}
+    value={credencialForm.senha}
+    onChange={...}
+    placeholder="Senha do sistema"
+  />
+  <Button
+    variant="ghost"
+    size="icon"
+    type="button"
+    onClick={() => setShowSenha(!showSenha)}
+  >
+    {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+  </Button>
+</div>
+```
+
+Mesma alteração para o campo Secret.
 
 ---
 
-#### 2. Componente `CredenciaisCentralDialog.tsx`
+#### 2. TenantCredenciaisDialog - Permitir Edição no Enviar Pendente
 
-Exibir o tribunal junto com os dados da credencial:
+**Arquivo:** `src/components/SuperAdmin/TenantCredenciaisDialog.tsx`
 
+Adicionar estados para armazenar valores editáveis:
+```typescript
+const [editCpf, setEditCpf] = useState('');
+const [editSenha, setEditSenha] = useState('');
+```
+
+Modificar `handleSelectCredencial` para inicializar os campos editáveis:
+```typescript
+const handleSelectCredencial = (id: string) => {
+  setSelectedCredencialId(id);
+  const cred = credenciaisCliente.find((c) => c.id === id);
+  if (cred) {
+    setEditCpf(cred.cpf);       // Novo
+    setEditSenha(cred.senha);   // Novo
+    const defaultKey = cred.oabs_cadastradas
+      ? `${cred.oabs_cadastradas.oab_numero}/${cred.oabs_cadastradas.oab_uf}`
+      : cred.cpf;
+    setCustomerKey(defaultKey);
+  }
+};
+```
+
+Modificar os campos CPF e Senha na aba "Enviar Pendente" (linhas 377-386):
+
+**Antes:**
 ```tsx
-{/* Adicionar após o CPF */}
-{cred.system_name && (
-  <div className="flex items-center gap-2 text-sm">
-    <Scale className="h-3 w-3 text-muted-foreground" />
-    <span className="text-muted-foreground">
-      {cred.system_name}
-    </span>
+<div className="space-y-2">
+  <Label>CPF (Username)</Label>
+  <Input value={formatCpf(selectedCredencial.cpf)} readOnly className="bg-background" />
+</div>
+<div className="space-y-2">
+  <Label>Senha</Label>
+  <Input value={selectedCredencial.senha} readOnly className="bg-background" />
+</div>
+```
+
+**Depois:**
+```tsx
+<div className="space-y-2">
+  <Label>CPF (Username)</Label>
+  <Input 
+    value={editCpf} 
+    onChange={(e) => setEditCpf(e.target.value)}
+    placeholder="000.000.000-00"
+  />
+</div>
+<div className="space-y-2">
+  <Label>Senha</Label>
+  <div className="flex gap-2">
+    <Input 
+      type={senhasVisiveis['edit-senha'] ? 'text' : 'password'}
+      value={editSenha} 
+      onChange={(e) => setEditSenha(e.target.value)}
+      placeholder="Senha do sistema"
+    />
+    <Button
+      variant="ghost"
+      size="icon"
+      type="button"
+      onClick={() => toggleSenhaVisivel('edit-senha')}
+    >
+      {senhasVisiveis['edit-senha'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+    </Button>
   </div>
-)}
+  <p className="text-xs text-muted-foreground">
+    Você pode editar se a senha estiver incorreta
+  </p>
+</div>
+```
+
+Modificar `handleEnviarParaJudit` para usar os valores editados:
+```typescript
+await enviarParaJudit.mutateAsync({
+  credencialId: selectedCredencial.id,
+  cpf: editCpf,       // Usar valor editado
+  senha: editSenha,   // Usar valor editado
+  secret,
+  customerKey,
+  systemName,
+  oabId: selectedCredencial.oab_id || undefined,
+});
+```
+
+Resetar campos ao limpar seleção:
+```typescript
+setSelectedCredencialId('');
+setEditCpf('');      // Limpar
+setEditSenha('');    // Limpar
+setSecret('');
+setCustomerKey('');
+setSystemName('');
 ```
 
 ---
 
-#### 3. Aba "Recebidas" no `TenantCredenciaisDialog.tsx`
-
-Adicionar coluna de Tribunal na tabela de credenciais recebidas:
-
-```tsx
-<TableHead>Tribunal</TableHead>
-// ...
-<TableCell>
-  {credencial.system_name ? (
-    <Badge variant="outline" className="text-xs">
-      {credencial.system_name}
-    </Badge>
-  ) : (
-    <span className="text-muted-foreground text-xs">-</span>
-  )}
-</TableCell>
-```
-
----
-
-### Arquivos a Modificar
+### Resumo das Alterações
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/hooks/useAllCredenciaisPendentes.ts` | Adicionar `system_name` na interface e query |
-| `src/components/SuperAdmin/CredenciaisCentralDialog.tsx` | Exibir tribunal na lista |
-| `src/components/SuperAdmin/TenantCredenciaisDialog.tsx` | Adicionar coluna Tribunal na tabela |
+| `src/components/Support/SubscriptionDrawer.tsx` | Adicionar toggle de visibilidade para campos senha e secret |
+| `src/components/SuperAdmin/TenantCredenciaisDialog.tsx` | Tornar CPF e Senha editáveis na aba "Enviar Pendente" |
 
 ---
 
-### Resultado Visual Esperado
+### Benefícios
 
-**Central de Credenciais (visão geral):**
-```
-┌─────────────────────────────────────────────────────────────┐
-│  🏢 Solvenza                                    5 credenciais│
-├─────────────────────────────────────────────────────────────┤
-│  [OAB 123/PR]  Daniel                                       │
-│  CPF: 091.632.379-03                                        │
-│  ⚖️ EPROC - TJSC - 1º grau                                  │
-│                                         28/01/2026 às 16:58 │
-├─────────────────────────────────────────────────────────────┤
-│  [OAB 123/PR]  Daniel                                       │
-│  CPF: 091.632.379-03                                        │
-│  ⚖️ PJE TJMG - 1º grau                                      │
-│                                         28/01/2026 às 15:34 │
-└─────────────────────────────────────────────────────────────┘
-```
+**Para o usuário (cliente):**
+- Pode visualizar a senha/secret que digitou antes de enviar
+- Evita erros de digitação que causam retrabalho
 
-**Tabela de Credenciais Recebidas (por tenant):**
-```
-| OAB       | CPF           | Tribunal           | Status   |
-|-----------|---------------|-------------------|----------|
-| 123/PR    | 091.***.***-03| EPROC - TJSC - 1º | Pendente |
-| 123/PR    | 091.***.***-03| PJE TJMG - 1º     | Pendente |
-```
+**Para o Super Admin:**
+- Pode corrigir senhas incorretas diretamente na interface
+- Não precisa pedir ao cliente para reenviar credenciais
+- Agiliza o processo de cadastro no cofre Judit
