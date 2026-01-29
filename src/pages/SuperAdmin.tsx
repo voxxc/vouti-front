@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
@@ -11,6 +11,7 @@ import { SuperAdminSupport } from '@/components/SuperAdmin/SuperAdminSupport';
 import { SuperAdminAvisosDialog } from '@/components/SuperAdmin/SuperAdminAvisosDialog';
 import { CredenciaisCentralDialog } from '@/components/SuperAdmin/CredenciaisCentralDialog';
 import { SuperAdminBuscaGeral } from '@/components/SuperAdmin/SuperAdminBuscaGeral';
+import { SuperAdminJuditDocs } from '@/components/SuperAdmin/SuperAdminJuditDocs';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -252,7 +253,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tenants" className="space-y-6">
-          <TabsList className="grid w-full max-w-lg grid-cols-4">
+          <TabsList className="grid w-full max-w-2xl grid-cols-5">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -268,6 +269,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="busca-geral" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
               Busca Geral
+            </TabsTrigger>
+            <TabsTrigger value="judit-docs" className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              Judit Docs
             </TabsTrigger>
           </TabsList>
 
@@ -305,6 +310,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="busca-geral">
             <SuperAdminBuscaGeral />
+          </TabsContent>
+
+          <TabsContent value="judit-docs">
+            <SuperAdminJuditDocs />
           </TabsContent>
         </Tabs>
       </main>
