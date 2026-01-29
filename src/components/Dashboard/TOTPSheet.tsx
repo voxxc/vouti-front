@@ -1,69 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Copy, Check, Trash2, ShieldCheck } from "lucide-react";
-
-// Componente CircularTimer SVG
-interface CircularTimerProps {
-  secondsRemaining: number;
-  totalSeconds?: number;
-}
-
-function CircularTimer({ secondsRemaining, totalSeconds = 30 }: CircularTimerProps) {
-  const size = 40;
-  const strokeWidth = 3;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = secondsRemaining / totalSeconds;
-  const strokeDashoffset = circumference * (1 - progress);
-  const isUrgent = secondsRemaining <= 5;
-
-  return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        {/* Círculo de fundo */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/20"
-        />
-        {/* Círculo de progresso */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className={`transition-all duration-1000 ease-linear ${isUrgent ? 'text-destructive' : 'text-primary'}`}
-        />
-      </svg>
-      {/* Número no centro */}
-      <span className={`absolute text-xs font-medium ${isUrgent ? 'text-destructive' : 'text-muted-foreground'}`}>
-        {secondsRemaining}
-      </span>
-    </div>
-  );
-}
-import { generateTOTP, getSecondsRemaining, isValidBase32 } from "@/lib/totp";
+import { Plus, ShieldCheck, Wallet } from "lucide-react";
+import { generateTOTP, getSecondsRemaining } from "@/lib/totp";
 import { toast } from "sonner";
-
-interface TOTPToken {
-  id: string;
-  name: string;
-  secret: string;
-}
+import { TOTPWallet, TOTPToken, TOTPStorage, LegacyTOTPToken } from "@/types/totp";
+import { WalletCard } from "./TOTP/WalletCard";
+import { AddWalletDialog } from "./TOTP/AddWalletDialog";
+import { AddTokenDialog } from "./TOTP/AddTokenDialog";
 
 interface TOTPSheetProps {
   open: boolean;
@@ -72,42 +17,71 @@ interface TOTPSheetProps {
 
 const STORAGE_KEY = 'vouti_totp_tokens';
 
+// Migração de dados antigos
+function migrateStorage(stored: string): TOTPStorage {
+  try {
+    const parsed = JSON.parse(stored);
+    
+    // Verifica se já é o formato novo
+    if (parsed.wallets && parsed.tokens) {
+      return parsed as TOTPStorage;
+    }
+    
+    // Formato antigo: array de tokens sem walletId
+    if (Array.isArray(parsed)) {
+      const legacyTokens = parsed as LegacyTOTPToken[];
+      const personalWallet: TOTPWallet = {
+        id: 'personal',
+        name: 'Tokens Pessoais',
+        createdAt: new Date().toISOString()
+      };
+      
+      return {
+        wallets: [personalWallet],
+        tokens: legacyTokens.map(t => ({
+          ...t,
+          walletId: 'personal'
+        }))
+      };
+    }
+    
+    return { wallets: [], tokens: [] };
+  } catch {
+    return { wallets: [], tokens: [] };
+  }
+}
+
 export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
-  const [tokens, setTokens] = useState<TOTPToken[]>([]);
+  const [storage, setStorage] = useState<TOTPStorage>({ wallets: [], tokens: [] });
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [secondsRemaining, setSecondsRemaining] = useState(30);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   
   // Dialog states
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [addWalletOpen, setAddWalletOpen] = useState(false);
+  const [addTokenOpen, setAddTokenOpen] = useState(false);
+  const [deleteWalletOpen, setDeleteWalletOpen] = useState(false);
+  const [deleteTokenOpen, setDeleteTokenOpen] = useState(false);
+  const [walletToDelete, setWalletToDelete] = useState<TOTPWallet | null>(null);
   const [tokenToDelete, setTokenToDelete] = useState<TOTPToken | null>(null);
-  const [newTokenName, setNewTokenName] = useState("");
-  const [newTokenSecret, setNewTokenSecret] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
 
-  // Load tokens from localStorage
+  // Load from localStorage
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      try {
-        setTokens(JSON.parse(stored));
-      } catch {
-        console.error('Error parsing stored tokens');
-      }
+      setStorage(migrateStorage(stored));
     }
   }, []);
 
-  // Save tokens to localStorage
-  const saveTokens = useCallback((newTokens: TOTPToken[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newTokens));
-    setTokens(newTokens);
+  // Save to localStorage
+  const saveStorage = useCallback((newStorage: TOTPStorage) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newStorage));
+    setStorage(newStorage);
   }, []);
 
   // Generate codes for all tokens
   const generateAllCodes = useCallback(async () => {
     const newCodes: Record<string, string> = {};
-    for (const token of tokens) {
+    for (const token of storage.tokens) {
       try {
         newCodes[token.id] = await generateTOTP(token.secret);
       } catch {
@@ -115,7 +89,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
       }
     }
     setCodes(newCodes);
-  }, [tokens]);
+  }, [storage.tokens]);
 
   // Update codes and timer
   useEffect(() => {
@@ -135,72 +109,70 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
     return () => clearInterval(interval);
   }, [open, generateAllCodes]);
 
-  const handleAddToken = async () => {
-    if (!newTokenName.trim()) {
-      toast.error("Digite um nome para o token");
-      return;
-    }
-
-    const cleanSecret = newTokenSecret.replace(/\s/g, '').toUpperCase();
+  // Handlers
+  const handleAddWallet = (name: string, oabNumero?: string, oabUf?: string) => {
+    const newWallet: TOTPWallet = {
+      id: crypto.randomUUID(),
+      name,
+      oabNumero,
+      oabUf,
+      createdAt: new Date().toISOString()
+    };
     
-    if (!isValidBase32(cleanSecret)) {
-      toast.error("Secret Base32 inválido");
-      return;
-    }
+    saveStorage({
+      ...storage,
+      wallets: [...storage.wallets, newWallet]
+    });
+    toast.success("Carteira criada");
+  };
 
-    setIsAdding(true);
+  const handleAddToken = (name: string, secret: string, walletId: string) => {
+    const newToken: TOTPToken = {
+      id: crypto.randomUUID(),
+      walletId,
+      name,
+      secret
+    };
     
-    try {
-      // Test if we can generate a code
-      await generateTOTP(cleanSecret);
-      
-      const newToken: TOTPToken = {
-        id: crypto.randomUUID(),
-        name: newTokenName.trim(),
-        secret: cleanSecret
-      };
+    saveStorage({
+      ...storage,
+      tokens: [...storage.tokens, newToken]
+    });
+  };
 
-      saveTokens([...tokens, newToken]);
-      setNewTokenName("");
-      setNewTokenSecret("");
-      setAddDialogOpen(false);
-      toast.success("Token adicionado com sucesso");
-    } catch {
-      toast.error("Erro ao validar o secret");
-    } finally {
-      setIsAdding(false);
-    }
+  const handleDeleteWallet = () => {
+    if (!walletToDelete) return;
+    
+    saveStorage({
+      wallets: storage.wallets.filter(w => w.id !== walletToDelete.id),
+      tokens: storage.tokens.filter(t => t.walletId !== walletToDelete.id)
+    });
+    
+    setWalletToDelete(null);
+    setDeleteWalletOpen(false);
+    toast.success("Carteira removida");
   };
 
   const handleDeleteToken = () => {
     if (!tokenToDelete) return;
     
-    saveTokens(tokens.filter(t => t.id !== tokenToDelete.id));
+    saveStorage({
+      ...storage,
+      tokens: storage.tokens.filter(t => t.id !== tokenToDelete.id)
+    });
+    
     setTokenToDelete(null);
-    setDeleteDialogOpen(false);
+    setDeleteTokenOpen(false);
     toast.success("Token removido");
   };
 
-  const handleCopy = async (tokenId: string, code: string) => {
-    try {
-      await navigator.clipboard.writeText(code.replace(' ', ''));
-      setCopiedId(tokenId);
-      setTimeout(() => setCopiedId(null), 2000);
-      toast.success("Código copiado!");
-    } catch {
-      toast.error("Erro ao copiar");
-    }
-  };
-
-  const formatCode = (code: string) => {
-    if (code.length !== 6) return code;
-    return `${code.slice(0, 3)} ${code.slice(3)}`;
-  };
+  const getTokensForWallet = (walletId: string) => 
+    storage.tokens.filter(t => t.walletId === walletId);
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[380px] sm:w-[420px]">
+        <SheetContent side="right" className="w-[400px] sm:w-[450px]">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
@@ -209,60 +181,51 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
           </SheetHeader>
 
           <div className="mt-6 space-y-4">
-            <Button 
-              onClick={() => setAddDialogOpen(true)} 
-              className="w-full gap-2"
-              variant="outline"
-            >
-              <Plus className="h-4 w-4" />
-              Novo Token
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setAddWalletOpen(true)} 
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2"
+              >
+                <Wallet className="h-4 w-4" />
+                Nova Carteira
+              </Button>
+              <Button 
+                onClick={() => setAddTokenOpen(true)} 
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Novo Token
+              </Button>
+            </div>
 
-            {tokens.length === 0 ? (
+            {storage.wallets.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <ShieldCheck className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>Nenhum token cadastrado</p>
-                <p className="text-sm mt-1">Adicione um token para começar</p>
+                <Wallet className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <p>Nenhuma carteira cadastrada</p>
+                <p className="text-sm mt-1">Crie uma carteira para organizar seus tokens</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {tokens.map((token) => (
-                  <div 
-                    key={token.id} 
-                    className="border rounded-lg p-4 bg-card hover:bg-accent/5 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm truncate">{token.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          setTokenToDelete(token);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <button
-                      onClick={() => handleCopy(token.id, codes[token.id] || '')}
-                      className="w-full text-left group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="text-3xl font-mono font-bold tracking-wider text-foreground flex items-center gap-2">
-                          {formatCode(codes[token.id] || '------')}
-                          {copiedId === token.id ? (
-                            <Check className="h-5 w-5 text-green-500" />
-                          ) : (
-                            <Copy className="h-5 w-5 opacity-0 group-hover:opacity-50 transition-opacity" />
-                          )}
-                        </div>
-                        <CircularTimer secondsRemaining={secondsRemaining} />
-                      </div>
-                    </button>
-                  </div>
+                {storage.wallets.map((wallet) => (
+                  <WalletCard
+                    key={wallet.id}
+                    wallet={wallet}
+                    tokens={getTokensForWallet(wallet.id)}
+                    codes={codes}
+                    secondsRemaining={secondsRemaining}
+                    onDeleteWallet={() => {
+                      setWalletToDelete(wallet);
+                      setDeleteWalletOpen(true);
+                    }}
+                    onDeleteToken={(token) => {
+                      setTokenToDelete(token);
+                      setDeleteTokenOpen(true);
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -270,49 +233,45 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Add Token Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Token</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="token-name">Nome</Label>
-              <Input
-                id="token-name"
-                placeholder="Ex: Gmail, Projudi..."
-                value={newTokenName}
-                onChange={(e) => setNewTokenName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="token-secret">Secret (Base32)</Label>
-              <Input
-                id="token-secret"
-                placeholder="JBSWY3DPEHPK3PXP..."
-                value={newTokenSecret}
-                onChange={(e) => setNewTokenSecret(e.target.value)}
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">
-                Código secreto fornecido pelo serviço (geralmente ao configurar 2FA)
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAddToken} disabled={isAdding}>
-              {isAdding ? "Validando..." : "Adicionar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialogs */}
+      <AddWalletDialog
+        open={addWalletOpen}
+        onOpenChange={setAddWalletOpen}
+        onAdd={handleAddWallet}
+      />
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AddTokenDialog
+        open={addTokenOpen}
+        onOpenChange={setAddTokenOpen}
+        wallets={storage.wallets}
+        onAdd={handleAddToken}
+        onCreateWallet={() => setAddWalletOpen(true)}
+      />
+
+      {/* Delete Wallet Confirmation */}
+      <AlertDialog open={deleteWalletOpen} onOpenChange={setDeleteWalletOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Carteira</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{walletToDelete?.name}"? 
+              Todos os tokens desta carteira serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteWallet} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/80"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Token Confirmation */}
+      <AlertDialog open={deleteTokenOpen} onOpenChange={setDeleteTokenOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Token</AlertDialogTitle>
@@ -323,7 +282,10 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteToken} className="bg-destructive text-destructive-foreground hover:bg-destructive/80">
+            <AlertDialogAction 
+              onClick={handleDeleteToken} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/80"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
