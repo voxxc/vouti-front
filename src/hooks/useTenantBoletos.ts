@@ -12,10 +12,14 @@ export interface TenantBoleto {
   url_boleto: string | null;
   codigo_barras: string | null;
   observacao: string | null;
+  metodos_disponiveis: string[] | null;
+  link_cartao: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type PaymentMethod = 'boleto' | 'pix' | 'cartao';
 
 export interface CreateBoletoData {
   mes_referencia: string;
@@ -23,6 +27,8 @@ export interface CreateBoletoData {
   data_vencimento: string;
   codigo_barras?: string;
   observacao?: string;
+  metodos_disponiveis?: PaymentMethod[];
+  link_cartao?: string;
 }
 
 export function useTenantBoletos(tenantId: string | null) {
@@ -89,7 +95,9 @@ export function useTenantBoletos(tenantId: string | null) {
           observacao: data.observacao || null,
           url_boleto,
           created_by: userData.user?.id,
-          status: 'pendente'
+          status: 'pendente',
+          metodos_disponiveis: data.metodos_disponiveis || ['boleto', 'pix'],
+          link_cartao: data.link_cartao || null
         } as any);
 
       if (error) throw error;

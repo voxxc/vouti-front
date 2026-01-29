@@ -5744,7 +5744,9 @@ export type Database = {
           created_by: string | null
           data_vencimento: string
           id: string
+          link_cartao: string | null
           mes_referencia: string
+          metodos_disponiveis: string[] | null
           observacao: string | null
           status: string | null
           tenant_id: string
@@ -5758,7 +5760,9 @@ export type Database = {
           created_by?: string | null
           data_vencimento: string
           id?: string
+          link_cartao?: string | null
           mes_referencia: string
+          metodos_disponiveis?: string[] | null
           observacao?: string | null
           status?: string | null
           tenant_id: string
@@ -5772,7 +5776,9 @@ export type Database = {
           created_by?: string | null
           data_vencimento?: string
           id?: string
+          link_cartao?: string | null
           mes_referencia?: string
+          metodos_disponiveis?: string[] | null
           observacao?: string | null
           status?: string | null
           tenant_id?: string
