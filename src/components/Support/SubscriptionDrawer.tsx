@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useSubscription, TenantAssinaturaPerfil } from '@/hooks/useSubscription';
+import { useSubscription, TenantAssinaturaPerfil, TenantBoleto } from '@/hooks/useSubscription';
 import { useCredenciaisCliente } from '@/hooks/useCredenciaisCliente';
 import { TRIBUNAIS_CREDENCIAIS, getTribunalByValue } from '@/constants/tribunaisCredenciais';
 import {
@@ -42,7 +42,7 @@ import {
 import { 
   User, 
   FileText, 
-  Download, 
+  Download,
   Loader2, 
   CheckCircle2,
   Clock,
@@ -54,10 +54,12 @@ import {
   AlertTriangle,
   Building2,
   Eye,
-  EyeOff
+  EyeOff,
+  Calendar
 } from 'lucide-react';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { BoletoPaymentDialog } from './BoletoPaymentDialog';
 
 interface SubscriptionDrawerProps {
   open: boolean;
@@ -79,7 +81,6 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
   const { perfil, boletos, planoInfo, loading, salvarPerfil, aceitarTermos, downloadBoleto } = useSubscription();
   const { credenciais, isLoading: loadingCredenciais, uploading, createCredencial, deleteCredencial } = useCredenciaisCliente();
   const [saving, setSaving] = useState(false);
-  const [downloadingBoletoId, setDownloadingBoletoId] = useState<string | null>(null);
   const [termosChecked, setTermosChecked] = useState(false);
   const [formData, setFormData] = useState<PerfilFormData>({
     nome_responsavel: '',
@@ -91,6 +92,10 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
     estado: '',
     cep: ''
   });
+
+  // Estado para dialog de pagamento
+  const [selectedBoleto, setSelectedBoleto] = useState<TenantBoleto | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   // Form de credenciais
   const [showCredencialForm, setShowCredencialForm] = useState(false);
@@ -519,9 +524,6 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           <div className="text-lg font-semibold text-primary">
                             {formatCurrency(boleto.valor)}
                           </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            Vencimento: {format(new Date(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
-                          </div>
                           {boleto.observacao && (
                             <div className="text-xs text-muted-foreground mt-2">
                               {boleto.observacao}
@@ -529,36 +531,19 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           )}
                         </div>
                         
-                        {boleto.url_boleto && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={downloadingBoletoId === boleto.id}
-                            onClick={async () => {
-                              setDownloadingBoletoId(boleto.id);
-                              await downloadBoleto(boleto.url_boleto!, `boleto-${boleto.mes_referencia}.pdf`);
-                              setDownloadingBoletoId(null);
-                            }}
-                            className="gap-2"
-                          >
-                            {downloadingBoletoId === boleto.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                            Baixar
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBoleto(boleto);
+                            setPaymentDialogOpen(true);
+                          }}
+                          className="gap-2"
+                        >
+                          <Calendar className="w-4 h-4" />
+                          Venc. {format(new Date(boleto.data_vencimento), "dd/MM", { locale: ptBR })}
+                        </Button>
                       </div>
-                      
-                      {boleto.codigo_barras && (
-                        <div className="mt-3 pt-3 border-t">
-                          <p className="text-xs text-muted-foreground mb-1">Código de barras:</p>
-                          <code className="text-xs bg-muted p-2 rounded block break-all">
-                            {boleto.codigo_barras}
-                          </code>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -884,6 +869,14 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
+
+      {/* Dialog de Pagamento */}
+      <BoletoPaymentDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        boleto={selectedBoleto}
+        onDownloadBoleto={downloadBoleto}
+      />
     </Drawer>
   );
 }

@@ -2730,6 +2730,39 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_pix_config: {
+        Row: {
+          ativo: boolean | null
+          chave_pix: string
+          created_at: string | null
+          id: string
+          nome_beneficiario: string
+          qr_code_url: string | null
+          tipo_chave: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          chave_pix: string
+          created_at?: string | null
+          id?: string
+          nome_beneficiario: string
+          qr_code_url?: string | null
+          tipo_chave: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          chave_pix?: string
+          created_at?: string | null
+          id?: string
+          nome_beneficiario?: string
+          qr_code_url?: string | null
+          tipo_chave?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       processo_andamentos_judit: {
         Row: {
           created_at: string | null
@@ -5750,6 +5783,60 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tenant_boletos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_pagamento_confirmacoes: {
+        Row: {
+          boleto_id: string
+          comprovante_path: string | null
+          created_at: string | null
+          data_confirmacao: string | null
+          id: string
+          metodo: string
+          observacao_admin: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          boleto_id: string
+          comprovante_path?: string | null
+          created_at?: string | null
+          data_confirmacao?: string | null
+          id?: string
+          metodo: string
+          observacao_admin?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          boleto_id?: string
+          comprovante_path?: string | null
+          created_at?: string | null
+          data_confirmacao?: string | null
+          id?: string
+          metodo?: string
+          observacao_admin?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_pagamento_confirmacoes_boleto_id_fkey"
+            columns: ["boleto_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_boletos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_pagamento_confirmacoes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
