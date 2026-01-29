@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
 import {
   Dialog,
@@ -163,7 +164,7 @@ export function BoletoPaymentDialog({
             <p className="text-sm text-muted-foreground">Vencimento</p>
             <p className="font-medium flex items-center gap-1">
               <Calendar className="w-4 h-4" />
-              {format(new Date(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
+              {format(parseLocalDate(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
             </p>
           </div>
         </div>

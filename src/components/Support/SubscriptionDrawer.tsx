@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
 import { useSubscription, TenantAssinaturaPerfil, TenantBoleto } from '@/hooks/useSubscription';
 import { useCredenciaisCliente } from '@/hooks/useCredenciaisCliente';
@@ -541,7 +542,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
                           className="gap-2"
                         >
                           <Calendar className="w-4 h-4" />
-                          Venc. {format(new Date(boleto.data_vencimento), "dd/MM", { locale: ptBR })}
+                          Venc. {format(parseLocalDate(boleto.data_vencimento), "dd/MM", { locale: ptBR })}
                         </Button>
                       </div>
                     </div>
