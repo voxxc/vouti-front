@@ -1,193 +1,208 @@
 
-## Plano: Sistema Completo de Gerenciamento de Pagamentos Super Admin ↔ Tenant
+## Plano: Sistema de Métodos de Pagamento Configuráveis por Cobrança
 
 ### Objetivo
-Renomear "Gerenciar Boletos" para "Gerenciar Pagamentos" e criar um fluxo completo onde:
-1. Super Admin cria cobranças (boletos/vencimentos) para cada tenant
-2. Tenant visualiza essas cobranças na aba "Vencimentos" com botões de data
-3. Ao clicar, o tenant vê opções de Boleto ou PIX (QR Code já configurado no Super Admin)
-4. Tenant pode confirmar pagamento com upload de comprovante
-5. Super Admin pode visualizar e gerenciar confirmações de pagamento
+Permitir que o Super Admin, ao criar uma cobrança, selecione quais métodos de pagamento estarão disponíveis (Boleto, PIX, Cartão). Quando "Cartão" for selecionado, um campo para inserir o link de pagamento será exibido. O tenant visualizará apenas os métodos disponíveis e, ao escolher Cartão, terá um botão "PAGAR" que abre o link em nova janela.
 
 ---
 
 ## Mudanças Necessárias
 
-### 1. Renomear no TenantCard
-**Arquivo:** `src/components/SuperAdmin/TenantCard.tsx`
+### 1. Migration - Novas Colunas na Tabela `tenant_boletos`
 
-Alterar o ícone e título do botão:
-- De: `FileText` + "Gerenciar boletos"
-- Para: `CreditCard` + "Gerenciar Pagamentos"
+Adicionar campos para controlar quais métodos estão disponíveis e o link do cartão:
+
+```sql
+ALTER TABLE public.tenant_boletos 
+ADD COLUMN metodos_disponiveis TEXT[] DEFAULT ARRAY['boleto', 'pix'],
+ADD COLUMN link_cartao TEXT DEFAULT NULL;
+```
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| metodos_disponiveis | TEXT[] | Array com métodos ativos: 'boleto', 'pix', 'cartao' |
+| link_cartao | TEXT | URL do link de pagamento (quando cartão está ativo) |
 
 ---
 
-### 2. Atualizar SuperAdminBoletosDialog
+### 2. Atualização do Super Admin - Formulário de Cobrança
+
 **Arquivo:** `src/components/SuperAdmin/SuperAdminBoletosDialog.tsx`
 
+Adicionar ao formulário de criação de cobrança:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  Métodos de Pagamento Disponíveis:                              │
+│                                                                 │
+│  [✓] Boleto      [✓] PIX      [○] Cartão                       │
+│                                                                 │
+│  ↓ (Se Cartão marcado, aparece:)                               │
+│                                                                 │
+│  Link de Pagamento (Cartão): *                                 │
+│  [ https://pay.exemplo.com/link-xyz_________________ ]         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Lógica:**
+- Checkboxes para Boleto, PIX e Cartão
+- Quando Cartão é marcado, campo de link se torna visível e obrigatório
+- Ao salvar, armazena `metodos_disponiveis` e `link_cartao`
+
+---
+
+### 3. Atualização do Hook `useTenantBoletos`
+
+**Arquivo:** `src/hooks/useTenantBoletos.ts`
+
+- Adicionar `metodos_disponiveis` e `link_cartao` no tipo `TenantBoleto`
+- Incluir no `CreateBoletoData`
+- Atualizar `createBoleto` para salvar os novos campos
+
+---
+
+### 4. Atualização do Dialog de Pagamento do Tenant
+
+**Arquivo:** `src/components/Support/BoletoPaymentDialog.tsx`
+
 **Mudanças:**
-- Renomear para `SuperAdminPagamentosDialog.tsx`
-- Adicionar aba de "Confirmações Pendentes" para ver os pagamentos que tenants confirmaram
-- Mostrar comprovantes enviados pelos tenants
-- Permitir aprovar/rejeitar confirmações
+- Mostrar tabs apenas para métodos disponíveis em `boleto.metodos_disponiveis`
+- Adicionar nova aba "Cartão" quando disponível
+- Na aba Cartão: botão "PAGAR" que abre `link_cartao` em nova janela
 
-**Interface atualizada:**
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  💳 Pagamentos - Nome do Cliente                           [X] │
+│  💳 Pagamento - Janeiro/2026                              [X]   │
 ├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────┬──────────────────────┐                    │
-│  │   📄 Cobranças   │  ✅ Confirmações     │   ← Duas abas      │
-│  └──────────────────┴──────────────────────┘                    │
 │                                                                 │
-│  [Aba Cobranças - existente atualizada]                        │
-│  - Lista de boletos/cobranças criadas                          │
-│  - Botão "Adicionar Cobrança"                                  │
-│  - Campos: Mês, Valor, Vencimento, PDF, Código Barras          │
+│  Valor: R$ 299,00           Vencimento: 15/01/2026             │
 │                                                                 │
-│  [Aba Confirmações - NOVA]                                     │
-│  - Lista de confirmações enviadas pelos tenants                │
-│  - Cada confirmação mostra:                                    │
-│    - Boleto referência (mês/valor)                             │
-│    - Método usado (PIX/Boleto)                                 │
-│    - Data da confirmação                                       │
-│    - Comprovante (se enviado) → [Ver Comprovante]              │
-│    - Status atual (pendente/aprovado/rejeitado)                │
-│    - [Aprovar] [Rejeitar] botões                               │
+│  ┌───────────┬───────────┬───────────┐                         │
+│  │  BOLETO   │    PIX    │  CARTÃO   │  ← Tabs dinâmicas       │
+│  └───────────┴───────────┴───────────┘                         │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  [Aba CARTÃO selecionada]                                      │
+│                                                                 │
+│  💳 Pagamento com Cartão de Crédito                            │
+│                                                                 │
+│  Clique no botão abaixo para ser redirecionado                 │
+│  para a página de pagamento seguro.                            │
+│                                                                 │
+│  ┌─────────────────────────────────────────┐                   │
+│  │          💳  PAGAR AGORA                │  ← Abre nova aba  │
+│  └─────────────────────────────────────────┘                   │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  [✅ Confirmar Pagamento]                                       │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### 3. Hook para Gerenciar Confirmações (Super Admin)
-**Arquivo:** `src/hooks/useSuperAdminPaymentConfirmations.ts` (NOVO)
+### 5. Atualização do Hook `useSubscription`
 
-Funcionalidades:
-- Buscar todas confirmações de um tenant
-- Aprovar confirmação (muda status para 'aprovado' + atualiza boleto para 'pago')
-- Rejeitar confirmação (muda status para 'rejeitado' com observação)
-- Obter URL assinada do comprovante
+**Arquivo:** `src/hooks/useSubscription.ts`
+
+Incluir os novos campos no tipo `TenantBoleto` usado pelo tenant.
 
 ---
 
-### 4. Componente de Aba de Confirmações
-**Arquivo:** `src/components/SuperAdmin/PaymentConfirmationsTab.tsx` (NOVO)
+### 6. Atualização da Tabela `tenant_pagamento_confirmacoes`
 
-Componente que lista as confirmações pendentes e permite gestão:
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  Confirmações Pendentes                                        │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 📅 Janeiro/2026 - R$ 299,00                             │   │
-│  │ 💳 Método: PIX                                          │   │
-│  │ 📆 Confirmado em: 15/01/2026 às 14:32                   │   │
-│  │ 📎 Comprovante: ✓ Enviado  [👁️ Ver]                     │   │
-│  │                                                         │   │
-│  │ [✓ Aprovar]  [✗ Rejeitar]                               │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 📅 Dezembro/2025 - R$ 299,00                            │   │
-│  │ 💳 Método: Boleto                                       │   │
-│  │ 📆 Confirmado em: 10/12/2025 às 09:15                   │   │
-│  │ 📎 Comprovante: Não enviado                             │   │
-│  │                                                         │   │
-│  │ [✓ Aprovar]  [✗ Rejeitar]                               │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+**Arquivo:** Migration SQL
+
+Atualizar o CHECK constraint para aceitar 'cartao':
+
+```sql
+ALTER TABLE tenant_pagamento_confirmacoes 
+DROP CONSTRAINT tenant_pagamento_confirmacoes_metodo_check;
+
+ALTER TABLE tenant_pagamento_confirmacoes 
+ADD CONSTRAINT tenant_pagamento_confirmacoes_metodo_check 
+CHECK (metodo IN ('pix', 'boleto', 'cartao'));
 ```
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Modificação |
+|---------|-------------|
+| Migration SQL | Adicionar colunas `metodos_disponiveis` e `link_cartao` em `tenant_boletos` |
+| `src/hooks/useTenantBoletos.ts` | Atualizar tipos e `createBoleto` |
+| `src/hooks/useSubscription.ts` | Atualizar tipo `TenantBoleto` |
+| `src/components/SuperAdmin/SuperAdminBoletosDialog.tsx` | Adicionar checkboxes de métodos e campo de link |
+| `src/components/Support/BoletoPaymentDialog.tsx` | Tabs dinâmicas + aba Cartão com botão PAGAR |
+| `src/hooks/usePaymentConfirmation.ts` | Aceitar método 'cartao' |
 
 ---
 
 ## Fluxo Completo
 
 ### Super Admin
-1. Acessa "Config. PIX" e configura chave + QR Code da plataforma
-2. No card de cada cliente, clica em "Gerenciar Pagamentos"
-3. Aba "Cobranças": Adiciona novas cobranças (mês, valor, vencimento, PDF do boleto)
-4. Aba "Confirmações": Vê confirmações enviadas pelos tenants e aprova/rejeita
+1. Acessa "Gerenciar Pagamentos" de um cliente
+2. Clica em "Adicionar Cobrança"
+3. Preenche: Mês, Valor, Vencimento
+4. **Marca os métodos disponíveis**: Boleto ✓, PIX ✓, Cartão ✓
+5. Se Cartão marcado: insere o link de pagamento
+6. Salva a cobrança
 
 ### Tenant (Cliente)
-1. Acessa "Minha Assinatura" → aba "Vencimentos"
-2. Vê lista de cobranças com botões "[📅 Venc. DD/MM]"
-3. Clica no botão → abre dialog de pagamento
-4. Escolhe aba **Boleto** (código de barras, PDF) ou **PIX** (QR Code, chave)
+1. Acessa "Vencimentos"
+2. Clica no botão "Venc. DD/MM"
+3. Vê apenas as tabs dos métodos habilitados:
+   - Se só Boleto: apenas aba Boleto
+   - Se Boleto + PIX: abas Boleto e PIX
+   - Se todos: abas Boleto, PIX e Cartão
+4. Ao clicar em **Cartão**:
+   - Vê instruções de pagamento
+   - Clica em **"PAGAR AGORA"** → abre link em nova janela
 5. Após pagar, clica em "Confirmar Pagamento"
 6. Opcionalmente anexa comprovante
-7. Envia confirmação → aguarda aprovação do Super Admin
-
-### Após Aprovação
-- Super Admin aprova confirmação
-- Status do boleto muda para "pago"
-- Tenant vê o boleto como "Pago" na lista
-
----
-
-## Arquivos a Criar
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/hooks/useSuperAdminPaymentConfirmations.ts` | Hook para gerenciar confirmações no Super Admin |
-| `src/components/SuperAdmin/PaymentConfirmationsTab.tsx` | Componente da aba de confirmações |
-
-## Arquivos a Modificar
-
-| Arquivo | Modificação |
-|---------|-------------|
-| `src/components/SuperAdmin/TenantCard.tsx` | Renomear botão para "Gerenciar Pagamentos" |
-| `src/components/SuperAdmin/SuperAdminBoletosDialog.tsx` | Adicionar tabs e integrar aba de confirmações |
+7. Confirmação enviada para aprovação do Super Admin
 
 ---
 
 ## Detalhes Técnicos
 
-### Hook `useSuperAdminPaymentConfirmations`
+### Interface do Formulário no Super Admin
 
 ```typescript
-export function useSuperAdminPaymentConfirmations(tenantId: string | null) {
-  // Buscar confirmações do tenant
-  const fetchConfirmacoes = async () => {...}
-  
-  // Aprovar confirmação
-  const aprovarConfirmacao = async (confirmacaoId: string, boletoId: string) => {
-    // 1. Atualizar confirmação para 'aprovado'
-    // 2. Atualizar boleto para status 'pago'
-  }
-  
-  // Rejeitar confirmação
-  const rejeitarConfirmacao = async (confirmacaoId: string, observacao: string) => {
-    // Atualizar confirmação para 'rejeitado' com observação
-  }
-  
-  // Obter URL do comprovante
-  const getComprovanteUrl = async (path: string) => {...}
+interface CreateBoletoData {
+  mes_referencia: string;
+  valor: number;
+  data_vencimento: string;
+  codigo_barras?: string;
+  observacao?: string;
+  // Novos campos
+  metodos_disponiveis: ('boleto' | 'pix' | 'cartao')[];
+  link_cartao?: string;
 }
 ```
 
-### RLS Policies Necessárias
+### Lógica de Tabs Dinâmicas
 
-Já existem as policies para Super Admin na tabela `tenant_pagamento_confirmacoes`:
-```sql
-CREATE POLICY "super_admin_all" ON tenant_pagamento_confirmacoes
-  FOR ALL TO authenticated
-  USING (is_super_admin(auth.uid()))
-  WITH CHECK (is_super_admin(auth.uid()));
+```typescript
+// BoletoPaymentDialog.tsx
+const metodosDisponiveis = boleto.metodos_disponiveis || ['boleto', 'pix'];
+
+const hasBoleto = metodosDisponiveis.includes('boleto');
+const hasPix = metodosDisponiveis.includes('pix');
+const hasCartao = metodosDisponiveis.includes('cartao');
+
+// Definir tab inicial baseado no primeiro método disponível
+const defaultTab = hasBoleto ? 'boleto' : hasPix ? 'pix' : 'cartao';
 ```
-
-### Storage Policies para Comprovantes
-
-Precisamos adicionar policies ao bucket `tenant-comprovantes-pagamento` para:
-- Super Admin poder visualizar todos os comprovantes
-- Tenants só poderem fazer upload/ver seus próprios
 
 ---
 
 ## Benefícios
 
-1. **Fluxo completo e integrado**: Super Admin cria cobranças → Tenant paga e confirma → Super Admin aprova
-2. **Visibilidade de comprovantes**: Super Admin pode verificar comprovantes antes de aprovar
-3. **Rastreabilidade**: Histórico de confirmações com status e datas
-4. **Flexibilidade de pagamento**: Tenant escolhe entre Boleto ou PIX
-5. **Nomenclatura clara**: "Gerenciar Pagamentos" é mais abrangente que "Gerenciar Boletos"
+1. **Flexibilidade**: Super Admin escolhe quais métodos oferecer por cobrança
+2. **Integração com gateways**: Link de cartão pode apontar para qualquer gateway (PagSeguro, Mercado Pago, Stripe, etc.)
+3. **UX limpa**: Tenant vê apenas opções disponíveis
+4. **Rastreabilidade**: Confirmação registra o método usado (boleto, pix ou cartao)
+5. **Escalável**: Fácil adicionar novos métodos no futuro
