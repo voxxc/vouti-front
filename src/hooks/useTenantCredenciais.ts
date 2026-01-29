@@ -15,6 +15,7 @@ interface CredencialCliente {
   enviado_judit_em: string | null;
   enviado_por: string | null;
   erro_mensagem: string | null;
+  system_name: string | null;
   created_at: string;
   updated_at: string;
   oabs_cadastradas?: {

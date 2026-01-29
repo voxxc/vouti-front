@@ -11,6 +11,7 @@ interface CredencialPendenteComTenant {
   nome_advogado: string | null;
   created_at: string;
   status: string;
+  system_name: string | null;
 }
 
 export function useAllCredenciaisPendentes() {
@@ -26,6 +27,7 @@ export function useAllCredenciaisPendentes() {
           cpf,
           status,
           created_at,
+          system_name,
           oabs_cadastradas (
             oab_numero,
             oab_uf,
@@ -58,6 +60,7 @@ export function useAllCredenciaisPendentes() {
         oab_numero: c.oabs_cadastradas?.oab_numero || null,
         oab_uf: c.oabs_cadastradas?.oab_uf || null,
         nome_advogado: c.oabs_cadastradas?.nome_advogado || null,
+        system_name: c.system_name || null,
       }));
 
       return credenciaisComTenant;
