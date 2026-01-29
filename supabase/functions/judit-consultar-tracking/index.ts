@@ -22,13 +22,19 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Client para validar JWT do usuário
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
+    // Client com service role para bypassar RLS (Super Admin precisa ver todos os tenants)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+
     // Verificar JWT e se é super admin
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
     if (claimsError || !claimsData?.claims?.sub) {
       return new Response(
@@ -39,8 +45,8 @@ Deno.serve(async (req) => {
 
     const userId = claimsData.claims.sub;
 
-    // Verificar se é super admin
-    const { data: superAdmin, error: saError } = await supabase
+    // Verificar se é super admin (usando service role para evitar RLS)
+    const { data: superAdmin, error: saError } = await supabaseAdmin
       .from('super_admins')
       .select('id')
       .eq('user_id', userId)
@@ -66,9 +72,9 @@ Deno.serve(async (req) => {
     let trackingIdToQuery = trackingId;
     let processoInfo = null;
 
-    // Se foi fornecido CNJ, buscar o tracking_id no banco
+    // Se foi fornecido CNJ, buscar o tracking_id no banco (usando service role para ver todos os tenants)
     if (numeroCnj && !trackingId) {
-      const { data: processo, error: processoError } = await supabase
+      const { data: processo, error: processoError } = await supabaseAdmin
         .from('processos_oab')
         .select('id, numero_cnj, tracking_id, detalhes_request_id, monitoramento_ativo, tenant_id')
         .eq('numero_cnj', numeroCnj)
