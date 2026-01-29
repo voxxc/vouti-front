@@ -44,30 +44,65 @@ serve(async (req) => {
       }
     };
 
+    console.log('Payload MCP:', JSON.stringify(mcpPayload));
+
+    // O MCP server requer AMBOS os tipos no header Accept
     const mcpResponse = await fetch('https://docs.judit.io/mcp', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
       },
       body: JSON.stringify(mcpPayload)
     });
 
+    console.log('Response status:', mcpResponse.status);
+
     if (!mcpResponse.ok) {
-      console.error('Erro na resposta do MCP server:', mcpResponse.status, mcpResponse.statusText);
+      const errorText = await mcpResponse.text();
+      console.error('Erro na resposta do MCP server:', mcpResponse.status, mcpResponse.statusText, errorText);
       return new Response(
         JSON.stringify({ 
           error: 'Erro ao consultar documentação', 
-          details: `Status: ${mcpResponse.status}` 
+          details: `Status: ${mcpResponse.status}`,
+          body: errorText
         }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const mcpResult = await mcpResponse.json();
+    const contentType = mcpResponse.headers.get('content-type') || '';
+    console.log('Content-Type:', contentType);
+    
+    let mcpResult;
+
+    if (contentType.includes('text/event-stream')) {
+      // Handle SSE stream
+      const text = await mcpResponse.text();
+      console.log('SSE Response (first 1000 chars):', text.slice(0, 1000));
+      
+      // Parse SSE events - look for the last data event
+      const lines = text.split('\n');
+      let lastData = null;
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            lastData = JSON.parse(line.substring(6));
+          } catch (e) {
+            // Skip non-JSON lines
+          }
+        }
+      }
+      
+      mcpResult = lastData || { content: text };
+    } else {
+      mcpResult = await mcpResponse.json();
+    }
+    
     console.log('Resposta MCP:', JSON.stringify(mcpResult).slice(0, 500));
 
     // Processar resultado do MCP
-    // O formato esperado é JSON-RPC 2.0 com result ou error
     if (mcpResult.error) {
       return new Response(
         JSON.stringify({ 
@@ -78,7 +113,7 @@ serve(async (req) => {
       );
     }
 
-    // Extrair resultados - a estrutura pode variar conforme a implementação do MCP
+    // Extrair resultados - pode estar em result.content ou result diretamente
     const results = mcpResult.result || mcpResult;
 
     return new Response(
