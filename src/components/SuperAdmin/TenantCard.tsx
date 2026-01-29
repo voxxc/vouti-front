@@ -27,9 +27,10 @@ interface TenantCardProps {
   onEdit: () => void;
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
   onDelete: (tenantId: string, tenantName: string) => void;
+  pendingPayments?: number;
 }
 
-export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete }: TenantCardProps) {
+export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete, pendingPayments = 0 }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
@@ -133,11 +134,19 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
           <Button 
             variant="ghost" 
             size="sm" 
-            className="gap-2"
+            className="gap-2 relative"
             onClick={() => setShowBoletos(true)}
             title="Gerenciar pagamentos"
           >
             <CreditCard className="h-4 w-4" />
+            {pendingPayments > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px]"
+              >
+                {pendingPayments}
+              </Badge>
+            )}
           </Button>
           <Button 
             variant="ghost" 

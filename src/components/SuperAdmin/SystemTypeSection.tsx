@@ -21,6 +21,7 @@ interface SystemTypeSectionProps {
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
   onDeleteTenant: (tenantId: string, tenantName: string) => void;
   onOpenAvisos?: (systemTypeId: string, systemTypeName: string) => void;
+  pagamentosPorTenant?: Record<string, number>;
 }
 
 export function SystemTypeSection({
@@ -31,6 +32,7 @@ export function SystemTypeSection({
   onToggleStatus,
   onDeleteTenant,
   onOpenAvisos,
+  pagamentosPorTenant = {},
 }: SystemTypeSectionProps) {
   const isGestaoJuridica = systemType.id === GESTAO_JURIDICA_ID;
   const Icon = systemType.icon ? iconMap[systemType.icon] || Scale : Scale;
@@ -88,6 +90,7 @@ export function SystemTypeSection({
                 onEdit={() => onEditTenant(tenant)}
                 onToggleStatus={onToggleStatus}
                 onDelete={onDeleteTenant}
+                pendingPayments={pagamentosPorTenant[tenant.id] || 0}
               />
             ))}
           </div>
