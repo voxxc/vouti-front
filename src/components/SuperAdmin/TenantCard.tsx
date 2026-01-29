@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, FileText, Key } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -135,9 +135,9 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             size="sm" 
             className="gap-2"
             onClick={() => setShowBoletos(true)}
-            title="Gerenciar boletos"
+            title="Gerenciar pagamentos"
           >
-            <FileText className="h-4 w-4" />
+            <CreditCard className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
