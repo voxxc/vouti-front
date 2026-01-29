@@ -84,27 +84,21 @@ export function SuperAdminJuditDocs() {
   const extractResults = (data: any): DocSearchResult[] => {
     if (!data) return [];
 
-    // Se for array direto
-    if (Array.isArray(data)) {
-      return data.map(item => ({
-        title: item.title || item.name || 'Sem título',
-        content: item.content || item.description || item.snippet || item.text || '',
-        url: item.url || item.link || item.href || '',
-        type: item.type || 'guide'
-      }));
-    }
-
-    // Se tiver propriedade content com array (formato MCP comum)
+    // Se tiver propriedade content com array (formato MCP Mintlify)
     if (data.content && Array.isArray(data.content)) {
       return data.content.map((item: any) => {
-        // Se for texto simples
         if (item.type === 'text' && typeof item.text === 'string') {
-          // Tentar parsear como markdown/texto estruturado
+          // Parse format: "Title: ...\nLink: ...\nContent: ..."
+          const text = item.text;
+          const titleMatch = text.match(/^Title:\s*(.+?)(?:\n|$)/);
+          const linkMatch = text.match(/Link:\s*(https?:\/\/[^\s\n]+)/);
+          const contentMatch = text.match(/Content:\s*([\s\S]*)/);
+          
           return {
-            title: 'Resultado',
-            content: item.text,
-            url: '',
-            type: 'text'
+            title: titleMatch ? titleMatch[1].trim() : 'Resultado',
+            content: contentMatch ? contentMatch[1].trim().slice(0, 300) : text.slice(0, 300),
+            url: linkMatch ? linkMatch[1].trim() : '',
+            type: linkMatch?.[1]?.includes('api-reference') ? 'api' : 'guide'
           };
         }
         return {
@@ -114,6 +108,16 @@ export function SuperAdminJuditDocs() {
           type: item.type || 'guide'
         };
       });
+    }
+
+    // Se for array direto
+    if (Array.isArray(data)) {
+      return data.map(item => ({
+        title: item.title || item.name || 'Sem título',
+        content: item.content || item.description || item.snippet || item.text || '',
+        url: item.url || item.link || item.href || '',
+        type: item.type || 'guide'
+      }));
     }
 
     // Se for objeto com resultados
