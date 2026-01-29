@@ -47,6 +47,10 @@ export function TenantCredenciaisDialog({
   const [diretoSystemName, setDiretoSystemName] = useState('');
   const [enviandoDireto, setEnviandoDireto] = useState(false);
 
+  // Estados para edição de credenciais pendentes
+  const [editCpf, setEditCpf] = useState('');
+  const [editSenha, setEditSenha] = useState('');
+
   // Agrupar tribunais por categoria
   const tribunaisPorCategoria = useMemo(() => getTribunaisPorCategoria(), []);
 
@@ -57,11 +61,13 @@ export function TenantCredenciaisDialog({
   const credenciaisPendentes = credenciaisCliente.filter((c) => c.status === 'pendente');
   const selectedCredencial = credenciaisCliente.find((c) => c.id === selectedCredencialId);
 
-  // Atualizar customerKey quando selecionar credencial
+  // Atualizar customerKey e campos editáveis quando selecionar credencial
   const handleSelectCredencial = (id: string) => {
     setSelectedCredencialId(id);
     const cred = credenciaisCliente.find((c) => c.id === id);
     if (cred) {
+      setEditCpf(cred.cpf);
+      setEditSenha(cred.senha);
       const defaultKey = cred.oabs_cadastradas
         ? `${cred.oabs_cadastradas.oab_numero}/${cred.oabs_cadastradas.oab_uf}`
         : cred.cpf;
@@ -79,8 +85,8 @@ export function TenantCredenciaisDialog({
     try {
       await enviarParaJudit.mutateAsync({
         credencialId: selectedCredencial.id,
-        cpf: selectedCredencial.cpf,
-        senha: selectedCredencial.senha,
+        cpf: editCpf,
+        senha: editSenha,
         secret,
         customerKey,
         systemName,
@@ -88,6 +94,8 @@ export function TenantCredenciaisDialog({
       });
 
       setSelectedCredencialId('');
+      setEditCpf('');
+      setEditSenha('');
       setSecret('');
       setCustomerKey('');
       setSystemName('');
@@ -377,11 +385,34 @@ export function TenantCredenciaisDialog({
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>CPF (Username)</Label>
-                          <Input value={formatCpf(selectedCredencial.cpf)} readOnly className="bg-background" />
+                          <Input 
+                            value={editCpf} 
+                            onChange={(e) => setEditCpf(e.target.value)}
+                            placeholder="000.000.000-00"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Senha</Label>
-                          <Input value={selectedCredencial.senha} readOnly className="bg-background" />
+                          <div className="flex gap-2">
+                            <Input 
+                              type={senhasVisiveis['edit-senha'] ? 'text' : 'password'}
+                              value={editSenha} 
+                              onChange={(e) => setEditSenha(e.target.value)}
+                              placeholder="Senha do sistema"
+                              className="flex-1"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              type="button"
+                              onClick={() => toggleSenhaVisivel('edit-senha')}
+                            >
+                              {senhasVisiveis['edit-senha'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Você pode editar se a senha estiver incorreta
+                          </p>
                         </div>
                       </div>
 
