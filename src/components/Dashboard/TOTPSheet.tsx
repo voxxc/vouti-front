@@ -3,10 +3,59 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Copy, Check, Trash2, ShieldCheck } from "lucide-react";
+
+// Componente CircularTimer SVG
+interface CircularTimerProps {
+  secondsRemaining: number;
+  totalSeconds?: number;
+}
+
+function CircularTimer({ secondsRemaining, totalSeconds = 30 }: CircularTimerProps) {
+  const size = 40;
+  const strokeWidth = 3;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = secondsRemaining / totalSeconds;
+  const strokeDashoffset = circumference * (1 - progress);
+  const isUrgent = secondsRemaining <= 5;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="transform -rotate-90">
+        {/* Círculo de fundo */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-muted/20"
+        />
+        {/* Círculo de progresso */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className={`transition-all duration-1000 ease-linear ${isUrgent ? 'text-destructive' : 'text-primary'}`}
+        />
+      </svg>
+      {/* Número no centro */}
+      <span className={`absolute text-xs font-medium ${isUrgent ? 'text-destructive' : 'text-muted-foreground'}`}>
+        {secondsRemaining}
+      </span>
+    </div>
+  );
+}
 import { generateTOTP, getSecondsRemaining, isValidBase32 } from "@/lib/totp";
 import { toast } from "sonner";
 
@@ -201,25 +250,18 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
                       onClick={() => handleCopy(token.id, codes[token.id] || '')}
                       className="w-full text-left group"
                     >
-                      <div className="text-3xl font-mono font-bold tracking-wider text-foreground flex items-center gap-2">
-                        {formatCode(codes[token.id] || '------')}
-                        {copiedId === token.id ? (
-                          <Check className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <Copy className="h-5 w-5 opacity-0 group-hover:opacity-50 transition-opacity" />
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="text-3xl font-mono font-bold tracking-wider text-foreground flex items-center gap-2">
+                          {formatCode(codes[token.id] || '------')}
+                          {copiedId === token.id ? (
+                            <Check className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <Copy className="h-5 w-5 opacity-0 group-hover:opacity-50 transition-opacity" />
+                          )}
+                        </div>
+                        <CircularTimer secondsRemaining={secondsRemaining} />
                       </div>
                     </button>
-
-                    <div className="mt-3 flex items-center gap-2">
-                      <Progress 
-                        value={(secondsRemaining / 30) * 100} 
-                        className="h-1.5 flex-1"
-                      />
-                      <span className="text-xs text-muted-foreground w-6 text-right">
-                        {secondsRemaining}s
-                      </span>
-                    </div>
                   </div>
                 ))}
               </div>
