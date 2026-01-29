@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
@@ -15,6 +15,7 @@ import { SuperAdminJuditDocs } from '@/components/SuperAdmin/SuperAdminJuditDocs
 import { SuperAdminMonitoramento } from '@/components/SuperAdmin/SuperAdminMonitoramento';
 import { SuperAdminDiagnosticoJudit } from '@/components/SuperAdmin/SuperAdminDiagnosticoJudit';
 import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImportCNJTest';
+import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -256,7 +257,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tenants" className="space-y-6">
-          <TabsList className="grid w-full max-w-5xl grid-cols-8">
+          <TabsList className="grid w-full max-w-6xl grid-cols-9">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -288,6 +289,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="judit-docs" className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" />
               Judit Docs
+            </TabsTrigger>
+            <TabsTrigger value="config-pix" className="flex items-center gap-2">
+              <QrCode className="w-4 h-4" />
+              Config. PIX
             </TabsTrigger>
           </TabsList>
 
@@ -341,6 +346,18 @@ export default function SuperAdmin() {
 
           <TabsContent value="judit-docs">
             <SuperAdminJuditDocs />
+          </TabsContent>
+
+          <TabsContent value="config-pix">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-2">Configuração de Pagamento PIX</h2>
+              <p className="text-muted-foreground">
+                Configure a chave PIX e QR Code que será exibido para os clientes
+              </p>
+            </div>
+            <div className="max-w-2xl">
+              <SuperAdminPixConfig />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
