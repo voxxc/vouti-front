@@ -261,11 +261,10 @@ serve(async (req) => {
         if (processNewCount > 0) {
           results.processos_atualizados++;
           
-          // Update unread count
+          // Update process timestamp
           await supabase
             .from('processos_oab')
             .update({
-              andamentos_nao_lidos: supabase.rpc('increment', { x: processNewCount }),
               updated_at: new Date().toISOString(),
             })
             .eq('id', processo.id);
