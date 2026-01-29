@@ -244,7 +244,7 @@ serve(async (req) => {
                 data_movimentacao: normalizeTimestamp(stepDate),
                 descricao: stepContent,
                 dados_completos: step,
-                lido: false,
+                lida: false,
                 tenant_id: processo.tenant_id,
               });
 
