@@ -1,86 +1,173 @@
 
 
-## Plano: Correção de Exibição de Datas de Vencimento (Timezone)
+## Plano: Notificação de Pagamentos Pendentes no Super Admin
 
-### Problema Identificado
-Ao criar uma cobrança com vencimento em **10/01**, o sistema exibe **09/01** para o cliente. Isso ocorre porque:
+### Situação Atual
+Quando um cliente confirma um pagamento, **nada aparece automaticamente** no painel do Super Admin. As confirmações pendentes só são visíveis ao abrir "Gerenciar Pagamentos" de um cliente específico, na aba "Confirmações".
 
-1. A data é salva no banco como `"2026-01-10"` (apenas data, sem hora)
-2. Quando `new Date("2026-01-10")` é chamado, o JavaScript interpreta como **UTC meia-noite**
-3. Ao converter para o fuso horário do Brasil (UTC-3), a data "volta" para o dia anterior às 21h do dia 09
+### Proposta de Solução
+Criar um sistema de notificação similar ao que já existe para "Credenciais Pendentes":
 
-### Solucao
-Criar uma funcao utilitaria `parseLocalDate` que interpreta a data como local (e nao UTC), e substituir todos os usos de `new Date(data_vencimento)` por essa funcao.
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  VOUTI.    Painel de Controle                                   │
+│                                                                 │
+│                     [Credenciais (3)] [💳 Pagamentos (5)] [Sair]│
+│                           ↑                    ↑                │
+│                    Badge vermelho       NOVO! Badge vermelho    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Além disso, adicionar badge no botão de pagamentos de cada TenantCard:
+
+```text
+┌──────────────────────────────────────┐
+│  Cliente ABC              [Ativo]   │
+│  ────────────────────────────────── │
+│  [Config] [📊] [📈] [🔑] [💳 2] [🔗]│
+│                             ↑       │
+│                       Badge vermelho│
+│                       "2 pendentes" │
+└──────────────────────────────────────┘
+```
+
+---
+
+## Arquivos a Criar
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/hooks/useAllPaymentConfirmations.ts` | Hook para buscar todas confirmações pendentes de todos os tenants |
+
+## Arquivos a Modificar
+
+| Arquivo | Modificação |
+|---------|-------------|
+| `src/pages/SuperAdmin.tsx` | Adicionar botão "Pagamentos" no header com badge de pendentes |
+| `src/components/SuperAdmin/TenantCard.tsx` | Adicionar badge no botão de pagamentos mostrando pendentes do tenant |
+
+---
+
+## Detalhes Técnicos
+
+### 1. Hook `useAllPaymentConfirmations`
 
 ```typescript
-// src/lib/dateUtils.ts
-export function parseLocalDate(dateString: string): Date {
-  // Formato esperado: "2026-01-10" ou similar
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day); // month - 1 porque Date usa 0-indexed
+// src/hooks/useAllPaymentConfirmations.ts
+export function useAllPaymentConfirmations() {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['all-payment-confirmations-pending'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenant_pagamento_confirmacoes')
+        .select('id, tenant_id, boleto_id, metodo, status, created_at')
+        .eq('status', 'pendente')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 30000, // Atualizar a cada 30 segundos
+  });
+
+  // Agrupar por tenant_id para contar por cliente
+  const porTenant = (data || []).reduce((acc, item) => {
+    acc[item.tenant_id] = (acc[item.tenant_id] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return {
+    confirmacoes: data || [],
+    totalPendentes: data?.length || 0,
+    porTenant,
+    isLoading,
+    refetch,
+  };
 }
 ```
 
-### Arquivos a Modificar
+### 2. Botão no Header do SuperAdmin
 
-| Arquivo | Linhas Afetadas |
-|---------|-----------------|
-| `src/lib/dateUtils.ts` | **CRIAR** arquivo com funcao `parseLocalDate` |
-| `src/components/Support/BoletoPaymentDialog.tsx` | Linha 166 |
-| `src/components/Support/SubscriptionDrawer.tsx` | Linha 544 |
-| `src/components/SuperAdmin/SuperAdminBoletosDialog.tsx` | Linha 431 |
+No `src/pages/SuperAdmin.tsx`, adicionar junto ao botão de Credenciais:
 
-### Mudancas Especificas
-
-**1. Criar `src/lib/dateUtils.ts`**
 ```typescript
-export function parseLocalDate(dateString: string): Date {
-  if (!dateString) return new Date();
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+<Button
+  variant="outline"
+  size="sm"
+  onClick={() => setPagamentosDialogOpen(true)}
+  className="relative"
+>
+  <CreditCard className="h-4 w-4 mr-2" />
+  Pagamentos
+  {totalPagamentosPendentes > 0 && (
+    <Badge 
+      variant="destructive" 
+      className="absolute -top-2 -right-2 h-5 min-w-5 p-0 flex items-center justify-center text-xs"
+    >
+      {totalPagamentosPendentes}
+    </Badge>
+  )}
+</Button>
+```
+
+### 3. Badge no TenantCard
+
+No `src/components/SuperAdmin/TenantCard.tsx`, modificar o botão de pagamentos:
+
+```typescript
+// Receber props do hook de pagamentos
+interface TenantCardProps {
+  // ... existentes
+  pendingPayments?: number;
 }
+
+// Botão com badge
+<Button 
+  variant="ghost" 
+  size="sm" 
+  className="gap-2 relative"
+  onClick={() => setShowBoletos(true)}
+  title="Gerenciar pagamentos"
+>
+  <CreditCard className="h-4 w-4" />
+  {pendingPayments > 0 && (
+    <Badge 
+      variant="destructive" 
+      className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px]"
+    >
+      {pendingPayments}
+    </Badge>
+  )}
+</Button>
 ```
 
-**2. BoletoPaymentDialog.tsx (linha 166)**
+---
 
-De:
-```typescript
-{format(new Date(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
+## Fluxo Visual
+
+```text
+Cliente confirma pagamento
+         ↓
+Registro salvo em tenant_pagamento_confirmacoes (status: pendente)
+         ↓
+Hook useAllPaymentConfirmations detecta (refetch a cada 30s)
+         ↓
+Badge aparece no header: [💳 Pagamentos (1)]
+         ↓
+Badge aparece no card do cliente: [💳 1]
+         ↓
+Super Admin clica → abre dialog → aprova/rejeita
+         ↓
+Badge desaparece após aprovação
 ```
 
-Para:
-```typescript
-{format(parseLocalDate(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
-```
+---
 
-**3. SubscriptionDrawer.tsx (linha 544)**
+## Benefícios
 
-De:
-```typescript
-Venc. {format(new Date(boleto.data_vencimento), "dd/MM", { locale: ptBR })}
-```
-
-Para:
-```typescript
-Venc. {format(parseLocalDate(boleto.data_vencimento), "dd/MM", { locale: ptBR })}
-```
-
-**4. SuperAdminBoletosDialog.tsx (linha 431)**
-
-De:
-```typescript
-Vencimento: {format(new Date(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
-```
-
-Para:
-```typescript
-Vencimento: {format(parseLocalDate(boleto.data_vencimento), "dd/MM/yyyy", { locale: ptBR })}
-```
-
-### Resultado Esperado
-
-- Data criada: **10/01/2026**
-- Data exibida: **10/01/2026** (correta!)
-
-Essa mesma funcao pode ser reutilizada em outras partes do sistema que tenham o mesmo problema de timezone com datas.
+1. **Visibilidade imediata**: Super Admin vê notificação sem precisar abrir cada cliente
+2. **Contagem global**: Badge no header mostra total de todos os clientes
+3. **Contagem individual**: Badge no card mostra quantos de cada cliente
+4. **Atualização automática**: Refresh a cada 30 segundos
+5. **Consistência visual**: Segue o mesmo padrão do badge de Credenciais
 
