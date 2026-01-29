@@ -1,175 +1,119 @@
 
-## Nova Aba "Judit Docs" no Super Admin
+## Exibir Tribunal nas Credenciais do Super Admin
 
-### Objetivo
+### Problema Identificado
 
-Criar uma aba no painel Super Admin para buscar e consultar a documentação oficial da API Judit diretamente, facilitando o acesso a informações sobre endpoints, parâmetros e exemplos de código.
+O campo `system_name` (tribunal) já está sendo salvo corretamente no banco de dados quando o usuário cadastra credenciais. Porém, esse campo **não está sendo exibido** no painel Super Admin.
 
----
-
-### Arquitetura da Solução
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                      Super Admin                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  [Clientes] [Leads] [Suporte] [Busca Geral] [Judit Docs]        │
-│                                              ▲ NOVA ABA          │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              Edge Function: judit-docs-search                    │
-│  POST https://docs.judit.io/mcp                                  │
-│  JSON-RPC 2.0: tools/call → SearchJuditDocs                     │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                 Resultados da Documentacao                       │
-│  - Titulo da pagina                                              │
-│  - Trecho do conteudo                                            │
-│  - Link direto para docs.judit.io                               │
-└─────────────────────────────────────────────────────────────────┘
-```
+Dados no banco (credenciais do Alan/Solvenza):
+- EPROC - TJSC - 1º grau
+- EPROC - TJRS - 1º grau  
+- EPROC - TRF4 - 1º grau
+- PJE TJRO - 1º grau
+- PJE TJMG - 1º grau
 
 ---
 
-### Componentes a Criar
+### Correções Necessárias
 
-#### 1. Edge Function: `judit-docs-search`
+#### 1. Hook `useAllCredenciaisPendentes.ts`
 
-**Arquivo:** `supabase/functions/judit-docs-search/index.ts`
-
-Responsavel por:
-- Receber query de busca do frontend
-- Fazer requisição POST para `https://docs.judit.io/mcp`
-- Usar protocolo JSON-RPC 2.0 para chamar a ferramenta `SearchJuditDocs`
-- Retornar resultados formatados
+Adicionar o campo `system_name` na query e interface:
 
 ```typescript
-// Estrutura da requisição MCP
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "SearchJuditDocs",
-    "arguments": {
-      "query": "como monitorar processos",
-      "apiReferenceOnly": false,
-      "codeOnly": false
-    }
-  }
+interface CredencialPendenteComTenant {
+  // ... campos existentes ...
+  system_name: string | null;  // ADICIONAR
 }
-```
 
-Parametros suportados:
-- `query` (obrigatorio): Texto da busca
-- `apiReferenceOnly` (opcional): Filtrar apenas referencia de API
-- `codeOnly` (opcional): Filtrar apenas exemplos de codigo
+// Na query SELECT:
+.select(`
+  id,
+  tenant_id,
+  cpf,
+  status,
+  created_at,
+  system_name,  // ADICIONAR
+  oabs_cadastradas (...)
+`)
 
----
-
-#### 2. Componente: `SuperAdminJuditDocs`
-
-**Arquivo:** `src/components/SuperAdmin/SuperAdminJuditDocs.tsx`
-
-Interface com:
-- Campo de busca com placeholder "Buscar na documentação Judit..."
-- Filtros opcionais:
-  - Checkbox "Apenas referência de API"
-  - Checkbox "Apenas código"
-- Botao de busca com loading state
-- Lista de resultados com:
-  - Titulo da pagina
-  - Trecho do conteudo (preview)
-  - Link externo para abrir no docs.judit.io
-- Estado vazio quando nenhuma busca realizada
-- Mensagem quando nenhum resultado encontrado
-
-Layout visual:
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  Documentação Judit API                                       │
-│  Consulte a documentação oficial da Judit                     │
-├──────────────────────────────────────────────────────────────┤
-│  ┌────────────────────────────┐  ☐ Apenas API  ☐ Só código   │
-│  │ Buscar...                  │  [Buscar 🔍]                  │
-│  └────────────────────────────┘                               │
-├──────────────────────────────────────────────────────────────┤
-│  📄 Como usar o endpoint /tracking                            │
-│  O endpoint de tracking permite monitorar processos...        │
-│  🔗 Abrir documentação →                                      │
-│  ──────────────────────────────────────────────────────────── │
-│  📄 Referência API - Requests                                 │
-│  Crie requisições para buscar dados de processos...           │
-│  🔗 Abrir documentação →                                      │
-└──────────────────────────────────────────────────────────────┘
+// No mapeamento:
+system_name: c.system_name || null,
 ```
 
 ---
 
-#### 3. Atualização: `SuperAdmin.tsx`
+#### 2. Componente `CredenciaisCentralDialog.tsx`
 
-Adicionar:
-- Import do novo componente `SuperAdminJuditDocs`
-- Nova tab "Judit Docs" no TabsList com icone `BookOpen`
-- TabsContent para renderizar o componente
+Exibir o tribunal junto com os dados da credencial:
 
-```typescript
-// Adicionar na TabsList (5 colunas agora)
-<TabsTrigger value="judit-docs" className="flex items-center gap-2">
-  <BookOpen className="w-4 h-4" />
-  Judit Docs
-</TabsTrigger>
-
-// Adicionar TabsContent
-<TabsContent value="judit-docs">
-  <SuperAdminJuditDocs />
-</TabsContent>
+```tsx
+{/* Adicionar após o CPF */}
+{cred.system_name && (
+  <div className="flex items-center gap-2 text-sm">
+    <Scale className="h-3 w-3 text-muted-foreground" />
+    <span className="text-muted-foreground">
+      {cred.system_name}
+    </span>
+  </div>
+)}
 ```
 
 ---
 
-### Interface dos Resultados
+#### 3. Aba "Recebidas" no `TenantCredenciaisDialog.tsx`
 
-```typescript
-interface DocSearchResult {
-  title: string;           // Titulo da pagina/secao
-  content: string;         // Preview do conteudo
-  url: string;             // Link para docs.judit.io
-  type?: 'guide' | 'api' | 'code';  // Tipo do resultado
-}
+Adicionar coluna de Tribunal na tabela de credenciais recebidas:
+
+```tsx
+<TableHead>Tribunal</TableHead>
+// ...
+<TableCell>
+  {credencial.system_name ? (
+    <Badge variant="outline" className="text-xs">
+      {credencial.system_name}
+    </Badge>
+  ) : (
+    <span className="text-muted-foreground text-xs">-</span>
+  )}
+</TableCell>
 ```
 
 ---
 
-### Arquivos a Criar/Modificar
+### Arquivos a Modificar
 
-| Arquivo | Acao | Descricao |
-|---------|------|-----------|
-| `supabase/functions/judit-docs-search/index.ts` | Criar | Edge function para chamar MCP server |
-| `src/components/SuperAdmin/SuperAdminJuditDocs.tsx` | Criar | Componente da aba de documentacao |
-| `src/pages/SuperAdmin.tsx` | Modificar | Adicionar nova tab e import |
-
----
-
-### Fluxo de Uso
-
-1. Super Admin acessa a aba "Judit Docs"
-2. Digita uma busca como "como usar tracking" ou "endpoint requests"
-3. Opcionalmente marca filtros (API only, Code only)
-4. Clica em Buscar
-5. Edge function faz requisição ao MCP server da Judit
-6. Resultados sao exibidos com links clicaveis
-7. Clicar em "Abrir documentação" abre nova aba no navegador
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/hooks/useAllCredenciaisPendentes.ts` | Adicionar `system_name` na interface e query |
+| `src/components/SuperAdmin/CredenciaisCentralDialog.tsx` | Exibir tribunal na lista |
+| `src/components/SuperAdmin/TenantCredenciaisDialog.tsx` | Adicionar coluna Tribunal na tabela |
 
 ---
 
-### Benefícios
+### Resultado Visual Esperado
 
-- Acesso rapido à documentacao sem sair do painel
-- Filtros para encontrar especificamente codigo ou referencia de API
-- Links diretos para paginas relevantes
-- Nao requer chaves de API adicionais (MCP server é publico)
+**Central de Credenciais (visão geral):**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🏢 Solvenza                                    5 credenciais│
+├─────────────────────────────────────────────────────────────┤
+│  [OAB 123/PR]  Daniel                                       │
+│  CPF: 091.632.379-03                                        │
+│  ⚖️ EPROC - TJSC - 1º grau                                  │
+│                                         28/01/2026 às 16:58 │
+├─────────────────────────────────────────────────────────────┤
+│  [OAB 123/PR]  Daniel                                       │
+│  CPF: 091.632.379-03                                        │
+│  ⚖️ PJE TJMG - 1º grau                                      │
+│                                         28/01/2026 às 15:34 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Tabela de Credenciais Recebidas (por tenant):**
+```
+| OAB       | CPF           | Tribunal           | Status   |
+|-----------|---------------|-------------------|----------|
+| 123/PR    | 091.***.***-03| EPROC - TJSC - 1º | Pendente |
+| 123/PR    | 091.***.***-03| PJE TJMG - 1º     | Pendente |
+```
