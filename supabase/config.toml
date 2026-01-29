@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.judit-consultar-tracking]
 verify_jwt = false
+
+[functions.judit-test-import-cnj]
+verify_jwt = true
