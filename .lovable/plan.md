@@ -1,321 +1,193 @@
 
-
-## Plano: Sistema de Pagamento PIX com Gestão no Super Admin
+## Plano: Sistema Completo de Gerenciamento de Pagamentos Super Admin ↔ Tenant
 
 ### Objetivo
-Implementar uma experiência de pagamento completa na aba "Vencimentos" com opções de Boleto e PIX (QR Code), incluindo painel de gestão no Super Admin para configurar a chave PIX e fazer upload do QR Code.
+Renomear "Gerenciar Boletos" para "Gerenciar Pagamentos" e criar um fluxo completo onde:
+1. Super Admin cria cobranças (boletos/vencimentos) para cada tenant
+2. Tenant visualiza essas cobranças na aba "Vencimentos" com botões de data
+3. Ao clicar, o tenant vê opções de Boleto ou PIX (QR Code já configurado no Super Admin)
+4. Tenant pode confirmar pagamento com upload de comprovante
+5. Super Admin pode visualizar e gerenciar confirmações de pagamento
 
 ---
 
-## Visão Geral
+## Mudanças Necessárias
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                ARQUITETURA                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                               │
-│  SUPER ADMIN                          │     TENANT (Cliente)                  │
-│  ─────────────                        │     ────────────────                  │
-│                                       │                                       │
-│  [Config. PIX]                        │     [Vencimentos]                     │
-│    - Chave PIX                        │       │                               │
-│    - Tipo (email/cpf/cnpj)            │       ├─► [📅 Venc. 15/01] ──►┐       │
-│    - Nome beneficiário                │       ├─► [📅 Venc. 15/02]    │       │
-│    - Upload QR Code                   │       └─► [📅 Venc. 15/03]    │       │
-│    - Ativar/Desativar                 │                               │       │
-│                                       │                               ▼       │
-│                                       │     ┌─────────────────────────────┐   │
-│                                       │     │   Dialog de Pagamento       │   │
-│                                       │     │   ┌───────┬───────┐         │   │
-│                                       │     │   │BOLETO │  PIX  │         │   │
-│                                       │     │   └───────┴───────┘         │   │
-│                                       │     │   QR Code + Chave           │   │
-│                                       │     │   [Confirmar Pagamento]     │   │
-│                                       │     └─────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### 1. Renomear no TenantCard
+**Arquivo:** `src/components/SuperAdmin/TenantCard.tsx`
+
+Alterar o ícone e título do botão:
+- De: `FileText` + "Gerenciar boletos"
+- Para: `CreditCard` + "Gerenciar Pagamentos"
 
 ---
 
-## Parte 1: Super Admin - Gestão de PIX
+### 2. Atualizar SuperAdminBoletosDialog
+**Arquivo:** `src/components/SuperAdmin/SuperAdminBoletosDialog.tsx`
 
-### 1.1 Nova Tabela: `platform_pix_config`
+**Mudanças:**
+- Renomear para `SuperAdminPagamentosDialog.tsx`
+- Adicionar aba de "Confirmações Pendentes" para ver os pagamentos que tenants confirmaram
+- Mostrar comprovantes enviados pelos tenants
+- Permitir aprovar/rejeitar confirmações
 
-Tabela global da plataforma (não é por tenant):
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid | PK |
-| chave_pix | text | Chave PIX (email, CPF, CNPJ, celular, aleatória) |
-| tipo_chave | text | 'email', 'cpf', 'cnpj', 'celular', 'aleatoria' |
-| nome_beneficiario | text | Nome do recebedor (VOUTI) |
-| qr_code_url | text | Path da imagem no storage |
-| ativo | boolean | Se o PIX está ativo para pagamentos |
-| created_at | timestamp | Data de criação |
-| updated_at | timestamp | Última atualização |
-
-```sql
-CREATE TABLE platform_pix_config (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chave_pix TEXT NOT NULL,
-  tipo_chave TEXT NOT NULL CHECK (tipo_chave IN ('email', 'cpf', 'cnpj', 'celular', 'aleatoria')),
-  nome_beneficiario TEXT NOT NULL,
-  qr_code_url TEXT,
-  ativo BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- RLS: Apenas Super Admins podem gerenciar
-ALTER TABLE platform_pix_config ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "super_admin_all" ON platform_pix_config
-  FOR ALL TO authenticated
-  USING (is_super_admin(auth.uid()))
-  WITH CHECK (is_super_admin(auth.uid()));
-
--- Tenants podem apenas ler config ativa
-CREATE POLICY "tenants_read_active" ON platform_pix_config
-  FOR SELECT TO authenticated
-  USING (ativo = true AND get_user_tenant_id() IS NOT NULL);
-```
-
-### 1.2 Storage Bucket para QR Code
-
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('platform-pix-qrcode', 'platform-pix-qrcode', true);
-
--- Público porque os tenants precisam ver o QR Code
-```
-
-### 1.3 Componente Super Admin: `SuperAdminPixConfig.tsx`
-
-Interface no painel Super Admin para gerenciar PIX:
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│  ⚙️ Configuração PIX da Plataforma                            │
-├───────────────────────────────────────────────────────────────┤
-│                                                               │
-│  Status: [✓] Ativo                                            │
-│                                                               │
-│  Tipo de Chave: [Email ▼]                                     │
-│                                                               │
-│  Chave PIX: [financeiro@vouti.com.br___________]              │
-│                                                               │
-│  Nome Beneficiário: [VOUTI SISTEMAS LTDA________]             │
-│                                                               │
-│  QR Code:                                                     │
-│  ┌───────────────────┐                                        │
-│  │   ███████████     │  [📤 Fazer Upload]                     │
-│  │   ██ QR CODE ██   │                                        │
-│  │   ███████████     │  [🗑️ Remover]                          │
-│  └───────────────────┘                                        │
-│                                                               │
-│  [💾 Salvar Configuração]                                     │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
-```
-
-### 1.4 Integração no Super Admin
-
-Adicionar nova seção/aba "Config. Pagamentos" no SuperAdmin.tsx, ou um botão no header que abre um Dialog.
-
----
-
-## Parte 2: Tenant - Experiência de Pagamento
-
-### 2.1 Nova Tabela: `tenant_pagamento_confirmacoes`
-
-Para registrar quando o tenant confirma um pagamento:
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid | PK |
-| boleto_id | uuid | FK para tenant_boletos |
-| tenant_id | uuid | FK para tenants |
-| metodo | text | 'pix' ou 'boleto' |
-| data_confirmacao | timestamp | Quando confirmou |
-| comprovante_path | text | Caminho no storage (opcional) |
-| status | text | 'pendente', 'aprovado', 'rejeitado' |
-| observacao_admin | text | Resposta do admin |
-| created_at | timestamp | Data de criação |
-
-```sql
-CREATE TABLE tenant_pagamento_confirmacoes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  boleto_id UUID NOT NULL REFERENCES tenant_boletos(id) ON DELETE CASCADE,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  metodo TEXT NOT NULL CHECK (metodo IN ('pix', 'boleto')),
-  data_confirmacao TIMESTAMPTZ DEFAULT now(),
-  comprovante_path TEXT,
-  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'aprovado', 'rejeitado')),
-  observacao_admin TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- RLS
-ALTER TABLE tenant_pagamento_confirmacoes ENABLE ROW LEVEL SECURITY;
-
--- Tenant pode ver/criar suas próprias confirmações
-CREATE POLICY "tenant_select" ON tenant_pagamento_confirmacoes
-  FOR SELECT TO authenticated
-  USING (tenant_id = get_user_tenant_id());
-
-CREATE POLICY "tenant_insert" ON tenant_pagamento_confirmacoes
-  FOR INSERT TO authenticated
-  WITH CHECK (tenant_id = get_user_tenant_id());
-
--- Super Admin pode ver/gerenciar todas
-CREATE POLICY "super_admin_all" ON tenant_pagamento_confirmacoes
-  FOR ALL TO authenticated
-  USING (is_super_admin(auth.uid()))
-  WITH CHECK (is_super_admin(auth.uid()));
-```
-
-### 2.2 Storage Bucket para Comprovantes
-
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('tenant-comprovantes-pagamento', 'tenant-comprovantes-pagamento', false);
-```
-
-### 2.3 Novo Dialog: `BoletoPaymentDialog.tsx`
-
-Abre ao clicar no botão de vencimento:
-
+**Interface atualizada:**
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  💳 Pagamento - Janeiro/2026                              [X]   │
+│  💳 Pagamentos - Nome do Cliente                           [X] │
 ├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┬──────────────────────┐                    │
+│  │   📄 Cobranças   │  ✅ Confirmações     │   ← Duas abas      │
+│  └──────────────────┴──────────────────────┘                    │
 │                                                                 │
-│  Valor: R$ 299,00           Vencimento: 15/01/2026             │
+│  [Aba Cobranças - existente atualizada]                        │
+│  - Lista de boletos/cobranças criadas                          │
+│  - Botão "Adicionar Cobrança"                                  │
+│  - Campos: Mês, Valor, Vencimento, PDF, Código Barras          │
 │                                                                 │
-│  ┌─────────────────────────┬─────────────────────────┐          │
-│  │      📄 BOLETO          │       📱 PIX           │          │
-│  └─────────────────────────┴─────────────────────────┘          │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  [Aba BOLETO]                                                   │
-│                                                                 │
-│  📄 Linha Digitável:                                            │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 23793.38128 60000.000035 25000.063305 8 85160000029900  │    │
-│  │                                            [📋 Copiar]  │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  [📥 Baixar Boleto PDF]                                         │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  [Aba PIX]                                                      │
-│                                                                 │
-│       ┌─────────────────────┐                                   │
-│       │   ███████████████   │                                   │
-│       │   ███  QR CODE  ███ │                                   │
-│       │   ███████████████   │                                   │
-│       └─────────────────────┘                                   │
-│                                                                 │
-│  Chave PIX: financeiro@vouti.com.br                             │
-│  Beneficiário: VOUTI SISTEMAS LTDA                              │
-│                                                      [📋 Copiar]│
-│                                                                 │
-│  ⚡ Dica: Você pode configurar uma transferência recorrente     │
-│     no seu banco para evitar atrasos de pagamento!              │
-│                                                                 │
-│  ────────────────────────────────────────────────────────────   │
-│                                                                 │
-│  [✅ Confirmar Pagamento]                                       │
-│                                                                 │
-│  ↓ (Ao clicar, expande)                                         │
-│                                                                 │
-│  📎 Comprovante (opcional):                                     │
-│  [ Selecionar arquivo... ] documento.pdf                        │
-│                                                                 │
-│  [Enviar Confirmação]                                           │
+│  [Aba Confirmações - NOVA]                                     │
+│  - Lista de confirmações enviadas pelos tenants                │
+│  - Cada confirmação mostra:                                    │
+│    - Boleto referência (mês/valor)                             │
+│    - Método usado (PIX/Boleto)                                 │
+│    - Data da confirmação                                       │
+│    - Comprovante (se enviado) → [Ver Comprovante]              │
+│    - Status atual (pendente/aprovado/rejeitado)                │
+│    - [Aprovar] [Rejeitar] botões                               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Parte 3: Arquivos a Criar/Modificar
+### 3. Hook para Gerenciar Confirmações (Super Admin)
+**Arquivo:** `src/hooks/useSuperAdminPaymentConfirmations.ts` (NOVO)
 
-### Novos Arquivos
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/SuperAdmin/SuperAdminPixConfig.tsx` | Gestão de PIX no Super Admin |
-| `src/components/Support/BoletoPaymentDialog.tsx` | Dialog de pagamento com tabs |
-| `src/hooks/usePlatformPixConfig.ts` | Hook para buscar config PIX |
-| `src/hooks/usePaymentConfirmation.ts` | Hook para confirmações de pagamento |
-
-### Arquivos a Modificar
-
-| Arquivo | Modificação |
-|---------|-------------|
-| `src/pages/SuperAdmin.tsx` | Adicionar seção/botão "Config. PIX" |
-| `src/components/Support/SubscriptionDrawer.tsx` | Trocar lista por botões com data, integrar Dialog |
-| `src/hooks/useSubscription.ts` | Adicionar busca de confirmações |
+Funcionalidades:
+- Buscar todas confirmações de um tenant
+- Aprovar confirmação (muda status para 'aprovado' + atualiza boleto para 'pago')
+- Rejeitar confirmação (muda status para 'rejeitado' com observação)
+- Obter URL assinada do comprovante
 
 ---
 
-## Parte 4: Fluxo Completo
+### 4. Componente de Aba de Confirmações
+**Arquivo:** `src/components/SuperAdmin/PaymentConfirmationsTab.tsx` (NOVO)
+
+Componente que lista as confirmações pendentes e permite gestão:
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  Confirmações Pendentes                                        │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ 📅 Janeiro/2026 - R$ 299,00                             │   │
+│  │ 💳 Método: PIX                                          │   │
+│  │ 📆 Confirmado em: 15/01/2026 às 14:32                   │   │
+│  │ 📎 Comprovante: ✓ Enviado  [👁️ Ver]                     │   │
+│  │                                                         │   │
+│  │ [✓ Aprovar]  [✗ Rejeitar]                               │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ 📅 Dezembro/2025 - R$ 299,00                            │   │
+│  │ 💳 Método: Boleto                                       │   │
+│  │ 📆 Confirmado em: 10/12/2025 às 09:15                   │   │
+│  │ 📎 Comprovante: Não enviado                             │   │
+│  │                                                         │   │
+│  │ [✓ Aprovar]  [✗ Rejeitar]                               │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Fluxo Completo
 
 ### Super Admin
-1. Acessa Super Admin
-2. Vai em "Config. Pagamentos" ou "Config. PIX"
-3. Preenche: tipo de chave, chave PIX, nome beneficiário
-4. Faz upload do QR Code (imagem PNG/JPG)
-5. Ativa/desativa opção PIX
-6. Salva
+1. Acessa "Config. PIX" e configura chave + QR Code da plataforma
+2. No card de cada cliente, clica em "Gerenciar Pagamentos"
+3. Aba "Cobranças": Adiciona novas cobranças (mês, valor, vencimento, PDF do boleto)
+4. Aba "Confirmações": Vê confirmações enviadas pelos tenants e aprova/rejeita
 
 ### Tenant (Cliente)
 1. Acessa "Minha Assinatura" → aba "Vencimentos"
-2. Vê lista de boletos com botão "📅 Venc. DD/MM"
-3. Clica no botão → abre BoletoPaymentDialog
-4. Escolhe aba **Boleto** ou **PIX**:
-   - **Boleto**: Copia código de barras ou baixa PDF
-   - **PIX**: Vê QR Code, copia chave, lê dica de agendamento
+2. Vê lista de cobranças com botões "[📅 Venc. DD/MM]"
+3. Clica no botão → abre dialog de pagamento
+4. Escolhe aba **Boleto** (código de barras, PDF) ou **PIX** (QR Code, chave)
 5. Após pagar, clica em "Confirmar Pagamento"
 6. Opcionalmente anexa comprovante
-7. Envia confirmação → registro salvo no banco
+7. Envia confirmação → aguarda aprovação do Super Admin
 
-### Super Admin (após confirmação)
-1. Pode ver confirmações pendentes (futura feature)
-2. Aprova/rejeita confirmação
-3. Atualiza status do boleto para "pago"
+### Após Aprovação
+- Super Admin aprova confirmação
+- Status do boleto muda para "pago"
+- Tenant vê o boleto como "Pago" na lista
 
 ---
 
-## Migrations SQL Resumidas
+## Arquivos a Criar
 
-```sql
--- 1. Tabela de config PIX (global)
-CREATE TABLE platform_pix_config (...);
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/hooks/useSuperAdminPaymentConfirmations.ts` | Hook para gerenciar confirmações no Super Admin |
+| `src/components/SuperAdmin/PaymentConfirmationsTab.tsx` | Componente da aba de confirmações |
 
--- 2. Tabela de confirmações (por tenant)
-CREATE TABLE tenant_pagamento_confirmacoes (...);
+## Arquivos a Modificar
 
--- 3. Storage bucket para QR Code
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('platform-pix-qrcode', 'platform-pix-qrcode', true);
+| Arquivo | Modificação |
+|---------|-------------|
+| `src/components/SuperAdmin/TenantCard.tsx` | Renomear botão para "Gerenciar Pagamentos" |
+| `src/components/SuperAdmin/SuperAdminBoletosDialog.tsx` | Adicionar tabs e integrar aba de confirmações |
 
--- 4. Storage bucket para comprovantes
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('tenant-comprovantes-pagamento', 'tenant-comprovantes-pagamento', false);
+---
 
--- 5. RLS policies para ambas as tabelas
+## Detalhes Técnicos
+
+### Hook `useSuperAdminPaymentConfirmations`
+
+```typescript
+export function useSuperAdminPaymentConfirmations(tenantId: string | null) {
+  // Buscar confirmações do tenant
+  const fetchConfirmacoes = async () => {...}
+  
+  // Aprovar confirmação
+  const aprovarConfirmacao = async (confirmacaoId: string, boletoId: string) => {
+    // 1. Atualizar confirmação para 'aprovado'
+    // 2. Atualizar boleto para status 'pago'
+  }
+  
+  // Rejeitar confirmação
+  const rejeitarConfirmacao = async (confirmacaoId: string, observacao: string) => {
+    // Atualizar confirmação para 'rejeitado' com observação
+  }
+  
+  // Obter URL do comprovante
+  const getComprovanteUrl = async (path: string) => {...}
+}
 ```
+
+### RLS Policies Necessárias
+
+Já existem as policies para Super Admin na tabela `tenant_pagamento_confirmacoes`:
+```sql
+CREATE POLICY "super_admin_all" ON tenant_pagamento_confirmacoes
+  FOR ALL TO authenticated
+  USING (is_super_admin(auth.uid()))
+  WITH CHECK (is_super_admin(auth.uid()));
+```
+
+### Storage Policies para Comprovantes
+
+Precisamos adicionar policies ao bucket `tenant-comprovantes-pagamento` para:
+- Super Admin poder visualizar todos os comprovantes
+- Tenants só poderem fazer upload/ver seus próprios
 
 ---
 
 ## Benefícios
 
-1. **Gestão centralizada**: Super Admin controla a chave PIX e QR Code
-2. **UX melhorada**: Tenants têm opções claras de pagamento
-3. **Dica de agendamento**: Incentiva recorrência no banco
-4. **Comprovante opcional**: Permite validação manual
-5. **Rastreabilidade**: Histórico de confirmações
-
+1. **Fluxo completo e integrado**: Super Admin cria cobranças → Tenant paga e confirma → Super Admin aprova
+2. **Visibilidade de comprovantes**: Super Admin pode verificar comprovantes antes de aprovar
+3. **Rastreabilidade**: Histórico de confirmações com status e datas
+4. **Flexibilidade de pagamento**: Tenant escolhe entre Boleto ou PIX
+5. **Nomenclatura clara**: "Gerenciar Pagamentos" é mais abrangente que "Gerenciar Boletos"
