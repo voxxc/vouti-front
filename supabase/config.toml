@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.judit-buscar-dados-cadastrais]
 verify_jwt = true
+
+[functions.judit-sync-monitorados]
+verify_jwt = false
