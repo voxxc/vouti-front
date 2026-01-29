@@ -52,7 +52,9 @@ import {
   Plus,
   Trash2,
   AlertTriangle,
-  Building2
+  Building2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -105,6 +107,10 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
   // Estado para exclusão com dupla confirmação
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
+
+  // Estados para visibilidade de senha/secret no formulário
+  const [showSenha, setShowSenha] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
 
   // Agrupar tribunais por categoria
   const tribunaisPorCategoria = useMemo(() => {
@@ -667,24 +673,46 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
 
                       <div className="space-y-2">
                         <Label htmlFor="cred-senha">Senha *</Label>
-                        <Input
-                          id="cred-senha"
-                          type="password"
-                          value={credencialForm.senha}
-                          onChange={(e) => setCredencialForm(prev => ({ ...prev, senha: e.target.value }))}
-                          placeholder="Senha do sistema"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="cred-senha"
+                            type={showSenha ? "text" : "password"}
+                            value={credencialForm.senha}
+                            onChange={(e) => setCredencialForm(prev => ({ ...prev, senha: e.target.value }))}
+                            placeholder="Senha do sistema"
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => setShowSenha(!showSenha)}
+                          >
+                            {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="cred-secret">Secret (opcional)</Label>
-                        <Input
-                          id="cred-secret"
-                          type="password"
-                          value={credencialForm.secret}
-                          onChange={(e) => setCredencialForm(prev => ({ ...prev, secret: e.target.value }))}
-                          placeholder="Token 2FA (se aplicável)"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id="cred-secret"
+                            type={showSecret ? "text" : "password"}
+                            value={credencialForm.secret}
+                            onChange={(e) => setCredencialForm(prev => ({ ...prev, secret: e.target.value }))}
+                            placeholder="Token 2FA (se aplicável)"
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => setShowSecret(!showSecret)}
+                          >
+                            {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           Token de autenticação de dois fatores, se você possuir
                         </p>
