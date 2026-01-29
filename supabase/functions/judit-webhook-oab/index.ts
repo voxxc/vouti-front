@@ -25,6 +25,52 @@ const generateAndamentoKey = (dataMovimentacao: string | null, descricao: string
   return `${normalizedDate}_${normalizedDesc}`;
 };
 
+// Funcao para buscar dados do tracking via API Judit
+const fetchTrackingData = async (trackingId: string, juditApiKey: string): Promise<any> => {
+  const url = `https://tracking.prod.judit.io/tracking/${trackingId}`;
+  console.log('[Judit Webhook OAB] GET tracking:', url);
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'api-key': juditApiKey,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    console.error('[Judit Webhook OAB] Erro ao buscar tracking:', response.status, await response.text());
+    return null;
+  }
+  
+  const data = await response.json();
+  console.log('[Judit Webhook OAB] Tracking data recebido:', JSON.stringify(data).substring(0, 500));
+  return data;
+};
+
+// Funcao para buscar responses por request_id
+const fetchResponsesByRequestId = async (requestId: string, juditApiKey: string): Promise<any> => {
+  const url = `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`;
+  console.log('[Judit Webhook OAB] GET responses:', url);
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'api-key': juditApiKey,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    console.error('[Judit Webhook OAB] Erro ao buscar responses:', response.status, await response.text());
+    return null;
+  }
+  
+  const data = await response.json();
+  console.log('[Judit Webhook OAB] Responses recebidos:', JSON.stringify(data).substring(0, 500));
+  return data;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,28 +79,28 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     
-    console.log('[Judit Webhook OAB] Payload recebido:', JSON.stringify(payload).substring(0, 500));
+    console.log('[Judit Webhook OAB] ========== INICIO WEBHOOK ==========');
+    console.log('[Judit Webhook OAB] Payload recebido:', JSON.stringify(payload).substring(0, 1000));
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const juditApiKey = Deno.env.get('JUDIT_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Extrair tracking_id do payload
-    // Judit envia o tracking_id no campo reference_id (ou origin_id)
-    // quando reference_type é "tracking"
+    // Passo 1: Extrair tracking_id do payload (reference_id ou origin_id)
     const trackingId = payload.reference_id || payload.origin_id || payload.tracking_id;
     
     if (!trackingId) {
-      console.error('[Judit Webhook OAB] tracking_id nao encontrado no payload. Campos disponiveis:', Object.keys(payload));
+      console.error('[Judit Webhook OAB] tracking_id nao encontrado. Campos:', Object.keys(payload));
       return new Response(
         JSON.stringify({ success: false, error: 'reference_id/tracking_id ausente' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('[Judit Webhook OAB] Tracking ID extraido:', trackingId, '| reference_type:', payload.reference_type);
+    console.log('[Judit Webhook OAB] Tracking ID:', trackingId, '| reference_type:', payload.reference_type);
 
-    // Buscar processo pelo tracking_id COM tenant_id
+    // Buscar processo pelo tracking_id
     const { data: processo, error: fetchError } = await supabase
       .from('processos_oab')
       .select('id, numero_cnj, tenant_id, oab_id')
@@ -69,16 +115,77 @@ serve(async (req) => {
       );
     }
 
-    console.log('[Judit Webhook OAB] Processo encontrado:', processo.numero_cnj);
+    console.log('[Judit Webhook OAB] Processo encontrado:', processo.numero_cnj, '| ID:', processo.id);
 
-    // Extrair novos andamentos do payload
-    // Judit envia em payload.payload.response_data (nivel aninhado)
-    const responseData = payload.payload?.response_data || payload.response_data || payload.data || payload;
-    const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+    // Passo 2: Tentar extrair steps do payload direto (fallback)
+    let steps: any[] = [];
+    const responseDataDirect = payload.response_data || payload.payload?.response_data;
+    
+    if (responseDataDirect?.steps && responseDataDirect.steps.length > 0) {
+      console.log('[Judit Webhook OAB] Dados encontrados direto no payload');
+      steps = responseDataDirect.steps;
+    } else {
+      // Passo 3: Buscar dados via API seguindo fluxo correto
+      console.log('[Judit Webhook OAB] Buscando dados via API...');
+      
+      // 3a. GET /tracking/{tracking_id} para obter dados do monitoramento
+      const trackingData = await fetchTrackingData(trackingId, juditApiKey);
+      
+      if (trackingData) {
+        // Verificar se tracking_data tem page_data (historico de responses)
+        if (trackingData.page_data && trackingData.page_data.length > 0) {
+          // Usar o primeiro item do historico (mais recente)
+          const latestResponse = trackingData.page_data[0];
+          
+          // Se ja tiver response_data com steps, usar diretamente
+          if (latestResponse.response_data?.steps) {
+            console.log('[Judit Webhook OAB] Steps encontrados no historico do tracking');
+            steps = latestResponse.response_data.steps;
+          } else if (latestResponse.request_id) {
+            // 3b. GET /responses?request_id=... para dados completos
+            console.log('[Judit Webhook OAB] Buscando responses para request_id:', latestResponse.request_id);
+            const responsesData = await fetchResponsesByRequestId(latestResponse.request_id, juditApiKey);
+            
+            if (responsesData?.page_data) {
+              for (const item of responsesData.page_data) {
+                if (item.response_data?.steps) {
+                  steps = [...steps, ...item.response_data.steps];
+                }
+              }
+            }
+          }
+        } else if (trackingData.request_id) {
+          // Caso tracking retorne request_id diretamente
+          console.log('[Judit Webhook OAB] Request ID encontrado no tracking:', trackingData.request_id);
+          const responsesData = await fetchResponsesByRequestId(trackingData.request_id, juditApiKey);
+          
+          if (responsesData?.page_data) {
+            for (const item of responsesData.page_data) {
+              if (item.response_data?.steps) {
+                steps = [...steps, ...item.response_data.steps];
+              }
+            }
+          }
+        } else if (trackingData.last_request_id) {
+          // Caso tracking retorne last_request_id
+          console.log('[Judit Webhook OAB] Last Request ID encontrado:', trackingData.last_request_id);
+          const responsesData = await fetchResponsesByRequestId(trackingData.last_request_id, juditApiKey);
+          
+          if (responsesData?.page_data) {
+            for (const item of responsesData.page_data) {
+              if (item.response_data?.steps) {
+                steps = [...steps, ...item.response_data.steps];
+              }
+            }
+          }
+        }
+      }
+    }
 
-    console.log('[Judit Webhook OAB] Andamentos no payload:', steps.length);
+    console.log('[Judit Webhook OAB] Total de steps encontrados:', steps.length);
 
     if (steps.length === 0) {
+      console.log('[Judit Webhook OAB] Nenhum andamento encontrado');
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhum andamento novo', novosAndamentos: 0 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -100,8 +207,8 @@ serve(async (req) => {
     const andamentosParaInserir: any[] = [];
 
     for (const step of steps) {
-      const dataMovimentacao = step.date || step.data || step.data_movimentacao || step.step_date;
-      const descricao = step.description || step.descricao || step.content || '';
+      const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
+      const descricao = step.content || step.description || step.descricao || '';
       
       const key = generateAndamentoKey(dataMovimentacao, descricao);
       
@@ -110,7 +217,7 @@ serve(async (req) => {
           processo_oab_id: processo.id,
           tenant_id: processo.tenant_id,
           data_movimentacao: dataMovimentacao,
-          tipo_movimentacao: step.type || step.tipo || null,
+          tipo_movimentacao: step.step_type || step.type || step.tipo || null,
           descricao: descricao,
           dados_completos: step,
           lida: false
@@ -127,7 +234,6 @@ serve(async (req) => {
         .insert(andamentosParaInserir);
 
       if (insertError) {
-        // Se erro de duplicata, ignorar silenciosamente
         if (!insertError.message?.includes('duplicate') && !insertError.message?.includes('unique')) {
           console.error('[Judit Webhook OAB] Erro ao inserir andamentos:', insertError);
         }
@@ -145,10 +251,9 @@ serve(async (req) => {
         .eq('id', processo.id);
     }
 
-    console.log('[Judit Webhook OAB] Novos andamentos inseridos no processo principal:', novosAndamentos);
+    console.log('[Judit Webhook OAB] Novos andamentos inseridos:', novosAndamentos);
 
     // === PROPAGACAO PARA PROCESSOS COMPARTILHADOS ===
-    // Buscar outros processos com mesmo CNJ e tenant_id
     const { data: processosCompartilhados } = await supabase
       .from('processos_oab')
       .select('id, oab_id, tenant_id')
@@ -156,12 +261,11 @@ serve(async (req) => {
       .eq('tenant_id', processo.tenant_id)
       .neq('id', processo.id);
 
-    console.log('[Judit Webhook OAB] Processos compartilhados encontrados:', processosCompartilhados?.length || 0);
+    console.log('[Judit Webhook OAB] Processos compartilhados:', processosCompartilhados?.length || 0);
 
     // Propagar andamentos para processos compartilhados
     if (processosCompartilhados && processosCompartilhados.length > 0 && andamentosParaInserir.length > 0) {
       for (const outroProcesso of processosCompartilhados) {
-        // Buscar andamentos existentes do processo compartilhado
         const { data: existingOutro } = await supabase
           .from('processos_oab_andamentos')
           .select('descricao, data_movimentacao')
@@ -171,7 +275,6 @@ serve(async (req) => {
           (existingOutro || []).map(a => generateAndamentoKey(a.data_movimentacao, a.descricao))
         );
 
-        // Filtrar apenas andamentos que nao existem neste processo
         const andamentosParaOutro = andamentosParaInserir
           .filter(a => !existingKeysOutro.has(generateAndamentoKey(a.data_movimentacao, a.descricao)))
           .map(a => ({
@@ -187,11 +290,10 @@ serve(async (req) => {
 
           if (insertOutroError) {
             if (!insertOutroError.message?.includes('duplicate') && !insertOutroError.message?.includes('unique')) {
-              console.error('[Judit Webhook OAB] Erro propagando andamentos:', insertOutroError);
+              console.error('[Judit Webhook OAB] Erro propagando:', insertOutroError);
             }
           }
 
-          // Atualizar timestamp do processo compartilhado
           await supabase
             .from('processos_oab')
             .update({
@@ -201,13 +303,12 @@ serve(async (req) => {
             .eq('id', outroProcesso.id);
         }
 
-        console.log('[Judit Webhook OAB] Andamentos propagados para processo:', outroProcesso.id, andamentosParaOutro.length);
+        console.log('[Judit Webhook OAB] Propagado para:', outroProcesso.id, andamentosParaOutro.length);
       }
     }
 
     // === CRIAR NOTIFICACOES PARA USUARIOS ===
     if (novosAndamentos > 0) {
-      // Coletar todos os oab_ids envolvidos (principal + compartilhados)
       const todosOabIds = new Set<string>();
       todosOabIds.add(processo.oab_id);
       
@@ -217,16 +318,12 @@ serve(async (req) => {
         }
       }
 
-      // Buscar user_id e tenant_id de cada OAB
       const { data: oabs } = await supabase
         .from('oabs_cadastradas')
         .select('id, user_id, tenant_id')
         .in('id', Array.from(todosOabIds));
 
-      console.log('[Judit Webhook OAB] OABs encontradas para notificacao:', oabs?.length || 0);
-
       if (oabs && oabs.length > 0) {
-        // Criar conjunto de usuarios unicos (user_id + tenant_id)
         const usuariosUnicos = new Map<string, { user_id: string; tenant_id: string }>();
         
         for (const oab of oabs) {
@@ -241,9 +338,8 @@ serve(async (req) => {
           }
         }
 
-        console.log('[Judit Webhook OAB] Usuarios unicos para notificar:', usuariosUnicos.size);
+        console.log('[Judit Webhook OAB] Usuarios para notificar:', usuariosUnicos.size);
 
-        // Criar notificacao para cada usuario unico
         for (const [, userInfo] of usuariosUnicos) {
           const { error: notifError } = await supabase
             .from('notifications')
@@ -253,19 +349,19 @@ serve(async (req) => {
               type: 'andamento_processo',
               title: `${novosAndamentos} novo(s) andamento(s)`,
               content: `Processo ${processo.numero_cnj} recebeu atualizacao`,
-              related_project_id: processo.id, // Armazenamos o processo_oab_id aqui
-              triggered_by_user_id: userInfo.user_id, // Sistema notificando o proprio usuario
+              related_project_id: processo.id,
+              triggered_by_user_id: userInfo.user_id,
               is_read: false
             });
 
           if (notifError) {
-            console.error('[Judit Webhook OAB] Erro ao criar notificacao para usuario:', userInfo.user_id, notifError);
-          } else {
-            console.log('[Judit Webhook OAB] Notificacao criada para usuario:', userInfo.user_id);
+            console.error('[Judit Webhook OAB] Erro notificacao:', userInfo.user_id, notifError);
           }
         }
       }
     }
+
+    console.log('[Judit Webhook OAB] ========== FIM WEBHOOK ==========');
 
     return new Response(
       JSON.stringify({ 
