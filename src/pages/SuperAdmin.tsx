@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
@@ -17,6 +17,7 @@ import { SuperAdminMonitoramento } from '@/components/SuperAdmin/SuperAdminMonit
 import { SuperAdminDiagnosticoJudit } from '@/components/SuperAdmin/SuperAdminDiagnosticoJudit';
 import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImportCNJTest';
 import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
+import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthenticator';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -277,7 +278,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tenants" className="space-y-6">
-          <TabsList className="grid w-full max-w-6xl grid-cols-9">
+          <TabsList className="grid w-full max-w-7xl grid-cols-10">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -313,6 +314,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="config-pix" className="flex items-center gap-2">
               <QrCode className="w-4 h-4" />
               Config. PIX
+            </TabsTrigger>
+            <TabsTrigger value="authenticator" className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              Autenticador
             </TabsTrigger>
           </TabsList>
 
@@ -379,6 +384,10 @@ export default function SuperAdmin() {
             <div className="max-w-2xl">
               <SuperAdminPixConfig />
             </div>
+          </TabsContent>
+
+          <TabsContent value="authenticator">
+            <SuperAdminAuthenticator />
           </TabsContent>
         </Tabs>
       </main>
