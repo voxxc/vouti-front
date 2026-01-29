@@ -7,7 +7,8 @@ import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { LogOut, Settings, Loader2 } from "lucide-react";
+import { LogOut, Settings, Loader2, Clock } from "lucide-react";
+import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
@@ -45,6 +46,7 @@ const DashboardLayout = ({
 
   const [users, setUsers] = useState<UserType[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [totpSheetOpen, setTotpSheetOpen] = useState(false);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -156,8 +158,10 @@ const DashboardLayout = ({
   // Não mostrar loader interno se estamos em navegação global (overlay já está cobrindo)
   const isLoading = (authLoading || tenantLoading) && !isNavigating;
 
-  // Check if user is admin
-  const isCurrentUserAdmin = users.find((u) => u.id === user?.id)?.role === 'admin';
+  // Check if user is admin or controller (for TOTP access)
+  const currentUserRole = users.find((u) => u.id === user?.id)?.role;
+  const isCurrentUserAdmin = currentUserRole === 'admin';
+  const canSeeTOTP = currentUserRole === 'admin' || currentUserRole === 'controller';
 
   // Fetch pending avisos for admins
   const { avisosPendentes, confirmarCiencia } = useAvisosPendentes(
@@ -207,8 +211,19 @@ const DashboardLayout = ({
         {/* Header - Sticky */}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="flex items-center justify-between px-6 py-3">
-            {/* Left side - Quick search */}
-            <div className="hidden md:flex items-center">
+            {/* Left side - TOTP e Quick search */}
+            <div className="hidden md:flex items-center gap-2">
+              {canSeeTOTP && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setTotpSheetOpen(true)}
+                  title="Autenticador 2FA"
+                  className="h-9 w-9"
+                >
+                  <Clock className="h-5 w-5" />
+                </Button>
+              )}
               <ProjectQuickSearch tenantPath={tenantPath} />
             </div>
             <div className="w-10 md:hidden" />
@@ -268,6 +283,11 @@ const DashboardLayout = ({
         </main>
       </div>
       </div>
+      
+      {/* TOTP Sheet */}
+      {canSeeTOTP && (
+        <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} />
+      )}
     </>
   );
 };
