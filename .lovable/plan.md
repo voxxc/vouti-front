@@ -1,160 +1,143 @@
 
 
-## Plano: Autenticador TOTP Minimalista no Dashboard
+## Plano: Indicador Circular de Tempo (Timer Visual)
 
 ### Resumo
-Criar um botao de relogio no header do Dashboard (ao lado esquerdo da lupa de busca) que abre um Sheet lateral para gerenciar tokens TOTP. Visivel apenas para **Admins** e **Controllers**.
+Substituir a barra de progresso linear (`Progress`) por um indicador circular SVG que funciona como um relógio, começando cheio e "esvaziando" conforme os 30 segundos passam.
 
 ---
 
-## Arquivos a Criar
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/components/Dashboard/TOTPSheet.tsx` | Componente Sheet lateral com autenticador TOTP minimalista |
-
-## Arquivos a Modificar
-
-| Arquivo | Modificacao |
-|---------|-------------|
-| `src/components/Dashboard/DashboardLayout.tsx` | Adicionar botao de relogio e controle de visibilidade por role |
-
----
-
-## Layout Visual
+## Visual
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  [Sidebar]  │  [🕐] [QuickSearch...]        [🔍] [💬] [🔔] [☀]  │
-│             │   ↑                                               │
-│             │   NOVO! Botao de relogio                          │
-│             │   (apenas admin/controller)                       │
-├─────────────┼───────────────────────────────────────────────────┤
-│             │                                                   │
-│   Menu      │            Conteudo Principal                     │
-│             │                                                   │
-└─────────────┴───────────────────────────────────────────────────┘
-```
+Antes (barra linear):
+┌─────────────────────────────────────────┐
+│  Gmail                           [🗑]   │
+│                                         │
+│     4 2 3   8 9 1                       │
+│                                         │
+│  [████████████░░░░░░░░░] 18s            │
+└─────────────────────────────────────────┘
 
-Ao clicar no botao, abre Sheet lateral:
+Depois (timer circular):
+┌─────────────────────────────────────────┐
+│  Gmail                           [🗑]   │
+│                                         │
+│     4 2 3   8 9 1          ⏱            │
+│                           (18)          │
+│                                         │
+└─────────────────────────────────────────┘
 
-```text
-                                    ┌─────────────────────────────┐
-                                    │  Autenticador 2FA       [X] │
-                                    ├─────────────────────────────┤
-                                    │                             │
-                                    │  [+ Novo Token]             │
-                                    │                             │
-                                    │  ┌─────────────────────────┐│
-                                    │  │ Gmail                   ││
-                                    │  │                         ││
-                                    │  │   4 2 3   8 9 1         ││
-                                    │  │                         ││
-                                    │  │ [████████░░░░] 12s      ││
-                                    │  │ [Copiar]        [Excluir]│
-                                    │  └─────────────────────────┘│
-                                    │                             │
-                                    │  ┌─────────────────────────┐│
-                                    │  │ Projudi                 ││
-                                    │  │                         ││
-                                    │  │   7 5 6   0 2 4         ││
-                                    │  │                         ││
-                                    │  │ [██████░░░░░░] 8s       ││
-                                    │  │ [Copiar]        [Excluir]│
-                                    │  └─────────────────────────┘│
-                                    │                             │
-                                    └─────────────────────────────┘
+O circulo:
+  - Comeca CHEIO (30s)
+  - Vai "gastando" no sentido horario
+  - Quando chega em 0, reseta para cheio
+  - Numero de segundos no centro
 ```
 
 ---
 
-## Detalhes Tecnicos
+## Implementacao Tecnica
 
-### 1. Componente `TOTPSheet.tsx`
+### Componente CircularTimer (SVG)
+
+Criar um componente inline no `TOTPSheet.tsx` usando SVG:
 
 ```typescript
-interface TOTPSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface CircularTimerProps {
+  secondsRemaining: number;
+  totalSeconds?: number;
+}
+
+function CircularTimer({ secondsRemaining, totalSeconds = 30 }: CircularTimerProps) {
+  const size = 40;
+  const strokeWidth = 3;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = secondsRemaining / totalSeconds;
+  const strokeDashoffset = circumference * (1 - progress);
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width={size} height={size} className="transform -rotate-90">
+        {/* Circulo de fundo */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-muted/20"
+        />
+        {/* Circulo de progresso (vai diminuindo) */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="text-primary transition-all duration-1000 ease-linear"
+        />
+      </svg>
+      {/* Numero no centro */}
+      <span className="absolute text-xs font-medium text-muted-foreground">
+        {secondsRemaining}
+      </span>
+    </div>
+  );
 }
 ```
 
-**Funcionalidades:**
-- Lista de tokens em cards compactos
-- Codigo grande em fonte mono (formato: `123 456`)
-- Progress bar minimalista (30 segundos)
-- Botao copiar com feedback (icone muda para check)
-- Dialog para adicionar novo token (nome + secret)
-- Confirmacao para excluir
-- Armazenamento em `localStorage` (`vouti_totp_tokens`)
+### Modificacoes no Layout do Card
 
-**Caracteristicas minimalistas:**
-- Sem tabs, apenas lista vertical
-- Cards compactos com informacao essencial
-- Animacoes suaves
-- Cores neutras (primary para destaque)
+Reorganizar para colocar o timer ao lado do codigo:
 
-### 2. Modificacao do `DashboardLayout.tsx`
-
-**Adicionar imports:**
 ```typescript
-import { Clock } from "lucide-react";
-import { TOTPSheet } from "./TOTPSheet";
-```
-
-**Adicionar estado:**
-```typescript
-const [totpSheetOpen, setTotpSheetOpen] = useState(false);
-
-// Verificar se usuario e admin ou controller
-const currentUserRole = users.find((u) => u.id === user?.id)?.role;
-const canSeeTOTP = currentUserRole === 'admin' || currentUserRole === 'controller';
-```
-
-**Adicionar botao no header (antes do GlobalSearch):**
-```typescript
-{/* Left side - TOTP e Quick search */}
-<div className="hidden md:flex items-center gap-2">
-  {canSeeTOTP && (
-    <Button 
-      variant="ghost" 
-      size="icon"
-      onClick={() => setTotpSheetOpen(true)}
-      title="Autenticador 2FA"
-    >
-      <Clock className="h-5 w-5" />
-    </Button>
-  )}
-  <ProjectQuickSearch tenantPath={tenantPath} />
-</div>
-```
-
-**Adicionar Sheet no JSX:**
-```typescript
-{canSeeTOTP && (
-  <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} />
-)}
+<button onClick={() => handleCopy(...)} className="w-full text-left group">
+  <div className="flex items-center justify-between">
+    <div className="text-3xl font-mono font-bold tracking-wider">
+      {formatCode(codes[token.id] || '------')}
+      {copiedId === token.id ? (
+        <Check className="inline h-5 w-5 text-green-500 ml-2" />
+      ) : (
+        <Copy className="inline h-5 w-5 opacity-0 group-hover:opacity-50 ml-2" />
+      )}
+    </div>
+    <CircularTimer secondsRemaining={secondsRemaining} />
+  </div>
+</button>
 ```
 
 ---
 
-## Fluxo de Uso
+## Arquivo a Modificar
 
-1. Admin/Controller acessa Dashboard
-2. Ve icone de relogio ao lado da busca rapida
-3. Clica no icone -> abre Sheet lateral
-4. Pode adicionar novos tokens (nome + secret Base32)
-5. Codigos atualizam em tempo real (a cada segundo)
-6. Clica no codigo ou botao para copiar
-7. Fecha Sheet e continua trabalhando
+| Arquivo | Modificacao |
+|---------|-------------|
+| `src/components/Dashboard/TOTPSheet.tsx` | Adicionar componente CircularTimer e substituir Progress |
 
 ---
 
-## Vantagens
+## Comportamento Visual
 
-1. **Minimalista**: Interface limpa sem poluir o Dashboard
-2. **Acesso rapido**: Um clique para abrir
-3. **Discreto**: So admins/controllers veem o botao
-4. **Nao intrusivo**: Sheet lateral nao bloqueia o conteudo
-5. **Reutiliza totp.ts**: Aproveita a implementacao ja existente
+1. **30s restantes**: Circulo CHEIO (100%)
+2. **15s restantes**: Circulo pela METADE (50%)
+3. **5s restantes**: Pequeno arco restante + cor muda para vermelho/alerta
+4. **0s -> 30s**: Circulo reseta para cheio, novo codigo gerado
+
+---
+
+## Detalhes de Estilo
+
+- **Tamanho**: 40x40px (compacto)
+- **Animacao**: Transicao suave de 1 segundo entre estados
+- **Cores**: 
+  - Normal: `text-primary` (cor do tema)
+  - Ultimos 5s: `text-destructive` (vermelho/alerta)
+- **Fundo**: Circulo cinza claro para contraste
 
