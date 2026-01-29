@@ -69,6 +69,21 @@ async function fetchResponsesByRequestId(requestId: string, apiKey: string): Pro
   return await response.json();
 }
 
+interface TenantResult {
+  tenant_id: string;
+  tenant_name: string;
+  processos_verificados: number;
+  processos_atualizados: number;
+  novos_andamentos: number;
+  processos_detalhes: Array<{
+    numero_cnj: string;
+    novos_andamentos: number;
+    ultimo_andamento_data: string | null;
+    status: 'atualizado' | 'sem_novos' | 'erro';
+    erro?: string;
+  }>;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -126,6 +141,15 @@ serve(async (req) => {
 
     console.log(`[SYNC] Starting sync${tenantId ? ` for tenant ${tenantId}` : ' for ALL tenants'}`);
 
+    // Fetch all tenants first for name mapping
+    const { data: allTenants } = await supabase
+      .from('tenants')
+      .select('id, name')
+      .eq('is_active', true);
+
+    const tenantNameMap = new Map<string, string>();
+    allTenants?.forEach(t => tenantNameMap.set(t.id, t.name));
+
     // Fetch all monitored processes
     let query = supabase
       .from('processos_oab')
@@ -149,12 +173,16 @@ serve(async (req) => {
 
     console.log(`[SYNC] Found ${processos?.length || 0} monitored processes`);
 
+    // Initialize results structure
+    const resultsByTenant = new Map<string, TenantResult>();
+    
     const results = {
       total_processos: processos?.length || 0,
       processos_verificados: 0,
       processos_atualizados: 0,
       novos_andamentos: 0,
       erros: [] as string[],
+      por_tenant: [] as TenantResult[],
     };
 
     if (!processos || processos.length === 0) {
@@ -166,15 +194,40 @@ serve(async (req) => {
 
     // Process each monitored process
     for (const processo of processos) {
+      const tenantKey = processo.tenant_id;
+      
+      // Initialize tenant result if needed
+      if (!resultsByTenant.has(tenantKey)) {
+        resultsByTenant.set(tenantKey, {
+          tenant_id: tenantKey,
+          tenant_name: tenantNameMap.get(tenantKey) || 'Desconhecido',
+          processos_verificados: 0,
+          processos_atualizados: 0,
+          novos_andamentos: 0,
+          processos_detalhes: [],
+        });
+      }
+      
+      const tenantResult = resultsByTenant.get(tenantKey)!;
+      
       try {
         console.log(`[SYNC] Processing: ${processo.numero_cnj} (tracking: ${processo.tracking_id})`);
         results.processos_verificados++;
+        tenantResult.processos_verificados++;
 
         // Step 1: Get tracking data
         const trackingData = await fetchTrackingData(processo.tracking_id, juditApiKey);
         
         if (!trackingData) {
-          results.erros.push(`${processo.numero_cnj}: Falha ao buscar tracking data`);
+          const erro = `Falha ao buscar tracking data`;
+          results.erros.push(`${processo.numero_cnj}: ${erro}`);
+          tenantResult.processos_detalhes.push({
+            numero_cnj: processo.numero_cnj,
+            novos_andamentos: 0,
+            ultimo_andamento_data: null,
+            status: 'erro',
+            erro,
+          });
           continue;
         }
 
@@ -191,6 +244,12 @@ serve(async (req) => {
 
         if (!requestId) {
           console.log(`[SYNC] No request_id found for ${processo.numero_cnj}`);
+          tenantResult.processos_detalhes.push({
+            numero_cnj: processo.numero_cnj,
+            novos_andamentos: 0,
+            ultimo_andamento_data: null,
+            status: 'sem_novos',
+          });
           continue;
         }
 
@@ -201,6 +260,12 @@ serve(async (req) => {
 
         if (!responsesData || !responsesData.page_data || responsesData.page_data.length === 0) {
           console.log(`[SYNC] No responses found for ${processo.numero_cnj}`);
+          tenantResult.processos_detalhes.push({
+            numero_cnj: processo.numero_cnj,
+            novos_andamentos: 0,
+            ultimo_andamento_data: null,
+            status: 'sem_novos',
+          });
           continue;
         }
 
@@ -218,6 +283,7 @@ serve(async (req) => {
         }
 
         let processNewCount = 0;
+        let latestAndamentoDate: string | null = null;
 
         // Process each response
         for (const item of responsesData.page_data) {
@@ -254,12 +320,20 @@ serve(async (req) => {
               existingKeys.add(key); // Prevent duplicates in same batch
               processNewCount++;
               results.novos_andamentos++;
+              tenantResult.novos_andamentos++;
+              
+              // Track latest date
+              const normalizedDate = normalizeTimestamp(stepDate);
+              if (normalizedDate && (!latestAndamentoDate || normalizedDate > latestAndamentoDate)) {
+                latestAndamentoDate = normalizedDate;
+              }
             }
           }
         }
 
         if (processNewCount > 0) {
           results.processos_atualizados++;
+          tenantResult.processos_atualizados++;
           
           // Update process timestamp
           await supabase
@@ -270,6 +344,20 @@ serve(async (req) => {
             .eq('id', processo.id);
 
           console.log(`[SYNC] Added ${processNewCount} new andamentos for ${processo.numero_cnj}`);
+          
+          tenantResult.processos_detalhes.push({
+            numero_cnj: processo.numero_cnj,
+            novos_andamentos: processNewCount,
+            ultimo_andamento_data: latestAndamentoDate,
+            status: 'atualizado',
+          });
+        } else {
+          tenantResult.processos_detalhes.push({
+            numero_cnj: processo.numero_cnj,
+            novos_andamentos: 0,
+            ultimo_andamento_data: null,
+            status: 'sem_novos',
+          });
         }
 
         // Small delay to avoid rate limiting
@@ -277,11 +365,30 @@ serve(async (req) => {
 
       } catch (error) {
         console.error(`[SYNC] Error processing ${processo.numero_cnj}:`, error);
-        results.erros.push(`${processo.numero_cnj}: ${error.message}`);
+        const erro = error.message;
+        results.erros.push(`${processo.numero_cnj}: ${erro}`);
+        
+        tenantResult.processos_detalhes.push({
+          numero_cnj: processo.numero_cnj,
+          novos_andamentos: 0,
+          ultimo_andamento_data: null,
+          status: 'erro',
+          erro,
+        });
       }
     }
 
-    console.log('[SYNC] Sync completed:', results);
+    // Convert Map to array and sort by tenant name
+    results.por_tenant = Array.from(resultsByTenant.values())
+      .sort((a, b) => a.tenant_name.localeCompare(b.tenant_name));
+
+    console.log('[SYNC] Sync completed:', {
+      total: results.total_processos,
+      verificados: results.processos_verificados,
+      atualizados: results.processos_atualizados,
+      novos: results.novos_andamentos,
+      tenants: results.por_tenant.length,
+    });
 
     return new Response(JSON.stringify(results), {
       status: 200,
