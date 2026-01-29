@@ -30,6 +30,8 @@ export interface TenantBoleto {
   url_boleto: string | null;
   codigo_barras: string | null;
   observacao: string | null;
+  metodos_disponiveis: string[] | null;
+  link_cartao: string | null;
   created_at: string;
   updated_at: string;
 }

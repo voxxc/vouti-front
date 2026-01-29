@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -29,7 +29,8 @@ import {
   Clock,
   AlertCircle,
   Zap,
-  CreditCard
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,6 +40,8 @@ interface BoletoPaymentDialogProps {
   boleto: TenantBoleto | null;
   onDownloadBoleto: (path: string, fileName: string) => Promise<boolean>;
 }
+
+type PaymentMethod = 'boleto' | 'pix' | 'cartao';
 
 export function BoletoPaymentDialog({
   open,
@@ -55,13 +58,26 @@ export function BoletoPaymentDialog({
   const [comprovante, setComprovante] = useState<File | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [confirmacoes, setConfirmacoes] = useState<PaymentConfirmation[]>([]);
-  const [activeTab, setActiveTab] = useState('boleto');
+  const [activeTab, setActiveTab] = useState<PaymentMethod>('boleto');
 
+  // Determinar métodos disponíveis
+  const metodosDisponiveis = useMemo(() => {
+    const metodos = boleto?.metodos_disponiveis as PaymentMethod[] | null;
+    return metodos && metodos.length > 0 ? metodos : ['boleto', 'pix'] as PaymentMethod[];
+  }, [boleto?.metodos_disponiveis]);
+
+  const hasBoleto = metodosDisponiveis.includes('boleto');
+  const hasPix = metodosDisponiveis.includes('pix');
+  const hasCartao = metodosDisponiveis.includes('cartao');
+
+  // Definir tab inicial baseado no primeiro método disponível
   useEffect(() => {
-    if (boleto && open) {
+    if (open && boleto) {
+      const defaultTab = hasBoleto ? 'boleto' : hasPix ? 'pix' : 'cartao';
+      setActiveTab(defaultTab);
       buscarConfirmacoes(boleto.id).then(setConfirmacoes);
     }
-  }, [boleto, open]);
+  }, [boleto, open, hasBoleto, hasPix]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -88,12 +104,18 @@ export function BoletoPaymentDialog({
     setDownloading(false);
   };
 
+  const handleOpenPaymentLink = () => {
+    if (boleto?.link_cartao) {
+      window.open(boleto.link_cartao, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleConfirmarPagamento = async () => {
     if (!boleto) return;
     
     const success = await confirmarPagamento({
       boleto_id: boleto.id,
-      metodo: activeTab as 'pix' | 'boleto',
+      metodo: activeTab,
       comprovante: comprovante || undefined
     });
 
@@ -120,6 +142,7 @@ export function BoletoPaymentDialog({
   if (!boleto) return null;
 
   const hasPendingConfirmation = confirmacoes.some(c => c.status === 'pendente');
+  const tabCount = [hasBoleto, hasPix, hasCartao].filter(Boolean).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -145,112 +168,169 @@ export function BoletoPaymentDialog({
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="boleto" className="gap-2">
-              <FileText className="w-4 h-4" />
-              Boleto
-            </TabsTrigger>
-            <TabsTrigger value="pix" className="gap-2" disabled={!pixConfig}>
-              <QrCode className="w-4 h-4" />
-              PIX
-              {!pixConfig && <span className="text-xs">(indisponível)</span>}
-            </TabsTrigger>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PaymentMethod)} className="mt-2">
+          <TabsList className={`grid w-full grid-cols-${tabCount}`}>
+            {hasBoleto && (
+              <TabsTrigger value="boleto" className="gap-2">
+                <FileText className="w-4 h-4" />
+                Boleto
+              </TabsTrigger>
+            )}
+            {hasPix && (
+              <TabsTrigger value="pix" className="gap-2" disabled={!pixConfig}>
+                <QrCode className="w-4 h-4" />
+                PIX
+                {!pixConfig && <span className="text-xs">(indisponível)</span>}
+              </TabsTrigger>
+            )}
+            {hasCartao && (
+              <TabsTrigger value="cartao" className="gap-2">
+                <CreditCard className="w-4 h-4" />
+                Cartão
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value="boleto" className="mt-4 space-y-4">
-            {boleto.codigo_barras && (
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Linha Digitável</Label>
-                <div className="flex gap-2">
-                  <code className="flex-1 text-xs bg-muted p-3 rounded-lg break-all font-mono">
-                    {boleto.codigo_barras}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => copyToClipboard(boleto.codigo_barras!, 'barcode')}
-                  >
-                    {copiedField === 'barcode' ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {boleto.url_boleto && (
-              <Button
-                onClick={handleDownload}
-                disabled={downloading}
-                className="w-full gap-2"
-              >
-                {downloading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                Baixar Boleto PDF
-              </Button>
-            )}
-          </TabsContent>
-
-          <TabsContent value="pix" className="mt-4 space-y-4">
-            {loadingPix ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin" />
-              </div>
-            ) : pixConfig ? (
-              <>
-                {pixConfig.qr_code_url && (
-                  <div className="flex justify-center">
-                    <img
-                      src={pixConfig.qr_code_url}
-                      alt="QR Code PIX"
-                      className="w-48 h-48 rounded-lg border"
-                    />
-                  </div>
-                )}
-
+          {hasBoleto && (
+            <TabsContent value="boleto" className="mt-4 space-y-4">
+              {boleto.codigo_barras && (
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground">Chave PIX</Label>
+                  <Label className="text-muted-foreground">Linha Digitável</Label>
                   <div className="flex gap-2">
-                    <code className="flex-1 text-sm bg-muted p-3 rounded-lg break-all">
-                      {pixConfig.chave_pix}
+                    <code className="flex-1 text-xs bg-muted p-3 rounded-lg break-all font-mono">
+                      {boleto.codigo_barras}
                     </code>
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => copyToClipboard(pixConfig.chave_pix, 'pix')}
+                      onClick={() => copyToClipboard(boleto.codigo_barras!, 'barcode')}
                     >
-                      {copiedField === 'pix' ? (
-                        <Check className="w-4 h-4 text-green-500" />
+                      {copiedField === 'barcode' ? (
+                        <Check className="w-4 h-4 text-primary" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Beneficiário: {pixConfig.nome_beneficiario}
-                  </p>
                 </div>
+              )}
 
-                <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                  <Zap className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">Dica:</strong> Você pode agendar uma transferência recorrente no seu banco para evitar atrasos de pagamento!
+              {boleto.url_boleto && (
+                <Button
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="w-full gap-2"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Baixar Boleto PDF
+                </Button>
+              )}
+
+              {!boleto.codigo_barras && !boleto.url_boleto && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhum boleto disponível</p>
+                </div>
+              )}
+            </TabsContent>
+          )}
+
+          {hasPix && (
+            <TabsContent value="pix" className="mt-4 space-y-4">
+              {loadingPix ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                </div>
+              ) : pixConfig ? (
+                <>
+                  {pixConfig.qr_code_url && (
+                    <div className="flex justify-center">
+                      <img
+                        src={pixConfig.qr_code_url}
+                        alt="QR Code PIX"
+                        className="w-48 h-48 rounded-lg border"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Chave PIX</Label>
+                    <div className="flex gap-2">
+                      <code className="flex-1 text-sm bg-muted p-3 rounded-lg break-all">
+                        {pixConfig.chave_pix}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => copyToClipboard(pixConfig.chave_pix, 'pix')}
+                      >
+                        {copiedField === 'pix' ? (
+                          <Check className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Beneficiário: {pixConfig.nome_beneficiario}
+                    </p>
+                  </div>
+
+                  <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                    <Zap className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-muted-foreground">
+                      <strong className="text-foreground">Dica:</strong> Você pode agendar uma transferência recorrente no seu banco para evitar atrasos de pagamento!
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <QrCode className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>PIX não está disponível no momento</p>
+                </div>
+              )}
+            </TabsContent>
+          )}
+
+          {hasCartao && (
+            <TabsContent value="cartao" className="mt-4 space-y-4">
+              <div className="text-center py-6">
+                <CreditCard className="w-16 h-16 mx-auto mb-4 text-primary opacity-80" />
+                <h3 className="font-semibold text-lg mb-2">Pagamento com Cartão de Crédito</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Clique no botão abaixo para ser redirecionado para a página de pagamento seguro.
+                </p>
+                
+                <Button
+                  onClick={handleOpenPaymentLink}
+                  size="lg"
+                  className="w-full gap-2"
+                  disabled={!boleto.link_cartao}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  PAGAR AGORA
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+
+                {!boleto.link_cartao && (
+                  <p className="text-xs text-destructive mt-2">
+                    Link de pagamento não disponível
+                  </p>
+                )}
+
+                <div className="flex items-start gap-2 p-3 bg-muted rounded-lg mt-4 text-left">
+                  <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground">
+                    Você será redirecionado para uma página externa de pagamento seguro. Após concluir, volte aqui e confirme seu pagamento.
                   </p>
                 </div>
-              </>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <QrCode className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>PIX não está disponível no momento</p>
               </div>
-            )}
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
 
         <Separator className="my-2" />

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useTenantBoletos, CreateBoletoData, TenantBoleto } from '@/hooks/useTenantBoletos';
+import { useTenantBoletos, CreateBoletoData, TenantBoleto, PaymentMethod } from '@/hooks/useTenantBoletos';
 import { Tenant } from '@/types/superadmin';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -44,7 +45,9 @@ import {
   Upload,
   FileText,
   ExternalLink,
-  CreditCard
+  CreditCard,
+  QrCode,
+  Link as LinkIcon
 } from 'lucide-react';
 import { PaymentConfirmationsTab } from './PaymentConfirmationsTab';
 
@@ -69,7 +72,9 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
     valor: 0,
     data_vencimento: '',
     codigo_barras: '',
-    observacao: ''
+    observacao: '',
+    metodos_disponiveis: ['boleto', 'pix'],
+    link_cartao: ''
   });
 
   const resetForm = () => {
@@ -78,10 +83,26 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
       valor: 0,
       data_vencimento: '',
       codigo_barras: '',
-      observacao: ''
+      observacao: '',
+      metodos_disponiveis: ['boleto', 'pix'],
+      link_cartao: ''
     });
     setSelectedFile(null);
     setShowAddForm(false);
+  };
+
+  const toggleMethod = (method: PaymentMethod) => {
+    setFormData(prev => {
+      const current = prev.metodos_disponiveis || [];
+      if (current.includes(method)) {
+        return { ...prev, metodos_disponiveis: current.filter(m => m !== method) };
+      }
+      return { ...prev, metodos_disponiveis: [...current, method] };
+    });
+  };
+
+  const hasMethod = (method: PaymentMethod) => {
+    return formData.metodos_disponiveis?.includes(method) || false;
   };
 
   const handleSubmit = async () => {
@@ -296,6 +317,65 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
                         rows={2}
                       />
                     </div>
+
+                    {/* Métodos de pagamento disponíveis */}
+                    <div className="col-span-2 pt-2">
+                      <Label className="mb-3 block">Métodos de Pagamento Disponíveis</Label>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="metodo-boleto"
+                            checked={hasMethod('boleto')}
+                            onCheckedChange={() => toggleMethod('boleto')}
+                          />
+                          <label htmlFor="metodo-boleto" className="text-sm flex items-center gap-1.5 cursor-pointer">
+                            <FileText className="w-4 h-4" />
+                            Boleto
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="metodo-pix"
+                            checked={hasMethod('pix')}
+                            onCheckedChange={() => toggleMethod('pix')}
+                          />
+                          <label htmlFor="metodo-pix" className="text-sm flex items-center gap-1.5 cursor-pointer">
+                            <QrCode className="w-4 h-4" />
+                            PIX
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="metodo-cartao"
+                            checked={hasMethod('cartao')}
+                            onCheckedChange={() => toggleMethod('cartao')}
+                          />
+                          <label htmlFor="metodo-cartao" className="text-sm flex items-center gap-1.5 cursor-pointer">
+                            <CreditCard className="w-4 h-4" />
+                            Cartão
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Link de pagamento para Cartão */}
+                    {hasMethod('cartao') && (
+                      <div className="col-span-2">
+                        <Label className="flex items-center gap-1.5">
+                          <LinkIcon className="w-4 h-4" />
+                          Link de Pagamento (Cartão) *
+                        </Label>
+                        <Input
+                          value={formData.link_cartao || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, link_cartao: e.target.value }))}
+                          placeholder="https://pay.exemplo.com/checkout/..."
+                          type="url"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Insira o link do gateway de pagamento (Mercado Pago, PagSeguro, Stripe, etc.)
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex justify-end gap-2 pt-2">
@@ -304,7 +384,14 @@ export function SuperAdminBoletosDialog({ tenant, open, onOpenChange }: SuperAdm
                     </Button>
                     <Button 
                       onClick={handleSubmit}
-                      disabled={saving || !formData.mes_referencia || !formData.valor || !formData.data_vencimento}
+                      disabled={
+                        saving || 
+                        !formData.mes_referencia || 
+                        !formData.valor || 
+                        !formData.data_vencimento ||
+                        (hasMethod('cartao') && !formData.link_cartao) ||
+                        (formData.metodos_disponiveis?.length === 0)
+                      }
                     >
                       {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                       Salvar Cobrança

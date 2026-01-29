@@ -7,7 +7,7 @@ export interface PaymentConfirmation {
   id: string;
   boleto_id: string;
   tenant_id: string;
-  metodo: 'pix' | 'boleto';
+  metodo: 'pix' | 'boleto' | 'cartao';
   data_confirmacao: string;
   comprovante_path: string | null;
   status: 'pendente' | 'aprovado' | 'rejeitado';
@@ -50,7 +50,7 @@ export function usePaymentConfirmation() {
 
   const confirmarPagamento = async (data: {
     boleto_id: string;
-    metodo: 'pix' | 'boleto';
+    metodo: 'pix' | 'boleto' | 'cartao';
     comprovante?: File;
   }): Promise<boolean> => {
     if (!tenantId) {
