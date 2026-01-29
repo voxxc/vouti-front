@@ -1,148 +1,102 @@
 
 
-## Melhorias no Super Admin - Detalhamento por Tenant e Investigacao de Processos
+## Plano: Criar Ferramenta de Diagnóstico de Tracking Judit
 
-### Analise dos Problemas
+### Objetivo
+Criar uma edge function e interface no Super Admin para consultar diretamente o status de um `tracking_id` na API Judit e verificar se há um novo `request_id` disponível.
 
-**Problema 1: Processos sem atualizacao**
-Os processos `0045144-39.2025.8.16.0021` e `0002836-50.2025.8.16.0065` nao receberam novos andamentos porque:
-- A API Judit retorna os dados do `request_id` mais recente do tracking
-- Se nao houver novo request_id apos a ultima sincronizacao, os mesmos dados sao retornados
-- A deduplicacao impede insercao de dados ja existentes (correto)
-- **Possivel causa**: O monitoramento da Judit ainda nao processou novas atualizacoes para esses processos
-
-**Problema 2: Super Admin sem detalhes**
-Atualmente mostra apenas totais agregados, sem visibilidade de:
-- Quais processos foram atualizados
-- Detalhes por tenant
-- Navegacao entre tenants
+### Por que isso é necessário?
+Atualmente, não existe nenhuma forma de consultar diretamente o endpoint `GET /tracking/{tracking_id}` para verificar o status de um monitoramento. A função `judit-sync-monitorados` faz isso internamente, mas não expõe os resultados de forma isolada para diagnóstico.
 
 ---
 
-### Solucao Proposta
+## Etapas de Implementação
 
-#### Parte 1: Melhorar Retorno da Edge Function
+### 1. Criar Edge Function `judit-consultar-tracking`
 
-Modificar `judit-sync-monitorados` para retornar dados detalhados por tenant e processo:
+**Arquivo:** `supabase/functions/judit-consultar-tracking/index.ts`
 
-```typescript
-interface SyncResultDetailed {
-  total_processos: number;
-  processos_verificados: number;
-  processos_atualizados: number;
-  novos_andamentos: number;
-  erros: string[];
-  // NOVO: Detalhes por tenant
-  por_tenant: {
-    tenant_id: string;
-    tenant_name: string;
-    processos_verificados: number;
-    processos_atualizados: number;
-    novos_andamentos: number;
-    processos_detalhes: {
-      numero_cnj: string;
-      novos_andamentos: number;
-      ultimo_andamento_data?: string;
-    }[];
-  }[];
+**Funcionalidade:**
+- Receber um `tracking_id` como parâmetro
+- Fazer `GET https://tracking.prod.judit.io/tracking/{tracking_id}`
+- Retornar o JSON completo da Judit incluindo:
+  - `request_id` atual
+  - `status` do monitoramento
+  - `page_data` com histórico de requests
+  - Timestamps relevantes
+
+**Exemplo de resposta:**
+```json
+{
+  "success": true,
+  "tracking_id": "f4f02f6d-0b2a-4381-bf89-2202505e2291",
+  "request_id_atual": "ce56249a-a9f5-4b7e-b16e-36e9c1da9207",
+  "raw_response": { ... dados completos da Judit ... }
 }
 ```
 
----
+### 2. Adicionar Interface no Super Admin
 
-#### Parte 2: Redesenhar Interface do Super Admin
+**Localização:** Nova aba "Diagnóstico Judit" ou dentro da aba "Monitoramento" existente
 
-**Nova estrutura com abas por tenant:**
+**Componentes:**
+- Campo de input para inserir `tracking_id` ou número CNJ
+- Botão "Consultar Status"
+- Área de exibição do resultado com:
+  - Request ID atual retornado pela Judit
+  - Request ID salvo no banco de dados
+  - Indicador visual de diferença (novo vs. mesmo)
+  - JSON completo da resposta para debug
 
-```
-+----------------------------------------------------------+
-|  Monitoramento de Processos                              |
-|  [Todos os Tenants v] [Sincronizar Agora]                |
-+----------------------------------------------------------+
-|                                                          |
-|  Cards de Resumo (Total, Ativos, Sem Tracking)           |
-|                                                          |
-+----------------------------------------------------------+
-|  Resultado da Ultima Sincronizacao                       |
-|  +-------------------------------------------------------+
-|  | [Solvenza] [AMSADV] [Outro Tenant]                    | <- Abas
-|  +-------------------------------------------------------+
-|  | Solvenza - 45 processos verificados                   |
-|  | +---------------------------------------------------+ |
-|  | | CNJ                    | Novos | Ultimo Andamento | |
-|  | |------------------------|-------|------------------| |
-|  | | 0012919-29.2025...     |   3   | 26/01/2026       | |
-|  | | 1052085-77.2023...     |   4   | 28/01/2026       | |
-|  | | (processos sem novos andamentos ficam colapsados) | |
-|  | +---------------------------------------------------+ |
-|  +-------------------------------------------------------+
-+----------------------------------------------------------+
-```
+### 3. Comparar com Dados do Banco
+
+A interface mostrará lado a lado:
+- **Da Judit API:** request_id retornado agora
+- **Do Banco:** request_id salvo (`detalhes_request_id`)
+- **Status:** "NOVO REQUEST ID DISPONÍVEL" ou "MESMO REQUEST ID"
 
 ---
 
-### Arquivos a Modificar
+## Detalhes Técnicos
 
-| Arquivo | Acao |
-|---------|------|
-| `supabase/functions/judit-sync-monitorados/index.ts` | Modificar para retornar dados detalhados por tenant |
-| `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` | Redesenhar UI com abas por tenant e lista de processos |
-
----
-
-### Detalhes Tecnicos
-
-#### Edge Function - Mudancas
+### Edge Function - Estrutura
 
 ```typescript
-// Estrutura de resultado detalhado
-const resultsByTenant = new Map<string, {
-  tenant_id: string;
-  tenant_name: string;
-  processos_verificados: number;
-  processos_atualizados: number;
-  novos_andamentos: number;
-  processos_detalhes: Array<{
-    numero_cnj: string;
-    novos_andamentos: number;
-    ultimo_andamento_data?: string;
-  }>;
-}>();
-
-// Durante o loop, acumular resultados por tenant
-// Buscar nome do tenant ao iniciar
-// Adicionar detalhes de cada processo atualizado
+// GET /tracking/{tracking_id} na Judit
+const response = await fetch(
+  `https://tracking.prod.judit.io/tracking/${trackingId}`,
+  {
+    method: 'GET',
+    headers: {
+      'api-key': juditApiKey,
+      'Content-Type': 'application/json',
+    },
+  }
+);
 ```
 
-#### Frontend - Mudancas
-
-1. **Interface atualizada** para receber dados detalhados
-2. **Componente de Tabs** para navegar entre tenants
-3. **Tabela de processos** mostrando quais tiveram atualizacoes
-4. **Filtro** para mostrar apenas processos com novos andamentos
-5. **Indicadores visuais** para processos que deveriam ter atualizado mas nao atualizaram
+### Segurança
+- Apenas Super Admins podem acessar essa função
+- Validação do JWT obrigatória
+- Verificação na tabela `super_admins`
 
 ---
 
-### Resultado Esperado
+## Caso de Uso Imediato
 
-Apos implementacao:
-1. Super Admin vera exatamente quais processos foram atualizados
-2. Navegacao por abas permite focar em tenant especifico
-3. Lista detalhada mostra CNJ + quantidade de novos andamentos + data
-4. Facilita identificar processos que nao estao recebendo atualizacoes da Judit
+Após implementação, você poderá:
+1. Acessar Super Admin > Diagnóstico
+2. Inserir tracking_id: `f4f02f6d-0b2a-4381-bf89-2202505e2291`
+3. Ver se a Judit retorna um novo `request_id` ou o mesmo `ce56249a...`
+4. Se retornar o mesmo, confirma que a Judit não está gerando novos dados
 
 ---
 
-### Sobre os Processos Sem Atualizacao
+## Arquivos a Criar/Modificar
 
-Os processos `0045144-39.2025.8.16.0021` e `0002836-50.2025.8.16.0065` nao atualizaram porque:
-
-1. **A API Judit retorna o mesmo request_id** - nao houve nova consulta
-2. **Os andamentos ja existem no banco** - deduplicacao funciona corretamente
-3. **Possiveis causas**:
-   - O monitoramento diario da Judit ainda nao executou para esses processos
-   - O webhook da Judit nao esta sendo chamado (problema ja identificado anteriormente)
-
-**Recomendacao**: Apos implementar as melhorias de visibilidade, poderemos identificar quais processos estao com problema no lado da Judit. Se necessario, podemos criar um botao para "Forcar Nova Consulta" que faz um POST para a Judit solicitar nova busca dos dados (isso teria custo adicional na API).
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/judit-consultar-tracking/index.ts` | Criar |
+| `src/pages/super-admin/components/JuditDiagnosticoTab.tsx` | Criar |
+| `src/pages/super-admin/SuperAdminPage.tsx` | Modificar (adicionar aba) |
 
