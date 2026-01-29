@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
+import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
 import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
@@ -42,6 +43,7 @@ export default function SuperAdmin() {
   } = useSuperAdmin();
 
   const { totalPendentes } = useAllCredenciaisPendentes();
+  const { totalPendentes: totalPagamentosPendentes, porTenant: pagamentosPorTenant } = useAllPaymentConfirmations();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -244,6 +246,24 @@ export default function SuperAdmin() {
                   </Badge>
                 )}
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative"
+                disabled
+                title="Pagamentos pendentes de aprovação"
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Pagamentos
+                {totalPagamentosPendentes > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 min-w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {totalPagamentosPendentes}
+                  </Badge>
+                )}
+              </Button>
               <SuperAdminThemeToggle />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -315,6 +335,7 @@ export default function SuperAdmin() {
                   onToggleStatus={toggleTenantStatus}
                   onDeleteTenant={deleteTenant}
                   onOpenAvisos={handleOpenAvisos}
+                  pagamentosPorTenant={pagamentosPorTenant}
                 />
               ))}
             </div>
