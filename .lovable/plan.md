@@ -1,117 +1,103 @@
 
 
-## Plano: Indicador Circular de Tempo (Timer Visual)
+## Plano: Tokens TOTP Agrupados por "Carteira" (Advogado/OAB)
 
 ### Resumo
-Substituir a barra de progresso linear (`Progress`) por um indicador circular SVG que funciona como um relógio, começando cheio e "esvaziando" conforme os 30 segundos passam.
+Reorganizar o autenticador TOTP para agrupar tokens em "Carteiras" - cada carteira representa um advogado (nome + OAB opcional). Os tokens dentro de cada carteira aparecem em formato dropdown/collapsible, mantendo a interface limpa e organizada.
 
 ---
 
-## Visual
+## Conceito: "Carteira"
+
+Em vez de "categoria", vamos usar **Carteira** - termo que faz sentido no contexto juridico (carteira de processos, carteira de clientes). Cada carteira pode ter:
+- Nome do advogado (obrigatorio)
+- Numero OAB + UF (opcional)
+- Multiplos tokens 2FA
+
+---
+
+## Visual da Interface
 
 ```text
-Antes (barra linear):
 ┌─────────────────────────────────────────┐
-│  Gmail                           [🗑]   │
+│  Autenticador 2FA               [X]     │
+├─────────────────────────────────────────┤
 │                                         │
-│     4 2 3   8 9 1                       │
+│  [+ Nova Carteira]  [+ Novo Token]      │
 │                                         │
-│  [████████████░░░░░░░░░] 18s            │
+│  ▼ Alan Maran • OAB 12345/PR            │
+│  ┌─────────────────────────────────────┐│
+│  │ Projudi  │ 423 891 │ ⏱ 18 │ [Copy] ││
+│  │ Gmail    │ 756 024 │ ⏱ 18 │ [Copy] ││
+│  │ TRT      │ 192 837 │ ⏱ 18 │ [Copy] ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  ▶ Maria Silva • OAB 54321/SP           │
+│    (2 tokens - clique para expandir)    │
+│                                         │
+│  ▶ Tokens Pessoais                      │
+│    (1 token - clique para expandir)     │
+│                                         │
 └─────────────────────────────────────────┘
+```
 
-Depois (timer circular):
-┌─────────────────────────────────────────┐
-│  Gmail                           [🗑]   │
-│                                         │
-│     4 2 3   8 9 1          ⏱            │
-│                           (18)          │
-│                                         │
-└─────────────────────────────────────────┘
+### Carteira expandida vs colapsada:
+- **Expandida**: Mostra lista de tokens com codigos em tempo real
+- **Colapsada**: Mostra apenas nome + quantidade de tokens
 
-O circulo:
-  - Comeca CHEIO (30s)
-  - Vai "gastando" no sentido horario
-  - Quando chega em 0, reseta para cheio
-  - Numero de segundos no centro
+---
+
+## Nova Estrutura de Dados
+
+```typescript
+interface TOTPWallet {
+  id: string;
+  name: string;           // Nome do advogado
+  oabNumero?: string;     // Opcional: "12345"
+  oabUf?: string;         // Opcional: "PR"
+  createdAt: string;
+}
+
+interface TOTPToken {
+  id: string;
+  walletId: string;       // NOVO: vinculo com carteira
+  name: string;           // Nome do servico (Gmail, Projudi, etc.)
+  secret: string;
+}
+
+// localStorage continua sendo 'vouti_totp_tokens'
+// mas agora com estrutura:
+interface TOTPStorage {
+  wallets: TOTPWallet[];
+  tokens: TOTPToken[];
+}
 ```
 
 ---
 
-## Implementacao Tecnica
+## Fluxo de Uso
 
-### Componente CircularTimer (SVG)
+### Criar Nova Carteira
+1. Clicar em "+ Nova Carteira"
+2. Dialog com campos:
+   - Nome do Advogado (obrigatorio)
+   - Numero OAB (opcional)
+   - UF (opcional, Select com estados)
+3. Carteira aparece colapsada na lista
 
-Criar um componente inline no `TOTPSheet.tsx` usando SVG:
+### Adicionar Token
+1. Clicar em "+ Novo Token"
+2. Dialog com campos:
+   - Nome do token (Ex: Gmail, Projudi)
+   - Secret Base32
+   - Carteira (Select com carteiras existentes OU "Criar nova")
+3. Token aparece dentro da carteira selecionada
 
-```typescript
-interface CircularTimerProps {
-  secondsRemaining: number;
-  totalSeconds?: number;
-}
-
-function CircularTimer({ secondsRemaining, totalSeconds = 30 }: CircularTimerProps) {
-  const size = 40;
-  const strokeWidth = 3;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = secondsRemaining / totalSeconds;
-  const strokeDashoffset = circumference * (1 - progress);
-
-  return (
-    <div className="relative flex items-center justify-center">
-      <svg width={size} height={size} className="transform -rotate-90">
-        {/* Circulo de fundo */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/20"
-        />
-        {/* Circulo de progresso (vai diminuindo) */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className="text-primary transition-all duration-1000 ease-linear"
-        />
-      </svg>
-      {/* Numero no centro */}
-      <span className="absolute text-xs font-medium text-muted-foreground">
-        {secondsRemaining}
-      </span>
-    </div>
-  );
-}
-```
-
-### Modificacoes no Layout do Card
-
-Reorganizar para colocar o timer ao lado do codigo:
-
-```typescript
-<button onClick={() => handleCopy(...)} className="w-full text-left group">
-  <div className="flex items-center justify-between">
-    <div className="text-3xl font-mono font-bold tracking-wider">
-      {formatCode(codes[token.id] || '------')}
-      {copiedId === token.id ? (
-        <Check className="inline h-5 w-5 text-green-500 ml-2" />
-      ) : (
-        <Copy className="inline h-5 w-5 opacity-0 group-hover:opacity-50 ml-2" />
-      )}
-    </div>
-    <CircularTimer secondsRemaining={secondsRemaining} />
-  </div>
-</button>
-```
+### Visualizar Codigos
+1. Clicar na carteira para expandir
+2. Lista de tokens com codigos em tempo real
+3. Clicar no codigo para copiar
+4. Timer circular sincronizado para todos
 
 ---
 
@@ -119,25 +105,80 @@ Reorganizar para colocar o timer ao lado do codigo:
 
 | Arquivo | Modificacao |
 |---------|-------------|
-| `src/components/Dashboard/TOTPSheet.tsx` | Adicionar componente CircularTimer e substituir Progress |
+| `src/components/Dashboard/TOTPSheet.tsx` | Refatorar para suportar carteiras com Collapsible |
 
 ---
 
-## Comportamento Visual
+## Componentes Internos
 
-1. **30s restantes**: Circulo CHEIO (100%)
-2. **15s restantes**: Circulo pela METADE (50%)
-3. **5s restantes**: Pequeno arco restante + cor muda para vermelho/alerta
-4. **0s -> 30s**: Circulo reseta para cheio, novo codigo gerado
+### 1. WalletCard (Collapsible)
+```text
+┌─────────────────────────────────────────┐
+│ ▼ [Nome] • OAB [Numero]/[UF]     [🗑]   │
+├─────────────────────────────────────────┤
+│  Token 1  │ 423 891 │ ⏱ │ [Copy]       │
+│  Token 2  │ 756 024 │ ⏱ │ [Copy]       │
+└─────────────────────────────────────────┘
+```
+
+### 2. TokenRow (linha compacta dentro da carteira)
+- Nome do token
+- Codigo 6 digitos
+- Timer circular (compartilhado)
+- Botao copiar
+- Botao excluir (hover)
+
+### 3. AddWalletDialog
+- Campo: Nome do Advogado
+- Campo: Numero OAB (opcional)
+- Select: UF (ESTADOS_BRASIL do types/busca-oab.ts)
+
+### 4. AddTokenDialog (modificado)
+- Campo: Nome do token
+- Campo: Secret Base32
+- Select: Carteira (lista de carteiras + opcao "Criar nova")
 
 ---
 
-## Detalhes de Estilo
+## Detalhes de Implementacao
 
-- **Tamanho**: 40x40px (compacto)
-- **Animacao**: Transicao suave de 1 segundo entre estados
-- **Cores**: 
-  - Normal: `text-primary` (cor do tema)
-  - Ultimos 5s: `text-destructive` (vermelho/alerta)
-- **Fundo**: Circulo cinza claro para contraste
+### Migracao de Dados
+Para compatibilidade com tokens existentes (sem carteira):
+```typescript
+// Ao carregar, criar carteira "Pessoal" para tokens orfaos
+const migrateOldTokens = (oldTokens: OldToken[]): TOTPStorage => {
+  const personalWallet: TOTPWallet = {
+    id: 'personal',
+    name: 'Tokens Pessoais',
+    createdAt: new Date().toISOString()
+  };
+  
+  return {
+    wallets: [personalWallet],
+    tokens: oldTokens.map(t => ({ ...t, walletId: 'personal' }))
+  };
+};
+```
+
+### Collapsible com Radix UI
+Usar o componente `Collapsible` ja existente em `src/components/ui/collapsible.tsx`:
+```typescript
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+```
+
+### Imports Necessarios
+```typescript
+import { ESTADOS_BRASIL } from '@/types/busca-oab';
+import { ChevronDown, ChevronRight, Wallet, UserCircle } from "lucide-react";
+```
+
+---
+
+## Beneficios
+
+1. **Organizacao**: Tokens agrupados por advogado/contexto
+2. **Escalabilidade**: Suporta muitos tokens sem poluir a interface
+3. **Contexto**: Associacao com OAB ajuda identificar rapidamente
+4. **Minimalismo**: Carteiras colapsadas ocupam pouco espaco
+5. **Migracao suave**: Tokens existentes vao para "Tokens Pessoais"
 
