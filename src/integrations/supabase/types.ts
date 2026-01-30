@@ -5963,6 +5963,89 @@ export type Database = {
           },
         ]
       }
+      totp_tokens: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          secret: string
+          tenant_id: string
+          wallet_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          secret: string
+          tenant_id: string
+          wallet_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          secret?: string
+          tenant_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "totp_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "totp_tokens_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "totp_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      totp_wallets: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          oab_numero: string | null
+          oab_uf: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          oab_numero?: string | null
+          oab_uf?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          oab_numero?: string | null
+          oab_uf?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "totp_wallets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tribunais: {
         Row: {
           created_at: string | null
@@ -6413,6 +6496,7 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      is_admin_or_controller_in_tenant: { Args: never; Returns: boolean }
       is_current_user_admin_in_tenant: {
         Args: { _target_tenant_id: string }
         Returns: boolean

@@ -2,42 +2,69 @@ import { useState, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, ShieldCheck, Wallet } from "lucide-react";
+import { Plus, ShieldCheck, Wallet, Upload, Loader2 } from "lucide-react";
 import { generateTOTP, getSecondsRemaining } from "@/lib/totp";
 import { toast } from "sonner";
-import { TOTPWallet, TOTPToken, TOTPStorage, LegacyTOTPToken } from "@/types/totp";
+import { TOTPWallet, TOTPToken, LegacyTOTPStorage, LegacyTOTPToken } from "@/types/totp";
 import { WalletCard } from "./TOTP/WalletCard";
 import { AddWalletDialog } from "./TOTP/AddWalletDialog";
 import { AddTokenDialog } from "./TOTP/AddTokenDialog";
+import { useTenantId } from "@/hooks/useTenantId";
+import { useTOTPData, TOTPWalletDB, TOTPTokenDB } from "@/hooks/useTOTPData";
 
 interface TOTPSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const STORAGE_KEY = 'vouti_totp_tokens';
+const LOCAL_STORAGE_KEY = 'vouti_totp_tokens';
 
-// Migração de dados antigos
-function migrateStorage(stored: string): TOTPStorage {
+// Converter formato do banco (snake_case) para formato do frontend (camelCase)
+function dbWalletToFrontend(wallet: TOTPWalletDB): TOTPWallet {
+  return {
+    id: wallet.id,
+    name: wallet.name,
+    oabNumero: wallet.oab_numero || undefined,
+    oabUf: wallet.oab_uf || undefined,
+    createdAt: wallet.created_at,
+    tenantId: wallet.tenant_id,
+    createdBy: wallet.created_by || undefined
+  };
+}
+
+function dbTokenToFrontend(token: TOTPTokenDB): TOTPToken {
+  return {
+    id: token.id,
+    walletId: token.wallet_id,
+    name: token.name,
+    secret: token.secret,
+    tenantId: token.tenant_id,
+    createdBy: token.created_by || undefined
+  };
+}
+
+// Verificar e parsear dados do localStorage
+function getLocalStorageData(): LegacyTOTPStorage | null {
   try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!stored) return null;
+    
     const parsed = JSON.parse(stored);
     
     // Verifica se já é o formato novo
     if (parsed.wallets && parsed.tokens) {
-      return parsed as TOTPStorage;
+      return parsed as LegacyTOTPStorage;
     }
     
     // Formato antigo: array de tokens sem walletId
     if (Array.isArray(parsed)) {
       const legacyTokens = parsed as LegacyTOTPToken[];
-      const personalWallet: TOTPWallet = {
-        id: 'personal',
-        name: 'Tokens Pessoais',
-        createdAt: new Date().toISOString()
-      };
-      
       return {
-        wallets: [personalWallet],
+        wallets: [{
+          id: 'personal',
+          name: 'Tokens Pessoais',
+          createdAt: new Date().toISOString()
+        }],
         tokens: legacyTokens.map(t => ({
           ...t,
           walletId: 'personal'
@@ -45,16 +72,33 @@ function migrateStorage(stored: string): TOTPStorage {
       };
     }
     
-    return { wallets: [], tokens: [] };
+    return null;
   } catch {
-    return { wallets: [], tokens: [] };
+    return null;
   }
 }
 
 export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
-  const [storage, setStorage] = useState<TOTPStorage>({ wallets: [], tokens: [] });
+  const { tenantId } = useTenantId();
+  const { 
+    wallets: dbWallets, 
+    tokens: dbTokens, 
+    isLoading,
+    addWallet,
+    addToken,
+    deleteWallet,
+    deleteToken,
+    migrateLocalData,
+    isMigrating
+  } = useTOTPData(tenantId);
+
+  // Converter para formato do frontend
+  const wallets = dbWallets.map(dbWalletToFrontend);
+  const tokens = dbTokens.map(dbTokenToFrontend);
+
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [secondsRemaining, setSecondsRemaining] = useState(30);
+  const [localData, setLocalData] = useState<LegacyTOTPStorage | null>(null);
   
   // Dialog states
   const [addWalletOpen, setAddWalletOpen] = useState(false);
@@ -64,24 +108,20 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
   const [walletToDelete, setWalletToDelete] = useState<TOTPWallet | null>(null);
   const [tokenToDelete, setTokenToDelete] = useState<TOTPToken | null>(null);
 
-  // Load from localStorage
+  // Verificar dados locais para migração
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setStorage(migrateStorage(stored));
+    if (open) {
+      const data = getLocalStorageData();
+      if (data && data.wallets.length > 0) {
+        setLocalData(data);
+      }
     }
-  }, []);
-
-  // Save to localStorage
-  const saveStorage = useCallback((newStorage: TOTPStorage) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newStorage));
-    setStorage(newStorage);
-  }, []);
+  }, [open]);
 
   // Generate codes for all tokens
   const generateAllCodes = useCallback(async () => {
     const newCodes: Record<string, string> = {};
-    for (const token of storage.tokens) {
+    for (const token of tokens) {
       try {
         newCodes[token.id] = await generateTOTP(token.secret);
       } catch {
@@ -89,7 +129,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
       }
     }
     setCodes(newCodes);
-  }, [storage.tokens]);
+  }, [tokens]);
 
   // Update codes and timer
   useEffect(() => {
@@ -109,65 +149,44 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
     return () => clearInterval(interval);
   }, [open, generateAllCodes]);
 
+  // Handler para migrar dados locais
+  const handleMigrateData = async () => {
+    if (!localData) return;
+    
+    try {
+      await migrateLocalData(localData);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setLocalData(null);
+    } catch (error) {
+      console.error('Erro na migração:', error);
+    }
+  };
+
   // Handlers
   const handleAddWallet = (name: string, oabNumero?: string, oabUf?: string) => {
-    const newWallet: TOTPWallet = {
-      id: crypto.randomUUID(),
-      name,
-      oabNumero,
-      oabUf,
-      createdAt: new Date().toISOString()
-    };
-    
-    saveStorage({
-      ...storage,
-      wallets: [...storage.wallets, newWallet]
-    });
-    toast.success("Carteira criada");
+    addWallet(name, oabNumero, oabUf);
   };
 
   const handleAddToken = (name: string, secret: string, walletId: string) => {
-    const newToken: TOTPToken = {
-      id: crypto.randomUUID(),
-      walletId,
-      name,
-      secret
-    };
-    
-    saveStorage({
-      ...storage,
-      tokens: [...storage.tokens, newToken]
-    });
+    addToken(name, secret, walletId);
   };
 
   const handleDeleteWallet = () => {
     if (!walletToDelete) return;
-    
-    saveStorage({
-      wallets: storage.wallets.filter(w => w.id !== walletToDelete.id),
-      tokens: storage.tokens.filter(t => t.walletId !== walletToDelete.id)
-    });
-    
+    deleteWallet(walletToDelete.id);
     setWalletToDelete(null);
     setDeleteWalletOpen(false);
-    toast.success("Carteira removida");
   };
 
   const handleDeleteToken = () => {
     if (!tokenToDelete) return;
-    
-    saveStorage({
-      ...storage,
-      tokens: storage.tokens.filter(t => t.id !== tokenToDelete.id)
-    });
-    
+    deleteToken(tokenToDelete.id);
     setTokenToDelete(null);
     setDeleteTokenOpen(false);
-    toast.success("Token removido");
   };
 
   const getTokensForWallet = (walletId: string) => 
-    storage.tokens.filter(t => t.walletId === walletId);
+    tokens.filter(t => t.walletId === walletId);
 
   return (
     <>
@@ -181,6 +200,29 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
           </SheetHeader>
 
           <div className="mt-6 space-y-4">
+            {/* Botão de migração se houver dados locais */}
+            {localData && localData.wallets.length > 0 && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">
+                  Encontramos {localData.tokens.length} token(s) salvos localmente. 
+                  Migre para o sistema para compartilhar com a equipe.
+                </p>
+                <Button 
+                  onClick={handleMigrateData}
+                  disabled={isMigrating}
+                  size="sm"
+                  className="gap-2"
+                >
+                  {isMigrating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {isMigrating ? 'Migrando...' : 'Migrar para sistema'}
+                </Button>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button 
                 onClick={() => setAddWalletOpen(true)} 
@@ -202,7 +244,11 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
               </Button>
             </div>
 
-            {storage.wallets.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : wallets.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Wallet className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <p>Nenhuma carteira cadastrada</p>
@@ -210,7 +256,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
               </div>
             ) : (
               <div className="space-y-3">
-                {storage.wallets.map((wallet) => (
+                {wallets.map((wallet) => (
                   <WalletCard
                     key={wallet.id}
                     wallet={wallet}
@@ -243,7 +289,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
       <AddTokenDialog
         open={addTokenOpen}
         onOpenChange={setAddTokenOpen}
-        wallets={storage.wallets}
+        wallets={wallets}
         onAdd={handleAddToken}
         onCreateWallet={() => setAddWalletOpen(true)}
       />
