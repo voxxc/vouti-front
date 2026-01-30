@@ -1,123 +1,157 @@
 
 
-## Plano: Adicionar Tribunais EPROC Estaduais
+## Plano: Tokens TOTP Compartilhados entre Admin/Controller
 
-### Contexto
+### Regra de Negocio
 
-O cliente solicitou adicionar tribunais que utilizam EPROC para os estados: RS, SC, TO, AC, MG, RJ e SP.
+Todos os usuarios com role `admin` ou `controller` do mesmo tenant compartilham:
+- As mesmas carteiras (wallets)
+- Os mesmos tokens
 
-Os tribunais devem seguir o formato de payload: `"EPROC - TJRS - 1° grau"`, `"EPROC - TJSC - 1° grau"`, etc.
-
----
-
-### Situacao Atual
-
-No arquivo `src/constants/tribunaisCredenciais.ts`, a secao EPROC (linhas 184-200) ja possui:
-
-| Tribunal | Status |
-|----------|--------|
-| EPROC - TJRS - 1 e 2 grau | Ja existe |
-| EPROC - TJSC - 1 e 2 grau | Ja existe |
-| EPROC - TRF1 a TRF6 | Ja existe (federais) |
+Se Daniel criar um token, Willian, Jose e Alan (se forem admin/controller do mesmo tenant) verao automaticamente.
 
 ---
 
-### Tribunais a Adicionar
-
-| Estado | Tribunal | Acao |
-|--------|----------|------|
-| RS | EPROC - TJRS | Ja existe |
-| SC | EPROC - TJSC | Ja existe |
-| TO | EPROC - TJTO | Adicionar |
-| AC | EPROC - TJAC | Adicionar |
-| MG | EPROC - TJMG | Adicionar |
-| RJ | EPROC - TJRJ | Adicionar |
-| SP | EPROC - TJSP | Adicionar |
-
-Total: 10 novas entradas (5 estados x 2 graus)
-
----
-
-### Modificacoes
-
-#### Arquivo: `src/constants/tribunaisCredenciais.ts`
-
-Adicionar apos a linha 188 (depois de TJSC - 2 grau):
-
-```typescript
-// EPROC - Tribunais Estaduais adicionais
-{ value: 'EPROC - TJTO - 1º grau', label: 'EPROC - TJTO - 1º grau', category: 'EPROC' },
-{ value: 'EPROC - TJTO - 2º grau', label: 'EPROC - TJTO - 2º grau', category: 'EPROC' },
-{ value: 'EPROC - TJAC - 1º grau', label: 'EPROC - TJAC - 1º grau', category: 'EPROC' },
-{ value: 'EPROC - TJAC - 2º grau', label: 'EPROC - TJAC - 2º grau', category: 'EPROC' },
-{ value: 'EPROC - TJMG - 1º grau', label: 'EPROC - TJMG - 1º grau', category: 'EPROC' },
-{ value: 'EPROC - TJMG - 2º grau', label: 'EPROC - TJMG - 2º grau', category: 'EPROC' },
-{ value: 'EPROC - TJRJ - 1º grau', label: 'EPROC - TJRJ - 1º grau', category: 'EPROC' },
-{ value: 'EPROC - TJRJ - 2º grau', label: 'EPROC - TJRJ - 2º grau', category: 'EPROC' },
-{ value: 'EPROC - TJSP - 1º grau', label: 'EPROC - TJSP - 1º grau', category: 'EPROC' },
-{ value: 'EPROC - TJSP - 2º grau', label: 'EPROC - TJSP - 2º grau', category: 'EPROC' },
-```
-
----
-
-### Integracao com SuperAdmin
-
-O componente `TenantCredenciaisDialog.tsx` ja esta configurado corretamente:
-
-1. Importa a lista de tribunais de `tribunaisCredenciais.ts` (linha 16)
-2. Usa `getTribunaisPorCategoria()` para agrupar no Select (linha 55)
-3. Envia o `systemName` selecionado para a Edge Function (linhas 92 e 120)
-
-Nenhuma alteracao necessaria no componente - ele ja carrega dinamicamente a lista de tribunais.
-
----
-
-### Fluxo de Uso no SuperAdmin
+### Arquitetura
 
 ```text
-1. Abrir TenantCredenciaisDialog
-2. Ir para aba "Enviar Pendente" ou "Envio Direto"
-3. Selecionar tribunal no campo "Tribunal/Sistema"
-   └─> Agora aparecera: EPROC - TJTO - 1º grau, EPROC - TJMG - 1º grau, etc.
-4. Preencher demais campos
-5. Clicar "Enviar para Judit"
-   └─> O system_name enviado sera exatamente o valor selecionado
+Tenant AMSADV
+├── Daniel (admin) ──┐
+├── Alan (admin) ────┼──► Mesmas carteiras e tokens
+├── Willian (controller) ─┤
+└── Jose (controller) ───┘
+
+Tenant Solvenza
+├── Maria (admin) ───┐
+└── Joao (controller)┴──► Carteiras/tokens separados
 ```
 
 ---
 
-### Secao EPROC Final (apos alteracao)
+### Estrutura do Banco de Dados
+
+#### Tabela: totp_wallets
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid | Chave primaria |
+| tenant_id | uuid | FK para tenants (isolamento) |
+| name | text | Nome do advogado |
+| oab_numero | text | Numero OAB (opcional) |
+| oab_uf | text | UF da OAB (opcional) |
+| created_at | timestamptz | Data criacao |
+| created_by | uuid | Quem criou |
+
+#### Tabela: totp_tokens
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid | Chave primaria |
+| tenant_id | uuid | FK para tenants (isolamento) |
+| wallet_id | uuid | FK para totp_wallets |
+| name | text | Nome do servico (Gmail, Projudi...) |
+| secret | text | Secret Base32 |
+| created_at | timestamptz | Data criacao |
+| created_by | uuid | Quem criou |
+
+---
+
+### Controle de Acesso (RLS)
+
+Funcao helper para verificar se usuario e admin ou controller:
+
+```sql
+CREATE OR REPLACE FUNCTION public.is_admin_or_controller_in_tenant()
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_roles
+    WHERE user_id = auth.uid()
+      AND tenant_id = get_user_tenant_id()
+      AND role IN ('admin', 'controller')
+  )
+$$;
+```
+
+Politicas aplicadas:
+- **SELECT**: tenant_id = get_user_tenant_id() AND is_admin_or_controller_in_tenant()
+- **INSERT**: tenant_id = get_user_tenant_id() AND is_admin_or_controller_in_tenant()
+- **UPDATE**: tenant_id = get_user_tenant_id() AND is_admin_or_controller_in_tenant()
+- **DELETE**: tenant_id = get_user_tenant_id() AND is_admin_or_controller_in_tenant()
+
+---
+
+### Componentes a Criar/Modificar
+
+| Arquivo | Acao | Descricao |
+|---------|------|-----------|
+| Migration SQL | CRIAR | Tabelas + RLS + funcao helper |
+| `src/hooks/useTOTPData.ts` | CRIAR | Hook para CRUD via Supabase |
+| `src/types/totp.ts` | MODIFICAR | Adicionar campos tenant_id, created_by |
+| `src/components/Dashboard/TOTPSheet.tsx` | MODIFICAR | Usar hook em vez de localStorage |
+| `src/components/Dashboard/TOTP/AddWalletDialog.tsx` | MODIFICAR | Passar tenantId |
+| `src/components/Dashboard/TOTP/AddTokenDialog.tsx` | MODIFICAR | Passar tenantId |
+| `src/components/Dashboard/TOTP/WalletCard.tsx` | VERIFICAR | Compatibilidade com novos tipos |
+
+---
+
+### Hook useTOTPData
 
 ```typescript
-// EPROC - Tribunais Estaduais
-{ value: 'EPROC - TJRS - 1º grau', ... },
-{ value: 'EPROC - TJRS - 2º grau', ... },
-{ value: 'EPROC - TJSC - 1º grau', ... },
-{ value: 'EPROC - TJSC - 2º grau', ... },
-{ value: 'EPROC - TJTO - 1º grau', ... },  // NOVO
-{ value: 'EPROC - TJTO - 2º grau', ... },  // NOVO
-{ value: 'EPROC - TJAC - 1º grau', ... },  // NOVO
-{ value: 'EPROC - TJAC - 2º grau', ... },  // NOVO
-{ value: 'EPROC - TJMG - 1º grau', ... },  // NOVO
-{ value: 'EPROC - TJMG - 2º grau', ... },  // NOVO
-{ value: 'EPROC - TJRJ - 1º grau', ... },  // NOVO
-{ value: 'EPROC - TJRJ - 2º grau', ... },  // NOVO
-{ value: 'EPROC - TJSP - 1º grau', ... },  // NOVO
-{ value: 'EPROC - TJSP - 2º grau', ... },  // NOVO
-// EPROC - TRFs (ja existentes)
-{ value: 'EPROC - TRF1 - 1º grau', ... },
-...
+export function useTOTPData(tenantId: string | null) {
+  // Queries
+  const { data: wallets } = useQuery({
+    queryKey: ['totp-wallets', tenantId],
+    queryFn: () => supabase.from('totp_wallets').select('*').eq('tenant_id', tenantId),
+    enabled: !!tenantId
+  });
+
+  const { data: tokens } = useQuery({
+    queryKey: ['totp-tokens', tenantId],
+    queryFn: () => supabase.from('totp_tokens').select('*').eq('tenant_id', tenantId),
+    enabled: !!tenantId
+  });
+
+  // Mutations para add/delete wallet e token
+  
+  return { wallets, tokens, addWallet, addToken, deleteWallet, deleteToken, isLoading };
+}
 ```
 
 ---
 
-### Resumo
+### Migracao de Dados Locais
 
-| Arquivo | Acao |
-|---------|------|
-| `src/constants/tribunaisCredenciais.ts` | Adicionar 10 novos tribunais EPROC estaduais |
+Ao abrir TOTPSheet:
+1. Verificar se ha dados no localStorage (`vouti_totp_tokens`)
+2. Se houver e usuario for admin/controller, mostrar botao "Migrar para sistema"
+3. Inserir no banco com tenant_id do usuario
+4. Limpar localStorage
+5. Toast de sucesso
 
-Total de tribunais EPROC apos modificacao: 26 (14 estaduais + 12 TRFs)
+---
 
-O payload enviado para a API Judit sera exatamente o valor do campo `value`, ex: `"EPROC - TJRS - 1º grau"`, garantindo compatibilidade com a documentacao oficial.
+### Fluxo de Uso
+
+```text
+1. Daniel abre o TOTPSheet
+2. Hook busca wallets/tokens do tenant_id dele
+3. Daniel cria nova carteira "Alan Maran"
+4. INSERT no banco com tenant_id
+5. Alan abre o TOTPSheet (mesmo tenant)
+6. Hook busca os mesmos dados (tenant_id igual)
+7. Alan ve a carteira "Alan Maran" criada por Daniel
+```
+
+---
+
+### Resultado Esperado
+
+- Todos os admin/controller do mesmo tenant veem os mesmos tokens
+- Isolamento total entre tenants diferentes
+- Dados persistidos no banco (nao mais localStorage)
+- Migracao automatica de tokens antigos
 
