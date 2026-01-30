@@ -1,184 +1,115 @@
 
 
-## Plano: Tokens TOTP Agrupados por "Carteira" (Advogado/OAB)
+## Plano: Corrigir Extração de Andamentos na Sincronização Manual
 
-### Resumo
-Reorganizar o autenticador TOTP para agrupar tokens em "Carteiras" - cada carteira representa um advogado (nome + OAB opcional). Os tokens dentro de cada carteira aparecem em formato dropdown/collapsible, mantendo a interface limpa e organizada.
+### Problema Identificado
 
----
+A função `judit-sync-monitorados` (usada no botão "Sincronizar Agora" do Super Admin) tem lógica incompleta de extração de dados comparada à função `judit-buscar-detalhes-processo` que funciona corretamente.
 
-## Conceito: "Carteira"
-
-Em vez de "categoria", vamos usar **Carteira** - termo que faz sentido no contexto juridico (carteira de processos, carteira de clientes). Cada carteira pode ter:
-- Nome do advogado (obrigatorio)
-- Numero OAB + UF (opcional)
-- Multiplos tokens 2FA
+Isso explica por que o processo `0012919-29.2025.8.16.0194` foi atualizado (API retornou dados no campo `steps`) mas o processo `0045144-39.2025.8.16.0021` não foi (API provavelmente retornou no campo `movements` ou `andamentos`).
 
 ---
 
-## Visual da Interface
+### Comparação das Funções
 
 ```text
-┌─────────────────────────────────────────┐
-│  Autenticador 2FA               [X]     │
-├─────────────────────────────────────────┤
-│                                         │
-│  [+ Nova Carteira]  [+ Novo Token]      │
-│                                         │
-│  ▼ Alan Maran • OAB 12345/PR            │
-│  ┌─────────────────────────────────────┐│
-│  │ Projudi  │ 423 891 │ ⏱ 18 │ [Copy] ││
-│  │ Gmail    │ 756 024 │ ⏱ 18 │ [Copy] ││
-│  │ TRT      │ 192 837 │ ⏱ 18 │ [Copy] ││
-│  └─────────────────────────────────────┘│
-│                                         │
-│  ▶ Maria Silva • OAB 54321/SP           │
-│    (2 tokens - clique para expandir)    │
-│                                         │
-│  ▶ Tokens Pessoais                      │
-│    (1 token - clique para expandir)     │
-│                                         │
-└─────────────────────────────────────────┘
-```
+judit-buscar-detalhes-processo (FUNCIONA - Linha 211):
+const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
 
-### Carteira expandida vs colapsada:
-- **Expandida**: Mostra lista de tokens com codigos em tempo real
-- **Colapsada**: Mostra apenas nome + quantidade de tokens
+judit-sync-monitorados (BUGADO - Linha 293):
+const steps = responseData.steps || [];
+```
 
 ---
 
-## Nova Estrutura de Dados
+### Correções Necessárias
 
+**Arquivo**: `supabase/functions/judit-sync-monitorados/index.ts`
+
+#### Correção 1: Extração de lista de andamentos (Linha 293)
+
+De:
 ```typescript
-interface TOTPWallet {
-  id: string;
-  name: string;           // Nome do advogado
-  oabNumero?: string;     // Opcional: "12345"
-  oabUf?: string;         // Opcional: "PR"
-  createdAt: string;
-}
+const steps = responseData.steps || [];
+```
 
-interface TOTPToken {
-  id: string;
-  walletId: string;       // NOVO: vinculo com carteira
-  name: string;           // Nome do servico (Gmail, Projudi, etc.)
-  secret: string;
-}
+Para:
+```typescript
+const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+```
 
-// localStorage continua sendo 'vouti_totp_tokens'
-// mas agora com estrutura:
-interface TOTPStorage {
-  wallets: TOTPWallet[];
-  tokens: TOTPToken[];
-}
+#### Correção 2: Extração de data (Linha 296)
+
+De:
+```typescript
+const stepDate = step.step_date || step.date || null;
+```
+
+Para:
+```typescript
+const stepDate = step.step_date || step.date || step.data || step.data_movimentacao || null;
+```
+
+#### Correção 3: Extração de conteúdo (Linha 297)
+
+De:
+```typescript
+const stepContent = step.content || step.step_content || step.title || '';
+```
+
+Para:
+```typescript
+const stepContent = step.content || step.description || step.descricao || step.step_content || step.title || '';
 ```
 
 ---
 
-## Fluxo de Uso
+### Detalhes Tecnicos
 
-### Criar Nova Carteira
-1. Clicar em "+ Nova Carteira"
-2. Dialog com campos:
-   - Nome do Advogado (obrigatorio)
-   - Numero OAB (opcional)
-   - UF (opcional, Select com estados)
-3. Carteira aparece colapsada na lista
+#### Por que isso acontece?
 
-### Adicionar Token
-1. Clicar em "+ Novo Token"
-2. Dialog com campos:
-   - Nome do token (Ex: Gmail, Projudi)
-   - Secret Base32
-   - Carteira (Select com carteiras existentes OU "Criar nova")
-3. Token aparece dentro da carteira selecionada
+A API Judit retorna dados em formatos diferentes dependendo:
+- Do tribunal de origem
+- Do tipo de processo
+- Da versão da resposta
 
-### Visualizar Codigos
-1. Clicar na carteira para expandir
-2. Lista de tokens com codigos em tempo real
-3. Clicar no codigo para copiar
-4. Timer circular sincronizado para todos
+Por isso, é necessário verificar múltiplos campos possíveis.
+
+#### Por que uma função funcionou e outra não?
+
+As duas funções foram escritas em momentos diferentes. A `judit-buscar-detalhes-processo` foi corrigida posteriormente, mas a correção não foi propagada para a `judit-sync-monitorados`.
 
 ---
 
-## Arquivo a Modificar
+### Fluxo Atual (Confirmado Gratuito)
 
-| Arquivo | Modificacao |
-|---------|-------------|
-| `src/components/Dashboard/TOTPSheet.tsx` | Refatorar para suportar carteiras com Collapsible |
-
----
-
-## Componentes Internos
-
-### 1. WalletCard (Collapsible)
 ```text
-┌─────────────────────────────────────────┐
-│ ▼ [Nome] • OAB [Numero]/[UF]     [🗑]   │
-├─────────────────────────────────────────┤
-│  Token 1  │ 423 891 │ ⏱ │ [Copy]       │
-│  Token 2  │ 756 024 │ ⏱ │ [Copy]       │
-└─────────────────────────────────────────┘
+1. GET /tracking/{tracking_id}
+   └─> Retorna request_id mais recente
+   
+2. GET /responses?request_id={request_id}
+   └─> Retorna andamentos processados pelo monitoramento diário
+   
+3. Inserção com deduplicação
+   └─> Apenas andamentos novos são inseridos
 ```
 
-### 2. TokenRow (linha compacta dentro da carteira)
-- Nome do token
-- Codigo 6 digitos
-- Timer circular (compartilhado)
-- Botao copiar
-- Botao excluir (hover)
-
-### 3. AddWalletDialog
-- Campo: Nome do Advogado
-- Campo: Numero OAB (opcional)
-- Select: UF (ESTADOS_BRASIL do types/busca-oab.ts)
-
-### 4. AddTokenDialog (modificado)
-- Campo: Nome do token
-- Campo: Secret Base32
-- Select: Carteira (lista de carteiras + opcao "Criar nova")
+Todas as chamadas são GET (gratuitas). O custo já foi pago quando o monitoramento foi ativado.
 
 ---
 
-## Detalhes de Implementacao
+### Resultado Esperado
 
-### Migracao de Dados
-Para compatibilidade com tokens existentes (sem carteira):
-```typescript
-// Ao carregar, criar carteira "Pessoal" para tokens orfaos
-const migrateOldTokens = (oldTokens: OldToken[]): TOTPStorage => {
-  const personalWallet: TOTPWallet = {
-    id: 'personal',
-    name: 'Tokens Pessoais',
-    createdAt: new Date().toISOString()
-  };
-  
-  return {
-    wallets: [personalWallet],
-    tokens: oldTokens.map(t => ({ ...t, walletId: 'personal' }))
-  };
-};
-```
-
-### Collapsible com Radix UI
-Usar o componente `Collapsible` ja existente em `src/components/ui/collapsible.tsx`:
-```typescript
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-```
-
-### Imports Necessarios
-```typescript
-import { ESTADOS_BRASIL } from '@/types/busca-oab';
-import { ChevronDown, ChevronRight, Wallet, UserCircle } from "lucide-react";
-```
+Após a correção, ao rodar "Sincronizar Agora" no Super Admin:
+- O processo `0045144-39.2025.8.16.0021` receberá os andamentos que estavam sendo ignorados
+- Todos os processos com formatos alternativos de resposta serão processados corretamente
 
 ---
 
-## Beneficios
+### Teste Recomendado
 
-1. **Organizacao**: Tokens agrupados por advogado/contexto
-2. **Escalabilidade**: Suporta muitos tokens sem poluir a interface
-3. **Contexto**: Associacao com OAB ajuda identificar rapidamente
-4. **Minimalismo**: Carteiras colapsadas ocupam pouco espaco
-5. **Migracao suave**: Tokens existentes vao para "Tokens Pessoais"
+1. Aplicar a correção
+2. Fazer deploy da edge function
+3. Rodar sincronização manual no Super Admin
+4. Verificar se o processo `0045144-39.2025.8.16.0021` foi atualizado
 
