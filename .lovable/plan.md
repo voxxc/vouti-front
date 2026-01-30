@@ -1,103 +1,130 @@
 
-
-## Plano: Corrigir Timer do Autenticador TOTP
+## Plano: Corrigir Webhook OAB para Suportar reference_type: request
 
 ### Problema Identificado
 
-O timer circular está estático porque:
-
-1. O estado `secondsRemaining` é inicializado com valor fixo `30` ao invés de calcular o valor atual
-2. O `useEffect` que atualiza o timer tem `generateAllCodes` como dependência, causando recriação desnecessária do intervalo
-3. O intervalo pode não iniciar corretamente quando o sheet abre
-
-### Correções
-
-#### Arquivo: `src/components/Dashboard/TOTPSheet.tsx`
-
-**Alteração 1**: Inicializar `secondsRemaining` com o valor real
-
-```typescript
-// Antes (linha 100)
-const [secondsRemaining, setSecondsRemaining] = useState(30);
-
-// Depois
-const [secondsRemaining, setSecondsRemaining] = useState(getSecondsRemaining());
+O suporte disparou um mock de payload e recebeu erro:
+```json
+{"success": false, "error": "Processo nao encontrado"}
 ```
 
-**Alteração 2**: Separar o timer do effect de geração de códigos
+**Causa raiz**: O webhook atual sempre busca processo por `tracking_id`, mas para notificações de **consulta avulsa** (`reference_type: request`), o ID recebido é um `request_id` que corresponde ao campo `detalhes_request_id` no banco.
 
-O `useEffect` atual mistura duas responsabilidades:
-- Atualizar o contador de segundos
-- Regenerar os códigos quando o timer zera
+| reference_type | O que significa | Campo no banco para busca |
+|----------------|-----------------|---------------------------|
+| `tracking` | Monitoramento contínuo | `tracking_id` |
+| `request` | Consulta avulsa | `detalhes_request_id` |
 
-Vamos separar em dois effects e usar uma ref para evitar recriação desnecessária:
+---
 
-```typescript
-// Effect 1: Timer sempre ativo quando sheet está aberto
-useEffect(() => {
-  if (!open) return;
-
-  // Atualizar imediatamente
-  setSecondsRemaining(getSecondsRemaining());
-
-  const interval = setInterval(() => {
-    const remaining = getSecondsRemaining();
-    setSecondsRemaining(remaining);
-  }, 1000);
-
-  return () => clearInterval(interval);
-}, [open]);
-
-// Effect 2: Gerar códigos quando tokens mudam ou timer reseta
-useEffect(() => {
-  if (!open || tokens.length === 0) return;
-  
-  generateAllCodes();
-}, [open, tokens.length]); // Apenas quando tokens mudam
-
-// Effect 3: Regenerar códigos quando timer reseta
-useEffect(() => {
-  if (secondsRemaining === 30 && tokens.length > 0) {
-    generateAllCodes();
-  }
-}, [secondsRemaining]);
-```
-
-**Alteração 3**: Ajustar o `useCallback` do `generateAllCodes`
-
-Remover `tokens` da dependência do useCallback para evitar recriações, usando uma ref:
+### Código Atual (Problema)
 
 ```typescript
-const tokensRef = useRef(tokens);
-tokensRef.current = tokens;
-
-const generateAllCodes = useCallback(async () => {
-  const newCodes: Record<string, string> = {};
-  for (const token of tokensRef.current) {
-    try {
-      newCodes[token.id] = await generateTOTP(token.secret);
-    } catch {
-      newCodes[token.id] = '------';
-    }
-  }
-  setCodes(newCodes);
-}, []);
+// Linha 103-108 - Busca SEMPRE por tracking_id
+const { data: processo, error: fetchError } = await supabase
+  .from('processos_oab')
+  .select('id, numero_cnj, tenant_id, oab_id')
+  .eq('tracking_id', trackingId)
+  .single();
 ```
 
 ---
 
-### Resumo das Alterações
+### Solução
 
-| Linha | Alteração |
-|-------|-----------|
-| 100 | Inicializar com `getSecondsRemaining()` |
-| 122-132 | Usar ref para tokens no callback |
-| 135-150 | Separar em 3 effects independentes |
+Adicionar verificação do `reference_type` para buscar pelo campo correto:
 
-### Resultado
+```typescript
+// Buscar processo pelo campo apropriado baseado no reference_type
+let processo: any = null;
+let fetchError: any = null;
 
-- Timer atualiza corretamente a cada segundo
-- Círculo esvazia progressivamente
-- Cor muda para vermelho nos últimos 5 segundos
-- Códigos regeneram automaticamente quando o timer zera
+if (payload.reference_type === 'request') {
+  // Para consultas avulsas, buscar por detalhes_request_id
+  console.log('[Judit Webhook OAB] Tipo request - buscando por detalhes_request_id...');
+  const result = await supabase
+    .from('processos_oab')
+    .select('id, numero_cnj, tenant_id, oab_id')
+    .eq('detalhes_request_id', trackingId)
+    .maybeSingle();
+  processo = result.data;
+  fetchError = result.error;
+  
+  // Fallback: tentar buscar pelo número CNJ se o payload tiver essa informação
+  if (!processo && payload.payload?.response_data?.code) {
+    console.log('[Judit Webhook OAB] Tentando fallback por numero_cnj:', payload.payload.response_data.code);
+    const resultCnj = await supabase
+      .from('processos_oab')
+      .select('id, numero_cnj, tenant_id, oab_id')
+      .eq('numero_cnj', payload.payload.response_data.code)
+      .limit(1)
+      .maybeSingle();
+    processo = resultCnj.data;
+    fetchError = resultCnj.error;
+  }
+} else {
+  // Para monitoramentos, buscar por tracking_id (fluxo atual)
+  console.log('[Judit Webhook OAB] Tipo tracking - buscando por tracking_id...');
+  const result = await supabase
+    .from('processos_oab')
+    .select('id, numero_cnj, tenant_id, oab_id')
+    .eq('tracking_id', trackingId)
+    .maybeSingle();
+  processo = result.data;
+  fetchError = result.error;
+}
+```
 
+---
+
+### Fluxo Atualizado
+
+```text
+Webhook recebe payload
+        │
+        ▼
+Extrair reference_id e reference_type
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│ reference_type == 'request'?              │
+├─────────────┬─────────────────────────────┤
+│     SIM     │           NAO               │
+│     ▼       │           ▼                 │
+│ Buscar por  │  Buscar por                 │
+│ detalhes_   │  tracking_id                │
+│ request_id  │  (fluxo atual)              │
+│     │       │                             │
+│     ▼       │                             │
+│ Se nao      │                             │
+│ encontrar,  │                             │
+│ tentar por  │                             │
+│ numero_cnj  │                             │
+└─────────────┴─────────────────────────────┘
+        │
+        ▼
+Processar steps e inserir andamentos
+```
+
+---
+
+### Alterações no Arquivo
+
+**Arquivo**: `supabase/functions/judit-webhook-oab/index.ts`
+
+| Linhas | Ação |
+|--------|------|
+| 103-116 | Substituir busca fixa por busca condicional baseada em `reference_type` |
+
+---
+
+### Comportamento Esperado Após Correção
+
+1. **Notificações de monitoramento** (`reference_type: tracking`): Continua funcionando como antes, buscando por `tracking_id`
+
+2. **Notificações de consulta avulsa** (`reference_type: request`): 
+   - Primeiro tenta buscar por `detalhes_request_id`
+   - Se não encontrar, tenta pelo `numero_cnj` do payload
+   - Processa os andamentos normalmente
+
+3. **Mock do suporte**: Passará a funcionar se o processo existir no banco com o `detalhes_request_id` ou `numero_cnj` correspondente
