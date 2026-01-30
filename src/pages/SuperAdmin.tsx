@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
@@ -18,6 +18,7 @@ import { SuperAdminDiagnosticoJudit } from '@/components/SuperAdmin/SuperAdminDi
 import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImportCNJTest';
 import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
 import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthenticator';
+import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -278,7 +279,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tenants" className="space-y-6">
-          <TabsList className="grid w-full max-w-7xl grid-cols-10">
+          <TabsList className="grid w-full max-w-7xl grid-cols-11">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -298,6 +299,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="diagnostico" className="flex items-center gap-2">
               <Stethoscope className="w-4 h-4" />
               Diagnóstico
+            </TabsTrigger>
+            <TabsTrigger value="teste-webhook" className="flex items-center gap-2">
+              <Webhook className="w-4 h-4" />
+              Teste Webhook
             </TabsTrigger>
             <TabsTrigger value="teste-cnj" className="flex items-center gap-2">
               <FlaskConical className="w-4 h-4" />
@@ -360,6 +365,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="diagnostico">
             <SuperAdminDiagnosticoJudit />
+          </TabsContent>
+
+          <TabsContent value="teste-webhook">
+            <SuperAdminWebhookTest />
           </TabsContent>
 
           <TabsContent value="teste-cnj">
