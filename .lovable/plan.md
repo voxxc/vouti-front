@@ -1,130 +1,153 @@
 
-## Plano: Corrigir Webhook OAB para Suportar reference_type: request
+## Plano: Criar Ferramenta de Teste de Webhook no SuperAdmin
 
-### Problema Identificado
+### Objetivo
+Adicionar uma nova aba "Teste Webhook" no painel SuperAdmin que permite simular o disparo de payloads para o webhook `judit-webhook-oab`, facilitando testes e debugging.
 
-O suporte disparou um mock de payload e recebeu erro:
+---
+
+### Funcionalidades
+
+1. **Seleção de Processo Real**
+   - Lista dropdown com processos que têm `tracking_id` ou `detalhes_request_id`
+   - Mostra CNJ + campos preenchidos para fácil identificação
+
+2. **Geração Automática de Payload**
+   - Botão para gerar payload de `reference_type: tracking`
+   - Botão para gerar payload de `reference_type: request`
+   - Usa os IDs reais do processo selecionado
+
+3. **Editor de Payload**
+   - Textarea com JSON editável
+   - Validação de JSON em tempo real
+
+4. **Disparo do Webhook**
+   - Botão para enviar POST para `/functions/v1/judit-webhook-oab`
+   - Mostra resposta completa (success, novosAndamentos, etc.)
+   - Mostra erros detalhados
+
+5. **Processos Existentes para Teste**
+   Encontrei processos reais com IDs que você pode usar:
+
+   | CNJ | tracking_id | detalhes_request_id |
+   |-----|-------------|---------------------|
+   | 0040341-47.2024.8.16.0021 | ac798979-4c8c-4993-a8a9-00c170c53aba | e76bd26f-919c-4e5b-8d13-41486af1e941 |
+   | 0012919-29.2025.8.16.0194 | 4f51dd50-3d04-440d-a3d5-69a8edd3d11f | a5930d5b-66ad-4fdc-ae91-629b54c0ec85 |
+   | 1052085-77.2023.8.26.0506 | 5f49c201-f043-4856-b5bd-8414bc51fedc | 559f6333-8754-4e9a-8bf6-75b5ed19b125 |
+
+---
+
+### Arquivos a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/SuperAdmin/SuperAdminWebhookTest.tsx` | **Novo** - Componente de teste |
+| `src/pages/SuperAdmin.tsx` | Adicionar nova aba "Teste Webhook" |
+
+---
+
+### Estrutura do Componente
+
+```text
+SuperAdminWebhookTest
+├── Seletor de processo (dropdown com processos válidos)
+├── Botões de template
+│   ├── "Gerar Payload Tracking" (reference_type: tracking)
+│   └── "Gerar Payload Request" (reference_type: request)
+├── Editor JSON (textarea editável)
+├── Botão "Disparar Webhook"
+└── Área de resultado
+    ├── Status (success/error)
+    ├── JSON da resposta
+    └── Logs relevantes
+```
+
+---
+
+### Templates de Payload
+
+**Template Tracking:**
 ```json
-{"success": false, "error": "Processo nao encontrado"}
-```
-
-**Causa raiz**: O webhook atual sempre busca processo por `tracking_id`, mas para notificações de **consulta avulsa** (`reference_type: request`), o ID recebido é um `request_id` que corresponde ao campo `detalhes_request_id` no banco.
-
-| reference_type | O que significa | Campo no banco para busca |
-|----------------|-----------------|---------------------------|
-| `tracking` | Monitoramento contínuo | `tracking_id` |
-| `request` | Consulta avulsa | `detalhes_request_id` |
-
----
-
-### Código Atual (Problema)
-
-```typescript
-// Linha 103-108 - Busca SEMPRE por tracking_id
-const { data: processo, error: fetchError } = await supabase
-  .from('processos_oab')
-  .select('id, numero_cnj, tenant_id, oab_id')
-  .eq('tracking_id', trackingId)
-  .single();
-```
-
----
-
-### Solução
-
-Adicionar verificação do `reference_type` para buscar pelo campo correto:
-
-```typescript
-// Buscar processo pelo campo apropriado baseado no reference_type
-let processo: any = null;
-let fetchError: any = null;
-
-if (payload.reference_type === 'request') {
-  // Para consultas avulsas, buscar por detalhes_request_id
-  console.log('[Judit Webhook OAB] Tipo request - buscando por detalhes_request_id...');
-  const result = await supabase
-    .from('processos_oab')
-    .select('id, numero_cnj, tenant_id, oab_id')
-    .eq('detalhes_request_id', trackingId)
-    .maybeSingle();
-  processo = result.data;
-  fetchError = result.error;
-  
-  // Fallback: tentar buscar pelo número CNJ se o payload tiver essa informação
-  if (!processo && payload.payload?.response_data?.code) {
-    console.log('[Judit Webhook OAB] Tentando fallback por numero_cnj:', payload.payload.response_data.code);
-    const resultCnj = await supabase
-      .from('processos_oab')
-      .select('id, numero_cnj, tenant_id, oab_id')
-      .eq('numero_cnj', payload.payload.response_data.code)
-      .limit(1)
-      .maybeSingle();
-    processo = resultCnj.data;
-    fetchError = resultCnj.error;
+{
+  "user_id": "...",
+  "callback_id": "test-callback",
+  "event_type": "response_created",
+  "reference_type": "tracking",
+  "reference_id": "{tracking_id_do_processo}",
+  "payload": {
+    "request_id": "test-request",
+    "response_id": "test-response",
+    "origin": "tracking",
+    "origin_id": "{tracking_id_do_processo}",
+    "response_type": "lawsuit",
+    "response_data": {
+      "code": "{numero_cnj}",
+      "steps": [
+        {
+          "step_date": "2026-01-30T12:00:00.000Z",
+          "content": "Andamento de teste",
+          "step_type": "Despacho"
+        }
+      ]
+    }
   }
-} else {
-  // Para monitoramentos, buscar por tracking_id (fluxo atual)
-  console.log('[Judit Webhook OAB] Tipo tracking - buscando por tracking_id...');
-  const result = await supabase
-    .from('processos_oab')
-    .select('id, numero_cnj, tenant_id, oab_id')
-    .eq('tracking_id', trackingId)
-    .maybeSingle();
-  processo = result.data;
-  fetchError = result.error;
+}
+```
+
+**Template Request:**
+```json
+{
+  "user_id": "...",
+  "callback_id": "test-callback",
+  "event_type": "response_created",
+  "reference_type": "request",
+  "reference_id": "{detalhes_request_id_do_processo}",
+  "payload": {
+    "request_id": "{detalhes_request_id}",
+    "response_id": "test-response",
+    "response_type": "lawsuit",
+    "response_data": {
+      "code": "{numero_cnj}",
+      "steps": [
+        {
+          "step_date": "2026-01-30T12:00:00.000Z",
+          "content": "Andamento de teste via request",
+          "step_type": "Sentença"
+        }
+      ]
+    }
+  }
 }
 ```
 
 ---
 
-### Fluxo Atualizado
+### Benefícios
 
-```text
-Webhook recebe payload
-        │
-        ▼
-Extrair reference_id e reference_type
-        │
-        ▼
-┌───────────────────────────────────────────┐
-│ reference_type == 'request'?              │
-├─────────────┬─────────────────────────────┤
-│     SIM     │           NAO               │
-│     ▼       │           ▼                 │
-│ Buscar por  │  Buscar por                 │
-│ detalhes_   │  tracking_id                │
-│ request_id  │  (fluxo atual)              │
-│     │       │                             │
-│     ▼       │                             │
-│ Se nao      │                             │
-│ encontrar,  │                             │
-│ tentar por  │                             │
-│ numero_cnj  │                             │
-└─────────────┴─────────────────────────────┘
-        │
-        ▼
-Processar steps e inserir andamentos
+1. **Teste rápido** sem precisar do suporte da Judit
+2. **Validação visual** do fluxo completo
+3. **Debug facilitado** com resposta em tempo real
+4. **Uso de dados reais** do seu banco
+
+---
+
+### Webhook URL
+
+O endpoint para testar é:
+```
+https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/judit-webhook-oab
 ```
 
 ---
 
-### Alterações no Arquivo
+### Alterações na Interface SuperAdmin
 
-**Arquivo**: `supabase/functions/judit-webhook-oab/index.ts`
+Nova aba entre "Diagnóstico" e "Teste CNJ":
 
-| Linhas | Ação |
-|--------|------|
-| 103-116 | Substituir busca fixa por busca condicional baseada em `reference_type` |
+```text
+Tabs atuais:
+[Clientes] [Leads] [Suporte] [Monitoramento] [Diagnóstico] [Teste CNJ] ...
 
----
-
-### Comportamento Esperado Após Correção
-
-1. **Notificações de monitoramento** (`reference_type: tracking`): Continua funcionando como antes, buscando por `tracking_id`
-
-2. **Notificações de consulta avulsa** (`reference_type: request`): 
-   - Primeiro tenta buscar por `detalhes_request_id`
-   - Se não encontrar, tenta pelo `numero_cnj` do payload
-   - Processa os andamentos normalmente
-
-3. **Mock do suporte**: Passará a funcionar se o processo existir no banco com o `detalhes_request_id` ou `numero_cnj` correspondente
+Tabs após alteração:
+[Clientes] [Leads] [Suporte] [Monitoramento] [Diagnóstico] [Teste Webhook] [Teste CNJ] ...
+```
