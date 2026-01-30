@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -97,7 +97,9 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
   const tokens = dbTokens.map(dbTokenToFrontend);
 
   const [codes, setCodes] = useState<Record<string, string>>({});
-  const [secondsRemaining, setSecondsRemaining] = useState(30);
+  const [secondsRemaining, setSecondsRemaining] = useState(getSecondsRemaining());
+  const tokensRef = useRef(tokens);
+  tokensRef.current = tokens;
   const [localData, setLocalData] = useState<LegacyTOTPStorage | null>(null);
   
   // Dialog states
@@ -121,7 +123,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
   // Generate codes for all tokens
   const generateAllCodes = useCallback(async () => {
     const newCodes: Record<string, string> = {};
-    for (const token of tokens) {
+    for (const token of tokensRef.current) {
       try {
         newCodes[token.id] = await generateTOTP(token.secret);
       } catch {
@@ -129,25 +131,33 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
       }
     }
     setCodes(newCodes);
-  }, [tokens]);
+  }, []);
 
-  // Update codes and timer
+  // Effect 1: Timer - atualiza a cada segundo
   useEffect(() => {
     if (!open) return;
 
-    generateAllCodes();
-    
+    setSecondsRemaining(getSecondsRemaining());
+
     const interval = setInterval(() => {
-      const remaining = getSecondsRemaining();
-      setSecondsRemaining(remaining);
-      
-      if (remaining === 30) {
-        generateAllCodes();
-      }
+      setSecondsRemaining(getSecondsRemaining());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [open, generateAllCodes]);
+  }, [open]);
+
+  // Effect 2: Gerar códigos quando tokens mudam
+  useEffect(() => {
+    if (!open || tokens.length === 0) return;
+    generateAllCodes();
+  }, [open, tokens.length, generateAllCodes]);
+
+  // Effect 3: Regenerar códigos quando timer reseta
+  useEffect(() => {
+    if (secondsRemaining === 30 && tokensRef.current.length > 0) {
+      generateAllCodes();
+    }
+  }, [secondsRemaining, generateAllCodes]);
 
   // Handler para migrar dados locais
   const handleMigrateData = async () => {
