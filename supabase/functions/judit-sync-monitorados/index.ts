@@ -290,11 +290,11 @@ serve(async (req) => {
           const responseData = item.response_data;
           if (!responseData) continue;
 
-          const steps = responseData.steps || [];
+          const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
           
           for (const step of steps) {
-            const stepDate = step.step_date || step.date || null;
-            const stepContent = step.content || step.step_content || step.title || '';
+            const stepDate = step.step_date || step.date || step.data || step.data_movimentacao || null;
+            const stepContent = step.content || step.description || step.descricao || step.step_content || step.title || '';
             
             const key = generateAndamentoKey(stepDate, stepContent);
             
