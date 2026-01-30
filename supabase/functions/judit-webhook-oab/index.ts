@@ -100,15 +100,47 @@ serve(async (req) => {
 
     console.log('[Judit Webhook OAB] Tracking ID:', trackingId, '| reference_type:', payload.reference_type);
 
-    // Buscar processo pelo tracking_id
-    const { data: processo, error: fetchError } = await supabase
-      .from('processos_oab')
-      .select('id, numero_cnj, tenant_id, oab_id')
-      .eq('tracking_id', trackingId)
-      .single();
+    // Buscar processo pelo campo apropriado baseado no reference_type
+    let processo: any = null;
+    let fetchError: any = null;
+
+    if (payload.reference_type === 'request') {
+      // Para consultas avulsas, buscar por detalhes_request_id
+      console.log('[Judit Webhook OAB] Tipo request - buscando por detalhes_request_id:', trackingId);
+      const result = await supabase
+        .from('processos_oab')
+        .select('id, numero_cnj, tenant_id, oab_id')
+        .eq('detalhes_request_id', trackingId)
+        .maybeSingle();
+      processo = result.data;
+      fetchError = result.error;
+      
+      // Fallback: tentar buscar pelo número CNJ se o payload tiver essa informação
+      if (!processo && payload.payload?.response_data?.code) {
+        console.log('[Judit Webhook OAB] Tentando fallback por numero_cnj:', payload.payload.response_data.code);
+        const resultCnj = await supabase
+          .from('processos_oab')
+          .select('id, numero_cnj, tenant_id, oab_id')
+          .eq('numero_cnj', payload.payload.response_data.code)
+          .limit(1)
+          .maybeSingle();
+        processo = resultCnj.data;
+        fetchError = resultCnj.error;
+      }
+    } else {
+      // Para monitoramentos, buscar por tracking_id (fluxo atual)
+      console.log('[Judit Webhook OAB] Tipo tracking - buscando por tracking_id:', trackingId);
+      const result = await supabase
+        .from('processos_oab')
+        .select('id, numero_cnj, tenant_id, oab_id')
+        .eq('tracking_id', trackingId)
+        .maybeSingle();
+      processo = result.data;
+      fetchError = result.error;
+    }
 
     if (fetchError || !processo) {
-      console.error('[Judit Webhook OAB] Processo nao encontrado para tracking_id:', trackingId);
+      console.error('[Judit Webhook OAB] Processo nao encontrado. reference_type:', payload.reference_type, '| ID:', trackingId);
       return new Response(
         JSON.stringify({ success: false, error: 'Processo nao encontrado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
