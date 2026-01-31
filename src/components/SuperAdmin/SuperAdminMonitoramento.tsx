@@ -101,8 +101,19 @@ export function SuperAdminMonitoramento() {
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: async (): Promise<SyncResult> => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) throw new Error('Not authenticated');
+      // IMPORTANT: a API /auth/v1/user pode retornar session_not_found quando
+      // o access_token vem de uma sessão revogada/antiga. Forçamos refresh antes.
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+
+      if (refreshError) {
+        throw new Error('Sessão expirada. Faça login novamente e tente de novo.');
+      }
+
+      const accessToken = refreshed.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error('Not authenticated');
+      }
 
       const body = selectedTenant !== 'all' ? { tenant_id: selectedTenant } : {};
 
@@ -112,7 +123,7 @@ export function SuperAdminMonitoramento() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionData.session.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
           body: JSON.stringify(body),
         }
