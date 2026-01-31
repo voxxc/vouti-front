@@ -110,22 +110,34 @@ serve(async (req) => {
       });
     }
 
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Client para validar JWT
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    
+    // Client com service role para operações
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user is super admin
+    // Verify user via getClaims
     const token = authHeader.replace('Bearer ', '');
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error('[SYNC] Claims error:', claimsError);
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const userId = claimsData.claims.sub;
+
     const { data: isSuperAdmin } = await supabase
       .from('super_admins')
       .select('id')
-      .eq('user_id', userData.user.id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (!isSuperAdmin) {
