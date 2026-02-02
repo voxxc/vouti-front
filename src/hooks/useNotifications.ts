@@ -5,7 +5,7 @@ export interface Notification {
   id: string;
   user_id: string;
   tenant_id?: string;
-  type: 'project_update' | 'task_moved' | 'task_created' | 'mention' | 'comment_added' | 'andamento_processo' | 'deadline_assigned' | 'deadline_tagged' | 'project_added';
+  type: 'project_update' | 'task_moved' | 'task_created' | 'mention' | 'comment_added' | 'deadline_assigned' | 'deadline_tagged' | 'project_added';
   title: string;
   content: string;
   related_project_id?: string;

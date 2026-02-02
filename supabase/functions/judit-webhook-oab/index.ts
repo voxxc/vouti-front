@@ -339,60 +339,6 @@ serve(async (req) => {
       }
     }
 
-    // === CRIAR NOTIFICACOES PARA USUARIOS ===
-    if (novosAndamentos > 0) {
-      const todosOabIds = new Set<string>();
-      todosOabIds.add(processo.oab_id);
-      
-      if (processosCompartilhados) {
-        for (const p of processosCompartilhados) {
-          if (p.oab_id) todosOabIds.add(p.oab_id);
-        }
-      }
-
-      const { data: oabs } = await supabase
-        .from('oabs_cadastradas')
-        .select('id, user_id, tenant_id')
-        .in('id', Array.from(todosOabIds));
-
-      if (oabs && oabs.length > 0) {
-        const usuariosUnicos = new Map<string, { user_id: string; tenant_id: string }>();
-        
-        for (const oab of oabs) {
-          if (oab.user_id && oab.tenant_id) {
-            const key = `${oab.user_id}_${oab.tenant_id}`;
-            if (!usuariosUnicos.has(key)) {
-              usuariosUnicos.set(key, {
-                user_id: oab.user_id,
-                tenant_id: oab.tenant_id
-              });
-            }
-          }
-        }
-
-        console.log('[Judit Webhook OAB] Usuarios para notificar:', usuariosUnicos.size);
-
-        for (const [, userInfo] of usuariosUnicos) {
-          const { error: notifError } = await supabase
-            .from('notifications')
-            .insert({
-              user_id: userInfo.user_id,
-              tenant_id: userInfo.tenant_id,
-              type: 'andamento_processo',
-              title: `${novosAndamentos} novo(s) andamento(s)`,
-              content: `Processo ${processo.numero_cnj} recebeu atualizacao`,
-              related_project_id: processo.id,
-              triggered_by_user_id: userInfo.user_id,
-              is_read: false
-            });
-
-          if (notifError) {
-            console.error('[Judit Webhook OAB] Erro notificacao:', userInfo.user_id, notifError);
-          }
-        }
-      }
-    }
-
     console.log('[Judit Webhook OAB] ========== FIM WEBHOOK ==========');
 
     return new Response(
