@@ -61,26 +61,6 @@ serve(async (req) => {
 
     console.log('[Escavador Webhook] Atualização registrada com sucesso');
 
-    // === CRIAR NOTIFICAÇÃO PARA ADVOGADO RESPONSÁVEL ===
-    const { data: processo } = await supabaseClient
-      .from('processos')
-      .select('numero_processo, advogado_responsavel_id')
-      .eq('id', monitoramento.processo_id)
-      .single();
-
-    if (processo?.advogado_responsavel_id) {
-      await supabaseClient.from('notifications').insert({
-        user_id: processo.advogado_responsavel_id,
-        type: 'processo_movimentacao',
-        title: `🔔 Nova movimentação: ${processo.numero_processo}`,
-        content: (payload.descricao || payload.texto || payload.conteudo || '').substring(0, 200),
-        related_project_id: monitoramento.processo_id,
-        triggered_by_user_id: processo.advogado_responsavel_id
-      });
-
-      console.log('[Escavador Webhook] ✅ Notificação criada para advogado');
-    }
-
     return new Response(
       JSON.stringify({ success: true }),
       { headers: { 'Content-Type': 'application/json' } }
