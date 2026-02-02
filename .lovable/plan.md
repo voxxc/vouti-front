@@ -1,153 +1,95 @@
 
-## Plano: Criar Ferramenta de Teste de Webhook no SuperAdmin
+# Plano: Remover Notificações de Andamentos Processuais
 
-### Objetivo
-Adicionar uma nova aba "Teste Webhook" no painel SuperAdmin que permite simular o disparo de payloads para o webhook `judit-webhook-oab`, facilitando testes e debugging.
-
----
-
-### Funcionalidades
-
-1. **Seleção de Processo Real**
-   - Lista dropdown com processos que têm `tracking_id` ou `detalhes_request_id`
-   - Mostra CNJ + campos preenchidos para fácil identificação
-
-2. **Geração Automática de Payload**
-   - Botão para gerar payload de `reference_type: tracking`
-   - Botão para gerar payload de `reference_type: request`
-   - Usa os IDs reais do processo selecionado
-
-3. **Editor de Payload**
-   - Textarea com JSON editável
-   - Validação de JSON em tempo real
-
-4. **Disparo do Webhook**
-   - Botão para enviar POST para `/functions/v1/judit-webhook-oab`
-   - Mostra resposta completa (success, novosAndamentos, etc.)
-   - Mostra erros detalhados
-
-5. **Processos Existentes para Teste**
-   Encontrei processos reais com IDs que você pode usar:
-
-   | CNJ | tracking_id | detalhes_request_id |
-   |-----|-------------|---------------------|
-   | 0040341-47.2024.8.16.0021 | ac798979-4c8c-4993-a8a9-00c170c53aba | e76bd26f-919c-4e5b-8d13-41486af1e941 |
-   | 0012919-29.2025.8.16.0194 | 4f51dd50-3d04-440d-a3d5-69a8edd3d11f | a5930d5b-66ad-4fdc-ae91-629b54c0ec85 |
-   | 1052085-77.2023.8.26.0506 | 5f49c201-f043-4856-b5bd-8414bc51fedc | 559f6333-8754-4e9a-8bf6-75b5ed19b125 |
+## Objetivo
+Remover as notificações automáticas sobre andamentos processuais para evitar poluição visual na aba de notificações. As notificações devem ser mantidas apenas para:
+- Marcações (@menções)
+- Comentários
+- Prazos agendados
+- Prazos que estão se encerrando
 
 ---
 
-### Arquivos a Criar/Modificar
+## Alterações Necessárias
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/SuperAdmin/SuperAdminWebhookTest.tsx` | **Novo** - Componente de teste |
-| `src/pages/SuperAdmin.tsx` | Adicionar nova aba "Teste Webhook" |
+### 1. Edge Function: judit-webhook-oab
+**Arquivo:** `supabase/functions/judit-webhook-oab/index.ts`
+
+Remover completamente o bloco de código (linhas 354-392) que cria notificações do tipo `andamento_processo` quando novos andamentos são recebidos via webhook.
+
+O sistema continuará:
+- Salvando os andamentos na tabela `processos_oab_andamentos`
+- Atualizando o contador `andamentos_nao_lidos`
+- Propagando para processos compartilhados
+
+Apenas a notificação push para o usuário será removida.
 
 ---
 
-### Estrutura do Componente
+### 2. Edge Function: escavador-webhook
+**Arquivo:** `supabase/functions/escavador-webhook/index.ts`
+
+Remover o bloco de código (linhas 64-82) que cria notificações do tipo `processo_movimentacao` para o advogado responsável.
+
+---
+
+### 3. Hook de Notificações
+**Arquivo:** `src/hooks/useNotifications.ts`
+
+Remover os tipos de notificação relacionados a andamentos processuais:
+- `andamento_processo` (remover do tipo union)
+
+Tipos que permanecem:
+- `project_update`
+- `task_moved`
+- `task_created`
+- `mention`
+- `comment_added`
+- `deadline_assigned`
+- `deadline_tagged`
+- `project_added`
+
+---
+
+### 4. Componente NotificationCenter
+**Arquivo:** `src/components/Communication/NotificationCenter.tsx`
+
+- Remover o ícone/case para `andamento_processo` na função `getNotificationIcon()`
+- Remover a navegação condicional para `andamento_processo` no `handleNotificationClick()`
+- Remover import do ícone `Scale` se não for mais utilizado
+
+---
+
+## Detalhes Técnicos
 
 ```text
-SuperAdminWebhookTest
-├── Seletor de processo (dropdown com processos válidos)
-├── Botões de template
-│   ├── "Gerar Payload Tracking" (reference_type: tracking)
-│   └── "Gerar Payload Request" (reference_type: request)
-├── Editor JSON (textarea editável)
-├── Botão "Disparar Webhook"
-└── Área de resultado
-    ├── Status (success/error)
-    ├── JSON da resposta
-    └── Logs relevantes
+Arquivos a modificar:
+┌────────────────────────────────────────────────────┬─────────────────┐
+│ Arquivo                                            │ Ação            │
+├────────────────────────────────────────────────────┼─────────────────┤
+│ supabase/functions/judit-webhook-oab/index.ts      │ Remover bloco   │
+│ supabase/functions/escavador-webhook/index.ts      │ Remover bloco   │
+│ src/hooks/useNotifications.ts                      │ Remover tipo    │
+│ src/components/Communication/NotificationCenter.tsx│ Limpar código   │
+└────────────────────────────────────────────────────┴─────────────────┘
 ```
 
 ---
 
-### Templates de Payload
+## O que NÃO será afetado
 
-**Template Tracking:**
-```json
-{
-  "user_id": "...",
-  "callback_id": "test-callback",
-  "event_type": "response_created",
-  "reference_type": "tracking",
-  "reference_id": "{tracking_id_do_processo}",
-  "payload": {
-    "request_id": "test-request",
-    "response_id": "test-response",
-    "origin": "tracking",
-    "origin_id": "{tracking_id_do_processo}",
-    "response_type": "lawsuit",
-    "response_data": {
-      "code": "{numero_cnj}",
-      "steps": [
-        {
-          "step_date": "2026-01-30T12:00:00.000Z",
-          "content": "Andamento de teste",
-          "step_type": "Despacho"
-        }
-      ]
-    }
-  }
-}
-```
-
-**Template Request:**
-```json
-{
-  "user_id": "...",
-  "callback_id": "test-callback",
-  "event_type": "response_created",
-  "reference_type": "request",
-  "reference_id": "{detalhes_request_id_do_processo}",
-  "payload": {
-    "request_id": "{detalhes_request_id}",
-    "response_id": "test-response",
-    "response_type": "lawsuit",
-    "response_data": {
-      "code": "{numero_cnj}",
-      "steps": [
-        {
-          "step_date": "2026-01-30T12:00:00.000Z",
-          "content": "Andamento de teste via request",
-          "step_type": "Sentença"
-        }
-      ]
-    }
-  }
-}
-```
+- A Central de Controladoria continuará funcionando normalmente com o badge de andamentos não lidos
+- Os andamentos continuarão sendo salvos no banco de dados
+- A propagação para processos compartilhados continua funcionando
+- O usuário ainda verá os andamentos não lidos dentro da aba de Controladoria
+- As demais notificações (comentários, prazos, menções) permanecem inalteradas
 
 ---
 
-### Benefícios
+## Resultado Esperado
 
-1. **Teste rápido** sem precisar do suporte da Judit
-2. **Validação visual** do fluxo completo
-3. **Debug facilitado** com resposta em tempo real
-4. **Uso de dados reais** do seu banco
-
----
-
-### Webhook URL
-
-O endpoint para testar é:
-```
-https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/judit-webhook-oab
-```
-
----
-
-### Alterações na Interface SuperAdmin
-
-Nova aba entre "Diagnóstico" e "Teste CNJ":
-
-```text
-Tabs atuais:
-[Clientes] [Leads] [Suporte] [Monitoramento] [Diagnóstico] [Teste CNJ] ...
-
-Tabs após alteração:
-[Clientes] [Leads] [Suporte] [Monitoramento] [Diagnóstico] [Teste Webhook] [Teste CNJ] ...
-```
+Após a implementação:
+1. Webhooks da Judit/Escavador continuam salvando andamentos
+2. Nenhuma notificação será enviada para andamentos processuais
+3. A aba de notificações ficará limpa, apenas com interações relevantes
+4. O badge na Controladoria continua indicando andamentos não lidos
