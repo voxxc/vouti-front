@@ -1,95 +1,106 @@
 
-# Plano: Remover Notificações de Andamentos Processuais
+# Plano: Importar CNJ Único em Segundo Plano
 
-## Objetivo
-Remover as notificações automáticas sobre andamentos processuais para evitar poluição visual na aba de notificações. As notificações devem ser mantidas apenas para:
-- Marcações (@menções)
-- Comentários
-- Prazos agendados
-- Prazos que estão se encerrando
+## Problema Atual
+No modo de importação única, o usuário fica esperando o resultado da busca com um spinner "Importando..." que pode demorar até 60 segundos. Isso trava a interface sem necessidade.
 
----
+O modo em massa já implementa corretamente o comportamento desejado:
+1. Fecha o dialog imediatamente
+2. Mostra toast "Importação iniciada"
+3. Processa em background
+4. Notifica quando concluir
 
-## Alterações Necessárias
-
-### 1. Edge Function: judit-webhook-oab
-**Arquivo:** `supabase/functions/judit-webhook-oab/index.ts`
-
-Remover completamente o bloco de código (linhas 354-392) que cria notificações do tipo `andamento_processo` quando novos andamentos são recebidos via webhook.
-
-O sistema continuará:
-- Salvando os andamentos na tabela `processos_oab_andamentos`
-- Atualizando o contador `andamentos_nao_lidos`
-- Propagando para processos compartilhados
-
-Apenas a notificação push para o usuário será removida.
+## Solução
+Aplicar o mesmo padrão do modo em massa para o modo único.
 
 ---
 
-### 2. Edge Function: escavador-webhook
-**Arquivo:** `supabase/functions/escavador-webhook/index.ts`
+## Alteração no Arquivo
 
-Remover o bloco de código (linhas 64-82) que cria notificações do tipo `processo_movimentacao` para o advogado responsável.
+**Arquivo:** `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`
+
+### Função `handleImportar` (linhas 65-116)
+
+**Antes (bloqueante):**
+```tsx
+setImportando(true);
+try {
+  const { data, error } = await supabase.functions.invoke(...);
+  // ... aguarda resultado
+  toast({ title: 'Processo importado' });
+} finally {
+  setImportando(false);
+}
+```
+
+**Depois (background):**
+```tsx
+// 1. Salvar dados necessários antes de fechar
+const cnjParaImportar = numeroCnj;
+
+// 2. Limpar estado e fechar dialog imediatamente
+setNumeroCnj('');
+onOpenChange(false);
+
+// 3. Notificar início
+toast({
+  title: 'Importação iniciada',
+  description: 'Buscando processo em segundo plano...'
+});
+
+// 4. Processar em background (sem await no fluxo principal)
+supabase.functions.invoke('judit-buscar-processo-cnj', {
+  body: { numeroCnj: cnjParaImportar, oabId, tenantId, userId }
+}).then(({ data, error }) => {
+  if (error || !data?.success) {
+    toast({
+      title: 'Erro ao importar',
+      description: error?.message || data?.error || 'Tente novamente',
+      variant: 'destructive'
+    });
+  } else {
+    toast({
+      title: 'Processo importado',
+      description: data.dadosCompletos === false 
+        ? 'Processo em sigilo ou dados indisponíveis'
+        : `${data.andamentosInseridos} andamentos registrados`
+    });
+    onSuccess?.();
+  }
+}).catch((err) => {
+  toast({
+    title: 'Erro ao importar',
+    description: err.message || 'Falha na conexão',
+    variant: 'destructive'
+  });
+});
+```
 
 ---
 
-### 3. Hook de Notificações
-**Arquivo:** `src/hooks/useNotifications.ts`
+## Resultado Esperado
 
-Remover os tipos de notificação relacionados a andamentos processuais:
-- `andamento_processo` (remover do tipo union)
-
-Tipos que permanecem:
-- `project_update`
-- `task_moved`
-- `task_created`
-- `mention`
-- `comment_added`
-- `deadline_assigned`
-- `deadline_tagged`
-- `project_added`
-
----
-
-### 4. Componente NotificationCenter
-**Arquivo:** `src/components/Communication/NotificationCenter.tsx`
-
-- Remover o ícone/case para `andamento_processo` na função `getNotificationIcon()`
-- Remover a navegação condicional para `andamento_processo` no `handleNotificationClick()`
-- Remover import do ícone `Scale` se não for mais utilizado
+1. **Usuário clica em "Importar Processo"**
+2. **Dialog fecha instantaneamente**
+3. **Toast aparece:** "Importação iniciada - Buscando processo em segundo plano..."
+4. **Após 30-60 segundos, toast de conclusão:**
+   - Sucesso: "Processo importado - X andamentos registrados"
+   - Erro: "Erro ao importar - [mensagem]"
+5. **Lista de processos é atualizada automaticamente via `onSuccess()`**
 
 ---
 
 ## Detalhes Técnicos
 
 ```text
-Arquivos a modificar:
-┌────────────────────────────────────────────────────┬─────────────────┐
-│ Arquivo                                            │ Ação            │
-├────────────────────────────────────────────────────┼─────────────────┤
-│ supabase/functions/judit-webhook-oab/index.ts      │ Remover bloco   │
-│ supabase/functions/escavador-webhook/index.ts      │ Remover bloco   │
-│ src/hooks/useNotifications.ts                      │ Remover tipo    │
-│ src/components/Communication/NotificationCenter.tsx│ Limpar código   │
-└────────────────────────────────────────────────────┴─────────────────┘
+┌─────────────────────────────────────┬──────────────────────────────────┐
+│ Comportamento Atual                 │ Comportamento Novo               │
+├─────────────────────────────────────┼──────────────────────────────────┤
+│ Dialog fica aberto durante busca    │ Dialog fecha imediatamente       │
+│ Spinner "Importando..." por 60s     │ Toast de progresso               │
+│ Usuário não pode fazer nada         │ Usuário continua trabalhando     │
+│ Resultado aparece no dialog         │ Resultado via toast              │
+└─────────────────────────────────────┴──────────────────────────────────┘
 ```
 
----
-
-## O que NÃO será afetado
-
-- A Central de Controladoria continuará funcionando normalmente com o badge de andamentos não lidos
-- Os andamentos continuarão sendo salvos no banco de dados
-- A propagação para processos compartilhados continua funcionando
-- O usuário ainda verá os andamentos não lidos dentro da aba de Controladoria
-- As demais notificações (comentários, prazos, menções) permanecem inalteradas
-
----
-
-## Resultado Esperado
-
-Após a implementação:
-1. Webhooks da Judit/Escavador continuam salvando andamentos
-2. Nenhuma notificação será enviada para andamentos processuais
-3. A aba de notificações ficará limpa, apenas com interações relevantes
-4. O badge na Controladoria continua indicando andamentos não lidos
+O botão de importar não precisa mais do estado `importando` para mostrar spinner, pois a ação é instantânea. O estado `importando` pode ser removido completamente.
