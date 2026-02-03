@@ -56,13 +56,12 @@ export const ImportarProcessoCNJDialog = ({
   
   // Modo único
   const [numeroCnj, setNumeroCnj] = useState('');
-  const [importando, setImportando] = useState(false);
 
   // Modo em massa
   const [cnjList, setCnjList] = useState<string[]>([]);
   const [novoCnj, setNovoCnj] = useState('');
 
-  const handleImportar = async () => {
+  const handleImportar = () => {
     if (!isValidCNJ(numeroCnj)) return;
     
     if (!podeCadastrarProcesso()) {
@@ -74,19 +73,36 @@ export const ImportarProcessoCNJDialog = ({
       return;
     }
 
-    setImportando(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('judit-buscar-processo-cnj', {
-        body: {
-          numeroCnj,
-          oabId: oab.id,
-          tenantId,
-          userId: user?.id
-        }
-      });
+    // Salvar dados antes de fechar
+    const cnjParaImportar = numeroCnj;
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Erro ao importar processo');
+    // Fechar dialog imediatamente
+    setNumeroCnj('');
+    onOpenChange(false);
+
+    // Notificar início
+    toast({
+      title: 'Importação iniciada',
+      description: 'Buscando processo em segundo plano...'
+    });
+
+    // Processar em background
+    supabase.functions.invoke('judit-buscar-processo-cnj', {
+      body: {
+        numeroCnj: cnjParaImportar,
+        oabId: oab.id,
+        tenantId,
+        userId: user?.id
+      }
+    }).then(({ data, error }) => {
+      if (error || !data?.success) {
+        toast({
+          title: 'Erro ao importar processo',
+          description: error?.message || data?.error || 'Tente novamente',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       if (data.dadosCompletos === false) {
         toast({
@@ -100,19 +116,15 @@ export const ImportarProcessoCNJDialog = ({
         });
       }
 
-      setNumeroCnj('');
-      onOpenChange(false);
       onSuccess?.();
-    } catch (err: any) {
+    }).catch((err: any) => {
       console.error('Erro ao importar:', err);
       toast({
         title: 'Erro ao importar processo',
-        description: err.message || 'Tente novamente',
+        description: err.message || 'Falha na conexão',
         variant: 'destructive'
       });
-    } finally {
-      setImportando(false);
-    }
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,26 +369,17 @@ export const ImportarProcessoCNJDialog = ({
         </Tabs>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={importando}>
+          <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>
           
           {mode === 'single' ? (
             <Button
               onClick={handleImportar}
-              disabled={!isValidCNJ(numeroCnj) || importando}
+              disabled={!isValidCNJ(numeroCnj)}
             >
-              {importando ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Importando...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Importar Processo
-                </>
-              )}
+              <Plus className="w-4 h-4 mr-2" />
+              Importar Processo
             </Button>
           ) : (
             <Button
