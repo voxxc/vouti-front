@@ -5737,6 +5737,47 @@ export type Database = {
           },
         ]
       }
+      tenant_banco_ids: {
+        Row: {
+          created_at: string
+          descricao: string
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          referencia_id: string | null
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          descricao: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          referencia_id?: string | null
+          tenant_id: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          referencia_id?: string | null
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_banco_ids_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_boletos: {
         Row: {
           codigo_barras: string | null
