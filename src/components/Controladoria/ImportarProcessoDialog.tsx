@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
@@ -30,7 +30,6 @@ export const ImportarProcessoDialog = ({
   const { podeMonitorarProcesso, uso, limites } = usePlanoLimites();
   const [importando, setImportando] = useState(false);
   const [ativarMonitoramento, setAtivarMonitoramento] = useState(true);
-  const [importarAndamentos, setImportarAndamentos] = useState(true);
   
   const limiteMonitoramentoAtingido = !podeMonitorarProcesso();
   
@@ -51,6 +50,15 @@ export const ImportarProcessoDialog = ({
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
+
+      // Buscar tenant_id do usuário
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const tenantId = profile?.tenant_id;
 
       // Extrair tribunal da sigla
       const tribunalSigla = extrairTribunalDoNumeroProcesso(processo.numero_cnj);
@@ -97,30 +105,7 @@ export const ImportarProcessoDialog = ({
 
       console.log('[Importar] ✅ Processo criado:', novoProcesso.id);
 
-      // 2. Importar andamentos se selecionado
-      if (importarAndamentos && processo.ultimos_andamentos.length > 0) {
-        const andamentosParaInserir = processo.ultimos_andamentos.map(andamento => ({
-          processo_id: novoProcesso.id,
-          descricao: andamento.descricao,
-          tipo_movimentacao: andamento.tipo_movimentacao,
-          data_movimentacao: andamento.data_movimentacao || new Date().toISOString(),
-          dados_completos: andamento.dados_completos,
-          lida: true // Marcamos como lida pois já foram visualizados
-        }));
-
-        const { error: andamentosError } = await supabase
-          .from('processo_andamentos_judit')
-          .insert(andamentosParaInserir);
-
-        if (andamentosError) {
-          console.error('[Importar] ⚠️ Erro ao importar andamentos:', andamentosError);
-          // Não falhar a importação por causa disso
-        } else {
-          console.log('[Importar] ✅ Andamentos importados:', andamentosParaInserir.length);
-        }
-      }
-
-      // 3. Ativar monitoramento se selecionado
+      // 2. Ativar monitoramento se selecionado
       if (ativarMonitoramento) {
         console.log('[Importar] 🔔 Ativando monitoramento...');
         
@@ -136,25 +121,48 @@ export const ImportarProcessoDialog = ({
 
         if (monitoramentoError) {
           console.error('[Importar] ⚠️ Erro ao ativar monitoramento:', monitoramentoError);
-          // Não falhar a importação por causa disso
-          toast({
-            title: "⚠️ Processo importado com aviso",
-            description: "Processo criado, mas não foi possível ativar o monitoramento automático",
-          });
         } else {
           console.log('[Importar] ✅ Monitoramento ativado');
         }
       }
 
+      // Fechar dialog imediatamente e mostrar toast
       toast({
         title: "✅ Processo importado!",
-        description: `Processo ${processo.numero_cnj} importado com sucesso`,
+        description: "Carregando andamentos em segundo plano...",
       });
 
       onOpenChange(false);
       
       // Redirecionar para detalhes do processo
       navigate(`/controladoria/processos/${novoProcesso.id}`);
+
+      // 3. Disparar busca de andamentos em background (não aguarda)
+      console.log('[Importar] 📋 Disparando busca de andamentos em background...');
+      
+      supabase.functions.invoke('judit-buscar-detalhes-processo', {
+        body: {
+          processoOabId: novoProcesso.id,
+          numeroCnj: processo.numero_cnj,
+          tenantId,
+          userId: user.id,
+          oabId: (processo as any).oab_id || null
+        }
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('[Importar] ⚠️ Erro ao carregar andamentos:', error);
+          toast({
+            title: "⚠️ Andamentos não carregados",
+            description: "Abra o processo para carregar manualmente",
+          });
+        } else {
+          console.log('[Importar] ✅ Andamentos carregados:', data);
+          toast({
+            title: "📋 Andamentos carregados",
+            description: `${data?.andamentosInseridos || 0} andamentos registrados`,
+          });
+        }
+      });
 
     } catch (error: any) {
       console.error('[Importar] 💥 Erro:', error);
@@ -223,20 +231,12 @@ export const ImportarProcessoDialog = ({
               </div>
             </div>
 
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="andamentos"
-                checked={importarAndamentos}
-                onCheckedChange={(checked) => setImportarAndamentos(checked as boolean)}
-              />
-              <div className="flex-1 space-y-1">
-                <Label htmlFor="andamentos" className="cursor-pointer font-medium">
-                  Importar andamentos históricos
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  {processo.ultimos_andamentos.length} andamento(s) disponíveis
-                </p>
-              </div>
+            {/* Info: Andamentos carregados automaticamente */}
+            <div className="flex items-start space-x-3 p-3 rounded-lg bg-accent/50 border border-border">
+              <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                Os andamentos serão carregados automaticamente em segundo plano
+              </p>
             </div>
           </div>
         </div>
