@@ -714,10 +714,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
         onCarregarDetalhes={carregarDetalhes}
-        onAtualizarProcesso={async (processoId, dados) => {
-          const { atualizarProcesso } = useProcessosOAB(oabId);
-          return await atualizarProcesso(processoId, dados);
-        }}
+        onAtualizarProcesso={atualizarProcesso}
         oab={oab}
       />
 
