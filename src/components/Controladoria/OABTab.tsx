@@ -434,6 +434,11 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     return processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length;
   }, [processos]);
 
+  // Contagem de processos monitorados
+  const monitoradosCount = useMemo(() => {
+    return processos.filter(p => p.monitoramento_ativo === true).length;
+  }, [processos]);
+
   // Extrair UFs unicas dos processos com contagem
   const ufsDisponiveis = useMemo(() => {
     const ufMap = new Map<string, number>();
@@ -454,6 +459,9 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     }
     if (filtroUF === 'nao-lidos') {
       return processos.filter(p => (p.andamentos_nao_lidos || 0) > 0);
+    }
+    if (filtroUF === 'monitorados') {
+      return processos.filter(p => p.monitoramento_ativo === true);
     }
     return processos.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
   }, [processos, filtroUF, compartilhadosMap]);
@@ -589,6 +597,14 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
                   <span className="flex items-center gap-2">
                     <Users className="w-3 h-3 text-purple-500" />
                     Compartilhados ({compartilhadosCount})
+                  </span>
+                </SelectItem>
+              )}
+              {monitoradosCount > 0 && (
+                <SelectItem value="monitorados">
+                  <span className="flex items-center gap-2">
+                    <Bell className="w-3 h-3 text-green-500" />
+                    Monitorados ({monitoradosCount})
                   </span>
                 </SelectItem>
               )}
