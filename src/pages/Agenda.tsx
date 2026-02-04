@@ -1520,7 +1520,7 @@ const Agenda = () => {
                               className="p-0 h-auto text-primary"
                               onClick={() => {
                                 setIsDetailDialogOpen(false);
-                                navigate(`/projects/${selectedDeadline.protocoloOrigem?.projectId}`);
+                                navigate(`/project/${selectedDeadline.protocoloOrigem?.projectId}`);
                               }}
                             >
                               <ExternalLink className="h-3 w-3 mr-1" />
