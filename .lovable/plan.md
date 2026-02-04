@@ -1,55 +1,79 @@
 
-# Plano: Dar Acesso aos Tokens TOTP para Heloise
+# Correção: Timeout na Sincronização de Monitoramentos
 
-## Situação Atual
+## Problema Identificado
 
-| Atributo | Valor |
-|----------|-------|
-| Usuária | Heloise L. (lorenzzattoadv@gmail.com) |
-| Tenant | Solvenza |
-| Role atual | `advogado` |
-| Acesso TOTP | ❌ Não tem |
+A Edge Function `judit-sync-monitorados` está atingindo o **timeout de 60 segundos** porque:
 
-## Lógica de Acesso TOTP
+| Métrica | Valor |
+|---------|-------|
+| Processos monitorados | 95 |
+| Processos do Solvenza | 93 (98% do total) |
+| Tempo por processo | ~1.2 segundos |
+| Tempo total estimado | ~114 segundos |
+| Timeout da Edge Function | 60 segundos |
 
-O sistema atualmente permite acesso aos tokens TOTP apenas para usuários com role `admin` ou `controller`:
+O `shutdown` visível nos logs confirma que a função está sendo encerrada forçadamente.
+
+---
+
+## Solução Proposta: Processamento em Batches Paralelos
+
+Modificar a Edge Function para:
+
+1. **Processar em lotes paralelos** (10 processos por vez)
+2. **Limitar por tenant** quando houver muitos processos
+3. **Retornar resposta parcial** se atingir timeout
+
+### Mudanças na Edge Function
 
 ```typescript
-const canSeeTOTP = currentUserRole === 'admin' || currentUserRole === 'controller';
+// ANTES: processamento sequencial
+for (const processo of processos) {
+  // 1 por vez...
+  await processarProcesso(processo);
+}
+
+// DEPOIS: processamento em batches paralelos
+const BATCH_SIZE = 10;
+const batches = chunkArray(processos, BATCH_SIZE);
+
+for (const batch of batches) {
+  await Promise.all(
+    batch.map(processo => processarProcesso(processo))
+  );
+}
 ```
 
-## Solução Proposta
+---
 
-Adicionar a role `controller` à Heloise. Isso é feito via SQL no banco de dados.
+## Arquivos a Modificar
 
-A role `controller` é apropriada porque:
-- Dá acesso às funcionalidades de controle (incluindo TOTP)
-- Não concede privilégios de administrador total
-- Heloise mantém sua role principal como `advogado`
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/judit-sync-monitorados/index.ts` | Implementar processamento em batches paralelos |
 
-## Comando SQL
+---
 
-```sql
-INSERT INTO user_roles (user_id, role, tenant_id, is_primary)
-VALUES (
-  '3be82b03-5931-4a0a-b9f9-a83c666cf93f',  -- Heloise
-  'controller',
-  '27492091-e05d-46a8-9ee8-b3b47ec894e4',  -- Solvenza
-  false  -- Não é a role principal
-);
-```
+## Melhoria Adicional no Frontend
+
+Exibir progresso incremental no SuperAdmin:
+- Mostrar quantos processos foram verificados até agora
+- Exibir timer de tempo decorrido
+- Permitir sincronizar apenas um tenant específico (já existe, mas vamos destacar)
+
+---
+
+## Alternativa: Limitar processos por execução
+
+Se preferir uma solução mais simples, podemos limitar a 30 processos por execução e exigir múltiplas sincronizações para completar todos.
+
+---
 
 ## Resultado Esperado
 
-Após a execução:
-
 | Antes | Depois |
 |-------|--------|
-| Role: advogado | Roles: advogado + controller |
-| TOTP: ❌ | TOTP: ✅ |
-
-A Heloise poderá ver o ícone de relógio (tokens TOTP) no menu lateral do Dashboard, com a mesma visualização que admins e controllers têm.
-
-## Nenhuma Alteração de Código
-
-Esta solução não requer modificação de arquivos - apenas uma inserção no banco de dados.
+| Timeout após 60s | Completa em ~20-30s |
+| Erro de rede no frontend | Resposta JSON com resultados |
+| Processos não sincronizados | Todos os processos verificados |
