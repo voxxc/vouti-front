@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from '@/hooks/useTenantId';
 import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
 
 interface ProjectQuickSearchProps {
@@ -22,21 +23,23 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { tenantId } = useTenantId();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Carregar projetos na montagem com filtro de permissão
   useEffect(() => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     
     const loadProjects = async () => {
-      // Verificar se é admin ou controller
-      const isAdminOrController = await checkIfUserIsAdminOrController(user.id);
+      // Verificar se é admin ou controller NO TENANT ATUAL
+      const isAdminOrController = await checkIfUserIsAdminOrController(user.id, tenantId);
       
       if (isAdminOrController) {
-        // Admin/Controller: ver todos os projetos
+        // Admin/Controller: ver todos os projetos DO TENANT
         const { data, error } = await supabase
           .from('projects')
           .select('id, name, client')
+          .eq('tenant_id', tenantId)
           .order('updated_at', { ascending: false });
         
         if (error) {
@@ -45,7 +48,7 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
         }
         if (data) setProjects(data);
       } else {
-        // Usuário normal: ver apenas projetos onde é criador ou participante
+        // Usuário normal: ver apenas projetos onde é criador ou participante DO TENANT
         const { data: collaboratorProjects } = await supabase
           .from('project_collaborators')
           .select('project_id')
@@ -64,6 +67,7 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
         const { data, error } = await supabase
           .from('projects')
           .select('id, name, client')
+          .eq('tenant_id', tenantId)
           .or(orFilter)
           .order('updated_at', { ascending: false });
         
@@ -76,7 +80,7 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
     };
 
     loadProjects();
-  }, [user]);
+  }, [user, tenantId]);
 
   // Fechar ao clicar fora
   useEffect(() => {

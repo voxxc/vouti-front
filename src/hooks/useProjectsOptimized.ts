@@ -59,11 +59,12 @@ export const useProjectsOptimized = () => {
 
   // Phase 1: Load basic project data (instant)
   const fetchBasicProjects = useCallback(async () => {
-    if (!user) return;
+    if (!user || !tenantId) return;
 
     try {
       const hasFullAccess = await checkAdminOrController();
       
+      // CRITICAL: Always filter by tenant_id for multi-tenant isolation
       let query = supabase
         .from('projects')
         .select(`
@@ -77,6 +78,7 @@ export const useProjectsOptimized = () => {
           updated_at,
           tasks(count)
         `)
+        .eq('tenant_id', tenantId)
         .order('name', { ascending: true });
 
       // Non-admin/controller filter - only filter if user doesn't have full access
