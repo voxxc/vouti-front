@@ -28,12 +28,13 @@ interface BancoId {
   created_at: string;
 }
 
-type TipoId = 'oab' | 'processo' | 'tracking' | 'request_busca' | 'request_detalhes' | 'request_monitoramento';
+type TipoId = 'oab' | 'processo' | 'tracking' | 'tracking_desativado' | 'request_busca' | 'request_detalhes' | 'request_monitoramento';
 
 const TIPO_LABELS: Record<TipoId, { label: string; icon: typeof Database }> = {
   oab: { label: 'OABs', icon: FileText },
   processo: { label: 'Processos', icon: Scale },
   tracking: { label: 'Tracking', icon: Radio },
+  tracking_desativado: { label: 'Desativado', icon: Radio },
   request_busca: { label: 'Buscas', icon: Search },
   request_detalhes: { label: 'Detalhes', icon: FileText },
   request_monitoramento: { label: 'Monitoramento', icon: Radio },
@@ -170,9 +171,14 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
 
           {item.metadata && Object.keys(item.metadata).length > 0 && (
             <div className="flex items-center gap-2 text-muted-foreground mt-2">
-          {(item.metadata as Record<string, unknown>).monitoramento_ativo === true && (
+              {item.tipo === 'tracking_desativado' && (
+                <Badge variant="destructive" className="text-xs">
+                  🔴 Desativado
+                </Badge>
+              )}
+              {item.tipo === 'tracking' && (item.metadata as Record<string, unknown>).monitoramento_ativo === true && (
                 <Badge variant="default" className="text-xs bg-primary/20 text-primary border-primary/30">
-                  🟢 Monitoramento Ativo
+                  🟢 Ativo
                 </Badge>
               )}
               {(item.metadata as Record<string, unknown>).tribunal && (
@@ -216,7 +222,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               Processos ({getCountByType('processo')})
             </TabsTrigger>
             <TabsTrigger value="tracking" className="text-xs">
-              Tracking ({getCountByType('tracking')})
+              Tracking ({getCountByType('tracking') + getCountByType('tracking_desativado')})
             </TabsTrigger>
             <TabsTrigger value="request_busca" className="text-xs">
               Requests ({getCountByType('request_busca') + getCountByType('request_detalhes')})
@@ -238,6 +244,16 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                 {activeTab === 'request_busca' ? (
                   // Mostrar tanto request_busca quanto request_detalhes na aba Requests
                   [...bancoIds.filter((i) => i.tipo === 'request_busca' || i.tipo === 'request_detalhes')]
+                    .filter((item) =>
+                      searchTerm
+                        ? item.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          item.external_id?.toLowerCase().includes(searchTerm.toLowerCase())
+                        : true
+                    )
+                    .map(renderIdItem)
+                ) : activeTab === 'tracking' ? (
+                  // Mostrar tanto tracking quanto tracking_desativado na aba Tracking
+                  [...bancoIds.filter((i) => i.tipo === 'tracking' || i.tipo === 'tracking_desativado')]
                     .filter((item) =>
                       searchTerm
                         ? item.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
