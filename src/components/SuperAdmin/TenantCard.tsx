@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
+import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import {
   AlertDialog,
@@ -35,6 +36,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [showBancoIds, setShowBancoIds] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -134,6 +136,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
           <Button 
             variant="ghost" 
             size="sm" 
+            className="gap-2"
+            onClick={() => setShowBancoIds(true)}
+            title="Banco de IDs"
+          >
+            <Hash className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
             className="gap-2 relative"
             onClick={() => setShowBoletos(true)}
             title="Gerenciar pagamentos"
@@ -220,6 +231,13 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
       <TenantCredenciaisDialog
         open={showCredenciais}
         onOpenChange={setShowCredenciais}
+        tenantId={tenant.id}
+        tenantName={tenant.name}
+      />
+
+      <TenantBancoIdsDialog
+        open={showBancoIds}
+        onOpenChange={setShowBancoIds}
         tenantId={tenant.id}
         tenantName={tenant.name}
       />
