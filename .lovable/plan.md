@@ -1,85 +1,143 @@
 
-# Plano: Adicionar Filtro "Monitorados" na Aba OABs
+# Plano: Carregar Andamentos Automaticamente na Importação
 
-## Contexto
+## Contexto do Problema
 
-O `OABTab.tsx` já possui um sistema de filtros implementado através de um `Select` com as opções:
-- "Todos os processos"
-- "Compartilhados" (processos em múltiplas OABs)
-- "Com novos andamentos" (andamentos não lidos)
-- Filtros por UF (SP, PR, RJ, etc.)
+Atualmente existem **dois fluxos de importação** de processos:
 
-## O Que Será Adicionado
+| Fluxo | O que acontece | Andamentos |
+|-------|----------------|------------|
+| **Importar por CNJ** (`ImportarProcessoCNJDialog`) | Chama `judit-buscar-processo-cnj` | ✅ Já carrega automaticamente (polling interno) |
+| **Importar da busca OAB** (`ImportarProcessoDialog` + `BuscarPorOABTab`) | Insere processo + andamentos do resultado OAB | ⚠️ Andamentos parciais (só os que vieram na busca OAB) |
 
-Um novo filtro **"Monitorados"** que exibe apenas os processos com `monitoramento_ativo = true`.
-
----
-
-## Alterações no Arquivo
-
-**Arquivo:** `src/components/Controladoria/OABTab.tsx`
-
-### 1. Adicionar Contagem de Monitorados (após linha ~435)
-
-```tsx
-// Contagem de processos monitorados
-const monitoradosCount = useMemo(() => {
-  return processos.filter(p => p.monitoramento_ativo === true).length;
-}, [processos]);
-```
-
-### 2. Adicionar Condição no Filtro (linhas 450-459)
-
-Atualizar o `processosFiltrados` para incluir o filtro de monitorados:
-
-```tsx
-const processosFiltrados = useMemo(() => {
-  if (filtroUF === 'todos') return processos;
-  if (filtroUF === 'compartilhados') {
-    return processos.filter(p => compartilhadosMap[p.numero_cnj]);
-  }
-  if (filtroUF === 'nao-lidos') {
-    return processos.filter(p => (p.andamentos_nao_lidos || 0) > 0);
-  }
-  // NOVO: Filtro de monitorados
-  if (filtroUF === 'monitorados') {
-    return processos.filter(p => p.monitoramento_ativo === true);
-  }
-  return processos.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
-}, [processos, filtroUF, compartilhadosMap]);
-```
-
-### 3. Adicionar Item no Select (na área de renderização do Select)
-
-Adicionar a opção após "Com novos andamentos":
-
-```tsx
-{monitoradosCount > 0 && (
-  <SelectItem value="monitorados">
-    <span className="flex items-center gap-2">
-      <Bell className="w-4 h-4 text-green-500" />
-      Monitorados ({monitoradosCount})
-    </span>
-  </SelectItem>
-)}
-```
+O problema está no segundo fluxo: quando você importa um processo que veio da busca por OAB, ele só salva os andamentos que vieram nessa busca inicial (geralmente poucos/resumidos). Para ter andamentos completos, o usuário precisa abrir o drawer e clicar em "Carregar Andamentos" - o que gera uma nova consulta paga.
 
 ---
 
-## Layout Visual
+## Solução Proposta
+
+Após importar o processo (criar registro no banco), disparar automaticamente em background a busca de detalhes completos + andamentos usando a mesma Edge Function `judit-buscar-detalhes-processo`.
+
+### Fluxo Atualizado
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│ Filtro por UF:  [▼ Todos os processos                        ]  │
-│                 ├─ Todos os processos                           │
-│                 ├─ 👥 Compartilhados (3)                        │
-│                 ├─ 🔔 Com novos andamentos (5)                  │
-│                 ├─ 🟢 Monitorados (12)         ← NOVO          │
-│                 ├─ SP (45)                                      │
-│                 ├─ PR (23)                                      │
-│                 └─ RJ (8)                                       │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│ Usuário clica "Importar Processo"                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│ 1. Dialog fecha imediatamente                                       │
+│ 2. Toast: "Processo importado! Carregando andamentos..."            │
+│ 3. Processo é criado no banco (estado: detalhes_carregados = false) │
+│ 4. Background: judit-buscar-detalhes-processo é chamado             │
+│ 5. Toast final: "Andamentos carregados (X novos)"                   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Alterações Necessárias
+
+### Arquivo: `src/components/Controladoria/ImportarProcessoDialog.tsx`
+
+Este dialog importa processos vindos da busca por OAB (de `BuscarPorOABTab.tsx`).
+
+**Modificações:**
+
+1. **Remover checkbox "Importar andamentos históricos"** 
+   - Não faz mais sentido, pois sempre carregaremos os andamentos completos
+
+2. **Após criar o processo, disparar busca de detalhes em background**
+   ```typescript
+   // Após criar processo com sucesso
+   toast({ 
+     title: "✅ Processo importado!",
+     description: "Carregando andamentos em segundo plano..."
+   });
+
+   // Fechar dialog imediatamente
+   onOpenChange(false);
+
+   // Disparar busca de andamentos em background (não aguarda)
+   supabase.functions.invoke('judit-buscar-detalhes-processo', {
+     body: {
+       processoOabId: novoProcesso.id,
+       numeroCnj: processo.numero_cnj,
+       tenantId,
+       userId: user?.id,
+       oabId: processo.oab_id // se disponível
+     }
+   }).then(({ data, error }) => {
+     if (error) {
+       console.error('[Importar] Erro ao carregar andamentos:', error);
+       toast({
+         title: "⚠️ Andamentos não carregados",
+         description: "Abra o processo para carregar manualmente",
+       });
+     } else {
+       toast({
+         title: "📋 Andamentos carregados",
+         description: `${data?.andamentosInseridos || 0} andamentos registrados`
+       });
+     }
+   });
+   ```
+
+3. **Simplificar UI**: Remover a opção de importar andamentos (sempre importa)
+
+---
+
+## Layout Simplificado do Dialog
+
+**Antes:**
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Importar Processo para o Sistema                             │
+├──────────────────────────────────────────────────────────────┤
+│ [0000123-45.2024.8.16.0001]   [TJPR] [Ativo]                │
+├──────────────────────────────────────────────────────────────┤
+│ ☑ Ativar monitoramento diário                               │
+│   Receba notificações automáticas de novos andamentos       │
+├──────────────────────────────────────────────────────────────┤
+│ ☑ Importar andamentos históricos    ← REMOVER              │
+│   5 andamento(s) disponíveis                                │
+├──────────────────────────────────────────────────────────────┤
+│                          [Cancelar] [Importar Processo]      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Depois:**
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Importar Processo para o Sistema                             │
+├──────────────────────────────────────────────────────────────┤
+│ [0000123-45.2024.8.16.0001]   [TJPR] [Ativo]                │
+├──────────────────────────────────────────────────────────────┤
+│ ☑ Ativar monitoramento diário                               │
+│   Receba notificações automáticas de novos andamentos       │
+├──────────────────────────────────────────────────────────────┤
+│ ℹ️ Os andamentos serão carregados automaticamente           │
+├──────────────────────────────────────────────────────────────┤
+│                          [Cancelar] [Importar Processo]      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Considerações Técnicas
+
+### Custo da API
+
+- A importação por OAB já faz 1 request pago (`/request-document`)
+- Carregar andamentos completos faz +1 request pago (`/requests` com `lawsuit_cnj`)
+- **Total por processo importado: 2 requests**
+
+Porém, se o processo for **compartilhado** (já existe em outra OAB do mesmo tenant com `detalhes_request_id`), a Edge Function reutiliza o request_id existente e faz apenas GET gratuito.
+
+### Tratamento de Erros
+
+Se a busca de andamentos falhar:
+- Processo continua importado normalmente
+- Toast informa que andamentos não foram carregados
+- Usuário pode carregar manualmente depois abrindo o drawer
 
 ---
 
@@ -87,13 +145,14 @@ Adicionar a opção após "Com novos andamentos":
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/Controladoria/OABTab.tsx` | Adicionar contagem, condição de filtro e item no Select |
+| `src/components/Controladoria/ImportarProcessoDialog.tsx` | Remover checkbox andamentos, adicionar chamada automática à Edge Function |
 
 ---
 
 ## Resultado Esperado
 
-1. Novo item "Monitorados (X)" aparece no dropdown de filtros
-2. Ao selecionar, exibe apenas processos com `monitoramento_ativo = true`
-3. Contador mostra quantos processos estão sendo monitorados
-4. Ícone de sino verde diferencia visualmente dos outros filtros
+1. Usuário clica em "Importar" → dialog fecha imediatamente
+2. Toast mostra "Processo importado! Carregando andamentos..."
+3. Em background, andamentos completos são buscados
+4. Toast final informa quantos andamentos foram carregados
+5. Ao abrir o drawer, andamentos já estarão disponíveis
