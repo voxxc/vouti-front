@@ -1,48 +1,113 @@
 
-# Correção: Timeout na Sincronização de Monitoramentos
+# Correção: Vazamento de Projetos Entre Tenants
 
 ## Problema Identificado
 
-A Edge Function `judit-sync-monitorados` está atingindo o **timeout de 60 segundos** porque:
+Projetos do tenant **Solvenza** estão aparecendo no tenant **Oliveira**. Este é um problema crítico de isolamento multi-tenant.
 
-| Métrica | Valor |
-|---------|-------|
-| Processos monitorados | 95 |
-| Processos do Solvenza | 93 (98% do total) |
-| Tempo por processo | ~1.2 segundos |
-| Tempo total estimado | ~114 segundos |
-| Timeout da Edge Function | 60 segundos |
+## Causa Raiz
 
-O `shutdown` visível nos logs confirma que a função está sendo encerrada forçadamente.
+A função `has_role` usada nas RLS policies **não verifica o tenant_id**:
+
+```sql
+-- Função atual (PROBLEMÁTICA)
+SELECT EXISTS (
+  SELECT 1 FROM public.user_roles
+  WHERE user_id = _user_id AND role = _role
+  -- NÃO VERIFICA tenant_id!
+)
+```
+
+Quando a policy `"Admins can view tenant projects"` é avaliada:
+```sql
+has_role(auth.uid(), 'admin') AND tenant_id = get_user_tenant_id()
+```
+
+O `has_role` retorna TRUE se o usuário for admin em **qualquer tenant**, não apenas no tenant correto.
+
+Além disso, a função `is_project_member` também não verifica tenant:
+```sql
+-- Função atual (PROBLEMÁTICA)
+SELECT EXISTS (
+  SELECT 1 FROM projects p 
+  WHERE p.id = project_id AND p.created_by = uid
+  -- NÃO VERIFICA tenant_id!
+)
+```
 
 ---
 
-## Solução Proposta: Processamento em Batches Paralelos
+## Solução em Duas Camadas
 
-Modificar a Edge Function para:
+### Camada 1: Banco de Dados (RLS)
 
-1. **Processar em lotes paralelos** (10 processos por vez)
-2. **Limitar por tenant** quando houver muitos processos
-3. **Retornar resposta parcial** se atingir timeout
+Atualizar as RLS policies de `projects` para usar verificação explícita de tenant:
 
-### Mudanças na Edge Function
+| Policy Atual | Correção |
+|--------------|----------|
+| `has_role(uid, 'admin')` | `has_role_in_tenant(uid, 'admin', get_user_tenant_id())` |
+| `is_project_member(id)` | `is_project_member(id) AND tenant_id = get_user_tenant_id()` |
+
+```sql
+-- Recriar policies com verificação de tenant
+DROP POLICY IF EXISTS "Admins can view tenant projects" ON projects;
+CREATE POLICY "Admins can view tenant projects" ON projects
+  FOR SELECT USING (
+    tenant_id IS NOT NULL 
+    AND tenant_id = get_user_tenant_id()
+    AND has_role_in_tenant(auth.uid(), 'admin', get_user_tenant_id())
+  );
+
+DROP POLICY IF EXISTS "Controller can view tenant projects" ON projects;
+CREATE POLICY "Controller can view tenant projects" ON projects
+  FOR SELECT USING (
+    tenant_id IS NOT NULL 
+    AND tenant_id = get_user_tenant_id()
+    AND has_role_in_tenant(auth.uid(), 'controller', get_user_tenant_id())
+  );
+
+DROP POLICY IF EXISTS "Users can view their projects" ON projects;
+CREATE POLICY "Users can view their projects" ON projects
+  FOR SELECT USING (
+    tenant_id IS NOT NULL 
+    AND tenant_id = get_user_tenant_id()
+    AND is_project_member(id)
+  );
+```
+
+### Camada 2: Frontend (Defesa em Profundidade)
+
+Atualizar `useProjectsOptimized.ts` para filtrar explicitamente por `tenant_id`:
 
 ```typescript
-// ANTES: processamento sequencial
-for (const processo of processos) {
-  // 1 por vez...
-  await processarProcesso(processo);
-}
+// Adicionar filtro de tenant na query
+let query = supabase
+  .from('projects')
+  .select(`...`)
+  .eq('tenant_id', tenantId)  // FILTRO ADICIONAL
+  .order('name', { ascending: true });
+```
 
-// DEPOIS: processamento em batches paralelos
-const BATCH_SIZE = 10;
-const batches = chunkArray(processos, BATCH_SIZE);
+Atualizar `auth-helpers.ts` para verificar tenant:
 
-for (const batch of batches) {
-  await Promise.all(
-    batch.map(processo => processarProcesso(processo))
-  );
-}
+```typescript
+export const checkIfUserIsAdminOrController = async (
+  userId: string, 
+  tenantId?: string
+): Promise<boolean> => {
+  let query = supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .in('role', ['admin', 'controller']);
+  
+  if (tenantId) {
+    query = query.eq('tenant_id', tenantId);
+  }
+  
+  const { data } = await query.maybeSingle();
+  return !!data;
+};
 ```
 
 ---
@@ -51,22 +116,22 @@ for (const batch of batches) {
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/judit-sync-monitorados/index.ts` | Implementar processamento em batches paralelos |
+| `migrations/` | SQL para recriar RLS policies com verificação de tenant |
+| `src/hooks/useProjectsOptimized.ts` | Adicionar `.eq('tenant_id', tenantId)` na query |
+| `src/lib/auth-helpers.ts` | Adicionar parâmetro tenantId na verificação de roles |
+| `src/components/Search/ProjectQuickSearch.tsx` | Adicionar filtro de tenant (já tem parcialmente) |
 
 ---
 
-## Melhoria Adicional no Frontend
+## Projeto com tenant_id NULL
 
-Exibir progresso incremental no SuperAdmin:
-- Mostrar quantos processos foram verificados até agora
-- Exibir timer de tempo decorrido
-- Permitir sincronizar apenas um tenant específico (já existe, mas vamos destacar)
+Há 1 projeto órfão que precisa ser corrigido:
 
----
+| ID | Nome | Criador |
+|----|------|---------|
+| `d3749ef6-be1d-4848-8c25-324c7f899433` | EXEMPLOR LTDA | `dyohana.adv@ams.com` |
 
-## Alternativa: Limitar processos por execução
-
-Se preferir uma solução mais simples, podemos limitar a 30 processos por execução e exigir múltiplas sincronizações para completar todos.
+Este projeto será atribuído ao tenant correto baseado no perfil do criador.
 
 ---
 
@@ -74,6 +139,6 @@ Se preferir uma solução mais simples, podemos limitar a 30 processos por execu
 
 | Antes | Depois |
 |-------|--------|
-| Timeout após 60s | Completa em ~20-30s |
-| Erro de rede no frontend | Resposta JSON com resultados |
-| Processos não sincronizados | Todos os processos verificados |
+| Admin Oliveira vê projetos Solvenza | Cada tenant vê apenas seus próprios projetos |
+| RLS sem verificação de tenant | RLS com dupla verificação (role + tenant) |
+| Apenas 1 camada de proteção | Duas camadas (RLS + Frontend) |
