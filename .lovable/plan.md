@@ -1,56 +1,55 @@
 
-# Correção: Botão "Ver Projeto" não Funciona na Agenda
+# Plano: Dar Acesso aos Tokens TOTP para Heloise
 
-## Problema Identificado
+## Situação Atual
 
-No detalhe do prazo na Agenda, quando o prazo tem um **Protocolo de Origem** vinculado, o botão "Ver Projeto" não funciona.
+| Atributo | Valor |
+|----------|-------|
+| Usuária | Heloise L. (lorenzzattoadv@gmail.com) |
+| Tenant | Solvenza |
+| Role atual | `advogado` |
+| Acesso TOTP | ❌ Não tem |
 
-**Causa raiz:** A rota está escrita incorretamente no código.
+## Lógica de Acesso TOTP
 
-| Atual (errado) | Correto |
-|----------------|---------|
-| `/projects/${projectId}` | `/project/${projectId}` |
-
-A rota de projetos é `/:tenant/project/:id` (singular), mas o código usa "projects" (plural).
-
----
-
-## Localização do Erro
-
-**Arquivo:** `src/pages/Agenda.tsx` (linha 1523)
+O sistema atualmente permite acesso aos tokens TOTP apenas para usuários com role `admin` ou `controller`:
 
 ```typescript
-// ERRADO
-navigate(`/projects/${selectedDeadline.protocoloOrigem?.projectId}`);
-
-// CORRETO  
-navigate(`/project/${selectedDeadline.protocoloOrigem?.projectId}`);
+const canSeeTOTP = currentUserRole === 'admin' || currentUserRole === 'controller';
 ```
 
----
+## Solução Proposta
 
-## Correção
+Adicionar a role `controller` à Heloise. Isso é feito via SQL no banco de dados.
 
-Alterar a linha 1523 de:
-```typescript
-navigate(`/projects/${selectedDeadline.protocoloOrigem?.projectId}`);
+A role `controller` é apropriada porque:
+- Dá acesso às funcionalidades de controle (incluindo TOTP)
+- Não concede privilégios de administrador total
+- Heloise mantém sua role principal como `advogado`
+
+## Comando SQL
+
+```sql
+INSERT INTO user_roles (user_id, role, tenant_id, is_primary)
+VALUES (
+  '3be82b03-5931-4a0a-b9f9-a83c666cf93f',  -- Heloise
+  'controller',
+  '27492091-e05d-46a8-9ee8-b3b47ec894e4',  -- Solvenza
+  false  -- Não é a role principal
+);
 ```
 
-Para:
-```typescript
-navigate(`/project/${selectedDeadline.protocoloOrigem?.projectId}`);
-```
+## Resultado Esperado
 
----
+Após a execução:
 
-## Observação
+| Antes | Depois |
+|-------|--------|
+| Role: advogado | Roles: advogado + controller |
+| TOTP: ❌ | TOTP: ✅ |
 
-O hook `useTenantNavigation` já está sendo usado corretamente. Ele adiciona automaticamente o prefixo do tenant (ex: `/solvenza/`), então só precisamos corrigir o nome da rota de "projects" para "project".
+A Heloise poderá ver o ícone de relógio (tokens TOTP) no menu lateral do Dashboard, com a mesma visualização que admins e controllers têm.
 
----
+## Nenhuma Alteração de Código
 
-## Arquivo a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/Agenda.tsx` | Corrigir rota na linha 1523: `/projects/` → `/project/` |
+Esta solução não requer modificação de arquivos - apenas uma inserção no banco de dados.
