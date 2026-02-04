@@ -27,6 +27,15 @@ function generateAndamentoKey(data: string | null, descricao: string | null): st
   return `${normalizedDate}|${normalizedDesc}`;
 }
 
+// Helper to chunk array into batches
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
 // Fetch tracking history to get request_id
 async function fetchTrackingData(trackingId: string, apiKey: string): Promise<any> {
   const url = `https://tracking.prod.judit.io/tracking/${trackingId}`;
@@ -204,11 +213,11 @@ serve(async (req) => {
       });
     }
 
-    // Process each monitored process
-    for (const processo of processos) {
+    // Helper function to process a single processo
+    async function processarProcesso(processo: typeof processos[0]) {
       const tenantKey = processo.tenant_id;
       
-      // Initialize tenant result if needed
+      // Initialize tenant result if needed (thread-safe with Map)
       if (!resultsByTenant.has(tenantKey)) {
         resultsByTenant.set(tenantKey, {
           tenant_id: tenantKey,
@@ -240,7 +249,7 @@ serve(async (req) => {
             status: 'erro',
             erro,
           });
-          continue;
+          return;
         }
 
         // Check if tracking data contains page_data with request_id
@@ -262,7 +271,7 @@ serve(async (req) => {
             ultimo_andamento_data: null,
             status: 'sem_novos',
           });
-          continue;
+          return;
         }
 
         console.log(`[SYNC] Found request_id: ${requestId}`);
@@ -278,7 +287,7 @@ serve(async (req) => {
             ultimo_andamento_data: null,
             status: 'sem_novos',
           });
-          continue;
+          return;
         }
 
         // Get existing andamentos for deduplication
@@ -372,9 +381,6 @@ serve(async (req) => {
           });
         }
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
-
       } catch (error) {
         console.error(`[SYNC] Error processing ${processo.numero_cnj}:`, error);
         const erro = error.message;
@@ -387,6 +393,24 @@ serve(async (req) => {
           status: 'erro',
           erro,
         });
+      }
+    }
+
+    // Process in parallel batches of 10
+    const BATCH_SIZE = 10;
+    const batches = chunkArray(processos, BATCH_SIZE);
+    
+    console.log(`[SYNC] Processing ${processos.length} processes in ${batches.length} batches of ${BATCH_SIZE}`);
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[SYNC] Processing batch ${i + 1}/${batches.length} (${batch.length} processes)`);
+      
+      await Promise.all(batch.map(processo => processarProcesso(processo)));
+      
+      // Small delay between batches to avoid rate limiting
+      if (i < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
