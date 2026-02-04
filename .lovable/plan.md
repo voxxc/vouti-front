@@ -1,144 +1,118 @@
 
-# Correção: Vazamento de Projetos Entre Tenants
+# Correção de Bugs: Salvar Resumo e Comentários de Prazos
 
-## Problema Identificado
+## Problema 1: Botão Salvar Resumo Sem Reação
 
-Projetos do tenant **Solvenza** estão aparecendo no tenant **Oliveira**. Este é um problema crítico de isolamento multi-tenant.
+### Diagnóstico
 
-## Causa Raiz
+O componente `OABTab.tsx` está chamando um React Hook **dentro** de uma função async - isso viola as regras de hooks e faz a função nunca executar corretamente:
 
-A função `has_role` usada nas RLS policies **não verifica o tenant_id**:
-
-```sql
--- Função atual (PROBLEMÁTICA)
-SELECT EXISTS (
-  SELECT 1 FROM public.user_roles
-  WHERE user_id = _user_id AND role = _role
-  -- NÃO VERIFICA tenant_id!
-)
+```typescript
+// CÓDIGO ATUAL (INCORRETO) - linha 717-720
+onAtualizarProcesso={async (processoId, dados) => {
+  const { atualizarProcesso } = useProcessosOAB(oabId); // ❌ Hook dentro de função!
+  return await atualizarProcesso(processoId, dados);
+}}
 ```
 
-Quando a policy `"Admins can view tenant projects"` é avaliada:
-```sql
-has_role(auth.uid(), 'admin') AND tenant_id = get_user_tenant_id()
+O hook `useProcessosOAB` já foi chamado no nível do componente (linha 356-366) e a função `atualizarProcesso` já está disponível, mas não está sendo usada.
+
+### Correção
+
+Usar a função `atualizarProcesso` que já foi extraída do hook:
+
+```typescript
+// CORREÇÃO
+onAtualizarProcesso={atualizarProcesso}
 ```
 
-O `has_role` retorna TRUE se o usuário for admin em **qualquer tenant**, não apenas no tenant correto.
-
-Além disso, a função `is_project_member` também não verifica tenant:
-```sql
--- Função atual (PROBLEMÁTICA)
-SELECT EXISTS (
-  SELECT 1 FROM projects p 
-  WHERE p.id = project_id AND p.created_by = uid
-  -- NÃO VERIFICA tenant_id!
-)
-```
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/Controladoria/OABTab.tsx` | Usar `atualizarProcesso` já disponível |
 
 ---
 
-## Solução em Duas Camadas
+## Problema 2: Comentários de Prazos Desaparecendo
 
-### Camada 1: Banco de Dados (RLS)
+### Diagnóstico
 
-Atualizar as RLS policies de `projects` para usar verificação explícita de tenant:
+A RLS policy de SELECT para `deadline_comentarios` é muito restritiva. Ela só permite ver comentários se:
 
-| Policy Atual | Correção |
-|--------------|----------|
-| `has_role(uid, 'admin')` | `has_role_in_tenant(uid, 'admin', get_user_tenant_id())` |
-| `is_project_member(id)` | `is_project_member(id) AND tenant_id = get_user_tenant_id()` |
+1. O usuário for admin (mas a função `has_role` tem bug de tenant)
+2. O usuário é o owner/advogado_responsavel/tagueado do deadline
+
+**Cenário que causa o bug:**
+Quando um usuário acessa a aba de comentários de um prazo via `ProjectProtocoloDrawer`, ele pode ter permissão de ver o protocolo/projeto mas **não ser diretamente vinculado ao deadline**. 
+
+O INSERT funciona, mas o SELECT subsequente para recarregar os comentários não retorna nada porque o usuário não está nas condições da policy.
+
+### Correção
+
+Atualizar a policy de SELECT em `deadline_comentarios` para:
+
+1. Usar `has_role_in_tenant` ao invés de `has_role`
+2. Adicionar verificação de tenant
+3. Permitir que usuários vejam comentários de deadlines dentro de projetos que eles podem acessar
 
 ```sql
--- Recriar policies com verificação de tenant
-DROP POLICY IF EXISTS "Admins can view tenant projects" ON projects;
-CREATE POLICY "Admins can view tenant projects" ON projects
+-- Nova policy: usuários podem ver comentários de prazos de projetos que acessam
+DROP POLICY IF EXISTS "Usuários podem ver comentários de prazos" ON deadline_comentarios;
+
+CREATE POLICY "Usuários podem ver comentários de prazos" ON deadline_comentarios
   FOR SELECT USING (
+    tenant_id IS NOT NULL 
+    AND tenant_id = get_user_tenant_id()
+    AND (
+      -- O próprio autor pode ver
+      user_id = auth.uid()
+      OR
+      -- Quem é dono/responsável/tagueado no deadline pode ver
+      EXISTS (
+        SELECT 1 FROM deadlines d
+        WHERE d.id = deadline_id 
+        AND (
+          d.user_id = auth.uid() 
+          OR d.advogado_responsavel_id = auth.uid()
+          OR is_tagged_in_deadline(d.id, auth.uid())
+        )
+      )
+      OR
+      -- Quem pode acessar o projeto do deadline pode ver
+      EXISTS (
+        SELECT 1 FROM deadlines d
+        JOIN projects p ON p.id = d.project_id
+        WHERE d.id = deadline_id
+        AND is_project_member(p.id, auth.uid())
+      )
+    )
+  );
+
+-- Atualizar policy de admin para usar verificação de tenant correta
+DROP POLICY IF EXISTS "Admins can manage tenant deadline comentarios" ON deadline_comentarios;
+
+CREATE POLICY "Admins can manage tenant deadline comentarios" ON deadline_comentarios
+  FOR ALL USING (
     tenant_id IS NOT NULL 
     AND tenant_id = get_user_tenant_id()
     AND has_role_in_tenant(auth.uid(), 'admin', get_user_tenant_id())
   );
-
-DROP POLICY IF EXISTS "Controller can view tenant projects" ON projects;
-CREATE POLICY "Controller can view tenant projects" ON projects
-  FOR SELECT USING (
-    tenant_id IS NOT NULL 
-    AND tenant_id = get_user_tenant_id()
-    AND has_role_in_tenant(auth.uid(), 'controller', get_user_tenant_id())
-  );
-
-DROP POLICY IF EXISTS "Users can view their projects" ON projects;
-CREATE POLICY "Users can view their projects" ON projects
-  FOR SELECT USING (
-    tenant_id IS NOT NULL 
-    AND tenant_id = get_user_tenant_id()
-    AND is_project_member(id)
-  );
 ```
-
-### Camada 2: Frontend (Defesa em Profundidade)
-
-Atualizar `useProjectsOptimized.ts` para filtrar explicitamente por `tenant_id`:
-
-```typescript
-// Adicionar filtro de tenant na query
-let query = supabase
-  .from('projects')
-  .select(`...`)
-  .eq('tenant_id', tenantId)  // FILTRO ADICIONAL
-  .order('name', { ascending: true });
-```
-
-Atualizar `auth-helpers.ts` para verificar tenant:
-
-```typescript
-export const checkIfUserIsAdminOrController = async (
-  userId: string, 
-  tenantId?: string
-): Promise<boolean> => {
-  let query = supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .in('role', ['admin', 'controller']);
-  
-  if (tenantId) {
-    query = query.eq('tenant_id', tenantId);
-  }
-  
-  const { data } = await query.maybeSingle();
-  return !!data;
-};
-```
-
----
-
-## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `migrations/` | SQL para recriar RLS policies com verificação de tenant |
-| `src/hooks/useProjectsOptimized.ts` | Adicionar `.eq('tenant_id', tenantId)` na query |
-| `src/lib/auth-helpers.ts` | Adicionar parâmetro tenantId na verificação de roles |
-| `src/components/Search/ProjectQuickSearch.tsx` | Adicionar filtro de tenant (já tem parcialmente) |
+| Nova migration | Corrigir policies de `deadline_comentarios` |
 
 ---
 
-## Projeto com tenant_id NULL
+## Resumo das Alterações
 
-Há 1 projeto órfão que precisa ser corrigido:
-
-| ID | Nome | Criador |
-|----|------|---------|
-| `d3749ef6-be1d-4848-8c25-324c7f899433` | EXEMPLOR LTDA | `dyohana.adv@ams.com` |
-
-Este projeto será atribuído ao tenant correto baseado no perfil do criador.
-
----
+| Problema | Causa Raiz | Arquivo | Correção |
+|----------|------------|---------|----------|
+| Botão salvar sem reação | Hook chamado dentro de função async | `OABTab.tsx` | Usar função já extraída do hook |
+| Comentários sumindo | RLS SELECT muito restritiva | Migration SQL | Adicionar condição para membros do projeto |
 
 ## Resultado Esperado
 
-| Antes | Depois |
-|-------|--------|
-| Admin Oliveira vê projetos Solvenza | Cada tenant vê apenas seus próprios projetos |
-| RLS sem verificação de tenant | RLS com dupla verificação (role + tenant) |
-| Apenas 1 camada de proteção | Duas camadas (RLS + Frontend) |
+Após as correções:
+- Botão "Salvar" no resumo do processo funcionará corretamente
+- Comentários em prazos serão persistidos e exibidos para todos os membros do projeto
