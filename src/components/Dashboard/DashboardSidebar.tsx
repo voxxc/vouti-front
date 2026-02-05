@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
@@ -40,6 +41,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
+  const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const { 
     prefetchDashboard, 
     prefetchProjects, 
@@ -49,6 +51,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     prefetchFinancial,
     prefetchReunioes
   } = usePrefetchPages();
+
+  // Construir path tenant-aware para o dashboard
+  const dashboardPath = tenantSlug ? `/${tenantSlug}/dashboard` : '/dashboard';
 
   // Mapeamento de rotas para funções de prefetch
   const prefetchMap: Record<string, () => Promise<void>> = {
@@ -151,8 +156,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
           "p-4 border-b border-border flex items-center",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
-        <button 
-          onClick={() => handleNavigation('dashboard', '/dashboard')}
+        <Link 
+          to={dashboardPath}
+          onMouseEnter={() => handleMouseEnter('dashboard')}
           className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
         >
             {isCollapsed ? (
@@ -162,7 +168,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
             ) : (
               <Logo size="sm" />
             )}
-          </button>
+          </Link>
         </div>
 
         {/* Navigation Items */}
