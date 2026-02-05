@@ -95,61 +95,97 @@
        );
      }
  
-     // Criar usuário no auth.users
-     const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-       email,
-       password,
-       email_confirm: true,
-       user_metadata: { full_name }
-     });
+     // Verificar se usuário já existe
+     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+     const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
  
-     if (createUserError || !newUser.user) {
-       console.error('Error creating user:', createUserError);
-       
-       if (createUserError?.message?.includes('already been registered')) {
+     let userId: string;
+     let isExistingUser = false;
+ 
+     if (existingUser) {
+       // Usuário já existe - verificar se está no tenant correto
+       const { data: existingProfile } = await supabaseAdmin
+         .from('profiles')
+         .select('tenant_id')
+         .eq('user_id', existingUser.id)
+         .maybeSingle();
+ 
+       if (existingProfile?.tenant_id && existingProfile.tenant_id !== tenant_id) {
          return new Response(
-           JSON.stringify({ error: 'Este email já está cadastrado no sistema' }),
+           JSON.stringify({ error: 'Este email já está cadastrado em outro cliente. Não é possível adicionar ao cliente ' + tenant.name }),
            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
          );
        }
-       
-       return new Response(
-         JSON.stringify({ error: 'Erro ao criar usuário: ' + (createUserError?.message || 'Erro desconhecido') }),
-         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
-     }
  
-     console.log('User created:', newUser.user.id);
+       // Verificar se já é admin deste tenant
+       const { data: existingRole } = await supabaseAdmin
+         .from('user_roles')
+         .select('id')
+         .eq('user_id', existingUser.id)
+         .eq('tenant_id', tenant_id)
+         .eq('role', 'admin')
+         .maybeSingle();
  
-     // Atualizar profile com tenant_id
-     const { error: profileError } = await supabaseAdmin
-       .from('profiles')
-       .upsert({
-         user_id: newUser.user.id,
+       if (existingRole) {
+         return new Response(
+           JSON.stringify({ error: 'Este usuário já é administrador deste cliente' }),
+           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
+       }
+ 
+       userId = existingUser.id;
+       isExistingUser = true;
+       console.log('User already exists, will add admin role:', userId);
+     } else {
+       // Criar novo usuário
+       const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
          email,
-         full_name,
-         tenant_id
-       }, {
-         onConflict: 'user_id'
+         password,
+         email_confirm: true,
+         user_metadata: { full_name }
        });
  
-     if (profileError) {
-       console.error('Error updating profile:', profileError);
-       // Tentar deletar o usuário criado
-       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-       return new Response(
-         JSON.stringify({ error: 'Erro ao criar perfil do usuário' }),
-         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
+       if (createUserError || !newUser.user) {
+         console.error('Error creating user:', createUserError);
+         return new Response(
+           JSON.stringify({ error: 'Erro ao criar usuário: ' + (createUserError?.message || 'Erro desconhecido') }),
+           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
+       }
+ 
+       userId = newUser.user.id;
+       console.log('User created:', userId);
      }
  
-     console.log('Profile created/updated for user:', newUser.user.id);
+     // Atualizar/criar profile com tenant_id (apenas para novos usuários ou se não tiver tenant)
+     if (!isExistingUser) {
+       const { error: profileError } = await supabaseAdmin
+         .from('profiles')
+         .upsert({
+           user_id: userId,
+           email,
+           full_name,
+           tenant_id
+         }, {
+           onConflict: 'user_id'
+         });
+ 
+       if (profileError) {
+         console.error('Error updating profile:', profileError);
+         await supabaseAdmin.auth.admin.deleteUser(userId);
+         return new Response(
+           JSON.stringify({ error: 'Erro ao criar perfil do usuário' }),
+           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
+       }
+       console.log('Profile created/updated for user:', userId);
+     }
  
      // Criar role admin para o tenant
      const { error: roleError } = await supabaseAdmin
        .from('user_roles')
        .insert({
-         user_id: newUser.user.id,
+         user_id: userId,
          role: 'admin',
          tenant_id,
          is_primary: true
@@ -157,25 +193,31 @@
  
      if (roleError) {
        console.error('Error creating role:', roleError);
-       // Tentar deletar o usuário e profile criados
-       await supabaseAdmin.from('profiles').delete().eq('user_id', newUser.user.id);
-       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+       if (!isExistingUser) {
+         await supabaseAdmin.from('profiles').delete().eq('user_id', userId);
+         await supabaseAdmin.auth.admin.deleteUser(userId);
+       }
        return new Response(
          JSON.stringify({ error: 'Erro ao atribuir role de administrador' }),
          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
        );
      }
  
-     console.log('Admin role created for user:', newUser.user.id, 'in tenant:', tenant_id);
+     console.log('Admin role created for user:', userId, 'in tenant:', tenant_id);
+
+     const successMessage = isExistingUser 
+       ? `${full_name} agora é administrador de ${tenant.name}` 
+       : `Administrador ${full_name} criado com sucesso para ${tenant.name}`;
  
      return new Response(
        JSON.stringify({
          success: true,
-         message: `Administrador ${full_name} criado com sucesso para ${tenant.name}`,
+         message: successMessage,
          user: {
-           id: newUser.user.id,
-           email: newUser.user.email,
-           full_name
+           id: userId,
+           email,
+           full_name,
+           was_existing: isExistingUser
          }
        }),
        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
