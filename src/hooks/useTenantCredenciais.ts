@@ -231,6 +231,48 @@ export function useTenantCredenciais(tenantId: string | null) {
     },
   });
 
+  const deletarCredencialJudit = useMutation({
+    mutationFn: async ({
+      credencialJuditId,
+      systemName,
+      customerKey,
+    }: {
+      credencialJuditId: string;
+      systemName: string;
+      customerKey: string;
+    }) => {
+      // Chamar edge function para deletar
+      const response = await supabase.functions.invoke('judit-deletar-credencial', {
+        body: { systemName, customerKey },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao deletar do cofre Judit');
+      }
+
+      // Verificar se a resposta contém erro
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      // Deletar registro local da tabela credenciais_judit
+      const { error } = await supabase
+        .from('credenciais_judit')
+        .delete()
+        .eq('id', credencialJuditId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-credenciais-judit', tenantId] });
+      toast.success('Credencial removida do cofre Judit');
+    },
+    onError: (error: Error) => {
+      console.error('Erro ao deletar credencial:', error);
+      toast.error('Erro ao deletar: ' + error.message);
+    },
+  });
+
   return {
     credenciaisCliente: credenciaisCliente || [],
     credenciaisJudit: credenciaisJudit || [],
@@ -238,5 +280,6 @@ export function useTenantCredenciais(tenantId: string | null) {
     enviarParaJudit,
     enviarDiretoParaJudit,
     marcarComoErro,
+    deletarCredencialJudit,
   };
 }
