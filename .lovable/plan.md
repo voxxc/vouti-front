@@ -1,67 +1,104 @@
 
-# Corrigir Texto e Adicionar PDF para Download
+# Corrigir Troca Direta entre Drawers
 
-## Objetivo
+## Problema Identificado
 
-Corrigir o texto do disclaimer legal para unificar "termos de uso" e "licença" em um único link ("termo de uso e licença") que fará o download do PDF enviado.
+Atualmente cada drawer tem seu próprio estado independente no `DashboardSidebar`:
 
-## Alterações
-
-### 1. Copiar o PDF para a pasta public
-
-O PDF será copiado para `public/docs/` para que possa ser baixado diretamente:
-
-```
-user-uploads://TERMOS_E_CONDIÇÕES_DE_USO_E_LICENÇA_-_VOUTI_-2-2.pdf
-→ public/docs/termos-uso-licenca-vouti.pdf
-```
-
-### 2. Atualizar o texto em src/pages/Auth.tsx
-
-**Antes:**
 ```tsx
-<p className="text-[10px] text-muted-foreground text-center mt-3 leading-relaxed">
-  ao entrar, você concorda com os{' '}
-  <a href="/termos-de-uso" target="_blank" className="underline hover:text-primary">
-    termos de uso
-  </a>
-  ,{' '}
-  <a href="/licenca" target="_blank" className="underline hover:text-primary">
-    licença
-  </a>
-  {' '}e{' '}
-  <a href="/privacidade" target="_blank" className="underline hover:text-primary">
-    política de privacidade
-  </a>
-</p>
+const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
+const [controladoriaDrawerOpen, setControladoriaDrawerOpen] = useState(false);
+const [crmDrawerOpen, setCrmDrawerOpen] = useState(false);
+// ... etc
 ```
 
-**Depois:**
+Quando o usuário clica em um novo item da sidebar enquanto um drawer está aberto, o Radix Dialog detecta o clique como "fora do drawer" e fecha o drawer atual, consumindo o evento. Por isso é necessário clicar duas vezes.
+
+## Solução
+
+Substituir os múltiplos estados booleanos por um único estado que indica qual drawer está ativo:
+
 ```tsx
-<p className="text-[10px] text-muted-foreground text-center mt-3 leading-relaxed">
-  ao entrar, você concorda com o{' '}
-  <a 
-    href="/docs/termos-uso-licenca-vouti.pdf" 
-    download 
-    className="underline hover:text-primary"
-  >
-    termo de uso e licença
-  </a>
-  {' '}e{' '}
-  <a href="/privacidade" target="_blank" className="underline hover:text-primary">
-    política de privacidade
-  </a>
-</p>
+type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | null;
+const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
 ```
 
-## Detalhes Técnicos
+Além disso, configurar os drawers para **não fechar ao clicar fora**, permitindo que o clique na sidebar seja processado normalmente e abra o novo drawer diretamente.
 
-- O atributo `download` no link fará o navegador baixar o PDF ao invés de abri-lo
-- PDF fica na pasta `public/docs/` para acesso direto via URL
-- Texto corrigido: "termo de uso e licença" (singular, unificado)
-- Removido `target="_blank"` pois será download direto
+## Alterações Técnicas
 
-## Arquivos
+### 1. src/components/Dashboard/DashboardSidebar.tsx
 
-1. Copiar: `user-uploads://...pdf` → `public/docs/termos-uso-licenca-vouti.pdf`
-2. Editar: `src/pages/Auth.tsx` (linhas 282-295)
+**Remover** os estados individuais:
+```tsx
+// REMOVER
+const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
+const [controladoriaDrawerOpen, setControladoriaDrawerOpen] = useState(false);
+const [crmDrawerOpen, setCrmDrawerOpen] = useState(false);
+const [financialDrawerOpen, setFinancialDrawerOpen] = useState(false);
+const [reunioesDrawerOpen, setReunioesDrawerOpen] = useState(false);
+const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+```
+
+**Adicionar** estado único:
+```tsx
+type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | null;
+const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+```
+
+**Atualizar** os handlers de clique:
+```tsx
+// Antes
+onClick={() => {
+  setAgendaDrawerOpen(true);
+  setIsMobileOpen(false);
+}}
+
+// Depois
+onClick={() => {
+  setActiveDrawer('agenda');
+  setIsMobileOpen(false);
+}}
+```
+
+**Atualizar** a renderização dos drawers:
+```tsx
+<ProjectsDrawer 
+  open={activeDrawer === 'projetos'} 
+  onOpenChange={(open) => !open && setActiveDrawer(null)} 
+/>
+<ControladoriaDrawer 
+  open={activeDrawer === 'controladoria'} 
+  onOpenChange={(open) => !open && setActiveDrawer(null)} 
+/>
+// ... mesma lógica para os demais
+```
+
+### 2. src/components/ui/sheet.tsx
+
+Adicionar prop `onInteractOutside` para os drawers tipo `inset` e `left-offset`, evitando que o clique fora feche o drawer automaticamente:
+
+```tsx
+<SheetPrimitive.Content 
+  ref={ref} 
+  className={cn(sheetVariants({ side }), className)} 
+  onInteractOutside={(e) => {
+    // Para drawers inset/left-offset, não fechar ao clicar fora
+    if (side === "inset" || side === "left-offset") {
+      e.preventDefault();
+    }
+  }}
+  {...props}
+>
+```
+
+## Resultado Esperado
+
+1. Usuário clica em "Agenda" → Drawer da Agenda abre
+2. Usuário clica em "Controladoria" (com Agenda aberto) → Drawer da Controladoria abre diretamente, substituindo o drawer da Agenda
+3. Usuário clica no botão X do drawer ou em "Dashboard" → Drawer fecha
+
+## Arquivos a Editar
+
+1. `src/components/Dashboard/DashboardSidebar.tsx` - Unificar estados dos drawers
+2. `src/components/ui/sheet.tsx` - Prevenir fechamento ao clicar fora para drawers inset/left-offset
