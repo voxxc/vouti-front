@@ -32,7 +32,7 @@ export const ClienteAnalytics = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-2 text-foreground">Analytics de Clientes</h2>
-        <p className="text-muted-foreground">Analise completa do perfil dos clientes</p>
+         <p className="text-muted-foreground">Análise completa do perfil dos clientes</p>
       </div>
 
       {/* KPIs Principais */}

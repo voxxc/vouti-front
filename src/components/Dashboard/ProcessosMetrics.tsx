@@ -27,7 +27,7 @@ export const ProcessosMetrics = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold mb-2 text-foreground">CONTROLADORIA - PROCESSOS</h2>
-        <p className="text-muted-foreground">Metricas e analise de processos juridicos</p>
+         <p className="text-muted-foreground">Métricas e análise de processos jurídicos</p>
       </div>
 
       {/* KPIs Principais */}
@@ -56,7 +56,7 @@ export const ProcessosMetrics = () => {
 
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Proximos Prazos</CardTitle>
+             <CardTitle className="text-sm font-medium">Próximos Prazos</CardTitle>
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
