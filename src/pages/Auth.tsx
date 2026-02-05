@@ -289,7 +289,11 @@ const Auth = () => {
                         termo de uso e licença
                       </a>
                       {' '}e{' '}
-                      <a href="/privacidade" target="_blank" className="underline hover:text-primary">
+                      <a 
+                        href="/docs/politica-de-privacidade.pdf" 
+                        download 
+                        className="underline hover:text-primary"
+                      >
                         política de privacidade
                       </a>
                     </p>
