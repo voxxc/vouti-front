@@ -13,6 +13,7 @@ import { DadosSensiveisProvider } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
+import { UserManagementDrawer } from "@/components/Admin/UserManagementDrawer";
 
 const Dashboard = () => {
   const { navigate } = useTenantNavigation();
@@ -122,26 +123,6 @@ const Dashboard = () => {
     return fromUsers || fromAuth;
   }, [user, systemUsers]);
 
-  if (showUserManagement) {
-    return (
-      <DashboardLayout currentPage="dashboard">
-        <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => setShowUserManagement(false)}>
-              Voltar ao Dashboard
-            </Button>
-          </div>
-          <UserManagement
-            users={systemUsers}
-            onAddUser={handleAddUser}
-            onEditUser={handleEditUser}
-            onDeleteUser={handleDeleteUser}
-          />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   if (showOverview) {
     return (
       <DashboardLayout currentPage="dashboard">
@@ -172,6 +153,16 @@ const Dashboard = () => {
             userName={currentUserName}
           />
         </div>
+
+        {/* User Management Drawer */}
+        <UserManagementDrawer
+          open={showUserManagement}
+          onOpenChange={setShowUserManagement}
+          users={systemUsers}
+          onAddUser={handleAddUser}
+          onEditUser={handleEditUser}
+          onDeleteUser={handleDeleteUser}
+        />
       </DashboardLayout>
     </DadosSensiveisProvider>
   );
