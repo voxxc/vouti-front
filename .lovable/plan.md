@@ -1,121 +1,160 @@
 
-# Ajustes Visuais do Drawer de Projetos
 
-## Problemas Identificados
+# Ajustes Visuais e Agenda Drawer
 
-1. **Botao "+ Novo Projeto"**: Usa `w-full` e ocupa toda a largura do drawer
-2. **Barra de pesquisa**: Tambem ocupa 100% da largura ate o limite
-3. **Cards de projeto**: Os botoes de projeto vao ate a borda do drawer
+## 1. Reduzir barra de progresso do projeto
 
-Atualmente o padding do container e `p-6` (24px), mas os elementos internos ocupam 100% da largura disponivel.
+**Problema**: A barra de progresso ocupa toda a largura disponivel com `flex-1`
 
-## Conceito Visual
+**Arquivo**: `src/components/Projects/ProjectsDrawer.tsx`
+
+**Alteracao** (linhas 198-206):
 
 ```text
-ATUAL (problema):                       PROPOSTO (ajustado):
-                                        
-┌────────────────────────────────┐      ┌────────────────────────────────┐
-│ Projetos                       │      │ Projetos                       │
-├────────────────────────────────┤      ├────────────────────────────────┤
-│ [+ Novo Projeto.............]  │      │ [+ Novo Projeto]               │
-│ [Buscar projetos............]  │      │                                │
-│ ┌──────────────────────────┐   │      │ [🔍 Buscar projetos...   ]     │
-│ │ Projeto 1               >│   │      │                                │
-│ └──────────────────────────┘   │      │   Projeto 1               >    │
-│ ┌──────────────────────────┐   │      │   ───────────────────          │
-│ │ Projeto 2               >│   │      │   Projeto 2               >    │
-│ └──────────────────────────┘   │      │   ───────────────────          │
-└────────────────────────────────┘      └────────────────────────────────┘
+ANTES:
+┌──────────────────────────────────┐
+│ Projeto Nome                      │
+│ Cliente • 5 tarefas               │
+│ [████████████████████████] 75%    │  <- barra muito longa
+└──────────────────────────────────┘
+
+DEPOIS:
+┌──────────────────────────────────┐
+│ Projeto Nome                      │
+│ Cliente • 5 tarefas               │
+│ [████████████] 75%                │  <- barra limitada
+└──────────────────────────────────┘
 ```
 
-## Alteracoes
+Adicionar `max-w-[200px]` na Progress e remover `flex-1`:
 
-### Arquivo: `src/components/Projects/ProjectsDrawer.tsx`
-
-**1. Botao "+ Novo Projeto" (linha 140-146)**
-
-Antes:
 ```tsx
-<Button
-  className="w-full justify-start gap-2"
-  onClick={() => setShowCreateForm(true)}
->
-```
-
-Depois:
-```tsx
-<Button
-  size="sm"
-  className="gap-2"
-  onClick={() => setShowCreateForm(true)}
->
-```
-
-Remove `w-full` e `justify-start`, adiciona `size="sm"` para um botao mais compacto.
-
-**2. Barra de pesquisa (linha 149-157)**
-
-Antes:
-```tsx
-<div className="relative">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-  <Input
-    placeholder="Buscar projetos..."
-    value={searchTerm}
-    onChange={e => setSearchTerm(e.target.value)}
-    className="pl-9 h-9"
-  />
+<div className="flex items-center gap-2">
+  <Progress value={stats.progressPercentage} className="h-1.5 max-w-[200px]" />
+  <span className="text-xs text-muted-foreground w-8 text-right">
+    {stats.progressPercentage}%
+  </span>
 </div>
 ```
 
-Depois:
+---
+
+## 2. Criar AgendaDrawer (igual aos outros)
+
+A Agenda atualmente navega direto para `/agenda`. Vou criar um drawer que abre completamente (side="inset") igual ao Reunioes e Controladoria.
+
+### 2.1 Criar arquivo: `src/components/Agenda/AgendaDrawer.tsx`
+
+Seguindo o padrao do ReunioesDrawer e ControladoriaDrawer:
+
 ```tsx
-<div className="relative max-w-[280px]">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-  <Input
-    placeholder="Buscar projetos..."
-    value={searchTerm}
-    onChange={e => setSearchTerm(e.target.value)}
-    className="pl-9 h-9"
-  />
-</div>
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Calendar } from "lucide-react";
+import { AgendaContent } from "./AgendaContent";
+
+interface AgendaDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function AgendaDrawer({ open, onOpenChange }: AgendaDrawerProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent 
+        side="inset"
+        className="p-0 flex flex-col"
+      >
+        <SheetTitle className="sr-only">Agenda</SheetTitle>
+        
+        {/* Header */}
+        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
+          <Calendar className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-lg">Agenda</span>
+        </div>
+
+        {/* Conteudo scrollavel */}
+        <ScrollArea className="flex-1">
+          <div className="p-6">
+            <AgendaContent />
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
 ```
 
-Adiciona `max-w-[280px]` para limitar a largura.
+### 2.2 Criar arquivo: `src/components/Agenda/AgendaContent.tsx`
 
-**3. Cards de projeto (linha 159 e 176-184)**
+Componente que encapsula o conteudo da Agenda para reutilizacao:
 
-Antes:
 ```tsx
-<div className="space-y-1">
-  ...
-  <button
-    className={cn(
-      "w-full text-left p-3 transition-colors",
-      ...
-    )}
-  >
+import { AgendaCalendar } from "./AgendaCalendar";
+
+export function AgendaContent() {
+  return (
+    <div className="space-y-6">
+      <AgendaCalendar />
+    </div>
+  );
+}
 ```
 
-Depois:
+### 2.3 Atualizar: `src/components/Dashboard/DashboardSidebar.tsx`
+
+Adicionar estado e tratamento para o AgendaDrawer:
+
+**Imports**:
 ```tsx
-<div className="space-y-1 pr-4">
-  ...
-  <button
-    className={cn(
-      "w-full text-left p-3 rounded-lg transition-colors",
-      ...
-    )}
-  >
+import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 ```
 
-Adiciona `pr-4` no container para criar respiro da borda direita e `rounded-lg` nos cards para um visual mais suave.
+**Estado**:
+```tsx
+const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+```
 
-## Resultado
+**Tratamento especial para Agenda** (similar aos outros):
+```tsx
+if (item.id === 'agenda') {
+  return (
+    <Button
+      key={item.id}
+      variant={isActive(item.id) ? "secondary" : "ghost"}
+      onMouseEnter={() => handleMouseEnter(item.id)}
+      onClick={() => {
+        setAgendaDrawerOpen(true);
+        setIsMobileOpen(false);
+      }}
+      className={cn(
+        "w-full justify-start gap-3 h-11",
+        isCollapsed && "justify-center px-2",
+        isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+      )}
+      title={isCollapsed ? item.label : undefined}
+    >
+      <Icon size={20} />
+      {!isCollapsed && <span>{item.label}</span>}
+    </Button>
+  );
+}
+```
 
-| Elemento | Antes | Depois |
-|----------|-------|--------|
-| Botao Novo Projeto | Largura 100%, tamanho normal | Largura automatica, tamanho pequeno |
-| Barra de pesquisa | Largura 100% | Max 280px |
-| Cards de projeto | Colados na borda | Com respiro de 16px da borda direita |
-| Visual geral | Elementos esticados | Mais equilibrado e elegante |
+**Drawer no final**:
+```tsx
+{/* Agenda Drawer */}
+<AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
+```
+
+---
+
+## Resumo das Alteracoes
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/Projects/ProjectsDrawer.tsx` | Limitar largura da Progress para `max-w-[200px]` |
+| `src/components/Agenda/AgendaDrawer.tsx` | Criar novo arquivo (drawer inset) |
+| `src/components/Agenda/AgendaContent.tsx` | Criar novo arquivo (conteudo reutilizavel) |
+| `src/components/Dashboard/DashboardSidebar.tsx` | Importar AgendaDrawer, adicionar estado e logica de abertura |
+
