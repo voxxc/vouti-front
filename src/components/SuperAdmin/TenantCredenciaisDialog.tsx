@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Key, Eye, EyeOff, FileText, Send, Loader2, Download, AlertCircle, CheckCircle, Scale } from 'lucide-react';
+import { Key, Eye, EyeOff, FileText, Send, Loader2, Download, AlertCircle, CheckCircle, Scale, Trash2 } from 'lucide-react';
 import { useTenantCredenciais } from '@/hooks/useTenantCredenciais';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -28,7 +28,8 @@ export function TenantCredenciaisDialog({
   tenantId,
   tenantName,
 }: TenantCredenciaisDialogProps) {
-  const { credenciaisCliente, credenciaisJudit, isLoading, enviarParaJudit, enviarDiretoParaJudit } = useTenantCredenciais(tenantId);
+  const { credenciaisCliente, credenciaisJudit, isLoading, enviarParaJudit, enviarDiretoParaJudit, deletarCredencialJudit } = useTenantCredenciais(tenantId);
+  const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [senhasVisiveis, setSenhasVisiveis] = useState<Record<string, boolean>>({});
   const [selectedCredencialId, setSelectedCredencialId] = useState<string>('');
   const [secret, setSecret] = useState('');
@@ -205,7 +206,7 @@ export function TenantCredenciaisDialog({
         </DialogHeader>
 
         <Tabs defaultValue="recebidas" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="recebidas">
               Recebidas
               {credenciaisPendentes.length > 0 && (
@@ -214,6 +215,7 @@ export function TenantCredenciaisDialog({
             </TabsTrigger>
             <TabsTrigger value="enviar">Enviar Pendente</TabsTrigger>
             <TabsTrigger value="direto">Envio Direto</TabsTrigger>
+            <TabsTrigger value="deletar">Deletar</TabsTrigger>
             <TabsTrigger value="historico">Histórico</TabsTrigger>
           </TabsList>
 
@@ -609,6 +611,80 @@ export function TenantCredenciaisDialog({
                   </>
                 )}
               </Button>
+            </div>
+          </TabsContent>
+
+          {/* Aba: Deletar Credenciais do Judit */}
+          <TabsContent value="deletar" className="mt-4">
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground mb-4">
+                Selecione uma credencial para remover do cofre Judit. 
+                Esta ação não pode ser desfeita.
+              </div>
+              
+              <ScrollArea className="h-[400px]">
+                {credenciaisJudit.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    Nenhuma credencial no cofre Judit.
+                  </div>
+                ) : (
+                  <Table className="table-fixed w-full">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[150px]">Customer Key</TableHead>
+                        <TableHead className="w-[180px]">Sistema</TableHead>
+                        <TableHead className="w-[130px]">CPF</TableHead>
+                        <TableHead className="w-[80px]">Ação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {credenciaisJudit.map((cred) => (
+                        <TableRow key={cred.id}>
+                          <TableCell className="font-mono text-xs truncate" title={cred.customer_key}>
+                            {cred.customer_key}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs" title={cred.system_name}>
+                              {getTribunalByValue(cred.system_name)?.label || cred.system_name}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs whitespace-nowrap">
+                            {formatCpf(cred.username)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={async () => {
+                                if (!confirm(`Remover credencial ${cred.customer_key} do sistema ${cred.system_name}?`)) {
+                                  return;
+                                }
+                                setDeletandoId(cred.id);
+                                try {
+                                  await deletarCredencialJudit.mutateAsync({
+                                    credencialJuditId: cred.id,
+                                    systemName: cred.system_name,
+                                    customerKey: cred.customer_key,
+                                  });
+                                } finally {
+                                  setDeletandoId(null);
+                                }
+                              }}
+                              disabled={deletandoId === cred.id}
+                            >
+                              {deletandoId === cred.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </ScrollArea>
             </div>
           </TabsContent>
 

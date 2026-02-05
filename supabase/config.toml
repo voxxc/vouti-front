@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.judit-test-import-cnj]
 verify_jwt = true
+
+[functions.judit-deletar-credencial]
+verify_jwt = true
