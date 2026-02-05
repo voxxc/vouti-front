@@ -43,6 +43,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProcessosOAB, ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 import { supabase } from '@/integrations/supabase/client';
@@ -572,9 +573,10 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
 
   return (
     <>
-      {/* Filtro por UF */}
-      {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
-        <div className="flex items-center gap-3 mb-4">
+      {/* Área Fixa - Filtro por UF */}
+      <div className="sticky top-0 z-10 bg-background pb-3 mb-4">
+        {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
+          <div className="flex items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={filtroUF} onValueChange={setFiltroUF}>
             <SelectTrigger className="w-52">
@@ -622,10 +624,13 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
             </Badge>
           )}
         </div>
-      )}
+        )}
+      </div>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="space-y-4">
+      {/* Área Scrollável - Lista de Processos */}
+      <ScrollArea className="h-[calc(100vh-320px)]">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="space-y-4 pr-4">
           {/* 1a Instancia */}
           <InstanciaSection
             titulo="1a Instancia"
@@ -702,8 +707,9 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
               )}
             </Droppable>
           )}
-        </div>
-      </DragDropContext>
+          </div>
+        </DragDropContext>
+      </ScrollArea>
 
       {/* Drawer de Detalhes */}
       <ProcessoOABDetalhes
