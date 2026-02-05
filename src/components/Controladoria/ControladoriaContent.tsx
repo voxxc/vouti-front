@@ -100,7 +100,7 @@
        </div>
  
        <Tabs defaultValue="central" className="flex-1 min-h-0 flex flex-col space-y-4">
-         <TabsList>
+        <TabsList className="flex-shrink-0">
            <TabsTrigger value="central">
              <ClipboardCheck className="mr-2 h-4 w-4" />
              Central
@@ -115,25 +115,25 @@
            </TabsTrigger>
          </TabsList>
  
-         <TabsContent value="central" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
-           <Card className="flex-1 min-h-0 flex flex-col">
-             <CardContent className="pt-6 flex-1 min-h-0 flex flex-col">
+        <TabsContent value="central" className="flex-1 mt-0">
+          <Card className="h-full flex flex-col">
+            <CardContent className="pt-6 h-full flex flex-col">
                <CentralControladoria />
              </CardContent>
            </Card>
          </TabsContent>
  
-         <TabsContent value="minhas-oabs" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
-           <Card className="flex-1 min-h-0 flex flex-col">
-             <CardContent className="pt-6 flex-1 min-h-0 flex flex-col">
+        <TabsContent value="minhas-oabs" className="flex-1 mt-0">
+          <Card className="h-full flex flex-col">
+            <CardContent className="pt-6 h-full flex flex-col">
                <OABManager />
              </CardContent>
            </Card>
          </TabsContent>
  
-         <TabsContent value="push-doc" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
-           <Card className="flex-1 min-h-0 flex flex-col">
-             <CardContent className="pt-6 flex-1 min-h-0 flex flex-col">
+        <TabsContent value="push-doc" className="flex-1 mt-0">
+          <Card className="h-full flex flex-col">
+            <CardContent className="pt-6 h-full flex flex-col">
                <CNPJManager />
              </CardContent>
            </Card>

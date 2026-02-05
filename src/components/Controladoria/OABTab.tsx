@@ -572,9 +572,9 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     processosAgrupados.segundaInstancia.length > 0;
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col gap-4 h-full">
       {/* Área Fixa - Filtro por UF */}
-      <div className="flex-shrink-0 pb-3 mb-4">
+      <div className="flex-shrink-0">
         {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
           <div className="flex items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground" />
@@ -628,7 +628,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
       </div>
 
       {/* Área Scrollável - Lista de Processos */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-4">
+      <div className="flex-1 overflow-y-auto pr-4" style={{ minHeight: '300px' }}>
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="space-y-4">
           {/* 1a Instancia */}
