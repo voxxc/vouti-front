@@ -1,98 +1,209 @@
 
-## Objetivo
-Corrigir o desalinhamento no lado direito da aba **OABs** (Controladoria), garantindo que:
-- A **borda direita** dos cards de processos volte a aparecer por inteiro.
-- Os botões de ação (**Excluir** / **Detalhes**) fiquem **mais à esquerda**, sem “sumirem” (principalmente quando aparece a scrollbar).
+# Correcao: Container da Controladoria Cresce Indefinidamente
 
-## Diagnóstico (causa mais provável)
-Hoje a lista está dentro de um container com:
-- `overflow-x-hidden` + `pr-4` no scroll container
-- e os cards/ações ficam muito “colados” na borda direita.
+## Problema Identificado
 
-Em ambientes com **scrollbar overlay** (comum no Windows/alguns browsers), a barra pode **sobrepor** o conteúdo da direita. Resultado:
-- parece que “sumiu a borda lateral direita”
-- e os botões ficam parcialmente/totalmente escondidos atrás da scrollbar/recorte do overflow.
+A seção Controladoria perde seus limites visuais após o carregamento dos dados porque:
 
-Além disso, `overflow-x-hidden` no container do scroll pode recortar efeitos visuais (borda/sombra) quando algo encosta exatamente no limite direito.
+1. O `ControladoriaDrawer` usa um `ScrollArea` com `flex-1` para o conteúdo
+2. Os componentes internos (`OABTab`, `CentralAndamentosNaoLidos`) usam altura fixa baseada em `100vh` (viewport total)
+3. Essa altura `calc(100vh-320px)` é calculada em relação à tela inteira, não ao espaço disponível dentro do drawer
+4. Resultado: o conteúdo "escapa" do container, criando scroll duplo e perdendo bordas/acoes laterais
 
-## Ajustes propostos (sem mudar regra de negócio)
-### 1) Ajustar o container de scroll da lista (OABTab)
-Arquivo: `src/components/Controladoria/OABTab.tsx`
+## Conceito Visual
 
-**Mudança**
-- Trocar o `overflow-x-hidden` por um comportamento que não recorte a lateral direita do conteúdo.
-- Manter um “gutter” para a scrollbar, mas sem cortar borda.
+```text
+PROBLEMA ATUAL:
+┌─ Drawer ─────────────────────────────────────────────────────────┐
+│ ┌─ ScrollArea (flex-1) ─────────────────────────────────────────┐│
+│ │ ┌─ ControladoriaContent ─────────────────────────────────────┐││
+│ │ │  Header, Cards, Tabs...                                    │││
+│ │ │ ┌─ OABTab ────────────────────────────────────────────────┐│││
+│ │ │ │  h-[calc(100vh-320px)] ← Ignora contexto do drawer     ││││
+│ │ │ │  Conteudo cresce para fora                              ││││
+│ │ │ │  ...                                                    ││││
+│ │ │ │  ...                                                    ││││
+│ │ │ │  ... (botoes cortados, bordas invisíveis)              ││││
+│ │ │ └─────────────────────────────────────────────────────────┘│││
+│ │ └─────────────────────────────────────────────────────────────┘││
+│ └─────────────────────────────────────────────────────────────────┘│
+└───────────────────────────────────────────────────────────────────┘
 
-**Como**
-- Atualizar a div da lista (atual linha ~631):
-
-Antes:
-```tsx
-<div className="h-[calc(100vh-320px)] overflow-y-auto overflow-x-hidden pr-4">
+SOLUCAO PROPOSTA:
+┌─ Drawer (flex flex-col h-full) ──────────────────────────────────┐
+│ [Header fixo]                                                     │
+│ ┌─ Container Flex (flex-1 min-h-0 overflow-hidden) ──────────────┐│
+│ │ ┌─ ControladoriaContent (h-full flex flex-col) ───────────────┐││
+│ │ │  [Header/Cards - altura fixa]                               │││
+│ │ │ ┌─ Tabs (flex-1 min-h-0 flex flex-col) ────────────────────┐│││
+│ │ │ │ ┌─ TabsContent (flex-1 overflow-auto) ──────────────────┐││││
+│ │ │ │ │  Scroll interno respeita limites do pai               │││││
+│ │ │ │ │  Botoes e bordas sempre visíveis                      │││││
+│ │ │ │ └───────────────────────────────────────────────────────┘││││
+│ │ │ └──────────────────────────────────────────────────────────┘│││
+│ │ └─────────────────────────────────────────────────────────────┘││
+│ └────────────────────────────────────────────────────────────────┘│
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-Depois (opção recomendada):
-```tsx
-<div className="h-[calc(100vh-320px)] overflow-y-auto overflow-x-visible pr-4">
-```
+## Solucao
 
-Se ainda houver recorte em algum browser, alternativa:
-- remover o `pr-4` do scroll container e colocar padding no conteúdo interno:
+Reestruturar a hierarquia de containers para usar flexbox corretamente, eliminando o scroll duplo e garantindo que cada seção respeite seu espaco disponível.
+
+## Alteracoes
+
+### 1. ControladoriaDrawer.tsx
+
+Remover o `ScrollArea` do wrapper principal e usar flexbox puro. O scroll deve ocorrer dentro de cada aba, nao no drawer inteiro.
+
 ```tsx
-<div className="h-[calc(100vh-320px)] overflow-y-auto overflow-x-visible">
-  <div className="space-y-4 pr-4">
-    ...
+// ANTES:
+<ScrollArea className="flex-1">
+  <div className="p-6">
+    <ControladoriaContent />
   </div>
+</ScrollArea>
+
+// DEPOIS:
+<div className="flex-1 min-h-0 overflow-hidden p-6">
+  <ControladoriaContent />
 </div>
 ```
-Assim o “espaço da scrollbar” vira padding do conteúdo (mais previsível).
 
-### 2) “Puxar” os botões para dentro do card (mais à esquerda)
-Arquivo: `src/components/Controladoria/OABTab.tsx`
-Componente: `ProcessoCard`
+### 2. ControladoriaContent.tsx
 
-**Mudança**
-Adicionar um padding à direita no container horizontal do card para que as ações não fiquem coladas na borda (e não caiam atrás da scrollbar).
+Transformar em container flex que ocupa todo o espaco disponivel e delega scroll para as abas.
 
-Antes:
 ```tsx
-<div className="flex items-center gap-3 w-full overflow-hidden">
+// ANTES:
+<div className="space-y-6">
+  ...
+  <Tabs defaultValue="central" className="space-y-4">
+
+// DEPOIS:
+<div className="h-full flex flex-col space-y-6">
+  ...
+  <Tabs defaultValue="central" className="flex-1 min-h-0 flex flex-col space-y-4">
 ```
 
-Depois:
+Cada `TabsContent` precisa ter `flex-1 min-h-0 overflow-auto`:
+
 ```tsx
-<div className="flex items-center gap-3 w-full overflow-hidden pr-2">
+<TabsContent value="central" className="flex-1 min-h-0 overflow-auto">
+  <Card className="h-full">
+    <CardContent className="pt-6 h-full">
+      <CentralControladoria />
+    </CardContent>
+  </Card>
+</TabsContent>
 ```
 
-E reforçar que o bloco de ações não encosta na borda:
-Antes:
+### 3. OABTab.tsx
+
+Remover a altura fixa baseada em viewport e usar flex para ocupar espaco disponível.
+
 ```tsx
-<div className="flex items-center gap-1 shrink-0">
+// ANTES:
+<div className="h-[calc(100vh-320px)] overflow-y-auto">
+
+// DEPOIS:
+<div className="flex-1 min-h-0 overflow-y-auto">
 ```
 
-Depois:
+E garantir que o container pai (retorno do componente) seja flex:
+
 ```tsx
-<div className="flex items-center gap-1 shrink-0 ml-2">
+// O componente OABTab deve retornar um fragmento com estrutura flex
+// ou usar um wrapper
+return (
+  <div className="h-full flex flex-col">
+    {/* ... Header/filtros ... */}
+    
+    {/* Area Scrollavel */}
+    <div className="flex-1 min-h-0 overflow-y-auto pr-4">
+      {/* ... DragDropContext ... */}
+    </div>
+  </div>
+);
 ```
 
-### 3) (Opcional, se necessário) Garantir que o Card respeite 100% da largura disponível
-Ainda no `ProcessoCard`, se a borda estiver “quebrando” por conta de algum layout do Droppable, podemos reforçar:
+### 4. OABManager.tsx
+
+O container principal do OABManager tambem precisa usar altura total:
+
 ```tsx
-<Card className="p-3 w-full transition-shadow ...">
+// ANTES:
+<div className="space-y-4">
+
+// DEPOIS:
+<div className="h-full flex flex-col space-y-4">
 ```
 
-## Critérios de aceite (o que você deve ver)
-1. Em **todas** as resoluções (principalmente onde aparece scrollbar), a **borda direita** do card fica visível.
-2. Os botões **Excluir** e **Detalhes** ficam sempre visíveis e com uma folga da borda direita (mais “para dentro”).
-3. Textos longos continuam truncando com `...` e não empurram as ações para fora.
+E o `TabsContent` que contem o `OABTab`:
 
-## Teste rápido (checklist)
-- Abrir Controladoria → OABs → entrar numa OAB com processos com nomes longos.
-- Forçar a lista a ter scrollbar (rolar).
-- Verificar os botões em:
-  - Chrome/Edge (Windows se possível)
-  - Tela menor (ex.: 1366px de largura)
-- Confirmar que não existe scroll horizontal e que nenhum card fica “cortado” na direita.
+```tsx
+<TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1 min-h-0">
+  <OABTab ... />
+</TabsContent>
+```
 
-## Arquivos envolvidos
-- `src/components/Controladoria/OABTab.tsx` (somente ajustes de classes Tailwind/layout)
+### 5. CentralControladoria.tsx
+
+Mesmo tratamento para a aba Central:
+
+```tsx
+// Adicionar altura total e flex
+<Tabs defaultValue="andamentos" className="h-full flex flex-col space-y-4">
+  <TabsList>...</TabsList>
+  
+  <TabsContent value="andamentos" className="flex-1 min-h-0 overflow-auto">
+    <CentralAndamentosNaoLidos />
+  </TabsContent>
+</Tabs>
+```
+
+### 6. CentralAndamentosNaoLidos.tsx
+
+Remover qualquer altura fixa e usar flex:
+
+```tsx
+<div className="h-full flex flex-col space-y-4">
+  {/* Filtros - altura fixa */}
+  <div className="flex-shrink-0">...</div>
+  
+  {/* Tabela - flex-1 com scroll */}
+  <Card className="flex-1 min-h-0">
+    <CardContent className="p-0 h-full overflow-auto">
+      <Table>...</Table>
+    </CardContent>
+  </Card>
+</div>
+```
+
+## Resumo das Classes Chave
+
+| Conceito | Classes Tailwind |
+|----------|------------------|
+| Container que ocupa espaco disponivel | `flex-1 min-h-0` |
+| Container que permite scroll interno | `overflow-y-auto` ou `overflow-auto` |
+| Container flex vertical | `flex flex-col` |
+| Impedir que filhos encolham | `flex-shrink-0` |
+| Ocupar altura total do pai | `h-full` |
+
+## Arquivos a Editar
+
+1. `src/components/Controladoria/ControladoriaDrawer.tsx`
+2. `src/components/Controladoria/ControladoriaContent.tsx`
+3. `src/components/Controladoria/OABTab.tsx`
+4. `src/components/Controladoria/OABManager.tsx`
+5. `src/components/Controladoria/CentralControladoria.tsx`
+6. `src/components/Controladoria/CentralAndamentosNaoLidos.tsx`
+
+## Resultado Esperado
+
+- Container da Controladoria mantem limites visuais claros
+- Altura controlada mesmo apos carregamento de dados
+- Scroll interno funcionando corretamente dentro de cada aba
+- Botoes de acao sempre visiveis na lateral direita
+- Bordas dos cards preservadas
+- Layout estavel independente da quantidade de dados
