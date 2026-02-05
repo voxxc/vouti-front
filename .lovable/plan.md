@@ -1,245 +1,159 @@
 
-# Corrigir Edge Function atualizar-andamentos-processos
+# Registrar Request ID de Detalhes no INSERT
 
 ## Problema Identificado
 
-A Edge Function `atualizar-andamentos-processos` esta buscando processos da tabela **errada**:
+O processo `0003732-65.2024.8.16.0021` foi criado via POST com `detalhes_request_id` = `7d0309a0-dc93-4d99-9334-cf3f0ebea19d`, mas esse request_id **nao aparece no Banco de IDs** do SuperAdmin.
 
-| Atual (incorreto) | Correto |
-|---|---|
-| Tabela `processos` | Tabela `processos_oab` |
-| Chama `buscar-processos-lote` | Chamar `judit-buscar-detalhes-processo` |
-| Filtra por `created_by` / `advogado_responsavel_id` | Filtrar por `tenant_id` do usuario |
-
-Por isso o botao "conclui mas nao atualiza" - nao encontra processos na tabela antiga.
+**Causa**: O trigger `registrar_banco_id_processo` so registra `detalhes_request_id` quando ocorre **UPDATE** (campo muda de valor). Para **INSERTs** que ja vem com o request_id preenchido, o trigger nao captura.
 
 ---
 
 ## Solucao
 
-Reescrever a Edge Function para usar o sistema da Controladoria (OAB/Judit):
-
-1. Buscar `tenant_id` do usuario via tabela `profiles`
-2. Buscar processos de `processos_oab` filtrado por `tenant_id`
-3. Para cada processo, chamar `judit-buscar-detalhes-processo` (ou usar GET gratuito no request_id existente)
-4. Retornar contagem de andamentos adicionados
+Modificar o trigger para tambem registrar `detalhes_request_id` no **INSERT** (quando o processo ja vem com esse campo preenchido).
 
 ---
 
 ## Alteracoes Tecnicas
 
-### Arquivo: `supabase/functions/atualizar-andamentos-processos/index.ts`
+### 1. Migracao SQL: Atualizar Trigger
 
-```typescript
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Autorizacao necessaria');
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const juditApiKey = Deno.env.get('JUDIT_API_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Verificar autenticacao
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      throw new Error('Usuario nao autenticado');
-    }
-
-    // Buscar tenant_id do usuario
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!profile?.tenant_id) {
-      throw new Error('Tenant nao encontrado para o usuario');
-    }
-
-    const tenantId = profile.tenant_id;
-    console.log('[Atualizar Andamentos] Tenant:', tenantId, 'User:', user.id);
-
-    // Buscar processos OAB do tenant que tem detalhes_request_id (ja foram carregados)
-    const { data: processos, error: processosError } = await supabase
-      .from('processos_oab')
-      .select('id, numero_cnj, detalhes_request_id, tracking_id')
-      .eq('tenant_id', tenantId)
-      .not('numero_cnj', 'is', null);
-
-    if (processosError) {
-      console.error('Erro ao buscar processos:', processosError);
-      throw processosError;
-    }
-
-    if (!processos || processos.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Nenhum processo encontrado para atualizar',
-          processosVerificados: 0,
-          processosComSucesso: 0,
-          processosComErro: 0,
-          andamentosAdicionados: 0
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[Atualizar Andamentos] Verificando ${processos.length} processos`);
-
-    let totalAndamentosInseridos = 0;
-    let processosComSucesso = 0;
-    let processosComErro = 0;
-    const erros: string[] = [];
-
-    // Agrupar processos por CNJ para evitar consultas duplicadas
-    const cnjs = [...new Set(processos.map(p => p.numero_cnj))];
-    console.log(`[Atualizar Andamentos] CNJs unicos: ${cnjs.length}`);
-
-    // Processar em lotes de 3 para evitar timeout
-    const BATCH_SIZE = 3;
-    
-    for (let i = 0; i < cnjs.length; i += BATCH_SIZE) {
-      const lote = cnjs.slice(i, i + BATCH_SIZE);
-      console.log(`[Atualizar Andamentos] Lote ${Math.floor(i/BATCH_SIZE)+1}/${Math.ceil(cnjs.length/BATCH_SIZE)}`);
-
-      const resultados = await Promise.allSettled(
-        lote.map(async (cnj) => {
-          const processo = processos.find(p => p.numero_cnj === cnj);
-          if (!processo) return { cnj, andamentos: 0 };
-
-          try {
-            // Chamar judit-buscar-detalhes-processo
-            const { data, error } = await supabase.functions.invoke('judit-buscar-detalhes-processo', {
-              body: {
-                processoOabId: processo.id,
-                numeroCnj: cnj,
-                tenantId: tenantId,
-                userId: user.id
-              }
-            });
-
-            if (error) throw error;
-            
-            return {
-              cnj,
-              andamentos: data?.andamentosInseridos || 0
-            };
-          } catch (err: any) {
-            throw new Error(`${cnj}: ${err.message}`);
-          }
-        })
-      );
-
-      // Processar resultados do lote
-      resultados.forEach((resultado) => {
-        if (resultado.status === 'fulfilled') {
-          processosComSucesso++;
-          totalAndamentosInseridos += resultado.value.andamentos;
-        } else {
-          processosComErro++;
-          erros.push(resultado.reason.message);
-        }
-      });
-    }
-
-    console.log('[Atualizar Andamentos] Concluido:', {
-      processosVerificados: cnjs.length,
-      processosComSucesso,
-      processosComErro,
-      totalAndamentosInseridos
-    });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Atualizacao concluida',
-        processosVerificados: cnjs.length,
-        processosComSucesso,
-        processosComErro,
-        andamentosAdicionados: totalAndamentosInseridos,
-        erros: erros.length > 0 ? erros.slice(0, 5) : undefined
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+```sql
+CREATE OR REPLACE FUNCTION public.registrar_banco_id_processo()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  -- INSERT: registrar ID do processo
+  IF TG_OP = 'INSERT' THEN
+    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+    VALUES (
+      NEW.tenant_id,
+      'processo',
+      NEW.id,
+      NEW.id::text,
+      COALESCE(NEW.numero_cnj, 'Processo sem CNJ'),
+      jsonb_build_object('numero_cnj', NEW.numero_cnj, 'tribunal', NEW.tribunal)
     );
-
-  } catch (error) {
-    console.error('Erro na atualizacao de andamentos:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message || 'Erro ao atualizar andamentos'
-      }),
-      { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+    
+    -- NOVO: Registrar detalhes_request_id se ja veio preenchido no INSERT
+    IF NEW.detalhes_request_id IS NOT NULL THEN
+      INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+      VALUES (
+        NEW.tenant_id,
+        'request_detalhes',
+        NEW.id,
+        NEW.detalhes_request_id,
+        'Detalhes: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+        jsonb_build_object('numero_cnj', NEW.numero_cnj)
+      );
+    END IF;
+    
+    -- NOVO: Registrar tracking_id se ja veio preenchido no INSERT
+    IF NEW.tracking_id IS NOT NULL THEN
+      INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+      VALUES (
+        NEW.tenant_id,
+        'tracking',
+        NEW.id,
+        NEW.tracking_id,
+        'Monitoramento: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+        jsonb_build_object('numero_cnj', NEW.numero_cnj, 'monitoramento_ativo', NEW.monitoramento_ativo)
+      );
+    END IF;
+  END IF;
+  
+  -- UPDATE: registrar tracking_id se ativou monitoramento
+  IF TG_OP = 'UPDATE' AND NEW.tracking_id IS DISTINCT FROM OLD.tracking_id AND NEW.tracking_id IS NOT NULL THEN
+    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+    VALUES (
+      NEW.tenant_id,
+      'tracking',
+      NEW.id,
+      NEW.tracking_id,
+      'Monitoramento: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+      jsonb_build_object('numero_cnj', NEW.numero_cnj, 'monitoramento_ativo', NEW.monitoramento_ativo)
     );
-  }
-});
+  END IF;
+  
+  -- Registrar quando monitoramento foi DESATIVADO
+  IF TG_OP = 'UPDATE' 
+     AND OLD.monitoramento_ativo = TRUE 
+     AND NEW.monitoramento_ativo = FALSE 
+     AND NEW.tracking_id IS NOT NULL THEN
+    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+    VALUES (
+      NEW.tenant_id,
+      'tracking_desativado',
+      NEW.id,
+      NEW.tracking_id,
+      'Desativado: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+      jsonb_build_object(
+        'numero_cnj', NEW.numero_cnj, 
+        'tracking_id', NEW.tracking_id,
+        'desativado_em', NOW()
+      )
+    );
+  END IF;
+  
+  -- UPDATE: registrar detalhes_request_id se buscou detalhes
+  IF TG_OP = 'UPDATE' AND NEW.detalhes_request_id IS DISTINCT FROM OLD.detalhes_request_id AND NEW.detalhes_request_id IS NOT NULL THEN
+    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+    VALUES (
+      NEW.tenant_id,
+      'request_detalhes',
+      NEW.id,
+      NEW.detalhes_request_id,
+      'Detalhes: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+      jsonb_build_object('numero_cnj', NEW.numero_cnj)
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$function$;
+```
+
+### 2. Correcao Retroativa: Inserir o Request ID Faltante
+
+Para corrigir o processo que ja existe:
+
+```sql
+INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+SELECT 
+  po.tenant_id,
+  'request_detalhes',
+  po.id,
+  po.detalhes_request_id,
+  'Detalhes: ' || po.numero_cnj,
+  jsonb_build_object('numero_cnj', po.numero_cnj)
+FROM processos_oab po
+WHERE po.numero_cnj = '0003732-65.2024.8.16.0021'
+  AND po.detalhes_request_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM tenant_banco_ids tbi 
+    WHERE tbi.external_id = po.detalhes_request_id 
+      AND tbi.tipo = 'request_detalhes'
+  );
 ```
 
 ---
 
-## Principais Mudancas
+## Resumo das Mudancas
 
-1. **Tabela correta**: `processos_oab` ao inves de `processos`
-2. **Filtro por tenant**: Usa `tenant_id` do usuario logado
-3. **Edge Function correta**: Chama `judit-buscar-detalhes-processo` que ja tem toda logica de:
-   - Buscar credenciais do cofre
-   - Usar tracking_id para GET gratuito
-   - Extrair partes, valor, status
-   - Inserir andamentos sem duplicatas
-4. **Agrupamento por CNJ**: Evita chamadas duplicadas para processos compartilhados
-
----
-
-## Fluxo Pos-Correcao
-
-```text
-Usuario clica "Atualizar Andamentos"
-              |
-              v
-Edge Function busca tenant_id do usuario
-              |
-              v
-Busca processos de processos_oab WHERE tenant_id = X
-              |
-              v
-Para cada CNJ unico, chama judit-buscar-detalhes-processo
-              |
-              v
-judit-buscar-detalhes-processo usa credencial do cofre + on_demand=true
-              |
-              v
-Andamentos inseridos + campos sincronizados
-              |
-              v
-Retorna contagem real de andamentos adicionados
-```
+| Cenario | Antes | Depois |
+|---------|-------|--------|
+| INSERT com detalhes_request_id | Nao registra | Registra request_detalhes |
+| INSERT com tracking_id | Nao registra | Registra tracking |
+| UPDATE com detalhes_request_id | Registra | Registra (sem mudanca) |
+| UPDATE com tracking_id | Registra | Registra (sem mudanca) |
 
 ---
 
 ## Resultado Esperado
 
-- Botao "Atualizar Andamentos" vai encontrar os processos da Controladoria
-- Vai chamar a API Judit para cada processo
-- Vai usar credenciais do cofre para processos sigilosos
-- Vai inserir novos andamentos e sincronizar campos (partes, valor, etc.)
+- Ao abrir o Banco de IDs no SuperAdmin, a aba **Requests** vai mostrar o request_id `7d0309a0-dc93-4d99-9334-cf3f0ebea19d` para o processo `0003732-65.2024.8.16.0021`
+- Novos processos criados via POST (atualizar-andamentos ou import CNJ) terao seus request_ids registrados automaticamente
