@@ -1,88 +1,68 @@
 
-# Corrigir Contagem de Protocolos Concluídos no Dashboard
+# Permitir Abrir Dashboard em Nova Aba pelo Botão da Logo
 
-## Problema Identificado
+## Problema Atual
 
-O 3º card do Dashboard (Protocolos) não está contando corretamente os **protocolos concluídos**. A causa raiz é:
+O botão da logo na sidebar usa um elemento `<button>` com `onClick`:
 
-1. **Etapas** podem ter status `pendente`, `em_andamento` ou `concluido`
-2. **Protocolos** têm status separado, mas nunca é atualizado automaticamente quando todas as etapas são concluídas
-3. No banco de dados: todos os 44 protocolos têm status `em_andamento`
-4. A query do Dashboard filtra por `p.status === 'concluido'` no protocolo, resultando em 0 protocolos concluídos
+```tsx
+<button 
+  onClick={() => handleNavigation('dashboard', '/dashboard')}
+  className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
+>
+```
+
+Isso impede o comportamento nativo do navegador de abrir links em nova aba com:
+- Botão do meio do mouse (scroll click)
+- Ctrl+Click / Cmd+Click
 
 ## Solução
 
-Modificar a query do Dashboard para considerar um protocolo como "concluído" de duas formas:
-
-1. **Status explícito**: `status === 'concluido'` (quando o usuário marca manualmente)
-2. **100% das etapas concluídas**: Quando um protocolo tem etapas e todas estão com `status === 'concluido'`
-
-Isso refletirá melhor a realidade operacional, onde protocolos são considerados concluídos quando todas as etapas foram finalizadas.
+Substituir o `<button>` por um componente `<Link>` do react-router-dom, que renderiza uma tag `<a>` real. Isso permite todos os comportamentos nativos do navegador para links.
 
 ## Alterações Técnicas
 
-### Arquivo: src/components/Dashboard/Metrics/AdminMetrics.tsx
+### Arquivo: src/components/Dashboard/DashboardSidebar.tsx
 
-Modificar a query de protocolos para incluir as etapas e calcular a conclusão:
+1. Importar `Link` e `useParams` do react-router-dom:
 
 ```tsx
-// Antes (linhas 37-38)
-protocolosRes = await supabase
-  .from('project_protocolos')
-  .select('id, status, data_previsao')
-
-// Depois
-protocolosRes = await supabase
-  .from('project_protocolos')
-  .select(`
-    id, 
-    status, 
-    data_previsao,
-    etapas:project_protocolo_etapas(id, status)
-  `)
+import { Link, useParams } from "react-router-dom";
 ```
 
-Modificar a lógica de contagem de protocolos concluídos:
+2. Obter o `tenantSlug` para construir a URL correta:
 
 ```tsx
-// Antes (linha 53)
-const protocolosConcluidos = protocolos.filter(p => p.status === 'concluido').length;
+const { tenant: tenantSlug } = useParams<{ tenant: string }>();
 
-// Depois - considera concluído se:
-// 1. Status explícito é 'concluido' OU
-// 2. Tem etapas E todas estão concluídas
-const protocolosConcluidos = protocolos.filter(p => {
-  if (p.status === 'concluido') return true;
-  const etapas = p.etapas || [];
-  if (etapas.length === 0) return false;
-  return etapas.every(e => e.status === 'concluido');
-}).length;
+// Construir path tenant-aware
+const dashboardPath = tenantSlug ? `/${tenantSlug}/dashboard` : '/dashboard';
 ```
 
-Atualizar a lógica de protocolos atrasados para também considerar a mesma definição de "concluído":
+3. Substituir o `<button>` pelo `<Link>`:
 
 ```tsx
-// Antes (linhas 49-52)
-const protocolosAtrasados = protocolos.filter(p => {
-  if (!p.data_previsao) return false;
-  return new Date(p.data_previsao) < new Date() && p.status !== 'concluido';
-}).length;
+// Antes
+<button 
+  onClick={() => handleNavigation('dashboard', '/dashboard')}
+  className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
+>
 
 // Depois
-const protocolosAtrasados = protocolos.filter(p => {
-  if (!p.data_previsao) return false;
-  const isConcluido = p.status === 'concluido' || 
-    ((p.etapas?.length || 0) > 0 && p.etapas.every(e => e.status === 'concluido'));
-  return new Date(p.data_previsao) < new Date() && !isConcluido;
-}).length;
+<Link 
+  to={dashboardPath}
+  onMouseEnter={() => handleMouseEnter('dashboard')}
+  className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
+>
 ```
 
 ## Resultado Esperado
 
-1. O card de Protocolos mostrará corretamente quantos protocolos foram concluídos (seja por status explícito ou por ter 100% das etapas concluídas)
-2. Protocolos atrasados não contarão os que já foram concluídos pelas etapas
-3. O visual das mini-barras no card refletirá a realidade operacional
+1. **Clique normal**: Navega para o Dashboard normalmente
+2. **Botão do meio do mouse**: Abre o Dashboard em nova aba
+3. **Ctrl/Cmd + Click**: Abre o Dashboard em nova aba
+4. **Clique com botão direito**: Mostra menu de contexto com opção "Abrir em nova aba"
 
 ## Arquivo a Editar
 
-- `src/components/Dashboard/Metrics/AdminMetrics.tsx`
+- `src/components/Dashboard/DashboardSidebar.tsx`
