@@ -48,6 +48,13 @@ export const useProjectsOptimized = () => {
     projectsRef.current = projects;
   }, [projects]);
 
+  // Reset loading states when tenantId changes
+  useEffect(() => {
+    if (!tenantId) {
+      setIsBasicLoaded(false);
+      setIsDetailsLoaded(false);
+    }
+  }, [tenantId]);
 
   // Phase 1: Load basic project data (instant)
   const fetchBasicProjects = useCallback(async () => {
