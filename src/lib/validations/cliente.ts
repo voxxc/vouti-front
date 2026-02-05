@@ -102,17 +102,16 @@ export const clienteSchema = z.object({
     { message: 'CNPJ inválido' }
   ),
   cnh: z.string().optional(),
-  telefone: z.string().min(10, 'Telefone deve ter no mínimo 10 dígitos').optional(),
+  cnh_validade: z.string().optional(), // Nova coluna
+  telefone: z.string().optional(), // Removida obrigatoriedade de min(10)
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   data_nascimento: z.string().optional().or(z.literal('')),
   endereco: z.string().optional(),
   profissao: z.string().optional(),
-  uf: z.string().length(2, 'UF deve ter 2 caracteres').toUpperCase().optional().or(z.literal('')),
-  data_fechamento: z.string().min(1, 'Data de fechamento é obrigatória'),
-  valor_contrato: z.string().min(1, 'Valor do contrato é obrigatório'),
-  forma_pagamento: z.enum(['a_vista', 'parcelado'], {
-    required_error: 'Selecione a forma de pagamento'
-  }),
+  uf: z.string().optional().or(z.literal('')), // Removida validação de length(2)
+  data_fechamento: z.string().optional(), // Agora opcional
+  valor_contrato: z.string().optional(), // Agora opcional
+  forma_pagamento: z.enum(['a_vista', 'parcelado']).optional(), // Agora opcional
   valor_entrada: z.string().optional(),
   numero_parcelas: z.string().optional(),
   valor_parcela: z.string().optional(),
@@ -122,9 +121,7 @@ export const clienteSchema = z.object({
   origem_rede_social: z.string().optional(),
   origem_tipo: z.enum(['instagram', 'facebook', 'indicacao', 'outro']).optional(),
   observacoes: z.string().optional(),
-  classificacao: z.enum(['pf', 'pj'], {
-    required_error: 'Selecione a classificação do cliente'
-  }),
+  classificacao: z.enum(['pf', 'pj']).default('pf').optional(), // Valor padrão 'pf'
   status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
   grupos_parcelas: z.any().optional(), // JSONB field
@@ -134,71 +131,6 @@ export const clienteSchema = z.object({
   {
     message: 'Informe ao menos um nome (Pessoa Física ou Pessoa Jurídica)',
     path: ['nome_pessoa_fisica'],
-  }
-).refine(
-  (data) => {
-    // Se forma_pagamento é 'parcelado' e está usando o modelo simples (não tem grupos_parcelas)
-    // então valida os campos do parcelamento simples
-    if (data.forma_pagamento === 'parcelado' && !data.grupos_parcelas) {
-      // Se algum campo do modelo simples foi preenchido, valida numero_parcelas
-      if (data.numero_parcelas || data.data_vencimento_inicial || data.data_vencimento_final) {
-        return data.numero_parcelas && parseInt(data.numero_parcelas) > 0;
-      }
-    }
-    return true;
-  },
-  {
-    message: 'Informe o número de parcelas para parcelamento simples',
-    path: ['numero_parcelas'],
-  }
-).refine(
-  (data) => {
-    // Mesma lógica para datas do parcelamento simples
-    if (data.forma_pagamento === 'parcelado' && !data.grupos_parcelas) {
-      if (data.numero_parcelas || data.data_vencimento_inicial || data.data_vencimento_final) {
-        return data.data_vencimento_inicial && data.data_vencimento_final;
-      }
-    }
-    return true;
-  },
-  {
-    message: 'Informe as datas de vencimento para parcelamento simples',
-    path: ['data_vencimento_inicial'],
-  }
-).refine(
-  (data) => {
-    if (data.data_vencimento_inicial && data.data_vencimento_final) {
-      return new Date(data.data_vencimento_final) >= new Date(data.data_vencimento_inicial);
-    }
-    return true;
-  },
-  {
-    message: 'Data de vencimento final deve ser maior ou igual à inicial',
-    path: ['data_vencimento_final'],
-  }
-).refine(
-  (data) => {
-    // Se for PF e informou CPF, deve ser válido
-    if (data.classificacao === 'pf' && data.cpf) {
-      return validarCPF(data.cpf);
-    }
-    return true;
-  },
-  {
-    message: 'CPF inválido para Pessoa Física',
-    path: ['cpf'],
-  }
-).refine(
-  (data) => {
-    // Se for PJ e informou CNPJ, deve ser válido
-    if (data.classificacao === 'pj' && data.cnpj) {
-      return validarCNPJ(data.cnpj);
-    }
-    return true;
-  },
-  {
-    message: 'CNPJ inválido para Pessoa Jurídica',
-    path: ['cnpj'],
   }
 );
 
