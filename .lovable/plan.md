@@ -1,112 +1,118 @@
 
-# Correção: Andamentos Existem no JSON mas Edge Function não os Encontra
+# Correção: Botão para Forçar Nova Busca de Andamentos
 
 ## Problema Identificado
 
-O processo `0011205-10.2021.8.16.0021` tem:
-- **201 steps** salvos no campo `detalhes_completos` (JSONB)
-- **0 registros** na tabela `processos_oab_andamentos`
+O processo `5010545-77.2024.4.04.7009` foi importado e teve seus detalhes buscados, mas a API Judit retornou a **capa** sem **andamentos** (steps: []).
 
-Quando o usuário clica em "Atualizar andamentos", a Edge Function `judit-consultar-detalhes-request`:
-1. Faz GET na API Judit usando o `request_id` salvo
-2. A API retorna `page_data: 2` items, mas **nenhum contém steps**
-3. A Edge Function reporta "0 andamentos encontrados"
-4. Nenhum andamento é inserido
+**Estado atual no banco:**
+- `detalhes_carregados: true`
+- `detalhes_request_id: 188901b4-0d8e-4b1c-9f34-689dfae339b5` ✓
+- `detalhes_completos.steps: []` ← Array vazio
+- `processos_oab_andamentos: 0 registros`
+
+**Problema na UI:**
+- O bloco "Andamentos não carregados" só aparece se `!processo.detalhes_request_id`
+- Como tem request_id, o sistema assume que já foi buscado
+- Mas os steps vieram vazios, então mostra apenas "Nenhum andamento encontrado" sem opção de ação
 
 ## Causa Raiz
 
-O `request_id: fa2889c3-a410-4fae-b2c9-f86716040030` está associado a uma resposta da API que não contém os andamentos originais. Isso pode ocorrer porque:
-- O request expirou na API Judit
-- É um request_id de capa/summary, não de detalhes completos
-- A estrutura do response mudou
+A API Judit às vezes retorna a capa do processo sem os andamentos porque:
+1. O processo é recente e não tem movimentações publicadas
+2. O tribunal ainda não publicou os andamentos
+3. Houve timeout na coleta dos andamentos pelo crawler
+
+O sistema atual não oferece opção para o usuário tentar buscar novamente.
 
 ## Solução
 
-Adicionar **fallback** na Edge Function para usar os dados do campo `detalhes_completos` quando a API não retorna steps. Isso garante que os andamentos existentes no banco sejam migrados para a tabela relacional.
+Adicionar um botão **"Tentar buscar novamente"** dentro da mensagem "Nenhum andamento encontrado" que permite ao usuário forçar uma nova busca de detalhes (chamando `judit-buscar-detalhes-processo`).
 
-## Alterações na Edge Function
+## Alterações
 
-### supabase/functions/judit-consultar-detalhes-request/index.ts
+### 1. ProcessoOABDetalhes.tsx
 
-```typescript
-// ATUAL (linhas 48-57):
-// Buscar dados do processo para obter CNJ e tenant_id
-const { data: processoData } = await supabase
-  .from('processos_oab')
-  .select('numero_cnj, tenant_id')
-  .eq('id', processoOabId)
-  .single();
+Modificar o bloco que mostra "Nenhum andamento encontrado" (linhas 926-930) para incluir um botão de ação:
 
-// NOVO: Também buscar detalhes_completos como fallback
-const { data: processoData } = await supabase
-  .from('processos_oab')
-  .select('numero_cnj, tenant_id, detalhes_completos')
-  .eq('id', processoOabId)
-  .single();
+```tsx
+// ANTES (linhas 926-930):
+) : andamentos.length === 0 ? (
+  <div className="text-center py-8 text-muted-foreground">
+    <Clock className="w-8 h-8 mx-auto mb-2" />
+    <p>Nenhum andamento encontrado</p>
+  </div>
+)
+
+// DEPOIS:
+) : andamentos.length === 0 ? (
+  <div className="text-center py-8 text-muted-foreground space-y-4">
+    <div>
+      <Clock className="w-8 h-8 mx-auto mb-2" />
+      <p>Nenhum andamento encontrado</p>
+      <p className="text-xs mt-1">Os andamentos podem não estar disponíveis ainda no tribunal.</p>
+    </div>
+    {onCarregarDetalhes && (
+      <Button 
+        variant="outline" 
+        size="sm"
+        onClick={handleCarregarAndamentos}
+        disabled={carregandoAndamentos}
+      >
+        {carregandoAndamentos ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Buscando...
+          </>
+        ) : (
+          <>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Tentar buscar novamente
+          </>
+        )}
+      </Button>
+    )}
+  </div>
+)
 ```
 
-```typescript
-// ATUAL (linhas 105-109):
-const responseData = lawsuitData || {};
-const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
-const aiSummary = summaryData?.summary || summaryData?.content || null;
-
-console.log('[Judit Consultar Request] Andamentos encontrados:', steps.length);
-
-// NOVO: Fallback para detalhes_completos se API não retornar steps
-let steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
-
-// Se a API não retornou steps, usar os dados salvos no banco
-if (steps.length === 0 && processoData.detalhes_completos?.steps) {
-  console.log('[Judit Consultar Request] API sem steps, usando fallback do banco');
-  steps = processoData.detalhes_completos.steps || [];
-}
-
-console.log('[Judit Consultar Request] Andamentos encontrados:', steps.length);
-```
-
-## Resumo Visual
+## Resultado Visual
 
 ```text
-FLUXO ATUAL (quebrado):
-┌─ Usuário clica "Atualizar" ────────────────────────────┐
-│                                                        │
-│  GET API Judit (request_id)                           │
-│        │                                               │
-│        ▼                                               │
-│  Resposta: { page_data: 2, steps: [] } ← Sem dados!   │
-│        │                                               │
-│        ▼                                               │
-│  "0 andamentos inseridos" ← Falha silenciosa          │
-└────────────────────────────────────────────────────────┘
+ANTES:
+┌─────────────────────────────────────────┐
+│     🕐                                  │
+│  Nenhum andamento encontrado            │
+│                                         │
+│  (sem opção de ação)                    │
+└─────────────────────────────────────────┘
 
-FLUXO COM FALLBACK (corrigido):
-┌─ Usuário clica "Atualizar" ────────────────────────────┐
-│                                                        │
-│  GET API Judit (request_id)                           │
-│        │                                               │
-│        ▼                                               │
-│  Resposta: { page_data: 2, steps: [] }                │
-│        │                                               │
-│        ▼                                               │
-│  steps.length === 0?                                   │
-│        │ SIM                                           │
-│        ▼                                               │
-│  Fallback: usar detalhes_completos.steps do banco     │
-│  (201 andamentos)                                      │
-│        │                                               │
-│        ▼                                               │
-│  "201 andamentos inseridos" ← Sucesso!                │
-└────────────────────────────────────────────────────────┘
+DEPOIS:
+┌─────────────────────────────────────────┐
+│     🕐                                  │
+│  Nenhum andamento encontrado            │
+│  Os andamentos podem não estar          │
+│  disponíveis ainda no tribunal.         │
+│                                         │
+│  [🔄 Tentar buscar novamente]           │
+└─────────────────────────────────────────┘
 ```
 
 ## Arquivo a Editar
 
-1. `supabase/functions/judit-consultar-detalhes-request/index.ts`
+1. `src/components/Controladoria/ProcessoOABDetalhes.tsx`
+
+## Comportamento
+
+Quando o usuário clicar em "Tentar buscar novamente":
+1. Chama `handleCarregarAndamentos()` que usa `onCarregarDetalhes`
+2. Isso invoca a Edge Function `judit-buscar-detalhes-processo`
+3. A Edge Function faz um novo POST na API Judit para buscar os detalhes atualizados
+4. Se os andamentos estiverem disponíveis agora, serão inseridos
 
 ## Benefícios
 
-- Resolve o processo `0011205-10.2021.8.16.0021` imediatamente
-- Corrige qualquer outro processo na mesma situação
-- Não depende de nova chamada POST (paga) à API Judit
-- Usa dados que já existem no banco
+- Resolve o problema do processo `5010545-77.2024.4.04.7009`
+- Aplica-se a todos os processos na mesma situação
+- Dá controle ao usuário para decidir quando tentar novamente
+- Mensagem explicativa ajuda a entender que os andamentos podem ainda não estar disponíveis
