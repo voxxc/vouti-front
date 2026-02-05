@@ -42,7 +42,7 @@ const sheetVariants = cva(
       inset:
        "top-[57px] md:left-[224px] left-0 right-0 bottom-0 w-auto h-auto border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
        "left-offset":
-        "inset-y-0 md:left-[224px] left-0 h-full w-80 sm:max-w-sm border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
+        "top-[57px] bottom-0 md:left-[224px] left-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
       },
     },
     defaultVariants: {
