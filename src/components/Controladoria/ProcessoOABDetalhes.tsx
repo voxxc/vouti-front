@@ -72,6 +72,7 @@ import { AndamentoAnexos } from './AndamentoAnexos';
 import { IntimacaoCard } from './IntimacaoCard';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
+import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -824,6 +825,15 @@ export const ProcessoOABDetalhes = ({
                       </Button>
                     </>
                   )}
+
+                  {/* CARD DE AUTOMACAO DE PRAZOS */}
+                  <Separator />
+                  <AutomacaoPrazosCard
+                    processoOabId={processo.id}
+                    prazoAutomaticoAtivo={processo.prazo_automatico_ativo || false}
+                    prazoAdvogadoResponsavelId={processo.prazo_advogado_responsavel_id || null}
+                    prazoUsuariosMarcados={processo.prazo_usuarios_marcados || []}
+                  />
 
                   {/* Processos Relacionados */}
                   {capa.related_lawsuits && capa.related_lawsuits.length > 0 && (

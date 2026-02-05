@@ -25,6 +25,118 @@ const generateAndamentoKey = (dataMovimentacao: string | null, descricao: string
   return `${normalizedDate}_${normalizedDesc}`;
 };
 
+// ==================== AUTOMACAO DE PRAZOS ====================
+
+// Padroes para detectar tipos de atos processuais
+const PADROES_ATOS = [
+  { tipo: 'contestacao', label: 'Contestação', prazo: 15, padroes: [/contestar/i, /contestação/i, /apresentar defesa/i] },
+  { tipo: 'replica', label: 'Réplica', prazo: 15, padroes: [/réplica/i, /impugnação à contestação/i] },
+  { tipo: 'embargos_declaracao', label: 'Embargos de Declaração', prazo: 5, padroes: [/embargos de declaração/i, /embargos declaratórios/i] },
+  { tipo: 'agravo_instrumento', label: 'Agravo de Instrumento', prazo: 15, padroes: [/agravo de instrumento/i] },
+  { tipo: 'agravo_interno', label: 'Agravo Interno', prazo: 15, padroes: [/agravo interno/i, /agravo regimental/i] },
+  { tipo: 'apelacao', label: 'Apelação', prazo: 15, padroes: [/apelação/i, /apelar/i] },
+  { tipo: 'emenda_inicial', label: 'Emenda à Inicial', prazo: 15, padroes: [/emenda/i, /emendar/i] },
+  { tipo: 'pagamento_voluntario', label: 'Pagamento Voluntário', prazo: 3, padroes: [/pagamento voluntário/i, /pagar voluntariamente/i] },
+  { tipo: 'manifestacao', label: 'Manifestação', prazo: 15, padroes: [/manifestar/i, /manifestação/i] },
+];
+
+// Meses em portugues para parsing de datas
+const MESES_PT: Record<string, number> = {
+  'janeiro': 0, 'fevereiro': 1, 'março': 2, 'marco': 2, 'abril': 3,
+  'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
+  'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11,
+};
+
+// Detecta tipo de ato processual
+function detectarTipoAto(descricao: string): { tipo: string; label: string; prazo: number } | null {
+  if (!descricao) return null;
+  const descLower = descricao.toLowerCase();
+  if (!descLower.includes('intimação') && !descLower.includes('intimacao')) return null;
+  
+  for (const padrao of PADROES_ATOS) {
+    for (const regex of padrao.padroes) {
+      if (regex.test(descricao)) {
+        return { tipo: padrao.tipo, label: padrao.label, prazo: padrao.prazo };
+      }
+    }
+  }
+  return null;
+}
+
+// Detecta audiencia e extrai data/hora
+function detectarAudiencia(descricao: string): { tipo: string; label: string; dataHora: Date | null } | null {
+  if (!descricao) return null;
+  const descLower = descricao.toLowerCase();
+  
+  if (!descLower.includes('audiência') && !descLower.includes('audiencia') && 
+      !descLower.includes('sessão') && !descLower.includes('sessao')) {
+    return null;
+  }
+  
+  let tipo = 'audiencia';
+  let label = 'Audiência';
+  
+  if (/audiência\s+de\s+conciliação/i.test(descricao)) {
+    tipo = 'conciliacao'; label = 'Audiência de Conciliação';
+  } else if (/audiência\s+de\s+mediação/i.test(descricao)) {
+    tipo = 'mediacao'; label = 'Audiência de Mediação';
+  } else if (/audiência\s+de\s+instrução\s+e\s+julgamento/i.test(descricao)) {
+    tipo = 'instrucao_julgamento'; label = 'Audiência de Instrução e Julgamento';
+  } else if (/audiência\s+de\s+instrução/i.test(descricao)) {
+    tipo = 'instrucao'; label = 'Audiência de Instrução';
+  } else if (/sessão\s+virtual/i.test(descricao) || /incluído\s+em\s+pauta/i.test(descricao)) {
+    tipo = 'sessao_virtual'; label = 'Sessão Virtual de Julgamento';
+  }
+  
+  // Extrair data/hora - Padrao 1: "Agendada para: 01 de abril de 2026 às 14:01"
+  let dataHora: Date | null = null;
+  const padrao1 = descricao.match(/(?:agendada?\s+para|designada?\s+para)[:\s]+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})(?:\s+[àa]s?\s+(\d{1,2})[:\.](\d{2}))?/i);
+  if (padrao1) {
+    const [, dia, mesStr, ano, hora, minuto] = padrao1;
+    const mes = MESES_PT[mesStr.toLowerCase()];
+    if (mes !== undefined) {
+      dataHora = new Date(parseInt(ano), mes, parseInt(dia), hora ? parseInt(hora) : 0, minuto ? parseInt(minuto) : 0);
+    }
+  }
+  
+  // Padrao 2: "SESSÃO VIRTUAL DE 02/03/2026 00:00"
+  if (!dataHora) {
+    const padrao2 = descricao.match(/(?:sessão\s+virtual\s+de|pauta\s+de)\s+(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/i);
+    if (padrao2) {
+      const [, dia, mes, ano, hora, min] = padrao2;
+      dataHora = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), parseInt(hora), parseInt(min));
+    }
+  }
+  
+  // Padrao 3: "(23/01/2026)" ou "Data: 23/01/2026"
+  if (!dataHora) {
+    const padrao3 = descricao.match(/(?:data[:\s]+)?(\d{2})\/(\d{2})\/(\d{4})(?:\s+(?:hora[:\s]+)?(\d{2})[:\.](\d{2}))?/i);
+    if (padrao3) {
+      const [, dia, mes, ano, hora, minuto] = padrao3;
+      dataHora = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), hora ? parseInt(hora) : 0, minuto ? parseInt(minuto) : 0);
+    }
+  }
+  
+  return { tipo, label, dataHora };
+}
+
+// Extrai data inicial da intimacao
+function extrairDataInicialIntimacao(descricao: string): Date | null {
+  // Padrao: "Data inicial da contagem do prazo: 10/12/2024"
+  const match = descricao.match(/Data inicial[^:]*:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  if (match) {
+    const [, dia, mes, ano] = match;
+    return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+  }
+  return null;
+}
+
+// Verifica se intimacao esta aberta
+function isIntimacaoAberta(descricao: string): boolean {
+  const statusMatch = descricao.match(/Status:\s*(ABERTO|FECHADO)/i);
+  return statusMatch ? statusMatch[1].toUpperCase() === 'ABERTO' : false;
+}
+
 // Funcao para buscar dados do tracking via API Judit
 const fetchTrackingData = async (trackingId: string, juditApiKey: string): Promise<any> => {
   const url = `https://tracking.prod.judit.io/tracking/${trackingId}`;
@@ -284,6 +396,134 @@ serve(async (req) => {
     }
 
     console.log('[Judit Webhook OAB] Novos andamentos inseridos:', novosAndamentos);
+
+    // ==================== AUTOMACAO DE PRAZOS ====================
+    // Verificar se processo tem automacao ativa
+    const { data: processoConfig } = await supabase
+      .from('processos_oab')
+      .select('prazo_automatico_ativo, prazo_advogado_responsavel_id, prazo_usuarios_marcados, numero_cnj')
+      .eq('id', processo.id)
+      .single();
+
+    if (processoConfig?.prazo_automatico_ativo && processoConfig.prazo_advogado_responsavel_id) {
+      console.log('[Judit Webhook OAB] Automacao ativa - processando prazos automaticos');
+      
+      for (const step of steps) {
+        const descricao = step.content || step.description || step.descricao || '';
+        const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
+        
+        // Verificar se ja existe prazo automatico para este andamento
+        const andamentoKey = generateAndamentoKey(dataMovimentacao, descricao);
+        
+        // Detectar audiencia
+        const audiencia = detectarAudiencia(descricao);
+        if (audiencia && audiencia.dataHora) {
+          console.log('[Judit Webhook OAB] Audiencia detectada:', audiencia.label);
+          
+          // Criar prazo para audiencia
+          const { data: deadlineAud, error: deadlineAudError } = await supabase
+            .from('deadlines')
+            .insert({
+              title: `📅 ${audiencia.label}`,
+              description: `Processo: ${processoConfig.numero_cnj}\n\n${descricao.substring(0, 500)}`,
+              date: audiencia.dataHora.toISOString().split('T')[0],
+              user_id: processoConfig.prazo_advogado_responsavel_id,
+              advogado_responsavel_id: processoConfig.prazo_advogado_responsavel_id,
+              processo_oab_id: processo.id,
+              tenant_id: processo.tenant_id,
+              completed: false,
+            })
+            .select('id')
+            .single();
+
+          if (!deadlineAudError && deadlineAud) {
+            // Registrar log
+            await supabase.from('prazos_automaticos_log').insert({
+              processo_oab_id: processo.id,
+              deadline_id: deadlineAud.id,
+              tipo_evento: 'audiencia',
+              tipo_ato_detectado: audiencia.tipo,
+              data_inicio: dataMovimentacao,
+              data_fim: audiencia.dataHora.toISOString().split('T')[0],
+              tenant_id: processo.tenant_id,
+            });
+
+            // Adicionar tags se houver usuarios marcados
+            if (processoConfig.prazo_usuarios_marcados?.length > 0) {
+              const tags = processoConfig.prazo_usuarios_marcados.map((userId: string) => ({
+                deadline_id: deadlineAud.id,
+                tagged_user_id: userId,
+                tenant_id: processo.tenant_id,
+              }));
+              await supabase.from('deadline_tags').insert(tags);
+            }
+            
+            console.log('[Judit Webhook OAB] Prazo audiencia criado:', deadlineAud.id);
+          }
+          continue; // Nao processar como intimacao
+        }
+
+        // Detectar intimacao
+        const tipoAto = detectarTipoAto(descricao);
+        if (tipoAto && isIntimacaoAberta(descricao)) {
+          console.log('[Judit Webhook OAB] Intimacao detectada:', tipoAto.label);
+          
+          // Extrair data inicial ou usar data do andamento
+          const dataInicial = extrairDataInicialIntimacao(descricao) || new Date(dataMovimentacao || Date.now());
+          
+          // Calcular prazo em dias uteis usando funcao do banco
+          const { data: dataFimResult } = await supabase.rpc('calcular_prazo_dias_uteis', {
+            p_data_inicio: dataInicial.toISOString().split('T')[0],
+            p_prazo_dias: tipoAto.prazo,
+            p_tenant_id: processo.tenant_id,
+          });
+
+          const dataFim = dataFimResult || new Date(dataInicial.getTime() + tipoAto.prazo * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+          // Criar prazo para intimacao
+          const { data: deadline, error: deadlineError } = await supabase
+            .from('deadlines')
+            .insert({
+              title: `⚠️ ${tipoAto.label}`,
+              description: `Processo: ${processoConfig.numero_cnj}\nPrazo: ${tipoAto.prazo} dias úteis\n\n${descricao.substring(0, 500)}`,
+              date: dataFim,
+              user_id: processoConfig.prazo_advogado_responsavel_id,
+              advogado_responsavel_id: processoConfig.prazo_advogado_responsavel_id,
+              processo_oab_id: processo.id,
+              tenant_id: processo.tenant_id,
+              completed: false,
+            })
+            .select('id')
+            .single();
+
+          if (!deadlineError && deadline) {
+            // Registrar log
+            await supabase.from('prazos_automaticos_log').insert({
+              processo_oab_id: processo.id,
+              deadline_id: deadline.id,
+              tipo_evento: 'intimacao',
+              tipo_ato_detectado: tipoAto.tipo,
+              prazo_dias: tipoAto.prazo,
+              data_inicio: dataInicial.toISOString().split('T')[0],
+              data_fim: dataFim,
+              tenant_id: processo.tenant_id,
+            });
+
+            // Adicionar tags se houver usuarios marcados
+            if (processoConfig.prazo_usuarios_marcados?.length > 0) {
+              const tags = processoConfig.prazo_usuarios_marcados.map((userId: string) => ({
+                deadline_id: deadline.id,
+                tagged_user_id: userId,
+                tenant_id: processo.tenant_id,
+              }));
+              await supabase.from('deadline_tags').insert(tags);
+            }
+            
+            console.log('[Judit Webhook OAB] Prazo intimacao criado:', deadline.id);
+          }
+        }
+      }
+    }
 
     // === PROPAGACAO PARA PROCESSOS COMPARTILHADOS ===
     const { data: processosCompartilhados } = await supabase

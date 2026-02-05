@@ -49,6 +49,10 @@ export interface ProcessoOAB {
   ultima_atualizacao_detalhes: string | null;
   created_at: string;
   andamentos_nao_lidos?: number;
+  // Campos de automação de prazos
+  prazo_automatico_ativo?: boolean;
+  prazo_advogado_responsavel_id?: string | null;
+  prazo_usuarios_marcados?: string[];
 }
 
 export interface AndamentoOAB {
