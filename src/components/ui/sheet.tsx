@@ -41,6 +41,8 @@ const sheetVariants = cva(
           "inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       inset:
        "top-[57px] md:left-[224px] left-0 right-0 bottom-0 w-auto h-auto border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
+       "left-offset":
+        "inset-y-0 md:left-[224px] left-0 h-full w-80 sm:max-w-sm border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
       },
     },
     defaultVariants: {
@@ -56,7 +58,7 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
   ({ side = "right", className, children, ...props }, ref) => (
     <SheetPortal>
-      {side !== "inset" && <SheetOverlay />}
+      {side !== "inset" && side !== "left-offset" && <SheetOverlay />}
       <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">

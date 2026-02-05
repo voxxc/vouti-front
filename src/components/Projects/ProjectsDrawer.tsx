@@ -75,7 +75,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="p-0 flex flex-col w-80 sm:max-w-sm">
+      <SheetContent side="left-offset" className="p-0 flex flex-col">
         <SheetTitle className="sr-only">Projetos</SheetTitle>
         
         <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
@@ -168,16 +168,17 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
                   {searchTerm ? "Nenhum projeto encontrado" : "Nenhum projeto criado"}
                 </div>
               ) : (
-                filteredProjects.map(project => {
+                filteredProjects.map((project, index) => {
                   const stats = getProjectStats(project.id);
                   return (
                     <button
                       key={project.id}
                       onClick={() => handleSelectProject(project)}
                       className={cn(
-                        "w-full text-left p-3 rounded-lg transition-colors",
+                        "w-full text-left p-3 transition-colors",
                         "hover:bg-accent/50 focus:bg-accent/50 focus:outline-none",
-                        "group"
+                        "group",
+                        index < filteredProjects.length - 1 && "border-b border-border/50"
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
