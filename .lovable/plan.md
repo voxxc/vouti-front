@@ -1,138 +1,116 @@
 
 
-# Drawer de Usuários com Animação de Cima para Baixo
+# Ajustes de Layout e Correções de Português
 
-## Situação Atual
+## 1. LimiteAlert mais minimalista
 
-O botão "Usuários" no header do `DashboardLayout` atualmente:
-- Chama `onCreateUser` que é passado via props
-- No `Dashboard.tsx`, isso seta `showUserManagement = true`
-- Isso renderiza uma página inteira com o componente `UserManagement`
+**Problema**: O alerta de limite no drawer de usuários é muito chamativo com múltiplas linhas e barra de progresso
 
-## Conceito Visual
+**Arquivo**: `src/components/Common/LimiteAlert.tsx`
+
+**Conceito Visual**:
 
 ```text
-ATUAL:                                  PROPOSTO:
-                                        
-┌─────────────────────────────────┐     ┌─────────────────────────────────┐
-│ Header        [Usuarios] [Sair] │     │ Header        [Usuarios] [Sair] │
-├─────────────────────────────────┤     ├─────────────────────────────────┤
-│                                 │     │ ┌─────────────────────────────┐ │
-│   PAGINA INTEIRA                │     │ │  Gerenciamento de Usuários  │ │ <- drawer
-│   de UserManagement             │     │ │  ░░░░░░░░░░░░░░░░░░░░░░░░░░ │ │    de cima
-│   com botão "Voltar"            │     │ │  [Usuario 1] [Usuario 2]    │ │    pra baixo
-│                                 │     │ │  ░░░░░░░░░░░░░░░░░░░░░░░░░░ │ │
-│                                 │     │ └─────────────────────────────┘ │
-│                                 │     │                                 │
-└─────────────────────────────────┘     └─────────────────────────────────┘
+ATUAL (verboso):                          PROPOSTO (minimalista):
+                                          
+┌─ ⚠ Limite atingido ────────────────┐    ┌────────────────────────────────┐
+│                                     │    │ ⚠ Limite: 5/5 usuários         │
+│ Você atingiu o limite de 5         │    └────────────────────────────────┘
+│ usuários do seu plano.             │    
+│                                     │    ou
+│ Para continuar adicionando,         │    
+│ faça upgrade do seu plano.          │    ┌────────────────────────────────┐
+│                                     │    │ ⚡ Próximo do limite: 4/5       │
+│ [███████████████████████] 100%     │    └────────────────────────────────┘
+└─────────────────────────────────────┘    
 ```
 
-## Alterações
-
-### 1. Criar arquivo: `src/components/Admin/UserManagementDrawer.tsx`
-
-Novo componente drawer que encapsula o UserManagement:
+**Alterações**:
+- Versão compacta: Uma única linha inline
+- Remover a barra de progresso
+- Texto direto e objetivo
 
 ```tsx
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users } from "lucide-react";
-import UserManagement from "./UserManagement";
-import { User } from "@/types/user";
-
-interface UserManagementDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  users: User[];
-  onAddUser: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  onEditUser: (userId: string, userData: Partial<User>) => void;
-  onDeleteUser: (userId: string) => void;
+// Versão minimalista para limite atingido
+if (isAtLimit) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/30 text-sm">
+      <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+      <span className="text-destructive font-medium">
+        Limite: {uso}/{limite} {labels.plural}
+      </span>
+    </div>
+  );
 }
 
-export function UserManagementDrawer({
-  open,
-  onOpenChange,
-  users,
-  onAddUser,
-  onEditUser,
-  onDeleteUser
-}: UserManagementDrawerProps) {
+// Versão minimalista para próximo do limite  
+if (isNearLimit) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent 
-        side="top"
-        className="p-0 flex flex-col h-[85vh]"
-      >
-        <SheetTitle className="sr-only">Gerenciamento de Usuários</SheetTitle>
-        
-        {/* Header */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
-          <Users className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">Gerenciamento de Usuários</span>
-        </div>
-
-        {/* Conteudo scrollavel */}
-        <ScrollArea className="flex-1">
-          <div className="p-6">
-            <UserManagement
-              users={users}
-              onAddUser={onAddUser}
-              onEditUser={onEditUser}
-              onDeleteUser={onDeleteUser}
-            />
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-sm">
+      <TrendingUp className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+      <span className="text-yellow-700 dark:text-yellow-300 font-medium">
+        {uso}/{limite} {labels.plural} ({porcentagem}%)
+      </span>
+    </div>
   );
 }
 ```
 
-### 2. Atualizar: `src/pages/Dashboard.tsx`
+---
 
-Substituir a renderização condicional por um drawer:
+## 2. Correções de Português
 
-**Adicionar imports:**
+Palavras sem acento encontradas:
+
+| Arquivo | Erro | Correção |
+|---------|------|----------|
+| `DashboardLayout.tsx` (linha 251) | `Usuarios` | `Usuários` |
+| `ClienteAnalytics.tsx` (linha 35) | `Analise completa` | `Análise completa` |
+| `ProcessosMetrics.tsx` (linha 30) | `Metricas e analise` | `Métricas e análise` |
+| `ProcessosMetrics.tsx` (linha 30) | `juridicos` | `jurídicos` |
+| `ProcessosMetrics.tsx` (linha 59) | `Proximos Prazos` | `Próximos Prazos` |
+
+### 2.1 Arquivo: `src/components/Dashboard/DashboardLayout.tsx`
+
+**Linha 251**:
 ```tsx
-import { UserManagementDrawer } from "@/components/Admin/UserManagementDrawer";
+// Antes:
+<span className="hidden sm:inline">Usuarios</span>
+
+// Depois:
+<span className="hidden sm:inline">Usuários</span>
 ```
 
-**Alterar estado:**
+### 2.2 Arquivo: `src/components/Dashboard/ClienteAnalytics.tsx`
+
+**Linha 35**:
 ```tsx
-// Manter: const [showUserManagement, setShowUserManagement] = useState(false);
-// Será usado para controlar o drawer
+// Antes:
+<p className="text-muted-foreground">Analise completa do perfil dos clientes</p>
+
+// Depois:
+<p className="text-muted-foreground">Análise completa do perfil dos clientes</p>
 ```
 
-**Remover o bloco condicional** `if (showUserManagement) { ... }` (linhas 125-142)
+### 2.3 Arquivo: `src/components/Dashboard/ProcessosMetrics.tsx`
 
-**Adicionar drawer no final do componente** (antes do `</DadosSensiveisProvider>`):
-
+**Linha 30**:
 ```tsx
-{/* User Management Drawer */}
-<UserManagementDrawer
-  open={showUserManagement}
-  onOpenChange={setShowUserManagement}
-  users={systemUsers}
-  onAddUser={handleAddUser}
-  onEditUser={handleEditUser}
-  onDeleteUser={handleDeleteUser}
-/>
+// Antes:
+<p className="text-muted-foreground">Metricas e analise de processos juridicos</p>
+
+// Depois:
+<p className="text-muted-foreground">Métricas e análise de processos jurídicos</p>
 ```
 
-### 3. Atualizar: `src/components/Dashboard/DashboardLayout.tsx`
-
-Atualizar a interface para passar os handlers necessários:
-
-**Atualizar interface:**
+**Linha 59**:
 ```tsx
-interface DashboardLayoutProps {
-  // ... existentes
-  onCreateUser?: () => void;  // Manter - abrirá o drawer
-  // Remover necessidade de passar users e handlers
-}
-```
+// Antes:
+<CardTitle className="text-sm font-medium">Proximos Prazos</CardTitle>
 
-O botão continua funcionando igual - quando clicado, chama `onCreateUser` que seta `showUserManagement(true)` e agora abre o drawer.
+// Depois:
+<CardTitle className="text-sm font-medium">Próximos Prazos</CardTitle>
+```
 
 ---
 
@@ -140,14 +118,8 @@ O botão continua funcionando igual - quando clicado, chama `onCreateUser` que s
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/Admin/UserManagementDrawer.tsx` | Criar novo arquivo (drawer side="top") |
-| `src/pages/Dashboard.tsx` | Remover renderização condicional e adicionar drawer |
-
-## Resultado
-
-- Drawer abre de cima para baixo com animação fluida
-- Ocupa 85% da altura da tela (`h-[85vh]`)
-- Mantém o conteúdo scrollável
-- Botão X no canto superior direito para fechar
-- Consistente com o padrão visual dos outros drawers
+| `src/components/Common/LimiteAlert.tsx` | Redesign minimalista: inline, sem barra de progresso, texto direto |
+| `src/components/Dashboard/DashboardLayout.tsx` | `Usuarios` → `Usuários` |
+| `src/components/Dashboard/ClienteAnalytics.tsx` | `Analise` → `Análise` |
+| `src/components/Dashboard/ProcessosMetrics.tsx` | `Metricas`, `analise`, `juridicos`, `Proximos` → versões acentuadas |
 
