@@ -1,116 +1,149 @@
 
-# Corrigir Busca de Processos Sigilosos com Credenciais do Cofre
+# Sincronizar Dados Completos do Response para Campos do Processo
 
 ## Problema Identificado
 
-O processo `0035150-55.2023.8.16.0021` está em **segredo de justiça** (`secrecy_level: 1`) e os andamentos não estão vindo mesmo com a credencial do Rodrigo cadastrada no cofre Judit.
+Ao fazer GET manual no `request_id` `0cf225fa-ff0e-4655-992e-ced9267751eb`, voce obteve dados mais completos (partes, valor, etc.) do que o sistema esta exibindo no Resumo. Isso acontece porque:
 
-**Causa raiz**: As Edge Functions de busca (`judit-buscar-processo-cnj` e `judit-buscar-detalhes-processo`) chamam a API Judit **sem passar o campo `credential.customer_key`**, então a API usa o crawler público que não tem acesso aos dados sigilosos.
-
-**Evidência dos logs**:
-```
-[Judit Import CNJ] Payload: {"search":{"search_type":"lawsuit_cnj","search_key":"00351505520238160021","on_demand":true}}
-```
-
-Note que o payload **não inclui** `credential: { customer_key: "rodrigoprojudi" }`.
+1. O processo foi importado sem as credenciais do cofre (antes da correcao de hoje)
+2. A Edge Function `judit-buscar-detalhes-processo` salva o JSON bruto em `detalhes_completos` mas **nao extrai/atualiza os campos individuais** como:
+   - `partes_completas` (parties)
+   - `parte_ativa` / `parte_passiva`
+   - `valor_causa` (amount)
+   - `data_distribuicao` (distribution_date)
+   - `status_processual` (situation)
+   - `link_tribunal` (related_links)
 
 ---
 
-## Solução
+## Solucao Proposta
 
-Modificar as Edge Functions para:
-1. Verificar se existe credencial cadastrada para o tenant do processo
-2. Se existir, incluir o `customer_key` no payload da requisição
-3. Priorizar credenciais do tribunal correto (ex: TJPR para processos do TJPR)
+Modificar a Edge Function `judit-buscar-detalhes-processo` para:
+
+1. **Extrair e atualizar campos individuais** do response da API
+2. **Sincronizar partes_completas** com o array `parties`
+3. **Atualizar valor_causa** com `amount`
+4. **Atualizar data_distribuicao** com `distribution_date`
+5. **Atualizar link_tribunal** se disponivel
 
 ---
 
 ## Alteracoes Tecnicas
 
-### Arquivo 1: `supabase/functions/judit-buscar-processo-cnj/index.ts`
+### Arquivo: `supabase/functions/judit-buscar-detalhes-processo/index.ts`
 
-Adicionar busca de credenciais e inclusao no payload:
+Adicionar extracao de campos antes do update (linhas 399-413):
 
 ```typescript
-// Antes de chamar a API (linha ~44)
+// Extrair dados adicionais do response
+const parties = responseData?.parties || [];
+const amount = responseData?.amount || null;
+const distributionDate = responseData?.distribution_date || null;
+const situation = responseData?.situation || null;
+const phase = responseData?.phase || null;
+const relatedLinks = responseData?.related_links || responseData?.link || null;
 
-// Buscar credencial do tenant para o tribunal
-let customerKey: string | null = null;
+// Extrair partes ativa/passiva do array parties
+let parteAtiva = '';
+let partePassiva = '';
 
-if (tenantId) {
-  // Extrair sigla do tribunal do CNJ (posicoes 16-17 = codigo do tribunal)
-  // Ex: 00351505520238160021 -> 16 = TJ do estado 16 (PR)
-  const tribunalCodigo = numeroLimpo.substring(13, 16);
-  
-  // Buscar credenciais do tenant
-  const { data: credenciais } = await supabase
-    .from('credenciais_judit')
-    .select('customer_key, system_name')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active');
-  
-  if (credenciais && credenciais.length > 0) {
-    // Priorizar credencial do tribunal correspondente (se houver match)
-    // Fallback para primeira credencial disponivel
-    customerKey = credenciais[0].customer_key;
-    console.log('[Judit Import CNJ] Usando credencial:', customerKey);
-  }
+const autores = parties
+  .filter((p: any) => {
+    const tipo = (p.person_type || '').toUpperCase();
+    const side = (p.side || '').toLowerCase();
+    return side === 'active' || tipo.includes('ATIVO') || tipo.includes('AUTOR');
+  })
+  .map((p: any) => p.name)
+  .filter(Boolean);
+
+const reus = parties
+  .filter((p: any) => {
+    const tipo = (p.person_type || '').toUpperCase();
+    const side = (p.side || '').toLowerCase();
+    return side === 'passive' || tipo.includes('PASSIVO') || tipo.includes('REU');
+  })
+  .map((p: any) => p.name)
+  .filter(Boolean);
+
+parteAtiva = autores.join(' e ');
+partePassiva = reus.join(' e ');
+
+// Fallback para campo "name" com " X "
+if (!parteAtiva && !partePassiva && responseData.name?.includes(' X ')) {
+  const partes = responseData.name.split(' X ');
+  parteAtiva = partes[0]?.trim() || '';
+  partePassiva = partes[1]?.trim() || '';
 }
 
-// Payload com credencial (se disponivel)
-const requestPayload = {
-  search: {
-    search_type: 'lawsuit_cnj',
-    search_key: numeroLimpo,
-    on_demand: true
-  },
-  ...(customerKey && { credential: { customer_key: customerKey } })
-};
+// Update com campos extraidos
+await supabase
+  .from('processos_oab')
+  .update({
+    detalhes_completos: responseData,
+    detalhes_carregados: true,
+    detalhes_request_id: requestId,
+    detalhes_request_data: new Date().toISOString(),
+    ultima_atualizacao_detalhes: new Date().toISOString(),
+    ai_summary: aiSummary,
+    ai_summary_data: summaryData,
+    // NOVOS CAMPOS
+    partes_completas: parties.length > 0 ? parties : null,
+    parte_ativa: parteAtiva || null,
+    parte_passiva: partePassiva || null,
+    valor_causa: amount,
+    data_distribuicao: distributionDate,
+    status_processual: situation,
+    fase_processual: phase,
+    link_tribunal: relatedLinks,
+    updated_at: new Date().toISOString()
+  })
+  .eq('numero_cnj', numeroCnj)
+  .eq('tenant_id', tenantId);
 ```
-
-### Arquivo 2: `supabase/functions/judit-buscar-detalhes-processo/index.ts`
-
-Aplicar a mesma logica para incluir `customer_key` quando existir credencial do tenant.
 
 ---
 
-## Fluxo Apos Correcao
+## Logica de Condicao (Preservar Dados Manuais)
+
+Para nao sobrescrever dados editados manualmente pelo usuario, os campos so serao atualizados se:
+- O valor atual estiver vazio/null
+- OU o valor vier da API (indicando dados mais completos)
+
+Implementaremos uma verificacao condicional para cada campo.
+
+---
+
+## Fluxo Pos-Correcao
 
 ```text
-Importar processo sigiloso (CNJ TJPR)
-                |
-                v
-Buscar credenciais do tenant para TJPR
-                |
-        [Encontrou]
-                |
-                v
-Incluir { credential: { customer_key: "rodrigoprojudi" } } no payload
-                |
-                v
-API Judit usa crawler autenticado com credenciais do PROJUDI
-                |
-                v
-Retorna dados completos (andamentos, partes, etc.)
-                |
-                v
-Processo importado com todos os andamentos
+Usuario clica "Atualizar Andamentos"
+              |
+              v
+Edge Function faz GET /responses?request_id=...
+              |
+              v
+Extrai parties, amount, distribution_date, etc.
+              |
+              v
+Atualiza campos individuais no banco
+              |
+              v
+Interface exibe dados completos no Resumo
 ```
+
+---
+
+## Teste Pos-Implementacao
+
+1. Clicar em "Atualizar Andamentos" para o processo `0003732-65.2024.8.16.0021`
+2. Verificar se as partes, valor da causa e outros dados aparecem no Resumo
+3. Confirmar que os andamentos continuam sendo inseridos normalmente
 
 ---
 
 ## Resultado Esperado
 
-1. Processos sigilosos com credenciais cadastradas receberao os andamentos completos
-2. Processos publicos continuarao funcionando normalmente
-3. O sistema selecionara automaticamente a credencial do tenant
-4. Logs indicarao quando credenciais sao utilizadas
-
----
-
-## Testes Necessarios
-
-Apos implementacao:
-1. Deletar o processo `0035150-55.2023.8.16.0021` e reimporta-lo
-2. Verificar nos logs se o `customer_key` esta sendo enviado
-3. Confirmar que os andamentos sao retornados e inseridos
+- Dados de partes extraidos e exibidos corretamente
+- Valor da causa preenchido automaticamente
+- Demais campos sincronizados com a API
+- Dados editados manualmente preservados (nao sobrescritos)
