@@ -75,7 +75,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="inset" className="p-0 flex flex-col">
+      <SheetContent side="left" className="p-0 flex flex-col w-80 sm:max-w-sm">
         <SheetTitle className="sr-only">Projetos</SheetTitle>
         
         <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
