@@ -1,41 +1,67 @@
 
-# Ajuste da Direção dos Drawers
 
-## Problema Atual
+# Remover Overlay Escuro dos Drawers Inset
 
-A variante `inset` no `sheet.tsx` está configurada com animação da **direita para esquerda**:
+## Problema
 
-```typescript
-inset: "... data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
-```
+O `SheetOverlay` cobre toda a tela com fundo escuro (`bg-black/80`), incluindo a sidebar e o header. Isso cria um visual estranho porque essas áreas ficam escurecidas desnecessariamente.
 
 ## Solução
 
-Alterar as classes de animação para que o drawer deslize da **esquerda para direita**:
+Para a variante `inset`, o SheetContent não deve renderizar o overlay escuro. Em vez disso, usaremos apenas uma borda sutil ou nenhum overlay.
 
-| Propriedade | Atual | Novo |
-|-------------|-------|------|
-| Entrada | `slide-in-from-right` | `slide-in-from-left` |
-| Saída | `slide-out-to-right` | `slide-out-to-left` |
+### Arquivo: `src/components/ui/sheet.tsx`
 
-## Arquivo a Modificar
+Modificar o `SheetContent` para:
+1. Aceitar uma prop `hideOverlay` ou detectar automaticamente quando `side="inset"`
+2. Não renderizar o `SheetOverlay` quando for a variante inset
 
-**`src/components/ui/sheet.tsx`** - linha 42-43
+### Código Proposto
 
-### Código Atual:
 ```typescript
-inset:
-  "top-[57px] md:left-[224px] left-0 right-0 bottom-0 w-auto h-auto border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+const SheetContent = React.forwardRef<
+  React.ElementRef<typeof SheetPrimitive.Content>, 
+  SheetContentProps
+>(({ side = "right", className, children, ...props }, ref) => (
+  <SheetPortal>
+    {/* Só mostra overlay se NÃO for a variante inset */}
+    {side !== "inset" && <SheetOverlay />}
+    <SheetPrimitive.Content 
+      ref={ref} 
+      className={cn(sheetVariants({ side }), className)} 
+      {...props}
+    >
+      {children}
+      <SheetPrimitive.Close className="absolute right-4 top-4 ...">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </SheetPrimitive.Close>
+    </SheetPrimitive.Content>
+  </SheetPortal>
+));
 ```
 
-### Código Corrigido:
-```typescript
-inset:
-  "top-[57px] md:left-[224px] left-0 right-0 bottom-0 w-auto h-auto border-l data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+## Resultado Visual
+
+```text
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                        BARRA SUPERIOR (normal, sem escurecer)                      │
+├──────────┬────────────────────────────────────────────────────────────────────────┤
+│          │                                                                    [X] │
+│ SIDEBAR  │                    DRAWER INSET                                        │
+│ (normal) │                                                                        │
+│          │     Conteudo da pagina                                                 │
+│          │                                                                        │
+│          │     - Sem overlay escuro por trás                                      │
+│          │     - Sidebar e header permanecem visíveis e claros                    │
+│          │                                                                        │
+└──────────┴────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Resultado
+## Comportamento
 
-- Drawer abrirá deslizando da esquerda para direita (aparece vindo da sidebar)
-- Drawer fechará deslizando da direita para esquerda (volta para a sidebar)
-- Movimento mais natural considerando que a sidebar está à esquerda
+- Sidebar e header ficam **totalmente visíveis** (sem escurecimento)
+- Drawer aparece com animação suave da esquerda
+- Clicar no X fecha o drawer
+- Para fechar clicando fora: o usuário pode clicar na sidebar ou usar ESC
+
