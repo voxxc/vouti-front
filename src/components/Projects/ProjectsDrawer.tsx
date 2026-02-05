@@ -76,6 +76,8 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left-offset" className="p-0 flex flex-col">
+        {/* Barra decorativa no lado direito */}
+        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-primary/20 via-border to-primary/20 pointer-events-none" />
         <SheetTitle className="sr-only">Projetos</SheetTitle>
         
         <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
