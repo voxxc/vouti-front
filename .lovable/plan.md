@@ -1,117 +1,57 @@
 
-# Corrigir Erro ao Desativar Monitoramento de Processo OAB
+# Desativar "Clique Fora" nos Dialogs Modais
 
-## Problema Identificado
+## Problema
 
-Ao tentar desativar o monitoramento de um processo OAB no tenant "cordeiro", o sistema falha com o seguinte erro nos logs da edge function:
-
-```
-ERROR [Judit Monitor] Erro ao atualizar processos: {
-  code: "23514",
-  message: 'new row for relation "tenant_banco_ids" violates check constraint "tenant_banco_ids_tipo_check"'
-}
-```
-
-## Causa Raiz
-
-Existe um **trigger** chamado `registrar_banco_id_processo` na tabela `processos_oab` que registra eventos no "Banco de IDs" (tabela `tenant_banco_ids`). Quando o monitoramento e desativado, o trigger tenta inserir um registro com `tipo = 'tracking_desativado'`.
-
-Porem, o **check constraint** `tenant_banco_ids_tipo_check` nao inclui esse valor na lista de tipos permitidos:
-
-**Atual (incorreto):**
-```sql
-CHECK (tipo = ANY (ARRAY[
-  'oab', 'processo', 'tracking', 
-  'request_busca', 'request_detalhes', 'request_monitoramento'
-]))
-```
-
-**Faltando:** `'tracking_desativado'`
+Atualmente, quando um Dialog (modal com fundo escuro) esta aberto, clicar na area escura fora da janela fecha o dialog automaticamente. O usuario quer desativar esse comportamento para evitar fechamentos acidentais.
 
 ## Solucao
 
-Atualizar o check constraint para incluir o tipo `tracking_desativado`.
+Modificar o componente `DialogContent` em `src/components/ui/dialog.tsx` para interceptar o evento de clique fora e prevenir o fechamento.
 
 ---
 
-## Alteracoes Tecnicas
+## Alteracao Tecnica
 
-### Migracao SQL
+### Arquivo: `src/components/ui/dialog.tsx`
 
-Executar a seguinte migracao para atualizar o check constraint:
+Adicionar a prop `onInteractOutside` ao `DialogPrimitive.Content` com `event.preventDefault()`:
 
-```sql
--- Remover constraint atual
-ALTER TABLE tenant_banco_ids 
-DROP CONSTRAINT IF EXISTS tenant_banco_ids_tipo_check;
+**De:**
+```tsx
+<DialogPrimitive.Content
+  ref={ref}
+  className={cn(...)}
+  {...props}
+>
+```
 
--- Adicionar constraint atualizada com tracking_desativado
-ALTER TABLE tenant_banco_ids 
-ADD CONSTRAINT tenant_banco_ids_tipo_check 
-CHECK (tipo = ANY (ARRAY[
-  'oab'::text, 
-  'processo'::text, 
-  'tracking'::text, 
-  'tracking_desativado'::text,
-  'request_busca'::text, 
-  'request_detalhes'::text, 
-  'request_monitoramento'::text
-]));
+**Para:**
+```tsx
+<DialogPrimitive.Content
+  ref={ref}
+  onInteractOutside={(event) => event.preventDefault()}
+  className={cn(...)}
+  {...props}
+>
 ```
 
 ---
 
-## Fluxo Atual (Com Erro)
+## Como Funciona
 
-```text
-Usuario clica em Desativar Monitoramento
-              |
-              v
-Edge Function judit-ativar-monitoramento-oab
-  (ativar=false)
-              |
-              v
-UPDATE processos_oab SET monitoramento_ativo=false
-              |
-              v
-Trigger registrar_banco_id_processo dispara
-              |
-              v
-INSERT INTO tenant_banco_ids (tipo='tracking_desativado')
-              |
-              v
-[X] ERRO: Check constraint violado!
-```
+O Radix UI Dialog dispara o evento `onInteractOutside` quando o usuario clica fora do conteudo do dialog. Chamando `event.preventDefault()`, impedimos que esse clique feche o modal.
 
-## Fluxo Apos Correcao
-
-```text
-Usuario clica em Desativar Monitoramento
-              |
-              v
-Edge Function judit-ativar-monitoramento-oab
-  (ativar=false)
-              |
-              v
-UPDATE processos_oab SET monitoramento_ativo=false
-              |
-              v
-Trigger registrar_banco_id_processo dispara
-              |
-              v
-INSERT INTO tenant_banco_ids (tipo='tracking_desativado')
-              |
-              v
-[OK] Registro criado com sucesso!
-              |
-              v
-Monitoramento desativado, historico mantido
-```
+O usuario ainda podera fechar o dialog:
+- Clicando no botao X no canto superior direito
+- Pressionando a tecla ESC
+- Clicando em botoes de "Cancelar" ou "Fechar" dentro do dialog
 
 ---
 
 ## Resultado Esperado
 
-1. O usuario podera desativar o monitoramento de processos OAB normalmente
-2. O evento de desativacao sera registrado no "Banco de IDs" para auditoria
-3. O historico de andamentos sera mantido conforme esperado
+1. Clicar no fundo escuro NAO fecha mais o dialog
+2. O botao X continua funcionando normalmente
+3. A tecla ESC continua funcionando (se quiser desativar tambem, posso adicionar `onEscapeKeyDown={(e) => e.preventDefault()}`)
+4. Todos os dialogs da aplicacao serao afetados (comportamento global)
