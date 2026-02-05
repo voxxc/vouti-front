@@ -1,83 +1,194 @@
 
+# Implementacao de Juros/Multa, Edicao de Pagamentos e Etiquetas de Clientes
 
-# Correção Completa: Andamentos Não Importados
+## Resumo das Funcionalidades
 
-## Problemas Identificados
-
-Após investigação, identifiquei **3 problemas** que causam andamentos vazios:
-
-### Problema 1: Fallback para `last_step` já implementado mas não testado
-A correção para usar `last_step` em processos com `steps: []` já foi aplicada e deployada. Processos importados **antes** dessa correção precisam ser recarregados manualmente.
-
-### Problema 2: Processos sem tenant_id na busca compartilhada
-O webhook de monitoramento (`judit-webhook-oab`) mostra `Processos compartilhados: 0`, indicando que a query por `tenant_id` pode estar falhando quando o tenant_id não bate ou é null.
-
-### Problema 3: Processos com `detalhes_carregados: true` mas 0 andamentos
-Vários processos estão marcados como carregados mas não têm andamentos registrados. A API retornou dados, mas os andamentos não foram inseridos.
+| Recurso | Status | Descricao |
+|---------|--------|-----------|
+| 1. Juros e Multa | NOVO | Checkbox com dropdown para configurar taxas de juros/multa por atraso |
+| 2. Editar/Desfazer Pagamento | JA EXISTE | Menu de 3 pontinhos com "Editar Pagamento" e "Reabrir Pagamento" |
+| 3. Etiquetas de Clientes | NOVO | Sistema de etiquetas (Trabalhista, Criminal, Bancario, etc.) |
 
 ---
 
-## Correções Técnicas
+## Funcionalidade 1: Juros e Multa Automaticos
 
-### Correção 1: Melhorar busca de processos compartilhados
+### O que sera feito
 
-**Arquivo:** `supabase/functions/judit-buscar-detalhes-processo/index.ts`
+Adicionar na secao de pagamento do cadastro de cliente:
+- Checkbox "Aplicar Juros por Atraso"
+- Dropdown com opcoes de percentual de juros (0,5%, 1%, 2%, 3% ao mes)
+- Checkbox "Aplicar Multa por Atraso"  
+- Dropdown com opcoes de percentual de multa (2%, 5%, 10% - valor fixo)
 
-A busca atual:
-```typescript
-const { data: allSharedProcesses } = await supabase
-  .from('processos_oab')
-  .select('id')
-  .eq('numero_cnj', numeroCnj)
-  .eq('tenant_id', tenantId);
+Quando uma parcela estiver atrasada, o sistema calculara automaticamente o valor atualizado.
+
+### Alteracoes no Banco de Dados
+
+Nova migration para adicionar colunas na tabela `clientes`:
+
+```sql
+ALTER TABLE clientes
+ADD COLUMN aplicar_juros BOOLEAN DEFAULT FALSE,
+ADD COLUMN taxa_juros_mensal NUMERIC(5,2) DEFAULT 0,
+ADD COLUMN aplicar_multa BOOLEAN DEFAULT FALSE,
+ADD COLUMN taxa_multa NUMERIC(5,2) DEFAULT 0;
 ```
 
-Se `tenantId` for `null` ou diferente, não encontra o processo. Adicionar fallback para buscar pelo `processoOabId` recebido:
+### Alteracoes nos Arquivos
 
-```typescript
-// Buscar processos compartilhados pelo tenant
-let sharedProcessIds: string[] = [];
+1. **src/types/cliente.ts** - Adicionar campos ao tipo Cliente
+2. **src/lib/validations/cliente.ts** - Adicionar campos ao schema Zod
+3. **src/components/CRM/ClienteForm.tsx** - Adicionar checkboxes e dropdowns na secao de pagamento
+4. **src/components/Financial/ClienteFinanceiroDialog.tsx** - Calcular valor atualizado para parcelas atrasadas
+5. **src/hooks/useClientes.ts** - Incluir novos campos no CRUD
 
-if (tenantId) {
-  const { data: allSharedProcesses } = await supabase
-    .from('processos_oab')
-    .select('id')
-    .eq('numero_cnj', numeroCnj)
-    .eq('tenant_id', tenantId);
-  
-  sharedProcessIds = (allSharedProcesses || []).map(p => p.id);
-}
+### Logica de Calculo
 
-// FALLBACK: Se não encontrou processos mas temos o ID original, usar ele
-if (sharedProcessIds.length === 0 && processoOabId) {
-  console.log('[Judit Detalhes] Fallback: usando processoOabId original');
-  sharedProcessIds = [processoOabId];
-}
+```text
+Valor Atualizado = Valor Original + Multa + Juros
+
+Multa (fixa) = Valor Original * (taxa_multa / 100)
+Juros (composto mensal) = Valor Original * ((1 + taxa_juros/100)^meses_atraso - 1)
+
+Exemplo: Parcela de R$ 1.000 atrasada 2 meses
+- Multa 2% = R$ 20
+- Juros 1% ao mes = R$ 20,10
+- Total = R$ 1.040,10
 ```
 
 ---
 
-### Correção 2: Mesma lógica no webhook
+## Funcionalidade 2: Editar/Desfazer Pagamento
 
-**Arquivo:** `supabase/functions/judit-webhook-oab/index.ts`
+### Status: JA IMPLEMENTADO
 
-Aplicar a mesma correção de fallback para garantir que os webhooks também encontrem os processos mesmo quando a busca por tenant_id falha.
+O sistema ja possui esta funcionalidade em `src/components/Financial/ClienteFinanceiroDialog.tsx`:
+
+- Menu de 3 pontinhos aparece para parcelas com status "pago"
+- Opcao "Editar Pagamento" abre dialog para alterar data, metodo, valor e observacoes
+- Opcao "Reabrir Pagamento" retorna a parcela para status "pendente" ou "atrasado"
+
+O componente `EditarPagamentoDialog` ja existe e funciona corretamente.
+
+**Nenhuma alteracao necessaria.**
 
 ---
 
-## Testes Necessários
+## Funcionalidade 3: Etiquetas de Clientes
 
-1. **Login na aplicação** (você está atualmente em `/auth`)
-2. **Navegar até um processo com 0 andamentos**
-3. **Clicar em "Carregar Andamentos"**
-4. **Verificar se os andamentos são inseridos**
+### O que sera feito
+
+Adicionar sistema de etiquetas no cadastro de cliente para categorizar por area juridica:
+- Trabalhista
+- Criminal
+- Bancario
+- Rural
+- Civel
+- Previdenciario
+- (outras criadas pelo usuario)
+
+O usuario podera selecionar multiplas etiquetas e criar novas.
+
+### Alteracoes no Banco de Dados
+
+Ja existe a tabela `etiquetas`. Precisamos criar uma tabela de relacionamento:
+
+```sql
+CREATE TABLE cliente_etiquetas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cliente_id UUID NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  etiqueta_id UUID NOT NULL REFERENCES etiquetas(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES tenants(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(cliente_id, etiqueta_id)
+);
+
+-- RLS Policy
+ALTER TABLE cliente_etiquetas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuarios podem ver etiquetas de seus clientes" ON cliente_etiquetas
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM clientes c WHERE c.id = cliente_id AND c.user_id = auth.uid())
+    OR tenant_id = get_user_tenant_id()
+  );
+
+-- Inserir etiquetas padrao para areas juridicas
+INSERT INTO etiquetas (nome, cor, tenant_id) VALUES
+  ('Trabalhista', '#3b82f6', NULL),
+  ('Criminal', '#ef4444', NULL),
+  ('Bancário', '#22c55e', NULL),
+  ('Rural', '#84cc16', NULL),
+  ('Cível', '#8b5cf6', NULL),
+  ('Previdenciário', '#f59e0b', NULL),
+  ('Tributário', '#06b6d4', NULL),
+  ('Família', '#ec4899', NULL)
+ON CONFLICT DO NOTHING;
+```
+
+### Alteracoes nos Arquivos
+
+1. **src/components/CRM/ClienteEtiquetasManager.tsx** - Novo componente para gerenciar etiquetas do cliente
+2. **src/components/CRM/ClienteForm.tsx** - Adicionar o componente de etiquetas no formulario
+3. **src/types/cliente.ts** - Adicionar interface para ClienteEtiqueta
+4. **src/hooks/useClienteEtiquetas.ts** - Novo hook para CRUD de etiquetas de clientes
 
 ---
 
-## Resultado Esperado
+## Secao Tecnica
 
-- Processos com `last_step` terão ao menos 1 andamento (segredo de justiça)
-- Processos públicos terão todos os andamentos do array `steps`
-- O fallback por `processoOabId` garantirá que processos são sempre encontrados
-- Webhooks de monitoramento também funcionarão corretamente
+### Arquivos a Criar
 
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/components/CRM/ClienteEtiquetasManager.tsx` | Componente para selecionar/criar etiquetas |
+| `src/hooks/useClienteEtiquetas.ts` | Hook para CRUD de etiquetas do cliente |
+
+### Arquivos a Modificar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/types/cliente.ts` | Adicionar campos juros/multa e interface de etiquetas |
+| `src/lib/validations/cliente.ts` | Adicionar campos juros/multa ao schema |
+| `src/components/CRM/ClienteForm.tsx` | Adicionar checkboxes juros/multa e componente etiquetas |
+| `src/components/Financial/ClienteFinanceiroDialog.tsx` | Calcular valor atualizado com juros/multa |
+
+### Fluxo da Interface
+
+```text
+Cadastro de Cliente
+     |
+     +-- Secao Pagamento
+     |      |
+     |      +-- [x] Aplicar Juros por Atraso
+     |      |      |
+     |      |      +-- Dropdown: 0,5% | 1% | 2% | 3% ao mes
+     |      |
+     |      +-- [x] Aplicar Multa por Atraso
+     |             |
+     |             +-- Dropdown: 2% | 5% | 10%
+     |
+     +-- Secao Etiquetas (novo)
+            |
+            +-- [Trabalhista] [Criminal] [Bancario] [+Nova]
+```
+
+### Exibicao de Valor Atualizado
+
+No dialog financeiro, parcelas atrasadas mostrarao:
+- Valor Original: R$ 1.000,00
+- Multa (2%): R$ 20,00
+- Juros (1% x 2 meses): R$ 20,10
+- **Valor Atualizado: R$ 1.040,10**
+
+---
+
+## Ordem de Implementacao
+
+1. Migration do banco de dados (tabela cliente_etiquetas + colunas juros/multa)
+2. Atualizar tipos TypeScript
+3. Criar hook useClienteEtiquetas
+4. Criar componente ClienteEtiquetasManager
+5. Modificar ClienteForm para incluir juros/multa e etiquetas
+6. Modificar ClienteFinanceiroDialog para calcular valores atualizados
+7. Testes end-to-end
