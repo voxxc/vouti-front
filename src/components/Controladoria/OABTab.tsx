@@ -165,7 +165,7 @@ const ProcessoCard = ({
             snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''
           }`}
         >
-            <div className="flex items-center gap-3 w-full">
+            <div className="flex items-center gap-3 w-full overflow-hidden">
             {/* Drag Handle */}
             <div
               {...provided.dragHandleProps}
@@ -175,7 +175,7 @@ const ProcessoCard = ({
             </div>
 
             {/* Processo Info */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="font-mono text-sm font-medium truncate">
                   {processo.numero_cnj}
@@ -225,7 +225,7 @@ const ProcessoCard = ({
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground truncate">
+              <p className="text-sm text-muted-foreground truncate max-w-full">
                 {processo.parte_ativa || 'Autor nao identificado'} 
                 {' vs '}
                 {processo.parte_passiva || 'Reu nao identificado'}
