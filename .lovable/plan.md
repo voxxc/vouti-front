@@ -1,209 +1,133 @@
 
-# Correcao: Container da Controladoria Cresce Indefinidamente
+
+# Correcao: Visual Original da Controladoria Sumiu
 
 ## Problema Identificado
 
-A seção Controladoria perde seus limites visuais após o carregamento dos dados porque:
+Apos as alteracoes de layout para corrigir o overflow, os processos cadastrados deixaram de aparecer. Analisando o codigo:
 
-1. O `ControladoriaDrawer` usa um `ScrollArea` com `flex-1` para o conteúdo
-2. Os componentes internos (`OABTab`, `CentralAndamentosNaoLidos`) usam altura fixa baseada em `100vh` (viewport total)
-3. Essa altura `calc(100vh-320px)` é calculada em relação à tela inteira, não ao espaço disponível dentro do drawer
-4. Resultado: o conteúdo "escapa" do container, criando scroll duplo e perdendo bordas/acoes laterais
+1. A estrutura flexbox esta correta em teoria
+2. Porem, ha um problema de propagacao de altura nos componentes Radix Tabs
+3. O `TabsContent` do Radix usa `display: none` quando inativo, e quando ativo pode nao calcular altura corretamente com `flex-1`
+4. O `overflow-hidden` no drawer pode estar cortando conteudo que nao consegue calcular sua altura
 
-## Conceito Visual
+## Diagnostico Visual
 
 ```text
 PROBLEMA ATUAL:
-┌─ Drawer ─────────────────────────────────────────────────────────┐
-│ ┌─ ScrollArea (flex-1) ─────────────────────────────────────────┐│
-│ │ ┌─ ControladoriaContent ─────────────────────────────────────┐││
-│ │ │  Header, Cards, Tabs...                                    │││
-│ │ │ ┌─ OABTab ────────────────────────────────────────────────┐│││
-│ │ │ │  h-[calc(100vh-320px)] ← Ignora contexto do drawer     ││││
-│ │ │ │  Conteudo cresce para fora                              ││││
-│ │ │ │  ...                                                    ││││
-│ │ │ │  ...                                                    ││││
-│ │ │ │  ... (botoes cortados, bordas invisíveis)              ││││
-│ │ │ └─────────────────────────────────────────────────────────┘│││
-│ │ └─────────────────────────────────────────────────────────────┘││
-│ └─────────────────────────────────────────────────────────────────┘│
-└───────────────────────────────────────────────────────────────────┘
-
-SOLUCAO PROPOSTA:
-┌─ Drawer (flex flex-col h-full) ──────────────────────────────────┐
-│ [Header fixo]                                                     │
-│ ┌─ Container Flex (flex-1 min-h-0 overflow-hidden) ──────────────┐│
-│ │ ┌─ ControladoriaContent (h-full flex flex-col) ───────────────┐││
-│ │ │  [Header/Cards - altura fixa]                               │││
-│ │ │ ┌─ Tabs (flex-1 min-h-0 flex flex-col) ────────────────────┐│││
-│ │ │ │ ┌─ TabsContent (flex-1 overflow-auto) ──────────────────┐││││
-│ │ │ │ │  Scroll interno respeita limites do pai               │││││
-│ │ │ │ │  Botoes e bordas sempre visíveis                      │││││
-│ │ │ │ └───────────────────────────────────────────────────────┘││││
-│ │ │ └──────────────────────────────────────────────────────────┘│││
-│ │ └─────────────────────────────────────────────────────────────┘││
-│ └────────────────────────────────────────────────────────────────┘│
-└───────────────────────────────────────────────────────────────────┘
+┌─ Drawer ─────────────────────────────────────────────┐
+│ [Header]                                             │
+│ ┌─ Container (flex-1 min-h-0 overflow-hidden) ──────┐│
+│ │ ┌─ ControladoriaContent (h-full flex flex-col) ──┐││
+│ │ │  [Cards metricas - OK]                         │││
+│ │ │  ┌─ Tabs (flex-1 min-h-0) ────────────────────┐│││
+│ │ │  │  [TabsList - OK]                           ││││
+│ │ │  │  ┌─ TabsContent ──────────────────────────┐││││
+│ │ │  │  │  height: 0 ← Nao calcula altura!       │││││
+│ │ │  │  │  Conteudo existe mas esta "colapsado"  │││││
+│ │ │  │  └────────────────────────────────────────┘││││
+│ │ │  └────────────────────────────────────────────┘│││
+│ │ └────────────────────────────────────────────────┘││
+│ └────────────────────────────────────────────────────┘│
+└───────────────────────────────────────────────────────┘
 ```
 
 ## Solucao
 
-Reestruturar a hierarquia de containers para usar flexbox corretamente, eliminando o scroll duplo e garantindo que cada seção respeite seu espaco disponível.
+O problema e que `flex-1` combinado com `min-h-0` em containers aninhados pode causar colapso de altura quando o conteudo interno nao tem altura explicita. Para resolver:
+
+1. Remover `overflow-hidden` do container principal e usar `overflow-auto` para permitir scroll se necessario
+2. Adicionar altura minima aos TabsContent para garantir que tenham espaco
+3. Garantir que os componentes internos usem `h-full` corretamente
 
 ## Alteracoes
 
 ### 1. ControladoriaDrawer.tsx
 
-Remover o `ScrollArea` do wrapper principal e usar flexbox puro. O scroll deve ocorrer dentro de cada aba, nao no drawer inteiro.
+Trocar `overflow-hidden` por `overflow-auto` para permitir que o conteudo seja visivel:
 
 ```tsx
-// ANTES:
-<ScrollArea className="flex-1">
-  <div className="p-6">
-    <ControladoriaContent />
-  </div>
-</ScrollArea>
+// ANTES (linha 28):
+<div className="flex-1 min-h-0 overflow-hidden p-6">
 
 // DEPOIS:
-<div className="flex-1 min-h-0 overflow-hidden p-6">
-  <ControladoriaContent />
-</div>
+<div className="flex-1 min-h-0 overflow-auto p-6">
 ```
 
 ### 2. ControladoriaContent.tsx
 
-Transformar em container flex que ocupa todo o espaco disponivel e delega scroll para as abas.
+Ajustar os TabsContent para terem altura minima garantida e melhorar a propagacao de flex:
 
 ```tsx
-// ANTES:
-<div className="space-y-6">
-  ...
-  <Tabs defaultValue="central" className="space-y-4">
+// ANTES (linhas 118, 126, 134):
+<TabsContent value="central" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+  <Card className="flex-1 min-h-0 flex flex-col">
 
-// DEPOIS:
-<div className="h-full flex flex-col space-y-6">
-  ...
-  <Tabs defaultValue="central" className="flex-1 min-h-0 flex flex-col space-y-4">
+// DEPOIS - Adicionar min-height e remover logica condicional complexa:
+<TabsContent value="central" className="flex-1 mt-0">
+  <div className="h-full">
+    <Card className="h-full flex flex-col">
 ```
 
-Cada `TabsContent` precisa ter `flex-1 min-h-0 overflow-auto`:
+Fazer o mesmo para todas as 3 TabsContent (central, minhas-oabs, push-doc).
+
+### 3. OABManager.tsx
+
+Garantir que o componente use `h-full` ao inves de `flex-1 min-h-0` no container principal:
 
 ```tsx
-<TabsContent value="central" className="flex-1 min-h-0 overflow-auto">
-  <Card className="h-full">
-    <CardContent className="pt-6 h-full">
-      <CentralControladoria />
-    </CardContent>
-  </Card>
-</TabsContent>
-```
-
-### 3. OABTab.tsx
-
-Remover a altura fixa baseada em viewport e usar flex para ocupar espaco disponível.
-
-```tsx
-// ANTES:
-<div className="h-[calc(100vh-320px)] overflow-y-auto">
-
-// DEPOIS:
-<div className="flex-1 min-h-0 overflow-y-auto">
-```
-
-E garantir que o container pai (retorno do componente) seja flex:
-
-```tsx
-// O componente OABTab deve retornar um fragmento com estrutura flex
-// ou usar um wrapper
-return (
-  <div className="h-full flex flex-col">
-    {/* ... Header/filtros ... */}
-    
-    {/* Area Scrollavel */}
-    <div className="flex-1 min-h-0 overflow-y-auto pr-4">
-      {/* ... DragDropContext ... */}
-    </div>
-  </div>
-);
-```
-
-### 4. OABManager.tsx
-
-O container principal do OABManager tambem precisa usar altura total:
-
-```tsx
-// ANTES:
-<div className="space-y-4">
-
-// DEPOIS:
+// ANTES (linha 272):
 <div className="h-full flex flex-col space-y-4">
+
+// OK - manter h-full mas garantir que Tabs tambem tenha altura:
+// ANTES (linha 402):
+<Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+
+// DEPOIS:
+<Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab} className="flex-1 flex flex-col">
 ```
 
-E o `TabsContent` que contem o `OABTab`:
+### 4. OABTab.tsx
+
+Simplificar a estrutura removendo `min-h-0` que pode estar causando colapso:
 
 ```tsx
-<TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1 min-h-0">
-  <OABTab ... />
-</TabsContent>
+// ANTES (linha 575):
+<div className="h-full flex flex-col">
+
+// DEPOIS:
+<div className="flex flex-col gap-4 h-full">
+
+// ANTES (linha 631):
+<div className="flex-1 min-h-0 overflow-y-auto pr-4">
+
+// DEPOIS - Usar altura explicita ou auto:
+<div className="flex-1 overflow-y-auto pr-4" style={{ minHeight: '300px' }}>
 ```
 
 ### 5. CentralControladoria.tsx
 
-Mesmo tratamento para a aba Central:
+Mesmo ajuste para garantir visibilidade:
 
 ```tsx
-// Adicionar altura total e flex
-<Tabs defaultValue="andamentos" className="h-full flex flex-col space-y-4">
-  <TabsList>...</TabsList>
-  
-  <TabsContent value="andamentos" className="flex-1 min-h-0 overflow-auto">
-    <CentralAndamentosNaoLidos />
-  </TabsContent>
-</Tabs>
+// Adicionar altura minima para evitar colapso
+<Tabs defaultValue="andamentos" className="flex-1 flex flex-col space-y-4">
 ```
 
-### 6. CentralAndamentosNaoLidos.tsx
+## Resumo das Mudancas
 
-Remover qualquer altura fixa e usar flex:
-
-```tsx
-<div className="h-full flex flex-col space-y-4">
-  {/* Filtros - altura fixa */}
-  <div className="flex-shrink-0">...</div>
-  
-  {/* Tabela - flex-1 com scroll */}
-  <Card className="flex-1 min-h-0">
-    <CardContent className="p-0 h-full overflow-auto">
-      <Table>...</Table>
-    </CardContent>
-  </Card>
-</div>
-```
-
-## Resumo das Classes Chave
-
-| Conceito | Classes Tailwind |
-|----------|------------------|
-| Container que ocupa espaco disponivel | `flex-1 min-h-0` |
-| Container que permite scroll interno | `overflow-y-auto` ou `overflow-auto` |
-| Container flex vertical | `flex flex-col` |
-| Impedir que filhos encolham | `flex-shrink-0` |
-| Ocupar altura total do pai | `h-full` |
-
-## Arquivos a Editar
-
-1. `src/components/Controladoria/ControladoriaDrawer.tsx`
-2. `src/components/Controladoria/ControladoriaContent.tsx`
-3. `src/components/Controladoria/OABTab.tsx`
-4. `src/components/Controladoria/OABManager.tsx`
-5. `src/components/Controladoria/CentralControladoria.tsx`
-6. `src/components/Controladoria/CentralAndamentosNaoLidos.tsx`
+| Arquivo | Mudanca Principal |
+|---------|-------------------|
+| ControladoriaDrawer.tsx | `overflow-hidden` → `overflow-auto` |
+| ControladoriaContent.tsx | Simplificar TabsContent, usar `h-full` |
+| OABManager.tsx | Remover `min-h-0` do Tabs |
+| OABTab.tsx | Adicionar `minHeight` explicito |
+| CentralControladoria.tsx | Remover `min-h-0` |
 
 ## Resultado Esperado
 
-- Container da Controladoria mantem limites visuais claros
-- Altura controlada mesmo apos carregamento de dados
-- Scroll interno funcionando corretamente dentro de cada aba
-- Botoes de acao sempre visiveis na lateral direita
-- Bordas dos cards preservadas
-- Layout estavel independente da quantidade de dados
+- Processos cadastrados voltam a aparecer
+- Visual original da Controladoria restaurado
+- Scroll interno funcionando corretamente
+- Bordas e botoes de acao visiveis
+
