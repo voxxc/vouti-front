@@ -924,32 +924,9 @@ export const ProcessoOABDetalhes = ({
                         <Loader2 className="w-5 h-5 animate-spin" />
                       </div>
                     ) : andamentos.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground space-y-4">
-                        <div>
-                          <Clock className="w-8 h-8 mx-auto mb-2" />
-                          <p>Nenhum andamento encontrado</p>
-                          <p className="text-xs mt-1">Os andamentos podem não estar disponíveis ainda no tribunal.</p>
-                        </div>
-                        {onCarregarDetalhes && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={handleCarregarAndamentos}
-                            disabled={carregandoAndamentos}
-                          >
-                            {carregandoAndamentos ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Buscando...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Tentar buscar novamente
-                              </>
-                            )}
-                          </Button>
-                        )}
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Clock className="w-8 h-8 mx-auto mb-2" />
+                        <p>Nenhum andamento encontrado</p>
                       </div>
                     ) : (
                   <div className="space-y-3 pr-4">
