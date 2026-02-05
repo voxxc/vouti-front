@@ -138,7 +138,8 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
               </div>
             ) : (
               <Button
-                className="w-full justify-start gap-2"
+              size="sm"
+              className="gap-2"
                 onClick={() => setShowCreateForm(true)}
               >
                 <Plus className="h-4 w-4" />
@@ -146,7 +147,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
               </Button>
             )}
 
-            <div className="relative">
+            <div className="relative max-w-[280px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar projetos..."
@@ -156,7 +157,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 pr-4">
               {!isBasicLoaded ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="p-3 rounded-lg">
@@ -177,7 +178,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
                       key={project.id}
                       onClick={() => handleSelectProject(project)}
                       className={cn(
-                        "w-full text-left p-3 transition-colors",
+                        "w-full text-left p-3 rounded-lg transition-colors",
                         "hover:bg-accent/50 focus:bg-accent/50 focus:outline-none",
                         "group",
                         index < filteredProjects.length - 1 && "border-b border-border/50"
