@@ -27,6 +27,8 @@ import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
+type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | null;
+
 interface DashboardSidebarProps {
   currentPage?: string;
 }
@@ -35,12 +37,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-   const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
-   const [controladoriaDrawerOpen, setControladoriaDrawerOpen] = useState(false);
-  const [crmDrawerOpen, setCrmDrawerOpen] = useState(false);
-  const [financialDrawerOpen, setFinancialDrawerOpen] = useState(false);
-  const [reunioesDrawerOpen, setReunioesDrawerOpen] = useState(false);
-  const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
   const { 
@@ -184,7 +181,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                    variant={isActive(item.id) ? "secondary" : "ghost"}
                    onMouseEnter={() => handleMouseEnter(item.id)}
                    onClick={() => {
-                     setProjectsDrawerOpen(true);
+                     setActiveDrawer('projetos');
                      setIsMobileOpen(false);
                    }}
                    className={cn(
@@ -208,7 +205,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                   variant={isActive(item.id) ? "secondary" : "ghost"}
                   onMouseEnter={() => handleMouseEnter(item.id)}
                   onClick={() => {
-                    setAgendaDrawerOpen(true);
+                    setActiveDrawer('agenda');
                     setIsMobileOpen(false);
                   }}
                   className={cn(
@@ -232,7 +229,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                   variant={isActive(item.id) ? "secondary" : "ghost"}
                   onMouseEnter={() => handleMouseEnter(item.id)}
                   onClick={() => {
-                    setControladoriaDrawerOpen(true);
+                    setActiveDrawer('controladoria');
                     setIsMobileOpen(false);
                   }}
                   className={cn(
@@ -256,7 +253,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                   variant={isActive(item.id) ? "secondary" : "ghost"}
                   onMouseEnter={() => handleMouseEnter(item.id)}
                   onClick={() => {
-                    setCrmDrawerOpen(true);
+                    setActiveDrawer('clientes');
                     setIsMobileOpen(false);
                   }}
                   className={cn(
@@ -280,7 +277,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                   variant={isActive(item.id) ? "secondary" : "ghost"}
                   onMouseEnter={() => handleMouseEnter(item.id)}
                   onClick={() => {
-                    setFinancialDrawerOpen(true);
+                    setActiveDrawer('financeiro');
                     setIsMobileOpen(false);
                   }}
                   className={cn(
@@ -304,7 +301,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                   variant={isActive(item.id) ? "secondary" : "ghost"}
                   onMouseEnter={() => handleMouseEnter(item.id)}
                   onClick={() => {
-                    setReunioesDrawerOpen(true);
+                    setActiveDrawer('reunioes');
                     setIsMobileOpen(false);
                   }}
                   className={cn(
@@ -375,23 +372,13 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
       {/* Support Sheet */}
       <SupportSheet open={supportOpen} onOpenChange={setSupportOpen} />
 
-       {/* Projects Drawer */}
-       <ProjectsDrawer open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
- 
-       {/* Controladoria Drawer */}
-       <ControladoriaDrawer open={controladoriaDrawerOpen} onOpenChange={setControladoriaDrawerOpen} />
- 
-      {/* CRM Drawer */}
-      <CRMDrawer open={crmDrawerOpen} onOpenChange={setCrmDrawerOpen} />
-
-      {/* Financial Drawer */}
-      <FinancialDrawer open={financialDrawerOpen} onOpenChange={setFinancialDrawerOpen} />
-
-      {/* Reunioes Drawer */}
-      <ReunioesDrawer open={reunioesDrawerOpen} onOpenChange={setReunioesDrawerOpen} />
-
-      {/* Agenda Drawer */}
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
+      {/* Drawers */}
+      <ProjectsDrawer open={activeDrawer === 'projetos'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
+      <ControladoriaDrawer open={activeDrawer === 'controladoria'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
+      <CRMDrawer open={activeDrawer === 'clientes'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
+      <FinancialDrawer open={activeDrawer === 'financeiro'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
+      <ReunioesDrawer open={activeDrawer === 'reunioes'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
+      <AgendaDrawer open={activeDrawer === 'agenda'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
 
       {/* Spacer to push content */}
       <div className={cn(
