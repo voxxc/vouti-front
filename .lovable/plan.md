@@ -1,106 +1,270 @@
 
-# Corrigir Layout dos Botões no TenantCard
+# Drawer Lateral de Projetos (Esquerda → Direita)
 
-## Problema Identificado
+## Conceito
 
-O card de cada tenant possui **8 elementos de ação** em uma única linha horizontal (`flex items-center gap-2`), causando overflow em telas menores ou quando o grid tem 3 colunas:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  [Logo] Nome do Cliente                      [Switch]       │
-│  [Badge] [Plano]                                            │
-│  ─────────────────────────────────────────────────────────  │
-│  [Configurar▼][📊][📈][🔑][#][💳][🔗][🗑️]  ← OVERFLOW!      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Solução Proposta
-
-Reorganizar os botões em **duas linhas** para melhor distribuição:
+Substituir a navegação para página `/projects` por um **drawer lateral** que abre instantaneamente ao clicar no botão "Projetos" na sidebar. Os dados são carregados em background enquanto o drawer já está visível.
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  [Logo] Nome do Cliente                      [Switch]       │
-│  [Badge] [Plano]                                            │
-│  ─────────────────────────────────────────────────────────  │
-│  [Configurar▼]                       [🔗 Acessar] [🗑️]      │
-│  [📊][📈][🔑][#][💳]  ← Ferramentas                         │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ [SIDEBAR]  │                     CONTEÚDO ATUAL                                 │
+│            │                                                                    │
+│  Dashboard │  ┌──────────────────────────┐                                      │
+│  Projetos ◄├──│   📁 PROJETOS            │──────────────────────────────────────│
+│  Agenda    │  │   [+ Novo Projeto]       │                                      │
+│  Clientes  │  │                          │                                      │
+│  ...       │  │   🔍 Buscar...           │                                      │
+│            │  │                          │                                      │
+│            │  │   ┌──────────────────┐   │                                      │
+│            │  │   │ Projeto A        │   │                                      │
+│            │  │   │ Cliente X • 5 ▢  │   │                                      │
+│            │  │   └──────────────────┘   │                                      │
+│            │  │   ┌──────────────────┐   │                                      │
+│            │  │   │ Projeto B        │   │                                      │
+│            │  │   │ Cliente Y • 12 ▢ │   │                                      │
+│            │  │   └──────────────────┘   │                                      │
+│            │  │          ...             │                                      │
+│            │  └──────────────────────────┘                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Alterações no TenantCard.tsx
+## Vantagens desta Abordagem
 
-### Estrutura Atual (Linha 112-233)
-```tsx
-<div className="flex items-center gap-2 pt-3 border-t border-border">
-  {/* 8 botões em uma única linha */}
-</div>
+| Problema Atual | Solução com Drawer |
+|----------------|-------------------|
+| Navegação lenta (carrega página inteira) | Drawer abre instantaneamente, dados carregam em paralelo |
+| Sensação de vazio durante loading | Skeleton loaders dentro do drawer, contexto atual visível |
+| Perda de contexto ao navegar | Página atual permanece visível atrás do drawer |
+| Precisa voltar ao Dashboard após ver projetos | Basta fechar o drawer, continua onde estava |
+
+---
+
+## Arquivos a Criar/Modificar
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `src/components/Projects/ProjectsDrawer.tsx` | **CRIAR** | Novo drawer lateral com lista de projetos |
+| `src/components/Dashboard/DashboardSidebar.tsx` | **MODIFICAR** | Botão "Projetos" abre drawer ao invés de navegar |
+| `src/hooks/useProjectsOptimized.ts` | **MODIFICAR** | Adicionar atualização otimista |
+
+---
+
+## Estrutura do ProjectsDrawer
+
+```text
+┌─────────────────────────────────────┐
+│  ← 📁 PROJETOS                      │ ← Header
+├─────────────────────────────────────┤
+│  [+ Novo Projeto]                   │ ← Botão criar
+├─────────────────────────────────────┤
+│  🔍 Buscar projetos...              │ ← Campo busca
+├─────────────────────────────────────┤
+│  ┌───────────────────────────────┐  │
+│  │ 📂 Projeto Alpha              │  │
+│  │    Cliente ABC • 5 tarefas    │  │
+│  │    ████████░░ 80%             │  │
+│  └───────────────────────────────┘  │
+│  ┌───────────────────────────────┐  │ ← Lista scrollável
+│  │ 📂 Projeto Beta               │  │
+│  │    Cliente XYZ • 12 tarefas   │  │
+│  │    ██████░░░░ 60%             │  │
+│  └───────────────────────────────┘  │
+│  ...                                │
+└─────────────────────────────────────┘
 ```
 
-### Nova Estrutura
-```tsx
-<div className="pt-3 border-t border-border space-y-2">
-  {/* Linha 1: Ações principais */}
-  <div className="flex items-center gap-2">
-    <DropdownMenu>...</DropdownMenu>
-    <div className="flex-1" /> {/* Spacer */}
-    <Button>Acessar</Button>
-    <AlertDialog>Excluir</AlertDialog>
-  </div>
+---
+
+## Detalhes de Implementação
+
+### 1. ProjectsDrawer.tsx (NOVO COMPONENTE)
+
+```typescript
+interface ProjectsDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
+  const { navigate } = useTenantNavigation();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   
-  {/* Linha 2: Ferramentas (ícones menores) */}
-  <div className="flex items-center gap-1 justify-start">
-    <Button size="icon">Stats</Button>
-    <Button size="icon">Activity</Button>
-    <Button size="icon">Key</Button>
-    <Button size="icon">Hash</Button>
-    <Button size="icon">CreditCard</Button>
-  </div>
-</div>
+  const {
+    projects,
+    isBasicLoaded,
+    isDetailsLoaded,
+    getProjectStats,
+    createProject
+  } = useProjectsOptimized();
+
+  // Filtrar projetos pela busca
+  const filteredProjects = projects.filter(...);
+
+  // Ao clicar em um projeto, navega e fecha drawer
+  const handleSelectProject = (project) => {
+    navigate(`project/${project.id}`);
+    onOpenChange(false);
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" className="w-[400px] p-0">
+        {/* Header */}
+        <SheetHeader>...</SheetHeader>
+        
+        {/* Criar Projeto */}
+        <Button onClick={() => setShowCreateForm(true)}>
+          <Plus /> Novo Projeto
+        </Button>
+        
+        {/* Busca */}
+        <Input placeholder="Buscar projetos..." />
+        
+        {/* Lista de Projetos */}
+        <ScrollArea>
+          {isBasicLoaded ? (
+            filteredProjects.map(project => (
+              <ProjectItem 
+                project={project}
+                stats={getProjectStats(project.id)}
+                onClick={handleSelectProject}
+              />
+            ))
+          ) : (
+            <SkeletonLoaders />
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
+```
+
+### 2. Modificação no DashboardSidebar.tsx
+
+```typescript
+const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
+  const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
+  
+  // No item "Projetos", ao invés de navegar:
+  {menuItems.map((item) => {
+    // Tratamento especial para Projetos
+    if (item.id === 'projetos') {
+      return (
+        <Button
+          key={item.id}
+          onClick={() => setProjectsDrawerOpen(true)} // Abre drawer
+          // ...resto das props
+        >
+          <FolderOpen />
+          {!isCollapsed && <span>Projetos</span>}
+        </Button>
+      );
+    }
+    // Outros itens navegam normalmente
+    return (...);
+  })}
+  
+  {/* Drawer de Projetos */}
+  <ProjectsDrawer 
+    open={projectsDrawerOpen} 
+    onOpenChange={setProjectsDrawerOpen} 
+  />
+};
+```
+
+### 3. Atualização Otimista no useProjectsOptimized
+
+```typescript
+// Na função createProject:
+const createProject = async (data) => {
+  const { data: newProject, error } = await supabase
+    .from('projects')
+    .insert({...})
+    .select()
+    .single();
+
+  if (!error) {
+    // OTIMISTA: Adiciona imediatamente ao estado
+    const projectBasic = { ...mapToBasic(newProject), taskCount: 0 };
+    setProjects(prev => 
+      [...prev, projectBasic].sort((a, b) => a.name.localeCompare(b.name))
+    );
+  }
+  return newProject;
+};
 ```
 
 ---
 
-## Detalhes da Implementação
-
-| Elemento | Posição | Justificativa |
-|----------|---------|---------------|
-| Dropdown "Configurar" | Linha 1, esquerda | Ação principal de configuração |
-| Botão "Acessar" | Linha 1, direita | Ação frequente, destaque |
-| Botão "Excluir" | Linha 1, extrema direita | Ação destrutiva separada |
-| Botões de ferramentas | Linha 2 | Agrupados, menor prioridade visual |
-
----
-
-## Mudanças nos Botões
-
-1. **Reduzir tamanho dos botões de ferramentas**: Usar `size="icon"` com padding menor
-2. **Remover `flex-1` do dropdown**: Largura fixa para não expandir demais
-3. **Adicionar `flex-wrap`**: Fallback caso ainda transborde em telas muito pequenas
-
----
-
-## Arquivo a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/SuperAdmin/TenantCard.tsx` | Reorganizar layout dos botões em duas linhas |
-
----
-
-## Resultado Visual Esperado
+## Fluxo de Interação
 
 ```text
-┌───────────────────────────────────────┐
-│  [S] Solvenza                   [🔘]  │
-│  solvenza                             │
-│  [Ativo] [Solo]                       │
-│  ─────────────────────────────────────│
-│  [⚙️ Configurar ▼]    [🔗] [🗑️]       │
-│  [📊] [📈] [🔑] [#] [💳]              │
-└───────────────────────────────────────┘
+1. Usuário clica "Projetos" na sidebar
+           │
+           ▼
+2. Drawer abre INSTANTANEAMENTE (da esquerda)
+   com skeleton loaders
+           │
+           ▼
+3. Hook useProjectsOptimized carrega dados
+   (já pode estar cacheado pelo React Query)
+           │
+           ▼
+4. Lista de projetos aparece
+           │
+           ▼
+5. Usuário pode:
+   ├─ Buscar projetos
+   ├─ Clicar para abrir um projeto → navega + fecha drawer
+   └─ Criar novo projeto → formulário inline + atualização otimista
 ```
 
-Os botões agora cabem confortavelmente dentro do card, mesmo em grids de 3 colunas.
+---
+
+## Benefícios do side="left"
+
+O drawer abrindo da **esquerda para a direita** faz sentido porque:
+- Fica próximo ao botão que foi clicado na sidebar (continuidade visual)
+- Não sobrepõe o conteúdo principal à direita
+- Pattern usado em apps de navegação lateral (Gmail, Slack)
+
+---
+
+## Form de Criação Inline
+
+Quando clicar em "Novo Projeto", exibir formulário compacto dentro do drawer:
+
+```text
+┌─────────────────────────────────────┐
+│  ← 📁 PROJETOS                      │
+├─────────────────────────────────────┤
+│  ┌───────────────────────────────┐  │
+│  │ NOVO PROJETO                  │  │
+│  │ Nome: [________________]      │  │
+│  │ Cliente: [_______________]    │  │
+│  │ Descrição: [_____________]    │  │
+│  │ [Criar] [Cancelar]            │  │
+│  └───────────────────────────────┘  │
+├─────────────────────────────────────┤
+│  🔍 Buscar projetos...              │
+│  ...                                │
+```
+
+---
+
+## Resumo das Alterações
+
+| Etapa | Descrição |
+|-------|-----------|
+| 1 | Criar `ProjectsDrawer.tsx` com Sheet side="left" |
+| 2 | Implementar lista de projetos com busca e skeleton |
+| 3 | Adicionar formulário de criação inline |
+| 4 | Modificar `DashboardSidebar` para abrir drawer |
+| 5 | Adicionar atualização otimista no hook |
+| 6 | Manter página `/projects` como fallback (link "Ver todos") |
+
+O resultado: clicar em "Projetos" abre instantaneamente um drawer fluido, sem sensação de vazio ou necessidade de recarregar a página.
