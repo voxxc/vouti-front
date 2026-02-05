@@ -1,203 +1,99 @@
 
+# Corrigir Erro de Atualização de Cliente
 
-# Corrigir Erro de Atualização e Criar Aba de Documentos para Cliente
+## Problema Identificado
 
-## Problema 1: Erro ao Atualizar Cliente
+Os logs do banco de dados mostram o erro exato:
 
-### Causa Identificada
-
-O schema de validação em `src/lib/validations/cliente.ts` ainda exige pelo menos um nome (PF ou PJ) através da função `refine`:
-
-```typescript
-.refine(
-  (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
-  {
-    message: 'Informe ao menos um nome (Pessoa Fisica ou Pessoa Juridica)',
-    path: ['nome_pessoa_fisica'],
-  }
-)
+```
+invalid input syntax for type date: ""
 ```
 
-Se o usuário tentar salvar sem preencher nenhum nome, a validação falha e impede a atualização.
+O PostgreSQL está rejeitando strings vazias `""` para campos do tipo `date`. Quando o usuário deixa um campo de data vazio, o formulário envia uma string vazia ao invés de `null`.
 
-### Solução
+## Causa Raiz
 
-Remover completamente o `refine` que exige nome obrigatório, permitindo que o cliente seja cadastrado sem nenhum campo obrigatório.
+No arquivo `src/components/CRM/ClienteForm.tsx`, a função `onSubmit` não converte strings vazias em `undefined` para todos os campos de data:
 
----
+```typescript
+// Problema: não trata string vazia
+data_vencimento_inicial: !usarGruposParcelas ? data.data_vencimento_inicial : undefined,
+data_vencimento_final: !usarGruposParcelas ? data.data_vencimento_final : undefined,
+```
 
-## Problema 2: Aba de Documentos
+Quando `usarGruposParcelas` é `false`, o código passa `data.data_vencimento_inicial` diretamente, que pode ser `""`.
 
-### Situacao Atual
+## Solução
 
-- Ja existe tabela `cliente_documentos` e bucket `cliente-documentos` no storage
-- O hook `useClientes` ja tem funcoes para upload, download e delete de documentos
-- Os documentos aparecem no `ClienteDetails` mas apenas em lista, sem aba dedicada
-- O upload de documentos so aparece no formulario de **criacao**, nao na edicao
-
-### Solucao
-
-Criar uma aba dedicada de "Documentos" no dialog de detalhes do cliente (`ClienteDetails`), similar ao que ja existe em `ClienteArquivosTab` para reunioes. Esta aba permitira:
-
-- Enviar novos documentos
-- Listar documentos existentes com nome, tamanho e data
-- Baixar documentos
-- Excluir documentos
+Modificar a função `onSubmit` para garantir que **todos os campos de data** sejam convertidos para `undefined` quando estiverem vazios.
 
 ---
 
 ## Alteracoes Tecnicas
 
-### 1. src/lib/validations/cliente.ts
+### Arquivo: src/components/CRM/ClienteForm.tsx
 
-Remover o `refine` que exige nome obrigatorio:
+Atualizar a construcao do objeto `clienteData` na funcao `onSubmit` (linhas 115-148):
 
 ```typescript
-// ANTES (linhas 129-135)
-.refine(
-  (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
-  {
-    message: 'Informe ao menos um nome (Pessoa Fisica ou Pessoa Juridica)',
-    path: ['nome_pessoa_fisica'],
-  }
-);
-
-// DEPOIS - remover completamente o refine
-// O schema termina sem a validacao de nome obrigatorio
-```
-
-Tambem remover o `refine` do `pessoaAdicionalSchema` (linhas 85-91) que exige nome para pessoas adicionais.
-
-### 2. src/components/CRM/ClienteDocumentosTab.tsx (NOVO ARQUIVO)
-
-Criar componente para aba de documentos similar ao `ClienteArquivosTab`:
-
-```tsx
-import { useRef, useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, Download, Trash2, FileText } from 'lucide-react';
-import { useClientes } from '@/hooks/useClientes';
-import { ClienteDocumento } from '@/types/cliente';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-interface ClienteDocumentosTabProps {
-  clienteId: string;
-}
-
-export const ClienteDocumentosTab = ({ clienteId }: ClienteDocumentosTabProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { 
-    fetchDocumentos, 
-    uploadDocumento, 
-    downloadDocumento, 
-    deleteDocumento, 
-    loading 
-  } = useClientes();
-  
-  const [documentos, setDocumentos] = useState<ClienteDocumento[]>([]);
-  const [uploading, setUploading] = useState(false);
-
-  // Carregar documentos
-  useEffect(() => {
-    loadDocumentos();
-  }, [clienteId]);
-
-  const loadDocumentos = async () => {
-    const docs = await fetchDocumentos(clienteId);
-    setDocumentos(docs);
-  };
-
-  // Upload de arquivo
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Arquivo muito grande. Tamanho maximo: 10MB');
-      return;
-    }
-
-    setUploading(true);
-    await uploadDocumento(clienteId, file);
-    await loadDocumentos();
-    setUploading(false);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  // Deletar documento
-  const handleDelete = async (docId: string, filePath: string) => {
-    if (confirm('Deseja realmente excluir este documento?')) {
-      await deleteDocumento(docId, filePath);
-      await loadDocumentos();
-    }
-  };
-
-  // Formatar tamanho
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
-
-  return (
-    // UI com botao de upload, lista de documentos, acoes de download/delete
-  );
+const clienteData: Partial<Cliente> = {
+  nome_pessoa_fisica: data.nome_pessoa_fisica || undefined,
+  nome_pessoa_juridica: data.nome_pessoa_juridica || undefined,
+  cpf: data.cpf || undefined,
+  cnpj: data.cnpj || undefined,
+  cnh: data.cnh || undefined,
+  cnh_validade: data.cnh_validade || undefined, // String vazia -> undefined
+  telefone: data.telefone || undefined,
+  email: data.email || undefined,
+  data_nascimento: data.data_nascimento || undefined, // String vazia -> undefined
+  endereco: data.endereco || undefined,
+  profissao: data.profissao || undefined,
+  uf: data.uf || undefined,
+  data_fechamento: data.data_fechamento || undefined, // String vazia -> undefined
+  valor_contrato: data.valor_contrato ? parseFloat(data.valor_contrato) : undefined,
+  forma_pagamento: data.forma_pagamento || undefined,
+  // CORRECAO: Adicionar || undefined para converter string vazia
+  valor_entrada: !usarGruposParcelas && data.valor_entrada ? parseFloat(data.valor_entrada) : undefined,
+  numero_parcelas: !usarGruposParcelas && data.numero_parcelas ? parseInt(data.numero_parcelas) : undefined,
+  valor_parcela: !usarGruposParcelas && data.valor_parcela ? parseFloat(data.valor_parcela) : undefined,
+  data_vencimento_inicial: !usarGruposParcelas && data.data_vencimento_inicial ? data.data_vencimento_inicial : undefined,
+  data_vencimento_final: !usarGruposParcelas && data.data_vencimento_final ? data.data_vencimento_final : undefined,
+  vendedor: data.vendedor || undefined,
+  origem_rede_social: data.origem_rede_social || undefined,
+  origem_tipo: data.origem_tipo || undefined,
+  observacoes: data.observacoes || undefined,
+  classificacao: data.classificacao,
+  status_cliente: data.status_cliente || 'ativo',
+  pessoas_adicionais: pessoasAdicionais.filter(p => 
+    p.nome_pessoa_fisica || p.nome_pessoa_juridica
+  ),
+  grupos_parcelas: usarGruposParcelas ? gruposParcelas : undefined,
+  proveito_economico: data.proveito_economico ? parseFloat(data.proveito_economico) : undefined,
 };
 ```
 
-### 3. src/components/CRM/ClienteDetails.tsx
+As alteracoes principais sao nas linhas de datas condicionais:
 
-Transformar em componente com abas, adicionando a aba de Documentos:
+**Antes:**
+```typescript
+data_vencimento_inicial: !usarGruposParcelas ? data.data_vencimento_inicial : undefined,
+data_vencimento_final: !usarGruposParcelas ? data.data_vencimento_final : undefined,
+```
 
-```tsx
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClienteDocumentosTab } from './ClienteDocumentosTab';
-import { Info, FileText } from 'lucide-react';
-
-// Adicionar abas ao componente
-<Tabs defaultValue="info" className="w-full">
-  <TabsList className="grid w-full grid-cols-2">
-    <TabsTrigger value="info">
-      <Info className="h-4 w-4 mr-2" />
-      Informacoes
-    </TabsTrigger>
-    <TabsTrigger value="documentos">
-      <FileText className="h-4 w-4 mr-2" />
-      Documentos
-    </TabsTrigger>
-  </TabsList>
-
-  <TabsContent value="info">
-    {/* Conteudo atual do ClienteDetails */}
-  </TabsContent>
-
-  <TabsContent value="documentos">
-    <ClienteDocumentosTab clienteId={cliente.id} />
-  </TabsContent>
-</Tabs>
+**Depois:**
+```typescript
+data_vencimento_inicial: !usarGruposParcelas && data.data_vencimento_inicial ? data.data_vencimento_inicial : undefined,
+data_vencimento_final: !usarGruposParcelas && data.data_vencimento_final ? data.data_vencimento_final : undefined,
 ```
 
 ---
 
-## Arquivos a Modificar
+## Arquivo a Editar
 
-1. `src/lib/validations/cliente.ts` - Remover validacoes de nome obrigatorio
-2. `src/components/CRM/ClienteDocumentosTab.tsx` - Criar novo componente
-3. `src/components/CRM/ClienteDetails.tsx` - Adicionar sistema de abas com aba de documentos
+- `src/components/CRM/ClienteForm.tsx`
 
 ## Resultado Esperado
 
-1. **Cadastro flexivel**: Cliente pode ser cadastrado sem nenhum campo preenchido
-2. **Atualizacao funciona**: Nao havera erro de validacao ao atualizar
-3. **Aba de Documentos**: Ao visualizar detalhes do cliente, tera aba dedicada para:
-   - Enviar novos documentos
-   - Listar documentos com nome, tamanho, data
-   - Baixar documentos
-   - Excluir documentos
-
+1. Campos de data vazios serao convertidos para `null` no banco de dados
+2. A atualizacao de clientes funcionara corretamente mesmo com campos de data vazios
+3. Nao havera mais erros de "invalid input syntax for type date"
