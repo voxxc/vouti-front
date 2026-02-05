@@ -109,127 +109,135 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-3 border-t border-border">
-           <DropdownMenu>
-             <DropdownMenuTrigger asChild>
-               <Button variant="outline" size="sm" className="flex-1 gap-2">
-                 <Settings className="h-4 w-4" />
-                 Configurar
-                 <ChevronDown className="h-3 w-3 ml-auto" />
-               </Button>
-             </DropdownMenuTrigger>
-             <DropdownMenuContent align="start" className="w-48">
-               <DropdownMenuItem onClick={onEdit}>
-                 <Settings className="h-4 w-4 mr-2" />
-                 Editar Dados
-               </DropdownMenuItem>
-               <DropdownMenuItem onClick={() => setShowCreateAdmin(true)}>
-                 <UserPlus className="h-4 w-4 mr-2" />
-                 Criar Admin Extra
-               </DropdownMenuItem>
-             </DropdownMenuContent>
-           </DropdownMenu>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="gap-2"
-            onClick={() => setShowStats(true)}
-            title="Ver estatisticas"
-          >
-            <Database className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="gap-2"
-            onClick={() => setShowJuditLogs(true)}
-            title="Chamadas Judit API"
-          >
-            <Activity className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="gap-2"
-            onClick={() => setShowCredenciais(true)}
-            title="Credenciais Judit"
-          >
-            <Key className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="gap-2"
-            onClick={() => setShowBancoIds(true)}
-            title="Banco de IDs"
-          >
-            <Hash className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="gap-2 relative"
-            onClick={() => setShowBoletos(true)}
-            title="Gerenciar pagamentos"
-          >
-            <CreditCard className="h-4 w-4" />
-            {pendingPayments > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px]"
-              >
-                {pendingPayments}
-              </Badge>
-            )}
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            className="gap-2"
-            onClick={handleOpenTenant}
-            title={`Acessar ${tenant.name}`}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                title="Excluir cliente"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  <AlertDialogTitle className="text-destructive">
-                    Excluir Cliente Permanentemente
-                  </AlertDialogTitle>
-                </div>
-                <AlertDialogDescription className="pt-2">
-                  <span className="text-destructive font-semibold block mb-2">
-                    ATENCAO: Esta acao e irreversivel!
-                  </span>
-                  Voce esta prestes a excluir <strong>{tenant.name}</strong>.
-                  Todos os dados associados a este cliente serao perdidos permanentemente.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-                <Button
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  variant="destructive"
-                >
-                  {isDeleting ? 'Excluindo...' : 'Excluir Permanentemente'}
+        <div className="pt-3 border-t border-border space-y-2">
+          {/* Linha 1: Ações principais */}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Configurar
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Editar Dados
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowCreateAdmin(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Criar Admin Extra
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex-1" />
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="gap-2"
+              onClick={handleOpenTenant}
+              title={`Acessar ${tenant.name}`}
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Excluir cliente"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <AlertDialogTitle className="text-destructive">
+                      Excluir Cliente Permanentemente
+                    </AlertDialogTitle>
+                  </div>
+                  <AlertDialogDescription className="pt-2">
+                    <span className="text-destructive font-semibold block mb-2">
+                      ATENCAO: Esta acao e irreversivel!
+                    </span>
+                    Voce esta prestes a excluir <strong>{tenant.name}</strong>.
+                    Todos os dados associados a este cliente serao perdidos permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                  <Button
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    variant="destructive"
+                  >
+                    {isDeleting ? 'Excluindo...' : 'Excluir Permanentemente'}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          
+          {/* Linha 2: Ferramentas */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowStats(true)}
+              title="Ver estatisticas"
+            >
+              <Database className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowJuditLogs(true)}
+              title="Chamadas Judit API"
+            >
+              <Activity className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowCredenciais(true)}
+              title="Credenciais Judit"
+            >
+              <Key className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowBancoIds(true)}
+              title="Banco de IDs"
+            >
+              <Hash className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8 relative"
+              onClick={() => setShowBoletos(true)}
+              title="Gerenciar pagamentos"
+            >
+              <CreditCard className="h-4 w-4" />
+              {pendingPayments > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px]"
+                >
+                  {pendingPayments}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </div>
       </Card>
 
