@@ -1,91 +1,153 @@
 
-# Remover Loading e Melhorar Fluidez do Drawer Agenda
 
-## Problema Identificado
+# Drawer de Usuários com Animação de Cima para Baixo
 
-O `AgendaContent` atualmente exibe um `Skeleton` durante o carregamento, o que causa:
-- Interrupção visual da animação fluida do drawer
-- Experiência "travada" ao abrir a agenda
-- Inconsistência com outros drawers que renderizam imediatamente
+## Situação Atual
+
+O botão "Usuários" no header do `DashboardLayout` atualmente:
+- Chama `onCreateUser` que é passado via props
+- No `Dashboard.tsx`, isso seta `showUserManagement = true`
+- Isso renderiza uma página inteira com o componente `UserManagement`
 
 ## Conceito Visual
 
 ```text
-ATUAL (problema):                       PROPOSTO (fluido):
+ATUAL:                                  PROPOSTO:
                                         
-┌─────────────────────┐                 ┌─────────────────────┐
-│ Agenda              │                 │ Agenda              │
-├─────────────────────┤                 ├─────────────────────┤
-│ ░░░░░░░░░░░░░░░░░░░ │ <- skeleton    │     JANEIRO 2026    │ <- calendario
-│ ░░░░░░░░░░░░░░░░░░░ │                 │ D  S  T  Q  Q  S  S │    imediato
-│ ░░░░░░░░░░░░░░░░░░░ │                 │ 1  2  3  4  5  6  7 │
-│ ░░░░░░░░░░░░░░░░░░░ │                 │ 8  9 10 11 12 13 14 │
-└─────────────────────┘                 └─────────────────────┘
-        ⬇                                       ⬇
-   Espera loading                        Abre fluido, dados
-   pra mostrar conteudo                  preenchem depois
+┌─────────────────────────────────┐     ┌─────────────────────────────────┐
+│ Header        [Usuarios] [Sair] │     │ Header        [Usuarios] [Sair] │
+├─────────────────────────────────┤     ├─────────────────────────────────┤
+│                                 │     │ ┌─────────────────────────────┐ │
+│   PAGINA INTEIRA                │     │ │  Gerenciamento de Usuários  │ │ <- drawer
+│   de UserManagement             │     │ │  ░░░░░░░░░░░░░░░░░░░░░░░░░░ │ │    de cima
+│   com botão "Voltar"            │     │ │  [Usuario 1] [Usuario 2]    │ │    pra baixo
+│                                 │     │ │  ░░░░░░░░░░░░░░░░░░░░░░░░░░ │ │
+│                                 │     │ └─────────────────────────────┘ │
+│                                 │     │                                 │
+└─────────────────────────────────┘     └─────────────────────────────────┘
 ```
 
-## Alteracoes
+## Alterações
 
-### Arquivo: `src/components/Agenda/AgendaContent.tsx`
+### 1. Criar arquivo: `src/components/Admin/UserManagementDrawer.tsx`
 
-Remover a condicao de loading e renderizar o calendario diretamente. Os dados serao preenchidos quando chegarem:
+Novo componente drawer que encapsula o UserManagement:
 
-**Antes:**
 ```tsx
-export function AgendaContent() {
-  const { deadlines, isLoading, selectedDate, setSelectedDate } = useAgendaData();
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Users } from "lucide-react";
+import UserManagement from "./UserManagement";
+import { User } from "@/types/user";
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-[400px] w-full" />
-      </div>
-    );
-  }
+interface UserManagementDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  users: User[];
+  onAddUser: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onEditUser: (userId: string, userData: Partial<User>) => void;
+  onDeleteUser: (userId: string) => void;
+}
 
+export function UserManagementDrawer({
+  open,
+  onOpenChange,
+  users,
+  onAddUser,
+  onEditUser,
+  onDeleteUser
+}: UserManagementDrawerProps) {
   return (
-    <div className="space-y-6">
-      <AgendaCalendar ... />
-    </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent 
+        side="top"
+        className="p-0 flex flex-col h-[85vh]"
+      >
+        <SheetTitle className="sr-only">Gerenciamento de Usuários</SheetTitle>
+        
+        {/* Header */}
+        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
+          <Users className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-lg">Gerenciamento de Usuários</span>
+        </div>
+
+        {/* Conteudo scrollavel */}
+        <ScrollArea className="flex-1">
+          <div className="p-6">
+            <UserManagement
+              users={users}
+              onAddUser={onAddUser}
+              onEditUser={onEditUser}
+              onDeleteUser={onDeleteUser}
+            />
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }
 ```
 
-**Depois:**
-```tsx
-export function AgendaContent() {
-  const { deadlines, selectedDate, setSelectedDate } = useAgendaData();
+### 2. Atualizar: `src/pages/Dashboard.tsx`
 
-  return (
-    <div className="space-y-6">
-      <AgendaCalendar
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-        deadlines={deadlines}
-      />
-    </div>
-  );
+Substituir a renderização condicional por um drawer:
+
+**Adicionar imports:**
+```tsx
+import { UserManagementDrawer } from "@/components/Admin/UserManagementDrawer";
+```
+
+**Alterar estado:**
+```tsx
+// Manter: const [showUserManagement, setShowUserManagement] = useState(false);
+// Será usado para controlar o drawer
+```
+
+**Remover o bloco condicional** `if (showUserManagement) { ... }` (linhas 125-142)
+
+**Adicionar drawer no final do componente** (antes do `</DadosSensiveisProvider>`):
+
+```tsx
+{/* User Management Drawer */}
+<UserManagementDrawer
+  open={showUserManagement}
+  onOpenChange={setShowUserManagement}
+  users={systemUsers}
+  onAddUser={handleAddUser}
+  onEditUser={handleEditUser}
+  onDeleteUser={handleDeleteUser}
+/>
+```
+
+### 3. Atualizar: `src/components/Dashboard/DashboardLayout.tsx`
+
+Atualizar a interface para passar os handlers necessários:
+
+**Atualizar interface:**
+```tsx
+interface DashboardLayoutProps {
+  // ... existentes
+  onCreateUser?: () => void;  // Manter - abrirá o drawer
+  // Remover necessidade de passar users e handlers
 }
 ```
 
-**Mudancas:**
-- Remove o import do `Skeleton`
-- Remove a variavel `isLoading` do destructuring
-- Remove o bloco condicional `if (isLoading)` que mostrava skeletons
-- O calendario renderiza imediatamente com `deadlines` vazio e atualiza quando os dados chegam
+O botão continua funcionando igual - quando clicado, chama `onCreateUser` que seta `showUserManagement(true)` e agora abre o drawer.
 
-## Resultado Esperado
+---
 
-| Aspecto | Antes | Depois |
-|---------|-------|--------|
-| Abertura do drawer | Mostra skeleton, depois calendario | Calendario aparece imediato |
-| Animacao | Interrompida pelo loading | Fluida da esquerda pra direita |
-| Dados | Aparecem apos loading | Preenchem o calendario progressivamente |
-| Consistencia | Diferente dos outros drawers | Igual aos demais (Reunioes, Controladoria) |
+## Resumo das Alterações
 
-## Nota Tecnica
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/Admin/UserManagementDrawer.tsx` | Criar novo arquivo (drawer side="top") |
+| `src/pages/Dashboard.tsx` | Remover renderização condicional e adicionar drawer |
 
-O `AgendaCalendar` ja esta preparado para receber um array vazio de `deadlines` - ele simplesmente nao mostra indicadores de prazos ate os dados chegarem. Isso permite uma experiencia mais fluida onde o usuario ve o calendario imediatamente e os dados sao "populados" conforme carregam.
+## Resultado
+
+- Drawer abre de cima para baixo com animação fluida
+- Ocupa 85% da altura da tela (`h-[85vh]`)
+- Mantém o conteúdo scrollável
+- Botão X no canto superior direito para fechar
+- Consistente com o padrão visual dos outros drawers
+
