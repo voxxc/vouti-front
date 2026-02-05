@@ -214,18 +214,27 @@ export const useProjectsOptimized = () => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
     
     if (eventType === 'INSERT') {
-      const newProject: ProjectBasic = {
-        id: newRecord.id,
-        name: newRecord.name,
-        client: newRecord.client,
-        clienteId: newRecord.cliente_id,
-        description: newRecord.description || '',
-        createdBy: newRecord.created_by,
-        createdAt: new Date(newRecord.created_at),
-        updatedAt: new Date(newRecord.updated_at),
-        taskCount: 0
-      };
-      setProjects(prev => [...prev, newProject].sort((a, b) => a.name.localeCompare(b.name)));
+       // Validar tenant_id (multi-tenant isolation)
+       if (newRecord?.tenant_id && tenantId && newRecord.tenant_id !== tenantId) {
+         return;
+       }
+       // Verificar se já existe (atualização otimista já adicionou)
+       setProjects(prev => {
+         if (prev.some(p => p.id === newRecord.id)) return prev;
+         
+         const newProject: ProjectBasic = {
+           id: newRecord.id,
+           name: newRecord.name,
+           client: newRecord.client,
+           clienteId: newRecord.cliente_id,
+           description: newRecord.description || '',
+           createdBy: newRecord.created_by,
+           createdAt: new Date(newRecord.created_at),
+           updatedAt: new Date(newRecord.updated_at),
+           taskCount: 0
+         };
+         return [...prev, newProject].sort((a, b) => a.name.localeCompare(b.name));
+       });
       // Fetch details for new project
       fetchProjectDetails([newRecord.id]);
     } else if (eventType === 'UPDATE') {
@@ -249,7 +258,7 @@ export const useProjectsOptimized = () => {
         return updated;
       });
     }
-  }, [fetchProjectDetails]);
+   }, [fetchProjectDetails, tenantId]);
 
   // Real-time subscription handler for tasks
   const handleTaskChange = useCallback((payload: any) => {
@@ -274,7 +283,7 @@ export const useProjectsOptimized = () => {
   }, [fetchProjectDetails]);
 
   // Create project
-  const createProject = useCallback(async (data: { name: string; client: string; description: string }) => {
+   const createProject = useCallback(async (data: { name: string; client: string; description: string }): Promise<any> => {
     if (!user) return null;
 
     try {
@@ -292,6 +301,25 @@ export const useProjectsOptimized = () => {
 
       if (error) throw error;
 
+       // OTIMISTA: Adiciona imediatamente ao estado local
+       const projectBasic: ProjectBasic = {
+         id: newProject.id,
+         name: newProject.name,
+         client: newProject.client,
+         clienteId: newProject.cliente_id,
+         description: newProject.description || '',
+         createdBy: newProject.created_by,
+         createdAt: new Date(newProject.created_at),
+         updatedAt: new Date(newProject.updated_at),
+         taskCount: 0
+       };
+ 
+       setProjects(prev => {
+         // Verificar se já existe para evitar duplicação
+         if (prev.some(p => p.id === newProject.id)) return prev;
+         return [...prev, projectBasic].sort((a, b) => a.name.localeCompare(b.name));
+       });
+ 
       toast({
         title: "Sucesso",
         description: "Projeto criado com sucesso!",
@@ -310,14 +338,22 @@ export const useProjectsOptimized = () => {
   }, [user, tenantId, toast]);
 
   // Delete project
-  const deleteProject = useCallback(async (projectId: string) => {
+   const deleteProject = useCallback(async (projectId: string): Promise<boolean> => {
+     // OTIMISTA: Remove imediatamente do estado local
+     const previousProjects = [...projects];
+     setProjects(prev => prev.filter(p => p.id !== projectId));
+ 
     try {
       const { error } = await supabase
         .from('projects')
         .delete()
         .eq('id', projectId);
 
-      if (error) throw error;
+       if (error) {
+         // Reverter em caso de erro
+         setProjects(previousProjects);
+         throw error;
+       }
 
       toast({
         title: "Sucesso",
@@ -334,7 +370,7 @@ export const useProjectsOptimized = () => {
       });
       return false;
     }
-  }, [toast]);
+   }, [toast, projects]);
 
   // Initial load
   useEffect(() => {
