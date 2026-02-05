@@ -157,6 +157,9 @@ Deno.serve(async (req) => {
     const totalStorageFilesDeleted = Object.values(storageResults).reduce((a, b) => a + b, 0);
     console.log(`Total storage files deleted: ${totalStorageFilesDeleted}`);
 
+    // Inicializar objeto de resultados
+    const deletionResults: Record<string, number> = {};
+
     // FASE 2: Deletar tabelas que referenciam project_id (não tenant_id)
     const projectDependentTables = [
       "task_history",
@@ -250,8 +253,6 @@ Deno.serve(async (req) => {
     }
 
     // FASE 3: Deletar demais registros do banco por tenant_id
-    const deletionResults: Record<string, number> = {};
-
     // Ordem de delecao respeitando dependencias
     // NOTA: Tabelas já deletadas nas fases anteriores são ignoradas aqui
     const tablesToDelete = [
