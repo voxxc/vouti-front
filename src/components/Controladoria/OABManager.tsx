@@ -606,28 +606,17 @@ export const OABManager = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Confirmar Nova Busca (PAGO)
+              <Search className="w-5 h-5 text-primary" />
+              Confirmar Nova Busca
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                Esta ação irá fazer uma nova busca, o que <strong>gera custos</strong>.
-              </p>
-              <p>
-                Se voce ja possui um request_id de uma busca anterior, use a opcao "Associar" para consultar gratuitamente.
-              </p>
-              <p className="font-medium text-amber-600">
-                Deseja continuar com a nova busca paga?
-              </p>
+            <AlertDialogDescription>
+              Esta ação irá realizar uma nova sincronização de processos para esta OAB. Deseja continuar?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmarNovaBusca}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              Sim, Fazer Nova Busca (R$)
+            <AlertDialogAction onClick={handleConfirmarNovaBusca}>
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -682,21 +671,7 @@ export const OABManager = () => {
                         <span>Total de processos:</span>
                         <span className="font-medium">{batchProcessos.length}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Com Request ID (GET gratuito):</span>
-                        <span>{processosComRequestId}</span>
-                      </div>
-                      <div className="flex justify-between text-sm font-medium text-amber-600">
-                        <span>Sem Request ID (POST pago):</span>
-                        <span>{processosSemRequestId}</span>
-                      </div>
                     </div>
-                    {processosSemRequestId > 0 && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Processos sem request_id salvo gerarao custo.
-                      </p>
-                    )}
                   </>
                 )}
               </div>
@@ -709,11 +684,8 @@ export const OABManager = () => {
                 <AlertDialogAction 
                   onClick={handleConfirmarCarregarLote}
                   disabled={batchProcessos.length === 0}
-                  className={processosSemRequestId > 0 ? "bg-amber-600 hover:bg-amber-700" : ""}
                 >
-                  {processosSemRequestId > 0 
-                    ? `Carregar Andamentos (${processosComRequestId} GET + ${processosSemRequestId} POST)` 
-                    : `Carregar Andamentos (${processosComRequestId} GET gratuito)`}
+                  Carregar Andamentos
                 </AlertDialogAction>
               </>
             )}
