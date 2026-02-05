@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash } from 'lucide-react';
+ import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,14 @@ import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
 import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
+ import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
+ import {
+   DropdownMenu,
+   DropdownMenuContent,
+   DropdownMenuItem,
+   DropdownMenuTrigger,
+ } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -37,6 +44,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showBoletos, setShowBoletos] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [showBancoIds, setShowBancoIds] = useState(false);
+   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -102,10 +110,25 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         </div>
 
         <div className="flex items-center gap-2 pt-3 border-t border-border">
-          <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={onEdit}>
-            <Settings className="h-4 w-4" />
-            Configurar
-          </Button>
+           <DropdownMenu>
+             <DropdownMenuTrigger asChild>
+               <Button variant="outline" size="sm" className="flex-1 gap-2">
+                 <Settings className="h-4 w-4" />
+                 Configurar
+                 <ChevronDown className="h-3 w-3 ml-auto" />
+               </Button>
+             </DropdownMenuTrigger>
+             <DropdownMenuContent align="start" className="w-48">
+               <DropdownMenuItem onClick={onEdit}>
+                 <Settings className="h-4 w-4 mr-2" />
+                 Editar Dados
+               </DropdownMenuItem>
+               <DropdownMenuItem onClick={() => setShowCreateAdmin(true)}>
+                 <UserPlus className="h-4 w-4 mr-2" />
+                 Criar Admin Extra
+               </DropdownMenuItem>
+             </DropdownMenuContent>
+           </DropdownMenu>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -241,6 +264,12 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         tenantId={tenant.id}
         tenantName={tenant.name}
       />
+
+       <CreateTenantAdminDialog
+         open={showCreateAdmin}
+         onOpenChange={setShowCreateAdmin}
+         tenant={tenant}
+       />
     </>
   );
 }
