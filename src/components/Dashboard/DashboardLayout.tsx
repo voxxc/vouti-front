@@ -248,7 +248,7 @@ const DashboardLayout = ({
               {isAdmin && onCreateUser && (
                 <Button variant="outline" size="sm" onClick={onCreateUser} className="gap-2">
                   <Settings size={16} />
-                  <span className="hidden sm:inline">Usuarios</span>
+                   <span className="hidden sm:inline">Usuários</span>
                 </Button>
               )}
               

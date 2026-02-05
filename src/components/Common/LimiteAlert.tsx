@@ -1,6 +1,4 @@
 import { AlertTriangle, TrendingUp } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 
 interface LimiteAlertProps {
   tipo: 'oabs' | 'usuarios' | 'processos_cadastrados' | 'processos_monitorados';
@@ -30,38 +28,23 @@ export function LimiteAlert({ tipo, uso, limite, porcentagem, showProgress = tru
 
   if (isAtLimit) {
     return (
-      <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Limite atingido</AlertTitle>
-        <AlertDescription className="space-y-2">
-          <p>
-            Você atingiu o limite de {limite} {limite === 1 ? labels.singular : labels.plural} do seu plano.
-          </p>
-          <p className="text-sm opacity-80">
-            Para continuar adicionando, faça upgrade do seu plano.
-          </p>
-          {showProgress && (
-            <Progress value={100} className="h-2 bg-destructive/20" />
-          )}
-        </AlertDescription>
-      </Alert>
+       <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/30 text-sm">
+         <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+         <span className="text-destructive font-medium">
+           Limite: {uso}/{limite} {labels.plural}
+         </span>
+       </div>
     );
   }
 
   if (isNearLimit) {
     return (
-      <Alert className="border-yellow-500/50 bg-yellow-500/10">
-        <TrendingUp className="h-4 w-4 text-yellow-600" />
-        <AlertTitle className="text-yellow-700 dark:text-yellow-400">Próximo do limite</AlertTitle>
-        <AlertDescription className="space-y-2">
-          <p className="text-yellow-700 dark:text-yellow-300">
-            Você está usando {uso} de {limite} {labels.plural} ({porcentagem}%).
-          </p>
-          {showProgress && (
-            <Progress value={porcentagem} className="h-2 bg-yellow-500/20" />
-          )}
-        </AlertDescription>
-      </Alert>
+       <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-sm">
+         <TrendingUp className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+         <span className="text-yellow-700 dark:text-yellow-300 font-medium">
+           {uso}/{limite} {labels.plural} ({porcentagem}%)
+         </span>
+       </div>
     );
   }
 
