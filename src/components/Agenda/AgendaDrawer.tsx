@@ -10,7 +10,7 @@
  
  export function AgendaDrawer({ open, onOpenChange }: AgendaDrawerProps) {
    return (
-     <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
        <SheetContent 
          side="inset"
          className="p-0 flex flex-col"
