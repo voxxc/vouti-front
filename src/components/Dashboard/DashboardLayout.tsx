@@ -213,6 +213,12 @@ const DashboardLayout = ({
           <div className="flex items-center justify-between px-6 py-3">
             {/* Left side - TOTP e Quick search */}
             <div className="hidden md:flex items-center gap-2">
+              <ProjectQuickSearch tenantPath={tenantPath} />
+            </div>
+            <div className="w-10 md:hidden" />
+            
+            {/* Right Side - Tools */}
+            <div className="flex items-center gap-3 ml-auto">
               {canSeeTOTP && (
                 <Button 
                   variant="ghost" 
@@ -224,12 +230,6 @@ const DashboardLayout = ({
                   <Clock className="h-5 w-5" />
                 </Button>
               )}
-              <ProjectQuickSearch tenantPath={tenantPath} />
-            </div>
-            <div className="w-10 md:hidden" />
-            
-            {/* Right Side - Tools */}
-            <div className="flex items-center gap-3 ml-auto">
               <GlobalSearch projects={projects} />
               {currentUser && (
                 <InternalMessaging currentUser={currentUser} users={users} />
