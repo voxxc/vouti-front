@@ -1,112 +1,89 @@
 
-# Correção Visual da Controladoria - Aba OABs
+# Correção: Botões de Ação Cortados nos Cards de Processos
 
-## Problemas Identificados
+## Problema Identificado
 
-Ao analisar o código, identifiquei dois problemas:
+O `ScrollArea` adicionado para scroll independente está cortando a lateral direita dos cards de processos, escondendo os botões "Excluir" e "Detalhes".
 
-1. **Header/Filtros não ficam fixos**: Quando há muitos processos na lista, o usuário precisa rolar tudo junto (incluindo a toolbar da OAB e os filtros). O comportamento correto seria: toolbar e filtros ficam fixos no topo, e apenas a lista de processos (1a Instância, 2a Instância, etc.) tem scroll.
+**Causa raiz**: O `Viewport` do Radix ScrollArea usa `overflow: scroll` internamente, mas não respeita o `pr-4` aplicado no container filho. O conteúdo está sendo cortado horizontalmente.
 
-2. **Scroll interno não configurado**: O componente `OABTab` não tem uma área de scroll interna. Todo o conteúdo fica dentro do scroll geral do drawer, o que causa a perda da referência visual.
+## Solução
 
-## Conceito Visual
+Ajustar a estrutura do ScrollArea para garantir que o conteúdo interno tenha largura total visível:
 
-```text
-ATUAL (tudo rola junto):              PROPOSTO (header fixo + lista scrollável):
-                                      
-┌───────────────────────────┐         ┌───────────────────────────┐
-│ OAB 92124/PR              │ ↑       │ OAB 92124/PR              │  FIXO
-│ [Filtrar: Todos ▼]        │ │       │ [Filtrar: Todos ▼]        │  FIXO
-│ ─────────────────────────── │       │ ───────────────────────────│
-│ ▼ 1a Instância (12)       │ │       │ ▼ 1a Instância (12)       │ ↑
-│   • Processo 1            │ │       │   • Processo 1            │ │
-│   • Processo 2            │ │       │   • Processo 2            │ │
-│   • Processo 3            │ S       │   • Processo 3            │ S
-│   • Processo 4            │ C       │   • Processo 4            │ C
-│   • Processo 5            │ R       │   • Processo 5            │ R
-│ ▼ 2a Instância (5)        │ O       │ ▼ 2a Instância (5)        │ O
-│   • Recurso 1             │ L       │   • Recurso 1             │ L
-│   • Recurso 2             │ L       │   • Recurso 2             │ L
-│   (cortado...)            │ ↓       │   • Recurso 3 (visível!)  │ ↓
-└───────────────────────────┘         └───────────────────────────┘
-```
+1. Remover `pr-4` do container interno do ScrollArea
+2. Adicionar `overflow-x-visible` ou usar `min-w-0` nos elementos flex
+3. Garantir que o `ProcessoCard` não tenha conteúdo que ultrapasse os limites
 
-## Alterações Necessárias
+## Alterações
 
 ### Arquivo: `src/components/Controladoria/OABTab.tsx`
 
-Reestruturar o componente para ter duas áreas distintas:
-
-1. **Área Fixa (Header)**: Contém os filtros por UF/status
-2. **Área Scrollável**: Contém o `DragDropContext` com as seções de instância
-
-**Estrutura proposta:**
+**Mudança 1 - Container do ScrollArea (linha 631-633):**
 
 ```tsx
-return (
-  <>
-    {/* Área Fixa - Filtros */}
-    <div className="sticky top-0 z-10 bg-background pb-3 border-b mb-4">
-      {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
-        <div className="flex items-center gap-3">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={filtroUF} onValueChange={setFiltroUF}>
-            {/* ... conteúdo do select ... */}
-          </Select>
-          {filtroUF !== 'todos' && (
-            <Badge variant="secondary">
-              {processosFiltrados.length} processos
-            </Badge>
-          )}
-        </div>
-      )}
-    </div>
+// ANTES:
+<ScrollArea className="h-[calc(100vh-320px)]">
+  <DragDropContext onDragEnd={handleDragEnd}>
+    <div className="space-y-4 pr-4">
 
-    {/* Área Scrollável - Lista de Processos */}
-    <ScrollArea className="h-[calc(100vh-350px)]">
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="space-y-4 pr-4">
-          <InstanciaSection titulo="1a Instância" ... />
-          <InstanciaSection titulo="2a Instância" ... />
-          <InstanciaSection titulo="Instância não identificada" ... />
-        </div>
-      </DragDropContext>
-    </ScrollArea>
-
-    {/* Drawer de Detalhes e Dialogs (sem alteração) */}
-    <ProcessoOABDetalhes ... />
-    <AlertDialog ... />
-  </>
-);
+// DEPOIS:
+<div className="h-[calc(100vh-320px)] overflow-y-auto overflow-x-hidden">
+  <DragDropContext onDragEnd={handleDragEnd}>
+    <div className="space-y-4">
 ```
 
-### Detalhes Técnicos
+**Explicacao**: Trocar o `ScrollArea` do Radix por um `div` nativo com `overflow-y-auto` resolve o problema de corte horizontal. O Radix ScrollArea é otimo para scrollbars customizados, mas pode causar problemas de largura em layouts flex complexos.
 
-**Imports a adicionar:**
+**Alternativa (se quiser manter ScrollArea):**
+
 ```tsx
-import { ScrollArea } from "@/components/ui/scroll-area";
+<ScrollArea className="h-[calc(100vh-320px)] w-full">
+  <DragDropContext onDragEnd={handleDragEnd}>
+    <div className="space-y-4 w-full">
 ```
 
-**Altura do ScrollArea:**
-- Usar `h-[calc(100vh-350px)]` para calcular a altura disponível
-- O valor 350px considera: header do drawer (60px) + header da controladoria (80px) + cards de métricas (100px) + tabs (50px) + toolbar da OAB (60px)
-- Pode ser ajustado para `flex-1` se o container pai tiver `flex flex-col` e `overflow-hidden`
+E ajustar o `ProcessoCard` para ter `min-w-0` no container flex:
 
-**Sticky para Filtros:**
-- Usar `sticky top-0 z-10 bg-background` para manter os filtros visíveis
-- Adicionar `pb-3 border-b` para separação visual
+```tsx
+// Linha 168 do ProcessoCard:
+<div className="flex items-center gap-3 min-w-0 w-full">
+```
+
+**Mudança 2 - ProcessoCard (linha 168):**
+
+```tsx
+// ANTES:
+<div className="flex items-center gap-3">
+
+// DEPOIS:
+<div className="flex items-center gap-3 w-full">
+```
+
+**Mudança 3 - Actions no ProcessoCard (linha 241):**
+
+```tsx
+// ANTES:
+<div className="flex items-center gap-1">
+
+// DEPOIS:
+<div className="flex items-center gap-1 shrink-0">
+```
+
+Adicionar `shrink-0` garante que os botoes de acao nunca encolham, permanecendo sempre visiveis.
 
 ---
 
-## Resumo das Alterações
+## Resumo
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/Controladoria/OABTab.tsx` | Adicionar `ScrollArea` envolvendo o `DragDropContext`, tornar filtros `sticky` |
+| Local | Antes | Depois |
+|-------|-------|--------|
+| ScrollArea container | `pr-4` | Removido ou usar div nativo |
+| ProcessoCard flex | `flex items-center gap-3` | `flex items-center gap-3 w-full` |
+| Actions container | `flex items-center gap-1` | `flex items-center gap-1 shrink-0` |
 
 ## Resultado Esperado
 
-- Filtros de UF/status permanecem visíveis no topo enquanto o usuário rola
-- Lista de processos (1a Instância, 2a Instância) tem scroll independente
-- Scrollbar visível para indicar que há mais conteúdo
-- Melhor experiência de navegação com muitos processos
+- Botoes "Excluir" e "Detalhes" ficam visiveis na lateral direita
+- Scroll vertical funciona normalmente
+- Cards nao sao cortados horizontalmente
