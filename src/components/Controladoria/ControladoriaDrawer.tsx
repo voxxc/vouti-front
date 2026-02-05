@@ -12,8 +12,8 @@ import { FileCheck } from "lucide-react";
    return (
      <Sheet open={open} onOpenChange={onOpenChange}>
        <SheetContent 
-        side="left" 
-         className="w-full sm:max-w-none p-0 flex flex-col"
+        side="inset"
+        className="p-0 flex flex-col"
        >
          <SheetTitle className="sr-only">Controladoria</SheetTitle>
          
