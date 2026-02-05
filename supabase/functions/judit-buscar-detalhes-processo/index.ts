@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Tracking API base URL
+const TRACKING_API_URL = 'https://tracking.prod.judit.io';
+
 // Normaliza timestamp para comparacao consistente (YYYY-MM-DDTHH:MM)
 const normalizeTimestamp = (ts: string | Date | null): string => {
   if (!ts) return '';
@@ -60,14 +63,66 @@ serve(async (req) => {
 
     let requestId: string;
     let usedExistingRequest = false;
+    let metodoObtencao: 'request_id_existente' | 'tracking_id' | 'nova_consulta' = 'nova_consulta';
 
     if (existingRequestProcess?.detalhes_request_id) {
       // Usar request_id existente de outro processo compartilhado (GET gratuito)
       requestId = existingRequestProcess.detalhes_request_id;
       usedExistingRequest = true;
+      metodoObtencao = 'request_id_existente';
       console.log('[Judit Detalhes] Usando request_id existente de processo compartilhado:', requestId);
     } else {
-      // Fazer POST pago para obter novo request_id
+      // NOVA LÓGICA: Verificar se tem tracking_id (monitoramento ativo)
+      const { data: processoComTracking } = await supabase
+        .from('processos_oab')
+        .select('tracking_id')
+        .eq('id', processoOabId)
+        .single();
+
+      if (processoComTracking?.tracking_id) {
+        console.log('[Judit Detalhes] Verificando tracking_id:', processoComTracking.tracking_id);
+        
+        try {
+          // GET gratuito no tracking para obter request_id
+          const trackingResponse = await fetch(
+            `${TRACKING_API_URL}/tracking/${processoComTracking.tracking_id}`,
+            {
+              method: 'GET',
+              headers: {
+                'api-key': juditApiKey.trim(),
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (trackingResponse.ok) {
+            const trackingData = await trackingResponse.json();
+            console.log('[Judit Detalhes] Tracking response:', JSON.stringify(trackingData).substring(0, 200));
+            
+            // Extrair request_id mais recente do tracking
+            const latestRequestId = trackingData.last_request_id || 
+                                    trackingData.request_id ||
+                                    trackingData.page_data?.[0]?.request_id ||
+                                    trackingData.requests?.[0]?.request_id;
+            
+            if (latestRequestId) {
+              requestId = latestRequestId;
+              usedExistingRequest = true;
+              metodoObtencao = 'tracking_id';
+              console.log('[Judit Detalhes] Usando request_id do tracking (GRATUITO):', requestId);
+            } else {
+              console.log('[Judit Detalhes] Tracking encontrado mas sem request_id, fazendo POST pago');
+            }
+          } else {
+            console.log('[Judit Detalhes] Erro ao consultar tracking:', trackingResponse.status);
+          }
+        } catch (trackingError) {
+          console.error('[Judit Detalhes] Erro ao consultar tracking:', trackingError);
+        }
+      }
+
+      // Fallback: Fazer POST pago para obter novo request_id
+      if (!requestId) {
       const requestPayload = {
         search: {
           search_type: 'lawsuit_cnj',
@@ -125,6 +180,7 @@ serve(async (req) => {
 
       const initialData = await response.json();
       requestId = initialData.request_id;
+        metodoObtencao = 'nova_consulta';
       
       if (logId) {
         await supabase
@@ -138,6 +194,7 @@ serve(async (req) => {
       }
       
       console.log('[Judit Detalhes] Novo Request ID:', requestId);
+      }
     }
 
     // Polling usando /responses/ para aguardar resultado
@@ -324,7 +381,8 @@ serve(async (req) => {
       andamentosInseridos, 
       anexosInseridos, 
       usedExistingRequest,
-      processosAtualizados: sharedProcessIds.length 
+      processosAtualizados: sharedProcessIds.length,
+      metodoObtencao
     });
 
     return new Response(
@@ -335,7 +393,9 @@ serve(async (req) => {
         totalAndamentos: steps.length,
         totalAnexos: attachments.length,
         usedExistingRequest,
-        processosAtualizados: sharedProcessIds.length
+        processosAtualizados: sharedProcessIds.length,
+        metodoObtencao,
+        custo: usedExistingRequest ? 'gratuito' : 'pago'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

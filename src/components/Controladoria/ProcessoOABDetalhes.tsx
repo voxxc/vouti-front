@@ -74,6 +74,22 @@ import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 
+// Badge para indicar custo da operação
+const CustoBadge = ({ isGratuito }: { isGratuito: boolean }) => {
+  if (isGratuito) {
+    return (
+      <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+        Gratuito
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+      Custo
+    </Badge>
+  );
+};
+
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
   open: boolean;
@@ -855,37 +871,70 @@ export const ProcessoOABDetalhes = ({
 
             {/* Andamentos */}
             <TabsContent value="andamentos" className="mt-4">
-              {/* Se nao tem request_id, mostrar botao para carregar */}
-              {!processo.detalhes_request_id && onCarregarDetalhes && (
+              {/* Se nao tem request_id, mostrar botao para carregar/atualizar */}
+              {!processo.detalhes_request_id && onCarregarDetalhes && (() => {
+                // Determinar se operação será gratuita (tem tracking_id = monitoramento ativo)
+                const isGratuito = !!processo.tracking_id;
+                
+                return (
                 <div className="p-6 text-center space-y-4 border rounded-lg bg-muted/20 mb-4">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <Download className="w-6 h-6 text-amber-600" />
+                  <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${
+                    isGratuito 
+                      ? 'bg-green-100 dark:bg-green-900/30' 
+                      : 'bg-amber-100 dark:bg-amber-900/30'
+                  }`}>
+                    {isGratuito ? (
+                      <RefreshCw className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <Download className="w-6 h-6 text-amber-600" />
+                    )}
                   </div>
                   <div>
                     <p className="font-medium mb-1">Andamentos nao carregados</p>
                     <p className="text-sm text-muted-foreground">
-                      Os andamentos deste processo ainda nao foram buscados.
+                      {isGratuito 
+                        ? 'Monitoramento ativo - atualizacao via tracking' 
+                        : 'Os andamentos deste processo ainda nao foram buscados.'}
                     </p>
                   </div>
-                  <Button 
-                    onClick={() => setConfirmDialogOpen(true)}
-                    className="bg-amber-600 hover:bg-amber-700"
-                    disabled={carregandoAndamentos}
-                  >
-                    {carregandoAndamentos ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Carregando...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Carregar Andamentos
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button 
+                      onClick={() => {
+                        // Se gratuito, chamar diretamente sem confirmação
+                        if (isGratuito) {
+                          handleCarregarAndamentos();
+                        } else {
+                          setConfirmDialogOpen(true);
+                        }
+                      }}
+                      className={isGratuito 
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-amber-600 hover:bg-amber-700'}
+                      disabled={carregandoAndamentos}
+                    >
+                      {carregandoAndamentos ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Carregando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          {isGratuito ? 'Atualizar Andamentos' : 'Carregar Andamentos'}
+                        </>
+                      )}
+                    </Button>
+                    <CustoBadge isGratuito={isGratuito} />
+                  </div>
+                  {!isGratuito && (
+                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Esta consulta pode gerar custo
+                    </p>
+                  )}
                 </div>
-              )}
+                );
+              })()}
 
               {/* Se tem request_id OU ja tem andamentos, mostrar lista */}
               {(processo.detalhes_request_id || andamentos.length > 0) && (
@@ -897,20 +946,25 @@ export const ProcessoOABDetalhes = ({
                       </p>
                       {/* Botao de atualizar andamentos (gratuito se tiver request_id) */}
                       {processo.detalhes_request_id && onConsultarDetalhesRequest && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={handleRefreshAndamentos}
-                          disabled={refreshingAndamentos}
-                          title="Atualizar andamentos"
-                        >
-                          {refreshingAndamentos ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-3.5 h-3.5" />
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={handleRefreshAndamentos}
+                            disabled={refreshingAndamentos}
+                            title="Atualizar andamentos (gratuito)"
+                          >
+                            {refreshingAndamentos ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            Grátis
+                          </Badge>
+                        </div>
                       )}
                     </div>
                     {andamentosNaoLidos > 0 && (
