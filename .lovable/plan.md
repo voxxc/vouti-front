@@ -1,95 +1,83 @@
 
-# Corrigir Importação de Andamentos para Processos em Segredo de Justiça
 
-## Problema Identificado
+# Correção Completa: Andamentos Não Importados
 
-O processo `0007772-80.2025.8.16.0013` está em **segredo de justiça** e a API Judit não retorna o histórico completo de andamentos (array `steps` vazio). Porém, a API **retorna informações no campo `last_step`** que não estão sendo processadas.
+## Problemas Identificados
 
-## Causa Raiz
+Após investigação, identifiquei **3 problemas** que causam andamentos vazios:
 
-Na Edge Function `judit-buscar-detalhes-processo`, a linha 268 busca andamentos apenas de:
+### Problema 1: Fallback para `last_step` já implementado mas não testado
+A correção para usar `last_step` em processos com `steps: []` já foi aplicada e deployada. Processos importados **antes** dessa correção precisam ser recarregados manualmente.
 
-```javascript
-const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
-```
+### Problema 2: Processos sem tenant_id na busca compartilhada
+O webhook de monitoramento (`judit-webhook-oab`) mostra `Processos compartilhados: 0`, indicando que a query por `tenant_id` pode estar falhando quando o tenant_id não bate ou é null.
 
-Quando `steps` está vazio `[]`, o fallback não funciona porque JavaScript considera um array vazio como truthy. O campo `last_step` contém dados úteis mas não está sendo processado.
-
-## Solução
-
-Modificar a Edge Function para:
-1. Verificar se o array `steps` está **realmente vazio** (length === 0)
-2. Usar `last_step` como fallback para criar ao menos um andamento
-3. Manter compatibilidade com processos que já têm steps completos
+### Problema 3: Processos com `detalhes_carregados: true` mas 0 andamentos
+Vários processos estão marcados como carregados mas não têm andamentos registrados. A API retornou dados, mas os andamentos não foram inseridos.
 
 ---
 
-## Alterações Técnicas
+## Correções Técnicas
 
-### Arquivo: `supabase/functions/judit-buscar-detalhes-processo/index.ts`
+### Correção 1: Melhorar busca de processos compartilhados
 
-**De (linha 268):**
+**Arquivo:** `supabase/functions/judit-buscar-detalhes-processo/index.ts`
+
+A busca atual:
 ```typescript
-const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+const { data: allSharedProcesses } = await supabase
+  .from('processos_oab')
+  .select('id')
+  .eq('numero_cnj', numeroCnj)
+  .eq('tenant_id', tenantId);
 ```
 
-**Para:**
-```typescript
-// Buscar steps do responseData
-let steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+Se `tenantId` for `null` ou diferente, não encontra o processo. Adicionar fallback para buscar pelo `processoOabId` recebido:
 
-// NOVO: Se steps está vazio mas existe last_step, usar como fallback
-// Isso é comum em processos com segredo de justiça
-if (steps.length === 0 && responseData?.last_step) {
-  console.log('[Judit Detalhes] Array steps vazio, usando last_step como fallback');
-  steps = [responseData.last_step];
+```typescript
+// Buscar processos compartilhados pelo tenant
+let sharedProcessIds: string[] = [];
+
+if (tenantId) {
+  const { data: allSharedProcesses } = await supabase
+    .from('processos_oab')
+    .select('id')
+    .eq('numero_cnj', numeroCnj)
+    .eq('tenant_id', tenantId);
+  
+  sharedProcessIds = (allSharedProcesses || []).map(p => p.id);
+}
+
+// FALLBACK: Se não encontrou processos mas temos o ID original, usar ele
+if (sharedProcessIds.length === 0 && processoOabId) {
+  console.log('[Judit Detalhes] Fallback: usando processoOabId original');
+  sharedProcessIds = [processoOabId];
 }
 ```
 
-**Mapear campos do last_step (linha ~301):**
-```typescript
-// Atualizar extração de dados para suportar campos do last_step
-const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
-const descricao = step.content || step.description || step.descricao || '';
-const tipoMovimentacao = step.step_type || step.type || step.tipo || null;
-```
+---
+
+### Correção 2: Mesma lógica no webhook
+
+**Arquivo:** `supabase/functions/judit-webhook-oab/index.ts`
+
+Aplicar a mesma correção de fallback para garantir que os webhooks também encontrem os processos mesmo quando a busca por tenant_id falha.
 
 ---
 
-## Fluxo Após Correção
+## Testes Necessários
 
-```text
-Processo em Segredo de Justiça importado
-              |
-              v
-API Judit retorna steps: [] mas last_step preenchido
-              |
-              v
-Código verifica: steps.length === 0 ?
-              |
-         [SIM]|[NAO]
-              |    \
-              v     > Usa steps normal
-Usa last_step como fallback
-              |
-              v
-Insere 1 andamento com dados do last_step
-              |
-              v
-Usuario vê ao menos o último andamento do processo
-```
+1. **Login na aplicação** (você está atualmente em `/auth`)
+2. **Navegar até um processo com 0 andamentos**
+3. **Clicar em "Carregar Andamentos"**
+4. **Verificar se os andamentos são inseridos**
 
 ---
 
 ## Resultado Esperado
 
-1. Processos em segredo de justiça terão ao menos o **último andamento** registrado
-2. Processos normais continuarão funcionando com histórico completo
-3. O log indicará quando o fallback foi utilizado para debugging
-4. A correção é retrocompatível com dados já importados
+- Processos com `last_step` terão ao menos 1 andamento (segredo de justiça)
+- Processos públicos terão todos os andamentos do array `steps`
+- O fallback por `processoOabId` garantirá que processos são sempre encontrados
+- Webhooks de monitoramento também funcionarão corretamente
 
----
-
-## Observação
-
-Esta é uma limitação da API Judit para processos sigilosos. O sistema não terá acesso ao histórico completo, apenas às informações disponíveis publicamente (geralmente o último andamento).
