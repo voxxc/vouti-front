@@ -396,7 +396,57 @@ serve(async (req) => {
       console.log('[Judit Detalhes] Anexos inseridos:', anexosInseridos);
     }
 
-    // Atualizar TODOS os processos compartilhados com o request_id e AI summary
+    // Extrair dados adicionais do response para campos individuais
+    const parties = responseData?.parties || [];
+    const amount = responseData?.amount || null;
+    const distributionDate = responseData?.distribution_date || null;
+    const situation = responseData?.situation || null;
+    const phase = responseData?.phase || null;
+    const relatedLinks = responseData?.related_links || responseData?.link || null;
+
+    // Extrair partes ativa/passiva do array parties
+    let parteAtiva = '';
+    let partePassiva = '';
+
+    const autores = parties
+      .filter((p: any) => {
+        const tipo = (p.person_type || '').toUpperCase();
+        const side = (p.side || '').toLowerCase();
+        return side === 'active' || tipo.includes('ATIVO') || tipo.includes('AUTOR');
+      })
+      .map((p: any) => p.name)
+      .filter(Boolean);
+
+    const reus = parties
+      .filter((p: any) => {
+        const tipo = (p.person_type || '').toUpperCase();
+        const side = (p.side || '').toLowerCase();
+        return side === 'passive' || tipo.includes('PASSIVO') || tipo.includes('REU');
+      })
+      .map((p: any) => p.name)
+      .filter(Boolean);
+
+    parteAtiva = autores.join(' e ');
+    partePassiva = reus.join(' e ');
+
+    // Fallback para campo "name" com " X "
+    if (!parteAtiva && !partePassiva && responseData.name?.includes(' X ')) {
+      const partes = responseData.name.split(' X ');
+      parteAtiva = partes[0]?.trim() || '';
+      partePassiva = partes[1]?.trim() || '';
+    }
+
+    console.log('[Judit Detalhes] Campos extraidos:', { 
+      parties: parties.length, 
+      parteAtiva, 
+      partePassiva, 
+      amount, 
+      distributionDate,
+      situation,
+      phase
+    });
+
+    // Atualizar TODOS os processos compartilhados com o request_id, AI summary e campos extraidos
     await supabase
       .from('processos_oab')
       .update({
@@ -407,6 +457,15 @@ serve(async (req) => {
         ultima_atualizacao_detalhes: new Date().toISOString(),
         ai_summary: aiSummary,
         ai_summary_data: summaryData,
+        // Campos extraidos do response
+        partes_completas: parties.length > 0 ? parties : null,
+        parte_ativa: parteAtiva || null,
+        parte_passiva: partePassiva || null,
+        valor_causa: amount,
+        data_distribuicao: distributionDate,
+        status_processual: situation,
+        fase_processual: phase,
+        link_tribunal: relatedLinks,
         updated_at: new Date().toISOString()
       })
       .eq('numero_cnj', numeroCnj)
