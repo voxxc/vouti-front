@@ -165,7 +165,7 @@ const ProcessoCard = ({
             snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''
           }`}
         >
-            <div className="flex items-center gap-3 w-full overflow-hidden">
+            <div className="flex items-center gap-3 w-full overflow-hidden pr-2">
             {/* Drag Handle */}
             <div
               {...provided.dragHandleProps}
@@ -238,7 +238,7 @@ const ProcessoCard = ({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 ml-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -628,7 +628,8 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
       </div>
 
       {/* Área Scrollável - Lista de Processos */}
-      <div className="h-[calc(100vh-320px)] overflow-y-auto overflow-x-hidden pr-4">
+      <div className="h-[calc(100vh-320px)] overflow-y-auto">
+        <div className="pr-6">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="space-y-4">
           {/* 1a Instancia */}
@@ -709,6 +710,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
           )}
           </div>
         </DragDropContext>
+        </div>
       </div>
 
       {/* Drawer de Detalhes */}
