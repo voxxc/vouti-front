@@ -1,57 +1,95 @@
 
-# Desativar "Clique Fora" nos Dialogs Modais
+# Corrigir Importação de Andamentos para Processos em Segredo de Justiça
 
-## Problema
+## Problema Identificado
 
-Atualmente, quando um Dialog (modal com fundo escuro) esta aberto, clicar na area escura fora da janela fecha o dialog automaticamente. O usuario quer desativar esse comportamento para evitar fechamentos acidentais.
+O processo `0007772-80.2025.8.16.0013` está em **segredo de justiça** e a API Judit não retorna o histórico completo de andamentos (array `steps` vazio). Porém, a API **retorna informações no campo `last_step`** que não estão sendo processadas.
 
-## Solucao
+## Causa Raiz
 
-Modificar o componente `DialogContent` em `src/components/ui/dialog.tsx` para interceptar o evento de clique fora e prevenir o fechamento.
+Na Edge Function `judit-buscar-detalhes-processo`, a linha 268 busca andamentos apenas de:
+
+```javascript
+const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+```
+
+Quando `steps` está vazio `[]`, o fallback não funciona porque JavaScript considera um array vazio como truthy. O campo `last_step` contém dados úteis mas não está sendo processado.
+
+## Solução
+
+Modificar a Edge Function para:
+1. Verificar se o array `steps` está **realmente vazio** (length === 0)
+2. Usar `last_step` como fallback para criar ao menos um andamento
+3. Manter compatibilidade com processos que já têm steps completos
 
 ---
 
-## Alteracao Tecnica
+## Alterações Técnicas
 
-### Arquivo: `src/components/ui/dialog.tsx`
+### Arquivo: `supabase/functions/judit-buscar-detalhes-processo/index.ts`
 
-Adicionar a prop `onInteractOutside` ao `DialogPrimitive.Content` com `event.preventDefault()`:
-
-**De:**
-```tsx
-<DialogPrimitive.Content
-  ref={ref}
-  className={cn(...)}
-  {...props}
->
+**De (linha 268):**
+```typescript
+const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
 ```
 
 **Para:**
-```tsx
-<DialogPrimitive.Content
-  ref={ref}
-  onInteractOutside={(event) => event.preventDefault()}
-  className={cn(...)}
-  {...props}
->
+```typescript
+// Buscar steps do responseData
+let steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+
+// NOVO: Se steps está vazio mas existe last_step, usar como fallback
+// Isso é comum em processos com segredo de justiça
+if (steps.length === 0 && responseData?.last_step) {
+  console.log('[Judit Detalhes] Array steps vazio, usando last_step como fallback');
+  steps = [responseData.last_step];
+}
+```
+
+**Mapear campos do last_step (linha ~301):**
+```typescript
+// Atualizar extração de dados para suportar campos do last_step
+const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
+const descricao = step.content || step.description || step.descricao || '';
+const tipoMovimentacao = step.step_type || step.type || step.tipo || null;
 ```
 
 ---
 
-## Como Funciona
+## Fluxo Após Correção
 
-O Radix UI Dialog dispara o evento `onInteractOutside` quando o usuario clica fora do conteudo do dialog. Chamando `event.preventDefault()`, impedimos que esse clique feche o modal.
-
-O usuario ainda podera fechar o dialog:
-- Clicando no botao X no canto superior direito
-- Pressionando a tecla ESC
-- Clicando em botoes de "Cancelar" ou "Fechar" dentro do dialog
+```text
+Processo em Segredo de Justiça importado
+              |
+              v
+API Judit retorna steps: [] mas last_step preenchido
+              |
+              v
+Código verifica: steps.length === 0 ?
+              |
+         [SIM]|[NAO]
+              |    \
+              v     > Usa steps normal
+Usa last_step como fallback
+              |
+              v
+Insere 1 andamento com dados do last_step
+              |
+              v
+Usuario vê ao menos o último andamento do processo
+```
 
 ---
 
 ## Resultado Esperado
 
-1. Clicar no fundo escuro NAO fecha mais o dialog
-2. O botao X continua funcionando normalmente
-3. A tecla ESC continua funcionando (se quiser desativar tambem, posso adicionar `onEscapeKeyDown={(e) => e.preventDefault()}`)
-4. Todos os dialogs da aplicacao serao afetados (comportamento global)
+1. Processos em segredo de justiça terão ao menos o **último andamento** registrado
+2. Processos normais continuarão funcionando com histórico completo
+3. O log indicará quando o fallback foi utilizado para debugging
+4. A correção é retrocompatível com dados já importados
+
+---
+
+## Observação
+
+Esta é uma limitação da API Judit para processos sigilosos. O sistema não terá acesso ao histórico completo, apenas às informações disponíveis publicamente (geralmente o último andamento).
