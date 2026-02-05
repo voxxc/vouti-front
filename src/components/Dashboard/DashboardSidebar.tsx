@@ -20,6 +20,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
  import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
  import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
+import { CRMDrawer } from "@/components/CRM/CRMDrawer";
+import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
+import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
@@ -33,6 +36,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [supportOpen, setSupportOpen] = useState(false);
    const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
    const [controladoriaDrawerOpen, setControladoriaDrawerOpen] = useState(false);
+  const [crmDrawerOpen, setCrmDrawerOpen] = useState(false);
+  const [financialDrawerOpen, setFinancialDrawerOpen] = useState(false);
+  const [reunioesDrawerOpen, setReunioesDrawerOpen] = useState(false);
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
   const { 
@@ -216,6 +222,78 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
               );
             }
  
+            // Tratamento especial para Clientes - abre drawer
+            if (item.id === 'clientes') {
+              return (
+                <Button
+                  key={item.id}
+                  variant={isActive(item.id) ? "secondary" : "ghost"}
+                  onMouseEnter={() => handleMouseEnter(item.id)}
+                  onClick={() => {
+                    setCrmDrawerOpen(true);
+                    setIsMobileOpen(false);
+                  }}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11",
+                    isCollapsed && "justify-center px-2",
+                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <Icon size={20} />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </Button>
+              );
+            }
+
+            // Tratamento especial para Financeiro - abre drawer
+            if (item.id === 'financeiro') {
+              return (
+                <Button
+                  key={item.id}
+                  variant={isActive(item.id) ? "secondary" : "ghost"}
+                  onMouseEnter={() => handleMouseEnter(item.id)}
+                  onClick={() => {
+                    setFinancialDrawerOpen(true);
+                    setIsMobileOpen(false);
+                  }}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11",
+                    isCollapsed && "justify-center px-2",
+                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <Icon size={20} />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </Button>
+              );
+            }
+
+            // Tratamento especial para Reuniões - abre drawer
+            if (item.id === 'reunioes') {
+              return (
+                <Button
+                  key={item.id}
+                  variant={isActive(item.id) ? "secondary" : "ghost"}
+                  onMouseEnter={() => handleMouseEnter(item.id)}
+                  onClick={() => {
+                    setReunioesDrawerOpen(true);
+                    setIsMobileOpen(false);
+                  }}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11",
+                    isCollapsed && "justify-center px-2",
+                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <Icon size={20} />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </Button>
+              );
+            }
+
              return (
                <Button
                  key={item.id}
@@ -277,6 +355,15 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
        {/* Controladoria Drawer */}
        <ControladoriaDrawer open={controladoriaDrawerOpen} onOpenChange={setControladoriaDrawerOpen} />
  
+      {/* CRM Drawer */}
+      <CRMDrawer open={crmDrawerOpen} onOpenChange={setCrmDrawerOpen} />
+
+      {/* Financial Drawer */}
+      <FinancialDrawer open={financialDrawerOpen} onOpenChange={setFinancialDrawerOpen} />
+
+      {/* Reunioes Drawer */}
+      <ReunioesDrawer open={reunioesDrawerOpen} onOpenChange={setReunioesDrawerOpen} />
+
       {/* Spacer to push content */}
       <div className={cn(
         "hidden md:block transition-all duration-300 flex-shrink-0",
