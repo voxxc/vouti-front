@@ -281,14 +281,25 @@ serve(async (req) => {
     console.log('[Judit Detalhes] AI Summary encontrado:', !!aiSummary);
 
     // Buscar TODOS os processos com mesmo CNJ no tenant para sincronizar
-    const { data: allSharedProcesses } = await supabase
-      .from('processos_oab')
-      .select('id')
-      .eq('numero_cnj', numeroCnj)
-      .eq('tenant_id', tenantId);
+    let sharedProcessIds: string[] = [];
+    
+    if (tenantId) {
+      const { data: allSharedProcesses } = await supabase
+        .from('processos_oab')
+        .select('id')
+        .eq('numero_cnj', numeroCnj)
+        .eq('tenant_id', tenantId);
+      
+      sharedProcessIds = (allSharedProcesses || []).map(p => p.id);
+    }
 
-    const sharedProcessIds = (allSharedProcesses || []).map(p => p.id);
-    console.log('[Judit Detalhes] Processos compartilhados encontrados:', sharedProcessIds.length);
+    // FALLBACK: Se não encontrou processos compartilhados mas temos o ID original, usar ele
+    if (sharedProcessIds.length === 0 && processoOabId) {
+      console.log('[Judit Detalhes] Fallback: usando processoOabId original:', processoOabId);
+      sharedProcessIds = [processoOabId];
+    }
+    
+    console.log('[Judit Detalhes] Processos para atualizar:', sharedProcessIds.length);
 
     // Inserir andamentos para TODOS os processos compartilhados
     let andamentosInseridos = 0;
