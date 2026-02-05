@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
+ import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
@@ -30,6 +30,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+   const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
   const { 
@@ -159,30 +160,54 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
 
         {/* Navigation Items */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const hasAccessToItem = item.id === 'dashboard' || item.id === 'extras' || hasAccess(item.id);
-            
-            if (!hasAccessToItem) return null;
+           {menuItems.map((item) => {
+             const Icon = item.icon;
+             const hasAccessToItem = item.id === 'dashboard' || item.id === 'extras' || hasAccess(item.id);
+             
+             if (!hasAccessToItem) return null;
 
-            return (
-              <Button
-                key={item.id}
-                variant={isActive(item.id) ? "secondary" : "ghost"}
-                onMouseEnter={() => handleMouseEnter(item.id)}
-                onClick={() => handleNavigation(item.id, item.route)}
-                className={cn(
-                  "w-full justify-start gap-3 h-11",
-                  isCollapsed && "justify-center px-2",
-                  isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                )}
-                title={isCollapsed ? item.label : undefined}
-              >
-                <Icon size={20} />
-                {!isCollapsed && <span>{item.label}</span>}
-              </Button>
-            );
-          })}
+             // Tratamento especial para Projetos - abre drawer
+             if (item.id === 'projetos') {
+               return (
+                 <Button
+                   key={item.id}
+                   variant={isActive(item.id) ? "secondary" : "ghost"}
+                   onMouseEnter={() => handleMouseEnter(item.id)}
+                   onClick={() => {
+                     setProjectsDrawerOpen(true);
+                     setIsMobileOpen(false);
+                   }}
+                   className={cn(
+                     "w-full justify-start gap-3 h-11",
+                     isCollapsed && "justify-center px-2",
+                     isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                   )}
+                   title={isCollapsed ? item.label : undefined}
+                 >
+                   <Icon size={20} />
+                   {!isCollapsed && <span>{item.label}</span>}
+                 </Button>
+               );
+             }
+ 
+             return (
+               <Button
+                 key={item.id}
+                 variant={isActive(item.id) ? "secondary" : "ghost"}
+                 onMouseEnter={() => handleMouseEnter(item.id)}
+                 onClick={() => handleNavigation(item.id, item.route)}
+                 className={cn(
+                   "w-full justify-start gap-3 h-11",
+                   isCollapsed && "justify-center px-2",
+                   isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                 )}
+                 title={isCollapsed ? item.label : undefined}
+               >
+                 <Icon size={20} />
+                 {!isCollapsed && <span>{item.label}</span>}
+               </Button>
+             );
+           })}
         </nav>
 
         {/* Support Button */}
@@ -220,6 +245,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
       {/* Support Sheet */}
       <SupportSheet open={supportOpen} onOpenChange={setSupportOpen} />
 
+       {/* Projects Drawer */}
+       <ProjectsDrawer open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
+ 
       {/* Spacer to push content */}
       <div className={cn(
         "hidden md:block transition-all duration-300 flex-shrink-0",
