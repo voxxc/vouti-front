@@ -104,6 +104,41 @@ export const ClienteFinanceiroDialog = ({
     }).format(value);
   };
 
+  // Função para calcular juros e multa de uma parcela atrasada
+  const calcularValorAtualizado = (parcela: ClienteParcela) => {
+    const valorOriginal = Number(parcela.valor_parcela);
+    const dataVencimento = new Date(parcela.data_vencimento);
+    const hoje = new Date();
+    
+    // Se não estiver atrasada ou não tiver configuração de juros/multa, retorna valor original
+    if (dataVencimento >= hoje || parcela.status === 'pago') {
+      return { valorOriginal, multa: 0, juros: 0, valorAtualizado: valorOriginal, mesesAtraso: 0 };
+    }
+
+    // Calcular meses de atraso
+    const diffTime = Math.abs(hoje.getTime() - dataVencimento.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const mesesAtraso = Math.max(1, Math.ceil(diffDays / 30)); // Mínimo 1 mês
+
+    let multa = 0;
+    let juros = 0;
+
+    // Calcular multa (fixa)
+    if (cliente.aplicar_multa && cliente.taxa_multa) {
+      multa = valorOriginal * (Number(cliente.taxa_multa) / 100);
+    }
+
+    // Calcular juros compostos mensais
+    if (cliente.aplicar_juros && cliente.taxa_juros_mensal) {
+      const taxaMensal = Number(cliente.taxa_juros_mensal) / 100;
+      juros = valorOriginal * (Math.pow(1 + taxaMensal, mesesAtraso) - 1);
+    }
+
+    const valorAtualizado = valorOriginal + multa + juros;
+
+    return { valorOriginal, multa, juros, valorAtualizado, mesesAtraso };
+  };
+
   const getNomeCliente = (cliente: any) => {
     return cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || 'Cliente';
   };
@@ -355,6 +390,26 @@ export const ClienteFinanceiroDialog = ({
                                     <div>
                                       <p className="text-muted-foreground">Valor</p>
                                       <p className="font-semibold">{formatCurrency(Number(parcela.valor_parcela))}</p>
+                                      {/* Mostrar valor atualizado com juros/multa se atrasado */}
+                                      {parcela.status === 'atrasado' && (cliente.aplicar_juros || cliente.aplicar_multa) && (() => {
+                                        const calc = calcularValorAtualizado(parcela);
+                                        if (calc.multa > 0 || calc.juros > 0) {
+                                          return (
+                                            <div className="mt-1 text-xs">
+                                              {calc.multa > 0 && (
+                                                <p className="text-destructive">+ Multa: {formatCurrency(calc.multa)}</p>
+                                              )}
+                                              {calc.juros > 0 && (
+                                                <p className="text-destructive">+ Juros ({calc.mesesAtraso}m): {formatCurrency(calc.juros)}</p>
+                                              )}
+                                              <p className="font-bold text-destructive mt-1">
+                                                Total: {formatCurrency(calc.valorAtualizado)}
+                                              </p>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
                                     </div>
                                     <div>
                                       <p className="text-muted-foreground">Vencimento</p>

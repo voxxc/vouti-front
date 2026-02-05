@@ -407,6 +407,52 @@ export type Database = {
           },
         ]
       }
+      cliente_etiquetas: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          etiqueta_id: string
+          id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          etiqueta_id: string
+          id?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          etiqueta_id?: string
+          id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_etiquetas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_etiquetas_etiqueta_id_fkey"
+            columns: ["etiqueta_id"]
+            isOneToOne: false
+            referencedRelation: "etiquetas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_etiquetas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cliente_pagamento_comentarios: {
         Row: {
           comentario: string
@@ -536,6 +582,8 @@ export type Database = {
       }
       clientes: {
         Row: {
+          aplicar_juros: boolean | null
+          aplicar_multa: boolean | null
           classificacao: string | null
           cnh: string | null
           cnh_validade: string | null
@@ -562,6 +610,8 @@ export type Database = {
           profissao: string | null
           proveito_economico: number | null
           status_cliente: string
+          taxa_juros_mensal: number | null
+          taxa_multa: number | null
           telefone: string | null
           tenant_id: string | null
           uf: string | null
@@ -573,6 +623,8 @@ export type Database = {
           vendedor: string | null
         }
         Insert: {
+          aplicar_juros?: boolean | null
+          aplicar_multa?: boolean | null
           classificacao?: string | null
           cnh?: string | null
           cnh_validade?: string | null
@@ -599,6 +651,8 @@ export type Database = {
           profissao?: string | null
           proveito_economico?: number | null
           status_cliente?: string
+          taxa_juros_mensal?: number | null
+          taxa_multa?: number | null
           telefone?: string | null
           tenant_id?: string | null
           uf?: string | null
@@ -610,6 +664,8 @@ export type Database = {
           vendedor?: string | null
         }
         Update: {
+          aplicar_juros?: boolean | null
+          aplicar_multa?: boolean | null
           classificacao?: string | null
           cnh?: string | null
           cnh_validade?: string | null
@@ -636,6 +692,8 @@ export type Database = {
           profissao?: string | null
           proveito_economico?: number | null
           status_cliente?: string
+          taxa_juros_mensal?: number | null
+          taxa_multa?: number | null
           telefone?: string | null
           tenant_id?: string | null
           uf?: string | null
