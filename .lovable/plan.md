@@ -1,22 +1,25 @@
 
-# Adicionar Texto de Termos de Uso na Tela de Login
+# Corrigir Texto e Adicionar PDF para Download
 
 ## Objetivo
 
-Adicionar um texto pequeno (minúsculo) abaixo do botão "Entrar" informando que ao entrar o usuário aceita os termos de uso, licença e política de privacidade, com links para download/visualização.
+Corrigir o texto do disclaimer legal para unificar "termos de uso" e "licença" em um único link ("termo de uso e licença") que fará o download do PDF enviado.
 
-## Alteração
+## Alterações
 
-### src/pages/Auth.tsx
+### 1. Copiar o PDF para a pasta public
 
-Adicionar texto após o botão "Entrar" (linha 280), dentro do formulário de login:
+O PDF será copiado para `public/docs/` para que possa ser baixado diretamente:
 
+```
+user-uploads://TERMOS_E_CONDIÇÕES_DE_USO_E_LICENÇA_-_VOUTI_-2-2.pdf
+→ public/docs/termos-uso-licenca-vouti.pdf
+```
+
+### 2. Atualizar o texto em src/pages/Auth.tsx
+
+**Antes:**
 ```tsx
-<Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
-  {isLoading ? "Entrando..." : "Entrar"}
-</Button>
-
-{/* Novo texto de termos */}
 <p className="text-[10px] text-muted-foreground text-center mt-3 leading-relaxed">
   ao entrar, você concorda com os{' '}
   <a href="/termos-de-uso" target="_blank" className="underline hover:text-primary">
@@ -33,37 +36,32 @@ Adicionar texto após o botão "Entrar" (linha 280), dentro do formulário de lo
 </p>
 ```
 
-## Resultado Visual
-
-```text
-┌─────────────────────────────────────────┐
-│         Acesso ao Sistema               │
-│  Entre ou crie sua conta para continuar │
-├─────────────────────────────────────────┤
-│  Email                                  │
-│  [seu@email.com                      ]  │
-│                                         │
-│  Senha                                  │
-│  [••••••••                           ]  │
-│                                         │
-│              Esqueceu sua senha?        │
-│                                         │
-│  [         Entrar                    ]  │
-│                                         │
-│  ao entrar, você concorda com os        │
-│  termos de uso, licença e política      │
-│  de privacidade                         │
-└─────────────────────────────────────────┘
+**Depois:**
+```tsx
+<p className="text-[10px] text-muted-foreground text-center mt-3 leading-relaxed">
+  ao entrar, você concorda com o{' '}
+  <a 
+    href="/docs/termos-uso-licenca-vouti.pdf" 
+    download 
+    className="underline hover:text-primary"
+  >
+    termo de uso e licença
+  </a>
+  {' '}e{' '}
+  <a href="/privacidade" target="_blank" className="underline hover:text-primary">
+    política de privacidade
+  </a>
+</p>
 ```
 
 ## Detalhes Técnicos
 
-- Texto em `text-[10px]` para ficar bem pequeno
-- Cor `text-muted-foreground` para ficar discreto
-- Links com `underline` e `hover:text-primary` para indicar clicabilidade
-- Links abrindo em nova aba (`target="_blank"`)
-- Todo texto em minúsculo conforme solicitado
+- O atributo `download` no link fará o navegador baixar o PDF ao invés de abri-lo
+- PDF fica na pasta `public/docs/` para acesso direto via URL
+- Texto corrigido: "termo de uso e licença" (singular, unificado)
+- Removido `target="_blank"` pois será download direto
 
-## Arquivo a Editar
+## Arquivos
 
-1. `src/pages/Auth.tsx` - adicionar após linha 280
+1. Copiar: `user-uploads://...pdf` → `public/docs/termos-uso-licenca-vouti.pdf`
+2. Editar: `src/pages/Auth.tsx` (linhas 282-295)
