@@ -23,6 +23,7 @@ import { SupportSheet } from "@/components/Support/SupportSheet";
 import { CRMDrawer } from "@/components/CRM/CRMDrawer";
 import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
 import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
+import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
@@ -39,6 +40,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
   const [crmDrawerOpen, setCrmDrawerOpen] = useState(false);
   const [financialDrawerOpen, setFinancialDrawerOpen] = useState(false);
   const [reunioesDrawerOpen, setReunioesDrawerOpen] = useState(false);
+  const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
   const { 
@@ -197,7 +199,31 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                  </Button>
                );
              }
- 
+
+            // Tratamento especial para Agenda - abre drawer
+            if (item.id === 'agenda') {
+              return (
+                <Button
+                  key={item.id}
+                  variant={isActive(item.id) ? "secondary" : "ghost"}
+                  onMouseEnter={() => handleMouseEnter(item.id)}
+                  onClick={() => {
+                    setAgendaDrawerOpen(true);
+                    setIsMobileOpen(false);
+                  }}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11",
+                    isCollapsed && "justify-center px-2",
+                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <Icon size={20} />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </Button>
+              );
+            }
+
             // Tratamento especial para Controladoria - abre drawer
             if (item.id === 'controladoria') {
               return (
@@ -363,6 +389,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
 
       {/* Reunioes Drawer */}
       <ReunioesDrawer open={reunioesDrawerOpen} onOpenChange={setReunioesDrawerOpen} />
+
+      {/* Agenda Drawer */}
+      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
 
       {/* Spacer to push content */}
       <div className={cn(

@@ -198,7 +198,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
                       <div className="mt-2">
                         {isDetailsLoaded ? (
                           <div className="flex items-center gap-2">
-                            <Progress value={stats.progressPercentage} className="h-1.5 flex-1" />
+                            <Progress value={stats.progressPercentage} className="h-1.5 max-w-[200px]" />
                             <span className="text-xs text-muted-foreground w-8 text-right">
                               {stats.progressPercentage}%
                             </span>
