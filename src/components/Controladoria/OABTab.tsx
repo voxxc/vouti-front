@@ -15,11 +15,14 @@ import {
   Filter,
   Users,
   AlertCircle,
-  Trash2
+   Trash2,
+   Search,
+   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -373,6 +376,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   const [compartilhadosMap, setCompartilhadosMap] = useState<CompartilhadosMap>({});
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
+  const [termoBusca, setTermoBusca] = useState<string>('');
 
   // Buscar processos compartilhados (CNJs que aparecem em multiplas OABs)
   useEffect(() => {
@@ -454,18 +458,32 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
 
   // Aplicar filtro antes do agrupamento
   const processosFiltrados = useMemo(() => {
-    if (filtroUF === 'todos') return processos;
+    let resultado = processos;
+    
+    // Filtro por UF/status
     if (filtroUF === 'compartilhados') {
-      return processos.filter(p => compartilhadosMap[p.numero_cnj]);
+      resultado = resultado.filter(p => compartilhadosMap[p.numero_cnj]);
+    } else if (filtroUF === 'nao-lidos') {
+      resultado = resultado.filter(p => (p.andamentos_nao_lidos || 0) > 0);
+    } else if (filtroUF === 'monitorados') {
+      resultado = resultado.filter(p => p.monitoramento_ativo === true);
+    } else if (filtroUF !== 'todos') {
+      resultado = resultado.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
     }
-    if (filtroUF === 'nao-lidos') {
-      return processos.filter(p => (p.andamentos_nao_lidos || 0) > 0);
+    
+    // Filtro por termo de busca
+    if (termoBusca.trim()) {
+      const termo = termoBusca.toLowerCase().trim();
+      resultado = resultado.filter(p => 
+        p.numero_cnj?.toLowerCase().includes(termo) ||
+        p.parte_ativa?.toLowerCase().includes(termo) ||
+        p.parte_passiva?.toLowerCase().includes(termo) ||
+        p.tribunal_sigla?.toLowerCase().includes(termo)
+      );
     }
-    if (filtroUF === 'monitorados') {
-      return processos.filter(p => p.monitoramento_ativo === true);
-    }
-    return processos.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
-  }, [processos, filtroUF, compartilhadosMap]);
+    
+    return resultado;
+  }, [processos, filtroUF, compartilhadosMap, termoBusca]);
 
   const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
 
@@ -574,7 +592,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Área Fixa - Filtro por UF */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 space-y-3">
         {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
           <div className="flex items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground" />
@@ -625,6 +643,27 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
           )}
         </div>
         )}
+        
+        {/* Barra de Pesquisa */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por CNJ, partes ou tribunal..."
+            value={termoBusca}
+            onChange={(e) => setTermoBusca(e.target.value)}
+            className="pl-9 pr-9"
+          />
+          {termoBusca && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setTermoBusca('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Área Scrollável - Lista de Processos */}
