@@ -280,13 +280,13 @@ const Auth = () => {
                     </Button>
 
                     <p className="text-[10px] text-muted-foreground text-center mt-3 leading-relaxed">
-                      ao entrar, você concorda com os{' '}
-                      <a href="/termos-de-uso" target="_blank" className="underline hover:text-primary">
-                        termos de uso
-                      </a>
-                      ,{' '}
-                      <a href="/licenca" target="_blank" className="underline hover:text-primary">
-                        licença
+                      ao entrar, você concorda com o{' '}
+                      <a 
+                        href="/docs/termos-uso-licenca-vouti.pdf" 
+                        download 
+                        className="underline hover:text-primary"
+                      >
+                        termo de uso e licença
                       </a>
                       {' '}e{' '}
                       <a href="/privacidade" target="_blank" className="underline hover:text-primary">
