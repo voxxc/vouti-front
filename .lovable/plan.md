@@ -1,62 +1,88 @@
 
-# Corrigir Sidebar Inclicavel com Drawer Aberto
+# Corrigir Contagem de Protocolos Concluídos no Dashboard
 
 ## Problema Identificado
 
-A implementacao anterior usou `onInteractOutside={(e) => e.preventDefault()}` para evitar que o drawer feche ao clicar fora, porem o Radix Dialog por padrao e `modal={true}`, o que:
+O 3º card do Dashboard (Protocolos) não está contando corretamente os **protocolos concluídos**. A causa raiz é:
 
-1. Adiciona `pointer-events: none` ao body
-2. Cria um "focus trap" que bloqueia interacoes fora do dialog
-3. Esconde conteudo de leitores de tela
+1. **Etapas** podem ter status `pendente`, `em_andamento` ou `concluido`
+2. **Protocolos** têm status separado, mas nunca é atualizado automaticamente quando todas as etapas são concluídas
+3. No banco de dados: todos os 44 protocolos têm status `em_andamento`
+4. A query do Dashboard filtra por `p.status === 'concluido'` no protocolo, resultando em 0 protocolos concluídos
 
-Por isso a sidebar ficou completamente inclicavel enquanto um drawer esta aberto.
+## Solução
 
-## Solucao
+Modificar a query do Dashboard para considerar um protocolo como "concluído" de duas formas:
 
-Usar a prop `modal={false}` no componente `Sheet` para os drawers do tipo `inset` e `left-offset`. Isso:
+1. **Status explícito**: `status === 'concluido'` (quando o usuário marca manualmente)
+2. **100% das etapas concluídas**: Quando um protocolo tem etapas e todas estão com `status === 'concluido'`
 
-1. Permite interacao com elementos fora do drawer (sidebar)
-2. Mantem o drawer aberto ate ser explicitamente fechado
-3. Permite troca direta entre drawers com um unico clique
+Isso refletirá melhor a realidade operacional, onde protocolos são considerados concluídos quando todas as etapas foram finalizadas.
 
-## Alteracoes Tecnicas
+## Alterações Técnicas
 
-### 1. src/components/ui/sheet.tsx
+### Arquivo: src/components/Dashboard/Metrics/AdminMetrics.tsx
 
-Adicionar uma nova prop `modal` ao `SheetContent` e passa-la para o `Sheet` (Root):
-
-```tsx
-interface SheetContentProps
-  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {
-  modal?: boolean;
-}
-```
-
-### 2. Abordagem Alternativa (mais limpa)
-
-Como o `Sheet` ja exporta o `SheetPrimitive.Root` como `Sheet`, a solucao e passar `modal={false}` diretamente nos componentes dos drawers:
+Modificar a query de protocolos para incluir as etapas e calcular a conclusão:
 
 ```tsx
-// Em AgendaDrawer.tsx, ProjectsDrawer.tsx, etc:
-<Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+// Antes (linhas 37-38)
+protocolosRes = await supabase
+  .from('project_protocolos')
+  .select('id, status, data_previsao')
+
+// Depois
+protocolosRes = await supabase
+  .from('project_protocolos')
+  .select(`
+    id, 
+    status, 
+    data_previsao,
+    etapas:project_protocolo_etapas(id, status)
+  `)
 ```
 
-Esta abordagem e mais simples e nao requer alteracoes no componente base `sheet.tsx`.
+Modificar a lógica de contagem de protocolos concluídos:
 
-## Arquivos a Editar
+```tsx
+// Antes (linha 53)
+const protocolosConcluidos = protocolos.filter(p => p.status === 'concluido').length;
 
-1. `src/components/Agenda/AgendaDrawer.tsx` - Adicionar `modal={false}`
-2. `src/components/Projects/ProjectsDrawer.tsx` - Adicionar `modal={false}`
-3. `src/components/Controladoria/ControladoriaDrawer.tsx` - Adicionar `modal={false}`
-4. `src/components/CRM/CRMDrawer.tsx` - Adicionar `modal={false}`
-5. `src/components/Financial/FinancialDrawer.tsx` - Adicionar `modal={false}`
-6. `src/components/Reunioes/ReunioesDrawer.tsx` - Adicionar `modal={false}`
-7. `src/components/ui/sheet.tsx` - Remover o `onInteractOutside` pois nao sera mais necessario
+// Depois - considera concluído se:
+// 1. Status explícito é 'concluido' OU
+// 2. Tem etapas E todas estão concluídas
+const protocolosConcluidos = protocolos.filter(p => {
+  if (p.status === 'concluido') return true;
+  const etapas = p.etapas || [];
+  if (etapas.length === 0) return false;
+  return etapas.every(e => e.status === 'concluido');
+}).length;
+```
+
+Atualizar a lógica de protocolos atrasados para também considerar a mesma definição de "concluído":
+
+```tsx
+// Antes (linhas 49-52)
+const protocolosAtrasados = protocolos.filter(p => {
+  if (!p.data_previsao) return false;
+  return new Date(p.data_previsao) < new Date() && p.status !== 'concluido';
+}).length;
+
+// Depois
+const protocolosAtrasados = protocolos.filter(p => {
+  if (!p.data_previsao) return false;
+  const isConcluido = p.status === 'concluido' || 
+    ((p.etapas?.length || 0) > 0 && p.etapas.every(e => e.status === 'concluido'));
+  return new Date(p.data_previsao) < new Date() && !isConcluido;
+}).length;
+```
 
 ## Resultado Esperado
 
-1. Usuario clica em "Agenda" - Drawer da Agenda abre
-2. Com drawer aberto, usuario clica em "Controladoria" - Drawer da Controladoria abre diretamente (substituindo Agenda)
-3. Sidebar permanece completamente funcional enquanto drawer esta aberto
-4. Drawer fecha apenas ao clicar no X ou navegar para Dashboard/Extras
+1. O card de Protocolos mostrará corretamente quantos protocolos foram concluídos (seja por status explícito ou por ter 100% das etapas concluídas)
+2. Protocolos atrasados não contarão os que já foram concluídos pelas etapas
+3. O visual das mini-barras no card refletirá a realidade operacional
+
+## Arquivo a Editar
+
+- `src/components/Dashboard/Metrics/AdminMetrics.tsx`
