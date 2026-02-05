@@ -5,13 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ProcessoAndamento {
-  processo_id: string;
-  data_movimentacao: string;
-  descricao: string;
-  tipo: string;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -35,13 +28,26 @@ Deno.serve(async (req) => {
       throw new Error('Usuário não autenticado');
     }
 
-    console.log('Iniciando atualização de andamentos para o usuário:', user.id);
+    // Buscar tenant_id do usuário
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single();
 
-    // Buscar processos do usuário
+    if (!profile?.tenant_id) {
+      throw new Error('Tenant não encontrado para o usuário');
+    }
+
+    const tenantId = profile.tenant_id;
+    console.log('[Atualizar Andamentos] Tenant:', tenantId, 'User:', user.id);
+
+    // Buscar processos OAB do tenant que tem numero_cnj
     const { data: processos, error: processosError } = await supabase
-      .from('processos')
-      .select('id, numero_processo, tribunais(sigla)')
-      .or(`created_by.eq.${user.id},advogado_responsavel_id.eq.${user.id}`);
+      .from('processos_oab')
+      .select('id, numero_cnj, detalhes_request_id, tracking_id')
+      .eq('tenant_id', tenantId)
+      .not('numero_cnj', 'is', null);
 
     if (processosError) {
       console.error('Erro ao buscar processos:', processosError);
@@ -54,109 +60,65 @@ Deno.serve(async (req) => {
           success: true,
           message: 'Nenhum processo encontrado para atualizar',
           processosVerificados: 0,
+          processosComSucesso: 0,
+          processosComErro: 0,
           andamentosAdicionados: 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Verificando ${processos.length} processos`);
+    console.log(`[Atualizar Andamentos] Verificando ${processos.length} processos`);
 
     let totalAndamentosInseridos = 0;
     let processosComSucesso = 0;
     let processosComErro = 0;
     const erros: string[] = [];
 
-    // Processar em lotes de 5 para evitar timeout
-    const BATCH_SIZE = 5;
+    // Agrupar processos por CNJ para evitar consultas duplicadas
+    const cnjs = [...new Set(processos.map(p => p.numero_cnj).filter(Boolean))] as string[];
+    console.log(`[Atualizar Andamentos] CNJs únicos: ${cnjs.length}`);
+
+    // Processar em lotes de 3 para evitar timeout
+    const BATCH_SIZE = 3;
     
-    for (let i = 0; i < processos.length; i += BATCH_SIZE) {
-      const lote = processos.slice(i, i + BATCH_SIZE);
-      
-      console.log(`Processando lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(processos.length / BATCH_SIZE)}`);
+    for (let i = 0; i < cnjs.length; i += BATCH_SIZE) {
+      const lote = cnjs.slice(i, i + BATCH_SIZE);
+      console.log(`[Atualizar Andamentos] Lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(cnjs.length / BATCH_SIZE)}`);
 
       const resultados = await Promise.allSettled(
-        lote.map(async (processo) => {
+        lote.map(async (cnj) => {
+          const processo = processos.find(p => p.numero_cnj === cnj);
+          if (!processo) return { cnj, andamentos: 0 };
+
           try {
-            // Chamar buscar-processos-lote
-            const { data, error } = await supabase.functions.invoke('buscar-processos-lote', {
+            // Chamar judit-buscar-detalhes-processo
+            const { data, error } = await supabase.functions.invoke('judit-buscar-detalhes-processo', {
               body: {
-                processos: [processo.numero_processo],
-                tribunal: processo.tribunais?.sigla || 'TJPR',
-              },
+                processoOabId: processo.id,
+                numeroCnj: cnj,
+                tenantId: tenantId,
+                userId: user.id
+              }
             });
 
             if (error) throw error;
-
-            const resultado = data?.processos?.[0];
-            if (!resultado || !resultado.success) {
-              throw new Error(resultado?.erro || 'Falha ao buscar andamentos');
-            }
-
-            // Buscar movimentações existentes
-            const { data: existentes } = await supabase
-              .from('processo_movimentacoes')
-              .select('descricao, data_movimentacao')
-              .eq('processo_id', processo.id);
-
-            // Deduplicação
-            const existentesSet = new Set(
-              existentes?.map(m => {
-                const normDesc = m.descricao.trim().replace(/\s+/g, ' ').toLowerCase();
-                const dateKey = new Date(m.data_movimentacao).toISOString().slice(0, 10);
-                return `${normDesc}|${dateKey}`;
-              }) || []
-            );
-
-            const novasMovimentacoes = resultado.movimentacoes.filter(mov => {
-              const normDesc = mov.descricao.trim().replace(/\s+/g, ' ').toLowerCase();
-              const dateKey = new Date(mov.data).toISOString().slice(0, 10);
-              const key = `${normDesc}|${dateKey}`;
-              return !existentesSet.has(key);
-            });
-
-            // Inserir novas movimentações
-            if (novasMovimentacoes.length > 0) {
-              const movimentacoesParaInserir = novasMovimentacoes.map(mov => ({
-                processo_id: processo.id,
-                tipo: mov.tipo || 'intimacao',
-                data_movimentacao: new Date(mov.data).toISOString(),
-                descricao: mov.descricao,
-                is_automated: true,
-                status_conferencia: 'pendente',
-                metadata: {
-                  fonte: resultado.fonte,
-                  sequencia: mov.sequencia,
-                  texto_completo: mov.texto_completo,
-                  metadata_completa: mov.metadata_completa,
-                  atualizado_em: new Date().toISOString(),
-                },
-              }));
-
-              const { error: insertError } = await supabase
-                .from('processo_movimentacoes')
-                .insert(movimentacoesParaInserir);
-
-              if (insertError) throw insertError;
-            }
-
+            
             return {
-              processoId: processo.id,
-              numeroProcesso: processo.numero_processo,
-              novasMovimentacoes: novasMovimentacoes.length,
-              fonte: resultado.fonte
+              cnj,
+              andamentos: data?.andamentosInseridos || 0
             };
-          } catch (error) {
-            throw new Error(`${processo.numero_processo}: ${error.message}`);
+          } catch (err: any) {
+            throw new Error(`${cnj}: ${err.message}`);
           }
         })
       );
 
       // Processar resultados do lote
-      resultados.forEach((resultado, idx) => {
+      resultados.forEach((resultado) => {
         if (resultado.status === 'fulfilled') {
           processosComSucesso++;
-          totalAndamentosInseridos += resultado.value.novasMovimentacoes;
+          totalAndamentosInseridos += resultado.value.andamentos;
         } else {
           processosComErro++;
           erros.push(resultado.reason.message);
@@ -164,8 +126,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log('Atualização concluída:', {
-      processosVerificados: processos.length,
+    console.log('[Atualizar Andamentos] Concluído:', {
+      processosVerificados: cnjs.length,
       processosComSucesso,
       processosComErro,
       totalAndamentosInseridos
@@ -174,12 +136,12 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Atualização concluída`,
-        processosVerificados: processos.length,
+        message: 'Atualização concluída',
+        processosVerificados: cnjs.length,
         processosComSucesso,
         processosComErro,
         andamentosAdicionados: totalAndamentosInseridos,
-        erros: erros.length > 0 ? erros.slice(0, 5) : undefined // Máximo 5 erros
+        erros: erros.length > 0 ? erros.slice(0, 5) : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
