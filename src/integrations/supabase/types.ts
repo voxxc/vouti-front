@@ -1793,6 +1793,53 @@ export type Database = {
           },
         ]
       }
+      feriados_forenses: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          data: string
+          descricao: string
+          id: string
+          recorrente: boolean | null
+          tenant_id: string | null
+          tipo: string
+          tribunal_sigla: string | null
+          uf: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          data: string
+          descricao: string
+          id?: string
+          recorrente?: boolean | null
+          tenant_id?: string | null
+          tipo: string
+          tribunal_sigla?: string | null
+          uf?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          data?: string
+          descricao?: string
+          id?: string
+          recorrente?: boolean | null
+          tenant_id?: string | null
+          tipo?: string
+          tribunal_sigla?: string | null
+          uf?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feriados_forenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grupos_acoes: {
         Row: {
           cor: string | null
@@ -2763,6 +2810,116 @@ export type Database = {
         }
         Relationships: []
       }
+      prazos_automaticos_log: {
+        Row: {
+          andamento_id: string | null
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string | null
+          deadline_id: string | null
+          id: string
+          prazo_dias: number | null
+          processo_oab_id: string | null
+          tenant_id: string | null
+          tipo_ato_detectado: string | null
+          tipo_evento: string
+        }
+        Insert: {
+          andamento_id?: string | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          deadline_id?: string | null
+          id?: string
+          prazo_dias?: number | null
+          processo_oab_id?: string | null
+          tenant_id?: string | null
+          tipo_ato_detectado?: string | null
+          tipo_evento: string
+        }
+        Update: {
+          andamento_id?: string | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          deadline_id?: string | null
+          id?: string
+          prazo_dias?: number | null
+          processo_oab_id?: string | null
+          tenant_id?: string | null
+          tipo_ato_detectado?: string | null
+          tipo_evento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prazos_automaticos_log_andamento_id_fkey"
+            columns: ["andamento_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab_andamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prazos_automaticos_log_deadline_id_fkey"
+            columns: ["deadline_id"]
+            isOneToOne: false
+            referencedRelation: "deadlines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prazos_automaticos_log_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prazos_automaticos_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prazos_processuais_cpc: {
+        Row: {
+          ativo: boolean | null
+          categoria: string | null
+          created_at: string | null
+          dias_uteis: boolean | null
+          fundamento_legal: string | null
+          id: string
+          padroes_deteccao: string[] | null
+          prazo_dias: number
+          tipo_ato: string
+          tipo_ato_label: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string | null
+          dias_uteis?: boolean | null
+          fundamento_legal?: string | null
+          id?: string
+          padroes_deteccao?: string[] | null
+          prazo_dias: number
+          tipo_ato: string
+          tipo_ato_label: string
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string | null
+          dias_uteis?: boolean | null
+          fundamento_legal?: string | null
+          id?: string
+          padroes_deteccao?: string[] | null
+          prazo_dias?: number
+          tipo_ato?: string
+          tipo_ato_label?: string
+        }
+        Relationships: []
+      }
       processo_andamentos_judit: {
         Row: {
           created_at: string | null
@@ -3674,6 +3831,9 @@ export type Database = {
           parte_ativa: string | null
           parte_passiva: string | null
           partes_completas: Json | null
+          prazo_advogado_responsavel_id: string | null
+          prazo_automatico_ativo: boolean | null
+          prazo_usuarios_marcados: string[] | null
           status_processual: string | null
           tenant_id: string | null
           tracking_id: string | null
@@ -3706,6 +3866,9 @@ export type Database = {
           parte_ativa?: string | null
           parte_passiva?: string | null
           partes_completas?: Json | null
+          prazo_advogado_responsavel_id?: string | null
+          prazo_automatico_ativo?: boolean | null
+          prazo_usuarios_marcados?: string[] | null
           status_processual?: string | null
           tenant_id?: string | null
           tracking_id?: string | null
@@ -3738,6 +3901,9 @@ export type Database = {
           parte_ativa?: string | null
           parte_passiva?: string | null
           partes_completas?: Json | null
+          prazo_advogado_responsavel_id?: string | null
+          prazo_automatico_ativo?: boolean | null
+          prazo_usuarios_marcados?: string[] | null
           status_processual?: string | null
           tenant_id?: string | null
           tracking_id?: string | null
@@ -3754,6 +3920,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "oabs_cadastradas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_oab_prazo_advogado_responsavel_id_fkey"
+            columns: ["prazo_advogado_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "processos_oab_tenant_id_fkey"
@@ -6446,6 +6619,15 @@ export type Database = {
     }
     Functions: {
       atualizar_status_parcelas: { Args: never; Returns: undefined }
+      calcular_prazo_dias_uteis: {
+        Args: {
+          p_data_inicio: string
+          p_prazo_dias: number
+          p_tenant_id?: string
+          p_tribunal_sigla?: string
+        }
+        Returns: string
+      }
       create_project_notification: {
         Args: {
           notification_content: string
