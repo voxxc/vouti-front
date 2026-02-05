@@ -81,14 +81,8 @@ const pessoaAdicionalSchema = z.object({
   data_nascimento: z.string().optional().or(z.literal('')),
   endereco: z.string().optional(),
   profissao: z.string().optional(),
-  uf: z.string().length(2, 'UF deve ter 2 caracteres').optional().or(z.literal('')),
-}).refine(
-  (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
-  {
-    message: 'Informe ao menos um nome para a pessoa adicional',
-    path: ['nome_pessoa_fisica'],
-  }
-);
+  uf: z.string().optional().or(z.literal('')),
+});
 
 export const clienteSchema = z.object({
   nome_pessoa_fisica: z.string().optional(),
@@ -126,12 +120,6 @@ export const clienteSchema = z.object({
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
   grupos_parcelas: z.any().optional(), // JSONB field
   proveito_economico: z.string().optional(), // Percentual de proveito econômico
-}).refine(
-  (data) => data.nome_pessoa_fisica || data.nome_pessoa_juridica,
-  {
-    message: 'Informe ao menos um nome (Pessoa Física ou Pessoa Jurídica)',
-    path: ['nome_pessoa_fisica'],
-  }
-);
+});
 
 export type ClienteFormData = z.infer<typeof clienteSchema>;
