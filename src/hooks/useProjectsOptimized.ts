@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useToast } from "@/hooks/use-toast";
-import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
+import { checkIfUserIsAdminOrController as checkAdminOrControllerFn } from "@/lib/auth-helpers";
 import { calculateProjectProgress } from "@/utils/projectHelpers";
 import { KanbanColumn } from "@/types/project";
 
@@ -48,21 +48,16 @@ export const useProjectsOptimized = () => {
     projectsRef.current = projects;
   }, [projects]);
 
-  // Check admin or controller status (both have full project access)
-  const checkAdminOrController = useCallback(async () => {
-    if (!user) return false;
-    const result = await checkIfUserIsAdminOrController(user.id);
-    setIsAdmin(result);
-    isAdminRef.current = result;
-    return result;
-  }, [user]);
 
   // Phase 1: Load basic project data (instant)
   const fetchBasicProjects = useCallback(async () => {
-    if (!user || !tenantId) return;
+    if (!user || !tenantId) return [];
 
     try {
-      const hasFullAccess = await checkAdminOrController();
+      // Check admin/controller status with tenant context
+      const hasFullAccess = await checkAdminOrControllerFn(user.id, tenantId);
+      setIsAdmin(hasFullAccess);
+      isAdminRef.current = hasFullAccess;
       
       // CRITICAL: Always filter by tenant_id for multi-tenant isolation
       let query = supabase
@@ -123,7 +118,7 @@ export const useProjectsOptimized = () => {
       setIsBasicLoaded(true);
       return [];
     }
-  }, [user, checkAdminOrController, toast]);
+  }, [user, tenantId, toast]);
 
   // Phase 2: Load details in background
   const fetchProjectDetails = useCallback(async (projectIds: string[]) => {
@@ -374,7 +369,7 @@ export const useProjectsOptimized = () => {
 
   // Initial load
   useEffect(() => {
-    if (!user) return;
+    if (!user || !tenantId) return;
 
     const loadData = async () => {
       // Phase 1: Load basic data
@@ -389,7 +384,7 @@ export const useProjectsOptimized = () => {
     };
 
     loadData();
-  }, [user, fetchBasicProjects, fetchProjectDetails]);
+  }, [user, tenantId, fetchBasicProjects, fetchProjectDetails]);
 
   // Real-time subscriptions
   useEffect(() => {
