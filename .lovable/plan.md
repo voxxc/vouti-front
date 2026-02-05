@@ -1,121 +1,69 @@
 
-# Adicionar Barra de Pesquisa na Aba OABs
+# Adicionar Texto de Termos de Uso na Tela de Login
 
 ## Objetivo
 
-Adicionar uma barra de pesquisa dentro do componente `OABTab` (aba de cada OAB), posicionada abaixo do filtro de UF/status existente.
+Adicionar um texto pequeno (minúsculo) abaixo do botão "Entrar" informando que ao entrar o usuário aceita os termos de uso, licença e política de privacidade, com links para download/visualização.
 
-## Localização
+## Alteração
 
-A barra será inserida no arquivo `src/components/Controladoria/OABTab.tsx`, dentro da area fixa ("flex-shrink-0"), logo apos o Select de filtros (linhas 576-628).
+### src/pages/Auth.tsx
 
-## Funcionalidade
+Adicionar texto após o botão "Entrar" (linha 280), dentro do formulário de login:
 
-A pesquisa filtrara os processos por:
-- Numero CNJ (parcial ou completo)
-- Nome da parte ativa
-- Nome da parte passiva
-- Tribunal
-
-## Alteracoes Tecnicas
-
-### src/components/Controladoria/OABTab.tsx
-
-1. **Importar o componente Input**:
 ```tsx
-import { Input } from '@/components/ui/input';
-import { Search, X } from 'lucide-react';
-```
+<Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
+  {isLoading ? "Entrando..." : "Entrar"}
+</Button>
 
-2. **Adicionar estado para termo de busca**:
-```tsx
-const [termoBusca, setTermoBusca] = useState<string>('');
-```
-
-3. **Atualizar a logica de filtragem** para considerar o termo de busca alem do filtro de UF:
-```tsx
-const processosFiltrados = useMemo(() => {
-  let resultado = processos;
-  
-  // Filtro por UF/status
-  if (filtroUF === 'compartilhados') {
-    resultado = resultado.filter(p => compartilhadosMap[p.numero_cnj]);
-  } else if (filtroUF === 'nao-lidos') {
-    resultado = resultado.filter(p => (p.andamentos_nao_lidos || 0) > 0);
-  } else if (filtroUF === 'monitorados') {
-    resultado = resultado.filter(p => p.monitoramento_ativo === true);
-  } else if (filtroUF !== 'todos') {
-    resultado = resultado.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
-  }
-  
-  // Filtro por termo de busca
-  if (termoBusca.trim()) {
-    const termo = termoBusca.toLowerCase().trim();
-    resultado = resultado.filter(p => 
-      p.numero_cnj?.toLowerCase().includes(termo) ||
-      p.parte_ativa?.toLowerCase().includes(termo) ||
-      p.parte_passiva?.toLowerCase().includes(termo) ||
-      p.tribunal_sigla?.toLowerCase().includes(termo)
-    );
-  }
-  
-  return resultado;
-}, [processos, filtroUF, compartilhadosMap, termoBusca]);
-```
-
-4. **Adicionar barra de pesquisa na UI** (abaixo do filtro existente):
-```tsx
-{/* Area Fixa - Filtro por UF */}
-<div className="flex-shrink-0 space-y-3">
-  {/* Filtro existente */}
-  {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
-    <div className="flex items-center gap-3">
-      {/* ... Select atual ... */}
-    </div>
-  )}
-  
-  {/* Nova Barra de Pesquisa */}
-  <div className="relative">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-    <Input
-      placeholder="Buscar por CNJ, partes ou tribunal..."
-      value={termoBusca}
-      onChange={(e) => setTermoBusca(e.target.value)}
-      className="pl-9 pr-9"
-    />
-    {termoBusca && (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-        onClick={() => setTermoBusca('')}
-      >
-        <X className="h-4 w-4" />
-      </Button>
-    )}
-  </div>
-</div>
+{/* Novo texto de termos */}
+<p className="text-[10px] text-muted-foreground text-center mt-3 leading-relaxed">
+  ao entrar, você concorda com os{' '}
+  <a href="/termos-de-uso" target="_blank" className="underline hover:text-primary">
+    termos de uso
+  </a>
+  ,{' '}
+  <a href="/licenca" target="_blank" className="underline hover:text-primary">
+    licença
+  </a>
+  {' '}e{' '}
+  <a href="/privacidade" target="_blank" className="underline hover:text-primary">
+    política de privacidade
+  </a>
+</p>
 ```
 
 ## Resultado Visual
 
 ```text
-┌──────────────────────────────────────────────────────┐
-│ [Filtrar ▼ Todos (25)]                               │
-├──────────────────────────────────────────────────────┤
-│ 🔍 Buscar por CNJ, partes ou tribunal...         [x] │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│  ▼ 1a Instancia (15 processos)                      │
-│    ├─ 0001234-56.2024.8.16.0001                     │
-│    ├─ 0005678-90.2024.8.16.0002                     │
-│    └─ ...                                           │
-│                                                      │
-│  ▼ 2a Instancia (10 processos)                      │
-│    └─ ...                                           │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│         Acesso ao Sistema               │
+│  Entre ou crie sua conta para continuar │
+├─────────────────────────────────────────┤
+│  Email                                  │
+│  [seu@email.com                      ]  │
+│                                         │
+│  Senha                                  │
+│  [••••••••                           ]  │
+│                                         │
+│              Esqueceu sua senha?        │
+│                                         │
+│  [         Entrar                    ]  │
+│                                         │
+│  ao entrar, você concorda com os        │
+│  termos de uso, licença e política      │
+│  de privacidade                         │
+└─────────────────────────────────────────┘
 ```
+
+## Detalhes Técnicos
+
+- Texto em `text-[10px]` para ficar bem pequeno
+- Cor `text-muted-foreground` para ficar discreto
+- Links com `underline` e `hover:text-primary` para indicar clicabilidade
+- Links abrindo em nova aba (`target="_blank"`)
+- Todo texto em minúsculo conforme solicitado
 
 ## Arquivo a Editar
 
-1. `src/components/Controladoria/OABTab.tsx`
+1. `src/pages/Auth.tsx` - adicionar após linha 280
