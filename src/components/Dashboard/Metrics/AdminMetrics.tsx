@@ -34,7 +34,12 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.from('leads_captacao').select('id, status', { count: 'exact' }).eq('tenant_id', tenantId),
         supabase.rpc('get_dashboard_processos_count'),
-        supabase.from('project_protocolos').select('id, status, data_previsao')
+        supabase.from('project_protocolos').select(`
+          id, 
+          status, 
+          data_previsao,
+          etapas:project_protocolo_etapas(id, status)
+        `)
       ]);
 
       const totalLeads = leadsRes.count || 0;
@@ -42,15 +47,29 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
       // Calcular métricas de protocolos
-      const protocolos = protocolosRes.data || [];
+      const protocolos = (protocolosRes.data || []) as Array<{
+        id: string;
+        status: string;
+        data_previsao: string | null;
+        etapas: Array<{ id: string; status: string }> | null;
+      }>;
       const totalProtocolos = protocolos.length;
       const protocolosPendentes = protocolos.filter(p => p.status === 'pendente').length;
       const protocolosEmAndamento = protocolos.filter(p => p.status === 'em_andamento').length;
+      
+      // Protocolo é concluído se: status explícito 'concluido' OU todas as etapas concluídas
+      const isProtocoloConcluido = (p: typeof protocolos[0]) => {
+        if (p.status === 'concluido') return true;
+        const etapas = p.etapas || [];
+        if (etapas.length === 0) return false;
+        return etapas.every(e => e.status === 'concluido');
+      };
+      
       const protocolosAtrasados = protocolos.filter(p => {
         if (!p.data_previsao) return false;
-        return new Date(p.data_previsao) < new Date() && p.status !== 'concluido';
+        return new Date(p.data_previsao) < new Date() && !isProtocoloConcluido(p);
       }).length;
-      const protocolosConcluidos = protocolos.filter(p => p.status === 'concluido').length;
+      const protocolosConcluidos = protocolos.filter(isProtocoloConcluido).length;
 
       return {
         totalProjects: projectsRes.count || 0,
