@@ -171,7 +171,7 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
 
   // Get recent tasks for upcoming deadlines (using the 5 most recent tasks)
   const upcomingDeadlines = tasks
-    .filter(task => task.status !== 'done')
+    .filter(task => task.status !== 'done' && task.updated_at)
     .slice(0, 5)
     .map(task => ({
       task: task.title,
@@ -313,7 +313,9 @@ export const OverviewSection = ({ users, projects }: OverviewProps) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {deadline.date.toLocaleDateString('pt-BR')}
+                    {deadline.date && !isNaN(deadline.date.getTime()) 
+                      ? deadline.date.toLocaleDateString('pt-BR')
+                      : '-'}
                   </span>
                   <Badge 
                     variant="outline" 
