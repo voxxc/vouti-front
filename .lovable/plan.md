@@ -1,89 +1,66 @@
 
-# Correção: Botões de Ação Cortados nos Cards de Processos
+# Correção: Botões de Ação Cortados na Lateral Direita - OABs
 
 ## Problema Identificado
 
-O `ScrollArea` adicionado para scroll independente está cortando a lateral direita dos cards de processos, escondendo os botões "Excluir" e "Detalhes".
+Analisando o código atual, o problema é que o container flex principal e o container de informações do processo não estão controlando corretamente o overflow. Isso faz com que textos longos (como nomes de partes processuais) empurrem os botões de ação para fora da área visível.
 
-**Causa raiz**: O `Viewport` do Radix ScrollArea usa `overflow: scroll` internamente, mas não respeita o `pr-4` aplicado no container filho. O conteúdo está sendo cortado horizontalmente.
+## Conceito Visual
 
-## Solução
+```text
+PROBLEMA ATUAL:
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [⋮⋮] │ 1234567-89.2024 │ COOPERATIVA DE CREDITO MUITO LONGA vs PARTE PASSIVA LONGA...  [cortado]
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-Ajustar a estrutura do ScrollArea para garantir que o conteúdo interno tenha largura total visível:
+SOLUÇÃO PROPOSTA:
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [⋮⋮] │ 1234567-89.2024 │ COOPERATIVA DE CREDITO... vs PARTE...  │ [🗑] [👁 Detalhes]         │
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
-1. Remover `pr-4` do container interno do ScrollArea
-2. Adicionar `overflow-x-visible` ou usar `min-w-0` nos elementos flex
-3. Garantir que o `ProcessoCard` não tenha conteúdo que ultrapasse os limites
-
-## Alterações
+## Alterações Necessárias
 
 ### Arquivo: `src/components/Controladoria/OABTab.tsx`
 
-**Mudança 1 - Container do ScrollArea (linha 631-633):**
-
+**Mudança 1 - Container flex principal (linha 168):**
 ```tsx
 // ANTES:
-<ScrollArea className="h-[calc(100vh-320px)]">
-  <DragDropContext onDragEnd={handleDragEnd}>
-    <div className="space-y-4 pr-4">
-
-// DEPOIS:
-<div className="h-[calc(100vh-320px)] overflow-y-auto overflow-x-hidden">
-  <DragDropContext onDragEnd={handleDragEnd}>
-    <div className="space-y-4">
-```
-
-**Explicacao**: Trocar o `ScrollArea` do Radix por um `div` nativo com `overflow-y-auto` resolve o problema de corte horizontal. O Radix ScrollArea é otimo para scrollbars customizados, mas pode causar problemas de largura em layouts flex complexos.
-
-**Alternativa (se quiser manter ScrollArea):**
-
-```tsx
-<ScrollArea className="h-[calc(100vh-320px)] w-full">
-  <DragDropContext onDragEnd={handleDragEnd}>
-    <div className="space-y-4 w-full">
-```
-
-E ajustar o `ProcessoCard` para ter `min-w-0` no container flex:
-
-```tsx
-// Linha 168 do ProcessoCard:
-<div className="flex items-center gap-3 min-w-0 w-full">
-```
-
-**Mudança 2 - ProcessoCard (linha 168):**
-
-```tsx
-// ANTES:
-<div className="flex items-center gap-3">
-
-// DEPOIS:
 <div className="flex items-center gap-3 w-full">
-```
-
-**Mudança 3 - Actions no ProcessoCard (linha 241):**
-
-```tsx
-// ANTES:
-<div className="flex items-center gap-1">
 
 // DEPOIS:
-<div className="flex items-center gap-1 shrink-0">
+<div className="flex items-center gap-3 w-full overflow-hidden">
 ```
 
-Adicionar `shrink-0` garante que os botoes de acao nunca encolham, permanecendo sempre visiveis.
+**Mudança 2 - Container de info do processo (linha 178):**
+```tsx
+// ANTES:
+<div className="flex-1 min-w-0">
 
----
+// DEPOIS:
+<div className="flex-1 min-w-0 overflow-hidden">
+```
 
-## Resumo
+**Mudança 3 - Texto das partes (linha 228):**
+```tsx
+// ANTES:
+<p className="text-sm text-muted-foreground truncate">
 
-| Local | Antes | Depois |
-|-------|-------|--------|
-| ScrollArea container | `pr-4` | Removido ou usar div nativo |
-| ProcessoCard flex | `flex items-center gap-3` | `flex items-center gap-3 w-full` |
-| Actions container | `flex items-center gap-1` | `flex items-center gap-1 shrink-0` |
+// DEPOIS:
+<p className="text-sm text-muted-foreground truncate max-w-full">
+```
+
+## Explicação Técnica
+
+| Propriedade | Função |
+|-------------|--------|
+| `overflow-hidden` no container principal | Impede que filhos excedam a largura do card |
+| `overflow-hidden` no container de info | Força o texto a respeitar os limites do flex-1 |
+| `max-w-full` no parágrafo | Garante que o truncate funcione corretamente |
+| `shrink-0` nos botões (já existe) | Impede que os botões encolham |
 
 ## Resultado Esperado
 
-- Botoes "Excluir" e "Detalhes" ficam visiveis na lateral direita
-- Scroll vertical funciona normalmente
-- Cards nao sao cortados horizontalmente
+- Botões "Excluir" e "Detalhes" sempre visíveis na lateral direita
+- Texto das partes trunca com reticências (...) quando muito longo
+- Layout estável independente do tamanho do texto do processo
