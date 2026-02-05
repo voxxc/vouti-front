@@ -1,156 +1,242 @@
 
-# Otimização do Botão "Carregar/Atualizar Andamentos"
+# Adicionar Criação de Admin Extra no Super Admin
 
 ## Objetivo
 
-Transformar o botão de carregar andamentos em um "atualizador inteligente" que prioriza chamadas gratuitas (GET) quando o processo já tem `tracking_id` de monitoramento ativo, evitando custos desnecessários.
+Permitir que o Super Admin crie administradores adicionais para qualquer tenant diretamente pelo painel de controle, através do botão "Configurar" no card de cada cliente.
 
 ---
 
-## Situação Atual vs Proposta
+## Solução Proposta
 
-| Cenário | Hoje | Proposta |
-|---------|------|----------|
-| Tem `detalhes_request_id` | GET gratuito ✓ | GET gratuito ✓ |
-| Tem `tracking_id` (sem request_id) | POST pago ✗ | GET tracking → GET responses (gratuito!) ✓ |
-| Não tem nenhum ID | POST pago | POST pago |
+Transformar o botão "Configurar" em um **DropdownMenu** com duas opções:
+
+```text
+┌─────────────────────────────────────┐
+│  [Configurar ▼]                     │
+│  ┌─────────────────────────────────┐│
+│  │ ⚙️  Editar Dados do Cliente    ││
+│  │ 👤  Criar Admin Extra          ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+```
 
 ---
 
-## Fluxo Otimizado
+## Arquitetura
+
+### 1. Novo Componente: `CreateTenantAdminDialog.tsx`
+
+Dialog para criar um novo administrador para um tenant específico:
+
+| Campo | Tipo | Obrigatório |
+|-------|------|-------------|
+| Nome Completo | Input text | Sim |
+| Email | Input email | Sim |
+| Senha | Input password | Sim |
+| Confirmar Senha | Input password | Sim |
+
+### 2. Nova Edge Function: `create-tenant-admin`
+
+Endpoint que permite ao Super Admin criar um admin para qualquer tenant:
+
+```typescript
+// Verificações:
+// 1. O chamador é Super Admin? ✓
+// 2. O tenant existe? ✓
+// 3. O email já existe? ✓
+
+// Ações:
+// 1. Criar usuário no auth.users
+// 2. Criar/atualizar profile com tenant_id
+// 3. Criar role 'admin' para o tenant
+```
+
+**Por que uma nova Edge Function?**
+- A função `create-user` existente valida se o chamador é admin **do mesmo tenant**
+- Super Admin não pertence a nenhum tenant específico
+- Precisamos de uma função que valide se o chamador é **Super Admin**
+
+### 3. Modificação no `TenantCard.tsx`
+
+Transformar o botão simples em um DropdownMenu:
+
+```tsx
+// Antes:
+<Button onClick={onEdit}>
+  <Settings /> Configurar
+</Button>
+
+// Depois:
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="outline" size="sm" className="flex-1 gap-2">
+      <Settings className="h-4 w-4" />
+      Configurar
+      <ChevronDown className="h-3 w-3" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    <DropdownMenuItem onClick={onEdit}>
+      <Settings className="h-4 w-4 mr-2" />
+      Editar Dados do Cliente
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => setShowCreateAdmin(true)}>
+      <UserPlus className="h-4 w-4 mr-2" />
+      Criar Admin Extra
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+---
+
+## Interface do Dialog
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│              ATUALIZAR ANDAMENTOS - SMART                   │
+│  Criar Administrador Extra                            [×]   │
+│  Cliente: Solvenza                                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. Verificar detalhes_request_id salvo?                    │
-│        │                                                    │
-│    ┌───┴───┐                                                │
-│   SIM     NÃO                                               │
-│    │       │                                                │
-│    │       ▼                                                │
-│    │   2. Verificar tracking_id (monitoramento)?            │
-│    │       │                                                │
-│    │   ┌───┴───┐                                            │
-│    │  SIM     NÃO                                           │
-│    │   │       │                                            │
-│    │   ▼       ▼                                            │
-│    │  GET /tracking/{id}    POST /requests (PAGO)           │
-│    │  → Extrair request_id        │                         │
-│    │       │                      │                         │
-│    ▼       ▼                      ▼                         │
-│  GET /responses?request_id={id}  (GRATUITO)                 │
-│        │                                                    │
-│        ▼                                                    │
-│   Inserir novos andamentos                                  │
-│   Salvar request_id no processo                             │
+│  👤 Dados do Novo Administrador                             │
+│  ─────────────────────────────────────────────────────────  │
 │                                                             │
+│  Nome Completo *                                            │
+│  [_____________________________________________]            │
+│                                                             │
+│  Email *                                                    │
+│  [_____________________________________________]            │
+│                                                             │
+│  Senha *                                                    │
+│  [_____________________________________________] [👁️]       │
+│                                                             │
+│  Confirmar Senha *                                          │
+│  [_____________________________________________] [👁️]       │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│  ℹ️ Este usuário terá permissões de administrador no        │
+│     sistema do cliente Solvenza.                            │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                        [Cancelar]  [Criar Administrador]    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Alterações no Sistema
+## Arquivos a Criar/Modificar
 
-### 1. Modificar Edge Function: `judit-buscar-detalhes-processo`
+| Arquivo | Tipo | Descrição |
+|---------|------|-----------|
+| `src/components/SuperAdmin/CreateTenantAdminDialog.tsx` | Criar | Dialog para criar admin extra |
+| `src/components/SuperAdmin/TenantCard.tsx` | Modificar | Transformar botão em dropdown |
+| `supabase/functions/create-tenant-admin/index.ts` | Criar | Edge Function para Super Admin |
 
-Adicionar verificação de `tracking_id` antes de fazer POST pago:
+---
+
+## Fluxo de Execução
+
+```text
+1. Super Admin clica em "Configurar" no TenantCard
+           │
+           ▼
+2. Dropdown abre com duas opções
+           │
+           ├──→ "Editar Dados" → Abre EditTenantDialog (existente)
+           │
+           └──→ "Criar Admin Extra" → Abre CreateTenantAdminDialog
+                         │
+                         ▼
+3. Super Admin preenche dados do novo admin
+                         │
+                         ▼
+4. Chama Edge Function create-tenant-admin
+           │
+           ├──→ Valida que chamador é Super Admin
+           │
+           ├──→ Cria usuário no auth.users
+           │
+           ├──→ Atualiza profile com tenant_id
+           │
+           └──→ Cria role 'admin' para o tenant
+                         │
+                         ▼
+5. Toast de sucesso + fecha dialog
+```
+
+---
+
+## Segurança
+
+| Verificação | Implementação |
+|-------------|---------------|
+| Autorização | Verificar se user_id está em `super_admins` |
+| Tenant válido | Verificar se tenant existe |
+| Email único | Verificar se email não está cadastrado |
+| Senha forte | Mínimo 6 caracteres |
+| Domínios bloqueados | Bloquear @metalsystem.local, @vouti.bio, @vlink.bio |
+
+---
+
+## Detalhes Técnicos
+
+### Edge Function: `create-tenant-admin`
 
 ```typescript
-// NOVA LÓGICA (após verificar detalhes_request_id):
+// 1. Verificar Super Admin
+const { data: superAdmin } = await supabaseAdmin
+  .from('super_admins')
+  .select('id')
+  .eq('user_id', user.id)
+  .maybeSingle();
 
-// Se não tem request_id, verificar se tem tracking_id
-if (!requestId) {
-  const { data: processoComTracking } = await supabase
-    .from('processos_oab')
-    .select('tracking_id')
-    .eq('id', processoOabId)
-    .single();
-
-  if (processoComTracking?.tracking_id) {
-    // GET gratuito no tracking para obter request_id
-    const trackingResponse = await fetch(
-      `https://tracking.prod.judit.io/tracking/${processoComTracking.tracking_id}`,
-      { headers: { 'api-key': juditApiKey } }
-    );
-    
-    const trackingData = await trackingResponse.json();
-    const latestRequestId = trackingData.last_request_id || 
-                            trackingData.page_data?.[0]?.request_id;
-    
-    if (latestRequestId) {
-      requestId = latestRequestId;
-      usedExistingRequest = true; // GET gratuito!
-    }
-  }
+if (!superAdmin) {
+  return error(403, 'Only super admins can create tenant admins');
 }
-```
 
-### 2. Modificar UI: `ProcessoOABDetalhes.tsx`
+// 2. Verificar se tenant existe
+const { data: tenant } = await supabaseAdmin
+  .from('tenants')
+  .select('id, name')
+  .eq('id', tenant_id)
+  .single();
 
-**Unificar botão** e mostrar badge indicando se é gratuito ou pago:
+// 3. Criar usuário
+const { data: newUser } = await supabaseAdmin.auth.admin.createUser({
+  email,
+  password,
+  email_confirm: true,
+  user_metadata: { full_name }
+});
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Cenário: Processo com tracking_id (monitoramento ativo)    │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ⚡ Andamentos não carregados                               │
-│                                                             │
-│  [ 🔄 Atualizar Andamentos ] [Badge: Gratuito]              │
-│                                                             │
-│  ℹ️ Monitoramento ativo - atualização via tracking          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+// 4. Atualizar profile
+await supabaseAdmin
+  .from('profiles')
+  .upsert({
+    user_id: newUser.user.id,
+    email,
+    full_name,
+    tenant_id
+  });
 
-┌─────────────────────────────────────────────────────────────┐
-│  Cenário: Processo SEM tracking e SEM request_id            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ⚡ Andamentos não carregados                               │
-│                                                             │
-│  [ 🔄 Carregar Andamentos ] [Badge: Custo]                  │
-│                                                             │
-│  ⚠️ Esta consulta pode gerar custo                         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 3. Lógica de Badge no Frontend
-
-```typescript
-// Determinar se operação será gratuita
-const isGratuito = !!processo.detalhes_request_id || !!processo.tracking_id;
-
-// Remover confirmação dupla se for gratuito
-// Se isGratuito, chamar diretamente sem modal de confirmação
+// 5. Criar role admin
+await supabaseAdmin
+  .from('user_roles')
+  .insert({
+    user_id: newUser.user.id,
+    role: 'admin',
+    tenant_id,
+    is_primary: true
+  });
 ```
 
 ---
 
-## Arquivos a Modificar
+## Resultado Esperado
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/judit-buscar-detalhes-processo/index.ts` | Adicionar verificação de `tracking_id` |
-| `src/components/Controladoria/ProcessoOABDetalhes.tsx` | Unificar botão + badge + lógica condicional |
-
----
-
-## Benefícios
-
-1. **Economia de custos**: Processos com monitoramento ativo usarão GET gratuito
-2. **UX simples**: Usuário só vê um botão "Atualizar" - não precisa saber o que é GET/POST
-3. **Transparência**: Badge indica se haverá custo ou não
-4. **Menos confirmações**: Se gratuito, não precisa da dupla confirmação
-
----
-
-## Cenários de Uso
-
-| Usuário | Situação | Comportamento |
-|---------|----------|---------------|
-| Advogado | Abre processo com monitoramento ativo | Vê badge "Gratuito", clica e atualiza sem modal |
-| Advogado | Abre processo SEM monitoramento | Vê badge "Custo", clica e vê dupla confirmação |
-| Advogado | Processo já tem andamentos carregados | Botão de refresh no header, sempre gratuito |
+O Super Admin poderá:
+1. Clicar no botão "Configurar" de qualquer tenant
+2. Selecionar "Criar Admin Extra"
+3. Preencher os dados do novo administrador
+4. O novo admin terá acesso imediato ao sistema do cliente
