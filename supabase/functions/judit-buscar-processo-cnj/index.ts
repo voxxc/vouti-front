@@ -41,13 +41,31 @@ serve(async (req) => {
       throw new Error('Este processo ja esta cadastrado para esta OAB');
     }
 
-    // Chamar /requests com lawsuit_cnj
+    // Buscar credencial do tenant para usar no request (processos sigilosos)
+    let customerKey: string | null = null;
+
+    if (tenantId) {
+      const { data: credenciais } = await supabase
+        .from('credenciais_judit')
+        .select('customer_key, system_name')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active');
+      
+      if (credenciais && credenciais.length > 0) {
+        // Usar primeira credencial ativa do tenant
+        customerKey = credenciais[0].customer_key;
+        console.log('[Judit Import CNJ] Usando credencial do cofre:', customerKey);
+      }
+    }
+
+    // Chamar /requests com lawsuit_cnj (incluindo customer_key se disponível)
     const requestPayload = {
       search: {
         search_type: 'lawsuit_cnj',
         search_key: numeroLimpo,
         on_demand: true
-      }
+      },
+      ...(customerKey && { credential: { customer_key: customerKey } })
     };
 
     console.log('[Judit Import CNJ] Payload:', JSON.stringify(requestPayload));
