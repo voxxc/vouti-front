@@ -269,7 +269,7 @@ export const OABManager = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-4">
       {/* Alerta de limite de OABs */}
       <LimiteAlert
         tipo="oabs"
@@ -279,7 +279,7 @@ export const OABManager = () => {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold">OABs</h2>
@@ -399,8 +399,8 @@ export const OABManager = () => {
         )}
         </div>
       ) : (
-        <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab}>
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 flex-shrink-0">
             <TabsList className="h-auto p-1">
               {oabs.map((oab) => (
                 <TabsTrigger
@@ -422,9 +422,9 @@ export const OABManager = () => {
           </div>
 
           {oabs.map((oab) => (
-            <TabsContent key={oab.id} value={oab.id} className="mt-4">
+            <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1 min-h-0 flex flex-col data-[state=active]:flex">
               {/* Toolbar da OAB */}
-              <div className="flex flex-col gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
+              <div className="flex flex-col gap-3 mb-4 p-3 bg-muted/30 rounded-lg flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
@@ -547,15 +547,17 @@ export const OABManager = () => {
               </div>
 
               {/* Lista de Processos */}
-              <OABTab 
-                oabId={oab.id} 
-                oab={oab} 
-                onProcessoCompartilhadoAtualizado={(cnj, oabsAfetadas) => {
-                  // Força refresh das OABs afetadas
-                  console.log('[OABManager] Processo compartilhado atualizado:', cnj, 'OABs afetadas:', oabsAfetadas);
-                  // Pode disparar um evento ou forçar reload - o fetchProcessos já é chamado internamente
-                }}
-              />
+              <div className="flex-1 min-h-0">
+                <OABTab 
+                  oabId={oab.id} 
+                  oab={oab} 
+                  onProcessoCompartilhadoAtualizado={(cnj, oabsAfetadas) => {
+                    // Força refresh das OABs afetadas
+                    console.log('[OABManager] Processo compartilhado atualizado:', cnj, 'OABs afetadas:', oabsAfetadas);
+                    // Pode disparar um evento ou forçar reload - o fetchProcessos já é chamado internamente
+                  }}
+                />
+              </div>
             </TabsContent>
           ))}
         </Tabs>
