@@ -265,7 +265,14 @@ serve(async (req) => {
     }
     
     const responseData = lawsuitData || {};
-    const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+    let steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+    
+    // FALLBACK: Se steps está vazio mas existe last_step, usar como fallback
+    // Isso é comum em processos com segredo de justiça
+    if (steps.length === 0 && responseData?.last_step) {
+      console.log('[Judit Detalhes] Array steps vazio, usando last_step como fallback (segredo de justiça)');
+      steps = [responseData.last_step];
+    }
     
     // Extrair summary text se existir
     const aiSummary = summaryData?.summary || summaryData?.content || null;
@@ -310,7 +317,7 @@ serve(async (req) => {
               processo_oab_id: sharedProcessId,
               tenant_id: tenantId,
               data_movimentacao: dataMovimentacao,
-              tipo_movimentacao: step.type || step.tipo || null,
+              tipo_movimentacao: step.step_type || step.type || step.tipo || null,
               descricao: descricao,
               dados_completos: step,
               lida: false
