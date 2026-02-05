@@ -62,11 +62,6 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       <SheetPrimitive.Content 
         ref={ref} 
         className={cn(sheetVariants({ side }), className)} 
-        onInteractOutside={(e) => {
-          if (side === "inset" || side === "left-offset") {
-            e.preventDefault();
-          }
-        }}
         {...props}
       >
         {children}
