@@ -35,17 +35,17 @@ export interface Cliente {
   cpf?: string;
   cnpj?: string;
   cnh?: string;
-  cnh_validade?: string; // Nova coluna - Validade da CNH
+  cnh_validade?: string;
   telefone?: string;
   email?: string;
   data_nascimento?: string;
   endereco?: string;
   profissao?: string;
   uf?: string;
-  data_fechamento?: string; // Agora opcional
+  data_fechamento?: string;
   data_cadastro?: string;
-  valor_contrato?: number; // Agora opcional
-  forma_pagamento?: 'a_vista' | 'parcelado'; // Agora opcional
+  valor_contrato?: number;
+  forma_pagamento?: 'a_vista' | 'parcelado';
   valor_entrada?: number;
   numero_parcelas?: number;
   valor_parcela?: number;
@@ -59,9 +59,31 @@ export interface Cliente {
   status_cliente?: 'ativo' | 'inativo' | 'contrato_encerrado';
   pessoas_adicionais?: PessoaAdicional[];
   grupos_parcelas?: GruposParcelasConfig;
-  proveito_economico?: number; // Percentual de proveito econômico
+  proveito_economico?: number;
+  // Campos de juros e multa por atraso
+  aplicar_juros?: boolean;
+  taxa_juros_mensal?: number;
+  aplicar_multa?: boolean;
+  taxa_multa?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface ClienteEtiqueta {
+  id: string;
+  cliente_id: string;
+  etiqueta_id: string;
+  tenant_id?: string;
+  created_at?: string;
+}
+
+export interface Etiqueta {
+  id: string;
+  nome: string;
+  cor?: string;
+  tenant_id?: string;
+  user_id?: string;
+  created_at?: string;
 }
 
 export interface ClienteDocumento {

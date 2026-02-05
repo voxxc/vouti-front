@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { GruposParcelasManager } from './GruposParcelasManager';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { JurosMultaConfig } from './JurosMultaConfig';
+import { ClienteEtiquetasManager } from './ClienteEtiquetasManager';
 
 interface ClienteFormProps {
   cliente?: Cliente;
@@ -32,6 +34,13 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
     cliente?.grupos_parcelas || { grupos: [] }
   );
   const [usarGruposParcelas, setUsarGruposParcelas] = useState(!!cliente?.grupos_parcelas);
+  
+  // Estados para juros e multa
+  const [aplicarJuros, setAplicarJuros] = useState(cliente?.aplicar_juros || false);
+  const [taxaJurosMensal, setTaxaJurosMensal] = useState(cliente?.taxa_juros_mensal?.toString() || '1');
+  const [aplicarMulta, setAplicarMulta] = useState(cliente?.aplicar_multa || false);
+  const [taxaMulta, setTaxaMulta] = useState(cliente?.taxa_multa?.toString() || '2');
+  
   const isEditing = !!cliente;
 
   const {
@@ -145,6 +154,11 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       ),
       grupos_parcelas: usarGruposParcelas ? gruposParcelas : undefined,
       proveito_economico: data.proveito_economico ? parseFloat(data.proveito_economico) : undefined,
+      // Campos de juros e multa
+      aplicar_juros: aplicarJuros,
+      taxa_juros_mensal: aplicarJuros ? parseFloat(taxaJurosMensal) : 0,
+      aplicar_multa: aplicarMulta,
+      taxa_multa: aplicarMulta ? parseFloat(taxaMulta) : 0,
     };
 
     let result;
@@ -613,6 +627,18 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
                   valorContrato={parseFloat(watch('valor_contrato')) || 0}
                 />
               )}
+
+              {/* Configuração de Juros e Multa */}
+              <JurosMultaConfig
+                aplicarJuros={aplicarJuros}
+                taxaJurosMensal={taxaJurosMensal}
+                aplicarMulta={aplicarMulta}
+                taxaMulta={taxaMulta}
+                onAplicarJurosChange={setAplicarJuros}
+                onTaxaJurosMensalChange={setTaxaJurosMensal}
+                onAplicarMultaChange={setAplicarMulta}
+                onTaxaMultaChange={setTaxaMulta}
+              />
             </div>
           )}
 
@@ -684,6 +710,13 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             <Label htmlFor="observacoes">Observações</Label>
             <Textarea id="observacoes" {...register('observacoes')} rows={3} />
           </div>
+
+          {/* Seção de Etiquetas */}
+          {isEditing && (
+            <div className="md:col-span-2">
+              <ClienteEtiquetasManager clienteId={cliente?.id} />
+            </div>
+          )}
 
           {!isEditing && (
             <div className="space-y-2 md:col-span-2">

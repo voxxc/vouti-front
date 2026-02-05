@@ -115,11 +115,16 @@ export const clienteSchema = z.object({
   origem_rede_social: z.string().optional(),
   origem_tipo: z.enum(['instagram', 'facebook', 'indicacao', 'outro']).optional(),
   observacoes: z.string().optional(),
-  classificacao: z.enum(['pf', 'pj']).default('pf').optional(), // Valor padrão 'pf'
+  classificacao: z.enum(['pf', 'pj']).default('pf').optional(),
   status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
-  grupos_parcelas: z.any().optional(), // JSONB field
-  proveito_economico: z.string().optional(), // Percentual de proveito econômico
+  grupos_parcelas: z.any().optional(),
+  proveito_economico: z.string().optional(),
+  // Campos de juros e multa por atraso
+  aplicar_juros: z.boolean().optional(),
+  taxa_juros_mensal: z.string().optional(),
+  aplicar_multa: z.boolean().optional(),
+  taxa_multa: z.string().optional(),
 });
 
 export type ClienteFormData = z.infer<typeof clienteSchema>;
