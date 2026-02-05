@@ -108,6 +108,13 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
               </div>
             )}
 
+            {cliente.cnh_validade && (
+              <div>
+                <p className="text-sm text-muted-foreground">Validade CNH</p>
+                <p className="font-medium">{format(new Date(cliente.cnh_validade), 'dd/MM/yyyy', { locale: ptBR })}</p>
+              </div>
+            )}
+
             {cliente.proveito_economico && (
               <div>
                 <p className="text-sm text-muted-foreground">Proveito Econômico</p>
@@ -129,22 +136,28 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
               </div>
             )}
 
-            <div>
-              <p className="text-sm text-muted-foreground">Data de Fechamento</p>
-              <p className="font-medium">{format(new Date(cliente.data_fechamento), 'dd/MM/yyyy', { locale: ptBR })}</p>
-            </div>
+            {cliente.data_fechamento && (
+              <div>
+                <p className="text-sm text-muted-foreground">Data de Fechamento</p>
+                <p className="font-medium">{format(new Date(cliente.data_fechamento), 'dd/MM/yyyy', { locale: ptBR })}</p>
+              </div>
+            )}
 
-            <div>
-              <p className="text-sm text-muted-foreground">Valor do Contrato</p>
-              <p className="font-medium text-lg">{formatCurrency(cliente.valor_contrato)}</p>
-            </div>
+            {cliente.valor_contrato && (
+              <div>
+                <p className="text-sm text-muted-foreground">Valor do Contrato</p>
+                <p className="font-medium text-lg">{formatCurrency(cliente.valor_contrato)}</p>
+              </div>
+            )}
 
-            <div>
-              <p className="text-sm text-muted-foreground">Forma de Pagamento</p>
-              <Badge variant={cliente.forma_pagamento === 'a_vista' ? 'default' : 'secondary'}>
-                {cliente.forma_pagamento === 'a_vista' ? 'À Vista' : 'Parcelado'}
-              </Badge>
-            </div>
+            {cliente.forma_pagamento && (
+              <div>
+                <p className="text-sm text-muted-foreground">Forma de Pagamento</p>
+                <Badge variant={cliente.forma_pagamento === 'a_vista' ? 'default' : 'secondary'}>
+                  {cliente.forma_pagamento === 'a_vista' ? 'À Vista' : 'Parcelado'}
+                </Badge>
+              </div>
+            )}
 
             {cliente.forma_pagamento === 'parcelado' && (
               <>

@@ -35,16 +35,17 @@ export interface Cliente {
   cpf?: string;
   cnpj?: string;
   cnh?: string;
+  cnh_validade?: string; // Nova coluna - Validade da CNH
   telefone?: string;
   email?: string;
   data_nascimento?: string;
   endereco?: string;
   profissao?: string;
   uf?: string;
-  data_fechamento: string;
+  data_fechamento?: string; // Agora opcional
   data_cadastro?: string;
-  valor_contrato: number;
-  forma_pagamento: 'a_vista' | 'parcelado';
+  valor_contrato?: number; // Agora opcional
+  forma_pagamento?: 'a_vista' | 'parcelado'; // Agora opcional
   valor_entrada?: number;
   numero_parcelas?: number;
   valor_parcela?: number;

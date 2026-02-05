@@ -538,17 +538,18 @@ export type Database = {
         Row: {
           classificacao: string | null
           cnh: string | null
+          cnh_validade: string | null
           cnpj: string | null
           cpf: string | null
           created_at: string | null
           data_cadastro: string | null
-          data_fechamento: string
+          data_fechamento: string | null
           data_nascimento: string | null
           data_vencimento_final: string | null
           data_vencimento_inicial: string | null
           email: string | null
           endereco: string | null
-          forma_pagamento: string
+          forma_pagamento: string | null
           grupos_parcelas: Json | null
           id: string
           nome_pessoa_fisica: string | null
@@ -566,7 +567,7 @@ export type Database = {
           uf: string | null
           updated_at: string | null
           user_id: string
-          valor_contrato: number
+          valor_contrato: number | null
           valor_entrada: number | null
           valor_parcela: number | null
           vendedor: string | null
@@ -574,17 +575,18 @@ export type Database = {
         Insert: {
           classificacao?: string | null
           cnh?: string | null
+          cnh_validade?: string | null
           cnpj?: string | null
           cpf?: string | null
           created_at?: string | null
           data_cadastro?: string | null
-          data_fechamento: string
+          data_fechamento?: string | null
           data_nascimento?: string | null
           data_vencimento_final?: string | null
           data_vencimento_inicial?: string | null
           email?: string | null
           endereco?: string | null
-          forma_pagamento: string
+          forma_pagamento?: string | null
           grupos_parcelas?: Json | null
           id?: string
           nome_pessoa_fisica?: string | null
@@ -602,7 +604,7 @@ export type Database = {
           uf?: string | null
           updated_at?: string | null
           user_id: string
-          valor_contrato: number
+          valor_contrato?: number | null
           valor_entrada?: number | null
           valor_parcela?: number | null
           vendedor?: string | null
@@ -610,17 +612,18 @@ export type Database = {
         Update: {
           classificacao?: string | null
           cnh?: string | null
+          cnh_validade?: string | null
           cnpj?: string | null
           cpf?: string | null
           created_at?: string | null
           data_cadastro?: string | null
-          data_fechamento?: string
+          data_fechamento?: string | null
           data_nascimento?: string | null
           data_vencimento_final?: string | null
           data_vencimento_inicial?: string | null
           email?: string | null
           endereco?: string | null
-          forma_pagamento?: string
+          forma_pagamento?: string | null
           grupos_parcelas?: Json | null
           id?: string
           nome_pessoa_fisica?: string | null
@@ -638,7 +641,7 @@ export type Database = {
           uf?: string | null
           updated_at?: string | null
           user_id?: string
-          valor_contrato?: number
+          valor_contrato?: number | null
           valor_entrada?: number | null
           valor_parcela?: number | null
           vendedor?: string | null

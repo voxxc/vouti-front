@@ -48,6 +48,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       cpf: cliente.cpf || '',
       cnpj: cliente.cnpj || '',
       cnh: cliente.cnh || '',
+      cnh_validade: cliente.cnh_validade || '',
       telefone: cliente.telefone || '',
       email: cliente.email || '',
       data_nascimento: cliente.data_nascimento || '',
@@ -57,10 +58,10 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       data_fechamento: cliente.data_fechamento || '',
       valor_contrato: cliente.valor_contrato?.toString() || '',
       forma_pagamento: cliente.forma_pagamento || 'a_vista',
-    valor_entrada: cliente.valor_entrada?.toString() || '',
-    numero_parcelas: cliente.numero_parcelas?.toString() || '',
-    valor_parcela: cliente.valor_parcela?.toString() || '',
-    data_vencimento_inicial: cliente.data_vencimento_inicial || '',
+      valor_entrada: cliente.valor_entrada?.toString() || '',
+      numero_parcelas: cliente.numero_parcelas?.toString() || '',
+      valor_parcela: cliente.valor_parcela?.toString() || '',
+      data_vencimento_inicial: cliente.data_vencimento_inicial || '',
       data_vencimento_final: cliente.data_vencimento_final || '',
       vendedor: cliente.vendedor || '',
       origem_rede_social: cliente.origem_rede_social || '',
@@ -76,6 +77,7 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       cpf: '',
       cnpj: '',
       cnh: '',
+      cnh_validade: '',
       profissao: '',
       uf: '',
     },
@@ -116,15 +118,16 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
       cpf: data.cpf || undefined,
       cnpj: data.cnpj || undefined,
       cnh: data.cnh || undefined,
+      cnh_validade: data.cnh_validade || undefined,
       telefone: data.telefone || undefined,
       email: data.email || undefined,
       data_nascimento: data.data_nascimento || undefined,
       endereco: data.endereco || undefined,
       profissao: data.profissao || undefined,
       uf: data.uf || undefined,
-      data_fechamento: data.data_fechamento,
-      valor_contrato: parseFloat(data.valor_contrato),
-      forma_pagamento: data.forma_pagamento,
+      data_fechamento: data.data_fechamento || undefined,
+      valor_contrato: data.valor_contrato ? parseFloat(data.valor_contrato) : undefined,
+      forma_pagamento: data.forma_pagamento || undefined,
       // Só incluir campos do modelo simples se NÃO estiver usando grupos personalizados
       valor_entrada: !usarGruposParcelas && data.valor_entrada ? parseFloat(data.valor_entrada) : undefined,
       numero_parcelas: !usarGruposParcelas && data.numero_parcelas ? parseInt(data.numero_parcelas) : undefined,
@@ -257,6 +260,18 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
               {...register('cnh')} 
               placeholder="00000000000"
               maxLength={11}
+            />
+          </div>
+
+          {/* Validade CNH - opcional */}
+          <div className="space-y-2">
+            <Label htmlFor="cnh_validade">
+              Validade CNH <span className="text-xs text-muted-foreground">(opcional)</span>
+            </Label>
+            <Input 
+              id="cnh_validade" 
+              type="date"
+              {...register('cnh_validade')} 
             />
           </div>
 
