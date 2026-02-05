@@ -1,5 +1,4 @@
- import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
- import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { FileCheck } from "lucide-react";
  import { ControladoriaContent } from "./ControladoriaContent";
  
@@ -25,12 +24,10 @@ import { FileCheck } from "lucide-react";
            </div>
          </div>
  
-         {/* Conteudo scrollavel */}
-         <ScrollArea className="flex-1">
-           <div className="p-6">
-             <ControladoriaContent />
-           </div>
-         </ScrollArea>
+         {/* Conteudo - scroll delegado para cada aba */}
+         <div className="flex-1 min-h-0 overflow-hidden p-6">
+           <ControladoriaContent />
+         </div>
        </SheetContent>
      </Sheet>
    );

@@ -60,8 +60,8 @@ export const CentralAndamentosNaoLidos = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col space-y-4">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Bell className="h-5 w-5 text-primary" />
@@ -79,7 +79,7 @@ export const CentralAndamentosNaoLidos = () => {
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-4 flex-shrink-0">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -106,8 +106,8 @@ export const CentralAndamentosNaoLidos = () => {
       </div>
 
       {/* Tabela */}
-      <Card>
-        <CardContent className="p-0">
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardContent className="p-0 flex-1 min-h-0 overflow-auto">
           {loading ? (
             <div className="p-6 space-y-4">
               {[1, 2, 3, 4, 5].map(i => (

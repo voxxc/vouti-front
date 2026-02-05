@@ -13,7 +13,7 @@
    const showSkeleton = loading && !isCacheLoaded;
  
    return (
-     <div className="space-y-6">
+    <div className="h-full flex flex-col space-y-6">
        <div className="flex items-center justify-between">
          <div>
            <h1 className="text-3xl font-bold">Controladoria</h1>
@@ -99,7 +99,7 @@
          </Card>
        </div>
  
-       <Tabs defaultValue="central" className="space-y-4">
+       <Tabs defaultValue="central" className="flex-1 min-h-0 flex flex-col space-y-4">
          <TabsList>
            <TabsTrigger value="central">
              <ClipboardCheck className="mr-2 h-4 w-4" />
@@ -115,25 +115,25 @@
            </TabsTrigger>
          </TabsList>
  
-         <TabsContent value="central">
-           <Card>
-             <CardContent className="pt-6">
+         <TabsContent value="central" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+           <Card className="flex-1 min-h-0 flex flex-col">
+             <CardContent className="pt-6 flex-1 min-h-0 flex flex-col">
                <CentralControladoria />
              </CardContent>
            </Card>
          </TabsContent>
  
-         <TabsContent value="minhas-oabs">
-           <Card>
-             <CardContent className="pt-6">
+         <TabsContent value="minhas-oabs" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+           <Card className="flex-1 min-h-0 flex flex-col">
+             <CardContent className="pt-6 flex-1 min-h-0 flex flex-col">
                <OABManager />
              </CardContent>
            </Card>
          </TabsContent>
  
-         <TabsContent value="push-doc">
-           <Card>
-             <CardContent className="pt-6">
+         <TabsContent value="push-doc" className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+           <Card className="flex-1 min-h-0 flex flex-col">
+             <CardContent className="pt-6 flex-1 min-h-0 flex flex-col">
                <CNPJManager />
              </CardContent>
            </Card>

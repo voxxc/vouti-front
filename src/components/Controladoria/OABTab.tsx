@@ -549,7 +549,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="h-full flex items-center justify-center py-8">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -557,7 +557,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
 
   if (processos.length === 0) {
     return (
-      <div className="text-center py-8 border rounded-lg bg-muted/20">
+      <div className="h-full text-center py-8 border rounded-lg bg-muted/20">
         <FileText className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
         <p className="text-muted-foreground">Nenhum processo encontrado</p>
         <p className="text-sm text-muted-foreground mt-1">
@@ -572,9 +572,9 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     processosAgrupados.segundaInstancia.length > 0;
 
   return (
-    <>
+    <div className="h-full flex flex-col">
       {/* Área Fixa - Filtro por UF */}
-      <div className="sticky top-0 z-10 bg-background pb-3 mb-4">
+      <div className="flex-shrink-0 pb-3 mb-4">
         {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
           <div className="flex items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground" />
@@ -628,8 +628,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
       </div>
 
       {/* Área Scrollável - Lista de Processos */}
-      <div className="h-[calc(100vh-320px)] overflow-y-auto">
-        <div className="pr-6">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-4">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="space-y-4">
           {/* 1a Instancia */}
@@ -710,7 +709,6 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
           )}
           </div>
         </DragDropContext>
-        </div>
       </div>
 
       {/* Drawer de Detalhes */}
@@ -756,6 +754,6 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };

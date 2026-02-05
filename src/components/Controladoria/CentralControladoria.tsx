@@ -58,7 +58,7 @@ export const CentralControladoria = () => {
   }, [tenantId]);
 
   return (
-    <Tabs defaultValue="andamentos" className="space-y-4">
+    <Tabs defaultValue="andamentos" className="h-full flex flex-col space-y-4">
       <TabsList>
         <TabsTrigger value="andamentos" className="flex items-center gap-2">
           <Bell className="h-4 w-4" />
@@ -75,11 +75,11 @@ export const CentralControladoria = () => {
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="andamentos">
+      <TabsContent value="andamentos" className="flex-1 min-h-0 overflow-auto mt-0">
         <CentralAndamentosNaoLidos />
       </TabsContent>
 
-      <TabsContent value="prazos">
+      <TabsContent value="prazos" className="flex-1 min-h-0 overflow-auto mt-0">
         <CentralPrazosConcluidos />
       </TabsContent>
     </Tabs>
