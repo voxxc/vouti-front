@@ -104,7 +104,9 @@ Deno.serve(async (req) => {
 
     console.log(`Starting complete cascading delete for tenant: ${tenant_id}`);
 
-    // FASE 0: Buscar todos os user_ids do tenant ANTES de deletar profiles
+    // FASE 0: Buscar todos os IDs necessários ANTES de deletar
+    
+    // 0.1: Buscar user_ids do tenant
     const { data: tenantProfiles, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id")
@@ -116,6 +118,19 @@ Deno.serve(async (req) => {
 
     const userIdsToDelete = tenantProfiles?.map(p => p.user_id) || [];
     console.log(`Found ${userIdsToDelete.length} users to delete from auth.users`);
+
+    // 0.2: Buscar project_ids do tenant (para deletar tabelas que referenciam project_id)
+    const { data: tenantProjects, error: projectsError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("tenant_id", tenant_id);
+
+    if (projectsError) {
+      console.error("Error fetching tenant projects:", projectsError);
+    }
+
+    const projectIdsToDelete = tenantProjects?.map(p => p.id) || [];
+    console.log(`Found ${projectIdsToDelete.length} projects to delete`);
 
     // FASE 1: Limpar arquivos do Storage ANTES de deletar registros do banco
     console.log("Starting Storage cleanup...");
@@ -142,17 +157,105 @@ Deno.serve(async (req) => {
     const totalStorageFilesDeleted = Object.values(storageResults).reduce((a, b) => a + b, 0);
     console.log(`Total storage files deleted: ${totalStorageFilesDeleted}`);
 
-    // FASE 2: Deletar registros do banco
+    // FASE 2: Deletar tabelas que referenciam project_id (não tenant_id)
+    const projectDependentTables = [
+      "task_history",
+      "task_files", 
+      "task_comments",
+      "task_tarefas",
+      "project_columns",
+      "project_sectors",
+      "project_collaborators",
+      "project_processos",
+      "project_protocolo_etapas",
+      "project_etapa_comments",
+      "project_advogados",
+      "client_history",
+    ];
+
+    for (const table of projectDependentTables) {
+      if (projectIdsToDelete.length === 0) continue;
+      
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .delete()
+          .in("project_id", projectIdsToDelete)
+          .select("id");
+
+        if (error) {
+          console.log(`Table ${table} (by project_id): ${error.message}`);
+          deletionResults[table] = 0;
+        } else {
+          const count = data?.length || 0;
+          deletionResults[table] = count;
+          if (count > 0) {
+            console.log(`Deleted ${count} records from ${table} (by project_id)`);
+          }
+        }
+      } catch (e) {
+        console.log(`Table ${table} does not exist or error: ${e}`);
+        deletionResults[table] = 0;
+      }
+    }
+
+    // FASE 2.5: Deletar tasks (que referenciam project_id)
+    if (projectIdsToDelete.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from("tasks")
+          .delete()
+          .in("project_id", projectIdsToDelete)
+          .select("id");
+
+        if (error) {
+          console.log(`Table tasks (by project_id): ${error.message}`);
+          deletionResults["tasks"] = 0;
+        } else {
+          const count = data?.length || 0;
+          deletionResults["tasks"] = count;
+          if (count > 0) {
+            console.log(`Deleted ${count} records from tasks (by project_id)`);
+          }
+        }
+      } catch (e) {
+        console.log(`Table tasks error: ${e}`);
+        deletionResults["tasks"] = 0;
+      }
+    }
+
+    // FASE 2.6: Agora deletar projects
+    if (projectIdsToDelete.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from("projects")
+          .delete()
+          .eq("tenant_id", tenant_id)
+          .select("id");
+
+        if (error) {
+          console.log(`Table projects: ${error.message}`);
+          deletionResults["projects"] = 0;
+        } else {
+          const count = data?.length || 0;
+          deletionResults["projects"] = count;
+          if (count > 0) {
+            console.log(`Deleted ${count} records from projects`);
+          }
+        }
+      } catch (e) {
+        console.log(`Table projects error: ${e}`);
+        deletionResults["projects"] = 0;
+      }
+    }
+
+    // FASE 3: Deletar demais registros do banco por tenant_id
     const deletionResults: Record<string, number> = {};
 
-    // Ordem de delecao respeitando dependencias (de dependentes para principais)
-    // LISTA COMPLETA - 72 tabelas
+    // Ordem de delecao respeitando dependencias
+    // NOTA: Tabelas já deletadas nas fases anteriores são ignoradas aqui
     const tablesToDelete = [
-      // ===== NIVEL 0: Sub-dependências mais profundas =====
-      "task_files",
-      "task_comments",
-      "task_history",
-      "task_tarefas",
+      // ===== NIVEL 0: Sub-dependências =====
       "cliente_pagamento_comentarios",
       "processos_oab_anexos",
       "processos_oab_tarefas",
@@ -171,7 +274,7 @@ Deno.serve(async (req) => {
       "processo_atualizacoes_escavador",
       "oab_request_historico",
       
-      // ===== NIVEL 0.5: Colaboradores (dependências) =====
+      // ===== NIVEL 0.5: Colaboradores =====
       "colaborador_comentarios",
       "colaborador_documentos",
       "colaborador_pagamentos",
@@ -189,15 +292,12 @@ Deno.serve(async (req) => {
       // ===== NIVEL 0.5: Support =====
       "support_ticket_messages",
       
-      // ===== NIVEL 1: Tabelas principais dependentes =====
+      // ===== NIVEL 1: Tabelas dependentes =====
       "colaboradores",
       "custos",
       "custo_categorias",
       "whatsapp_instances",
       "support_tickets",
-      "project_columns",
-      "project_sectors",
-      "project_collaborators",
       "cliente_parcelas",
       "cliente_documentos",
       "cliente_dividas",
@@ -208,12 +308,9 @@ Deno.serve(async (req) => {
       "processo_monitoramento_escavador",
       "processo_monitoramento_judit",
       "reuniao_clientes",
-      "client_history",
       
-      // ===== NIVEL 2: Tabelas principais de dados =====
-      "tasks",
+      // ===== NIVEL 2: Tabelas principais =====
       "deadlines",
-      "projects",
       "clientes",
       "processos_oab",
       "processos_cnpj",
@@ -236,10 +333,10 @@ Deno.serve(async (req) => {
       "comarcas",
       "reuniao_status",
       "sector_templates",
-      "zapi_config",
       "projudi_credentials",
       "tribunal_credentials",
       "tenant_ai_settings",
+      "tenant_banco_ids",
       
       // ===== NIVEL 4: Usuarios do tenant =====
       "user_roles",
