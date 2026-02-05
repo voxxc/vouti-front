@@ -1,54 +1,93 @@
 
 
-# Drawer de Projetos com Tamanho Menor
+# Ajustar Drawer de Projetos
 
-## Situacao Atual
+## Problemas Identificados
 
-O `ProjectsDrawer` usa `side="inset"` que ocupa praticamente toda a area de conteudo (da sidebar ate a borda direita).
+1. **Drawer cobrindo a sidebar**: A variante `left` posiciona o drawer em `left-0`, cobrindo a sidebar
+2. **Projetos muito colados**: Os items da lista de projetos estao com `space-y-1` (4px) sem separador visual
 
 ## Solucao
 
-Trocar de `side="inset"` para `side="left"` no ProjectsDrawer. A variante `left` ja existe no Sheet e cria um drawer lateral menor com largura maxima de `sm:max-w-sm` (384px).
+### 1. Criar nova variante para o drawer de projetos
 
-### Comparacao Visual
+Criar uma variante `left-offset` que posiciona o drawer apos a sidebar, similar ao `inset` mas com largura fixa menor.
+
+### 2. Adicionar linha separadora entre projetos
+
+Usar `border-b` sutil entre cada projeto para criar separacao visual.
+
+---
+
+## Conceito Visual
 
 ```text
-INSET (atual):                          LEFT (proposto):
+ATUAL (left):                           PROPOSTO (left-offset):
                                         
-┌──────┬──────────────────────┐         ┌──────┬──────────┬───────────┐
-│      │                      │         │      │          │           │
-│ SIDE │   DRAWER GRANDE      │         │ SIDE │ DRAWER   │  (vazio)  │
-│ BAR  │                      │         │ BAR  │ PEQUENO  │           │
-│      │                      │         │      │ ~380px   │           │
-│      │                      │         │      │          │           │
-└──────┴──────────────────────┘         └──────┴──────────┴───────────┘
+┌──────────────────────────────┐        ┌──────────┬───────────────────┐
+│▓▓▓▓▓▓▓▓▓▓│                   │        │          │                   │
+│▓ DRAWER ▓│   (overlay)       │        │ SIDEBAR  │ DRAWER            │
+│▓ cobre  ▓│                   │        │ (visivel)│ (ao lado)         │
+│▓ sidebar▓│                   │        │          │                   │
+└──────────────────────────────┘        └──────────┴───────────────────┘
 ```
 
-## Arquivo a Modificar
+---
 
-**`src/components/Projects/ProjectsDrawer.tsx`** - linha 78
+## Arquivos a Modificar
 
-### Antes:
+### 1. `src/components/ui/sheet.tsx`
+
+Adicionar nova variante `left-offset`:
+
+```typescript
+"left-offset": 
+  "inset-y-0 md:left-[224px] left-0 h-full w-80 sm:max-w-sm border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
+```
+
+E ajustar a logica do overlay para nao mostrar em `left-offset`:
+
+```typescript
+{side !== "inset" && side !== "left-offset" && <SheetOverlay />}
+```
+
+### 2. `src/components/Projects/ProjectsDrawer.tsx`
+
+**Alteracao 1** - Usar nova variante:
 ```tsx
-<SheetContent side="inset" className="p-0 flex flex-col">
+<SheetContent side="left-offset" className="p-0 flex flex-col">
 ```
 
-### Depois:
+**Alteracao 2** - Adicionar separador entre projetos (linha ~171-208):
 ```tsx
-<SheetContent side="left" className="p-0 flex flex-col w-80 sm:max-w-sm">
+filteredProjects.map((project, index) => {
+  const stats = getProjectStats(project.id);
+  return (
+    <button
+      key={project.id}
+      onClick={() => handleSelectProject(project)}
+      className={cn(
+        "w-full text-left p-3 transition-colors",
+        "hover:bg-accent/50 focus:bg-accent/50 focus:outline-none",
+        "group",
+        // Adiciona borda inferior em todos exceto o ultimo
+        index < filteredProjects.length - 1 && "border-b border-border/50"
+      )}
+    >
+      {/* ... conteudo existente ... */}
+    </button>
+  );
+})
 ```
 
-## Comportamento
+---
 
-| Aspecto | Resultado |
-|---------|-----------|
-| Largura | ~320px (w-80) ate max 384px |
-| Posicao | Lado esquerdo da tela |
-| Overlay | Com overlay escuro (padrao da variante left) |
-| Animacao | Slide da esquerda |
-| Sidebar | Fica coberta pelo drawer |
+## Resultado
 
-## Observacao
-
-A variante `left` usa overlay escuro por padrao. Se preferir sem overlay (como o inset ajustado), posso criar uma variante customizada ou ajustar a logica.
+| Aspecto | Antes | Depois |
+|---------|-------|--------|
+| Posicao do drawer | Cobre a sidebar | Surge ao lado da sidebar |
+| Overlay escuro | Sim | Nao |
+| Separacao entre projetos | 4px sem linha | Linha sutil `border-border/50` |
+| Animacao | Slide da esquerda | Fade + translate sutil |
 
