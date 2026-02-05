@@ -1,217 +1,112 @@
 
-# Restaurar Funcionalidade Completa da Agenda no Drawer
+# Correção Visual da Controladoria - Aba OABs
 
-## Problema Identificado
+## Problemas Identificados
 
-O drawer atual da Agenda (`AgendaContent.tsx`) está exibindo apenas o calendário, perdendo toda a riqueza de funcionalidades da página original que inclui:
+Ao analisar o código, identifiquei dois problemas:
 
-- Busca de prazos
-- Botao "Novo Prazo" para criar prazos
-- Cards dos prazos do dia selecionado com detalhes completos
-- Cards de resumo: Prazos Vencidos e Proximos Prazos
-- Secao de Administrador com filtro por usuario
-- Historico de Prazos Cumpridos
-- Dialogs para detalhes, conclusao e extensao de prazo
+1. **Header/Filtros não ficam fixos**: Quando há muitos processos na lista, o usuário precisa rolar tudo junto (incluindo a toolbar da OAB e os filtros). O comportamento correto seria: toolbar e filtros ficam fixos no topo, e apenas a lista de processos (1a Instância, 2a Instância, etc.) tem scroll.
+
+2. **Scroll interno não configurado**: O componente `OABTab` não tem uma área de scroll interna. Todo o conteúdo fica dentro do scroll geral do drawer, o que causa a perda da referência visual.
 
 ## Conceito Visual
 
 ```text
-ATUAL (incompleto):                      PROPOSTO (completo):
-                                         
-┌────────────────────────┐               ┌────────────────────────────────────┐
-│ 📅 Agenda              │               │ 📅 Agenda         [🔍] [+ Novo]    │
-├────────────────────────┤               ├────────────────────────────────────┤
-│                        │               │ ┌────────────────────────────────┐ │
-│     JANEIRO 2026       │               │ │      JANEIRO 2026              │ │
-│  D  S  T  Q  Q  S  S   │               │ │   D  S  T  Q  Q  S  S          │ │
-│  1  2  3  4  5  6  7   │               │ └────────────────────────────────┘ │
-│  ...                   │               │                                    │
-│                        │               │ ┌──────────────────────────────┐   │
-│                        │               │ │ 05/02/2026                   │   │
-│                        │               │ │ • Prazo 1 (Joao) ✓           │   │
-│                        │               │ │ • Prazo 2 (Maria) ⏱          │   │
-│                        │               │ └──────────────────────────────┘   │
-│                        │               │                                    │
-│                        │               │ ┌─ Vencidos ─┐ ┌─ Proximos ───┐   │
-│                        │               │ │ 3 prazos   │ │ 5 prazos     │   │
-│                        │               │ └────────────┘ └──────────────┘   │
-│                        │               │                                    │
-│                        │               │ ┌─ Admin View ───────────────┐     │
-│                        │               │ │ Filtrar por usuario...     │     │
-│                        │               │ └────────────────────────────┘     │
-│                        │               │                                    │
-│                        │               │ ┌─ Historico Cumpridos ─────┐      │
-│                        │               │ │ Tabela com prazos ok      │      │
-│                        │               │ └────────────────────────────┘     │
-└────────────────────────┘               └────────────────────────────────────┘
+ATUAL (tudo rola junto):              PROPOSTO (header fixo + lista scrollável):
+                                      
+┌───────────────────────────┐         ┌───────────────────────────┐
+│ OAB 92124/PR              │ ↑       │ OAB 92124/PR              │  FIXO
+│ [Filtrar: Todos ▼]        │ │       │ [Filtrar: Todos ▼]        │  FIXO
+│ ─────────────────────────── │       │ ───────────────────────────│
+│ ▼ 1a Instância (12)       │ │       │ ▼ 1a Instância (12)       │ ↑
+│   • Processo 1            │ │       │   • Processo 1            │ │
+│   • Processo 2            │ │       │   • Processo 2            │ │
+│   • Processo 3            │ S       │   • Processo 3            │ S
+│   • Processo 4            │ C       │   • Processo 4            │ C
+│   • Processo 5            │ R       │   • Processo 5            │ R
+│ ▼ 2a Instância (5)        │ O       │ ▼ 2a Instância (5)        │ O
+│   • Recurso 1             │ L       │   • Recurso 1             │ L
+│   • Recurso 2             │ L       │   • Recurso 2             │ L
+│   (cortado...)            │ ↓       │   • Recurso 3 (visível!)  │ ↓
+└───────────────────────────┘         └───────────────────────────┘
 ```
 
-## Estrategia de Implementacao
+## Alterações Necessárias
 
-Como a pagina `Agenda.tsx` tem 1725 linhas com muita logica acoplada, a melhor abordagem sera extrair todo o conteudo da pagina (exceto o DashboardLayout e botao Voltar) para o `AgendaContent.tsx`, mantendo a mesma logica e funcionalidade.
+### Arquivo: `src/components/Controladoria/OABTab.tsx`
 
----
+Reestruturar o componente para ter duas áreas distintas:
 
-## Arquivos a Modificar
+1. **Área Fixa (Header)**: Contém os filtros por UF/status
+2. **Área Scrollável**: Contém o `DragDropContext` com as seções de instância
 
-### 1. `src/components/Agenda/AgendaContent.tsx`
-
-Reescrever completamente para incluir toda a funcionalidade da pagina original:
-
-**O que sera incluido:**
-- Estados para busca, deadlines, projects, dialogs, forms
-- Todas as funcoes: fetchDeadlines, createDeadline, toggleCompletion, extenderPrazo, etc.
-- Hook useAgendaData ja existente sera substituido pela logica completa
-- Componentes visuais: Cards de resumo, tabela de cumpridos, secao admin
-- Todos os Dialogs: criar prazo, detalhes, confirmar conclusao, estender prazo
-
-**Estrutura do componente:**
+**Estrutura proposta:**
 
 ```tsx
-export function AgendaContent() {
-  // ===== Estados =====
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [searchTerm, setSearchTerm] = useState("");
-  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [selectedDeadline, setSelectedDeadline] = useState<Deadline | null>(null);
-  // ... todos os demais estados
-
-  // ===== Effects e Data Fetching =====
-  useEffect(() => { ... }, [user]);
-  const fetchDeadlinesAsync = async () => { ... };
-
-  // ===== Handlers =====
-  const handleCreateDeadline = async () => { ... };
-  const toggleDeadlineCompletion = async () => { ... };
-  const handleExtenderPrazo = async () => { ... };
-  const handleDeleteDeadline = async () => { ... };
-
-  // ===== Computed Values =====
-  const getDeadlinesForDate = (date: Date) => { ... };
-  const getOverdueDeadlines = () => { ... };
-  const getUpcomingDeadlines = () => { ... };
-  const getCompletedDeadlines = () => { ... };
-
-  return (
-    <div className="space-y-6">
-      {/* Header com busca e botao novo */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search ... />
-          <Input ... />
+return (
+  <>
+    {/* Área Fixa - Filtros */}
+    <div className="sticky top-0 z-10 bg-background pb-3 border-b mb-4">
+      {(ufsDisponiveis.length > 1 || compartilhadosCount > 0 || naoLidosCount > 0) && (
+        <div className="flex items-center gap-3">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Select value={filtroUF} onValueChange={setFiltroUF}>
+            {/* ... conteúdo do select ... */}
+          </Select>
+          {filtroUF !== 'todos' && (
+            <Badge variant="secondary">
+              {processosFiltrados.length} processos
+            </Badge>
+          )}
         </div>
-        <Dialog>
-          <DialogTrigger>
-            <Button>+ Novo Prazo</Button>
-          </DialogTrigger>
-          ...
-        </Dialog>
-      </div>
-
-      {/* Calendario */}
-      <Card>
-        <AgendaCalendar ... />
-      </Card>
-
-      {/* Prazos do dia selecionado */}
-      <Card>
-        <CardTitle>{format(selectedDate, "dd/MM/yyyy")}</CardTitle>
-        {getDeadlinesForDate(selectedDate).map(...)}
-      </Card>
-
-      {/* Cards Vencidos e Proximos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>Prazos Vencidos</Card>
-        <Card>Proximos Prazos</Card>
-      </div>
-
-      {/* Admin Section (se isAdmin) */}
-      {isAdmin && <Card>Visao Administrador...</Card>}
-
-      {/* Historico Cumpridos */}
-      <Card>Historico de Prazos Cumpridos...</Card>
-
-      {/* Dialogs */}
-      <Dialog>Detalhes do Prazo...</Dialog>
-      <AlertDialog>Confirmar Conclusao...</AlertDialog>
-      <Dialog>Estender Prazo...</Dialog>
+      )}
     </div>
-  );
-}
+
+    {/* Área Scrollável - Lista de Processos */}
+    <ScrollArea className="h-[calc(100vh-350px)]">
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="space-y-4 pr-4">
+          <InstanciaSection titulo="1a Instância" ... />
+          <InstanciaSection titulo="2a Instância" ... />
+          <InstanciaSection titulo="Instância não identificada" ... />
+        </div>
+      </DragDropContext>
+    </ScrollArea>
+
+    {/* Drawer de Detalhes e Dialogs (sem alteração) */}
+    <ProcessoOABDetalhes ... />
+    <AlertDialog ... />
+  </>
+);
 ```
 
-### 2. `src/hooks/useAgendaData.ts`
+### Detalhes Técnicos
 
-Manter como fallback opcional, mas a logica principal ficara no componente para manter consistencia com a implementacao original.
-
----
-
-## Detalhes Tecnicos
-
-### Imports Necessarios
-
+**Imports a adicionar:**
 ```tsx
-import { useState, useEffect } from "react";
-import { Calendar } from "@/components/ui/calendar";
-import AgendaCalendar from "./AgendaCalendar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, Shield, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock } from "lucide-react";
-import { DeadlineComentarios } from "./DeadlineComentarios";
-import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
-import UserTagSelector from "./UserTagSelector";
-import { Deadline, DeadlineFormData } from "@/types/agenda";
-import { format, isSameDay, isPast, isFuture, parseISO, isValid } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { checkIfUserIsAdminOrController } from "@/lib/auth-helpers";
-import { useTenantId } from "@/hooks/useTenantId";
-import { useTenantNavigation } from "@/hooks/useTenantNavigation";
-import { cn } from "@/lib/utils";
-import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificationHelpers";
+import { ScrollArea } from "@/components/ui/scroll-area";
 ```
 
-### Funcionalidades a Migrar da Pagina Original
+**Altura do ScrollArea:**
+- Usar `h-[calc(100vh-350px)]` para calcular a altura disponível
+- O valor 350px considera: header do drawer (60px) + header da controladoria (80px) + cards de métricas (100px) + tabs (50px) + toolbar da OAB (60px)
+- Pode ser ajustado para `flex-1` se o container pai tiver `flex flex-col` e `overflow-hidden`
 
-1. **Estados** (linhas 52-83 do Agenda.tsx)
-2. **Helpers de data** (linhas 87-130)
-3. **Data fetching** (linhas 155-313)
-4. **Handlers de CRUD** (linhas 376-719)
-5. **Handlers admin** (linhas 731-851)
-6. **Render do calendario e cards** (linhas 968-1221)
-7. **Secao admin** (linhas 1223-1311)
-8. **Historico cumpridos** (linhas 1314-1394)
-9. **Dialogs** (linhas 1396-1725)
+**Sticky para Filtros:**
+- Usar `sticky top-0 z-10 bg-background` para manter os filtros visíveis
+- Adicionar `pb-3 border-b` para separação visual
 
 ---
+
+## Resumo das Alterações
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/Controladoria/OABTab.tsx` | Adicionar `ScrollArea` envolvendo o `DragDropContext`, tornar filtros `sticky` |
 
 ## Resultado Esperado
 
-| Aspecto | Antes | Depois |
-|---------|-------|--------|
-| Calendario | Apenas calendario | Calendario completo |
-| Busca | Nao tem | Campo de busca |
-| Criar prazo | Nao tem | Botao + Dialog |
-| Prazos do dia | Nao tem | Card com lista detalhada |
-| Resumo | Nao tem | Cards Vencidos/Proximos |
-| Visao Admin | Nao tem | Filtro por usuario |
-| Historico | Nao tem | Tabela de cumpridos |
-| Acoes | Nenhuma | Concluir, estender, excluir |
-| Detalhes | Nao tem | Dialog com tabs info/comentarios |
-
-O drawer tera TODA a funcionalidade da pagina original, mas dentro do contexto de drawer com scroll e animacao fluida.
+- Filtros de UF/status permanecem visíveis no topo enquanto o usuário rola
+- Lista de processos (1a Instância, 2a Instância) tem scroll independente
+- Scrollbar visível para indicar que há mais conteúdo
+- Melhor experiência de navegação com muitos processos
