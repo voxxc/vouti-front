@@ -48,7 +48,7 @@ serve(async (req) => {
     // Buscar dados do processo para obter CNJ e tenant_id
     const { data: processoData } = await supabase
       .from('processos_oab')
-      .select('numero_cnj, tenant_id')
+      .select('numero_cnj, tenant_id, detalhes_completos')
       .eq('id', processoOabId)
       .single();
 
@@ -103,8 +103,14 @@ serve(async (req) => {
     }
     
     const responseData = lawsuitData || {};
-    const steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
+    let steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
     const aiSummary = summaryData?.summary || summaryData?.content || null;
+
+    // Fallback: se a API não retornou steps, usar os dados salvos no banco
+    if (steps.length === 0 && processoData.detalhes_completos?.steps) {
+      console.log('[Judit Consultar Request] API sem steps, usando fallback do banco');
+      steps = processoData.detalhes_completos.steps || [];
+    }
 
     console.log('[Judit Consultar Request] Andamentos encontrados:', steps.length);
 
