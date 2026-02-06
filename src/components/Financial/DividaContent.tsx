@@ -4,13 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useClienteParcelas } from '@/hooks/useClienteParcelas';
 import { BaixaPagamentoDialog } from './BaixaPagamentoDialog';
+import { EditarPagamentoDialog } from './EditarPagamentoDialog';
+import { EditarParcelaDialog } from './EditarParcelaDialog';
 import { ParcelaComentarios } from './ParcelaComentarios';
+import { ParcelaHistorico } from './ParcelaHistorico';
 import { ClienteDivida, ClienteParcela, DadosBaixaPagamento } from '@/types/financeiro';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, DollarSign, Calendar, TrendingUp, FileText, Trash2 } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Trash2, MoreVertical, RotateCcw, Edit, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -33,10 +42,15 @@ interface DividaContentProps {
 }
 
 export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaContentProps) => {
-  const { parcelas, loading, darBaixaParcela, fetchParcelas } = useClienteParcelas(clienteId, divida.id);
+  const { parcelas, loading, darBaixaParcela, reabrirParcela, fetchParcelas } = useClienteParcelas(clienteId, divida.id);
   const [selectedParcela, setSelectedParcela] = useState<ClienteParcela | null>(null);
   const [baixaDialogOpen, setBaixaDialogOpen] = useState(false);
   const [selectedParcelaForComments, setSelectedParcelaForComments] = useState<string | null>(null);
+  const [selectedParcelaForHistory, setSelectedParcelaForHistory] = useState<string | null>(null);
+  const [editarPagamentoOpen, setEditarPagamentoOpen] = useState(false);
+  const [parcelaParaEditar, setParcelaParaEditar] = useState<ClienteParcela | null>(null);
+  const [editarParcelaDadosOpen, setEditarParcelaDadosOpen] = useState(false);
+  const [parcelaParaEditarDados, setParcelaParaEditarDados] = useState<ClienteParcela | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -51,14 +65,22 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
   const parcelasPagas = parcelas.filter((p) => p.status === 'pago');
   const parcelasAtrasadas = parcelas.filter((p) => p.status === 'atrasado');
   const parcelasPendentes = parcelas.filter((p) => p.status === 'pendente');
+  const parcelasParciais = parcelas.filter((p) => p.status === 'parcial');
 
-  const totalPago = parcelasPagas.reduce((acc, p) => acc + Number(p.valor_parcela), 0);
-  const totalPendente = [...parcelasAtrasadas, ...parcelasPendentes].reduce(
-    (acc, p) => acc + Number(p.valor_parcela),
-    0
+  // Usar valor_pago quando disponível para parcelas pagas e parciais
+  const totalPago = [...parcelasPagas, ...parcelasParciais].reduce(
+    (acc, p) => acc + Number(p.valor_pago ?? 0), 0
   );
+  
+  // Pendente inclui parcelas atrasadas, pendentes e o saldo restante das parciais
+  const totalPendente = [...parcelasAtrasadas, ...parcelasPendentes].reduce(
+    (acc, p) => acc + Number(p.valor_parcela), 0
+  ) + parcelasParciais.reduce(
+    (acc, p) => acc + Number(p.saldo_restante ?? 0), 0
+  );
+  
   const progressoPagamento = parcelas.length > 0 
-    ? (parcelasPagas.length / parcelas.length) * 100 
+    ? ((parcelasPagas.length + parcelasParciais.length * 0.5) / parcelas.length) * 100 
     : 0;
 
   const formatCurrency = (value: number) => {
@@ -69,17 +91,18 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; icon: any; label: string }> = {
+    const variants: Record<string, { variant: any; icon: any; label: string; className?: string }> = {
       pago: { variant: 'default', icon: CheckCircle2, label: 'Pago' },
       pendente: { variant: 'secondary', icon: Clock, label: 'Pendente' },
       atrasado: { variant: 'destructive', icon: AlertCircle, label: 'Atrasado' },
+      parcial: { variant: 'outline', icon: AlertTriangle, label: 'Parcial', className: 'bg-amber-500/20 text-amber-700 border-amber-500' },
     };
 
     const config = variants[status] || variants.pendente;
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className="gap-1">
+      <Badge variant={config.variant} className={cn("gap-1", config.className)}>
         <Icon className="w-3 h-3" />
         {config.label}
       </Badge>
@@ -100,6 +123,28 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
       onUpdate();
     }
     return success;
+  };
+
+  const handleReabrirParcela = async (parcelaId: string) => {
+    const success = await reabrirParcela(parcelaId);
+    if (success) {
+      onUpdate();
+    }
+  };
+
+  const handleEditarParcela = (parcela: ClienteParcela) => {
+    setParcelaParaEditar(parcela);
+    setEditarPagamentoOpen(true);
+  };
+
+  const handleEditarParcelaDados = (parcela: ClienteParcela) => {
+    setParcelaParaEditarDados(parcela);
+    setEditarParcelaDadosOpen(true);
+  };
+
+  const handleEditarSuccess = async () => {
+    await fetchParcelas();
+    onUpdate();
   };
 
   const handleDeleteDivida = async () => {
@@ -198,19 +243,19 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
 
           <div className="p-4 rounded-lg border bg-card">
             <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <CheckCircle2 className="w-4 h-4 text-primary" />
               <span className="text-sm text-muted-foreground">Total Pago</span>
             </div>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPago)}</p>
+            <p className="text-2xl font-bold text-primary">{formatCurrency(totalPago)}</p>
             <p className="text-xs text-muted-foreground">{parcelasPagas.length} parcelas</p>
           </div>
 
           <div className="p-4 rounded-lg border bg-card">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-yellow-500" />
+              <Clock className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Pendente</span>
             </div>
-            <p className="text-2xl font-bold text-yellow-600">{formatCurrency(totalPendente)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalPendente)}</p>
             <p className="text-xs text-muted-foreground">{parcelasPendentes.length + parcelasAtrasadas.length} parcelas</p>
           </div>
 
@@ -278,7 +323,7 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                             <>
                               <div>
                                 <p className="text-muted-foreground">Pago em</p>
-                                <p className="font-medium text-green-600">
+                                <p className="font-medium text-primary">
                                   {format(new Date(parcela.data_pagamento), 'dd/MM/yyyy', { locale: ptBR })}
                                 </p>
                               </div>
@@ -307,18 +352,93 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                             Ver comprovante
                           </Button>
                         )}
+
+                        {/* Mostrar saldo em aberto para parcelas parciais */}
+                        {parcela.status === 'parcial' && (
+                          <div className="mt-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                              <AlertTriangle className="w-4 h-4" />
+                              <div className="text-sm">
+                                <p className="font-medium">
+                                  Saldo em aberto: {formatCurrency(Number(parcela.saldo_restante ?? 0))}
+                                </p>
+                                <p className="text-xs opacity-80">
+                                  Já pago: {formatCurrency(Number(parcela.valor_pago ?? 0))}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        {(parcela.status === 'pendente' || parcela.status === 'atrasado') && (
+                        {/* Menu de 3 pontinhos unificado para todas as parcelas */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-background border">
+                            {/* Dar baixa - para pendente, atrasado, parcial */}
+                            {(parcela.status === 'pendente' || parcela.status === 'atrasado' || parcela.status === 'parcial') && (
+                              <DropdownMenuItem 
+                                onClick={() => handleDarBaixa(parcela)}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <DollarSign className="h-4 w-4" />
+                                {parcela.status === 'parcial' ? 'Completar Pagamento' : 'Dar Baixa'}
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {/* Editar parcela - sempre disponível */}
+                            <DropdownMenuItem 
+                              onClick={() => handleEditarParcelaDados(parcela)}
+                              className="gap-2 cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4" />
+                              Editar Parcela
+                            </DropdownMenuItem>
+                            
+                            {/* Editar pagamento - para pago e parcial */}
+                            {(parcela.status === 'pago' || parcela.status === 'parcial') && (
+                              <DropdownMenuItem 
+                                onClick={() => handleEditarParcela(parcela)}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <FileText className="h-4 w-4" />
+                                Editar Pagamento
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {/* Reabrir - apenas para pago */}
+                            {parcela.status === 'pago' && (
+                              <DropdownMenuItem 
+                                onClick={() => handleReabrirParcela(parcela.id)}
+                                className="gap-2 cursor-pointer text-destructive"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                                Reabrir Pagamento
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        
+                        {/* Botão Histórico para parcelas pagas ou parciais */}
+                        {(parcela.status === 'pago' || parcela.status === 'parcial') && (
                           <Button
                             size="sm"
-                            onClick={() => handleDarBaixa(parcela)}
-                            variant={parcela.status === 'atrasado' ? 'destructive' : 'default'}
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => setSelectedParcelaForHistory(
+                              selectedParcelaForHistory === parcela.id ? null : parcela.id
+                            )}
                           >
-                            Dar Baixa
+                            <History className="h-3 w-3" />
+                            Histórico
                           </Button>
                         )}
+
                         <Button
                           size="sm"
                           variant="outline"
@@ -330,6 +450,17 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                         </Button>
                       </div>
                     </div>
+
+                    {/* Área expandível de Histórico */}
+                    {selectedParcelaForHistory === parcela.id && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                          <History className="h-4 w-4" />
+                          Histórico de Pagamentos
+                        </h4>
+                        <ParcelaHistorico parcelaId={parcela.id} />
+                      </div>
+                    )}
 
                     {selectedParcelaForComments === parcela.id && (
                       <div className="mt-4 pt-4 border-t">
@@ -353,6 +484,20 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
         open={baixaDialogOpen}
         onOpenChange={setBaixaDialogOpen}
         onConfirm={handleConfirmBaixa}
+      />
+
+      <EditarPagamentoDialog
+        parcela={parcelaParaEditar}
+        open={editarPagamentoOpen}
+        onOpenChange={setEditarPagamentoOpen}
+        onSuccess={handleEditarSuccess}
+      />
+
+      <EditarParcelaDialog
+        parcela={parcelaParaEditarDados}
+        open={editarParcelaDadosOpen}
+        onOpenChange={setEditarParcelaDadosOpen}
+        onSuccess={handleEditarSuccess}
       />
     </>
   );

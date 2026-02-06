@@ -22,6 +22,7 @@ import { useClienteParcelas } from '@/hooks/useClienteParcelas';
 import { useClienteDividas } from '@/hooks/useClienteDividas';
 import { BaixaPagamentoDialog } from './BaixaPagamentoDialog';
 import { EditarPagamentoDialog } from './EditarPagamentoDialog';
+import { EditarParcelaDialog } from './EditarParcelaDialog';
 import { ParcelaComentarios } from './ParcelaComentarios';
 import { ParcelaHistorico } from './ParcelaHistorico';
 import { CreateDividaDialog } from './CreateDividaDialog';
@@ -66,6 +67,8 @@ export const ClienteFinanceiroDialog = ({
   const [selectedParcelaForHistory, setSelectedParcelaForHistory] = useState<string | null>(null);
   const [editarPagamentoOpen, setEditarPagamentoOpen] = useState(false);
   const [parcelaParaEditar, setParcelaParaEditar] = useState<ClienteParcela | null>(null);
+  const [editarParcelaDadosOpen, setEditarParcelaDadosOpen] = useState(false);
+  const [parcelaParaEditarDados, setParcelaParaEditarDados] = useState<ClienteParcela | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
@@ -190,6 +193,11 @@ export const ClienteFinanceiroDialog = ({
   const handleEditarParcela = (parcela: ClienteParcela) => {
     setParcelaParaEditar(parcela);
     setEditarPagamentoOpen(true);
+  };
+
+  const handleEditarParcelaDados = (parcela: ClienteParcela) => {
+    setParcelaParaEditarDados(parcela);
+    setEditarParcelaDadosOpen(true);
   };
 
   const handleEditarSuccess = async () => {
@@ -450,32 +458,47 @@ export const ClienteFinanceiroDialog = ({
                             </div>
 
                             <div className="flex flex-col gap-2">
-                              {(parcela.status === 'pendente' || parcela.status === 'atrasado' || parcela.status === 'parcial') && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleDarBaixa(parcela)}
-                                  variant={parcela.status === 'atrasado' ? 'destructive' : parcela.status === 'parcial' ? 'outline' : 'default'}
-                                  className={parcela.status === 'parcial' ? 'border-amber-500 text-amber-700 hover:bg-amber-50' : ''}
-                                >
-                                  {parcela.status === 'parcial' ? 'Completar Pagamento' : 'Dar Baixa'}
-                                </Button>
-                              )}
-                              
-                              {parcela.status === 'pago' && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="bg-background border">
+                              {/* Menu de 3 pontinhos unificado para todas as parcelas */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-background border">
+                                  {/* Dar baixa - para pendente, atrasado, parcial */}
+                                  {(parcela.status === 'pendente' || parcela.status === 'atrasado' || parcela.status === 'parcial') && (
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDarBaixa(parcela)}
+                                      className="gap-2 cursor-pointer"
+                                    >
+                                      <DollarSign className="h-4 w-4" />
+                                      {parcela.status === 'parcial' ? 'Completar Pagamento' : 'Dar Baixa'}
+                                    </DropdownMenuItem>
+                                  )}
+                                  
+                                  {/* Editar parcela - sempre disponível */}
+                                  <DropdownMenuItem 
+                                    onClick={() => handleEditarParcelaDados(parcela)}
+                                    className="gap-2 cursor-pointer"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                    Editar Parcela
+                                  </DropdownMenuItem>
+                                  
+                                  {/* Editar pagamento - para pago e parcial */}
+                                  {(parcela.status === 'pago' || parcela.status === 'parcial') && (
                                     <DropdownMenuItem 
                                       onClick={() => handleEditarParcela(parcela)}
                                       className="gap-2 cursor-pointer"
                                     >
-                                      <Edit className="h-4 w-4" />
+                                      <FileText className="h-4 w-4" />
                                       Editar Pagamento
                                     </DropdownMenuItem>
+                                  )}
+                                  
+                                  {/* Reabrir - apenas para pago */}
+                                  {parcela.status === 'pago' && (
                                     <DropdownMenuItem 
                                       onClick={() => handleReabrirParcela(parcela.id)}
                                       className="gap-2 cursor-pointer text-destructive"
@@ -483,9 +506,9 @@ export const ClienteFinanceiroDialog = ({
                                       <RotateCcw className="h-4 w-4" />
                                       Reabrir Pagamento
                                     </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               
                               {/* Botão Histórico para parcelas pagas ou parciais */}
                               {(parcela.status === 'pago' || parcela.status === 'parcial') && (
@@ -578,6 +601,13 @@ export const ClienteFinanceiroDialog = ({
         parcela={parcelaParaEditar}
         open={editarPagamentoOpen}
         onOpenChange={setEditarPagamentoOpen}
+        onSuccess={handleEditarSuccess}
+      />
+
+      <EditarParcelaDialog
+        parcela={parcelaParaEditarDados}
+        open={editarParcelaDadosOpen}
+        onOpenChange={setEditarParcelaDadosOpen}
         onSuccess={handleEditarSuccess}
       />
     </>
