@@ -1,116 +1,126 @@
 
-# Adicionar Opcao "Editar Prazo" nos Menus da Agenda
+# Redesign Minimalista do Drawer de Processos
 
-## Situacao Atual
+## Objetivo
 
-A funcionalidade de edicao de prazos ja existe parcialmente no sistema:
-- O componente `EditarPrazoDialog` esta pronto e funcionando
-- Em `Agenda.tsx`, a opcao "Editar Prazo" ja existe em alguns menus (Prazos Vencidos e Proximos Prazos)
-- **Faltando**: A opcao nao esta em todos os menus dropdown de 3 pontinhos
-
-## O Que Sera Adicionado
-
-A opcao "Editar Prazo" sera incluida em TODOS os menus de 3 pontinhos onde aparece "Estender Prazo".
+Transformar a navegação do drawer de processos para um estilo hiper-minimalista, seguindo o mesmo padrão visual já utilizado no ClienteDetails (labels clicáveis simples com linha inferior ativa).
 
 ---
 
-## Locais a Modificar
+## Mudancas Visuais
 
-### Arquivo: `src/pages/Agenda.tsx`
+### 1. Navegacao das Abas (TabsList)
 
-**Local 1 - Prazos do dia selecionado (linhas 1050-1060)**
-- Adicionar "Editar Prazo" antes de "Estender Prazo"
-- Este e o unico local faltando neste arquivo
+**Antes:**
+```
+[icon] Resumo  [icon] Etapas 2/5  [icon] Prazos 3/4  [icon] Vínculo  [icon] Histórico  [icon] Relatório
+```
+Tabs com background, icones, badges e estilo "botão".
 
-### Arquivo: `src/components/Agenda/AgendaContent.tsx`
+**Depois:**
+```
+Resumo   Etapas   Prazos   Vínculo   Histórico   Relatório
+   ____
+```
+Apenas texto simples, sem icones. O item ativo tem uma linha inferior discreta. Sem backgrounds, sem bordas nas tabs.
 
-Este arquivo precisa de mais alteracoes pois nao tem nenhuma implementacao de edicao:
+---
 
-**1. Importar dependencias:**
-- Adicionar `Pencil` aos imports do lucide-react
-- Importar o componente `EditarPrazoDialog`
+### 2. Botao Excluir Processo
 
-**2. Adicionar estados:**
-- `isEditDialogOpen: boolean`
-- `editDeadline: Deadline | null`
+**Antes:**
+```
+[===========================================]
+[      🗑️  Excluir Processo                ]
+[===========================================]
+```
+Botão largo (w-full) com variant destructive.
 
-**3. Criar funcao helper:**
-```typescript
-const openEditDialog = (deadline: Deadline) => {
-  setEditDeadline(deadline);
-  setIsEditDialogOpen(true);
-};
+**Depois:**
+```
+                              [🗑️ Excluir]
+```
+Botão pequeno, alinhado à direita ou discretamente posicionado, apenas texto com ícone pequeno, variant ghost ou link com cor vermelha sutil no hover.
+
+---
+
+## Implementacao Tecnica
+
+### Arquivo: `src/components/Project/ProjectProtocoloDrawer.tsx`
+
+**1. TabsList (linhas 420-456)**
+
+Remover:
+- Icones de cada TabsTrigger
+- Badges de contagem nas tabs
+- Classes de estilo das tabs (border-b, rounded-none, etc.)
+
+Adicionar:
+- Estilo de navegação por texto simples
+- Classe para linha inferior no item ativo (similar ao ClienteDetails)
+
+Nova estrutura:
+```tsx
+<TabsList className="w-full h-auto bg-transparent p-0 justify-start gap-6 border-b">
+  <TabsTrigger 
+    value="resumo" 
+    className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent shadow-none"
+  >
+    Resumo
+  </TabsTrigger>
+  <TabsTrigger 
+    value="etapas" 
+    className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent shadow-none"
+  >
+    Etapas
+  </TabsTrigger>
+  {/* Mesma estrutura para: Prazos, Vínculo, Histórico, Relatório */}
+</TabsList>
 ```
 
-**4. Atualizar 4 menus dropdown:**
-- Prazos do dia selecionado (linha ~790-800)
-- Prazos Vencidos (linha ~892-896)
-- Proximos Prazos (linha ~940-944)
-- (Os outros locais nao tem menu dropdown)
+**2. Botao Excluir (linhas 628-636)**
 
-**5. Renderizar o dialog:**
-- Adicionar `EditarPrazoDialog` no final do componente
-
----
-
-## Fluxo de Edicao
-
+Substituir:
+```tsx
+<Button 
+  variant="destructive" 
+  className="w-full"
+  onClick={() => setDeleteConfirm(true)}
+  disabled={saving}
+>
+  <Trash2 className="h-4 w-4 mr-2" />
+  Excluir Processo
+</Button>
 ```
-Usuario clica nos 3 pontinhos
-        |
-        v
-Menu aparece com opcoes:
-  - Editar Prazo (novo)
-  - Estender Prazo
-        |
-        v
-Clica em "Editar Prazo"
-        |
-        v
-Modal EditarPrazoDialog abre
-  - Titulo
-  - Descricao
-  - Data
-  - Responsavel
-  - Usuarios marcados
-        |
-        v
-Salva alteracoes
-  - Atualiza banco de dados
-  - Registra comentario de auditoria
-  - Recarrega lista de prazos
+
+Por:
+```tsx
+<Button 
+  variant="ghost" 
+  size="sm"
+  className="text-muted-foreground hover:text-destructive"
+  onClick={() => setDeleteConfirm(true)}
+  disabled={saving}
+>
+  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+  Excluir
+</Button>
 ```
 
 ---
 
-## Permissoes
+## Resultado Final
 
-A opcao de editar seguira a mesma logica ja implementada:
-- Apenas usuarios **Admin** ou **Controller** verao o menu de 3 pontinhos
-- Isso e controlado pela condicao `isAdmin` que ja existe
+| Elemento | Antes | Depois |
+|----------|-------|--------|
+| Tabs | Botões com ícones e badges | Texto simples com underline ativo |
+| Excluir | Botão vermelho largo | Link discreto pequeno |
+| Visual geral | Carregado | Limpo e minimalista |
 
 ---
 
-## Resumo de Alteracoes
+## Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/Agenda.tsx` | Adicionar "Editar Prazo" no menu dos prazos do dia selecionado |
-| `src/components/Agenda/AgendaContent.tsx` | Importar componente, adicionar estados, funcao helper, atualizar 3 menus e renderizar dialog |
-
----
-
-## Resultado Visual
-
-Antes:
-```
-[...] 
-  └─ Estender Prazo
-```
-
-Depois:
-```
-[...]
-  ├─ Editar Prazo
-  └─ Estender Prazo
-```
+| `src/components/Project/ProjectProtocoloDrawer.tsx` | Refatorar TabsList para texto simples + reduzir botão Excluir |
