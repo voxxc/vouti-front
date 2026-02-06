@@ -1,160 +1,66 @@
 
+# Minimalizar o Botao Setores (Dropdown)
 
-# Correcao do Erro ao Criar Setores
+## Estado Atual
 
-## Problema Identificado
+O botao Setores usa o componente `Button` com `variant="outline"`, incluindo icone e seta:
 
-O erro ocorre na linha 933-935 do arquivo `ProjectView.tsx`:
-
-```
-Error creating sector: {
-  "code": "42501",
-  "message": "new row violates row-level security policy for table \"project_columns\""
-}
-```
-
-A causa raiz: as colunas padrao criadas para novos setores NAO incluem o `tenant_id`, que e obrigatorio pelas politicas de RLS.
-
----
-
-## Analise Tecnica
-
-### Politicas RLS da tabela `project_columns`
-
-A politica para admins exige:
-```sql
-tenant_id = get_user_tenant_id()
+```tsx
+<Button variant="outline" className="gap-2">
+  <Layers size={16} />
+  Setores
+  <ChevronDown size={14} />
+</Button>
 ```
 
-### Codigo Atual (linhas 898-931)
+## Objetivo
 
-```typescript
-const columnsToCreate = newSectors.flatMap(sector => [
-  {
-    project_id: sector.project_id,
-    sector_id: sector.id,
-    name: 'Em Espera',
-    column_order: 0,
-    color: '#eab308',
-    is_default: true
-    // ❌ FALTA tenant_id
-  },
-  // ... outras colunas
-]);
+Transformar em texto clicavel minimalista, igual aos outros botoes (Participantes, Dados, Historico), mas mantendo a funcionalidade de dropdown.
+
+## Mudanca Proposta
+
+### Arquivo: `src/components/Project/SetoresDropdown.tsx`
+
+**De (linhas 71-77):**
+```tsx
+<DropdownMenuTrigger asChild>
+  <Button variant="outline" className="gap-2">
+    <Layers size={16} />
+    Setores
+    <ChevronDown size={14} />
+  </Button>
+</DropdownMenuTrigger>
 ```
 
-### Problema Adicional
-
-A criacao dos setores (linhas 880-888) tambem nao inclui `tenant_id`:
-
-```typescript
-const sectorsToCreate = projectsToCreate.map((projId, idx) => ({
-  project_id: projId,
-  template_id: templateId,
-  name,
-  description,
-  sector_order: 999 + idx,
-  is_default: false,
-  created_by: user.id
-  // ❌ FALTA tenant_id
-}));
+**Para:**
+```tsx
+<DropdownMenuTrigger asChild>
+  <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+    Setores
+    <ChevronDown size={12} className="opacity-50" />
+  </button>
+</DropdownMenuTrigger>
 ```
 
----
+## Detalhes da Mudanca
 
-## Solucao
+| Elemento | Antes | Depois |
+|----------|-------|--------|
+| Componente | `Button` com `variant="outline"` | `button` nativo |
+| Icone Layers | Visivel | Removido |
+| Seta ChevronDown | 14px | 12px, com opacidade 50% |
+| Estilo | Borda, padding, background | Texto simples, sem borda |
 
-### Arquivo: `src/pages/ProjectView.tsx`
+## Resultado Visual
 
-**1. Buscar o tenant_id do usuario (apos linha 798)**
-
-Adicionar:
-```typescript
-// Buscar tenant_id do usuário
-const { data: profileData } = await supabase
-  .from('profiles')
-  .select('tenant_id')
-  .eq('user_id', user.id)
-  .single();
-
-const userTenantId = profileData?.tenant_id;
+```
+Participantes    Dados    Historico    Setores ˅
 ```
 
-**2. Adicionar tenant_id na criacao dos setores (linha 880-888)**
+Todos os itens agora seguem o mesmo padrao minimalista de texto clicavel.
 
-Modificar para:
-```typescript
-const sectorsToCreate = projectsToCreate.map((projId, idx) => ({
-  project_id: projId,
-  template_id: templateId,
-  name,
-  description,
-  sector_order: 999 + idx,
-  is_default: false,
-  created_by: user.id,
-  tenant_id: userTenantId  // ✅ ADICIONADO
-}));
-```
-
-**3. Adicionar tenant_id na criacao das colunas (linhas 898-931)**
-
-Modificar cada objeto de coluna para incluir `tenant_id`:
-```typescript
-const columnsToCreate = newSectors.flatMap(sector => [
-  {
-    project_id: sector.project_id,
-    sector_id: sector.id,
-    name: 'Em Espera',
-    column_order: 0,
-    color: '#eab308',
-    is_default: true,
-    tenant_id: userTenantId  // ✅ ADICIONADO
-  },
-  {
-    project_id: sector.project_id,
-    sector_id: sector.id,
-    name: 'A Fazer',
-    column_order: 1,
-    color: '#3b82f6',
-    is_default: true,
-    tenant_id: userTenantId  // ✅ ADICIONADO
-  },
-  {
-    project_id: sector.project_id,
-    sector_id: sector.id,
-    name: 'Andamento',
-    column_order: 2,
-    color: '#f97316',
-    is_default: true,
-    tenant_id: userTenantId  // ✅ ADICIONADO
-  },
-  {
-    project_id: sector.project_id,
-    sector_id: sector.id,
-    name: 'Concluído',
-    column_order: 3,
-    color: '#22c55e',
-    is_default: true,
-    tenant_id: userTenantId  // ✅ ADICIONADO
-  }
-]);
-```
-
----
-
-## Resumo das Alteracoes
-
-| Local | Alteracao |
-|-------|-----------|
-| Linha ~799 | Adicionar busca do tenant_id via profiles |
-| Linhas 880-888 | Adicionar `tenant_id: userTenantId` nos setores |
-| Linhas 898-931 | Adicionar `tenant_id: userTenantId` em cada coluna |
-
----
-
-## Arquivos a Modificar
+## Arquivo a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/ProjectView.tsx` | Incluir tenant_id na criacao de setores e colunas |
-
+| `src/components/Project/SetoresDropdown.tsx` | Trocar Button por button minimalista, remover icone Layers, reduzir seta |
