@@ -304,7 +304,14 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
-                          <span className="font-semibold">Parcela #{parcela.numero_parcela}</span>
+                          <button 
+                            className="font-semibold hover:underline text-left"
+                            onClick={() => setSelectedParcelaForComments(
+                              selectedParcelaForComments === parcela.id ? null : parcela.id
+                            )}
+                          >
+                            Parcela #{parcela.numero_parcela}
+                          </button>
                           {getStatusBadge(parcela.status)}
                         </div>
 
@@ -371,7 +378,32 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-1">
+                        {/* Botão Histórico para parcelas pagas ou parciais */}
+                        {(parcela.status === 'pago' || parcela.status === 'parcial') && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setSelectedParcelaForHistory(
+                              selectedParcelaForHistory === parcela.id ? null : parcela.id
+                            )}
+                          >
+                            <History className="h-3 w-3" />
+                          </Button>
+                        )}
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedParcelaForComments(
+                            selectedParcelaForComments === parcela.id ? null : parcela.id
+                          )}
+                        >
+                          {selectedParcelaForComments === parcela.id ? 'Ocultar' : 'Comentários'}
+                        </Button>
+
                         {/* Menu de 3 pontinhos unificado para todas as parcelas */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -423,31 +455,6 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        
-                        {/* Botão Histórico para parcelas pagas ou parciais */}
-                        {(parcela.status === 'pago' || parcela.status === 'parcial') && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1"
-                            onClick={() => setSelectedParcelaForHistory(
-                              selectedParcelaForHistory === parcela.id ? null : parcela.id
-                            )}
-                          >
-                            <History className="h-3 w-3" />
-                            Histórico
-                          </Button>
-                        )}
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedParcelaForComments(
-                            selectedParcelaForComments === parcela.id ? null : parcela.id
-                          )}
-                        >
-                          {selectedParcelaForComments === parcela.id ? 'Ocultar' : 'Comentários'}
-                        </Button>
                       </div>
                     </div>
 
