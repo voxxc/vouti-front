@@ -1,5 +1,5 @@
 import { useState } from 'react';
- import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,8 @@ import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
 import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
- import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
+import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
+import { TenantPushDocsDialog } from './TenantPushDocsDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
  import {
    DropdownMenu,
@@ -44,7 +45,8 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showBoletos, setShowBoletos] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [showBancoIds, setShowBancoIds] = useState(false);
-   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [showPushDocs, setShowPushDocs] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -215,6 +217,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
+              onClick={() => setShowPushDocs(true)}
+              title="Push-Docs (Monitoramento)"
+            >
+              <FileStack className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
               onClick={() => setShowBancoIds(true)}
               title="Banco de IDs"
             >
@@ -273,11 +284,17 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         tenantName={tenant.name}
       />
 
-       <CreateTenantAdminDialog
-         open={showCreateAdmin}
-         onOpenChange={setShowCreateAdmin}
-         tenant={tenant}
-       />
+      <CreateTenantAdminDialog
+        open={showCreateAdmin}
+        onOpenChange={setShowCreateAdmin}
+        tenant={tenant}
+      />
+
+      <TenantPushDocsDialog
+        open={showPushDocs}
+        onOpenChange={setShowPushDocs}
+        tenant={tenant}
+      />
     </>
   );
 }
