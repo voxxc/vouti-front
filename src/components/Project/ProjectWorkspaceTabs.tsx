@@ -236,7 +236,7 @@ export function ProjectWorkspaceTabs({
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir aba?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Todos os protocolos, colunas e tarefas desta aba serão excluídos permanentemente.
+              Esta ação não pode ser desfeita. Todos os processos, colunas e tarefas desta aba serão excluídos permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

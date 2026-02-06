@@ -302,7 +302,7 @@ export function RelatorioProtocolo({
 
             {/* Histórico do Protocolo */}
             <div className="section">
-              <div className="section-title">Histórico do Protocolo</div>
+              <div className="section-title">Histórico do Processo</div>
               
               {etapasConcluidas.length === 0 ? (
                 <p style={{ textAlign: 'center', color: '#666', padding: '20px 0' }}>

@@ -150,7 +150,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         {/* 2. Processos */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Processos</CardTitle>
+            <CardTitle className="text-sm font-medium">Casos</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -162,7 +162,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         {/* 3. Protocolos com mini-barras visuais */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Protocolos</CardTitle>
+            <CardTitle className="text-sm font-medium">Processos</CardTitle>
             <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>

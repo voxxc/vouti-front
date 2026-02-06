@@ -120,7 +120,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           className="flex items-center gap-2 text-lg font-semibold hover:text-primary transition-colors"
         >
           <FolderKanban className="h-5 w-5" />
-          <span>Protocolos</span>
+          <span>Processos</span>
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           <Badge variant="secondary" className="ml-2">
             {protocolos.length}
@@ -133,7 +133,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           onClick={() => setIsAddDialogOpen(true)}
         >
           <Plus size={16} />
-          Novo protocolo
+          Novo processo
         </Button>
       </div>
 
@@ -144,7 +144,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Buscar protocolos..."
+                placeholder="Buscar processos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -157,7 +157,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 <SelectValue placeholder="Filtrar por status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos os protocolos</SelectItem>
+                <SelectItem value="todos">Todos os processos</SelectItem>
                 <SelectItem value="pendente">Pendentes</SelectItem>
                 <SelectItem value="em_andamento">Em Andamento</SelectItem>
                 <SelectItem value="concluido">Concluídos</SelectItem>
@@ -177,12 +177,12 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 <FolderKanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 {protocolos.length === 0 ? (
                   <>
-                    <p className="text-lg font-medium">Nenhum protocolo criado</p>
-                    <p className="text-sm">Clique em "Novo protocolo" para adicionar</p>
+                    <p className="text-lg font-medium">Nenhum processo criado</p>
+                    <p className="text-sm">Clique em "Novo processo" para adicionar</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-lg font-medium">Nenhum protocolo encontrado</p>
+                    <p className="text-lg font-medium">Nenhum processo encontrado</p>
                     <p className="text-sm">Tente ajustar os filtros</p>
                   </>
                 )}

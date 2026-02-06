@@ -55,7 +55,7 @@ export function ConcluirEtapaModal({
           </DialogTitle>
           <DialogDescription>
             Digite um comentário sobre a conclusão da etapa "<strong>{etapaNome}</strong>".
-            Este comentário será anexado ao relatório do protocolo.
+            Este comentário será anexado ao relatório do processo.
           </DialogDescription>
         </DialogHeader>
 
