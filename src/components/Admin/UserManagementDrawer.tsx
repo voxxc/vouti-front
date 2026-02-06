@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Plus, Search } from "lucide-react";
+import { Users, Plus, Search, Pencil } from "lucide-react";
 import { User } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,6 +130,10 @@ export function UserManagementDrawer({
                           {user.email}
                         </div>
                       </div>
+                      <Pencil 
+                        className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 
+                                   hover:text-primary transition-all shrink-0" 
+                      />
                       <Badge 
                         variant={getRoleBadgeVariant(user.role)} 
                         className="ml-2 shrink-0 text-xs"
