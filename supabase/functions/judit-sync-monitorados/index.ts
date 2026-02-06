@@ -276,6 +276,21 @@ serve(async (req) => {
 
         console.log(`[SYNC] Found request_id: ${requestId}`);
 
+        // NOVO: Salvar o request_id do tracking no banco
+        const { error: updateTrackingError } = await supabase
+          .from('processos_oab')
+          .update({
+            tracking_request_id: requestId,
+            tracking_request_data: new Date().toISOString(),
+          })
+          .eq('id', processo.id);
+
+        if (updateTrackingError) {
+          console.error(`[SYNC] Error saving tracking_request_id:`, updateTrackingError);
+        } else {
+          console.log(`[SYNC] Saved tracking_request_id ${requestId} for ${processo.numero_cnj}`);
+        }
+
         // Step 2: Get responses
         const responsesData = await fetchResponsesByRequestId(requestId, juditApiKey);
 
