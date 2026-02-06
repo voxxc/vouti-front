@@ -1,159 +1,194 @@
 
-# Registrar Request ID de Detalhes no INSERT
+# Plano de Implementacao: CRM + Financeiro + Prazos
 
-## Problema Identificado
+## Resumo das Solicitacoes
 
-O processo `0003732-65.2024.8.16.0021` foi criado via POST com `detalhes_request_id` = `7d0309a0-dc93-4d99-9334-cf3f0ebea19d`, mas esse request_id **nao aparece no Banco de IDs** do SuperAdmin.
+O usuario pediu 3 melhorias principais:
 
-**Causa**: O trigger `registrar_banco_id_processo` so registra `detalhes_request_id` quando ocorre **UPDATE** (campo muda de valor). Para **INSERTs** que ja vem com o request_id preenchido, o trigger nao captura.
-
----
-
-## Solucao
-
-Modificar o trigger para tambem registrar `detalhes_request_id` no **INSERT** (quando o processo ja vem com esse campo preenchido).
+1. **Cadastro de Cliente (CRM)**: Tornar a secao "Dados do Contrato" colapsavel + melhorar acesso ao sistema de etiquetas
+2. **Financeiro**: Verificar/garantir edicao de pagamentos apos baixa
+3. **Prazos (Agenda)**: Adicionar dialog completo de edicao de prazo (alem de apenas estender data)
 
 ---
 
-## Alteracoes Tecnicas
+## Analise do Codigo Existente
 
-### 1. Migracao SQL: Atualizar Trigger
+| Funcionalidade | Status Atual |
+|----------------|--------------|
+| Sistema de etiquetas | Existe, mas so aparece no modo edicao |
+| Juros e multa por atraso | Funcional, dentro da secao de parcelamento |
+| Edicao de pagamento | Funcional via DropdownMenu em parcelas pagas |
+| Estender prazo | Funcional, mas so altera data + motivo |
+| Editar prazo completo | NAO EXISTE |
 
-```sql
-CREATE OR REPLACE FUNCTION public.registrar_banco_id_processo()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-BEGIN
-  -- INSERT: registrar ID do processo
-  IF TG_OP = 'INSERT' THEN
-    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-    VALUES (
-      NEW.tenant_id,
-      'processo',
-      NEW.id,
-      NEW.id::text,
-      COALESCE(NEW.numero_cnj, 'Processo sem CNJ'),
-      jsonb_build_object('numero_cnj', NEW.numero_cnj, 'tribunal', NEW.tribunal)
-    );
-    
-    -- NOVO: Registrar detalhes_request_id se ja veio preenchido no INSERT
-    IF NEW.detalhes_request_id IS NOT NULL THEN
-      INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-      VALUES (
-        NEW.tenant_id,
-        'request_detalhes',
-        NEW.id,
-        NEW.detalhes_request_id,
-        'Detalhes: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-        jsonb_build_object('numero_cnj', NEW.numero_cnj)
-      );
-    END IF;
-    
-    -- NOVO: Registrar tracking_id se ja veio preenchido no INSERT
-    IF NEW.tracking_id IS NOT NULL THEN
-      INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-      VALUES (
-        NEW.tenant_id,
-        'tracking',
-        NEW.id,
-        NEW.tracking_id,
-        'Monitoramento: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-        jsonb_build_object('numero_cnj', NEW.numero_cnj, 'monitoramento_ativo', NEW.monitoramento_ativo)
-      );
-    END IF;
-  END IF;
-  
-  -- UPDATE: registrar tracking_id se ativou monitoramento
-  IF TG_OP = 'UPDATE' AND NEW.tracking_id IS DISTINCT FROM OLD.tracking_id AND NEW.tracking_id IS NOT NULL THEN
-    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-    VALUES (
-      NEW.tenant_id,
-      'tracking',
-      NEW.id,
-      NEW.tracking_id,
-      'Monitoramento: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-      jsonb_build_object('numero_cnj', NEW.numero_cnj, 'monitoramento_ativo', NEW.monitoramento_ativo)
-    );
-  END IF;
-  
-  -- Registrar quando monitoramento foi DESATIVADO
-  IF TG_OP = 'UPDATE' 
-     AND OLD.monitoramento_ativo = TRUE 
-     AND NEW.monitoramento_ativo = FALSE 
-     AND NEW.tracking_id IS NOT NULL THEN
-    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-    VALUES (
-      NEW.tenant_id,
-      'tracking_desativado',
-      NEW.id,
-      NEW.tracking_id,
-      'Desativado: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-      jsonb_build_object(
-        'numero_cnj', NEW.numero_cnj, 
-        'tracking_id', NEW.tracking_id,
-        'desativado_em', NOW()
-      )
-    );
-  END IF;
-  
-  -- UPDATE: registrar detalhes_request_id se buscou detalhes
-  IF TG_OP = 'UPDATE' AND NEW.detalhes_request_id IS DISTINCT FROM OLD.detalhes_request_id AND NEW.detalhes_request_id IS NOT NULL THEN
-    INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-    VALUES (
-      NEW.tenant_id,
-      'request_detalhes',
-      NEW.id,
-      NEW.detalhes_request_id,
-      'Detalhes: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-      jsonb_build_object('numero_cnj', NEW.numero_cnj)
-    );
-  END IF;
-  
-  RETURN NEW;
-END;
-$function$;
+---
+
+## Alteracoes Planejadas
+
+### 1. CRM: Secao "Dados do Contrato" Colapsavel
+
+**Arquivo**: `src/components/CRM/ClienteForm.tsx`
+
+- Adicionar componente `Collapsible` ao redor da secao "Dados do Contrato"
+- Estado inicial: fechado (para nao sobrecarregar formulario)
+- Icone de seta indicando expansao/colapsamento
+
+**Codigo exemplo**:
+```typescript
+const [contratoOpen, setContratoOpen] = useState(false);
+
+<Collapsible open={contratoOpen} onOpenChange={setContratoOpen}>
+  <CollapsibleTrigger asChild>
+    <Button variant="ghost" className="w-full justify-between">
+      <span>Dados do Contrato</span>
+      <ChevronDown className={cn("transition-transform", contratoOpen && "rotate-180")} />
+    </Button>
+  </CollapsibleTrigger>
+  <CollapsibleContent>
+    {/* campos do contrato */}
+  </CollapsibleContent>
+</Collapsible>
 ```
 
-### 2. Correcao Retroativa: Inserir o Request ID Faltante
+### 2. CRM: Etiquetas disponiveis desde o cadastro
 
-Para corrigir o processo que ja existe:
+**Arquivo**: `src/components/CRM/ClienteForm.tsx`
 
-```sql
-INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-SELECT 
-  po.tenant_id,
-  'request_detalhes',
-  po.id,
-  po.detalhes_request_id,
-  'Detalhes: ' || po.numero_cnj,
-  jsonb_build_object('numero_cnj', po.numero_cnj)
-FROM processos_oab po
-WHERE po.numero_cnj = '0003732-65.2024.8.16.0021'
-  AND po.detalhes_request_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM tenant_banco_ids tbi 
-    WHERE tbi.external_id = po.detalhes_request_id 
-      AND tbi.tipo = 'request_detalhes'
-  );
+- Atualmente: `{isEditing && <ClienteEtiquetasManager ... />}`
+- Mudar para: exibir sempre, mas com mensagem de que "Salve primeiro para adicionar etiquetas" quando nao estiver editando
+
+O componente `ClienteEtiquetasManager` ja tem essa logica interna - basta remover a condicao `isEditing` do wrapper.
+
+### 3. Financeiro: Edicao de Pagamentos
+
+**Status**: Ja implementado
+
+O sistema ja permite editar pagamentos apos baixa atraves do menu de 3 pontinhos (DropdownMenu) que aparece em parcelas com status "pago". Funcionalidades disponiveis:
+- Editar Pagamento (data, metodo, valor pago, observacoes)
+- Reabrir Pagamento (voltar para pendente/atrasado)
+- Historico de pagamentos
+
+Nenhuma alteracao necessaria.
+
+### 4. Prazos: Dialog Completo de Edicao
+
+**Novo arquivo**: `src/components/Agenda/EditarPrazoDialog.tsx`
+
+**Campos editaveis**:
+- Titulo do prazo
+- Descricao
+- Data
+- Advogado responsavel
+- Usuarios marcados (tags)
+
+**Arquivo modificado**: `src/pages/Agenda.tsx`
+- Adicionar estado para controlar o dialog de edicao
+- Adicionar botao "Editar" no menu de opcoes do prazo
+- Importar e usar o novo dialog
+
+**Logica de permissao**:
+- Apenas admin/controller ou criador do prazo pode editar
+
+---
+
+## Diagrama de Fluxo - Edicao de Prazo
+
+```text
+Usuario clica em prazo
+        |
+        v
+Abre detalhes do prazo
+        |
+        v
+Clica em "Editar" (se admin/controller/criador)
+        |
+        v
+Abre EditarPrazoDialog
+        |
+  +-----+-----+
+  |           |
+  v           v
+Altera    Altera
+campos    responsavel
+  |           |
+  +-----+-----+
+        |
+        v
+Clica "Salvar"
+        |
+        v
+UPDATE deadlines SET title, description, date, advogado_responsavel_id
+        |
+        v
+Registra comentario automatico de alteracao
+        |
+        v
+Recarrega lista de prazos
 ```
 
 ---
 
-## Resumo das Mudancas
+## Arquivos a Criar
 
-| Cenario | Antes | Depois |
-|---------|-------|--------|
-| INSERT com detalhes_request_id | Nao registra | Registra request_detalhes |
-| INSERT com tracking_id | Nao registra | Registra tracking |
-| UPDATE com detalhes_request_id | Registra | Registra (sem mudanca) |
-| UPDATE com tracking_id | Registra | Registra (sem mudanca) |
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/components/Agenda/EditarPrazoDialog.tsx` | Dialog completo para edicao de prazos |
 
 ---
 
-## Resultado Esperado
+## Arquivos a Modificar
 
-- Ao abrir o Banco de IDs no SuperAdmin, a aba **Requests** vai mostrar o request_id `7d0309a0-dc93-4d99-9334-cf3f0ebea19d` para o processo `0003732-65.2024.8.16.0021`
-- Novos processos criados via POST (atualizar-andamentos ou import CNJ) terao seus request_ids registrados automaticamente
+| Arquivo | Alteracoes |
+|---------|------------|
+| `src/components/CRM/ClienteForm.tsx` | Tornar "Dados do Contrato" colapsavel; mostrar etiquetas sempre |
+| `src/pages/Agenda.tsx` | Adicionar estado e botao para editar prazo; importar EditarPrazoDialog |
+
+---
+
+## Detalhes Tecnicos
+
+### EditarPrazoDialog.tsx
+
+```typescript
+interface EditarPrazoDialogProps {
+  deadline: Deadline | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  tenantId: string;
+}
+
+// Campos do formulario:
+// - title: Input (obrigatorio)
+// - description: Textarea (opcional)
+// - date: DatePicker (obrigatorio)
+// - advogado_responsavel_id: AdvogadoSelector (obrigatorio)
+// - taggedUsers: UserTagSelector (opcional)
+
+// Ao salvar:
+// 1. UPDATE deadlines
+// 2. UPSERT deadline_tags (remover tags antigas, inserir novas)
+// 3. INSERT deadline_comentarios (registro de alteracao)
+// 4. Notificar usuarios afetados
+```
+
+### ClienteForm.tsx - Collapsible
+
+```typescript
+// Adicionar imports
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
+
+// Adicionar estado
+const [contratoOpen, setContratoOpen] = useState(!!cliente?.valor_contrato);
+
+// Substituir <div className="space-y-4"> por Collapsible
+```
+
+---
+
+## Estimativa de Impacto
+
+- **CRM**: Melhoria de UX - formulario mais limpo com secoes colapsaveis
+- **Financeiro**: Sem alteracoes (ja funcional)
+- **Prazos**: Nova funcionalidade de edicao completa - maior flexibilidade para usuarios
