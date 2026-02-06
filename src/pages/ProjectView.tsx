@@ -1082,36 +1082,30 @@ const ProjectView = ({
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+          <div className="flex items-center gap-6">
+            <button 
               onClick={() => setIsParticipantsOpen(true)}
-              className="gap-2"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Users size={16} />
               Participantes
-            </Button>
+            </button>
 
             {isAdmin && (
-              <Button 
-                variant="outline" 
+              <button 
                 onClick={() => setIsClientDataOpen(true)}
-                className="gap-2"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <FileText size={16} />
                 Dados
-              </Button>
+              </button>
             )}
 
             {isAdmin && (
-              <Button 
-                variant="outline" 
+              <button 
                 onClick={() => setIsHistoryOpen(true)}
-                className="gap-2"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <History size={16} />
                 Histórico
-              </Button>
+              </button>
             )}
             
             <SetoresDropdown
