@@ -1,132 +1,180 @@
 
+# Renomeacao de Entidades: Protocolo → Processos | Processos → Casos
 
-# Lista Minimalista de Clientes no Financeiro
+## Objetivo
 
-## Problema Atual
-
-A lista de clientes no Financeiro usa **Cards** com:
-- Nome + Badge de status
-- Valor do contrato
-- Próximo vencimento
-- Dias em atraso
-- Botão "Ver Detalhes"
-
-## Solucao Proposta
-
-Lista simples com apenas **nomes clicaveis**, seguindo o mesmo padrao minimalista do CRM.
+Renomear as entidades no sistema:
+1. **Protocolo** → **Processos** (o que antes era chamado de protocolo)
+2. **Processos** (processos_oab) → **Casos** (os processos judiciais)
 
 ---
 
-## Layout Antes vs Depois
+## Escopo da Mudanca
 
-**Antes (Cards):**
-```text
-┌──────────────────────────────────────┐
-│ João da Silva          [Adimplente]  │
-│ 💲 R$ 5.000,00                       │
-│ 📅 Próximo: 15/02/2026               │
-│ [Ver Detalhes]                       │
-└──────────────────────────────────────┘
+Esta e uma mudanca de **labels/UI apenas** - nao afeta nomes de tabelas no banco de dados, hooks ou nomes de componentes internos. Alteraremos apenas os textos exibidos ao usuario.
+
+---
+
+## Mapeamento de Termos
+
+| Termo Atual | Novo Termo |
+|-------------|------------|
+| Protocolo | Processo |
+| Protocolos | Processos |
+| Novo protocolo | Novo processo |
+| Nenhum protocolo | Nenhum processo |
+| Buscar protocolos | Buscar processos |
+| Processos (aba de processos_oab) | Casos |
+| Processo Vinculado | Caso Vinculado |
+| processo (referente a processos_oab) | caso |
+
+---
+
+## Arquivos a Modificar
+
+### 1. Aba de Navegacao Principal (ProjectView.tsx)
+
+**Mudancas:**
+```
+"Protocolos" → "Processos"
+"Processos" → "Casos"
 ```
 
-**Depois (Lista simples):**
-```text
-João da Silva                    Adimplente
-Maria Santos                     Inadimplente
-Pedro Oliveira                   Encerrado
-```
-
-Onde cada nome e clicavel e leva aos detalhes.
+| Localizacao | Antes | Depois |
+|-------------|-------|--------|
+| Linha ~1148 | Protocolos | Processos |
+| Linha ~1162 | Processos | Casos |
 
 ---
 
-## Estrutura da Lista
+### 2. Lista de Protocolos (ProjectProtocolosList.tsx)
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  Clientes   Colaboradores   Custos         Métricas    │
-│  ─────────                                              │
-│                                                         │
-│  🔍 Pesquisar...                    [Filtrar ▾]        │
-│                                                         │
-│  João da Silva                        Adimplente       │
-│  Maria Santos                         Inadimplente     │
-│  Pedro Oliveira                       Encerrado        │
-│  Ana Costa                            Adimplente       │
-│                                                         │
-│  4 clientes encontrados                                 │
-└─────────────────────────────────────────────────────────┘
-```
+**Mudancas de labels:**
+- Titulo: "Protocolos" → "Processos"
+- Botao: "Novo protocolo" → "Novo processo"
+- Placeholder: "Buscar protocolos..." → "Buscar processos..."
+- Filtro: "Todos os protocolos" → "Todos os processos"
+- Empty state: "Nenhum protocolo criado" → "Nenhum processo criado"
+- Empty state: "Nenhum protocolo encontrado" → "Nenhum processo encontrado"
 
 ---
 
-## Alteracoes no FinancialContent.tsx
+### 3. Dialog de Adicionar (AddProtocoloDialog.tsx)
 
-### Remover
-- Cards com CardHeader/CardContent
-- Icones DollarSign, Calendar, AlertTriangle na lista
-- Informacoes de valor, vencimento, dias em atraso
-- Botao "Ver Detalhes"
-
-### Adicionar
-- Lista simples com divs
-- Nome clicavel (text-primary hover:underline)
-- Badge de status discreto a direita
+**Mudancas:**
+- Titulo: "Novo Protocolo" → "Novo Processo"
+- Label: "Nome do Protocolo" → "Nome do Processo"
+- Botao: "Criar Protocolo" → "Criar Processo"
 
 ---
 
-## Codigo da Nova Lista
+### 4. Lista de Processos OAB (ProjectProcessos.tsx)
 
-```typescript
-{clientesFiltrados.length === 0 ? (
-  <div className="py-8 text-center">
-    <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-2" />
-    <p className="text-muted-foreground">
-      {searchTerm || statusFilter !== 'todos' 
-        ? 'Nenhum cliente encontrado'
-        : 'Nenhum cliente cadastrado'}
-    </p>
-  </div>
-) : (
-  <div className="space-y-1">
-    {clientesFiltrados.map((cliente) => {
-      const statusConfig = getStatusBadge(cliente.status);
-      return (
-        <div 
-          key={cliente.id} 
-          className="flex items-center justify-between py-2 px-1 hover:bg-muted/50 rounded transition-colors"
-        >
-          <button
-            onClick={() => onViewCliente?.(cliente)}
-            className="text-sm font-medium text-primary hover:underline text-left"
-          >
-            {getNomeCliente(cliente)}
-          </button>
-          <Badge variant={statusConfig.variant} className="text-xs">
-            {statusConfig.label}
-          </Badge>
-        </div>
-      );
-    })}
-  </div>
-)}
-```
+**Mudancas:**
+- Titulo da secao (se houver) → "Casos"
+- Badges: "X processo(s)" → "X caso(s)"
+- Mensagens de toast: "Processo vinculado" → "Caso vinculado"
+- Dialogo adicionar: referencias a processo → caso
 
 ---
 
-## Arquivo a Modificar
+### 5. Drawer de Protocolo (ProjectProtocoloDrawer.tsx)
 
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/Financial/FinancialContent.tsx` | Substituir grid de Cards por lista simples com nomes clicaveis |
+**Mudancas nas tabs e labels:**
+- Aba "Vinculo": "Processo Vinculado" → "Caso Vinculado"
+- Toast: "Protocolo atualizado" → "Processo atualizado"
+- Historico: "Historico do Protocolo" → "Historico do Processo"
 
 ---
 
-## Beneficios
+### 6. Tab de Vinculo (ProtocoloVinculoTab.tsx)
 
-- **Super minimalista**: Apenas nome e status
-- **Scan rapido**: Facil de percorrer a lista visualmente
-- **Consistente**: Mesmo padrao da lista de clientes do CRM
-- **Menos ruido**: Informacoes detalhadas so aparecem ao clicar
-- **Performance**: Menos elementos DOM por cliente
+**Mudancas:**
+- "Processo Vinculado" → "Caso Vinculado"
+- "vincular processo" → "vincular caso"
+- Mensagens toast adaptadas
 
+---
+
+### 7. Workspace Tabs (ProjectWorkspaceTabs.tsx)
+
+**Mudancas:**
+- AlertDialog: "protocolos, colunas e tarefas" → "processos, colunas e tarefas"
+
+---
+
+### 8. Relatorio (RelatorioProtocolo.tsx)
+
+**Mudancas:**
+- Titulo: "Historico do Protocolo" → "Historico do Processo"
+- Outras referencias visuais
+
+---
+
+### 9. ConcluirEtapaModal.tsx
+
+**Mudancas:**
+- "relatorio do protocolo" → "relatorio do processo"
+
+---
+
+### 10. Dashboard Metrics (AdminMetrics.tsx)
+
+**Mudancas nos cards de metricas:**
+- "Protocolos" → "Processos" (card titulo)
+- "Pendentes" (de protocolos) mantido mas contexto muda
+- Variaveis internas podem manter nomes (nao sao visiveis ao usuario)
+
+---
+
+### 11. Hook useProjectProtocolos.ts
+
+**Mudancas apenas nas mensagens de toast:**
+- "Protocolo criado com sucesso" → "Processo criado com sucesso"
+- "Protocolo atualizado" → "Processo atualizado"
+- "Erro ao criar protocolo" → "Erro ao criar processo"
+- (nomes de funcoes e tipos internos permanecem iguais)
+
+---
+
+### 12. useProtocoloVinculo.ts
+
+**Sem mudancas** - logica interna, nenhum texto visivel ao usuario
+
+---
+
+### 13. Agenda.tsx
+
+**Mudancas:**
+- Referencia "Protocolo/Etapa" em labels → "Processo/Etapa"
+
+---
+
+## Resumo de Arquivos
+
+| Arquivo | Tipo de Mudanca |
+|---------|-----------------|
+| `src/pages/ProjectView.tsx` | Labels de abas |
+| `src/components/Project/ProjectProtocolosList.tsx` | Titulos, botoes, placeholders, empty states |
+| `src/components/Project/AddProtocoloDialog.tsx` | Dialog titulo, labels, botao |
+| `src/components/Project/ProjectProcessos.tsx` | Badges, toasts, dialogs |
+| `src/components/Project/ProjectProtocoloDrawer.tsx` | Tabs, toasts, labels |
+| `src/components/Project/ProtocoloVinculoTab.tsx` | Labels de vinculo |
+| `src/components/Project/ProjectWorkspaceTabs.tsx` | AlertDialog texto |
+| `src/components/Project/RelatorioProtocolo.tsx` | Titulos de secoes |
+| `src/components/Project/ConcluirEtapaModal.tsx` | Descricao |
+| `src/components/Dashboard/Metrics/AdminMetrics.tsx` | Card titulo |
+| `src/hooks/useProjectProtocolos.ts` | Mensagens de toast |
+| `src/pages/Agenda.tsx` | Label origem |
+
+---
+
+## Importante
+
+**O que NAO sera alterado:**
+- Nomes de tabelas no banco (project_protocolos, processos_oab, etc.)
+- Nomes de hooks (useProjectProtocolos, useOABs, etc.)
+- Nomes de componentes (ProjectProtocoloDrawer, ProjectProcessos, etc.)
+- Nomes de tipos TypeScript (ProjectProtocolo, ProcessoOAB, etc.)
+
+Isso garante que a mudanca seja segura e nao quebre nenhuma logica existente.
