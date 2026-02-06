@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Upload, X, Plus, ChevronDown } from 'lucide-react';
+import { Upload, X, Plus, ChevronDown, FolderPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { GruposParcelasManager } from './GruposParcelasManager';
@@ -20,11 +21,25 @@ import { ClienteEtiquetasManager } from './ClienteEtiquetasManager';
 
 interface ClienteFormProps {
   cliente?: Cliente;
-  onSuccess: () => void;
+  onSuccess: (clienteId?: string, nomeCliente?: string) => void;
   onCancel: () => void;
+  showCreateProject?: boolean;
+  criarProjeto?: boolean;
+  setCriarProjeto?: (value: boolean) => void;
+  nomeProjeto?: string;
+  setNomeProjeto?: (value: string) => void;
 }
 
-export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) => {
+export const ClienteForm = ({ 
+  cliente, 
+  onSuccess, 
+  onCancel,
+  showCreateProject = false,
+  criarProjeto = false,
+  setCriarProjeto,
+  nomeProjeto = '',
+  setNomeProjeto,
+}: ClienteFormProps) => {
   const { createCliente, updateCliente, uploadDocumento, loading } = useClientes();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -181,7 +196,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
     }
 
     if (result) {
-      onSuccess();
+      const nomeCliente = data.nome_pessoa_fisica || data.nome_pessoa_juridica || '';
+      onSuccess(result.id, nomeCliente);
     }
   };
 
@@ -777,6 +793,35 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
         </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Seção: Criar Projeto Vinculado */}
+      {showCreateProject && !isEditing && (
+        <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+          <div className="flex items-center space-x-3">
+            <Checkbox
+              id="criar-projeto"
+              checked={criarProjeto}
+              onCheckedChange={(checked) => setCriarProjeto?.(!!checked)}
+            />
+            <Label htmlFor="criar-projeto" className="flex items-center gap-2 cursor-pointer">
+              <FolderPlus className="h-4 w-4 text-primary" />
+              Criar projeto vinculado a este cliente
+            </Label>
+          </div>
+          
+          {criarProjeto && (
+            <div className="pl-7 space-y-2">
+              <Label htmlFor="nome-projeto" className="text-sm">Nome do Projeto</Label>
+              <Input
+                id="nome-projeto"
+                value={nomeProjeto}
+                onChange={(e) => setNomeProjeto?.(e.target.value)}
+                placeholder="Nome do projeto (deixe em branco para usar o nome do cliente)"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading || uploadingFiles}>
