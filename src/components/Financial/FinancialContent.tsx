@@ -289,7 +289,7 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
                     >
                       <button
                         onClick={() => onViewCliente?.(cliente)}
-                        className="text-sm font-medium text-primary hover:underline text-left"
+                        className="text-sm font-medium text-foreground hover:text-foreground/80 text-left transition-colors"
                       >
                         {getNomeCliente(cliente)}
                       </button>
