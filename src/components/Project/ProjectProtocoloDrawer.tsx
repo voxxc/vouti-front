@@ -113,6 +113,7 @@ export function ProjectProtocoloDrawer({
 }: ProjectProtocoloDrawerProps) {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [newEtapaNome, setNewEtapaNome] = useState('');
   const [addingEtapa, setAddingEtapa] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<ProjectProtocoloEtapa | null>(null);
@@ -535,14 +536,6 @@ export function ProjectProtocoloDrawer({
                 ) : (
                   // Modo de Visualização
                   <>
-                    {/* Botão Editar */}
-                    <div className="flex justify-end">
-                      <Button variant="outline" size="sm" onClick={startEditing}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Editar
-                      </Button>
-                    </div>
-
                     {/* Descrição */}
                     <div>
                       <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
@@ -625,16 +618,28 @@ export function ProjectProtocoloDrawer({
                         </Select>
                       </div>
 
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => setDeleteConfirm(true)}
-                        disabled={saving}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        Excluir
-                      </Button>
+                      {/* Botões Editar e Excluir lado a lado */}
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={startEditing}
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                          Editar
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setDeleteConfirm(true)}
+                          disabled={saving}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                          Excluir
+                        </Button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -938,19 +943,31 @@ export function ProjectProtocoloDrawer({
         </DrawerContent>
       </Drawer>
 
-      <AlertDialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>
+      <AlertDialog open={deleteConfirm} onOpenChange={(open) => {
+        setDeleteConfirm(open);
+        if (!open) setDeleteConfirmText('');
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir protocolo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O protocolo "{protocolo.nome}" e todas as suas etapas serão excluídos permanentemente.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Esta ação não pode ser desfeita. O protocolo e todas as suas etapas serão excluídos permanentemente.</p>
+                <p className="font-medium text-foreground">Para confirmar, digite: <span className="text-destructive">{protocolo.nome}</span></p>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Digite o nome do processo"
+                  className="mt-2"
+                />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete}
-              disabled={saving}
+              disabled={saving || deleteConfirmText !== protocolo.nome}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
