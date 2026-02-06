@@ -156,11 +156,10 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
 
             <div className="space-y-1 pr-4">
               {!isBasicLoaded ? (
-                Array.from({ length: 6 }).map((_, i) => (
+              Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="p-3 rounded-lg">
                     <Skeleton className="h-5 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-1/2 mb-2" />
-                    <Skeleton className="h-2 w-full" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
                 ))
               ) : filteredProjects.length === 0 ? (
