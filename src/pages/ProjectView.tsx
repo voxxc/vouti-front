@@ -25,8 +25,6 @@ import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTaskMovement, notifyTaskCreated } from "@/utils/notificationHelpers";
 import { supabase } from "@/integrations/supabase/client";
-import { calculateProjectProgress } from "@/utils/projectHelpers";
-import { Progress } from "@/components/ui/progress";
 
 interface ProjectViewProps {
   onLogout: () => void;
@@ -1057,8 +1055,6 @@ const ProjectView = ({
     }
   };
 
-  // Calcular progresso do projeto
-  const projectProgress = calculateProjectProgress(project.tasks, columns);
 
   return (
     <DashboardLayout>
@@ -1076,10 +1072,6 @@ const ProjectView = ({
                 onUpdateName={handleUpdateProjectName}
               />
               <p className="text-muted-foreground">{project.client}</p>
-              <div className="flex items-center gap-3 mt-2">
-                <Progress value={projectProgress} className="w-48 h-2" />
-                <span className="text-sm font-medium text-foreground">{projectProgress}% completo</span>
-              </div>
             </div>
           </div>
           <div className="flex items-center gap-6">

@@ -3,7 +3,6 @@ import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Search, Plus, FolderOpen, Calendar, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
@@ -90,28 +89,21 @@ const Projects = () => {
             <Skeleton className="h-10 w-32" />
           </div>
           <Skeleton className="h-10 w-80" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="rounded-lg border bg-card divide-y">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <Card key={i} className="shadow-card border-0">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-9 w-9 rounded-lg" />
-                      <Skeleton className="h-6 w-32" />
-                    </div>
-                    <Skeleton className="h-4 w-20" />
+              <div key={i} className="p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-24" />
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <div className="flex gap-2">
-                    <Skeleton className="h-6 w-16 rounded-full" />
-                    <Skeleton className="h-6 w-20 rounded-full" />
-                  </div>
-                  <Skeleton className="h-2 w-full rounded-full" />
-                </CardContent>
-              </Card>
+                </div>
+                <div className="space-y-2 text-right">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -199,82 +191,73 @@ const Projects = () => {
           />
         </div>
 
-        {/* Projects Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Projects List */}
+        <div className="rounded-lg border bg-card divide-y">
           {filteredProjects.map((project) => (
-              <Card 
-                key={project.id} 
-                className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer"
-                onClick={() => handleSelectProject(project)}
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="p-2 bg-law-blue/10 rounded-lg">
-                        <FolderOpen className="h-5 w-5 text-law-blue" />
-                      </div>
-                      <div className="flex-1">
-                        <CardTitle className="text-lg font-semibold leading-6">
-                          {project.name}
-                        </CardTitle>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="text-right">
-                        <div className="text-xs text-muted-foreground">
-                          {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}
-                        </div>
-                      </div>
-                      {isAdmin && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir o projeto "{project.name}"? Esta ação não pode ser desfeita e todas as tarefas associadas serão perdidas.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={(e) => handleDeleteProject(project.id, e)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {project.description}
+            <div 
+              key={project.id} 
+              className="p-4 hover:bg-accent/50 transition-colors cursor-pointer flex items-center justify-between gap-4"
+              onClick={() => handleSelectProject(project)}
+            >
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="p-2 bg-law-blue/10 rounded-lg shrink-0">
+                  <FolderOpen className="h-5 w-5 text-law-blue" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground truncate">
+                    {project.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {project.client}
                   </p>
-                  
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{project.taskCount} tarefas</span>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(project.updatedAt, "dd/MM/yy", { locale: ptBR })}
-                    </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm text-muted-foreground">
+                    {project.taskCount} {project.taskCount === 1 ? 'tarefa' : 'tarefas'}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                    <Calendar className="h-3 w-3" />
+                    Criado em {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                  </div>
+                </div>
+                
+                {isAdmin && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza que deseja excluir o projeto "{project.name}"? Esta ação não pode ser desfeita e todas as tarefas associadas serão perdidas.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={(e) => handleDeleteProject(project.id, e)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         {filteredProjects.length === 0 && (
