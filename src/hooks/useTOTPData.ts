@@ -142,6 +142,26 @@ export function useTOTPData(tenantId: string | null) {
     }
   });
 
+  // Mutation para atualizar carteira
+  const updateWalletMutation = useMutation({
+    mutationFn: async ({ walletId, name }: { walletId: string; name: string }) => {
+      const { error } = await supabase
+        .from('totp_wallets')
+        .update({ name })
+        .eq('id', walletId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['totp-wallets', tenantId] });
+      toast.success('Carteira atualizada');
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar carteira:', error);
+      toast.error('Erro ao atualizar carteira');
+    }
+  });
+
   // Mutation para deletar token
   const deleteTokenMutation = useMutation({
     mutationFn: async (tokenId: string) => {
@@ -247,6 +267,8 @@ export function useTOTPData(tenantId: string | null) {
     addToken: (name: string, secret: string, walletId: string) => 
       addTokenMutation.mutate({ name, secret, walletId }),
     deleteWallet: (walletId: string) => deleteWalletMutation.mutate(walletId),
+    updateWallet: (walletId: string, name: string) => 
+      updateWalletMutation.mutate({ walletId, name }),
     deleteToken: (tokenId: string) => deleteTokenMutation.mutate(tokenId),
     updateToken: (tokenId: string, name: string) => 
       updateTokenMutation.mutate({ tokenId, name }),
