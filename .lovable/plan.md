@@ -1,198 +1,273 @@
 
-# Modal de Edição de Usuário no Drawer
+# Menu de 3 Pontinhos para Todas as Parcelas
 
 ## Resumo
-Adicionar o Dialog de edição completo ao `UserManagementDrawer.tsx`, permitindo ao clicar no ícone de lápis abrir um modal com todas as funcionalidades de edição: nome, email, senha e permissões.
+Adicionar menu de ações (3 pontinhos) em todas as parcelas do financeiro, não apenas nas parcelas pagas. Este menu permitirá:
+- Editar dados da parcela (valor, vencimento)
+- Editar dados do pagamento (para pagas/parciais)
+- Reabrir parcela (para pagas)
+- Dar baixa (para pendentes/atrasadas/parciais)
 
 ---
 
-## Funcionalidades do Modal
+## Estado Atual
 
-O modal de edição incluirá:
-1. **Nome** - Campo de texto editável
-2. **Email** - Atualizado via Edge Function `update-user-email`
-3. **Nova Senha** - Opcional, via Edge Function `update-user-password`
-4. **Perfil Principal** - Select com opções (Advogado, Comercial, Financeiro, Controller, Agenda, Admin)
-5. **Permissões Adicionais** - Checkboxes para áreas extras (Agenda, Clientes, Financeiro, Controladoria, Reuniões)
+O sistema JÁ possui:
+- Menu de 3 pontinhos APENAS para parcelas `pago`
+- `EditarPagamentoDialog` que edita data_pagamento, metodo, valor_pago
+- `reabrirParcela()` que reseta a parcela para pendente
+- Registro de pagamentos parciais com `valor_pago` e `saldo_restante`
+- Histórico de pagamentos na aba "Histórico"
 
 ---
 
-## Arquitetura
+## O que será implementado
+
+### 1. Menu de 3 pontinhos em TODAS as parcelas
 
 ```text
-UserManagementDrawer
-    |
-    +-- Lista de usuários (existente)
-    |       |
-    |       +-- Click no lápis → abre Dialog de edição
-    |
-    +-- Dialog de Edição (NOVO)
-            |
-            +-- Form com campos: nome, email, senha, perfil, permissões
-            +-- Botão Salvar → chama Edge Functions + atualiza banco
+Parcela Pendente/Atrasada:
+┌────────────────────────────┐
+│ ⋮  [Dar Baixa]             │
+├────────────────────────────┤
+│ [✏️] Editar Parcela        │
+└────────────────────────────┘
+
+Parcela Parcial:
+┌────────────────────────────┐
+│ ⋮  [Completar Pagamento]   │
+├────────────────────────────┤
+│ [✏️] Editar Parcela        │
+│ [📝] Editar Pagamento      │
+└────────────────────────────┘
+
+Parcela Paga:
+┌────────────────────────────┐
+│ ⋮                          │
+├────────────────────────────┤
+│ [✏️] Editar Parcela        │
+│ [📝] Editar Pagamento      │
+│ [🔄] Reabrir Pagamento     │
+└────────────────────────────┘
 ```
+
+### 2. Novo Dialog: Editar Parcela
+
+Campos editáveis:
+- **Número da parcela** - opcional
+- **Valor da parcela** - número
+- **Data de vencimento** - date picker
+- **Descrição/Grupo** - texto (grupo_descricao)
+
+### 3. Atualizar EditarPagamentoDialog
+
+Adicionar campos para:
+- Data do pagamento (já existe)
+- Valor pago (já existe)
+- Método de pagamento (já existe)
+- Observações (já existe)
 
 ---
 
-## Arquivo a Modificar
+## Arquivos a Criar
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/Financial/EditarParcelaDialog.tsx` | Dialog para editar dados da parcela (valor, vencimento) |
+
+---
+
+## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/Admin/UserManagementDrawer.tsx` | Adicionar Dialog completo de edição com toda a lógica |
+| `src/components/Financial/ClienteFinanceiroDialog.tsx` | Adicionar menu 3 pontinhos em todas as parcelas + lógica para novo dialog |
+| `src/hooks/useClienteParcelas.ts` | Adicionar função `editarParcela()` para atualizar valor/vencimento |
 
 ---
 
-## Imports Adicionais
+## Novo Componente: EditarParcelaDialog
 
 ```tsx
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useTenantId } from "@/hooks/useTenantId";
+interface EditarParcelaDialogProps {
+  parcela: ClienteParcela | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+// Campos editáveis:
+- numero_parcela (number)
+- valor_parcela (number)
+- data_vencimento (date)
+- grupo_descricao (text)
 ```
 
 ---
 
-## Estados Adicionais
+## Visual do Dialog "Editar Parcela"
 
-```tsx
-const [isEditOpen, setIsEditOpen] = useState(false);
-const [editingUser, setEditingUser] = useState<User | null>(null);
-const [loading, setLoading] = useState(false);
-const [editUserTenantId, setEditUserTenantId] = useState<string | null>(null);
-const [editFormData, setEditFormData] = useState({
-  name: '',
-  email: '',
-  password: '',
-  role: 'advogado' as User['role'],
-  additionalPermissions: [] as string[]
-});
+```text
++----------------------------------------+
+| Editar Parcela #3                      |
++----------------------------------------+
+| Número da Parcela                      |
+| [3                                 ]   |
+|                                        |
+| Valor da Parcela                       |
+| [R$ 1.500,00                       ]   |
+|                                        |
+| Data de Vencimento                     |
+| [15/03/2026                        ]   |
+|                                        |
+| Grupo/Descrição                        |
+| [Parcelas de Honorários            ]   |
+|                                        |
+| [Cancelar]         [Salvar Alterações] |
++----------------------------------------+
 ```
 
 ---
 
-## Constante de Permissões
+## Lógica do Menu de 3 Pontinhos
 
 ```tsx
-const ADDITIONAL_PERMISSIONS = [
-  { id: 'agenda', role: 'agenda', label: 'Agenda' },
-  { id: 'clientes', role: 'comercial', label: 'Clientes' },
-  { id: 'financeiro', role: 'financeiro', label: 'Financeiro' },
-  { id: 'controladoria', role: 'controller', label: 'Controladoria' },
-  { id: 'reunioes', role: 'reunioes', label: 'Reuniões' },
-];
+// Para TODAS as parcelas, sempre mostrar o menu
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+      <MoreVertical className="h-4 w-4" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end">
+    
+    {/* Dar baixa - para pendente, atrasado, parcial */}
+    {(parcela.status === 'pendente' || 
+      parcela.status === 'atrasado' || 
+      parcela.status === 'parcial') && (
+      <DropdownMenuItem onClick={() => handleDarBaixa(parcela)}>
+        <DollarSign className="h-4 w-4 mr-2" />
+        {parcela.status === 'parcial' ? 'Completar Pagamento' : 'Dar Baixa'}
+      </DropdownMenuItem>
+    )}
+    
+    {/* Editar parcela - sempre disponível */}
+    <DropdownMenuItem onClick={() => handleEditarParcelaDados(parcela)}>
+      <Edit className="h-4 w-4 mr-2" />
+      Editar Parcela
+    </DropdownMenuItem>
+    
+    {/* Editar pagamento - para pago e parcial */}
+    {(parcela.status === 'pago' || parcela.status === 'parcial') && (
+      <DropdownMenuItem onClick={() => handleEditarParcela(parcela)}>
+        <FileText className="h-4 w-4 mr-2" />
+        Editar Pagamento
+      </DropdownMenuItem>
+    )}
+    
+    {/* Reabrir - apenas para pago */}
+    {parcela.status === 'pago' && (
+      <DropdownMenuItem 
+        onClick={() => handleReabrirParcela(parcela.id)}
+        className="text-destructive"
+      >
+        <RotateCcw className="h-4 w-4 mr-2" />
+        Reabrir Pagamento
+      </DropdownMenuItem>
+    )}
+    
+  </DropdownMenuContent>
+</DropdownMenu>
 ```
 
 ---
 
-## Lógica Principal
+## Hook useClienteParcelas - Nova Função
 
-### handleUserClick (modificado)
 ```tsx
-const handleUserClick = async (user: User) => {
-  setEditingUser(user);
-  setLoading(true);
-  
+const editarParcela = async (
+  parcelaId: string, 
+  dados: { 
+    numero_parcela?: number;
+    valor_parcela?: number;
+    data_vencimento?: string;
+    grupo_descricao?: string;
+  }
+) => {
   try {
-    // 1. Buscar tenant_id do usuário
-    // 2. Buscar roles do usuário (com is_primary)
-    // 3. Preencher editFormData
-    // 4. Abrir dialog
-    setIsEditOpen(true);
+    const { error } = await supabase
+      .from('cliente_parcelas')
+      .update({
+        ...dados,
+        // Recalcular status se data de vencimento mudou
+        status: dados.data_vencimento && 
+                new Date(dados.data_vencimento) < new Date() ? 
+                'atrasado' : undefined
+      })
+      .eq('id', parcelaId);
+
+    if (error) throw error;
+
+    // Registrar no histórico
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from('cliente_pagamento_comentarios')
+        .insert({
+          parcela_id: parcelaId,
+          user_id: user.id,
+          comentario: `Parcela editada: ${JSON.stringify(dados)}`,
+          tenant_id: tenantId
+        });
+    }
+
+    toast({ title: 'Parcela atualizada' });
+    await fetchParcelas();
+    return true;
   } catch (error) {
-    toast({ title: "Erro", ... });
-  } finally {
-    setLoading(false);
+    toast({ title: 'Erro', variant: 'destructive' });
+    return false;
   }
 };
 ```
 
-### handleEditSubmit
-```tsx
-const handleEditSubmit = async (e: React.FormEvent) => {
-  // 1. Validar dados
-  // 2. Atualizar email (se mudou) via Edge Function
-  // 3. Atualizar profile (nome)
-  // 4. Atualizar roles via Edge Function admin-set-user-roles
-  // 5. Atualizar senha (se fornecida) via Edge Function
-  // 6. Chamar onEditUser callback
-  // 7. Fechar dialog
-};
-```
+---
+
+## Resumo das Ações por Status
+
+| Status | Dar Baixa | Editar Parcela | Editar Pagamento | Reabrir | Histórico |
+|--------|-----------|----------------|------------------|---------|-----------|
+| pendente | ✅ | ✅ | ❌ | ❌ | ❌ |
+| atrasado | ✅ | ✅ | ❌ | ❌ | ❌ |
+| parcial | ✅ (Completar) | ✅ | ✅ | ❌ | ✅ |
+| pago | ❌ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
-## Visual do Dialog
+## Registro no Histórico
 
-```text
-+----------------------------------------+
-| Editar Usuário                         |
-+----------------------------------------+
-| Nome                                   |
-| [João Silva                        ]   |
-|                                        |
-| Email                                  |
-| [joao@email.com                    ]   |
-|                                        |
-| Nova Senha (opcional)                  |
-| [••••••••                          ]   |
-| Mínimo 6 caracteres. Deixe vazio...    |
-|                                        |
-| Perfil                                 |
-| [Advogado                          v]  |
-|                                        |
-| Permissões Adicionais                  |
-| Áreas extras que este usuário terá...  |
-| [x] Agenda    [ ] Clientes             |
-| [ ] Financeiro [ ] Controladoria       |
-| [ ] Reuniões                           |
-|                                        |
-| [✓] Selecionadas: Agenda               |
-|                                        |
-| [         Salvar Alterações         ]  |
-+----------------------------------------+
-```
+Quando uma parcela for editada, será registrado automaticamente:
+- "Parcela editada: valor alterado de R$ 1.000 para R$ 1.500"
+- "Parcela editada: vencimento alterado para 15/03/2026"
+
+Isso permite auditoria completa de todas as mudanças.
 
 ---
 
-## Fluxo de Edição
+## Fluxo Completo
 
-1. Usuário clica no ícone de lápis
-2. Sistema busca dados atuais do usuário (tenant, roles)
-3. Dialog abre com formulário preenchido
-4. Usuário edita campos desejados
-5. Clica em "Salvar Alterações"
-6. Sistema chama Edge Functions necessárias
-7. Toast de sucesso/erro
-8. Dialog fecha e lista atualiza
-
----
-
-## Edge Functions Utilizadas
-
-| Edge Function | Quando usada |
-|---------------|--------------|
-| `update-user-email` | Email alterado |
-| `update-user-password` | Senha fornecida |
-| `admin-set-user-roles` | Sempre (perfil + permissões) |
-
----
-
-## Proteções
-
-1. **Auto-edição de admin**: Impedir que admin remova sua própria role de admin
-2. **Validação de tenant**: Verificar se usuário pertence ao mesmo tenant
-3. **Validação de senha**: Mínimo 6 caracteres
+1. Usuário clica nos 3 pontinhos de qualquer parcela
+2. Menu dropdown aparece com opções disponíveis
+3. **Editar Parcela**: Abre dialog para editar valor/vencimento
+4. **Editar Pagamento**: Abre dialog para editar dados do pagamento
+5. **Dar Baixa/Completar**: Abre dialog de baixa existente
+6. **Reabrir**: Confirma e reseta a parcela para pendente
+7. Todas as ações são registradas no histórico da parcela
 
 ---
 
 ## Detalhes Técnicos
 
-- Reutiliza a mesma lógica do `UserManagement.tsx` (testada e funcionando)
-- Mantém compatibilidade com o callback `onEditUser` existente
-- Dialog com `modal={true}` para evitar interações indesejadas durante edição
-- Loading state no botão durante operações assíncronas
+- O botão de "Dar Baixa" que atualmente aparece ao lado do menu será removido para parcelas pagas (já que fica redundante)
+- O menu de 3 pontinhos será o ponto central de todas as ações
+- Os botões "Histórico" e "Comentários" continuam como botões separados por serem ações de visualização
