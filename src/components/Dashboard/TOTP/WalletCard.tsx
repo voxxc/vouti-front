@@ -12,6 +12,7 @@ interface WalletCardProps {
   secondsRemaining: number;
   onDeleteWallet: () => void;
   onDeleteToken: (token: TOTPToken) => void;
+  onEditToken?: (token: TOTPToken, newName: string) => void;
 }
 
 export function WalletCard({ 
@@ -20,7 +21,8 @@ export function WalletCard({
   codes, 
   secondsRemaining, 
   onDeleteWallet, 
-  onDeleteToken 
+  onDeleteToken,
+  onEditToken
 }: WalletCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const tokenCount = tokens.length;
@@ -86,6 +88,7 @@ export function WalletCard({
                     code={codes[token.id] || '------'}
                     secondsRemaining={secondsRemaining}
                     onDelete={() => onDeleteToken(token)}
+                    onEdit={onEditToken ? (newName) => onEditToken(token, newName) : undefined}
                   />
                 ))}
               </div>

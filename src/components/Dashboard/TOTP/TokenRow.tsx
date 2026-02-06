@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Copy, Check, Trash2, Pencil } from "lucide-react";
 import { CircularTimer } from "./CircularTimer";
 import { toast } from "sonner";
 
@@ -10,10 +11,21 @@ interface TokenRowProps {
   code: string;
   secondsRemaining: number;
   onDelete: () => void;
+  onEdit?: (newName: string) => void;
 }
 
-export function TokenRow({ id, name, code, secondsRemaining, onDelete }: TokenRowProps) {
+export function TokenRow({ id, name, code, secondsRemaining, onDelete, onEdit }: TokenRowProps) {
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
 
   const handleCopy = async () => {
     try {
@@ -26,6 +38,24 @@ export function TokenRow({ id, name, code, secondsRemaining, onDelete }: TokenRo
     }
   };
 
+  const handleSaveEdit = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== name) {
+      onEdit?.(trimmed);
+    }
+    setIsEditing(false);
+    setEditName(name);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditName(name);
+    }
+  };
+
   const formatCode = (code: string) => {
     if (code.length !== 6) return code;
     return `${code.slice(0, 3)} ${code.slice(3)}`;
@@ -33,7 +63,34 @@ export function TokenRow({ id, name, code, secondsRemaining, onDelete }: TokenRo
 
   return (
     <div className="flex items-center justify-between py-2 px-3 hover:bg-accent/5 rounded-md group">
-      <span className="text-sm text-muted-foreground truncate max-w-[100px]">{name}</span>
+      {isEditing ? (
+        <Input
+          ref={inputRef}
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onBlur={handleSaveEdit}
+          onKeyDown={handleKeyDown}
+          className="h-7 text-sm max-w-[120px]"
+        />
+      ) : (
+        <div className="flex items-center gap-1 group/name">
+          <span className="text-sm text-muted-foreground truncate max-w-[100px]">{name}</span>
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 opacity-0 group-hover/name:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditName(name);
+                setIsEditing(true);
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      )}
       
       <div className="flex items-center gap-3">
         <button
