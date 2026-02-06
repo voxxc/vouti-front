@@ -1,15 +1,74 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Save, User, Phone, Mail, MapPin, AlertTriangle, Loader2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
+
+interface EditableRowProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+const EditableRow = ({ 
+  label, 
+  value, 
+  onChange, 
+  type = "text", 
+  disabled = false, 
+  placeholder = "" 
+}: EditableRowProps) => (
+  <div className="flex py-2 items-center">
+    <span className="w-48 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wider pr-6 shrink-0">
+      {label}
+    </span>
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      type={type}
+      disabled={disabled}
+      placeholder={placeholder}
+      className="flex-1 max-w-md bg-transparent border-muted/50 focus-visible:ring-1"
+    />
+  </div>
+);
+
+interface EditableTextareaRowProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+}
+
+const EditableTextareaRow = ({ 
+  label, 
+  value, 
+  onChange, 
+  placeholder = "",
+  rows = 2
+}: EditableTextareaRowProps) => (
+  <div className="flex py-2 items-start">
+    <span className="w-48 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wider pr-6 shrink-0 pt-2">
+      {label}
+    </span>
+    <Textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows}
+      className="flex-1 max-w-md bg-transparent border-muted/50 focus-visible:ring-1 resize-none"
+    />
+  </div>
+);
 
 export const PerfilTab = () => {
   const { user } = useAuth();
@@ -74,181 +133,111 @@ export const PerfilTab = () => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
       {/* Header com Avatar */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-xl">{formData.full_name || "Seu Perfil"}</CardTitle>
-              <CardDescription>{user?.email}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+      <div className="flex items-center gap-4 pb-4">
+        <Avatar className="h-16 w-16">
+          <AvatarImage src={profile?.avatar_url || undefined} />
+          <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <p className="text-lg font-semibold">{formData.full_name || "Seu Perfil"}</p>
+          <p className="text-sm text-muted-foreground">{user?.email}</p>
+        </div>
+      </div>
 
       {/* Dados Pessoais */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <User className="h-5 w-5" />
-            Dados Pessoais
-          </CardTitle>
-          <CardDescription>Informações básicas do seu perfil</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Nome Completo</Label>
-              <Input
-                id="full_name"
-                value={formData.full_name}
-                onChange={(e) => handleChange("full_name", e.target.value)}
-                placeholder="Seu nome completo"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-              <Input
-                id="data_nascimento"
-                type="date"
-                value={formData.data_nascimento}
-                onChange={(e) => handleChange("data_nascimento", e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-1">
+        <EditableRow
+          label="Nome Completo"
+          value={formData.full_name}
+          onChange={(v) => handleChange("full_name", v)}
+          placeholder="Seu nome completo"
+        />
+        <EditableRow
+          label="Data de Nascimento"
+          value={formData.data_nascimento}
+          onChange={(v) => handleChange("data_nascimento", v)}
+          type="date"
+        />
+      </div>
+
+      <Separator />
 
       {/* Contato */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Mail className="h-5 w-5" />
-            Contato
-          </CardTitle>
-          <CardDescription>Formas de entrar em contato com você</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email_profissional">Email Profissional</Label>
-              <Input
-                id="email_profissional"
-                type="email"
-                value={user?.email || ""}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">Email usado para login</p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email_pessoal">Email Pessoal</Label>
-              <Input
-                id="email_pessoal"
-                type="email"
-                value={formData.email_pessoal}
-                onChange={(e) => handleChange("email_pessoal", e.target.value)}
-                placeholder="seu.email@pessoal.com"
-              />
-            </div>
-          </div>
+      <div className="space-y-1">
+        <EditableRow
+          label="Email Profissional"
+          value={user?.email || ""}
+          onChange={() => {}}
+          disabled
+        />
+        <EditableRow
+          label="Email Pessoal"
+          value={formData.email_pessoal}
+          onChange={(v) => handleChange("email_pessoal", v)}
+          type="email"
+          placeholder="seu.email@pessoal.com"
+        />
+        <EditableRow
+          label="Telefone"
+          value={formData.telefone}
+          onChange={(v) => handleChange("telefone", v)}
+          type="tel"
+          placeholder="(00) 00000-0000"
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="telefone" className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Telefone
-            </Label>
-            <Input
-              id="telefone"
-              type="tel"
-              value={formData.telefone}
-              onChange={(e) => handleChange("telefone", e.target.value)}
-              placeholder="(00) 00000-0000"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <Separator />
 
       {/* Endereço */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <MapPin className="h-5 w-5" />
-            Endereço
-          </CardTitle>
-          <CardDescription>Seu endereço residencial</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="endereco">Endereço Completo</Label>
-            <Textarea
-              id="endereco"
-              value={formData.endereco}
-              onChange={(e) => handleChange("endereco", e.target.value)}
-              placeholder="Rua, número, bairro, cidade - UF, CEP"
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-1">
+        <EditableTextareaRow
+          label="Endereço"
+          value={formData.endereco}
+          onChange={(v) => handleChange("endereco", v)}
+          placeholder="Rua, número, bairro, cidade - UF, CEP"
+          rows={2}
+        />
+      </div>
+
+      <Separator />
 
       {/* Contato de Emergência */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
+      <div className="space-y-1">
+        <div className="flex py-2 items-center">
+          <span className="w-48 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wider pr-6 shrink-0">
             Contato de Emergência
-          </CardTitle>
-          <CardDescription>Pessoa a ser contatada em caso de emergência</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="contato_emergencia_nome">Nome</Label>
-              <Input
-                id="contato_emergencia_nome"
-                value={formData.contato_emergencia_nome}
-                onChange={(e) => handleChange("contato_emergencia_nome", e.target.value)}
-                placeholder="Nome do contato"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="contato_emergencia_telefone">Telefone</Label>
-              <Input
-                id="contato_emergencia_telefone"
-                type="tel"
-                value={formData.contato_emergencia_telefone}
-                onChange={(e) => handleChange("contato_emergencia_telefone", e.target.value)}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="contato_emergencia_relacao">Relação</Label>
-              <Input
-                id="contato_emergencia_relacao"
-                value={formData.contato_emergencia_relacao}
-                onChange={(e) => handleChange("contato_emergencia_relacao", e.target.value)}
-                placeholder="Ex: Mãe, Pai, Cônjuge"
-              />
-            </div>
+          </span>
+          <div className="flex-1 max-w-md grid grid-cols-3 gap-2">
+            <Input
+              value={formData.contato_emergencia_nome}
+              onChange={(e) => handleChange("contato_emergencia_nome", e.target.value)}
+              placeholder="Nome"
+              className="bg-transparent border-muted/50 focus-visible:ring-1"
+            />
+            <Input
+              value={formData.contato_emergencia_telefone}
+              onChange={(e) => handleChange("contato_emergencia_telefone", e.target.value)}
+              placeholder="Telefone"
+              type="tel"
+              className="bg-transparent border-muted/50 focus-visible:ring-1"
+            />
+            <Input
+              value={formData.contato_emergencia_relacao}
+              onChange={(e) => handleChange("contato_emergencia_relacao", e.target.value)}
+              placeholder="Relação"
+              className="bg-transparent border-muted/50 focus-visible:ring-1"
+            />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Botão Salvar */}
-      <div className="flex justify-end">
-        <Button type="submit" disabled={saving} className="min-w-[140px]">
+      <div className="flex justify-end pt-4">
+        <Button type="submit" disabled={saving} size="sm">
           {saving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -257,7 +246,7 @@ export const PerfilTab = () => {
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              Salvar Perfil
+              Salvar
             </>
           )}
         </Button>
