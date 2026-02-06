@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink, MoreVertical, CalendarClock } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, ArrowLeft, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +24,7 @@ import { DeadlineComentarios } from "@/components/Agenda/DeadlineComentarios";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "@/components/Agenda/UserTagSelector";
+import EditarPrazoDialog from "@/components/Agenda/EditarPrazoDialog";
 import { Project } from "@/types/project";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
 import { format, isSameDay, isPast, isFuture, parseISO, isValid } from "date-fns";
@@ -80,6 +81,10 @@ const Agenda = () => {
   const [novaDataExtensao, setNovaDataExtensao] = useState<Date | undefined>(undefined);
   const [motivoExtensao, setMotivoExtensao] = useState("");
   const [salvandoExtensao, setSalvandoExtensao] = useState(false);
+  
+  // Estado para modal de edição de prazo
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editDeadline, setEditDeadline] = useState<Deadline | null>(null);
   
   const { toast } = useToast();
 
@@ -627,6 +632,18 @@ const Agenda = () => {
     setIsExtendDialogOpen(true);
   };
 
+  // Função para abrir dialog de edição de prazo
+  const openEditDialog = (deadline: Deadline) => {
+    setEditDeadline(deadline);
+    setIsEditDialogOpen(true);
+  };
+
+  // Verificar se pode editar o prazo (admin/controller ou criador)
+  const canEditDeadline = (deadline: Deadline) => {
+    if (!user) return false;
+    return isAdmin || deadline.advogadoResponsavel?.userId === user.id;
+  };
+
   // Função para executar a extensão do prazo (apenas admin/controller)
   const handleExtenderPrazo = async () => {
     if (!extendDeadline || !novaDataExtensao || !motivoExtensao.trim()) return;
@@ -1142,6 +1159,10 @@ const Agenda = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar Prazo
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
                                 <CalendarClock className="h-4 w-4 mr-2" />
                                 Estender Prazo
@@ -1199,6 +1220,10 @@ const Agenda = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar Prazo
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
                                 <CalendarClock className="h-4 w-4 mr-2" />
                                 Estender Prazo
@@ -1717,6 +1742,18 @@ const Agenda = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Dialog de Edição de Prazo */}
+        <EditarPrazoDialog
+          deadline={editDeadline}
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          onSuccess={() => {
+            fetchDeadlinesAsync();
+            setEditDeadline(null);
+          }}
+          tenantId={tenantId || ''}
+        />
       </div>
     </DashboardLayout>
   );
