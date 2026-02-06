@@ -39,7 +39,12 @@ import { useClientes } from "@/hooks/useClientes";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Cliente as ClienteType } from "@/types/cliente";
 
-export function CRMContent() {
+interface CRMContentProps {
+  onViewCliente?: (clienteId: string) => void;
+  onNewCliente?: () => void;
+}
+
+export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
   const navigate = useNavigate();
   const { tenantPath } = useTenantNavigation();
   const { user } = useAuth();
@@ -60,11 +65,19 @@ export function CRMContent() {
   };
 
   const handleNewCliente = () => {
-    navigate(tenantPath('/crm/cliente/novo'));
+    if (onNewCliente) {
+      onNewCliente();
+    } else {
+      navigate(tenantPath('/crm/cliente/novo'));
+    }
   };
 
   const handleViewCliente = (clienteId: string) => {
-    navigate(tenantPath(`/crm/cliente/${clienteId}`));
+    if (onViewCliente) {
+      onViewCliente(clienteId);
+    } else {
+      navigate(tenantPath(`/crm/cliente/${clienteId}`));
+    }
   };
 
   const handleDeleteCliente = async (clienteId: string, nomeCliente: string) => {
