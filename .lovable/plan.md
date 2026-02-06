@@ -1,122 +1,267 @@
 
-# Correcao: CRM com Lista Minimalista + Pagina Dedicada de Cadastro
+# Navegacao Interna no Drawer do CRM
 
-## Problema Identificado
+## Objetivo
 
-Existem **duas interfaces** para o CRM no sistema:
-
-| Acesso | Componente | Visual |
-|--------|------------|--------|
-| Rota `/crm` | `CRM.tsx` + `ClientesLista.tsx` | Tabela (novo) |
-| Drawer do sidebar | `CRMDrawer.tsx` + `CRMContent.tsx` | Cards + Modal (antigo) |
-
-O usuario esta acessando via drawer do sidebar, que ainda usa o codigo antigo com cards e modais.
+Manter toda a experiencia de visualizacao e edicao de clientes **dentro do drawer**, para um carregamento mais rapido e fluido, sem navegar para paginas separadas.
 
 ---
 
-## Solucao
+## Arquitetura Proposta
 
-### 1. Atualizar `CRMDrawer.tsx`
+```text
+CRMDrawer.tsx
+    |
+    +-- estado: { view: 'lista' | 'detalhes' | 'novo', clienteId?: string }
+    |
+    +-- view === 'lista'  --> CRMContent.tsx (tabela)
+    |
+    +-- view === 'detalhes' --> ClienteDetails.tsx + ClienteForm.tsx
+    |
+    +-- view === 'novo'   --> ClienteForm.tsx (criar novo)
+```
 
-Mudar para usar `ClientesLista.tsx` ao inves de `CRMContent.tsx`, e fazer o botao "Novo Cliente" navegar para a pagina dedicada.
+---
 
-### 2. Atualizar `CRMContent.tsx`
+## Mudancas Planejadas
 
-Remover os modals e substituir os cards pela tabela minimalista, usando navegacao para a pagina dedicada.
+### 1. CRMContent.tsx - Receber callbacks
 
-### 3. Garantir que `ClienteForm.tsx` exiba o checkbox de criar projeto
+**Adicionar props**:
+- `onViewCliente: (clienteId: string) => void`
+- `onNewCliente: () => void`
 
-Verificar se as props estao sendo passadas corretamente quando o form e exibido na pagina `ClienteCadastro.tsx`.
+**Remover**:
+- Navegacao via `navigate()` para paginas separadas
+
+**Comportamento**:
+- Clicar no nome do cliente chama `onViewCliente(cliente.id)`
+- Botao "Novo Cliente" chama `onNewCliente()`
+
+### 2. CRMDrawer.tsx - Gerenciar views internas
+
+**Adicionar estados**:
+```typescript
+const [view, setView] = useState<'lista' | 'detalhes' | 'novo'>('lista');
+const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+const [isEditing, setIsEditing] = useState(false);
+```
+
+**Logica**:
+- `view === 'lista'`: Renderiza CRMContent
+- `view === 'detalhes'`: Carrega cliente por ID e renderiza ClienteDetails
+- `view === 'novo'`: Renderiza ClienteForm para novo cliente
+
+**Header dinamico**:
+- Lista: "Clientes"
+- Detalhes: "Nome do Cliente" + botao voltar
+- Novo: "Novo Cliente" + botao voltar
+
+### 3. ClienteDetails dentro do Drawer
+
+Quando o usuario clicar no nome:
+1. `setSelectedClienteId(id)` e `setView('detalhes')`
+2. Drawer busca os dados do cliente
+3. Renderiza `ClienteDetails` com botao "Editar"
+4. Ao clicar em "Editar", mostra `ClienteForm` no mesmo drawer
+
+---
+
+## Fluxo de Navegacao
+
+```text
+[Lista de Clientes]
+       |
+  +----+----+
+  |         |
+  v         v
+Clica    Clica
+no nome   "Novo Cliente"
+  |         |
+  v         v
+[Detalhes]  [Form Novo]
+  |           |
+  v           v
+Editar     Salvar
+  |           |
+  v           v
+[Form Edit]  [Volta p/ Lista]
+  |
+  v
+Salvar
+  |
+  v
+[Volta p/ Lista]
+```
 
 ---
 
 ## Arquivos a Modificar
 
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/CRM/CRMContent.tsx` | Substituir cards por tabela, remover modals, usar navegacao |
-| `src/components/CRM/CRMDrawer.tsx` | Simplificar para usar lista com navegacao |
+| Arquivo | Alteracoes |
+|---------|------------|
+| `src/components/CRM/CRMContent.tsx` | Adicionar props de callback, remover navegacao |
+| `src/components/CRM/CRMDrawer.tsx` | Gerenciar views internas (lista/detalhes/novo) |
 
 ---
 
-## Alteracoes Tecnicas
+## Beneficios
 
-### CRMContent.tsx
+- **Carregamento instantaneo**: Sem troca de pagina, dados ja estao carregados
+- **UX fluida**: Transicao suave entre lista e detalhes
+- **Consistencia**: Drawer permanece aberto durante toda a interacao
+- **Botao voltar**: Sempre visivel para retornar a lista
 
-**Antes:**
-- Cards de clientes
-- Dialog modal para ClienteForm
-- Dialog modal para ClienteDetails
+---
 
-**Depois:**
-- Tabela minimalista
-- Botao "Novo Cliente" navega para `/crm/cliente/novo`
-- Clique no nome navega para `/crm/cliente/:id`
-- Remover todos os estados e componentes de modal
-
-```typescript
-// REMOVER:
-- isClientFormOpen, setIsClientFormOpen
-- isClientDetailsOpen, setIsClientDetailsOpen
-- selectedCliente, setSelectedCliente
-- <Dialog> com ClienteForm
-- <Dialog> com ClienteDetails
-
-// ADICIONAR:
-- const navigate = useNavigate()
-- const { tenantPath } = useTenantNavigation()
-- navigate(tenantPath('/crm/cliente/novo'))
-- navigate(tenantPath(`/crm/cliente/${cliente.id}`))
-```
+## Detalhes Tecnicos
 
 ### CRMDrawer.tsx
 
-Manter simples, apenas renderizando o CRMContent atualizado.
+```typescript
+export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
+  const [view, setView] = useState<'lista' | 'detalhes' | 'novo'>('lista');
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [cliente, setCliente] = useState<Cliente | null>(null);
+  const { fetchClienteById } = useClientes();
+  
+  // Resetar view ao fechar drawer
+  useEffect(() => {
+    if (!open) {
+      setView('lista');
+      setSelectedClienteId(null);
+      setIsEditing(false);
+    }
+  }, [open]);
+  
+  // Carregar cliente quando selecionado
+  useEffect(() => {
+    if (selectedClienteId && view === 'detalhes') {
+      fetchClienteById(selectedClienteId).then(setCliente);
+    }
+  }, [selectedClienteId, view]);
+  
+  const handleViewCliente = (clienteId: string) => {
+    setSelectedClienteId(clienteId);
+    setView('detalhes');
+  };
+  
+  const handleNewCliente = () => {
+    setView('novo');
+    setIsEditing(false);
+  };
+  
+  const handleBack = () => {
+    setView('lista');
+    setSelectedClienteId(null);
+    setIsEditing(false);
+    setCliente(null);
+  };
+  
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent side="inset" className="p-0 flex flex-col">
+        {/* Header dinamico */}
+        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
+          {view !== 'lista' && (
+            <Button variant="ghost" size="icon" onClick={handleBack}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <Users className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-lg">
+            {view === 'lista' && 'Clientes'}
+            {view === 'novo' && 'Novo Cliente'}
+            {view === 'detalhes' && (cliente?.nome_pessoa_fisica || cliente?.nome_pessoa_juridica || 'Cliente')}
+          </span>
+        </div>
+        
+        {/* Conteudo */}
+        <ScrollArea className="flex-1">
+          <div className="p-6">
+            {view === 'lista' && (
+              <CRMContent 
+                onViewCliente={handleViewCliente}
+                onNewCliente={handleNewCliente}
+              />
+            )}
+            
+            {view === 'novo' && (
+              <ClienteForm
+                onSuccess={() => handleBack()}
+                onCancel={handleBack}
+                showCreateProject={true}
+                criarProjeto={...}
+                setCriarProjeto={...}
+                nomeProjeto={...}
+                setNomeProjeto={...}
+              />
+            )}
+            
+            {view === 'detalhes' && cliente && !isEditing && (
+              <ClienteDetails
+                cliente={cliente}
+                onEdit={() => setIsEditing(true)}
+              />
+            )}
+            
+            {view === 'detalhes' && cliente && isEditing && (
+              <ClienteForm
+                cliente={cliente}
+                onSuccess={() => {
+                  setIsEditing(false);
+                  fetchClienteById(selectedClienteId).then(setCliente);
+                }}
+                onCancel={() => setIsEditing(false)}
+              />
+            )}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
+```
 
----
+### CRMContent.tsx
 
-## Fluxo Apos Correcao
+```typescript
+interface CRMContentProps {
+  onViewCliente?: (clienteId: string) => void;
+  onNewCliente?: () => void;
+}
 
-```text
-Usuario clica em "Clientes" no sidebar
-        |
-        v
-Abre CRMDrawer (ou navega para /crm)
-        |
-        v
-Exibe tabela minimalista de clientes
-        |
-  +-----+-----+
-  |           |
-  v           v
-Clica em    Clica em
-nome        "Novo Cliente"
-  |           |
-  v           v
-Navega      Navega
-/crm/cliente/:id  /crm/cliente/novo
-        |
-        v
-Pagina dedicada com:
-- ClienteForm (criar/editar)
-- Checkbox "Criar projeto"
-- ClienteDetails (visualizar)
+export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
+  // ...
+  
+  const handleNewCliente = () => {
+    if (onNewCliente) {
+      onNewCliente();
+    } else {
+      // Fallback para navegacao (quando usado fora do drawer)
+      navigate(tenantPath('/crm/cliente/novo'));
+    }
+  };
+
+  const handleViewCliente = (clienteId: string) => {
+    if (onViewCliente) {
+      onViewCliente(clienteId);
+    } else {
+      navigate(tenantPath(`/crm/cliente/${clienteId}`));
+    }
+  };
+  
+  // ...
+}
 ```
 
 ---
 
-## Resultado Esperado
+## Mantendo Compatibilidade
 
-1. **Lista minimalista**: Tanto via drawer quanto via rota, exibira tabela com nome, telefone, status
-2. **Pagina dedicada**: Ao criar/editar cliente, vai para pagina completa (nao modal)
-3. **Checkbox de projeto**: Visivel ao criar novo cliente na pagina dedicada
+O `CRMContent` continuara funcionando tanto:
+- **Dentro do drawer**: Usa callbacks para navegacao interna
+- **Na pagina /crm**: Usa navegacao tradicional (fallback)
 
----
-
-## Verificacao
-
-Apos implementacao, testar:
-- [ ] Acessar CRM via sidebar drawer - deve mostrar tabela
-- [ ] Clicar em "Novo Cliente" - deve abrir pagina dedicada
-- [ ] Checkbox "Criar projeto vinculado" deve aparecer
-- [ ] Clicar no nome do cliente - deve abrir pagina de detalhes/edicao
+Isso garante que ambos os pontos de acesso funcionem corretamente.
