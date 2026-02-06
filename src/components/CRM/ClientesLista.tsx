@@ -157,7 +157,7 @@ export const ClientesLista = ({ clientes, onClienteDeleted }: ClientesListaProps
                     <TableCell>
                       <button
                         onClick={() => handleNavigateToCliente(cliente.id)}
-                        className="font-medium text-primary hover:underline text-left"
+                        className="font-medium text-foreground hover:text-foreground/80 text-left transition-colors"
                       >
                         {nomeCliente}
                       </button>
