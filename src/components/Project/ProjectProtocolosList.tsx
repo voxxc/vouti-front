@@ -204,11 +204,6 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                           <p className="font-medium text-foreground">
                             {protocolo.nome.toUpperCase()}
                           </p>
-                          {protocolo.descricao && (
-                            <p className="text-sm text-muted-foreground truncate mt-1">
-                              {protocolo.descricao}
-                            </p>
-                          )}
                           {totalEtapas > 0 && (
                             <p className="text-xs text-muted-foreground mt-1">
                               {etapasConcluidas}/{totalEtapas} etapas concluídas
