@@ -1,106 +1,139 @@
 
 
-# Redesign Minimalista do ClienteDetails
+# Minimalismo Total no ClienteDetails
 
 ## Visual de Referencia
 
-A imagem mostra um layout extremamente limpo:
-- Labels em **UPPERCASE** alinhados a direita
-- Valores a esquerda (quando existem)
-- **Separadores horizontais** entre secoes
-- **Sem cards, boxes ou backgrounds**
-- Espacamento vertical consistente
+Baseado no menu do workspace dos projetos (`ProjectView.tsx`), o estilo desejado:
+
+```text
+Informações    Documentos              [ícone edit]
+─────────────────────────────────────────────────
+```
+
+- Links de texto simples (sem fundo de tab)
+- Item ativo: texto escuro + linha inferior colorida
+- Item inativo: texto cinza (muted)
+- Icone de editar ao lado do badge de classificacao
 
 ---
 
 ## Estrutura Proposta
 
+### Header do Cliente
+
 ```text
-NOME (PF)                    Joao da Silva
-TELEFONE                     (11) 99999-9999
-E-MAIL                       joao@email.com
-DATA DE NASCIMENTO           01/01/1990
-─────────────────────────────────────────────
-
-CPF                          123.456.789-00
-CNH                          12345678901
-VALIDADE CNH                 01/01/2025
-─────────────────────────────────────────────
-
-DATA DE FECHAMENTO           15/01/2024
-VALOR DO CONTRATO            R$ 5.000,00
-FORMA DE PAGAMENTO           Parcelado
-NUMERO DE PARCELAS           10x
-─────────────────────────────────────────────
-
-ORIGEM                       Instagram
-REDE SOCIAL                  @cliente
-─────────────────────────────────────────────
-
-OBSERVACOES                  Texto das observacoes...
+João da Silva
+👤 Pessoa Física  ✏️    ← icone de editar ao lado do badge
 ```
+
+### Navegacao de Abas (estilo link)
+
+```text
+Informações   Documentos
+───────────
+```
+
+Onde "Informações" tem uma linha embaixo quando ativo.
 
 ---
 
 ## Alteracoes no ClienteDetails.tsx
 
-### Remover
-- Todos os componentes `<Card>`, `<CardHeader>`, `<CardContent>`
-- Backgrounds coloridos
-- Grid de 2 colunas para dados
+### 1. Botao Editar → Icone
 
-### Adicionar
-- Layout de lista vertical com rows simples
-- Cada row: `label (uppercase, text-right)` + `valor (text-left)`
-- Separadores `<Separator />` ou `<hr />` entre secoes
-- Componente helper `InfoRow` para consistencia
+**Antes:**
+```tsx
+<Button onClick={onEdit} variant="outline" size="sm">
+  <Edit className="h-4 w-4 mr-2" />
+  Editar
+</Button>
+```
 
----
+**Depois:**
+```tsx
+<button 
+  onClick={onEdit}
+  className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+>
+  <Edit className="h-4 w-4" />
+</button>
+```
 
-## Componente Helper
+Posicionado ao lado do badge de classificacao (PF/PJ).
 
-```typescript
-const InfoRow = ({ label, value }: { label: string; value?: string | React.ReactNode }) => {
-  if (!value) return null;
-  return (
-    <div className="flex py-2">
-      <span className="w-48 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide pr-6">
-        {label}
-      </span>
-      <span className="flex-1 text-sm">
-        {value}
-      </span>
-    </div>
-  );
-};
+### 2. Tabs → Navegacao por Texto
+
+**Antes (Radix Tabs):**
+```tsx
+<TabsList className="grid w-full grid-cols-2">
+  <TabsTrigger value="info">
+    <Info className="h-4 w-4" />
+    Informações
+  </TabsTrigger>
+  <TabsTrigger value="documentos">
+    <FileText className="h-4 w-4" />
+    Documentos
+  </TabsTrigger>
+</TabsList>
+```
+
+**Depois (Links de texto):**
+```tsx
+const [activeTab, setActiveTab] = useState<'info' | 'documentos'>('info');
+
+<div className="flex gap-6 border-b">
+  <button
+    onClick={() => setActiveTab('info')}
+    className={cn(
+      "pb-2 text-sm font-medium transition-colors relative",
+      activeTab === 'info'
+        ? "text-foreground"
+        : "text-muted-foreground hover:text-foreground"
+    )}
+  >
+    Informações
+    {activeTab === 'info' && (
+      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+    )}
+  </button>
+  <button
+    onClick={() => setActiveTab('documentos')}
+    className={cn(
+      "pb-2 text-sm font-medium transition-colors relative",
+      activeTab === 'documentos'
+        ? "text-foreground"
+        : "text-muted-foreground hover:text-foreground"
+    )}
+  >
+    Documentos
+    {activeTab === 'documentos' && (
+      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+    )}
+  </button>
+</div>
 ```
 
 ---
 
-## Secoes com Separadores
+## Layout Final
 
-```typescript
-{/* Dados Pessoais */}
-<InfoRow label="NOME" value={cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica} />
-<InfoRow label="TELEFONE" value={cliente.telefone} />
-<InfoRow label="E-MAIL" value={cliente.email} />
-<InfoRow label="DATA DE NASCIMENTO" value={formatDate(cliente.data_nascimento)} />
-<InfoRow label="ENDERECO" value={cliente.endereco} />
-
-<Separator className="my-4" />
-
-{/* Documentos */}
-<InfoRow label="CPF" value={cliente.cpf} />
-<InfoRow label="CNPJ" value={cliente.cnpj} />
-<InfoRow label="CNH" value={cliente.cnh} />
-<InfoRow label="VALIDADE CNH" value={formatDate(cliente.cnh_validade)} />
-
-<Separator className="my-4" />
-
-{/* Contrato */}
-<InfoRow label="DATA DE FECHAMENTO" value={formatDate(cliente.data_fechamento)} />
-<InfoRow label="VALOR DO CONTRATO" value={formatCurrency(cliente.valor_contrato)} />
-...
+```text
+┌─────────────────────────────────────────────────────────┐
+│  João da Silva                                          │
+│  👤 Pessoa Física ✏️                                    │
+│                                                         │
+│  Informações   Documentos                               │
+│  ───────────                                            │
+│                                                         │
+│            NOME   João da Silva                         │
+│        TELEFONE   (11) 99999-9999                       │
+│          E-MAIL   joao@email.com                        │
+│  ─────────────────────────────────────────────          │
+│             CPF   123.456.789-00                        │
+│             CNH   12345678901                           │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -109,40 +142,92 @@ const InfoRow = ({ label, value }: { label: string; value?: string | React.React
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/CRM/ClienteDetails.tsx` | Remover cards, implementar layout flat com InfoRow e separadores |
+| `src/components/CRM/ClienteDetails.tsx` | Substituir Radix Tabs por navegacao manual, mover icone de editar |
 
 ---
 
-## Resultado Visual
+## Codigo Completo do Header
 
-**Antes (atual)**:
-```text
-+------------------------+
-| Card: Dados Pessoais   |
-| +--------------------+ |
-| | Nome: Joao         | |
-| | Tel: 99999         | |
-| +--------------------+ |
-+------------------------+
-```
+```tsx
+<div className="space-y-4">
+  {/* Header com nome, badge e ícone de editar */}
+  <div className="space-y-1">
+    <h2 className="text-xl font-semibold">{nomeCliente}</h2>
+    <div className="flex items-center gap-2">
+      {cliente.classificacao && (
+        <span className={cn(
+          "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium",
+          cliente.classificacao === 'pf' 
+            ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+            : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+        )}>
+          {cliente.classificacao === 'pf' ? '👤 Pessoa Física' : '🏢 Pessoa Jurídica'}
+        </span>
+      )}
+      {!readOnly && (
+        <button 
+          onClick={onEdit}
+          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          title="Editar cliente"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  </div>
 
-**Depois (minimalista)**:
-```text
-          NOME   Joao da Silva
-      TELEFONE   (11) 99999-9999
-        E-MAIL   joao@email.com
-───────────────────────────────
-           CPF   123.456.789-00
-           CNH   12345678901
+  {/* Navegação por texto */}
+  <div className="flex gap-6 border-b">
+    <button
+      onClick={() => setActiveTab('info')}
+      className={cn(
+        "pb-2 text-sm font-medium transition-colors relative",
+        activeTab === 'info'
+          ? "text-foreground"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      Informações
+      {activeTab === 'info' && (
+        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+      )}
+    </button>
+    <button
+      onClick={() => setActiveTab('documentos')}
+      className={cn(
+        "pb-2 text-sm font-medium transition-colors relative",
+        activeTab === 'documentos'
+          ? "text-foreground"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      Documentos
+      {activeTab === 'documentos' && (
+        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+      )}
+    </button>
+  </div>
+
+  {/* Conteudo */}
+  {activeTab === 'info' ? (
+    <div className="mt-6 space-y-1">
+      {/* InfoRows... */}
+    </div>
+  ) : (
+    <div className="mt-4">
+      <ClienteDocumentosTab clienteId={cliente.id} readOnly={readOnly} />
+    </div>
+  )}
+</div>
 ```
 
 ---
 
 ## Beneficios
 
-- **Visual limpo**: Sem distracao de boxes e backgrounds
-- **Leitura facil**: Labels alinhados facilitam scan visual
-- **Menos codigo**: Remove dependencias de Card components
-- **Consistente**: Mesmo padrao para todas as informacoes
-- **Profissional**: Aspecto mais sofisticado e moderno
+- **Super minimalista**: Sem componentes de Tab com fundo
+- **Consistente**: Mesmo padrao visual do workspace dos projetos
+- **Icone discreto**: Editar e um pequeno icone, nao um botao grande
+- **Alinhado a esquerda**: Navegacao clean e profissional
+- **Menos dependencias**: Remove Radix TabsList/TabsTrigger
 
