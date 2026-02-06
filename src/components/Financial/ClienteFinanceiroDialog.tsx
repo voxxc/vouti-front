@@ -538,7 +538,72 @@ export const ClienteFinanceiroDialog = ({
                                   <History className="h-4 w-4" />
                                   Histórico de Pagamentos
                                 </h4>
-                                <ParcelaHistorico parcelaId={parcela.id} />
+                                <ParcelaHistorico 
+                                  parcelaId={parcela.id} 
+                                  onExcluirPagamento={async (historicoId, valorPago) => {
+                                    const parcelaAtual = parcelas.find(p => p.id === parcela.id);
+                                    if (!parcelaAtual) return false;
+
+                                    const valorPagoAtual = parcelaAtual.valor_pago || 0;
+                                    const novoValorPago = Math.max(0, valorPagoAtual - valorPago);
+                                    const novoSaldoRestante = parcelaAtual.valor_parcela - novoValorPago;
+
+                                    let novoStatus: string;
+                                    if (novoValorPago <= 0) {
+                                      novoStatus = new Date(parcelaAtual.data_vencimento) < new Date() ? 'atrasado' : 'pendente';
+                                    } else {
+                                      novoStatus = 'parcial';
+                                    }
+
+                                    const { error: updateError } = await supabase
+                                      .from('cliente_parcelas')
+                                      .update({
+                                        valor_pago: novoValorPago > 0 ? novoValorPago : null,
+                                        saldo_restante: novoSaldoRestante,
+                                        status: novoStatus,
+                                        ...(novoValorPago <= 0 && {
+                                          data_pagamento: null,
+                                          metodo_pagamento: null,
+                                        })
+                                      })
+                                      .eq('id', parcela.id);
+
+                                    if (updateError) return false;
+
+                                    const { error: deleteError } = await supabase
+                                      .from('cliente_pagamento_comentarios')
+                                      .delete()
+                                      .eq('id', historicoId);
+
+                                    if (deleteError) return false;
+
+                                    const { data: { user } } = await supabase.auth.getUser();
+                                    if (user) {
+                                      const { data: profile } = await supabase
+                                        .from('profiles')
+                                        .select('tenant_id')
+                                        .eq('user_id', user.id)
+                                        .maybeSingle();
+                                        
+                                      await supabase
+                                        .from('cliente_pagamento_comentarios')
+                                        .insert({
+                                          parcela_id: parcela.id,
+                                          user_id: user.id,
+                                          comentario: `Pagamento de R$ ${valorPago.toFixed(2).replace('.', ',')} excluído`,
+                                          tenant_id: profile?.tenant_id
+                                        });
+                                    }
+
+                                    await fetchParcelas();
+                                    onUpdate();
+                                    return true;
+                                  }}
+                                  onHistoricoChange={() => {
+                                    fetchParcelas();
+                                    onUpdate();
+                                  }}
+                                />
                               </div>
                               
                               {/* Comentários */}

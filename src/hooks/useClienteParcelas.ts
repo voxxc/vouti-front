@@ -194,12 +194,91 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
     }
   };
 
+  const excluirPagamento = async (
+    parcelaId: string,
+    historicoId: string,
+    valorPagamento: number
+  ) => {
+    try {
+      // Buscar parcela atual
+      const parcela = parcelas.find(p => p.id === parcelaId);
+      if (!parcela) throw new Error('Parcela não encontrada');
+
+      const valorPagoAtual = parcela.valor_pago || 0;
+      const novoValorPago = Math.max(0, valorPagoAtual - valorPagamento);
+      const novoSaldoRestante = parcela.valor_parcela - novoValorPago;
+
+      // Determinar novo status
+      let novoStatus: string;
+      if (novoValorPago <= 0) {
+        novoStatus = new Date(parcela.data_vencimento) < new Date() ? 'atrasado' : 'pendente';
+      } else {
+        novoStatus = 'parcial';
+      }
+
+      // Atualizar parcela
+      const { error: updateError } = await supabase
+        .from('cliente_parcelas')
+        .update({
+          valor_pago: novoValorPago > 0 ? novoValorPago : null,
+          saldo_restante: novoSaldoRestante,
+          status: novoStatus,
+          // Se voltou a pendente/atrasado, limpar dados de pagamento
+          ...(novoValorPago <= 0 && {
+            data_pagamento: null,
+            metodo_pagamento: null,
+          })
+        })
+        .eq('id', parcelaId);
+
+      if (updateError) throw updateError;
+
+      // Deletar registro do histórico
+      const { error: deleteError } = await supabase
+        .from('cliente_pagamento_comentarios')
+        .delete()
+        .eq('id', historicoId);
+
+      if (deleteError) throw deleteError;
+
+      // Registrar exclusão no histórico
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('cliente_pagamento_comentarios')
+          .insert({
+            parcela_id: parcelaId,
+            user_id: user.id,
+            comentario: `Pagamento de R$ ${valorPagamento.toFixed(2).replace('.', ',')} excluído`,
+            tenant_id: tenantId
+          });
+      }
+
+      toast({
+        title: 'Pagamento excluído',
+        description: 'O registro foi removido e o saldo foi recalculado.',
+      });
+
+      await fetchParcelas();
+      return true;
+    } catch (error) {
+      console.error('Erro ao excluir pagamento:', error);
+      toast({
+        title: 'Erro ao excluir pagamento',
+        description: 'Não foi possível excluir o registro.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   return {
     parcelas,
     loading,
     fetchParcelas,
     darBaixaParcela,
     reabrirParcela,
+    excluirPagamento,
   };
 };
 
