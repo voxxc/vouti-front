@@ -224,7 +224,7 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
                         <TableCell>
                           <button
                             onClick={() => handleViewCliente(cliente.id)}
-                            className="font-medium text-primary hover:underline text-left"
+                            className="font-medium text-foreground hover:text-foreground/80 text-left transition-colors"
                           >
                             {nomeCliente}
                           </button>
