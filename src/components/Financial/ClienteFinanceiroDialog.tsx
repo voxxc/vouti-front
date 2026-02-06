@@ -32,7 +32,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Plus, FileText as FileIcon, MoreVertical, RotateCcw, Edit, History, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 interface ClienteFinanceiroDialogProps {
   cliente: any;
@@ -101,12 +101,7 @@ export const ClienteFinanceiroDialog = ({
     ? ((parcelasPagas.length + parcelasParciais.length * 0.5) / parcelas.length) * 100 
     : 0;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  // formatCurrency agora é importado de @/lib/utils
 
   // Função para calcular juros e multa de uma parcela atrasada
   const calcularValorAtualizado = (parcela: ClienteParcela) => {

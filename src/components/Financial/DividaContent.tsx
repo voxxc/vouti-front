@@ -21,7 +21,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Trash2, MoreVertical, RotateCcw, Edit, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,12 +82,7 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
     ? ((parcelasPagas.length + parcelasParciais.length * 0.5) / parcelas.length) * 100 
     : 0;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  // formatCurrency agora é importado de @/lib/utils
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; icon: any; label: string; className?: string }> = {

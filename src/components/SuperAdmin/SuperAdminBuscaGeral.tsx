@@ -3,6 +3,7 @@ import { Search, User, Building2, Loader2, MapPin, Phone, Mail, Users, AlertCirc
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { formatCurrency as formatCurrencyUtil } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -153,7 +154,7 @@ export function SuperAdminBuscaGeral() {
 
   const formatCurrency = (value?: number) => {
     if (!value) return 'Não informado';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return formatCurrencyUtil(value);
   };
 
   const formatDate = (date?: string) => {
