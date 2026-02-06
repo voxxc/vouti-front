@@ -49,6 +49,29 @@ export const useClientes = () => {
     }
   };
 
+  const fetchClienteById = async (id: string): Promise<Cliente | null> => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data as unknown as Cliente;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao buscar cliente',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const createCliente = async (clienteData: Partial<Cliente>): Promise<Cliente | null> => {
     try {
       setLoading(true);
@@ -284,6 +307,7 @@ export const useClientes = () => {
   return {
     loading,
     fetchClientes,
+    fetchClienteById,
     createCliente,
     updateCliente,
     deleteCliente,
