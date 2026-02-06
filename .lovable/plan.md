@@ -1,224 +1,154 @@
 
 
-# Refinamento do Resumo do Processo
+# Correcao do Erro ao Criar Setores
 
-## Problemas Identificados
+## Problema Identificado
 
-1. **Botao Editar mal posicionado** - Atualmente esta no topo do conteudo com `flex justify-end` ocupando espaco desnecessario
-2. **Informacoes nao estao alinhadas no topo** - O botao Editar empurra o conteudo para baixo
-3. **Botao Excluir precisa de dupla confirmacao** - Atualmente tem apenas uma confirmacao
+O erro ocorre na linha 933-935 do arquivo `ProjectView.tsx`:
+
+```
+Error creating sector: {
+  "code": "42501",
+  "message": "new row violates row-level security policy for table \"project_columns\""
+}
+```
+
+A causa raiz: as colunas padrao criadas para novos setores NAO incluem o `tenant_id`, que e obrigatorio pelas politicas de RLS.
 
 ---
 
-## Mudancas Propostas
+## Analise Tecnica
 
-### 1. Mover Botao Editar para Junto do Excluir
+### Politicas RLS da tabela `project_columns`
 
-**Antes:**
-```
-[                                    ] [Editar]
-Descricao: ...
-...
-...
-Alterar Status: [dropdown]
-[Excluir]
+A politica para admins exige:
+```sql
+tenant_id = get_user_tenant_id()
 ```
 
-**Depois:**
-```
-Descricao: ...
-...
-...
-Alterar Status: [dropdown]
-                        [Editar]  [Excluir]
-```
-
-Os botoes Editar e Excluir ficarao lado a lado, no final da secao, ambos discretos.
-
-### 2. Alinhar Informacoes no Topo
-
-Remover o container do botao Editar que esta no topo (`<div className="flex justify-end">`) para que a Descricao seja o primeiro elemento visivel.
-
-### 3. Dupla Confirmacao para Excluir
-
-Adicionar uma segunda etapa de confirmacao exigindo que o usuario digite o nome do processo para confirmar a exclusao.
-
-**Fluxo:**
-```
-Usuario clica em "Excluir"
-        |
-        v
-AlertDialog aparece:
-  "Para confirmar, digite: [NOME DO PROCESSO]"
-  [input text]________________
-  
-  [Cancelar]  [Excluir] (desabilitado ate digitar correto)
-```
-
----
-
-## Implementacao Tecnica
-
-### Arquivo: `src/components/Project/ProjectProtocoloDrawer.tsx`
-
-**1. Adicionar estado para confirmacao de texto (linha ~115)**
+### Codigo Atual (linhas 898-931)
 
 ```typescript
-const [deleteConfirmText, setDeleteConfirmText] = useState('');
+const columnsToCreate = newSectors.flatMap(sector => [
+  {
+    project_id: sector.project_id,
+    sector_id: sector.id,
+    name: 'Em Espera',
+    column_order: 0,
+    color: '#eab308',
+    is_default: true
+    // ❌ FALTA tenant_id
+  },
+  // ... outras colunas
+]);
 ```
 
-**2. Remover o container do botao Editar (linhas 538-544)**
+### Problema Adicional
 
-Excluir:
-```tsx
-{/* Botão Editar */}
-<div className="flex justify-end">
-  <Button variant="outline" size="sm" onClick={startEditing}>
-    <Pencil className="h-4 w-4 mr-2" />
-    Editar
-  </Button>
-</div>
-```
+A criacao dos setores (linhas 880-888) tambem nao inclui `tenant_id`:
 
-**3. Modificar a secao de acoes (linhas 607-638)**
-
-De:
-```tsx
-{/* Ações */}
-<div className="pt-4 border-t space-y-3">
-  <div>
-    <Label>Alterar Status</Label>
-    <Select...>
-  </div>
-  <Button variant="ghost" ... onClick={() => setDeleteConfirm(true)}>
-    Excluir
-  </Button>
-</div>
-```
-
-Para:
-```tsx
-{/* Ações */}
-<div className="pt-4 border-t space-y-3">
-  <div>
-    <Label>Alterar Status</Label>
-    <Select...>
-  </div>
-  
-  {/* Botões Editar e Excluir lado a lado */}
-  <div className="flex items-center justify-end gap-2 pt-2">
-    <Button 
-      variant="ghost" 
-      size="sm"
-      className="text-muted-foreground hover:text-foreground"
-      onClick={startEditing}
-    >
-      <Pencil className="h-3.5 w-3.5 mr-1.5" />
-      Editar
-    </Button>
-    <Button 
-      variant="ghost" 
-      size="sm"
-      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-      onClick={() => setDeleteConfirm(true)}
-    >
-      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-      Excluir
-    </Button>
-  </div>
-</div>
-```
-
-**4. Atualizar o AlertDialog de exclusao (linhas 941-961)**
-
-Adicionar campo de texto para confirmar o nome do processo:
-
-```tsx
-<AlertDialog open={deleteConfirm} onOpenChange={(open) => {
-  setDeleteConfirm(open);
-  if (!open) setDeleteConfirmText('');
-}}>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Excluir protocolo?</AlertDialogTitle>
-      <AlertDialogDescription className="space-y-3">
-        <p>Esta ação não pode ser desfeita. O protocolo e todas as suas etapas serão excluídos permanentemente.</p>
-        <p className="font-medium">Para confirmar, digite: <span className="text-destructive">{protocolo.nome}</span></p>
-        <Input
-          value={deleteConfirmText}
-          onChange={(e) => setDeleteConfirmText(e.target.value)}
-          placeholder="Digite o nome do processo"
-          className="mt-2"
-        />
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter>
-      <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
-      <AlertDialogAction 
-        onClick={handleDelete}
-        disabled={saving || deleteConfirmText !== protocolo.nome}
-        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-      >
-        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-        Excluir
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+```typescript
+const sectorsToCreate = projectsToCreate.map((projId, idx) => ({
+  project_id: projId,
+  template_id: templateId,
+  name,
+  description,
+  sector_order: 999 + idx,
+  is_default: false,
+  created_by: user.id
+  // ❌ FALTA tenant_id
+}));
 ```
 
 ---
 
-## Resultado Visual
+## Solucao
 
-**Tab Resumo - Antes:**
-```
-                                    [Editar]
-DESCRICAO
-...
+### Arquivo: `src/pages/ProjectView.tsx`
 
-DATA DE INICIO    PREVISAO
-...               ...
+**1. Buscar o tenant_id do usuario (apos linha 798)**
 
-OBSERVACOES
-...
+Adicionar:
+```typescript
+// Buscar tenant_id do usuário
+const { data: profileData } = await supabase
+  .from('profiles')
+  .select('tenant_id')
+  .eq('user_id', user.id)
+  .single();
 
-ALTERAR STATUS
-[dropdown]
-
-[Excluir]
+const userTenantId = profileData?.tenant_id;
 ```
 
-**Tab Resumo - Depois:**
-```
-DESCRICAO
-...
+**2. Adicionar tenant_id na criacao dos setores (linha 880-888)**
 
-DATA DE INICIO    PREVISAO
-...               ...
-
-OBSERVACOES
-...
-
-ALTERAR STATUS
-[dropdown]
-                        [Editar]  [Excluir]
+Modificar para:
+```typescript
+const sectorsToCreate = projectsToCreate.map((projId, idx) => ({
+  project_id: projId,
+  template_id: templateId,
+  name,
+  description,
+  sector_order: 999 + idx,
+  is_default: false,
+  created_by: user.id,
+  tenant_id: userTenantId  // ✅ ADICIONADO
+}));
 ```
 
-**Dialog de Exclusao - Depois:**
+**3. Adicionar tenant_id na criacao das colunas (linhas 898-931)**
+
+Modificar cada objeto de coluna para incluir `tenant_id`:
+```typescript
+const columnsToCreate = newSectors.flatMap(sector => [
+  {
+    project_id: sector.project_id,
+    sector_id: sector.id,
+    name: 'Em Espera',
+    column_order: 0,
+    color: '#eab308',
+    is_default: true,
+    tenant_id: userTenantId  // ✅ ADICIONADO
+  },
+  {
+    project_id: sector.project_id,
+    sector_id: sector.id,
+    name: 'A Fazer',
+    column_order: 1,
+    color: '#3b82f6',
+    is_default: true,
+    tenant_id: userTenantId  // ✅ ADICIONADO
+  },
+  {
+    project_id: sector.project_id,
+    sector_id: sector.id,
+    name: 'Andamento',
+    column_order: 2,
+    color: '#f97316',
+    is_default: true,
+    tenant_id: userTenantId  // ✅ ADICIONADO
+  },
+  {
+    project_id: sector.project_id,
+    sector_id: sector.id,
+    name: 'Concluído',
+    column_order: 3,
+    color: '#22c55e',
+    is_default: true,
+    tenant_id: userTenantId  // ✅ ADICIONADO
+  }
+]);
 ```
-+------------------------------------------+
-|  Excluir protocolo?                      |
-|                                          |
-|  Esta ação não pode ser desfeita...      |
-|                                          |
-|  Para confirmar, digite: NOME_PROCESSO   |
-|  [___________________________________]   |
-|                                          |
-|            [Cancelar]  [Excluir]         |
-+------------------------------------------+
-```
-O botao Excluir so fica habilitado quando o texto digitado for exatamente igual ao nome do processo.
+
+---
+
+## Resumo das Alteracoes
+
+| Local | Alteracao |
+|-------|-----------|
+| Linha ~799 | Adicionar busca do tenant_id via profiles |
+| Linhas 880-888 | Adicionar `tenant_id: userTenantId` nos setores |
+| Linhas 898-931 | Adicionar `tenant_id: userTenantId` em cada coluna |
 
 ---
 
@@ -226,5 +156,5 @@ O botao Excluir so fica habilitado quando o texto digitado for exatamente igual 
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/Project/ProjectProtocoloDrawer.tsx` | Adicionar estado, remover botao Editar do topo, colocar Editar ao lado do Excluir, implementar dupla confirmacao |
+| `src/pages/ProjectView.tsx` | Incluir tenant_id na criacao de setores e colunas |
 
