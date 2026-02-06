@@ -1,85 +1,31 @@
 
-# Exibir Nome do Responsavel ao Lado do Titulo na Agenda
+# Renomeacao de Entidades: Protocolo → Processos | Processos → Casos
 
-## Objetivo
+## ✅ CONCLUÍDO
 
-Modificar a exibicao dos prazos na Agenda para mostrar o nome do responsavel junto com o titulo, no formato:
+Renomeação de labels de UI implementada com sucesso:
 
-```
-Alan | Documento de JG - Agravo...
-```
+1. **Protocolo** → **Processos** (antigo protocolo agora é chamado de processos)
+2. **Processos** (processos_oab) → **Casos** (processos judiciais)
 
----
+### Arquivos Atualizados
 
-## Locais a Modificar
+- `src/pages/ProjectView.tsx` - Abas de navegação
+- `src/components/Project/ProjectProtocolosList.tsx` - Lista de processos
+- `src/components/Project/AddProtocoloDialog.tsx` - Dialog de criação
+- `src/components/Project/ConcluirEtapaModal.tsx` - Modal de conclusão
+- `src/components/Project/ProjectWorkspaceTabs.tsx` - Tabs de workspace
+- `src/components/Project/ProjectProtocoloDrawer.tsx` - Drawer de detalhes
+- `src/components/Project/ProtocoloVinculoTab.tsx` - Tab de vínculo
+- `src/components/Project/RelatorioProtocolo.tsx` - Relatório
+- `src/components/Dashboard/Metrics/AdminMetrics.tsx` - Métricas admin
+- `src/hooks/useProjectProtocolos.ts` - Mensagens de toast
+- `src/pages/Agenda.tsx` - Labels de origem
+- `src/components/Agenda/AgendaContent.tsx` - Labels de origem
 
-A mudanca sera aplicada em todos os locais onde o titulo do prazo e exibido:
+### O que NÃO foi alterado (conforme planejado)
 
-| Arquivo | Secao | Linha Atual |
-|---------|-------|-------------|
-| `src/pages/Agenda.tsx` | Prazos do dia selecionado | `{deadline.title}` |
-| `src/pages/Agenda.tsx` | Prazos Vencidos | `{deadline.title}` |
-| `src/pages/Agenda.tsx` | Proximos Prazos | `{deadline.title}` |
-| `src/pages/Agenda.tsx` | Tabela Admin | `{deadline.title}` |
-| `src/pages/Agenda.tsx` | Historico Cumpridos | `{deadline.title}` |
-| `src/components/Agenda/AgendaContent.tsx` | Prazos do dia selecionado | `{deadline.title}` |
-| `src/components/Agenda/AgendaContent.tsx` | Prazos Vencidos | `{deadline.title}` |
-| `src/components/Agenda/AgendaContent.tsx` | Proximos Prazos | `{deadline.title}` |
-| `src/components/Agenda/AgendaContent.tsx` | Tabela Admin | `{deadline.title}` |
-| `src/components/Agenda/AgendaContent.tsx` | Historico Cumpridos | `{deadline.title}` |
-
----
-
-## Formato de Exibicao
-
-**De:**
-```
-Documento de JG - Agravo de Instrumento
-```
-
-**Para:**
-```
-Alan | Documento de JG - Agravo de Instrumento
-```
-
-Se nao houver responsavel atribuido, exibe apenas o titulo:
-```
-Documento de JG - Agravo de Instrumento
-```
-
----
-
-## Implementacao
-
-Criar uma funcao helper para formatar o titulo com o nome do responsavel:
-
-```typescript
-const formatDeadlineTitle = (deadline: Deadline) => {
-  const nome = deadline.advogadoResponsavel?.name;
-  if (nome) {
-    // Pega apenas o primeiro nome
-    const primeiroNome = nome.split(' ')[0];
-    return `${primeiroNome} | ${deadline.title}`;
-  }
-  return deadline.title;
-};
-```
-
-Substituir todas as ocorrencias de `{deadline.title}` por `{formatDeadlineTitle(deadline)}`.
-
----
-
-## Observacoes
-
-- O primeiro nome sera usado para manter a exibicao compacta
-- Nas tabelas de historico, a coluna "Responsavel" ja existe, entao o formato com nome fica redundante - mas manteremos para consistencia visual
-- O separador `|` foi escolhido por ser visualmente limpo e nao conflitar com caracteres comuns em titulos
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/pages/Agenda.tsx` | Adicionar helper e atualizar ~5 locais de exibicao de titulo |
-| `src/components/Agenda/AgendaContent.tsx` | Adicionar helper e atualizar ~5 locais de exibicao de titulo |
+- Nomes de tabelas no banco (project_protocolos, processos_oab, etc.)
+- Nomes de hooks (useProjectProtocolos, useOABs, etc.)
+- Nomes de componentes (ProjectProtocoloDrawer, ProjectProcessos, etc.)
+- Nomes de tipos TypeScript (ProjectProtocolo, ProcessoOAB, etc.)

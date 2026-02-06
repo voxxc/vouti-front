@@ -134,16 +134,6 @@ const Agenda = () => {
     }
   };
 
-  // Helper para formatar título com nome do responsável
-  const formatDeadlineTitle = (deadline: Deadline) => {
-    const nome = deadline.advogadoResponsavel?.name;
-    if (nome) {
-      const primeiroNome = nome.split(' ')[0];
-      return `${primeiroNome} | ${deadline.title}`;
-    }
-    return deadline.title;
-  };
-
   // Verificar se veio da aba Tarefas com params para criar prazo
   useEffect(() => {
     const criarPrazo = searchParams.get('criarPrazo');
@@ -1026,7 +1016,7 @@ const Agenda = () => {
                       onClick={() => openDeadlineDetails(deadline)}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm">{formatDeadlineTitle(deadline)}</h4>
+                        <h4 className="font-medium text-sm">{deadline.title}</h4>
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -1146,7 +1136,7 @@ const Agenda = () => {
                   <div key={deadline.id} className="border rounded p-2 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-medium text-sm">{formatDeadlineTitle(deadline)}</p>
+                        <p className="font-medium text-sm">{deadline.title}</p>
                         <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
                         <p className="text-xs text-red-600">
                           {safeFormatDate(deadline.date)}
@@ -1207,7 +1197,7 @@ const Agenda = () => {
                   <div key={deadline.id} className="border rounded p-2 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-medium text-sm">{formatDeadlineTitle(deadline)}</p>
+                        <p className="font-medium text-sm">{deadline.title}</p>
                         <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
                         <p className="text-xs text-blue-600">
                           {safeFormatDate(deadline.date)}
@@ -1311,7 +1301,7 @@ const Agenda = () => {
                     <TableBody>
                       {filteredUserDeadlines.map((deadline) => (
                         <TableRow key={deadline.id}>
-                          <TableCell className="font-medium">{formatDeadlineTitle(deadline)}</TableCell>
+                          <TableCell className="font-medium">{deadline.title}</TableCell>
                           <TableCell>{deadline.projectName}</TableCell>
                           <TableCell>{safeFormatDate(deadline.date)}</TableCell>
                           <TableCell>
@@ -1387,7 +1377,7 @@ const Agenda = () => {
                 <TableBody>
                   {getCompletedDeadlines().map(deadline => (
                     <TableRow key={deadline.id}>
-                      <TableCell className="font-medium">{formatDeadlineTitle(deadline)}</TableCell>
+                      <TableCell className="font-medium">{deadline.title}</TableCell>
                       <TableCell>{deadline.projectName}</TableCell>
                       <TableCell>{safeFormatDate(deadline.date)}</TableCell>
                       <TableCell>{safeFormatDate(deadline.updatedAt)}</TableCell>
