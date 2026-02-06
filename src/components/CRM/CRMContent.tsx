@@ -152,52 +152,7 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
         </div>
       </div>
 
-      {/* Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="border-0 shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Clientes</p>
-                <p className="text-2xl font-bold text-foreground">{totalClientes}</p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-lg">
-               <User className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Valor Total (Contratos)</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(valorTotalContratos)}</p>
-              </div>
-              <div className="p-3 bg-accent rounded-lg">
-               <DollarSign className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Parcelados</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {clientes.filter(c => c.forma_pagamento === 'parcelado').length}
-                </p>
-              </div>
-              <div className="p-3 bg-accent rounded-lg">
-               <TrendingUp className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Search */}
 
       {/* Search */}
       <div className="flex gap-4 items-center flex-1">
