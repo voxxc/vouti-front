@@ -1,66 +1,141 @@
 
-# Minimalizar o Botao Setores (Dropdown)
 
-## Estado Atual
-
-O botao Setores usa o componente `Button` com `variant="outline"`, incluindo icone e seta:
-
-```tsx
-<Button variant="outline" className="gap-2">
-  <Layers size={16} />
-  Setores
-  <ChevronDown size={14} />
-</Button>
-```
+# Remover Estrutura de % de Conclusao por Projetos
 
 ## Objetivo
 
-Transformar em texto clicavel minimalista, igual aos outros botoes (Participantes, Dados, Historico), mas mantendo a funcionalidade de dropdown.
+Retirar a exibicao de porcentagem de conclusao dos projetos em todas as areas da interface.
 
-## Mudanca Proposta
+---
 
-### Arquivo: `src/components/Project/SetoresDropdown.tsx`
+## Locais Afetados
 
-**De (linhas 71-77):**
+### 1. Drawer de Projetos (Sidebar)
+**Arquivo:** `src/components/Projects/ProjectsDrawer.tsx`
+
+Remover linhas 198-209:
+- Barra de progresso (`Progress`)
+- Texto de porcentagem (`{stats.progressPercentage}%`)
+- Skeleton de loading da barra
+
+### 2. Pagina de Projetos (Cards)
+**Arquivo:** `src/pages/Projects.tsx`
+
+Remover linhas 274-311:
+- Secao "Progress Stats" inteira
+- Barra de progresso customizada
+- Texto "Progresso" e porcentagem
+- Informacao "X em andamento"
+
+---
+
+## Alteracoes Detalhadas
+
+### ProjectsDrawer.tsx
+
+**Remover:**
 ```tsx
-<DropdownMenuTrigger asChild>
-  <Button variant="outline" className="gap-2">
-    <Layers size={16} />
-    Setores
-    <ChevronDown size={14} />
-  </Button>
-</DropdownMenuTrigger>
+<div className="mt-2">
+  {isDetailsLoaded ? (
+    <div className="flex items-center gap-2">
+      <Progress value={stats.progressPercentage} className="h-1.5 max-w-[200px]" />
+      <span className="text-xs text-muted-foreground w-8 text-right">
+        {stats.progressPercentage}%
+      </span>
+    </div>
+  ) : (
+    <Skeleton className="h-1.5 w-full" />
+  )}
+</div>
 ```
 
-**Para:**
+**Tambem remover:**
+- Import do `Progress`
+- Variavel `stats` (nao sera mais usada)
+- `isDetailsLoaded` do destructuring do hook
+- `getProjectStats` do destructuring do hook
+
+### Projects.tsx
+
+**Remover toda a secao "Progress Stats" (linhas 274-311):**
 ```tsx
-<DropdownMenuTrigger asChild>
-  <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-    Setores
-    <ChevronDown size={12} className="opacity-50" />
-  </button>
-</DropdownMenuTrigger>
+{/* Progress Stats */}
+<div className="space-y-3">
+  <div className="flex items-center justify-between text-sm">
+    <span className="text-muted-foreground">Progresso</span>
+    ...
+  </div>
+  ...
+</div>
 ```
 
-## Detalhes da Mudanca
+**Substituir por informacao simplificada:**
+```tsx
+<div className="flex items-center justify-between text-sm text-muted-foreground">
+  <span>{project.taskCount} tarefas</span>
+  <div className="flex items-center gap-1">
+    <Calendar className="h-3 w-3" />
+    {format(project.updatedAt, "dd/MM/yy", { locale: ptBR })}
+  </div>
+</div>
+```
 
-| Elemento | Antes | Depois |
-|----------|-------|--------|
-| Componente | `Button` com `variant="outline"` | `button` nativo |
-| Icone Layers | Visivel | Removido |
-| Seta ChevronDown | 14px | 12px, com opacidade 50% |
-| Estilo | Borda, padding, background | Texto simples, sem borda |
+**Tambem remover:**
+- `isDetailsLoaded` do destructuring
+- `getProjectStats` do destructuring
+- Variaveis `stats` e `completionRate`
+
+---
 
 ## Resultado Visual
 
+### Antes (Drawer)
 ```
-Participantes    Dados    Historico    Setores ˅
+Nome do Projeto
+Cliente • 5 tarefas
+[████████░░░░] 75%
 ```
 
-Todos os itens agora seguem o mesmo padrao minimalista de texto clicavel.
+### Depois (Drawer)
+```
+Nome do Projeto
+Cliente • 5 tarefas
+```
 
-## Arquivo a Modificar
+### Antes (Cards)
+```
+┌─────────────────────┐
+│ 📁 Nome do Projeto  │
+│ Descricao...        │
+│                     │
+│ Progresso      75%  │
+│ [████████░░░]       │
+│ 5 tarefas  3 andamento │
+└─────────────────────┘
+```
+
+### Depois (Cards)
+```
+┌─────────────────────┐
+│ 📁 Nome do Projeto  │
+│ Descricao...        │
+│                     │
+│ 5 tarefas   📅 dd/MM│
+└─────────────────────┘
+```
+
+---
+
+## Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/Project/SetoresDropdown.tsx` | Trocar Button por button minimalista, remover icone Layers, reduzir seta |
+| `src/components/Projects/ProjectsDrawer.tsx` | Remover barra de progresso e imports relacionados |
+| `src/pages/Projects.tsx` | Remover secao Progress Stats, simplificar rodape do card |
+
+---
+
+## Nota
+
+O hook `useProjectsOptimized` e a funcao `calculateProjectProgress` serao mantidos, pois podem ser usados em outros locais da aplicacao (ex: Dashboard). A remocao e apenas da exibicao na listagem de projetos.
+
