@@ -1,24 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-  DollarSign, 
   Users, 
-  Calendar,
-  Edit,
-  AlertTriangle,
   Search,
   Filter,
 } from 'lucide-react';
 import { Cliente } from '@/types/cliente';
 import { toast } from 'sonner';
-import { differenceInDays, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays } from 'date-fns';
 import { ColaboradoresTab } from '@/components/Financial/ColaboradoresTab';
 import { CustosTab } from '@/components/Financial/CustosTab';
 import { cn } from '@/lib/utils';
@@ -161,10 +154,6 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
     return matchesSearch && matchesStatus;
   });
 
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value == null) return 'R$ 0,00';
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string }> = {
@@ -280,59 +269,41 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
 
           {/* Lista de Clientes */}
           {clientesFiltrados.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-2" />
-                <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== 'todos' 
-                    ? 'Nenhum cliente encontrado com os filtros selecionados'
-                    : 'Nenhum cliente cadastrado no CRM'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {clientesFiltrados.map((cliente) => {
-                const statusConfig = getStatusBadge(cliente.status);
-                return (
-                  <Card key={cliente.id} className={cliente.status === 'inadimplente' ? 'border-destructive' : ''}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{getNomeCliente(cliente)}</CardTitle>
-                        <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        <span>{formatCurrency(cliente.valor_contrato)}</span>
-                      </div>
-                      {cliente.proximoVencimento && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>Próximo: {format(cliente.proximoVencimento, 'dd/MM/yyyy', { locale: ptBR })}</span>
-                        </div>
-                      )}
-                      {cliente.diasAtraso && (
-                        <div className="flex items-center gap-2 text-sm text-destructive">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span>{cliente.diasAtraso} dias em atraso</span>
-                        </div>
-                      )}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full mt-2"
-                        onClick={() => onViewCliente?.(cliente)}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Ver Detalhes
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="py-8 text-center">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-2" />
+              <p className="text-muted-foreground">
+                {searchTerm || statusFilter !== 'todos' 
+                  ? 'Nenhum cliente encontrado'
+                  : 'Nenhum cliente cadastrado'}
+              </p>
             </div>
+          ) : (
+            <>
+              <div className="space-y-1">
+                {clientesFiltrados.map((cliente) => {
+                  const statusConfig = getStatusBadge(cliente.status);
+                  return (
+                    <div 
+                      key={cliente.id} 
+                      className="flex items-center justify-between py-2 px-1 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <button
+                        onClick={() => onViewCliente?.(cliente)}
+                        className="text-sm font-medium text-primary hover:underline text-left"
+                      >
+                        {getNomeCliente(cliente)}
+                      </button>
+                      <Badge variant={statusConfig.variant} className="text-xs">
+                        {statusConfig.label}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-sm text-muted-foreground mt-4">
+                {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'} encontrado(s)
+              </p>
+            </>
           )}
         </>
       )}
