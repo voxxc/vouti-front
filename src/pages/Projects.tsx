@@ -215,9 +215,6 @@ const Projects = () => {
               
               <div className="flex items-center gap-4 shrink-0">
                 <div className="text-right hidden sm:block">
-                  <div className="text-sm text-muted-foreground">
-                    {project.taskCount} {project.taskCount === 1 ? 'tarefa' : 'tarefas'}
-                  </div>
                   <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
                     <Calendar className="h-3 w-3" />
                     Criado em {format(project.createdAt, "dd/MM/yyyy", { locale: ptBR })}

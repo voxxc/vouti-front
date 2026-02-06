@@ -184,7 +184,7 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
                           {project.name}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {project.client} • {project.taskCount} {project.taskCount === 1 ? 'tarefa' : 'tarefas'}
+                          {project.client}
                         </div>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
