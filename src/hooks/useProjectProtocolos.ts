@@ -218,7 +218,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
 
       toast({
         title: 'Sucesso',
-        description: 'Protocolo criado com sucesso'
+        description: 'Processo criado com sucesso'
       });
 
       await fetchProtocolos();
@@ -227,7 +227,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       console.error('Erro ao criar protocolo:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao criar protocolo',
+        description: 'Erro ao criar processo',
         variant: 'destructive'
       });
       throw error;
@@ -254,7 +254,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
 
       toast({
         title: 'Sucesso',
-        description: 'Protocolo atualizado'
+        description: 'Processo atualizado'
       });
 
       await fetchProtocolos();
@@ -262,7 +262,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       console.error('Erro ao atualizar protocolo:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao atualizar protocolo',
+        description: 'Erro ao atualizar processo',
         variant: 'destructive'
       });
       throw error;
@@ -280,7 +280,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
 
       toast({
         title: 'Sucesso',
-        description: 'Protocolo excluído'
+        description: 'Processo excluído'
       });
 
       await fetchProtocolos();
@@ -288,7 +288,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       console.error('Erro ao excluir protocolo:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao excluir protocolo',
+        description: 'Erro ao excluir processo',
         variant: 'destructive'
       });
       throw error;

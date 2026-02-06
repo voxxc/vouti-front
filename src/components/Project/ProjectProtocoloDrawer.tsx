@@ -461,12 +461,12 @@ export function ProjectProtocoloDrawer({
                   // Modo de Edição
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-nome">Nome do Protocolo *</Label>
+                      <Label htmlFor="edit-nome">Nome do Processo *</Label>
                       <Input
                         id="edit-nome"
                         value={editNome}
                         onChange={(e) => setEditNome(e.target.value)}
-                        placeholder="Nome do protocolo"
+                        placeholder="Nome do processo"
                         disabled={saving}
                       />
                     </div>
@@ -477,7 +477,7 @@ export function ProjectProtocoloDrawer({
                         id="edit-descricao"
                         value={editDescricao}
                         onChange={(e) => setEditDescricao(e.target.value)}
-                        placeholder="Descrição do protocolo"
+                        placeholder="Descrição do processo"
                         disabled={saving}
                         rows={3}
                       />
@@ -632,7 +632,7 @@ export function ProjectProtocoloDrawer({
                         disabled={saving}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Protocolo
+                        Excluir Processo
                       </Button>
                     </div>
                   </>

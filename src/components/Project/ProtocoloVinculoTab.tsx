@@ -50,11 +50,11 @@ export const ProtocoloVinculoTab = ({
       setMostrarBusca(false);
       setBusca('');
       toast({ 
-        title: 'Processo vinculado com sucesso',
-        description: workspaceId ? 'Também adicionado à aba Processos' : undefined
+        title: 'Caso vinculado com sucesso',
+        description: workspaceId ? 'Também adicionado à aba Casos' : undefined
       });
     } else {
-      toast({ title: 'Erro ao vincular processo', variant: 'destructive' });
+      toast({ title: 'Erro ao vincular caso', variant: 'destructive' });
     }
   };
 
@@ -62,9 +62,9 @@ export const ProtocoloVinculoTab = ({
     const success = await desvincularProcesso();
     if (success) {
       onVinculoChange(null);
-      toast({ title: 'Processo desvinculado' });
+      toast({ title: 'Caso desvinculado' });
     } else {
-      toast({ title: 'Erro ao desvincular processo', variant: 'destructive' });
+      toast({ title: 'Erro ao desvincular caso', variant: 'destructive' });
     }
   };
 
@@ -82,7 +82,7 @@ export const ProtocoloVinculoTab = ({
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium flex items-center gap-2">
             <Link2 className="h-4 w-4" />
-            Processo Vinculado
+            Caso Vinculado
           </h3>
           <Button variant="outline" size="sm" onClick={handleDesvincular}>
             <Unlink className="h-4 w-4 mr-1" />
@@ -132,11 +132,11 @@ export const ProtocoloVinculoTab = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Vincular a um Processo</h3>
+        <h3 className="text-sm font-medium">Vincular a um Caso</h3>
         {!mostrarBusca && (
           <Button size="sm" onClick={() => setMostrarBusca(true)}>
             <Search className="h-4 w-4 mr-1" />
-            Buscar Processo
+            Buscar Caso
           </Button>
         )}
       </div>
@@ -144,8 +144,8 @@ export const ProtocoloVinculoTab = ({
       {!mostrarBusca ? (
         <div className="text-center py-8 text-muted-foreground">
           <Link2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm">Nenhum processo vinculado</p>
-          <p className="text-xs">Clique em "Buscar Processo" para vincular este protocolo a um processo da Controladoria</p>
+          <p className="text-sm">Nenhum caso vinculado</p>
+          <p className="text-xs">Clique em "Buscar Caso" para vincular este processo a um caso da Controladoria</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -168,7 +168,7 @@ export const ProtocoloVinculoTab = ({
               </div>
             ) : processosDisponiveis.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhum processo encontrado
+                Nenhum caso encontrado
               </p>
             ) : (
               <div className="space-y-2">

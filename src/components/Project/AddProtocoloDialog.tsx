@@ -44,12 +44,12 @@ export function AddProtocoloDialog({ open, onOpenChange, onSubmit }: AddProtocol
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Novo Protocolo</DialogTitle>
+          <DialogTitle>Novo Processo</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="nome">Nome do Protocolo *</Label>
+            <Label htmlFor="nome">Nome do Processo *</Label>
             <Input
               id="nome"
               value={nome}
@@ -67,7 +67,7 @@ export function AddProtocoloDialog({ open, onOpenChange, onSubmit }: AddProtocol
           </Button>
           <Button onClick={handleSubmit} disabled={saving || !nome.trim()}>
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Criar Protocolo
+            Criar Processo
           </Button>
         </DialogFooter>
       </DialogContent>

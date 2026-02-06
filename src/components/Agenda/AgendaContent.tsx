@@ -1226,16 +1226,16 @@ export function AgendaContent() {
                     </div>
                   )}
                   
-                  {/* Origem: Protocolo/Etapa */}
+                  {/* Origem: Processo/Etapa */}
                   {selectedDeadline.protocoloOrigem && (
                     <div className="border rounded-lg p-3 bg-muted/30">
                       <div className="flex items-center gap-2 mb-2">
                         <FileText className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium">Protocolo de Origem</label>
+                        <label className="text-sm font-medium">Processo de Origem</label>
                       </div>
                       <div className="space-y-1 text-sm">
                         {selectedDeadline.protocoloOrigem.protocoloNome && (
-                          <p><strong>Protocolo:</strong> {selectedDeadline.protocoloOrigem.protocoloNome}</p>
+                          <p><strong>Processo:</strong> {selectedDeadline.protocoloOrigem.protocoloNome}</p>
                         )}
                         {selectedDeadline.protocoloOrigem.etapaNome && (
                           <p><strong>Etapa:</strong> {selectedDeadline.protocoloOrigem.etapaNome}</p>
