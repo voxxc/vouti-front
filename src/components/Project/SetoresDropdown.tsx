@@ -69,11 +69,10 @@ const SetoresDropdown = ({
     <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Layers size={16} />
+        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
           Setores
-          <ChevronDown size={14} />
-        </Button>
+          <ChevronDown size={12} className="opacity-50" />
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {sectors.map((sector) => (
