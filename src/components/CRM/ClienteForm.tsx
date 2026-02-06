@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Upload, X, Plus } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Upload, X, Plus, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { GruposParcelasManager } from './GruposParcelasManager';
@@ -40,6 +41,9 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
   const [taxaJurosMensal, setTaxaJurosMensal] = useState(cliente?.taxa_juros_mensal?.toString() || '1');
   const [aplicarMulta, setAplicarMulta] = useState(cliente?.aplicar_multa || false);
   const [taxaMulta, setTaxaMulta] = useState(cliente?.taxa_multa?.toString() || '2');
+  
+  // Estado para seção colapsável
+  const [contratoOpen, setContratoOpen] = useState(!!cliente?.valor_contrato);
   
   const isEditing = !!cliente;
 
@@ -496,12 +500,27 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
         </div>
       </div>
 
-      {/* SEÇÃO 4: DADOS DO CONTRATO */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <span>📄</span> Dados do Contrato
-        </h3>
+      {/* Seção de Etiquetas - Sempre visível */}
+      <ClienteEtiquetasManager clienteId={cliente?.id} />
 
+      {/* SEÇÃO 4: DADOS DO CONTRATO (Colapsável) */}
+      <Collapsible open={contratoOpen} onOpenChange={setContratoOpen}>
+        <CollapsibleTrigger asChild>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            className="w-full justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted"
+          >
+            <span className="text-lg font-semibold flex items-center gap-2">
+              <span>📄</span> Dados do Contrato
+            </span>
+            <ChevronDown className={cn(
+              "h-5 w-5 transition-transform duration-200",
+              contratoOpen && "rotate-180"
+            )} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="data_fechamento">Data de Fechamento *</Label>
@@ -711,12 +730,10 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             <Textarea id="observacoes" {...register('observacoes')} rows={3} />
           </div>
 
-          {/* Seção de Etiquetas */}
-          {isEditing && (
-            <div className="md:col-span-2">
-              <ClienteEtiquetasManager clienteId={cliente?.id} />
-            </div>
-          )}
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="observacoes">Observações</Label>
+            <Textarea id="observacoes" {...register('observacoes')} rows={3} />
+          </div>
 
           {!isEditing && (
             <div className="space-y-2 md:col-span-2">
@@ -758,7 +775,8 @@ export const ClienteForm = ({ cliente, onSuccess, onCancel }: ClienteFormProps) 
             </div>
           )}
         </div>
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading || uploadingFiles}>
