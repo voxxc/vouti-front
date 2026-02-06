@@ -418,39 +418,41 @@ export function ProjectProtocoloDrawer({
           </DrawerHeader>
 
           <Tabs defaultValue="resumo" className="flex-1">
-            <TabsList className="w-full justify-start rounded-none border-b px-4">
-              <TabsTrigger value="resumo" className="gap-2">
-                <FileText className="w-4 h-4" />
+            <TabsList className="w-full h-auto bg-transparent p-0 px-4 justify-start gap-6 border-b">
+              <TabsTrigger 
+                value="resumo" 
+                className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground"
+              >
                 Resumo
               </TabsTrigger>
-              <TabsTrigger value="etapas" className="gap-2">
-                <ListChecks className="w-4 h-4" />
+              <TabsTrigger 
+                value="etapas" 
+                className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground"
+              >
                 Etapas
-                {totalEtapas > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {etapasConcluidas}/{totalEtapas}
-                  </Badge>
-                )}
               </TabsTrigger>
-              <TabsTrigger value="prazos" className="gap-2">
-                <Clock className="w-4 h-4" />
+              <TabsTrigger 
+                value="prazos" 
+                className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground"
+              >
                 Prazos
-                {prazosVinculados.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {prazosVinculados.filter(p => !p.completed).length}/{prazosVinculados.length}
-                  </Badge>
-                )}
               </TabsTrigger>
-              <TabsTrigger value="vinculo" className="gap-2">
-                <Link2 className="w-4 h-4" />
+              <TabsTrigger 
+                value="vinculo" 
+                className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground"
+              >
                 Vínculo
               </TabsTrigger>
-              <TabsTrigger value="historico" className="gap-2">
-                <History className="w-4 h-4" />
+              <TabsTrigger 
+                value="historico" 
+                className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground"
+              >
                 Histórico
               </TabsTrigger>
-              <TabsTrigger value="relatorio" className="gap-2">
-                <Printer className="w-4 h-4" />
+              <TabsTrigger 
+                value="relatorio" 
+                className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground"
+              >
                 Relatório
               </TabsTrigger>
             </TabsList>
@@ -626,13 +628,14 @@ export function ProjectProtocoloDrawer({
                       </div>
 
                       <Button 
-                        variant="destructive" 
-                        className="w-full"
+                        variant="ghost" 
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         onClick={() => setDeleteConfirm(true)}
                         disabled={saving}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Processo
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Excluir
                       </Button>
                     </div>
                   </>
