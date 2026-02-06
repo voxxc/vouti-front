@@ -5069,6 +5069,140 @@ export type Database = {
           },
         ]
       }
+      push_docs_cadastrados: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          descricao: string | null
+          documento: string
+          id: string
+          notification_emails: string[] | null
+          recurrence: number | null
+          tenant_id: string
+          tipo_documento: string
+          total_processos_recebidos: number | null
+          tracking_id: string | null
+          tracking_status: string | null
+          ultima_notificacao: string | null
+          ultimo_request_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          documento: string
+          id?: string
+          notification_emails?: string[] | null
+          recurrence?: number | null
+          tenant_id: string
+          tipo_documento: string
+          total_processos_recebidos?: number | null
+          tracking_id?: string | null
+          tracking_status?: string | null
+          ultima_notificacao?: string | null
+          ultimo_request_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          documento?: string
+          id?: string
+          notification_emails?: string[] | null
+          recurrence?: number | null
+          tenant_id?: string
+          tipo_documento?: string
+          total_processos_recebidos?: number | null
+          tracking_id?: string | null
+          tracking_status?: string | null
+          ultima_notificacao?: string | null
+          ultimo_request_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_docs_cadastrados_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_docs_processos: {
+        Row: {
+          created_at: string | null
+          data_distribuicao: string | null
+          id: string
+          lido: boolean | null
+          numero_cnj: string
+          parte_ativa: string | null
+          parte_passiva: string | null
+          payload_completo: Json | null
+          push_doc_id: string
+          request_id: string | null
+          status_processual: string | null
+          tenant_id: string
+          tracking_id: string | null
+          tribunal: string | null
+          tribunal_sigla: string | null
+          valor_causa: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_distribuicao?: string | null
+          id?: string
+          lido?: boolean | null
+          numero_cnj: string
+          parte_ativa?: string | null
+          parte_passiva?: string | null
+          payload_completo?: Json | null
+          push_doc_id: string
+          request_id?: string | null
+          status_processual?: string | null
+          tenant_id: string
+          tracking_id?: string | null
+          tribunal?: string | null
+          tribunal_sigla?: string | null
+          valor_causa?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data_distribuicao?: string | null
+          id?: string
+          lido?: boolean | null
+          numero_cnj?: string
+          parte_ativa?: string | null
+          parte_passiva?: string | null
+          payload_completo?: Json | null
+          push_doc_id?: string
+          request_id?: string | null
+          status_processual?: string | null
+          tenant_id?: string
+          tracking_id?: string | null
+          tribunal?: string | null
+          tribunal_sigla?: string | null
+          valor_causa?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_docs_processos_push_doc_id_fkey"
+            columns: ["push_doc_id"]
+            isOneToOne: false
+            referencedRelation: "push_docs_cadastrados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_docs_processos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reuniao_arquivos: {
         Row: {
           created_at: string | null

@@ -90,5 +90,14 @@ verify_jwt = false
 [functions.judit-test-import-cnj]
 verify_jwt = true
 
+[functions.judit-push-docs-cadastrar]
+verify_jwt = true
+
+[functions.judit-push-docs-toggle]
+verify_jwt = true
+
+[functions.judit-webhook-push-docs]
+verify_jwt = false
+
 [functions.judit-deletar-credencial]
 verify_jwt = true
