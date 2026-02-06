@@ -1,267 +1,148 @@
 
-# Navegacao Interna no Drawer do CRM
 
-## Objetivo
+# Redesign Minimalista do ClienteDetails
 
-Manter toda a experiencia de visualizacao e edicao de clientes **dentro do drawer**, para um carregamento mais rapido e fluido, sem navegar para paginas separadas.
+## Visual de Referencia
+
+A imagem mostra um layout extremamente limpo:
+- Labels em **UPPERCASE** alinhados a direita
+- Valores a esquerda (quando existem)
+- **Separadores horizontais** entre secoes
+- **Sem cards, boxes ou backgrounds**
+- Espacamento vertical consistente
 
 ---
 
-## Arquitetura Proposta
+## Estrutura Proposta
 
 ```text
-CRMDrawer.tsx
-    |
-    +-- estado: { view: 'lista' | 'detalhes' | 'novo', clienteId?: string }
-    |
-    +-- view === 'lista'  --> CRMContent.tsx (tabela)
-    |
-    +-- view === 'detalhes' --> ClienteDetails.tsx + ClienteForm.tsx
-    |
-    +-- view === 'novo'   --> ClienteForm.tsx (criar novo)
+NOME (PF)                    Joao da Silva
+TELEFONE                     (11) 99999-9999
+E-MAIL                       joao@email.com
+DATA DE NASCIMENTO           01/01/1990
+─────────────────────────────────────────────
+
+CPF                          123.456.789-00
+CNH                          12345678901
+VALIDADE CNH                 01/01/2025
+─────────────────────────────────────────────
+
+DATA DE FECHAMENTO           15/01/2024
+VALOR DO CONTRATO            R$ 5.000,00
+FORMA DE PAGAMENTO           Parcelado
+NUMERO DE PARCELAS           10x
+─────────────────────────────────────────────
+
+ORIGEM                       Instagram
+REDE SOCIAL                  @cliente
+─────────────────────────────────────────────
+
+OBSERVACOES                  Texto das observacoes...
 ```
 
 ---
 
-## Mudancas Planejadas
+## Alteracoes no ClienteDetails.tsx
 
-### 1. CRMContent.tsx - Receber callbacks
+### Remover
+- Todos os componentes `<Card>`, `<CardHeader>`, `<CardContent>`
+- Backgrounds coloridos
+- Grid de 2 colunas para dados
 
-**Adicionar props**:
-- `onViewCliente: (clienteId: string) => void`
-- `onNewCliente: () => void`
+### Adicionar
+- Layout de lista vertical com rows simples
+- Cada row: `label (uppercase, text-right)` + `valor (text-left)`
+- Separadores `<Separator />` ou `<hr />` entre secoes
+- Componente helper `InfoRow` para consistencia
 
-**Remover**:
-- Navegacao via `navigate()` para paginas separadas
+---
 
-**Comportamento**:
-- Clicar no nome do cliente chama `onViewCliente(cliente.id)`
-- Botao "Novo Cliente" chama `onNewCliente()`
+## Componente Helper
 
-### 2. CRMDrawer.tsx - Gerenciar views internas
-
-**Adicionar estados**:
 ```typescript
-const [view, setView] = useState<'lista' | 'detalhes' | 'novo'>('lista');
-const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
-const [isEditing, setIsEditing] = useState(false);
+const InfoRow = ({ label, value }: { label: string; value?: string | React.ReactNode }) => {
+  if (!value) return null;
+  return (
+    <div className="flex py-2">
+      <span className="w-48 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide pr-6">
+        {label}
+      </span>
+      <span className="flex-1 text-sm">
+        {value}
+      </span>
+    </div>
+  );
+};
 ```
-
-**Logica**:
-- `view === 'lista'`: Renderiza CRMContent
-- `view === 'detalhes'`: Carrega cliente por ID e renderiza ClienteDetails
-- `view === 'novo'`: Renderiza ClienteForm para novo cliente
-
-**Header dinamico**:
-- Lista: "Clientes"
-- Detalhes: "Nome do Cliente" + botao voltar
-- Novo: "Novo Cliente" + botao voltar
-
-### 3. ClienteDetails dentro do Drawer
-
-Quando o usuario clicar no nome:
-1. `setSelectedClienteId(id)` e `setView('detalhes')`
-2. Drawer busca os dados do cliente
-3. Renderiza `ClienteDetails` com botao "Editar"
-4. Ao clicar em "Editar", mostra `ClienteForm` no mesmo drawer
 
 ---
 
-## Fluxo de Navegacao
+## Secoes com Separadores
 
+```typescript
+{/* Dados Pessoais */}
+<InfoRow label="NOME" value={cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica} />
+<InfoRow label="TELEFONE" value={cliente.telefone} />
+<InfoRow label="E-MAIL" value={cliente.email} />
+<InfoRow label="DATA DE NASCIMENTO" value={formatDate(cliente.data_nascimento)} />
+<InfoRow label="ENDERECO" value={cliente.endereco} />
+
+<Separator className="my-4" />
+
+{/* Documentos */}
+<InfoRow label="CPF" value={cliente.cpf} />
+<InfoRow label="CNPJ" value={cliente.cnpj} />
+<InfoRow label="CNH" value={cliente.cnh} />
+<InfoRow label="VALIDADE CNH" value={formatDate(cliente.cnh_validade)} />
+
+<Separator className="my-4" />
+
+{/* Contrato */}
+<InfoRow label="DATA DE FECHAMENTO" value={formatDate(cliente.data_fechamento)} />
+<InfoRow label="VALOR DO CONTRATO" value={formatCurrency(cliente.valor_contrato)} />
+...
+```
+
+---
+
+## Arquivo a Modificar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/CRM/ClienteDetails.tsx` | Remover cards, implementar layout flat com InfoRow e separadores |
+
+---
+
+## Resultado Visual
+
+**Antes (atual)**:
 ```text
-[Lista de Clientes]
-       |
-  +----+----+
-  |         |
-  v         v
-Clica    Clica
-no nome   "Novo Cliente"
-  |         |
-  v         v
-[Detalhes]  [Form Novo]
-  |           |
-  v           v
-Editar     Salvar
-  |           |
-  v           v
-[Form Edit]  [Volta p/ Lista]
-  |
-  v
-Salvar
-  |
-  v
-[Volta p/ Lista]
++------------------------+
+| Card: Dados Pessoais   |
+| +--------------------+ |
+| | Nome: Joao         | |
+| | Tel: 99999         | |
+| +--------------------+ |
++------------------------+
 ```
 
----
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracoes |
-|---------|------------|
-| `src/components/CRM/CRMContent.tsx` | Adicionar props de callback, remover navegacao |
-| `src/components/CRM/CRMDrawer.tsx` | Gerenciar views internas (lista/detalhes/novo) |
+**Depois (minimalista)**:
+```text
+          NOME   Joao da Silva
+      TELEFONE   (11) 99999-9999
+        E-MAIL   joao@email.com
+───────────────────────────────
+           CPF   123.456.789-00
+           CNH   12345678901
+```
 
 ---
 
 ## Beneficios
 
-- **Carregamento instantaneo**: Sem troca de pagina, dados ja estao carregados
-- **UX fluida**: Transicao suave entre lista e detalhes
-- **Consistencia**: Drawer permanece aberto durante toda a interacao
-- **Botao voltar**: Sempre visivel para retornar a lista
+- **Visual limpo**: Sem distracao de boxes e backgrounds
+- **Leitura facil**: Labels alinhados facilitam scan visual
+- **Menos codigo**: Remove dependencias de Card components
+- **Consistente**: Mesmo padrao para todas as informacoes
+- **Profissional**: Aspecto mais sofisticado e moderno
 
----
-
-## Detalhes Tecnicos
-
-### CRMDrawer.tsx
-
-```typescript
-export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
-  const [view, setView] = useState<'lista' | 'detalhes' | 'novo'>('lista');
-  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [cliente, setCliente] = useState<Cliente | null>(null);
-  const { fetchClienteById } = useClientes();
-  
-  // Resetar view ao fechar drawer
-  useEffect(() => {
-    if (!open) {
-      setView('lista');
-      setSelectedClienteId(null);
-      setIsEditing(false);
-    }
-  }, [open]);
-  
-  // Carregar cliente quando selecionado
-  useEffect(() => {
-    if (selectedClienteId && view === 'detalhes') {
-      fetchClienteById(selectedClienteId).then(setCliente);
-    }
-  }, [selectedClienteId, view]);
-  
-  const handleViewCliente = (clienteId: string) => {
-    setSelectedClienteId(clienteId);
-    setView('detalhes');
-  };
-  
-  const handleNewCliente = () => {
-    setView('novo');
-    setIsEditing(false);
-  };
-  
-  const handleBack = () => {
-    setView('lista');
-    setSelectedClienteId(null);
-    setIsEditing(false);
-    setCliente(null);
-  };
-  
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-      <SheetContent side="inset" className="p-0 flex flex-col">
-        {/* Header dinamico */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
-          {view !== 'lista' && (
-            <Button variant="ghost" size="icon" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
-          <Users className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">
-            {view === 'lista' && 'Clientes'}
-            {view === 'novo' && 'Novo Cliente'}
-            {view === 'detalhes' && (cliente?.nome_pessoa_fisica || cliente?.nome_pessoa_juridica || 'Cliente')}
-          </span>
-        </div>
-        
-        {/* Conteudo */}
-        <ScrollArea className="flex-1">
-          <div className="p-6">
-            {view === 'lista' && (
-              <CRMContent 
-                onViewCliente={handleViewCliente}
-                onNewCliente={handleNewCliente}
-              />
-            )}
-            
-            {view === 'novo' && (
-              <ClienteForm
-                onSuccess={() => handleBack()}
-                onCancel={handleBack}
-                showCreateProject={true}
-                criarProjeto={...}
-                setCriarProjeto={...}
-                nomeProjeto={...}
-                setNomeProjeto={...}
-              />
-            )}
-            
-            {view === 'detalhes' && cliente && !isEditing && (
-              <ClienteDetails
-                cliente={cliente}
-                onEdit={() => setIsEditing(true)}
-              />
-            )}
-            
-            {view === 'detalhes' && cliente && isEditing && (
-              <ClienteForm
-                cliente={cliente}
-                onSuccess={() => {
-                  setIsEditing(false);
-                  fetchClienteById(selectedClienteId).then(setCliente);
-                }}
-                onCancel={() => setIsEditing(false)}
-              />
-            )}
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
-  );
-}
-```
-
-### CRMContent.tsx
-
-```typescript
-interface CRMContentProps {
-  onViewCliente?: (clienteId: string) => void;
-  onNewCliente?: () => void;
-}
-
-export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
-  // ...
-  
-  const handleNewCliente = () => {
-    if (onNewCliente) {
-      onNewCliente();
-    } else {
-      // Fallback para navegacao (quando usado fora do drawer)
-      navigate(tenantPath('/crm/cliente/novo'));
-    }
-  };
-
-  const handleViewCliente = (clienteId: string) => {
-    if (onViewCliente) {
-      onViewCliente(clienteId);
-    } else {
-      navigate(tenantPath(`/crm/cliente/${clienteId}`));
-    }
-  };
-  
-  // ...
-}
-```
-
----
-
-## Mantendo Compatibilidade
-
-O `CRMContent` continuara funcionando tanto:
-- **Dentro do drawer**: Usa callbacks para navegacao interna
-- **Na pagina /crm**: Usa navegacao tradicional (fallback)
-
-Isso garante que ambos os pontos de acesso funcionem corretamente.
