@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Scale, Key, Download, AlertTriangle, Search, ListChecks, FileInput } from 'lucide-react';
-import { OABRequestHistorico } from './OABRequestHistorico';
+import { Plus, RefreshCw, Trash2, Scale, Search, FileInput } from 'lucide-react';
 import { EditarAdvogadoModal } from './EditarAdvogadoModal';
 import { ImportarProcessoCNJDialog } from './ImportarProcessoCNJDialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,21 +57,15 @@ export const OABManager = () => {
     sincronizando, 
     fetchOABs,
     cadastrarOAB, 
-    sincronizarOAB, 
     removerOAB,
-    consultarRequest,
-    salvarRequestId,
     carregarDetalhesLote
   } = useOABs();
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [requestIdDialogOpen, setRequestIdDialogOpen] = useState(false);
-  const [novaBuscaDialogOpen, setNovaBuscaDialogOpen] = useState(false);
   const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
-  const [selectedOabForRequest, setSelectedOabForRequest] = useState<OABCadastrada | null>(null);
   const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
   const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
   const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
@@ -84,75 +77,12 @@ export const OABManager = () => {
   const [oabUf, setOabUf] = useState('');
   const [nomeAdvogado, setNomeAdvogado] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [inputRequestId, setInputRequestId] = useState('');
-  const [syncPendentesProgress, setSyncPendentesProgress] = useState({ current: 0, total: 0, isRunning: false });
 
   const handleOpenImportCNJ = (oab: OABCadastrada) => {
     setSelectedOabForImport(oab);
     setImportCNJDialogOpen(true);
   };
 
-  // Sincronizar andamentos pendentes (GET gratuito)
-  const handleSyncAndamentosPendentes = async () => {
-    // 1. Buscar processos com detalhes_request_id mas sem andamentos
-    const { data: processos, error } = await supabase
-      .from('processos_oab')
-      .select('id, numero_cnj, detalhes_request_id')
-      .not('detalhes_request_id', 'is', null);
-
-    if (error || !processos) {
-      toast({ title: 'Erro ao buscar processos', variant: 'destructive' });
-      return;
-    }
-
-    // 2. Para cada processo, verificar se tem andamentos
-    const processosSemAndamentos: typeof processos = [];
-    for (const processo of processos) {
-      const { count } = await supabase
-        .from('processos_oab_andamentos')
-        .select('id', { count: 'exact', head: true })
-        .eq('processo_oab_id', processo.id);
-      
-      if (count === 0) {
-        processosSemAndamentos.push(processo);
-      }
-    }
-
-    if (processosSemAndamentos.length === 0) {
-      toast({ title: 'Todos os processos ja possuem andamentos' });
-      return;
-    }
-
-    // 3. Sincronizar cada um com GET gratuito
-    setSyncPendentesProgress({ current: 0, total: processosSemAndamentos.length, isRunning: true });
-
-    let sucesso = 0;
-    for (let i = 0; i < processosSemAndamentos.length; i++) {
-      const processo = processosSemAndamentos[i];
-      setSyncPendentesProgress(prev => ({ ...prev, current: i + 1 }));
-
-      try {
-        const { error: fnError } = await supabase.functions.invoke('judit-consultar-detalhes-request', {
-          body: {
-            processoOabId: processo.id,
-            requestId: processo.detalhes_request_id,
-            tenantId,
-            userId: user?.id
-          }
-        });
-        if (!fnError) sucesso++;
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (err) {
-        console.error('Erro ao sincronizar:', err);
-      }
-    }
-
-    setSyncPendentesProgress({ current: 0, total: 0, isRunning: false });
-    toast({ 
-      title: `Sincronizacao concluida`,
-      description: `${sucesso} de ${processosSemAndamentos.length} processos atualizados`
-    });
-  };
 
   const handleCadastrar = async () => {
     if (!oabNumero || !oabUf) return;
@@ -170,41 +100,6 @@ export const OABManager = () => {
     }
   };
 
-  const handleOpenRequestIdDialog = (oab: OABCadastrada) => {
-    setSelectedOabForRequest(oab);
-    setInputRequestId(oab.ultimo_request_id || '');
-    setRequestIdDialogOpen(true);
-  };
-
-  const handleSalvarRequestId = async () => {
-    if (!selectedOabForRequest || !inputRequestId.trim()) return;
-    
-    const success = await salvarRequestId(selectedOabForRequest.id, inputRequestId.trim());
-    if (success) {
-      setRequestIdDialogOpen(false);
-      setInputRequestId('');
-    }
-  };
-
-  const handleConsultarRequest = async (oab: OABCadastrada) => {
-    if (!oab.ultimo_request_id) {
-      handleOpenRequestIdDialog(oab);
-      return;
-    }
-    await consultarRequest(oab.id, oab.ultimo_request_id);
-  };
-
-  const handleNovaBuscaClick = (oab: OABCadastrada) => {
-    setSelectedOabForRequest(oab);
-    setNovaBuscaDialogOpen(true);
-  };
-
-  const handleConfirmarNovaBusca = async () => {
-    if (!selectedOabForRequest) return;
-    setNovaBuscaDialogOpen(false);
-    await sincronizarOAB(selectedOabForRequest.id, selectedOabForRequest.oab_numero, selectedOabForRequest.oab_uf);
-    setSelectedOabForRequest(null);
-  };
 
   const handleDeleteClick = (oab: OABCadastrada) => {
     setOabToDelete(oab);
@@ -289,27 +184,6 @@ export const OABManager = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSyncAndamentosPendentes}
-              disabled={syncPendentesProgress.isRunning}
-              title="Sincronizar andamentos dos processos com request_id mas sem movimentos"
-            >
-              {syncPendentesProgress.isRunning ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  {syncPendentesProgress.current}/{syncPendentesProgress.total}
-                </>
-              ) : (
-                <>
-                  <ListChecks className="w-4 h-4 mr-2" />
-                  Sincronizar Pendentes
-                </>
-              )}
-            </Button>
-          )}
           {isAdmin && podeAdicionarOAB() && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -456,80 +330,6 @@ export const OABManager = () => {
                   )}
                 </div>
 
-                {/* Request ID Section - APENAS ADMIN */}
-                {isAdmin && (
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 bg-background/50 rounded border">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Key className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">Request ID</p>
-                        {oab.ultimo_request_id ? (
-                          <p className="text-xs font-mono truncate" title={oab.ultimo_request_id}>
-                            {oab.ultimo_request_id}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground italic">Nenhum request salvo</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 w-full sm:w-auto">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleConsultarRequest(oab)}
-                        disabled={sincronizando === oab.id || !oab.ultimo_request_id}
-                        className="flex-1 sm:flex-none text-xs"
-                        title="Consulta usando request_id existente"
-                      >
-                        {sincronizando === oab.id ? (
-                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <Download className="w-3 h-3 mr-1" />
-                        )}
-                        Consultar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleNovaBuscaClick(oab)}
-                        disabled={sincronizando === oab.id}
-                        className="flex-1 sm:flex-none text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
-                        title="Faz nova busca na Judit (PAGO)"
-                      >
-                        <AlertTriangle className="w-3 h-3 mr-1" />
-                        Nova Busca (R$)
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenRequestIdDialog(oab)}
-                        className="h-8 w-8 rounded-full shrink-0"
-                        title={oab.ultimo_request_id ? 'Editar Request ID' : 'Associar Request ID'}
-                      >
-                        <Key className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleCarregarDetalhesLote(oab)}
-                        disabled={sincronizando === oab.id || batchProgress.isRunning}
-                        className="h-8 w-8 rounded-full shrink-0"
-                        title="Carregar andamentos de todos os processos"
-                      >
-                        {sincronizando === oab.id || batchProgress.isRunning ? (
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Search className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <OABRequestHistorico 
-                        oabId={oab.id} 
-                        oabNumero={oab.oab_numero} 
-                        oabUf={oab.oab_uf} 
-                      />
-                    </div>
-                  </div>
-                )}
                 {/* Botao Importar Processo - Admin ou Controller */}
                 {canImportCNJ && (
                   <div className="flex items-center gap-2 pt-2 border-t border-border/50">
@@ -563,64 +363,6 @@ export const OABManager = () => {
         </Tabs>
       )}
 
-      {/* Request ID Dialog */}
-      <Dialog open={requestIdDialogOpen} onOpenChange={setRequestIdDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Associar Request ID</DialogTitle>
-            <DialogDescription>
-              Cole o request_id que voce ja possui. Isso permite consultar os resultados gratuitamente sem fazer uma nova busca paga.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="request-id">Request ID</Label>
-              <Input
-                id="request-id"
-                placeholder="Ex: 5cf6ecc6-6614-4b02-9251-cd8aaad167f4"
-                value={inputRequestId}
-                onChange={(e) => setInputRequestId(e.target.value)}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                O request_id é um UUID gerado quando você faz uma busca
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestIdDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSalvarRequestId}
-              disabled={!inputRequestId.trim()}
-            >
-              Salvar e Consultar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Nova Busca Confirmation Dialog */}
-      <AlertDialog open={novaBuscaDialogOpen} onOpenChange={setNovaBuscaDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5 text-primary" />
-              Confirmar Nova Busca
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação irá realizar uma nova sincronização de processos para esta OAB. Deseja continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmarNovaBusca}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
