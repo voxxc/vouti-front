@@ -4,6 +4,7 @@ import { ClienteParcela, ParcelaComentario, DadosBaixaPagamento } from '@/types/
 import { toast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
 import { useCommentMentions } from '@/hooks/useCommentMentions';
+import { formatCurrency } from '@/lib/utils';
 
 export const useClienteParcelas = (clienteId: string | null, dividaId?: string | null) => {
   const { tenantId } = useTenantId();
@@ -114,7 +115,7 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const comentario = novoStatus === 'parcial'
-          ? `Pagamento parcial de R$ ${dados.valor_pago.toFixed(2)} via ${dados.metodo_pagamento}. Saldo restante: R$ ${saldoRestante.toFixed(2)}`
+          ? `Pagamento parcial de ${formatCurrency(dados.valor_pago)} via ${dados.metodo_pagamento}. Saldo restante: ${formatCurrency(saldoRestante)}`
           : `Pagamento registrado via ${dados.metodo_pagamento}`;
         
         await supabase
@@ -130,7 +131,7 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
       toast({
         title: novoStatus === 'parcial' ? 'Pagamento parcial registrado' : 'Pagamento registrado',
         description: novoStatus === 'parcial' 
-          ? `Saldo restante: R$ ${saldoRestante.toFixed(2)}`
+          ? `Saldo restante: ${formatCurrency(saldoRestante)}`
           : 'A baixa da parcela foi registrada com sucesso.',
       });
 
@@ -249,7 +250,7 @@ export const useClienteParcelas = (clienteId: string | null, dividaId?: string |
           .insert({
             parcela_id: parcelaId,
             user_id: user.id,
-            comentario: `Pagamento de R$ ${valorPagamento.toFixed(2).replace('.', ',')} excluído`,
+            comentario: `Pagamento de ${formatCurrency(valorPagamento)} excluído`,
             tenant_id: tenantId
           });
       }

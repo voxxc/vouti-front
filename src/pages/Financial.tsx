@@ -31,6 +31,7 @@ import { differenceInDays, format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ClienteFinanceiroDialog } from '@/components/Financial/ClienteFinanceiroDialog';
 import { ColaboradoresTab } from '@/components/Financial/ColaboradoresTab';
+import { formatCurrency } from '@/lib/utils';
 import { CustosTab } from '@/components/Financial/CustosTab';
 import { RelatorioFinanceiroModal } from '@/components/Financial/RelatorioFinanceiroModal';
 
@@ -231,9 +232,7 @@ const Financial = () => {
     .filter(c => c.status !== 'inativo')
     .reduce((sum, c) => sum + c.valor_contrato, 0);
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+  // formatCurrency agora é importado de @/lib/utils
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string }> = {

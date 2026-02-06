@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { format } from 'date-fns';
+import { formatCurrency } from '@/lib/utils';
 
 interface EditarParcelaDialogProps {
   parcela: ClienteParcela | null;
@@ -90,7 +91,7 @@ export const EditarParcelaDialog = ({
           alteracoes.push(`número: ${parcela.numero_parcela} → ${numeroParcela}`);
         }
         if (parcela.valor_parcela !== novoValor) {
-          alteracoes.push(`valor: R$ ${parcela.valor_parcela.toFixed(2)} → R$ ${novoValor.toFixed(2)}`);
+          alteracoes.push(`valor: ${formatCurrency(parcela.valor_parcela)} → ${formatCurrency(novoValor)}`);
         }
         if (parcela.data_vencimento !== dataVencimento) {
           alteracoes.push(`vencimento: ${format(parseLocalDate(parcela.data_vencimento), 'dd/MM/yyyy')} → ${format(parseLocalDate(dataVencimento), 'dd/MM/yyyy')}`);

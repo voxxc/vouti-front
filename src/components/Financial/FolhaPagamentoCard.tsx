@@ -20,6 +20,7 @@ import {
 import { format, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BaixaPagamentoColaboradorDialog } from './BaixaPagamentoColaboradorDialog';
+import { formatCurrency } from '@/lib/utils';
 
 export const FolhaPagamentoCard = () => {
   const { colaboradores } = useColaboradores();
@@ -38,9 +39,7 @@ export const FolhaPagamentoCard = () => {
     await fetchPagamentosMes(mesAtual);
   };
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+  // formatCurrency agora é importado de @/lib/utils
 
   const handleGerarFolha = async () => {
     setGerando(true);
