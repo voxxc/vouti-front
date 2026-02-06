@@ -446,13 +446,88 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
                     {/* Área expandível de Detalhes (Histórico + Comentários) */}
                     {selectedParcelaForComments === parcela.id && (
                       <div className="mt-4 pt-4 border-t space-y-4">
-                        {/* Histórico de Pagamentos */}
+                    {/* Histórico de Pagamentos */}
                         <div>
                           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                             <History className="h-4 w-4" />
                             Histórico de Pagamentos
                           </h4>
-                          <ParcelaHistorico parcelaId={parcela.id} />
+                          <ParcelaHistorico 
+                            parcelaId={parcela.id} 
+                            onExcluirPagamento={async (historicoId, valorPago) => {
+                              const { excluirPagamento } = await import('@/hooks/useClienteParcelas').then(m => {
+                                // We need to call the hook function directly here
+                                return { excluirPagamento: async (hId: string, valor: number) => {
+                                  // Inline implementation since we can't use hooks conditionally
+                                  const parcelaAtual = parcelas.find(p => p.id === parcela.id);
+                                  if (!parcelaAtual) return false;
+
+                                  const valorPagoAtual = parcelaAtual.valor_pago || 0;
+                                  const novoValorPago = Math.max(0, valorPagoAtual - valor);
+                                  const novoSaldoRestante = parcelaAtual.valor_parcela - novoValorPago;
+
+                                  let novoStatus: string;
+                                  if (novoValorPago <= 0) {
+                                    novoStatus = new Date(parcelaAtual.data_vencimento) < new Date() ? 'atrasado' : 'pendente';
+                                  } else {
+                                    novoStatus = 'parcial';
+                                  }
+
+                                  const { error: updateError } = await supabase
+                                    .from('cliente_parcelas')
+                                    .update({
+                                      valor_pago: novoValorPago > 0 ? novoValorPago : null,
+                                      saldo_restante: novoSaldoRestante,
+                                      status: novoStatus,
+                                      ...(novoValorPago <= 0 && {
+                                        data_pagamento: null,
+                                        metodo_pagamento: null,
+                                      })
+                                    })
+                                    .eq('id', parcela.id);
+
+                                  if (updateError) return false;
+
+                                  const { error: deleteError } = await supabase
+                                    .from('cliente_pagamento_comentarios')
+                                    .delete()
+                                    .eq('id', hId);
+
+                                  if (deleteError) return false;
+
+                                  const { data: { user } } = await supabase.auth.getUser();
+                                  if (user) {
+                                    const { data: profile } = await supabase
+                                      .from('profiles')
+                                      .select('tenant_id')
+                                      .eq('user_id', user.id)
+                                      .maybeSingle();
+                                      
+                                    await supabase
+                                      .from('cliente_pagamento_comentarios')
+                                      .insert({
+                                        parcela_id: parcela.id,
+                                        user_id: user.id,
+                                        comentario: `Pagamento de R$ ${valor.toFixed(2).replace('.', ',')} excluído`,
+                                        tenant_id: profile?.tenant_id
+                                      });
+                                  }
+
+                                  return true;
+                                }};
+                              });
+                              const success = await excluirPagamento(historicoId, valorPago);
+                              if (success) {
+                                await fetchParcelas();
+                                onUpdate();
+                              }
+                              return success;
+                            }}
+                            onHistoricoChange={() => {
+                              fetchParcelas();
+                              onUpdate();
+                            }}
+                          />
                         </div>
                         
                         {/* Comentários */}
