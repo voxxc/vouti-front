@@ -1,103 +1,115 @@
 
-# Redesenhar Navegacao de Abas na Controladoria
+# Redesign do Drawer de Usuarios
 
 ## Objetivo
-Converter as abas de botoes (estilo pill/rounded) para um design minimalista de links de texto clicaveis com linha inferior no item ativo, seguindo o padrao do `ClienteDetails.tsx`.
+Converter o drawer de usuarios de um painel que abre do topo (side="top") para um drawer lateral direito com design minimalista, usando a mesma largura do drawer de Projetos (w-96 = 384px).
 
 ---
 
 ## Alteracoes
 
-### 1. Abas superiores (Central, OABs, Push-Doc)
-**Arquivo:** `src/components/Controladoria/ControladoriaContent.tsx`
+### 1. Criar nova variante "right-offset" no Sheet
+**Arquivo:** `src/components/ui/sheet.tsx`
 
-**De (atual):**
+Adicionar nova variante para drawer lateral direito:
 ```tsx
-<TabsList className="flex-shrink-0">
-  <TabsTrigger value="central">
-    <ClipboardCheck className="mr-2 h-4 w-4" />
-    Central
-  </TabsTrigger>
-  ...
-</TabsList>
+"right-offset":
+  "top-[57px] bottom-0 right-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
 ```
 
-**Para (novo design):**
+E atualizar a condicao do overlay para nao renderizar com essa variante:
 ```tsx
-<div className="flex gap-6 border-b flex-shrink-0">
-  <button
-    onClick={() => setActiveTab('central')}
-    className={cn(
-      "pb-2 text-sm font-medium transition-colors relative",
-      activeTab === 'central'
-        ? "text-foreground"
-        : "text-muted-foreground hover:text-foreground"
-    )}
-  >
-    Central
-    {activeTab === 'central' && (
-      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-    )}
-  </button>
-  <button ... >OABs</button>
-  <button ... >Push-Doc</button>
-</div>
+{side !== "inset" && side !== "left-offset" && side !== "right-offset" && <SheetOverlay />}
 ```
-
-**Mudancas:**
-- Remover icones das abas (ClipboardCheck, Scale, Building2)
-- Substituir TabsList/TabsTrigger por botoes customizados
-- Adicionar state local `activeTab` para controlar a aba ativa
-- Renderizar conteudo condicionalmente baseado no `activeTab`
 
 ---
 
-### 2. Abas inferiores (Andamentos Nao Lidos, Prazos Concluidos)
-**Arquivo:** `src/components/Controladoria/CentralControladoria.tsx`
+### 2. Refatorar UserManagementDrawer para design minimalista
+**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
 
 **De (atual):**
+- side="top" com h-[85vh]
+- Renderiza o componente UserManagement completo (cards em grid)
+
+**Para (novo):**
+- side="right-offset" (lateral direita, largura w-96)
+- modal={false} (manter sidebar interativa)
+- Lista minimalista de usuarios (nomes clicaveis)
+- Barra decorativa no lado esquerdo (igual ao Projetos no direito)
+- Ao clicar no nome, abre modal de edicao
+
+**Estrutura:**
 ```tsx
-<TabsList className="flex-shrink-0">
-  <TabsTrigger value="andamentos" className="flex items-center gap-2">
-    <Bell className="h-4 w-4" />
-    Andamentos Nao Lidos
-    {totalNaoLidos > 0 && <Badge ...>{totalNaoLidos}</Badge>}
-  </TabsTrigger>
-  <TabsTrigger value="prazos" className="flex items-center gap-2">
-    <CheckCircle2 className="h-4 w-4" />
-    Prazos Concluidos
-  </TabsTrigger>
-</TabsList>
+<Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+  <SheetContent side="right-offset" className="p-0 flex flex-col">
+    {/* Barra decorativa no lado esquerdo */}
+    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-primary/20 via-border to-primary/20 pointer-events-none" />
+    
+    {/* Header */}
+    <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
+      <Users className="h-5 w-5 text-primary" />
+      <span className="font-semibold text-lg">Usuarios</span>
+    </div>
+
+    <ScrollArea className="flex-1">
+      <div className="p-6 space-y-4">
+        {/* Botao novo usuario */}
+        <Button size="sm" className="gap-2" onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4" />
+          Novo Usuario
+        </Button>
+
+        {/* Busca */}
+        <div className="relative max-w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar usuarios..." className="pl-9 h-9" />
+        </div>
+
+        {/* Lista minimalista */}
+        <div className="space-y-1">
+          {users.map((user) => (
+            <button
+              key={user.id}
+              onClick={() => handleEdit(user)}
+              className="w-full text-left p-3 rounded-lg hover:bg-accent/50 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate group-hover:text-primary">
+                    {user.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </div>
+                </div>
+                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="ml-2">
+                  {user.role}
+                </Badge>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </ScrollArea>
+  </SheetContent>
+</Sheet>
+
+{/* Dialogs de criar/editar - fora do Sheet */}
+<CreateUserDialog ... />
+<EditUserDialog ... />
 ```
 
-**Para (novo design):**
-```tsx
-<div className="flex gap-6 border-b flex-shrink-0">
-  <button
-    onClick={() => setActiveTab('andamentos')}
-    className={cn(
-      "pb-2 text-sm font-medium transition-colors relative flex items-center gap-2",
-      activeTab === 'andamentos'
-        ? "text-foreground"
-        : "text-muted-foreground hover:text-foreground"
-    )}
-  >
-    Andamentos Nao Lidos
-    {totalNaoLidos > 0 && <Badge ...>{totalNaoLidos}</Badge>}
-    {activeTab === 'andamentos' && (
-      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-    )}
-  </button>
-  <button ... >Prazos Concluidos</button>
-</div>
-```
+---
 
-**Mudancas:**
-- Remover icones (Bell, CheckCircle2)
-- Substituir Tabs/TabsList/TabsTrigger por navegacao customizada
-- Manter o badge de contagem nos "Andamentos Nao Lidos"
-- Adicionar state local para controlar aba ativa
-- Renderizar conteudo condicionalmente
+### 3. Mover logica de modais para o drawer
+**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
+
+A logica de criacao e edicao de usuarios sera mantida atraves de Dialogs (modais) que abrem sobre o drawer:
+- Dialog de criar usuario (reutilizando a logica do UserManagement)
+- Dialog de editar usuario (reutilizando a logica do UserManagement)
+- Confirmacao de exclusao
+
+Isso mantem a funcionalidade completa mas com interface minimalista.
 
 ---
 
@@ -105,22 +117,41 @@ Converter as abas de botoes (estilo pill/rounded) para um design minimalista de 
 
 ### Antes
 ```
-┌─────────────────────────────────────────┐
-│ [📋 Central] [⚖ OABs] [🏢 Push-Doc]    │  <- botoes pill/rounded com icones
-│                                         │
-│   [🔔 Andamentos Nao Lidos] [✓ Prazos] │  <- botoes pill/rounded com icones
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Gerenciamento de Usuarios                                   │
+├─────────────────────────────────────────────────────────────┤
+│ [+ Adicionar Usuario]  [Busca________________]              │
+│                                                             │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐                        │
+│ │ Card    │ │ Card    │ │ Card    │                        │
+│ │ Avatar  │ │ Avatar  │ │ Avatar  │                        │
+│ │ Nome    │ │ Nome    │ │ Nome    │                        │
+│ │ Email   │ │ Email   │ │ Email   │                        │
+│ │ [Edit]  │ │ [Edit]  │ │ [Edit]  │                        │
+│ └─────────┘ └─────────┘ └─────────┘                        │
+└─────────────────────────────────────────────────────────────┘
+                Desce do topo, 85vh altura
 ```
 
 ### Depois
 ```
-┌─────────────────────────────────────────┐
-│ Central   OABs   Push-Doc               │  <- texto alinhado esquerda
-│ ───────                                 │  <- linha sob item ativo
-│                                         │
-│ Andamentos Nao Lidos (5)   Prazos Concluidos
-│ ────────────────────────                │  <- linha sob item ativo
-└─────────────────────────────────────────┘
+                                    ┌──────────────────────┐
+                                    │ Usuarios             │
+                                    ├──────────────────────┤
+                                    │ [+ Novo Usuario]     │
+                                    │ [Buscar usuarios...] │
+                                    │                      │
+                                    │ Maria Silva    admin │
+                                    │ maria@email.com      │
+                                    │ ──────────────────── │
+                                    │ Joao Santos advogado │
+                                    │ joao@email.com       │
+                                    │ ──────────────────── │
+                                    │ Ana Costa  comercial │
+                                    │ ana@email.com        │
+                                    └──────────────────────┘
+                                         Drawer lateral
+                                         direito (w-96)
 ```
 
 ---
@@ -129,14 +160,15 @@ Converter as abas de botoes (estilo pill/rounded) para um design minimalista de 
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/Controladoria/ControladoriaContent.tsx` | Substituir TabsList por navegacao de texto, adicionar state |
-| `src/components/Controladoria/CentralControladoria.tsx` | Substituir TabsList por navegacao de texto, remover icones |
+| `src/components/ui/sheet.tsx` | Adicionar variante "right-offset" |
+| `src/components/Admin/UserManagementDrawer.tsx` | Refatorar para lista minimalista lateral |
 
 ---
 
 ## Detalhes Tecnicos
 
-- Importar `useState` e `cn` nos arquivos
-- Remover imports nao utilizados (Tabs, TabsList, TabsTrigger, icones)
-- Manter imports do TabsContent apenas se continuar usando Radix, ou substituir por renderizacao condicional simples
-- A logica de fetch do badge `totalNaoLidos` permanece inalterada
+- A variante "right-offset" tera a mesma largura (w-96 = 384px) que "left-offset" mas posicionada a direita
+- modal={false} permite interacao com a sidebar enquanto o drawer esta aberto
+- O UserManagement.tsx sera mantido intacto (pode ser usado como fallback ou em outras paginas)
+- Os Dialogs de criar/editar serao extraidos e renderizados dentro do UserManagementDrawer
+- Skeleton de loading seguira o mesmo padrao do ProjectsDrawer
