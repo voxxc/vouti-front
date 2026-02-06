@@ -1,160 +1,196 @@
 
-# Nova Aba "Timezone" na Página Extras
+# Reorganização do Monitoramento SuperAdmin + Armazenamento de Request IDs
 
-## Resumo
-Adicionar uma nova aba "Timezone" na página Extras, visível apenas para usuários com perfil Admin, permitindo definir o fuso horário do tenant. Se nenhum timezone for definido, o sistema usará o padrão "America/Sao_Paulo" (São Paulo, Sul e Sudeste do Brasil).
+## Situação Atual
+
+### O Que Existe
+1. **Edge Function `judit-sync-monitorados`**: Já faz o fluxo correto:
+   - GET /tracking/{tracking_id} → obtém request_id
+   - GET /responses?request_id={id} → obtém andamentos
+   - Insere novos andamentos com deduplicação
+
+2. **Tabela `processos_oab`**: Tem as colunas:
+   - `tracking_id` → ID do monitoramento ativo
+   - `detalhes_request_id` → Request ID de buscas avulsas (POST)
+   - Falta: **`tracking_request_id`** → Request ID obtido via tracking (GET gratuito)
+
+3. **UI `SuperAdminMonitoramento.tsx`**: Funcional mas pode ser melhorada
+
+### O Problema
+- O `request_id` obtido do tracking NÃO está sendo armazenado no banco
+- Isso significa que não há rastreabilidade de qual request_id foi usado em cada sincronização
+- A UI não mostra claramente os request_ids por tenant/processo
 
 ---
 
-## Opções de Timezone (conforme print)
+## Solução Proposta
 
-| Label | Valor IANA |
-|-------|-----------|
-| São Paulo, Sul e Sudeste do Brasil (BA, GO, DF, MG, ES) - EST | `America/Sao_Paulo` |
-| Cuiabá, Sudoeste do Brasil (MT, MS) - WST | `America/Cuiaba` |
-| Fortaleza, Nordeste do Brasil (AP, leste do PA, MA, PI, CE) - EST | `America/Fortaleza` |
-| Maceió, Este Nordeste do Brasil (AL, SE, TO) - EST | `America/Maceio` |
-| Manaus, Noroeste do Brasil (RR, oeste do PA, AM, RO) - WST | `America/Manaus` |
-| Noronha, Fernando de Noronha - FST | `America/Noronha` |
-| Rio Branco, Acre - AST | `America/Rio_Branco` |
-| Bahia, Brasil - BRT | `America/Bahia` |
+### 1. Adicionar Coluna para Request ID do Tracking
 
----
-
-## Arquitetura
-
-A tabela `tenants` já possui uma coluna `settings` do tipo JSONB. O timezone será armazenado nesta coluna:
-
-```json
-{
-  "timezone": "America/Sao_Paulo"
-}
+```sql
+ALTER TABLE processos_oab 
+  ADD COLUMN tracking_request_id TEXT,
+  ADD COLUMN tracking_request_data TIMESTAMPTZ;
 ```
 
+Esta coluna armazenará o `request_id` mais recente obtido via GET /tracking.
+
+### 2. Atualizar Edge Function `judit-sync-monitorados`
+
+Após buscar o request_id do tracking, salvar no banco:
+
+```typescript
+// Após encontrar requestId...
+await supabase
+  .from('processos_oab')
+  .update({
+    tracking_request_id: requestId,
+    tracking_request_data: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', processo.id);
+```
+
+### 3. Reorganizar Interface SuperAdminMonitoramento
+
+A nova interface terá:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ MONITORAMENTO DE PROCESSOS                     [Sincronizar]    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ ┌─────────────────┬─────────────────┬─────────────────┬───────┐ │
+│ │ Total Monitorando│ Com Request ID  │ Sem Request ID  │ Erro │ │
+│ │      166         │      160        │        6        │  0   │ │
+│ └─────────────────┴─────────────────┴─────────────────┴───────┘ │
+│                                                                 │
+│ ┌───────────────────────────────────────────────────────────┐   │
+│ │ Filtro: [Todos ▼]  [Apenas com Request ID] [Sem Request]   │   │
+│ └───────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│ TABELA POR TENANT                                               │
+│ ┌────────────────────────────────────────────────────────────┐  │
+│ │ TENANT     │ CNJ           │ TRACKING_ID    │ REQUEST_ID   │  │
+│ ├────────────┼───────────────┼────────────────┼──────────────┤  │
+│ │ SOLVENZA   │ 0000097...    │ f641d036...    │ dd5ed103... │  │
+│ │ SOLVENZA   │ 0000118...    │ c2f6a295...    │ 342c7ca8... │  │
+│ │ Lucas H.   │ 0808890...    │ 83eb64c7...    │ (vazio)     │  │
+│ └────────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│ AÇÕES POR PROCESSO:                                             │
+│ [🔍 Consultar Tracking] [📥 Forçar GET Response] [📋 Copiar ID] │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 4. Nova Funcionalidade: "Forçar GET Response"
+
+Botão para processos individuais que:
+1. Consulta GET /tracking/{id} → obtém request_id
+2. Consulta GET /responses?request_id={id} → obtém andamentos
+3. Insere no banco com deduplicação
+4. Atualiza `tracking_request_id` e `tracking_request_data`
+
 ---
 
-## Arquivos a Criar/Modificar
+## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/pages/Extras.tsx` | Adicionar aba "Timezone" (apenas admins) |
-| `src/components/Extras/TimezoneTab.tsx` | NOVO - Componente de configuração de timezone |
-| `src/hooks/useTenantSettings.ts` | NOVO - Hook para ler/atualizar settings do tenant |
+| Migração SQL | Adicionar colunas `tracking_request_id` e `tracking_request_data` |
+| `supabase/functions/judit-sync-monitorados/index.ts` | Salvar request_id obtido do tracking |
+| `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` | Reorganizar UI com tabela detalhada |
 
 ---
 
-## Extras.tsx - Mudanças
-
-1. Adicionar 'timezone' ao tipo TabType
-2. Importar componente TimezoneTab
-3. Adicionar botão na navegação (condicionado a isAdmin)
-4. Renderizar componente no conteúdo
-
-```tsx
-type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone';
-
-// Na navegação
-{isAdmin && (
-  <TabButton 
-    active={activeTab === 'timezone'} 
-    onClick={() => setActiveTab('timezone')}
-  >
-    Timezone
-  </TabButton>
-)}
-
-// No conteúdo
-{activeTab === 'timezone' && isAdmin && <TimezoneTab />}
-```
-
----
-
-## TimezoneTab.tsx - Estrutura
+## Fluxo de Dados Atualizado
 
 ```text
-Timezone
-────────
-
-Defina o fuso horário padrão para este escritório.
-Este timezone será utilizado em todos os cálculos de
-datas e prazos do sistema.
-
-┌──────────────────────────────────────────────────────────┐
-│  FUSO HORÁRIO LOCAL     [▼ Select dropdown            ] │
-└──────────────────────────────────────────────────────────┘
-
-                                                   [Salvar]
-```
-
-### Componente
-
-```tsx
-const TIMEZONE_OPTIONS = [
-  { value: "America/Sao_Paulo", label: "São Paulo, Sul e Sudeste do Brasil (BA, GO, DF, MG, ES) - EST" },
-  { value: "America/Cuiaba", label: "Cuiabá, Sudoeste do Brasil (MT, MS) - WST" },
-  { value: "America/Fortaleza", label: "Fortaleza, Nordeste do Brasil (AP, leste do PA, MA, PI, CE) - EST" },
-  { value: "America/Maceio", label: "Maceió, Este Nordeste do Brasil (AL, SE, TO) - EST" },
-  { value: "America/Manaus", label: "Manaus, Noroeste do Brasil (RR, oeste do PA, AM, RO) - WST" },
-  { value: "America/Noronha", label: "Noronha, Fernando de Noronha - FST" },
-  { value: "America/Rio_Branco", label: "Rio Branco, Acre - AST" },
-  { value: "America/Bahia", label: "Bahia, Brasil - BRT" },
-];
-
-const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+[Processo Monitorado]
+       │
+       ▼
+ tracking_id (armazenado ao ativar monitoramento)
+       │
+       ▼
+ GET /tracking/{tracking_id}
+       │
+       ▼
+ request_id (NOVO: armazenar em tracking_request_id)
+       │
+       ▼
+ GET /responses?request_id={id}
+       │
+       ▼
+ Andamentos → processos_oab_andamentos
 ```
 
 ---
 
-## useTenantSettings.ts - Hook
+## Detalhes Técnicos
 
-```tsx
-export const useTenantSettings = () => {
-  // Buscar tenant atual do usuário
-  // Ler settings.timezone
-  // Função para atualizar timezone
-  
-  const updateTimezone = async (timezone: string) => {
-    await supabase
-      .from('tenants')
-      .update({ 
-        settings: { 
-          ...currentSettings, 
-          timezone 
-        } 
-      })
-      .eq('id', tenantId);
-  };
-  
-  return { 
-    timezone: settings?.timezone || DEFAULT_TIMEZONE,
-    updateTimezone,
-    loading 
-  };
-};
+### Migração SQL
+```sql
+-- Adicionar colunas para armazenar request_id do tracking
+ALTER TABLE processos_oab 
+  ADD COLUMN IF NOT EXISTS tracking_request_id TEXT,
+  ADD COLUMN IF NOT EXISTS tracking_request_data TIMESTAMPTZ;
+
+-- Comentário para documentação
+COMMENT ON COLUMN processos_oab.tracking_request_id IS 
+  'Request ID mais recente obtido via GET /tracking. Diferente de detalhes_request_id que vem de POST.';
 ```
 
+### Atualização da Edge Function
+
+Na função `processarProcesso`:
+```typescript
+// Após encontrar o requestId...
+console.log(`[SYNC] Saving request_id ${requestId} to DB`);
+
+await supabase
+  .from('processos_oab')
+  .update({
+    tracking_request_id: requestId,
+    tracking_request_data: new Date().toISOString(),
+  })
+  .eq('id', processo.id);
+
+// Continuar com GET /responses...
+```
+
+### Nova Estrutura da UI
+
+A tabela mostrará:
+- **Tenant**: Nome do cliente
+- **CNJ**: Número do processo
+- **Tracking ID**: ID do monitoramento (copiável)
+- **Request ID (Tracking)**: Último request_id obtido via tracking
+- **Request ID (Detalhes)**: Request ID de buscas avulsas
+- **Último Sync**: Data/hora da última sincronização
+- **Ações**: Consultar tracking, Forçar sync, Copiar IDs
+
 ---
 
-## Lógica de Permissão
+## Benefícios
 
-- **RLS**: A tabela `tenants` já possui política que permite super admins e admins do próprio tenant modificarem
-- **UI**: A aba só aparece para usuários com `userRole === 'admin'`
-
----
-
-## Fluxo do Usuário
-
-1. Admin acessa Extras
-2. Clica na aba "Timezone"
-3. Vê dropdown com opções de timezone
-4. Seleciona o timezone desejado
-5. Clica em "Salvar"
-6. Toast de sucesso confirma a alteração
+1. **Rastreabilidade Completa**: Saber exatamente qual request_id foi usado
+2. **Auditoria por Tenant**: Ver claramente quais processos de cada cliente têm dados
+3. **Debug Facilitado**: Identificar processos sem request_id para investigar
+4. **Reutilização de IDs**: Evitar chamadas desnecessárias usando request_id armazenado
 
 ---
 
-## Valor Padrão
+## Dados Atuais (Contexto)
 
-Se o admin não definir timezone, o sistema assume:
-- **Label**: São Paulo, Sul e Sudeste do Brasil (BA, GO, DF, MG, ES) - EST
-- **Valor IANA**: `America/Sao_Paulo`
+```text
+| Tenant                | Monitorados | Com Request ID |
+|-----------------------|-------------|----------------|
+| SOLVENZA              | 166         | 192 (inclui detalhes) |
+| Lucas Harles          | 1           | 3              |
+| Maximillian Oliveira  | 1           | 3              |
+| cordeiro              | 0           | 11             |
+| Metal System          | 0           | 0              |
+| Vouti                 | 0           | 0              |
+```
+
+Os processos que têm `tracking_id` mas não têm `tracking_request_id` passarão a ter após a próxima sincronização.
