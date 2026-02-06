@@ -797,6 +797,15 @@ const ProjectView = ({
       
       const isAdmin = !!adminRole;
 
+      // Buscar tenant_id do usuário
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const userTenantId = profileData?.tenant_id;
+
       // 2. Criar ou buscar template
       let templateId: string;
       
@@ -884,7 +893,8 @@ const ProjectView = ({
         description,
         sector_order: 999 + idx,
         is_default: false,
-        created_by: user.id
+        created_by: user.id,
+        tenant_id: userTenantId
       }));
       
       const { data: newSectors, error: sectorsError } = await supabase
@@ -902,7 +912,8 @@ const ProjectView = ({
           name: 'Em Espera',
           column_order: 0,
           color: '#eab308',
-          is_default: true
+          is_default: true,
+          tenant_id: userTenantId
         },
         {
           project_id: sector.project_id,
@@ -910,7 +921,8 @@ const ProjectView = ({
           name: 'A Fazer',
           column_order: 1,
           color: '#3b82f6',
-          is_default: true
+          is_default: true,
+          tenant_id: userTenantId
         },
         {
           project_id: sector.project_id,
@@ -918,7 +930,8 @@ const ProjectView = ({
           name: 'Andamento',
           column_order: 2,
           color: '#f97316',
-          is_default: true
+          is_default: true,
+          tenant_id: userTenantId
         },
         {
           project_id: sector.project_id,
@@ -926,7 +939,8 @@ const ProjectView = ({
           name: 'Concluído',
           column_order: 3,
           color: '#22c55e',
-          is_default: true
+          is_default: true,
+          tenant_id: userTenantId
         }
       ]);
       
