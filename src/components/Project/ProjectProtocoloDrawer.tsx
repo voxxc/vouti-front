@@ -544,12 +544,10 @@ export function ProjectProtocoloDrawer({
                     </div>
 
                     {/* Descrição */}
-                    {protocolo.descricao && (
-                      <div>
-                        <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
-                        <p className="mt-1">{protocolo.descricao}</p>
-                      </div>
-                    )}
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
+                      <p className="mt-1 text-sm">{protocolo.descricao || <span className="text-muted-foreground italic">Sem descrição</span>}</p>
+                    </div>
 
                     {/* Informações */}
                     <div className="grid grid-cols-2 gap-4">
