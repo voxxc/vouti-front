@@ -64,7 +64,6 @@ export const ClienteFinanceiroDialog = ({
   const [baixaDialogOpen, setBaixaDialogOpen] = useState(false);
   const [createDividaOpen, setCreateDividaOpen] = useState(false);
   const [selectedParcelaForComments, setSelectedParcelaForComments] = useState<string | null>(null);
-  const [selectedParcelaForHistory, setSelectedParcelaForHistory] = useState<string | null>(null);
   const [editarPagamentoOpen, setEditarPagamentoOpen] = useState(false);
   const [parcelaParaEditar, setParcelaParaEditar] = useState<ClienteParcela | null>(null);
   const [editarParcelaDadosOpen, setEditarParcelaDadosOpen] = useState(false);
@@ -465,20 +464,6 @@ export const ClienteFinanceiroDialog = ({
                             </div>
 
                             <div className="flex items-center gap-1">
-                              {/* Botão Histórico para parcelas pagas ou parciais */}
-                              {(parcela.status === 'pago' || parcela.status === 'parcial') && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={() => setSelectedParcelaForHistory(
-                                    selectedParcelaForHistory === parcela.id ? null : parcela.id
-                                  )}
-                                >
-                                  <History className="h-3 w-3" />
-                                </Button>
-                              )}
-
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -487,7 +472,7 @@ export const ClienteFinanceiroDialog = ({
                                   selectedParcelaForComments === parcela.id ? null : parcela.id
                                 )}
                               >
-                                {selectedParcelaForComments === parcela.id ? 'Ocultar' : 'Comentários'}
+                                {selectedParcelaForComments === parcela.id ? 'Ocultar' : 'Detalhes'}
                               </Button>
 
                               {/* Menu de 3 pontinhos unificado para todas as parcelas */}
@@ -544,23 +529,25 @@ export const ClienteFinanceiroDialog = ({
                             </div>
                           </div>
 
-                          {/* Área expandível de Histórico */}
-                          {selectedParcelaForHistory === parcela.id && (
-                            <div className="mt-4 pt-4 border-t">
-                              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                                <History className="h-4 w-4" />
-                                Histórico de Pagamentos
-                              </h4>
-                              <ParcelaHistorico parcelaId={parcela.id} />
-                            </div>
-                          )}
-
+                          {/* Área expandível de Detalhes (Histórico + Comentários) */}
                           {selectedParcelaForComments === parcela.id && (
-                            <div className="mt-4 pt-4 border-t">
-                              <ParcelaComentarios
-                                parcelaId={parcela.id}
-                                currentUserId={currentUserId}
-                              />
+                            <div className="mt-4 pt-4 border-t space-y-4">
+                              {/* Histórico de Pagamentos */}
+                              <div>
+                                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                                  <History className="h-4 w-4" />
+                                  Histórico de Pagamentos
+                                </h4>
+                                <ParcelaHistorico parcelaId={parcela.id} />
+                              </div>
+                              
+                              {/* Comentários */}
+                              <div>
+                                <ParcelaComentarios
+                                  parcelaId={parcela.id}
+                                  currentUserId={currentUserId}
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
