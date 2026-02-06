@@ -1,233 +1,310 @@
 
 
-# Minimalismo Total no ClienteDetails
+# Reestruturacao Minimalista do Financeiro
 
-## Visual de Referencia
+## Objetivo
 
-Baseado no menu do workspace dos projetos (`ProjectView.tsx`), o estilo desejado:
-
-```text
-Informações    Documentos              [ícone edit]
-─────────────────────────────────────────────────
-```
-
-- Links de texto simples (sem fundo de tab)
-- Item ativo: texto escuro + linha inferior colorida
-- Item inativo: texto cinza (muted)
-- Icone de editar ao lado do badge de classificacao
+1. **Remover metricas do CRMContent** e mover para o Financeiro
+2. **Reestruturar FinancialDrawer** com navegacao interna (igual ao CRMDrawer)
+3. **Criar navegacao minimalista** com link clicavel "Metricas"
+4. **Nova pagina Metricas** com graficos (pizza, colunas) e botao de exportar relatorio
 
 ---
 
-## Estrutura Proposta
-
-### Header do Cliente
+## Arquitetura Proposta
 
 ```text
-João da Silva
-👤 Pessoa Física  ✏️    ← icone de editar ao lado do badge
-```
-
-### Navegacao de Abas (estilo link)
-
-```text
-Informações   Documentos
-───────────
-```
-
-Onde "Informações" tem uma linha embaixo quando ativo.
-
----
-
-## Alteracoes no ClienteDetails.tsx
-
-### 1. Botao Editar → Icone
-
-**Antes:**
-```tsx
-<Button onClick={onEdit} variant="outline" size="sm">
-  <Edit className="h-4 w-4 mr-2" />
-  Editar
-</Button>
-```
-
-**Depois:**
-```tsx
-<button 
-  onClick={onEdit}
-  className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
->
-  <Edit className="h-4 w-4" />
-</button>
-```
-
-Posicionado ao lado do badge de classificacao (PF/PJ).
-
-### 2. Tabs → Navegacao por Texto
-
-**Antes (Radix Tabs):**
-```tsx
-<TabsList className="grid w-full grid-cols-2">
-  <TabsTrigger value="info">
-    <Info className="h-4 w-4" />
-    Informações
-  </TabsTrigger>
-  <TabsTrigger value="documentos">
-    <FileText className="h-4 w-4" />
-    Documentos
-  </TabsTrigger>
-</TabsList>
-```
-
-**Depois (Links de texto):**
-```tsx
-const [activeTab, setActiveTab] = useState<'info' | 'documentos'>('info');
-
-<div className="flex gap-6 border-b">
-  <button
-    onClick={() => setActiveTab('info')}
-    className={cn(
-      "pb-2 text-sm font-medium transition-colors relative",
-      activeTab === 'info'
-        ? "text-foreground"
-        : "text-muted-foreground hover:text-foreground"
-    )}
-  >
-    Informações
-    {activeTab === 'info' && (
-      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-    )}
-  </button>
-  <button
-    onClick={() => setActiveTab('documentos')}
-    className={cn(
-      "pb-2 text-sm font-medium transition-colors relative",
-      activeTab === 'documentos'
-        ? "text-foreground"
-        : "text-muted-foreground hover:text-foreground"
-    )}
-  >
-    Documentos
-    {activeTab === 'documentos' && (
-      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-    )}
-  </button>
-</div>
+FinancialDrawer.tsx
+    |
+    +-- estado: { view: 'lista' | 'metricas' | 'detalhes' }
+    |
+    +-- view === 'lista'  --> FinancialContent.tsx (simplificado)
+    |
+    +-- view === 'metricas' --> FinancialMetrics.tsx (novo - graficos + exportar)
+    |
+    +-- view === 'detalhes' --> ClienteFinanceiroDialog (parcelas)
 ```
 
 ---
 
-## Layout Final
+## Mudancas Planejadas
+
+### 1. CRMContent.tsx - Remover Metricas
+
+Remover completamente os 3 cards de metricas:
+- Total de Clientes
+- Valor Total (Contratos)
+- Parcelados
+
+### 2. FinancialContent.tsx - Simplificar
+
+**Remover:**
+- Cards de metricas (5 cards atuais)
+- Header com titulo e botao exportar
+
+**Adicionar:**
+- Navegacao minimalista no topo (texto clicavel)
+- Callbacks para navegacao interna
+
+**Estrutura do header:**
+```text
+Clientes   Colaboradores   Custos   |   Métricas
+───────                                  (clicável)
+```
+
+### 3. FinancialDrawer.tsx - Gerenciar Views
+
+Similar ao CRMDrawer, adicionar:
+- Estado de navegacao (lista, metricas, detalhes)
+- Header dinamico com botao voltar
+- Renderizacao condicional dos componentes
+
+### 4. Novo Componente: FinancialMetrics.tsx
+
+Pagina dedicada com:
+- Botao "Exportar Relatorio" no topo
+- Cards de metricas (Total Clientes, Adimplentes, Inadimplentes, etc.)
+- Graficos visuais:
+  - Grafico de pizza: Distribuicao de status (adimplente/inadimplente/encerrado)
+  - Grafico de barras: Receita mensal vs pendente
+  - Grafico de pizza: Distribuicao por forma de pagamento
+
+---
+
+## Layout do FinancialContent Simplificado
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│  João da Silva                                          │
-│  👤 Pessoa Física ✏️                                    │
+│  Clientes   Colaboradores   Custos      Métricas       │
+│  ─────────                                              │
 │                                                         │
-│  Informações   Documentos                               │
-│  ───────────                                            │
+│  🔍 Pesquisar...              [Filtrar ▾]              │
 │                                                         │
-│            NOME   João da Silva                         │
-│        TELEFONE   (11) 99999-9999                       │
-│          E-MAIL   joao@email.com                        │
-│  ─────────────────────────────────────────────          │
-│             CPF   123.456.789-00                        │
-│             CNH   12345678901                           │
-│                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ João da Silva        Adimplente    R$ 5.000,00   │  │
+│  │ Próximo: 15/02/2026                 [Ver]        │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ Maria Santos         Inadimplente  R$ 3.500,00   │  │
+│  │ 15 dias em atraso                   [Ver]        │  │
+│  └──────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Arquivo a Modificar
+## Layout da Pagina Metricas
 
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/CRM/ClienteDetails.tsx` | Substituir Radix Tabs por navegacao manual, mover icone de editar |
+```text
+┌─────────────────────────────────────────────────────────┐
+│  ← Voltar                                               │
+│  Métricas                    [Exportar Relatório]       │
+│                                                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │
+│  │ 45       │ │ 38       │ │ 5        │ │ 2        │   │
+│  │ Clientes │ │ Adimpl.  │ │ Inadimpl.│ │ Inativos │   │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘   │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │         RECEITA TOTAL              PARCELADOS    │  │
+│  │         R$ 125.000,00              32            │  │
+│  │                                                  │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                         │
+│  ┌─────────────────────┐ ┌─────────────────────────┐   │
+│  │  Status Clientes    │ │   Receita               │   │
+│  │    ┌────────┐      │ │   ████████ Recebida     │   │
+│  │    │  🟢85% │      │ │   ████     Pendente     │   │
+│  │    │  🔴11% │      │ │   ██       Em atraso    │   │
+│  │    │  ⚪4%  │      │ │                         │   │
+│  │    └────────┘      │ │                         │   │
+│  └─────────────────────┘ └─────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Codigo Completo do Header
+## Arquivos a Modificar/Criar
 
-```tsx
-<div className="space-y-4">
-  {/* Header com nome, badge e ícone de editar */}
-  <div className="space-y-1">
-    <h2 className="text-xl font-semibold">{nomeCliente}</h2>
-    <div className="flex items-center gap-2">
-      {cliente.classificacao && (
-        <span className={cn(
-          "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium",
-          cliente.classificacao === 'pf' 
-            ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-            : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-        )}>
-          {cliente.classificacao === 'pf' ? '👤 Pessoa Física' : '🏢 Pessoa Jurídica'}
-        </span>
-      )}
-      {!readOnly && (
-        <button 
-          onClick={onEdit}
-          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title="Editar cliente"
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/CRM/CRMContent.tsx` | Remover cards de metricas |
+| `src/components/Financial/FinancialContent.tsx` | Simplificar, adicionar navegacao minimalista, callbacks |
+| `src/components/Financial/FinancialDrawer.tsx` | Gerenciar views internas (lista/metricas/detalhes) |
+| `src/components/Financial/FinancialMetrics.tsx` | **NOVO** - Pagina com graficos e exportar |
+
+---
+
+## Detalhes Tecnicos
+
+### FinancialContent.tsx - Navegacao Minimalista
+
+```typescript
+interface FinancialContentProps {
+  onNavigateMetrics?: () => void;
+  onViewCliente?: (cliente: ClienteFinanceiro) => void;
+}
+
+export function FinancialContent({ onNavigateMetrics, onViewCliente }: FinancialContentProps) {
+  const [activeTab, setActiveTab] = useState<'clients' | 'colaboradores' | 'custos'>('clients');
+  
+  return (
+    <div className="space-y-6">
+      {/* Navegação minimalista */}
+      <div className="flex items-center justify-between border-b pb-2">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('clients')}
+            className={cn(
+              "pb-2 text-sm font-medium transition-colors relative",
+              activeTab === 'clients' ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            Clientes
+            {activeTab === 'clients' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
+          </button>
+          <button onClick={() => setActiveTab('colaboradores')} ...>
+            Colaboradores
+          </button>
+          <button onClick={() => setActiveTab('custos')} ...>
+            Custos
+          </button>
+        </div>
+        
+        {/* Link Métricas */}
+        <button
+          onClick={onNavigateMetrics}
+          className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Edit className="h-4 w-4" />
+          Métricas
         </button>
-      )}
+      </div>
+      
+      {/* Conteúdo... */}
     </div>
-  </div>
+  );
+}
+```
 
-  {/* Navegação por texto */}
-  <div className="flex gap-6 border-b">
-    <button
-      onClick={() => setActiveTab('info')}
-      className={cn(
-        "pb-2 text-sm font-medium transition-colors relative",
-        activeTab === 'info'
-          ? "text-foreground"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      Informações
-      {activeTab === 'info' && (
-        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-      )}
-    </button>
-    <button
-      onClick={() => setActiveTab('documentos')}
-      className={cn(
-        "pb-2 text-sm font-medium transition-colors relative",
-        activeTab === 'documentos'
-          ? "text-foreground"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      Documentos
-      {activeTab === 'documentos' && (
-        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-      )}
-    </button>
-  </div>
+### FinancialDrawer.tsx - Views Internas
 
-  {/* Conteudo */}
-  {activeTab === 'info' ? (
-    <div className="mt-6 space-y-1">
-      {/* InfoRows... */}
+```typescript
+type DrawerView = 'lista' | 'metricas' | 'detalhes';
+
+export function FinancialDrawer({ open, onOpenChange }: FinancialDrawerProps) {
+  const [view, setView] = useState<DrawerView>('lista');
+  const [selectedCliente, setSelectedCliente] = useState<ClienteFinanceiro | null>(null);
+  
+  const handleNavigateMetrics = () => setView('metricas');
+  const handleViewCliente = (cliente) => {
+    setSelectedCliente(cliente);
+    setView('detalhes');
+  };
+  const handleBack = () => {
+    setView('lista');
+    setSelectedCliente(null);
+  };
+  
+  return (
+    <Sheet ...>
+      <SheetContent>
+        {/* Header dinâmico */}
+        <div className="flex items-center gap-2 px-6 py-4 border-b">
+          {view !== 'lista' && (
+            <Button variant="ghost" size="icon" onClick={handleBack}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <DollarSign className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-lg">
+            {view === 'lista' && 'Financeiro'}
+            {view === 'metricas' && 'Métricas'}
+            {view === 'detalhes' && 'Detalhes'}
+          </span>
+        </div>
+        
+        <ScrollArea>
+          {view === 'lista' && (
+            <FinancialContent 
+              onNavigateMetrics={handleNavigateMetrics}
+              onViewCliente={handleViewCliente}
+            />
+          )}
+          
+          {view === 'metricas' && <FinancialMetrics />}
+          
+          {view === 'detalhes' && selectedCliente && (
+            <ClienteFinanceiroDialog ... />
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
+```
+
+### FinancialMetrics.tsx - Novo Componente
+
+```typescript
+export function FinancialMetrics() {
+  // Buscar dados de clientes e parcelas
+  // Calcular metricas
+  
+  return (
+    <div className="space-y-6">
+      {/* Botão Exportar */}
+      <div className="flex justify-end">
+        <RelatorioFinanceiroModal />
+      </div>
+      
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>Total de Clientes: 45</Card>
+        <Card>Adimplentes: 38</Card>
+        <Card>Inadimplentes: 5</Card>
+        <Card>Inativos: 2</Card>
+      </div>
+      
+      {/* Mais métricas */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>Receita Total: R$ 125.000</Card>
+        <Card>Parcelados: 32</Card>
+      </div>
+      
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Pizza: Status dos Clientes */}
+        <Card>
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie data={statusData} ... />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+        
+        {/* Barras: Receita */}
+        <Card>
+          <ResponsiveContainer>
+            <BarChart data={receitaData}>
+              <Bar dataKey="recebida" fill="#22c55e" />
+              <Bar dataKey="pendente" fill="#f59e0b" />
+              <Bar dataKey="atrasada" fill="#ef4444" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
     </div>
-  ) : (
-    <div className="mt-4">
-      <ClienteDocumentosTab clienteId={cliente.id} readOnly={readOnly} />
-    </div>
-  )}
-</div>
+  );
+}
 ```
 
 ---
 
 ## Beneficios
 
-- **Super minimalista**: Sem componentes de Tab com fundo
-- **Consistente**: Mesmo padrao visual do workspace dos projetos
-- **Icone discreto**: Editar e um pequeno icone, nao um botao grande
-- **Alinhado a esquerda**: Navegacao clean e profissional
-- **Menos dependencias**: Remove Radix TabsList/TabsTrigger
+- **Interface limpa**: Metricas nao poluem a lista de clientes
+- **Acesso rapido**: Um clique para ver metricas completas
+- **Visualizacao rica**: Graficos pizza e barras para analise visual
+- **Consistente**: Mesmo padrao de navegacao do CRM
+- **Exportar acessivel**: Botao de relatorio na pagina de metricas
 
