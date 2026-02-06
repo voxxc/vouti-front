@@ -1,158 +1,47 @@
 
-# Redesign do Drawer de Usuarios
+# Secao Documentos - Implementacao Completa
 
-## Objetivo
-Converter o drawer de usuarios de um painel que abre do topo (side="top") para um drawer lateral direito com design minimalista, usando a mesma largura do drawer de Projetos (w-96 = 384px).
-
----
-
-## Alteracoes
-
-### 1. Criar nova variante "right-offset" no Sheet
-**Arquivo:** `src/components/ui/sheet.tsx`
-
-Adicionar nova variante para drawer lateral direito:
-```tsx
-"right-offset":
-  "top-[57px] bottom-0 right-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
-```
-
-E atualizar a condicao do overlay para nao renderizar com essa variante:
-```tsx
-{side !== "inset" && side !== "left-offset" && side !== "right-offset" && <SheetOverlay />}
-```
+## Resumo
+Criar uma nova secao "Documentos" no menu lateral (abaixo de Controladoria) com:
+1. **Drawer lateral** para acesso rapido aos documentos
+2. **Pagina principal** com lista de documentos
+3. **Editor de texto rico** com toolbar completa
+4. **Exportacao para PDF** usando jsPDF
 
 ---
 
-### 2. Refatorar UserManagementDrawer para design minimalista
-**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
+## Arquitetura do Sistema
 
-**De (atual):**
-- side="top" com h-[85vh]
-- Renderiza o componente UserManagement completo (cards em grid)
-
-**Para (novo):**
-- side="right-offset" (lateral direita, largura w-96)
-- modal={false} (manter sidebar interativa)
-- Lista minimalista de usuarios (nomes clicaveis)
-- Barra decorativa no lado esquerdo (igual ao Projetos no direito)
-- Ao clicar no nome, abre modal de edicao
-
-**Estrutura:**
-```tsx
-<Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-  <SheetContent side="right-offset" className="p-0 flex flex-col">
-    {/* Barra decorativa no lado esquerdo */}
-    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-primary/20 via-border to-primary/20 pointer-events-none" />
-    
-    {/* Header */}
-    <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
-      <Users className="h-5 w-5 text-primary" />
-      <span className="font-semibold text-lg">Usuarios</span>
-    </div>
-
-    <ScrollArea className="flex-1">
-      <div className="p-6 space-y-4">
-        {/* Botao novo usuario */}
-        <Button size="sm" className="gap-2" onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4" />
-          Novo Usuario
-        </Button>
-
-        {/* Busca */}
-        <div className="relative max-w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar usuarios..." className="pl-9 h-9" />
-        </div>
-
-        {/* Lista minimalista */}
-        <div className="space-y-1">
-          {users.map((user) => (
-            <button
-              key={user.id}
-              onClick={() => handleEdit(user)}
-              className="w-full text-left p-3 rounded-lg hover:bg-accent/50 group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate group-hover:text-primary">
-                    {user.name}
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {user.email}
-                  </div>
-                </div>
-                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="ml-2">
-                  {user.role}
-                </Badge>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </ScrollArea>
-  </SheetContent>
-</Sheet>
-
-{/* Dialogs de criar/editar - fora do Sheet */}
-<CreateUserDialog ... />
-<EditUserDialog ... />
+```text
+Sidebar (DashboardSidebar.tsx)
+    |
+    +-- Click "Documentos"
+           |
+           +-- Abre DocumentosDrawer (lateral esquerdo, left-offset)
+                   |
+                   +-- Lista minimalista de documentos
+                   +-- Botao "Novo Documento"
+                   +-- Click no documento -> abre pagina de edicao
+                   |
+                   +-- Ver todos -> Documentos.tsx (pagina completa)
+                                        |
+                                        +-- DocumentoEditor.tsx (criar/editar)
 ```
 
 ---
 
-### 3. Mover logica de modais para o drawer
-**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
+## Arquivos a Criar
 
-A logica de criacao e edicao de usuarios sera mantida atraves de Dialogs (modais) que abrem sobre o drawer:
-- Dialog de criar usuario (reutilizando a logica do UserManagement)
-- Dialog de editar usuario (reutilizando a logica do UserManagement)
-- Confirmacao de exclusao
-
-Isso mantem a funcionalidade completa mas com interface minimalista.
-
----
-
-## Resultado Visual
-
-### Antes
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Gerenciamento de Usuarios                                   │
-├─────────────────────────────────────────────────────────────┤
-│ [+ Adicionar Usuario]  [Busca________________]              │
-│                                                             │
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐                        │
-│ │ Card    │ │ Card    │ │ Card    │                        │
-│ │ Avatar  │ │ Avatar  │ │ Avatar  │                        │
-│ │ Nome    │ │ Nome    │ │ Nome    │                        │
-│ │ Email   │ │ Email   │ │ Email   │                        │
-│ │ [Edit]  │ │ [Edit]  │ │ [Edit]  │                        │
-│ └─────────┘ └─────────┘ └─────────┘                        │
-└─────────────────────────────────────────────────────────────┘
-                Desce do topo, 85vh altura
-```
-
-### Depois
-```
-                                    ┌──────────────────────┐
-                                    │ Usuarios             │
-                                    ├──────────────────────┤
-                                    │ [+ Novo Usuario]     │
-                                    │ [Buscar usuarios...] │
-                                    │                      │
-                                    │ Maria Silva    admin │
-                                    │ maria@email.com      │
-                                    │ ──────────────────── │
-                                    │ Joao Santos advogado │
-                                    │ joao@email.com       │
-                                    │ ──────────────────── │
-                                    │ Ana Costa  comercial │
-                                    │ ana@email.com        │
-                                    └──────────────────────┘
-                                         Drawer lateral
-                                         direito (w-96)
-```
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/types/documento.ts` | Tipos TypeScript para documentos |
+| `src/hooks/useDocumentos.ts` | Hook para CRUD de documentos no Supabase |
+| `src/pages/Documentos.tsx` | Pagina principal com lista de documentos |
+| `src/pages/DocumentoEditar.tsx` | Pagina do editor de documentos |
+| `src/components/Documentos/DocumentosDrawer.tsx` | Drawer lateral para acesso rapido |
+| `src/components/Documentos/DocumentoEditor.tsx` | Editor de texto rico |
+| `src/components/Documentos/RichTextToolbar.tsx` | Toolbar do editor (formatacao) |
+| `src/components/Documentos/DocumentosPDFExport.tsx` | Componente de exportacao PDF |
 
 ---
 
@@ -160,15 +49,236 @@ Isso mantem a funcionalidade completa mas com interface minimalista.
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/ui/sheet.tsx` | Adicionar variante "right-offset" |
-| `src/components/Admin/UserManagementDrawer.tsx` | Refatorar para lista minimalista lateral |
+| `src/components/Dashboard/DashboardSidebar.tsx` | Adicionar item "Documentos" no menu, abaixo de Controladoria |
+| `src/App.tsx` | Adicionar rotas `/:tenant/documentos` e `/:tenant/documentos/:id` |
+| `src/hooks/usePrefetchPages.ts` | Adicionar prefetch para pagina de documentos |
 
 ---
 
-## Detalhes Tecnicos
+## Modelo de Dados (Supabase)
 
-- A variante "right-offset" tera a mesma largura (w-96 = 384px) que "left-offset" mas posicionada a direita
-- modal={false} permite interacao com a sidebar enquanto o drawer esta aberto
-- O UserManagement.tsx sera mantido intacto (pode ser usado como fallback ou em outras paginas)
-- Os Dialogs de criar/editar serao extraidos e renderizados dentro do UserManagementDrawer
-- Skeleton de loading seguira o mesmo padrao do ProjectsDrawer
+Nova tabela `documentos`:
+
+```sql
+CREATE TABLE documentos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  titulo VARCHAR(500) NOT NULL,
+  descricao TEXT,
+  conteudo_html TEXT,
+  cliente_id UUID REFERENCES clientes(id) ON DELETE SET NULL,
+  projeto_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+  responsavel_id UUID,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index para performance
+CREATE INDEX idx_documentos_tenant_id ON documentos(tenant_id);
+CREATE INDEX idx_documentos_cliente_id ON documentos(cliente_id);
+
+-- RLS policies
+ALTER TABLE documentos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view documents in their tenant"
+  ON documentos FOR SELECT
+  USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert documents in their tenant"
+  ON documentos FOR INSERT
+  WITH CHECK (tenant_id IN (SELECT tenant_id FROM profiles WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can update documents in their tenant"
+  ON documentos FOR UPDATE
+  USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can delete documents in their tenant"
+  ON documentos FOR DELETE
+  USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE user_id = auth.uid()));
+```
+
+---
+
+## Detalhes de Implementacao
+
+### 1. Sidebar - Adicionar item "Documentos"
+
+Adicionar no array `menuItems` (linha ~103), entre "controladoria" e "reunioes":
+
+```tsx
+{ id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
+```
+
+Atualizar:
+- `ActiveDrawer` type para incluir `'documentos'`
+- `sectionRoleMap` para definir acesso (provavelmente `['advogado', 'controller']`)
+- `isActive()` para verificar `currentPage === 'documentos'`
+- Adicionar tratamento especial para abrir drawer
+
+### 2. Drawer de Documentos (DocumentosDrawer.tsx)
+
+Seguira o padrao do `ProjectsDrawer.tsx`:
+- `side="left-offset"` (mesma posicao)
+- Lista minimalista de documentos com nome e cliente
+- Barra decorativa no lado direito
+- Busca
+- Botao "Novo Documento" -> navega para `/documentos/novo`
+- Click no documento -> navega para `/documentos/:id`
+
+### 3. Editor de Texto Rico
+
+Usar **ContentEditable div** com `document.execCommand()` para:
+- **Undo/Redo**: `document.execCommand('undo')` / `document.execCommand('redo')`
+- **Fonte**: Select com opcoes (Times New Roman, Arial, Courier, etc.)
+- **Tamanho**: Select de 8px a 72px
+- **Estilos**: Bold (Ctrl+B), Italic (Ctrl+I), Underline (Ctrl+U), Strikethrough
+- **Cores**: Cor do texto e cor de fundo (usando input type="color")
+- **Alinhamento**: Esquerda, Centro, Direita, Justificado
+- **Listas**: Ordenada e nao-ordenada
+- **Imagem**: Upload/inserir imagem
+
+Toolbar visual conforme a imagem 1 fornecida.
+
+### 4. Variaveis Dinamicas
+
+Suporte a placeholders que serao exibidos/substituidos:
+- `${_Nacionalidade_cliente_}` 
+- `${_RG_cliente_}`
+- `${_CPF/CNPJ_cliente_}`
+- `${_Endereco_cliente_}`
+- etc.
+
+Estes serao interpolados quando o documento for associado a um cliente.
+
+### 5. Exportacao PDF
+
+Usando jsPDF (ja instalado):
+```tsx
+import jsPDF from 'jspdf';
+
+const exportToPDF = (htmlContent: string, titulo: string) => {
+  const doc = new jsPDF();
+  // Converter HTML para texto formatado
+  // Adicionar ao PDF
+  doc.save(`${titulo}.pdf`);
+};
+```
+
+### 6. Rotas (App.tsx)
+
+Adicionar rotas tenant-aware:
+
+```tsx
+{/* Documentos - Tenant Dynamic */}
+<Route path="/:tenant/documentos" element={
+  <TenantRouteWrapper>
+    <Documentos />
+  </TenantRouteWrapper>
+} />
+
+<Route path="/:tenant/documentos/novo" element={
+  <TenantRouteWrapper>
+    <DocumentoEditar />
+  </TenantRouteWrapper>
+} />
+
+<Route path="/:tenant/documentos/:id" element={
+  <TenantRouteWrapper>
+    <DocumentoEditar />
+  </TenantRouteWrapper>
+} />
+```
+
+E rota legada:
+```tsx
+<Route path="/documentos" element={<Navigate to="/solvenza/documentos" replace />} />
+```
+
+---
+
+## Interface Visual
+
+### Drawer Lateral (left-offset)
+```text
+┌────────────────────────────┐
+│ [FileText] Documentos      │
+├────────────────────────────┤
+│ [+ Novo Documento]         │
+│ [Buscar documentos...]     │
+│                            │
+│ Procuracao Transito - CPF  │
+│ daniel                     │
+│ ─────────────────────────  │
+│ Alegacoes Finais - Auto... │
+│ maria silva                │
+│ ─────────────────────────  │
+│ ...                        │
+│                            │
+│ [Ver todos os documentos]  │
+└────────────────────────────┘
+```
+
+### Pagina Lista (conforme imagem 2)
+```text
++-----------------------------------------------------------+
+| Documentos                          [Voltar] [+ ADICIONAR]|
++-----------------------------------------------------------+
+| [Buscar documento...]                          [Q] [R]    |
++-----------------------------------------------------------+
+| Mostrando X documento(s)                                  |
++-----------------------------------------------------------+
+| ORIGEM | DOCUMENTO/DESCRICAO | CASO/CLIENTE | RESP | DATA |
++-----------------------------------------------------------+
+| [icon] | Procuracao Trans... | daniel       | Rodrigo | ...|
+| [icon] | 01 - Alegacoes...   | daniel       | Rodrigo | ...|
++-----------------------------------------------------------+
+```
+
+### Editor (conforme imagem 1)
+```text
++-----------------------------------------------------------+
+| Modelo de documento                                       |
++-----------------------------------------------------------+
+| Titulo do modelo*                                         |
+| [Procuracao Transito CPF - daniel                    ]    |
++-----------------------------------------------------------+
+| [<-][->] | Times v | 12 v | B I U S | A A | L C R J | ... |
++-----------------------------------------------------------+
+|                                                           |
+|                    [LOGO DO ESCRITORIO]                   |
+|                                                           |
+|                      PROCURACAO                           |
+|                                                           |
+| OUTORGANTE(S): daniel, ${_Nacionalidade_cliente_},...     |
+|                                                           |
+| ...conteudo do documento...                               |
+|                                                           |
++-----------------------------------------------------------+
+| [Salvar]                               [Exportar PDF]     |
++-----------------------------------------------------------+
+```
+
+---
+
+## Sequencia de Implementacao
+
+1. **Criar tipos** (`documento.ts`)
+2. **Criar tabela no Supabase** (SQL acima via migrations)
+3. **Criar hook** (`useDocumentos.ts`)
+4. **Criar drawer** (`DocumentosDrawer.tsx`)
+5. **Criar pagina lista** (`Documentos.tsx`)
+6. **Criar editor** (`DocumentoEditor.tsx`, `RichTextToolbar.tsx`)
+7. **Criar exportacao PDF** (`DocumentosPDFExport.tsx`)
+8. **Criar pagina edicao** (`DocumentoEditar.tsx`)
+9. **Modificar sidebar** (adicionar item e drawer)
+10. **Modificar App.tsx** (adicionar rotas)
+11. **Atualizar prefetch** (`usePrefetchPages.ts`)
+
+---
+
+## Dependencias
+
+Nenhuma nova dependencia necessaria:
+- `jsPDF` - ja instalado (v3.0.3)
+- `jspdf-autotable` - ja instalado (v5.0.2)
+- Lucide icons (`FileText`) - ja disponivel
