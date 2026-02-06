@@ -1,130 +1,136 @@
 
-# Plano de Implementacao: CRM + Financeiro + Prazos
+# Redesign do CRM: Lista de Clientes + Tela Dedicada de Cadastro + Criar Projeto
 
 ## Resumo das Solicitacoes
 
-O usuario pediu 3 melhorias principais:
-
-1. **Cadastro de Cliente (CRM)**: Tornar a secao "Dados do Contrato" colapsavel + melhorar acesso ao sistema de etiquetas
-2. **Financeiro**: Verificar/garantir edicao de pagamentos apos baixa
-3. **Prazos (Agenda)**: Adicionar dialog completo de edicao de prazo (alem de apenas estender data)
+1. **Adicionar opcao para criar projeto** ao cadastrar cliente (minimalista)
+2. **Mudar de modal para pagina completa** de cadastro
+3. **Lista de clientes minimalista** com busca e nomes clicaveis
 
 ---
 
-## Analise do Codigo Existente
+## Arquitetura Proposta
 
-| Funcionalidade | Status Atual |
-|----------------|--------------|
-| Sistema de etiquetas | Existe, mas so aparece no modo edicao |
-| Juros e multa por atraso | Funcional, dentro da secao de parcelamento |
-| Edicao de pagamento | Funcional via DropdownMenu em parcelas pagas |
-| Estender prazo | Funcional, mas so altera data + motivo |
-| Editar prazo completo | NAO EXISTE |
+```text
+ANTES:
+CRM.tsx -> Dialog (modal) -> ClienteForm.tsx
+
+DEPOIS:
+CRM.tsx (lista minimalista) <-> ClienteCadastroPage.tsx (pagina dedicada)
+                                     |
+                                     +-> ClienteForm.tsx (reutilizado)
+                                     +-> Checkbox "Criar Projeto"
+```
 
 ---
 
 ## Alteracoes Planejadas
 
-### 1. CRM: Secao "Dados do Contrato" Colapsavel
+### 1. Nova Pagina: `src/pages/ClienteCadastro.tsx`
 
-**Arquivo**: `src/components/CRM/ClienteForm.tsx`
+**Funcionalidades**:
+- Pagina dedicada para cadastro/edicao de cliente
+- Botao X no canto para voltar a lista
+- Layout limpo e minimalista
+- **Checkbox "Criar projeto para este cliente"** (opcional)
+- Ao salvar, se checkbox marcado, cria projeto automaticamente
 
-- Adicionar componente `Collapsible` ao redor da secao "Dados do Contrato"
-- Estado inicial: fechado (para nao sobrecarregar formulario)
-- Icone de seta indicando expansao/colapsamento
+**Rota**: `/crm/cliente/:id?` (id opcional - sem id = novo cliente)
 
-**Codigo exemplo**:
+### 2. Modificar `src/pages/CRM.tsx`
+
+**Mudancas**:
+- Remover modals de ClienteForm e ClienteDetails
+- Lista de clientes em formato tabela/lista minimalista
+- Coluna de nome clicavel (abre pagina de cadastro)
+- Campo de busca por nome
+- Botao "Novo Cliente" navega para `/crm/cliente/novo`
+
+### 3. Modificar `src/components/CRM/ClienteForm.tsx`
+
+**Adicionar**:
+- Prop `onClienteCreated?: (clienteId: string, nome: string) => void`
+- Checkbox "Criar projeto vinculado a este cliente"
+- Estado `criarProjeto: boolean`
+- Ao criar cliente com sucesso, chamar callback para criar projeto
+
+### 4. Adicionar Rota
+
+**Arquivo**: `src/App.tsx`
+
 ```typescript
-const [contratoOpen, setContratoOpen] = useState(false);
-
-<Collapsible open={contratoOpen} onOpenChange={setContratoOpen}>
-  <CollapsibleTrigger asChild>
-    <Button variant="ghost" className="w-full justify-between">
-      <span>Dados do Contrato</span>
-      <ChevronDown className={cn("transition-transform", contratoOpen && "rotate-180")} />
-    </Button>
-  </CollapsibleTrigger>
-  <CollapsibleContent>
-    {/* campos do contrato */}
-  </CollapsibleContent>
-</Collapsible>
+<Route path="/:tenant/crm/cliente/:id?" element={<ClienteCadastro />} />
+<Route path="/:tenant/crm/cliente/novo" element={<ClienteCadastro />} />
 ```
-
-### 2. CRM: Etiquetas disponiveis desde o cadastro
-
-**Arquivo**: `src/components/CRM/ClienteForm.tsx`
-
-- Atualmente: `{isEditing && <ClienteEtiquetasManager ... />}`
-- Mudar para: exibir sempre, mas com mensagem de que "Salve primeiro para adicionar etiquetas" quando nao estiver editando
-
-O componente `ClienteEtiquetasManager` ja tem essa logica interna - basta remover a condicao `isEditing` do wrapper.
-
-### 3. Financeiro: Edicao de Pagamentos
-
-**Status**: Ja implementado
-
-O sistema ja permite editar pagamentos apos baixa atraves do menu de 3 pontinhos (DropdownMenu) que aparece em parcelas com status "pago". Funcionalidades disponiveis:
-- Editar Pagamento (data, metodo, valor pago, observacoes)
-- Reabrir Pagamento (voltar para pendente/atrasado)
-- Historico de pagamentos
-
-Nenhuma alteracao necessaria.
-
-### 4. Prazos: Dialog Completo de Edicao
-
-**Novo arquivo**: `src/components/Agenda/EditarPrazoDialog.tsx`
-
-**Campos editaveis**:
-- Titulo do prazo
-- Descricao
-- Data
-- Advogado responsavel
-- Usuarios marcados (tags)
-
-**Arquivo modificado**: `src/pages/Agenda.tsx`
-- Adicionar estado para controlar o dialog de edicao
-- Adicionar botao "Editar" no menu de opcoes do prazo
-- Importar e usar o novo dialog
-
-**Logica de permissao**:
-- Apenas admin/controller ou criador do prazo pode editar
 
 ---
 
-## Diagrama de Fluxo - Edicao de Prazo
+## Novo Visual da Lista de Clientes
 
 ```text
-Usuario clica em prazo
-        |
-        v
-Abre detalhes do prazo
-        |
-        v
-Clica em "Editar" (se admin/controller/criador)
-        |
-        v
-Abre EditarPrazoDialog
-        |
-  +-----+-----+
-  |           |
-  v           v
-Altera    Altera
-campos    responsavel
-  |           |
-  +-----+-----+
-        |
-        v
-Clica "Salvar"
-        |
-        v
-UPDATE deadlines SET title, description, date, advogado_responsavel_id
-        |
-        v
-Registra comentario automatico de alteracao
-        |
-        v
-Recarrega lista de prazos
++------------------------------------------------------------------+
+| CRM - Gestao de Clientes                        [+ Novo Cliente] |
++------------------------------------------------------------------+
+| [Buscar por nome...]                    [Filtro: Todos v]        |
++------------------------------------------------------------------+
+|                                                                  |
+| Nome                     | Telefone       | Status    | Acoes    |
+|--------------------------|----------------|-----------|----------|
+| Joao da Silva            | (11) 99999-9999| Ativo     | Editar X |
+| Maria Santos             | (21) 88888-8888| Ativo     | Editar X |
+| Empresa ABC Ltda         | (31) 77777-7777| Encerrado | Editar X |
+|                                                                  |
++------------------------------------------------------------------+
 ```
+
+**Comportamento**:
+- Clicar no nome -> navega para `/crm/cliente/:id`
+- Botao "Novo Cliente" -> navega para `/crm/cliente/novo`
+
+---
+
+## Pagina de Cadastro (Nova)
+
+```text
++------------------------------------------------------------------+
+| [X]                                                              |
+|                                                                  |
+|            Cadastro de Cliente                                   |
+|                                                                  |
+|  [ ] Pessoa Fisica   [ ] Pessoa Juridica                         |
+|                                                                  |
+|  Nome PF: [________________________]                             |
+|  Telefone: [_______________________]                             |
+|  Email: [__________________________]                             |
+|  ...                                                             |
+|                                                                  |
+|  +-- Dados do Contrato (v) ----------------------------------+   |
+|  |  (colapsavel)                                             |   |
+|  +-----------------------------------------------------------+   |
+|                                                                  |
+|  +-- Etiquetas ----------------------------------------------+   |
+|  |  [Trabalhista] [Civel] [+ Adicionar]                      |   |
+|  +-----------------------------------------------------------+   |
+|                                                                  |
+|  [ ] Criar projeto vinculado a este cliente                      |
+|      Nome do projeto: [Auto-preenchido com nome do cliente]      |
+|                                                                  |
+|  [Cancelar]                              [Salvar Cliente]        |
++------------------------------------------------------------------+
+```
+
+---
+
+## Fluxo de Criacao de Projeto
+
+1. Usuario marca checkbox "Criar projeto vinculado"
+2. Campo de nome do projeto aparece (pre-preenchido com nome do cliente)
+3. Ao salvar cliente com sucesso:
+   - `createCliente()` retorna o cliente criado
+   - Se checkbox marcado, chama `createProject()` com:
+     - `name`: nome do projeto (ou nome do cliente)
+     - `client`: nome do cliente
+     - `cliente_id`: ID do cliente criado
 
 ---
 
@@ -132,7 +138,7 @@ Recarrega lista de prazos
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/components/Agenda/EditarPrazoDialog.tsx` | Dialog completo para edicao de prazos |
+| `src/pages/ClienteCadastro.tsx` | Pagina dedicada de cadastro/edicao |
 
 ---
 
@@ -140,55 +146,144 @@ Recarrega lista de prazos
 
 | Arquivo | Alteracoes |
 |---------|------------|
-| `src/components/CRM/ClienteForm.tsx` | Tornar "Dados do Contrato" colapsavel; mostrar etiquetas sempre |
-| `src/pages/Agenda.tsx` | Adicionar estado e botao para editar prazo; importar EditarPrazoDialog |
+| `src/pages/CRM.tsx` | Remover modals, transformar em lista minimalista com navegacao |
+| `src/components/CRM/ClienteForm.tsx` | Adicionar checkbox para criar projeto |
+| `src/App.tsx` | Adicionar rota `/crm/cliente/:id?` |
 
 ---
 
 ## Detalhes Tecnicos
 
-### EditarPrazoDialog.tsx
+### ClienteCadastro.tsx
 
 ```typescript
-interface EditarPrazoDialogProps {
-  deadline: Deadline | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
-  tenantId: string;
+import { useParams, useNavigate } from 'react-router-dom';
+import { ClienteForm } from '@/components/CRM/ClienteForm';
+import { useClientes } from '@/hooks/useClientes';
+import { useProjectsOptimized } from '@/hooks/useProjectsOptimized';
+import { X } from 'lucide-react';
+
+export default function ClienteCadastro() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEditing = id && id !== 'novo';
+  
+  // Buscar cliente se estiver editando
+  // ...
+  
+  const handleClose = () => {
+    navigate(-1); // ou navigate('/crm')
+  };
+  
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto p-6">
+        <Button variant="ghost" onClick={handleClose} className="absolute top-4 right-4">
+          <X className="h-6 w-6" />
+        </Button>
+        
+        <h1 className="text-2xl font-bold mb-6">
+          {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
+        </h1>
+        
+        <ClienteForm
+          cliente={cliente}
+          onSuccess={handleSuccess}
+          onCancel={handleClose}
+          showCreateProject={!isEditing}
+        />
+      </div>
+    </div>
+  );
 }
-
-// Campos do formulario:
-// - title: Input (obrigatorio)
-// - description: Textarea (opcional)
-// - date: DatePicker (obrigatorio)
-// - advogado_responsavel_id: AdvogadoSelector (obrigatorio)
-// - taggedUsers: UserTagSelector (opcional)
-
-// Ao salvar:
-// 1. UPDATE deadlines
-// 2. UPSERT deadline_tags (remover tags antigas, inserir novas)
-// 3. INSERT deadline_comentarios (registro de alteracao)
-// 4. Notificar usuarios afetados
 ```
 
-### ClienteForm.tsx - Collapsible
+### CRM.tsx - Lista Minimalista
 
 ```typescript
-// Adicionar imports
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
+// Substituir cards por tabela simples
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Nome</TableHead>
+      <TableHead>Telefone</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead className="w-20">Acoes</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {filteredClientes.map((cliente) => (
+      <TableRow key={cliente.id}>
+        <TableCell>
+          <button
+            onClick={() => navigate(`/crm/cliente/${cliente.id}`)}
+            className="font-medium text-primary hover:underline"
+          >
+            {cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica}
+          </button>
+        </TableCell>
+        <TableCell>{cliente.telefone}</TableCell>
+        <TableCell><StatusBadge status={cliente.status_cliente} /></TableCell>
+        <TableCell>
+          <Button variant="ghost" size="icon">
+            <Edit className="h-4 w-4" />
+          </Button>
+        </TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
 
-// Adicionar estado
-const [contratoOpen, setContratoOpen] = useState(!!cliente?.valor_contrato);
+### ClienteForm.tsx - Checkbox de Projeto
 
-// Substituir <div className="space-y-4"> por Collapsible
+```typescript
+// Novas props
+interface ClienteFormProps {
+  cliente?: Cliente;
+  onSuccess: () => void;
+  onCancel: () => void;
+  showCreateProject?: boolean;
+  onClienteCreated?: (clienteId: string, nome: string) => Promise<void>;
+}
+
+// Novo estado
+const [criarProjeto, setCriarProjeto] = useState(false);
+const [nomeProjeto, setNomeProjeto] = useState('');
+
+// No form, antes dos botoes de acao:
+{showCreateProject && (
+  <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+    <div className="flex items-center space-x-2">
+      <Checkbox
+        id="criar-projeto"
+        checked={criarProjeto}
+        onCheckedChange={(checked) => setCriarProjeto(!!checked)}
+      />
+      <Label htmlFor="criar-projeto">
+        Criar projeto vinculado a este cliente
+      </Label>
+    </div>
+    
+    {criarProjeto && (
+      <div className="pl-6">
+        <Label>Nome do projeto</Label>
+        <Input
+          value={nomeProjeto || nomeCliente}
+          onChange={(e) => setNomeProjeto(e.target.value)}
+          placeholder="Nome do projeto"
+        />
+      </div>
+    )}
+  </div>
+)}
 ```
 
 ---
 
-## Estimativa de Impacto
+## Beneficios
 
-- **CRM**: Melhoria de UX - formulario mais limpo com secoes colapsaveis
-- **Financeiro**: Sem alteracoes (ja funcional)
-- **Prazos**: Nova funcionalidade de edicao completa - maior flexibilidade para usuarios
+- **UX Profissional**: Tela dedicada ao inves de modal
+- **Lista Limpa**: Facil de navegar e buscar
+- **Integracao**: Criacao de projeto junto com cliente
+- **Flexibilidade**: Formulario reutilizado em contextos diferentes
