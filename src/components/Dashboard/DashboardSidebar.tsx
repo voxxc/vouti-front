@@ -15,20 +15,22 @@ import {
   ChevronRight,
   Menu,
   Headphones,
-  Star
+  Star,
+  FileText
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
- import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
- import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
+import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
+import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
 import { CRMDrawer } from "@/components/CRM/CRMDrawer";
 import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
 import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
 import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
+import { DocumentosDrawer } from "@/components/Documentos/DocumentosDrawer";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
-type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | null;
+type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -88,6 +90,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     'clientes': ['comercial'],
     'financeiro': ['financeiro'],
     'controladoria': ['advogado', 'controller'],
+    'documentos': ['advogado', 'controller'],
     'reunioes': ['comercial', 'agenda', 'reunioes'],
   };
 
@@ -107,6 +110,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     { id: 'clientes', icon: Users, label: 'Clientes', route: '/crm' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
+    { id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
     { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
@@ -118,6 +122,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     if (itemId === 'clientes' && currentPage === 'crm') return true;
     if (itemId === 'financeiro' && currentPage === 'financial') return true;
     if (itemId === 'controladoria' && currentPage === 'controladoria') return true;
+    if (itemId === 'documentos' && currentPage === 'documentos') return true;
     if (itemId === 'reunioes' && currentPage === 'reunioes') return true;
     if (itemId === 'extras' && currentPage === 'extras') return true;
     return false;
@@ -323,6 +328,30 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
               );
             }
 
+            // Tratamento especial para Documentos - abre drawer
+            if (item.id === 'documentos') {
+              return (
+                <Button
+                  key={item.id}
+                  variant={isActive(item.id) ? "secondary" : "ghost"}
+                  onMouseEnter={() => handleMouseEnter(item.id)}
+                  onClick={() => {
+                    setActiveDrawer('documentos');
+                    setIsMobileOpen(false);
+                  }}
+                  className={cn(
+                    "w-full justify-start gap-3 h-11",
+                    isCollapsed && "justify-center px-2",
+                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <Icon size={20} />
+                  {!isCollapsed && <span>{item.label}</span>}
+                </Button>
+              );
+            }
+
              return (
                <Button
                  key={item.id}
@@ -385,6 +414,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
       <FinancialDrawer open={activeDrawer === 'financeiro'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
       <ReunioesDrawer open={activeDrawer === 'reunioes'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
       <AgendaDrawer open={activeDrawer === 'agenda'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
+      <DocumentosDrawer open={activeDrawer === 'documentos'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
 
       {/* Spacer to push content */}
       <div className={cn(

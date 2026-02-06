@@ -1819,6 +1819,67 @@ export type Database = {
           },
         ]
       }
+      documentos: {
+        Row: {
+          cliente_id: string | null
+          conteudo_html: string | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          projeto_id: string | null
+          responsavel_id: string | null
+          tenant_id: string
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          conteudo_html?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          projeto_id?: string | null
+          responsavel_id?: string | null
+          tenant_id: string
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          conteudo_html?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          projeto_id?: string | null
+          responsavel_id?: string | null
+          tenant_id?: string
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       etiquetas: {
         Row: {
           cor: string | null

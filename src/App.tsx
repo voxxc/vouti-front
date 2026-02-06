@@ -56,6 +56,8 @@ import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext"
 import VeridictoLanding from "@/pages/VeridictoLanding";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/NotFound";
+import Documentos from "@/pages/Documentos";
+import DocumentoEditar from "@/pages/DocumentoEditar";
 import Logo from "@/components/Logo";
 import { 
   LegacyProjectRedirect, 
@@ -439,6 +441,19 @@ function App() {
             <Route path="/:tenant/extras" element={
               <TenantRouteWrapper>
                 <Extras />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* Documentos - Tenant Dynamic */}
+            <Route path="/:tenant/documentos" element={
+              <TenantRouteWrapper>
+                <Documentos />
+              </TenantRouteWrapper>
+            } />
+            
+            <Route path="/:tenant/documentos/:id" element={
+              <TenantRouteWrapper>
+                <DocumentoEditar />
               </TenantRouteWrapper>
             } />
             
