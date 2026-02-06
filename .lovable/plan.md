@@ -1,81 +1,142 @@
 
-Objetivo
-- Remover completamente qualquer exibição de “barra de conclusão” e “x% completo” relacionada a projetos (inclusive em telas onde ainda aparece).
-- Na página /projects (no seu caso /solvenza/projects), trocar o layout de cards em grade por um esquema de lista, mantendo a data de criação visível.
+# Redesenhar Navegacao de Abas na Controladoria
 
-O que encontrei no código (causa provável do que você ainda está vendo)
-1) “x% completo” + barra abaixo do nome do projeto existe claramente no header do projeto
-- Arquivo: src/pages/ProjectView.tsx
-- Trecho atual:
-  - calcula: const projectProgress = calculateProjectProgress(project.tasks, columns);
-  - renderiza:
-    - <Progress value={projectProgress} ... />
-    - <span>{projectProgress}% completo</span>
-Isso explica exatamente o “x% completo” e a barra “abaixo do nome”.
+## Objetivo
+Converter as abas de botoes (estilo pill/rounded) para um design minimalista de links de texto clicaveis com linha inferior no item ativo, seguindo o padrao do `ClienteDetails.tsx`.
 
-2) Em /projects, o código atual (src/pages/Projects.tsx) não tem barra de progresso renderizada no estado “carregado”
-- Porém, no skeleton de loading (quando ainda está carregando) existe uma faixa horizontal (Skeleton className="h-2 w-full rounded-full") que pode ser percebida como “barra de progresso”.
-- Também no drawer (src/components/Projects/ProjectsDrawer.tsx) o skeleton de loading tem uma linha final “h-2 w-full” que pode parecer uma barra.
+---
 
-Plano de implementação (mudanças de UI)
-A) Remover a estrutura de % de conclusão no header do projeto (onde ainda está explícito)
-Arquivo: src/pages/ProjectView.tsx
-- Remover:
-  - import { calculateProjectProgress } from "@/utils/projectHelpers";
-  - import { Progress } from "@/components/ui/progress";
-  - const projectProgress = calculateProjectProgress(...)
-  - o bloco JSX que mostra a barra + “{projectProgress}% completo”
-- Resultado esperado:
-  - No header do projeto ficará apenas: nome (editável) + cliente, sem qualquer referência a progresso.
+## Alteracoes
 
-B) Garantir que /projects não mostre nada que pareça barra de progresso
-Arquivo: src/pages/Projects.tsx
-1) Converter a visualização para “lista”
-- Substituir o container atual:
-  - <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  por um layout de lista, por exemplo:
-  - <div className="divide-y rounded-lg border bg-card">
-  - Cada projeto vira uma “linha” clicável com:
-    - Nome do projeto (destaque)
-    - Cliente (subtexto)
-    - Data de criação (manter visível de forma clara)
-    - (Opcional) contagem de tarefas e updatedAt em uma área secundária
-    - Botão de excluir (admin) alinhado à direita, sem quebrar o clique da linha
-- Manter a data de criação:
-  - hoje você já tem project.createdAt no hook e já está exibindo no card; vamos manter na linha da lista, por exemplo:
-    - “Criado em dd/MM/yyyy”
+### 1. Abas superiores (Central, OABs, Push-Doc)
+**Arquivo:** `src/components/Controladoria/ControladoriaContent.tsx`
 
-2) Ajustar skeleton para não ter “faixa que parece progress”
-- No skeleton de carregamento, remover/substituir a linha:
-  - <Skeleton className="h-2 w-full rounded-full" />
-- Trocar por algo que não lembre uma barra (ex.: mais uma linha curta de texto, ou um bloco com largura parcial), por exemplo:
-  - <Skeleton className="h-4 w-24" />
-Isso elimina a “barra” durante o carregamento.
+**De (atual):**
+```tsx
+<TabsList className="flex-shrink-0">
+  <TabsTrigger value="central">
+    <ClipboardCheck className="mr-2 h-4 w-4" />
+    Central
+  </TabsTrigger>
+  ...
+</TabsList>
+```
 
-C) Garantir que o drawer de projetos não exiba “barra” nem no loading
-Arquivo: src/components/Projects/ProjectsDrawer.tsx
-- No skeleton do loading (cada item), hoje existe:
-  - <Skeleton className="h-2 w-full" />
-- Substituir por uma linha de texto curta (não full width), ou remover esse terceiro skeleton.
-- Isso evita que o usuário interprete a terceira linha como uma “barra de conclusão”.
+**Para (novo design):**
+```tsx
+<div className="flex gap-6 border-b flex-shrink-0">
+  <button
+    onClick={() => setActiveTab('central')}
+    className={cn(
+      "pb-2 text-sm font-medium transition-colors relative",
+      activeTab === 'central'
+        ? "text-foreground"
+        : "text-muted-foreground hover:text-foreground"
+    )}
+  >
+    Central
+    {activeTab === 'central' && (
+      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+    )}
+  </button>
+  <button ... >OABs</button>
+  <button ... >Push-Doc</button>
+</div>
+```
 
-Checklist de validação (após implementar)
-1) /solvenza/projects
-- Com dados carregados: nenhum projeto mostra barra ou “x% completo”.
-- Durante loading: skeleton não contém “barra” horizontal que pareça progresso.
-- Visual em lista: nome, cliente e “Criado em dd/MM/yyyy” aparecem em cada linha.
+**Mudancas:**
+- Remover icones das abas (ClipboardCheck, Scale, Building2)
+- Substituir TabsList/TabsTrigger por botoes customizados
+- Adicionar state local `activeTab` para controlar a aba ativa
+- Renderizar conteudo condicionalmente baseado no `activeTab`
 
-2) /solvenza/project/:id
-- Header não mostra barra e não mostra “x% completo”.
+---
 
-3) Drawer “Projetos” (sidebar)
-- Lista carregada: sem barra.
-- Loading skeleton: sem linha que pareça barra.
+### 2. Abas inferiores (Andamentos Nao Lidos, Prazos Concluidos)
+**Arquivo:** `src/components/Controladoria/CentralControladoria.tsx`
 
-Arquivos que serão alterados
-- src/pages/ProjectView.tsx (remover UI e lógica de progresso no header)
-- src/pages/Projects.tsx (trocar grid por lista + ajustar skeleton)
-- src/components/Projects/ProjectsDrawer.tsx (ajustar skeleton para não parecer barra)
+**De (atual):**
+```tsx
+<TabsList className="flex-shrink-0">
+  <TabsTrigger value="andamentos" className="flex items-center gap-2">
+    <Bell className="h-4 w-4" />
+    Andamentos Nao Lidos
+    {totalNaoLidos > 0 && <Badge ...>{totalNaoLidos}</Badge>}
+  </TabsTrigger>
+  <TabsTrigger value="prazos" className="flex items-center gap-2">
+    <CheckCircle2 className="h-4 w-4" />
+    Prazos Concluidos
+  </TabsTrigger>
+</TabsList>
+```
 
-Notas técnicas (para manter o projeto consistente)
-- Não vou apagar a função calculateProjectProgress nem o Phase 2 do useProjectsOptimized; apenas vamos parar de mostrar “progresso” nessas telas. Assim, se você quiser reutilizar em dashboard/relatórios no futuro, fica disponível.
+**Para (novo design):**
+```tsx
+<div className="flex gap-6 border-b flex-shrink-0">
+  <button
+    onClick={() => setActiveTab('andamentos')}
+    className={cn(
+      "pb-2 text-sm font-medium transition-colors relative flex items-center gap-2",
+      activeTab === 'andamentos'
+        ? "text-foreground"
+        : "text-muted-foreground hover:text-foreground"
+    )}
+  >
+    Andamentos Nao Lidos
+    {totalNaoLidos > 0 && <Badge ...>{totalNaoLidos}</Badge>}
+    {activeTab === 'andamentos' && (
+      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+    )}
+  </button>
+  <button ... >Prazos Concluidos</button>
+</div>
+```
+
+**Mudancas:**
+- Remover icones (Bell, CheckCircle2)
+- Substituir Tabs/TabsList/TabsTrigger por navegacao customizada
+- Manter o badge de contagem nos "Andamentos Nao Lidos"
+- Adicionar state local para controlar aba ativa
+- Renderizar conteudo condicionalmente
+
+---
+
+## Resultado Visual
+
+### Antes
+```
+┌─────────────────────────────────────────┐
+│ [📋 Central] [⚖ OABs] [🏢 Push-Doc]    │  <- botoes pill/rounded com icones
+│                                         │
+│   [🔔 Andamentos Nao Lidos] [✓ Prazos] │  <- botoes pill/rounded com icones
+└─────────────────────────────────────────┘
+```
+
+### Depois
+```
+┌─────────────────────────────────────────┐
+│ Central   OABs   Push-Doc               │  <- texto alinhado esquerda
+│ ───────                                 │  <- linha sob item ativo
+│                                         │
+│ Andamentos Nao Lidos (5)   Prazos Concluidos
+│ ────────────────────────                │  <- linha sob item ativo
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/Controladoria/ControladoriaContent.tsx` | Substituir TabsList por navegacao de texto, adicionar state |
+| `src/components/Controladoria/CentralControladoria.tsx` | Substituir TabsList por navegacao de texto, remover icones |
+
+---
+
+## Detalhes Tecnicos
+
+- Importar `useState` e `cn` nos arquivos
+- Remover imports nao utilizados (Tabs, TabsList, TabsTrigger, icones)
+- Manter imports do TabsContent apenas se continuar usando Radix, ou substituir por renderizacao condicional simples
+- A logica de fetch do badge `totalNaoLidos` permanece inalterada
