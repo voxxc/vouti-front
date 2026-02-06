@@ -1,27 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useClienteParcelas } from '@/hooks/useClienteParcelas';
 import { BaixaPagamentoDialog } from './BaixaPagamentoDialog';
 import { EditarPagamentoDialog } from './EditarPagamentoDialog';
 import { EditarParcelaDialog } from './EditarParcelaDialog';
 import { ParcelaComentarios } from './ParcelaComentarios';
 import { ParcelaHistorico } from './ParcelaHistorico';
+import { ParcelaCard } from './ParcelaCard';
 import { ClienteDivida, ClienteParcela, DadosBaixaPagamento } from '@/types/financeiro';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, Clock, AlertCircle, AlertTriangle, DollarSign, Calendar, TrendingUp, FileText, Trash2, MoreVertical, RotateCcw, Edit, History } from 'lucide-react';
+import { CheckCircle2, Clock, DollarSign, Calendar, TrendingUp, Trash2, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,26 +76,7 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
     ? ((parcelasPagas.length + parcelasParciais.length * 0.5) / parcelas.length) * 100 
     : 0;
 
-  // formatCurrency agora é importado de @/lib/utils
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; icon: any; label: string; className?: string }> = {
-      pago: { variant: 'default', icon: CheckCircle2, label: 'Pago' },
-      pendente: { variant: 'secondary', icon: Clock, label: 'Pendente' },
-      atrasado: { variant: 'destructive', icon: AlertCircle, label: 'Atrasado' },
-      parcial: { variant: 'outline', icon: AlertTriangle, label: 'Parcial', className: 'bg-amber-500/20 text-amber-700 border-amber-500' },
-    };
-
-    const config = variants[status] || variants.pendente;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant} className={cn("gap-1", config.className)}>
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </Badge>
-    );
-  };
+  // getStatusBadge movido para ParcelaCard
 
   const handleDarBaixa = (parcela: ClienteParcela) => {
     setSelectedParcela(parcela);
@@ -277,264 +252,109 @@ export const DividaContent = ({ divida, clienteId, onUpdate, onDelete }: DividaC
               Nenhuma parcela encontrada.
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {parcelas.map((parcela, index) => {
                 const isProximoVencimento = parcela.status === 'pendente' && 
                   index === parcelas.findIndex(p => p.status === 'pendente');
                 
                 return (
-                  <div
+                  <ParcelaCard
                     key={parcela.id}
-                    className={cn(
-                      "p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors relative",
-                      isProximoVencimento && "border-primary bg-primary/5"
+                    parcela={parcela}
+                    isProximoVencimento={isProximoVencimento}
+                    isExpanded={selectedParcelaForComments === parcela.id}
+                    onToggleDetails={() => setSelectedParcelaForComments(
+                      selectedParcelaForComments === parcela.id ? null : parcela.id
                     )}
+                    onDarBaixa={() => handleDarBaixa(parcela)}
+                    onEditarParcela={() => handleEditarParcelaDados(parcela)}
+                    onEditarPagamento={() => handleEditarParcela(parcela)}
+                    onReabrirPagamento={() => handleReabrirParcela(parcela.id)}
                   >
-                    {isProximoVencimento && (
-                      <Badge variant="default" className="absolute -top-2 -right-2">
-                        Próximo Vencimento
-                      </Badge>
-                    )}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <button 
-                            className="font-semibold hover:underline text-left"
-                            onClick={() => setSelectedParcelaForComments(
-                              selectedParcelaForComments === parcela.id ? null : parcela.id
-                            )}
-                          >
-                            Parcela #{parcela.numero_parcela}
-                          </button>
-                          {getStatusBadge(parcela.status)}
-                        </div>
+                    {/* Histórico de Pagamentos */}
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                          <History className="h-4 w-4" />
+                          Histórico de Pagamentos
+                        </h4>
+                        <ParcelaHistorico 
+                          parcelaId={parcela.id} 
+                          onExcluirPagamento={async (historicoId, valorPago) => {
+                            const parcelaAtual = parcelas.find(p => p.id === parcela.id);
+                            if (!parcelaAtual) return false;
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Valor</p>
-                            <p className="font-semibold">{formatCurrency(Number(parcela.valor_parcela))}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Vencimento</p>
-                            <p className="font-medium">
-                              {format(new Date(parcela.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
-                            </p>
-                          </div>
-                          {parcela.data_pagamento && (
-                            <>
-                              <div>
-                                <p className="text-muted-foreground">Pago em</p>
-                                <p className="font-medium text-primary">
-                                  {format(new Date(parcela.data_pagamento), 'dd/MM/yyyy', { locale: ptBR })}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Método</p>
-                                <p className="font-medium">{parcela.metodo_pagamento}</p>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                            const valorPagoAtual = parcelaAtual.valor_pago || 0;
+                            const novoValorPago = Math.max(0, valorPagoAtual - valorPago);
+                            const novoSaldoRestante = parcelaAtual.valor_parcela - novoValorPago;
 
-                        {parcela.observacoes && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            <FileText className="w-3 h-3 inline mr-1" />
-                            {parcela.observacoes}
-                          </p>
-                        )}
+                            let novoStatus: string;
+                            if (novoValorPago <= 0) {
+                              novoStatus = new Date(parcelaAtual.data_vencimento) < new Date() ? 'atrasado' : 'pendente';
+                            } else {
+                              novoStatus = 'parcial';
+                            }
 
-                        {parcela.comprovante_url && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="p-0 h-auto"
-                            onClick={() => window.open(parcela.comprovante_url, '_blank')}
-                          >
-                            Ver comprovante
-                          </Button>
-                        )}
+                            const { error: updateError } = await supabase
+                              .from('cliente_parcelas')
+                              .update({
+                                valor_pago: novoValorPago > 0 ? novoValorPago : null,
+                                saldo_restante: novoSaldoRestante,
+                                status: novoStatus,
+                                ...(novoValorPago <= 0 && {
+                                  data_pagamento: null,
+                                  metodo_pagamento: null,
+                                })
+                              })
+                              .eq('id', parcela.id);
 
-                        {/* Mostrar saldo em aberto para parcelas parciais */}
-                        {parcela.status === 'parcial' && (
-                          <div className="mt-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                              <AlertTriangle className="w-4 h-4" />
-                              <div className="text-sm">
-                                <p className="font-medium">
-                                  Saldo em aberto: {formatCurrency(Number(parcela.saldo_restante ?? 0))}
-                                </p>
-                                <p className="text-xs opacity-80">
-                                  Já pago: {formatCurrency(Number(parcela.valor_pago ?? 0))}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                            if (updateError) return false;
+
+                            const { error: deleteError } = await supabase
+                              .from('cliente_pagamento_comentarios')
+                              .delete()
+                              .eq('id', historicoId);
+
+                            if (deleteError) return false;
+
+                            const { data: { user } } = await supabase.auth.getUser();
+                            if (user) {
+                              const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('tenant_id')
+                                .eq('user_id', user.id)
+                                .maybeSingle();
+                                
+                              await supabase
+                                .from('cliente_pagamento_comentarios')
+                                .insert({
+                                  parcela_id: parcela.id,
+                                  user_id: user.id,
+                                  comentario: `Pagamento de ${formatCurrency(valorPago)} excluído`,
+                                  tenant_id: profile?.tenant_id
+                                });
+                            }
+
+                            await fetchParcelas();
+                            onUpdate();
+                            return true;
+                          }}
+                          onHistoricoChange={() => {
+                            fetchParcelas();
+                            onUpdate();
+                          }}
+                        />
                       </div>
-
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setSelectedParcelaForComments(
-                            selectedParcelaForComments === parcela.id ? null : parcela.id
-                          )}
-                        >
-                          {selectedParcelaForComments === parcela.id ? 'Ocultar' : 'Detalhes'}
-                        </Button>
-
-                        {/* Menu de 3 pontinhos unificado para todas as parcelas */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-background border">
-                            {/* Dar baixa - para pendente, atrasado, parcial */}
-                            {(parcela.status === 'pendente' || parcela.status === 'atrasado' || parcela.status === 'parcial') && (
-                              <DropdownMenuItem 
-                                onClick={() => handleDarBaixa(parcela)}
-                                className="gap-2 cursor-pointer"
-                              >
-                                <DollarSign className="h-4 w-4" />
-                                {parcela.status === 'parcial' ? 'Completar Pagamento' : 'Dar Baixa'}
-                              </DropdownMenuItem>
-                            )}
-                            
-                            {/* Editar parcela - sempre disponível */}
-                            <DropdownMenuItem 
-                              onClick={() => handleEditarParcelaDados(parcela)}
-                              className="gap-2 cursor-pointer"
-                            >
-                              <Edit className="h-4 w-4" />
-                              Editar Parcela
-                            </DropdownMenuItem>
-                            
-                            {/* Editar pagamento - para pago e parcial */}
-                            {(parcela.status === 'pago' || parcela.status === 'parcial') && (
-                              <DropdownMenuItem 
-                                onClick={() => handleEditarParcela(parcela)}
-                                className="gap-2 cursor-pointer"
-                              >
-                                <FileText className="h-4 w-4" />
-                                Editar Pagamento
-                              </DropdownMenuItem>
-                            )}
-                            
-                            {/* Reabrir - apenas para pago */}
-                            {parcela.status === 'pago' && (
-                              <DropdownMenuItem 
-                                onClick={() => handleReabrirParcela(parcela.id)}
-                                className="gap-2 cursor-pointer text-destructive"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                                Reabrir Pagamento
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      
+                      {/* Comentários */}
+                      <div>
+                        <ParcelaComentarios
+                          parcelaId={parcela.id}
+                          currentUserId={currentUserId}
+                        />
                       </div>
                     </div>
-
-                    {/* Área expandível de Detalhes (Histórico + Comentários) */}
-                    {selectedParcelaForComments === parcela.id && (
-                      <div className="mt-4 pt-4 border-t space-y-4">
-                    {/* Histórico de Pagamentos */}
-                        <div>
-                          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                            <History className="h-4 w-4" />
-                            Histórico de Pagamentos
-                          </h4>
-                          <ParcelaHistorico 
-                            parcelaId={parcela.id} 
-                            onExcluirPagamento={async (historicoId, valorPago) => {
-                              const { excluirPagamento } = await import('@/hooks/useClienteParcelas').then(m => {
-                                // We need to call the hook function directly here
-                                return { excluirPagamento: async (hId: string, valor: number) => {
-                                  // Inline implementation since we can't use hooks conditionally
-                                  const parcelaAtual = parcelas.find(p => p.id === parcela.id);
-                                  if (!parcelaAtual) return false;
-
-                                  const valorPagoAtual = parcelaAtual.valor_pago || 0;
-                                  const novoValorPago = Math.max(0, valorPagoAtual - valor);
-                                  const novoSaldoRestante = parcelaAtual.valor_parcela - novoValorPago;
-
-                                  let novoStatus: string;
-                                  if (novoValorPago <= 0) {
-                                    novoStatus = new Date(parcelaAtual.data_vencimento) < new Date() ? 'atrasado' : 'pendente';
-                                  } else {
-                                    novoStatus = 'parcial';
-                                  }
-
-                                  const { error: updateError } = await supabase
-                                    .from('cliente_parcelas')
-                                    .update({
-                                      valor_pago: novoValorPago > 0 ? novoValorPago : null,
-                                      saldo_restante: novoSaldoRestante,
-                                      status: novoStatus,
-                                      ...(novoValorPago <= 0 && {
-                                        data_pagamento: null,
-                                        metodo_pagamento: null,
-                                      })
-                                    })
-                                    .eq('id', parcela.id);
-
-                                  if (updateError) return false;
-
-                                  const { error: deleteError } = await supabase
-                                    .from('cliente_pagamento_comentarios')
-                                    .delete()
-                                    .eq('id', hId);
-
-                                  if (deleteError) return false;
-
-                                  const { data: { user } } = await supabase.auth.getUser();
-                                  if (user) {
-                                    const { data: profile } = await supabase
-                                      .from('profiles')
-                                      .select('tenant_id')
-                                      .eq('user_id', user.id)
-                                      .maybeSingle();
-                                      
-                                    await supabase
-                                      .from('cliente_pagamento_comentarios')
-                                      .insert({
-                                        parcela_id: parcela.id,
-                                        user_id: user.id,
-                                        comentario: `Pagamento de R$ ${valor.toFixed(2).replace('.', ',')} excluído`,
-                                        tenant_id: profile?.tenant_id
-                                      });
-                                  }
-
-                                  return true;
-                                }};
-                              });
-                              const success = await excluirPagamento(historicoId, valorPago);
-                              if (success) {
-                                await fetchParcelas();
-                                onUpdate();
-                              }
-                              return success;
-                            }}
-                            onHistoricoChange={() => {
-                              fetchParcelas();
-                              onUpdate();
-                            }}
-                          />
-                        </div>
-                        
-                        {/* Comentários */}
-                        <div>
-                          <ParcelaComentarios
-                            parcelaId={parcela.id}
-                            currentUserId={currentUserId}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  </ParcelaCard>
                 );
               })}
             </div>
