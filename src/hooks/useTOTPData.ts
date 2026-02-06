@@ -162,6 +162,26 @@ export function useTOTPData(tenantId: string | null) {
     }
   });
 
+  // Mutation para atualizar nome do token
+  const updateTokenMutation = useMutation({
+    mutationFn: async ({ tokenId, name }: { tokenId: string; name: string }) => {
+      const { error } = await supabase
+        .from('totp_tokens')
+        .update({ name })
+        .eq('id', tokenId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['totp-tokens', tenantId] });
+      toast.success('Token atualizado');
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar token:', error);
+      toast.error('Erro ao atualizar token');
+    }
+  });
+
   // Mutation para migrar dados do localStorage
   const migrateLocalDataMutation = useMutation({
     mutationFn: async (localData: { wallets: any[]; tokens: any[] }) => {
@@ -228,6 +248,8 @@ export function useTOTPData(tenantId: string | null) {
       addTokenMutation.mutate({ name, secret, walletId }),
     deleteWallet: (walletId: string) => deleteWalletMutation.mutate(walletId),
     deleteToken: (tokenId: string) => deleteTokenMutation.mutate(tokenId),
+    updateToken: (tokenId: string, name: string) => 
+      updateTokenMutation.mutate({ tokenId, name }),
     migrateLocalData: (data: { wallets: any[]; tokens: any[] }) => 
       migrateLocalDataMutation.mutateAsync(data),
     isMigrating: migrateLocalDataMutation.isPending

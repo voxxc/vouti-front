@@ -88,6 +88,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
     addToken,
     deleteWallet,
     deleteToken,
+    updateToken,
     migrateLocalData,
     isMigrating
   } = useTOTPData(tenantId);
@@ -195,6 +196,10 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
     setDeleteTokenOpen(false);
   };
 
+  const handleEditToken = (token: TOTPToken, newName: string) => {
+    updateToken(token.id, newName);
+  };
+
   const getTokensForWallet = (walletId: string) => 
     tokens.filter(t => t.walletId === walletId);
 
@@ -281,6 +286,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
                       setTokenToDelete(token);
                       setDeleteTokenOpen(true);
                     }}
+                    onEditToken={handleEditToken}
                   />
                 ))}
               </div>
