@@ -3,6 +3,7 @@ import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { PerfilTab } from "@/components/Extras/PerfilTab";
 import { AniversariosTab } from "@/components/Extras/AniversariosTab";
 import { GoogleAgendaTab } from "@/components/Extras/GoogleAgendaTab";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 type TabType = 'perfil' | 'aniversarios' | 'google-agenda';
@@ -34,6 +35,9 @@ const TabButton = ({
 
 const Extras = () => {
   const [activeTab, setActiveTab] = useState<TabType>('perfil');
+  const { userRole } = useAuth();
+  
+  const isAdmin = userRole === 'admin';
 
   return (
     <DashboardLayout currentPage="extras">
@@ -52,12 +56,14 @@ const Extras = () => {
           >
             Perfil
           </TabButton>
-          <TabButton 
-            active={activeTab === 'aniversarios'} 
-            onClick={() => setActiveTab('aniversarios')}
-          >
-            Aniversários
-          </TabButton>
+          {isAdmin && (
+            <TabButton 
+              active={activeTab === 'aniversarios'} 
+              onClick={() => setActiveTab('aniversarios')}
+            >
+              Aniversários
+            </TabButton>
+          )}
           <TabButton 
             active={activeTab === 'google-agenda'} 
             onClick={() => setActiveTab('google-agenda')}
@@ -69,7 +75,7 @@ const Extras = () => {
         {/* Conteúdo */}
         <div className="pt-2">
           {activeTab === 'perfil' && <PerfilTab />}
-          {activeTab === 'aniversarios' && <AniversariosTab />}
+          {activeTab === 'aniversarios' && isAdmin && <AniversariosTab />}
           {activeTab === 'google-agenda' && <GoogleAgendaTab />}
         </div>
       </div>
