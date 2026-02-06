@@ -3959,6 +3959,8 @@ export type Database = {
           status_processual: string | null
           tenant_id: string | null
           tracking_id: string | null
+          tracking_request_data: string | null
+          tracking_request_id: string | null
           tribunal: string | null
           tribunal_sigla: string | null
           ultima_atualizacao_detalhes: string | null
@@ -3994,6 +3996,8 @@ export type Database = {
           status_processual?: string | null
           tenant_id?: string | null
           tracking_id?: string | null
+          tracking_request_data?: string | null
+          tracking_request_id?: string | null
           tribunal?: string | null
           tribunal_sigla?: string | null
           ultima_atualizacao_detalhes?: string | null
@@ -4029,6 +4033,8 @@ export type Database = {
           status_processual?: string | null
           tenant_id?: string | null
           tracking_id?: string | null
+          tracking_request_data?: string | null
+          tracking_request_id?: string | null
           tribunal?: string | null
           tribunal_sigla?: string | null
           ultima_atualizacao_detalhes?: string | null
