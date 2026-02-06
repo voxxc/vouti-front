@@ -1,9 +1,8 @@
+import { useState } from 'react';
 import { Cliente } from '@/types/cliente';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Edit, Info, FileText } from 'lucide-react';
+import { Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -32,6 +31,8 @@ const InfoRow = ({ label, value }: { label: string; value?: string | React.React
 };
 
 export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDetailsProps) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'documentos'>('info');
+
   const formatCurrency = (value?: number) => {
     if (!value) return null;
     return new Intl.NumberFormat('pt-BR', {
@@ -55,9 +56,10 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold">{nomeCliente}</h2>
+      {/* Header com nome, badge e ícone de editar */}
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold">{nomeCliente}</h2>
+        <div className="flex items-center gap-2">
           {cliente.classificacao && (
             <span className={cn(
               "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium",
@@ -68,28 +70,53 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
               {cliente.classificacao === 'pf' ? '👤 Pessoa Física' : '🏢 Pessoa Jurídica'}
             </span>
           )}
+          {!readOnly && (
+            <button 
+              onClick={onEdit}
+              className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Editar cliente"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        {!readOnly && (
-          <Button onClick={onEdit} variant="outline" size="sm">
-            <Edit className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
-        )}
       </div>
 
-      <Tabs defaultValue="info" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="info" className="flex items-center gap-2">
-            <Info className="h-4 w-4" />
-            Informações
-          </TabsTrigger>
-          <TabsTrigger value="documentos" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Documentos
-          </TabsTrigger>
-        </TabsList>
+      {/* Navegação por texto */}
+      <div className="flex gap-6 border-b">
+        <button
+          onClick={() => setActiveTab('info')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeTab === 'info'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Informações
+          {activeTab === 'info' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('documentos')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeTab === 'documentos'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Documentos
+          {activeTab === 'documentos' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+      </div>
 
-        <TabsContent value="info" className="mt-6 space-y-1">
+      {/* Conteúdo */}
+      {activeTab === 'info' ? (
+        <div className="mt-6 space-y-1">
           {/* Dados Pessoais */}
           <InfoRow label="Nome" value={cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica} />
           <InfoRow label="Telefone" value={cliente.telefone} />
@@ -201,12 +228,12 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
               ))}
             </>
           )}
-        </TabsContent>
-
-        <TabsContent value="documentos" className="mt-4">
+        </div>
+      ) : (
+        <div className="mt-4">
           <ClienteDocumentosTab clienteId={cliente.id} readOnly={readOnly} />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 };
