@@ -14,7 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink, MoreVertical, CalendarClock } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, Shield, MessageSquare, Info, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil } from "lucide-react";
+import EditarPrazoDialog from "./EditarPrazoDialog";
 import { DeadlineComentarios } from "./DeadlineComentarios";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "./UserTagSelector";
@@ -65,6 +66,15 @@ export function AgendaContent() {
   const [novaDataExtensao, setNovaDataExtensao] = useState<Date | undefined>(undefined);
   const [motivoExtensao, setMotivoExtensao] = useState("");
   const [salvandoExtensao, setSalvandoExtensao] = useState(false);
+
+  // Estados para modal de edição de prazo
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editDeadline, setEditDeadline] = useState<Deadline | null>(null);
+
+  const openEditDialog = (deadline: Deadline) => {
+    setEditDeadline(deadline);
+    setIsEditDialogOpen(true);
+  };
 
   // ===== Helpers de data =====
   const safeParseDate = (dateString: string | null | undefined): Date => {
@@ -790,6 +800,15 @@ export function AgendaContent() {
                           <DropdownMenuItem 
                             onClick={(e) => {
                               e.stopPropagation();
+                              openEditDialog(deadline);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar Prazo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
                               openExtendDialog(deadline);
                             }}
                           >
@@ -889,6 +908,10 @@ export function AgendaContent() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar Prazo
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
                               <CalendarClock className="h-4 w-4 mr-2" />
                               Estender Prazo
@@ -937,6 +960,10 @@ export function AgendaContent() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar Prazo
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
                               <CalendarClock className="h-4 w-4 mr-2" />
                               Estender Prazo
@@ -1444,6 +1471,15 @@ export function AgendaContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Edição de Prazo */}
+      <EditarPrazoDialog
+        deadline={editDeadline}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={fetchDeadlinesAsync}
+        tenantId={tenantId || ''}
+      />
     </div>
   );
 }

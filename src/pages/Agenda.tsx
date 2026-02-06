@@ -1051,6 +1051,16 @@ const Agenda = () => {
                                 <DropdownMenuItem 
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setEditDeadline(deadline);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Editar Prazo
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     openExtendDialog(deadline);
                                   }}
                                 >
