@@ -27,9 +27,7 @@ const Projects = () => {
   const {
     projects,
     isBasicLoaded,
-    isDetailsLoaded,
     isAdmin,
-    getProjectStats,
     createProject,
     deleteProject
   } = useProjectsOptimized();
@@ -203,11 +201,7 @@ const Projects = () => {
 
         {/* Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => {
-            const stats = getProjectStats(project.id);
-            const completionRate = stats.progressPercentage;
-            
-            return (
+          {filteredProjects.map((project) => (
               <Card 
                 key={project.id} 
                 className="shadow-card border-0 hover:shadow-elegant transition-all duration-200 cursor-pointer"
@@ -271,48 +265,16 @@ const Projects = () => {
                     {project.description}
                   </p>
                   
-                  {/* Progress Stats */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progresso</span>
-                      {isDetailsLoaded ? (
-                        <span className="font-medium">{completionRate}%</span>
-                      ) : (
-                        <Skeleton className="h-4 w-8" />
-                      )}
-                    </div>
-                    
-                    {isDetailsLoaded ? (
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="bg-gradient-primary h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${completionRate}%` }}
-                        />
-                      </div>
-                    ) : (
-                      <Skeleton className="h-2 w-full rounded-full" />
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{project.taskCount} tarefas</span>
-                        {isDetailsLoaded ? (
-                          <span>{stats.progress} em andamento</span>
-                        ) : (
-                          <Skeleton className="h-3 w-20" />
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {format(project.updatedAt, "dd/MM/yy", { locale: ptBR })}
-                      </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{project.taskCount} tarefas</span>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {format(project.updatedAt, "dd/MM/yy", { locale: ptBR })}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+            ))}
         </div>
 
         {filteredProjects.length === 0 && (

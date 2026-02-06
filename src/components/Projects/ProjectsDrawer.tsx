@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { FolderOpen, Plus, Search, X, ChevronRight } from "lucide-react";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useProjectsOptimized, ProjectBasic } from "@/hooks/useProjectsOptimized";
@@ -35,8 +34,6 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
   const {
     projects,
     isBasicLoaded,
-    isDetailsLoaded,
-    getProjectStats,
     createProject
   } = useProjectsOptimized();
 
@@ -171,45 +168,30 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
                   {searchTerm ? "Nenhum projeto encontrado" : "Nenhum projeto criado"}
                 </div>
               ) : (
-                filteredProjects.map((project, index) => {
-                  const stats = getProjectStats(project.id);
-                  return (
-                    <button
-                      key={project.id}
-                      onClick={() => handleSelectProject(project)}
-                      className={cn(
-                        "w-full text-left p-3 rounded-lg transition-colors",
-                        "hover:bg-accent/50 focus:bg-accent/50 focus:outline-none",
-                        "group",
-                        index < filteredProjects.length - 1 && "border-b border-border/50"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                            {project.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {project.client} • {project.taskCount} {project.taskCount === 1 ? 'tarefa' : 'tarefas'}
-                          </div>
+                filteredProjects.map((project, index) => (
+                  <button
+                    key={project.id}
+                    onClick={() => handleSelectProject(project)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-lg transition-colors",
+                      "hover:bg-accent/50 focus:bg-accent/50 focus:outline-none",
+                      "group",
+                      index < filteredProjects.length - 1 && "border-b border-border/50"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                          {project.name}
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {project.client} • {project.taskCount} {project.taskCount === 1 ? 'tarefa' : 'tarefas'}
+                        </div>
                       </div>
-                      <div className="mt-2">
-                        {isDetailsLoaded ? (
-                          <div className="flex items-center gap-2">
-                            <Progress value={stats.progressPercentage} className="h-1.5 max-w-[200px]" />
-                            <span className="text-xs text-muted-foreground w-8 text-right">
-                              {stats.progressPercentage}%
-                            </span>
-                          </div>
-                        ) : (
-                          <Skeleton className="h-1.5 w-full" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
+                    </div>
+                  </button>
+                ))
               )}
             </div>
 
