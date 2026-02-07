@@ -43,7 +43,7 @@ export function FinancialDrawer({ open, onOpenChange }: FinancialDrawerProps) {
   const getTitle = () => {
     switch (view) {
       case 'metricas':
-        return 'Métricas';
+        return 'Indicadores';
       case 'detalhes':
         return selectedCliente?.nome_pessoa_fisica || selectedCliente?.nome_pessoa_juridica || 'Detalhes';
       default:
