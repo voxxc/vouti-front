@@ -35,6 +35,7 @@ interface ProjectViewProps {
   currentUser?: User;
   users?: User[];
   onProjectNavigation?: (projectId: string) => void;
+  embedded?: boolean; // Quando true, não renderiza DashboardLayout (para uso em drawer)
 }
 
 const ProjectView = ({ 
@@ -45,7 +46,8 @@ const ProjectView = ({
   onNavigateToAcordos,
   currentUser,
   users = [],
-  onProjectNavigation
+  onProjectNavigation,
+  embedded = false
 }: ProjectViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -1056,8 +1058,7 @@ const ProjectView = ({
   };
 
 
-  return (
-    <DashboardLayout>
+  const content = (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -1320,8 +1321,10 @@ const ProjectView = ({
           onClose={() => setIsHistoryOpen(false)}
         />
       </div>
-    </DashboardLayout>
   );
+
+  // No modo embedded (drawer), retorna apenas o conteúdo sem DashboardLayout
+  return embedded ? content : <DashboardLayout>{content}</DashboardLayout>;
 };
 
 export default ProjectView;
