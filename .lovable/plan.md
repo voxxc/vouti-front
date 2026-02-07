@@ -1,196 +1,131 @@
 
-# Reorganização do Monitoramento SuperAdmin + Armazenamento de Request IDs
 
-## Situação Atual
+# Registrar Tracking Request ID no Banco de IDs
 
-### O Que Existe
-1. **Edge Function `judit-sync-monitorados`**: Já faz o fluxo correto:
-   - GET /tracking/{tracking_id} → obtém request_id
-   - GET /responses?request_id={id} → obtém andamentos
-   - Insere novos andamentos com deduplicação
-
-2. **Tabela `processos_oab`**: Tem as colunas:
-   - `tracking_id` → ID do monitoramento ativo
-   - `detalhes_request_id` → Request ID de buscas avulsas (POST)
-   - Falta: **`tracking_request_id`** → Request ID obtido via tracking (GET gratuito)
-
-3. **UI `SuperAdminMonitoramento.tsx`**: Funcional mas pode ser melhorada
-
-### O Problema
-- O `request_id` obtido do tracking NÃO está sendo armazenado no banco
-- Isso significa que não há rastreabilidade de qual request_id foi usado em cada sincronização
-- A UI não mostra claramente os request_ids por tenant/processo
+## Objetivo
+Quando a Edge Function `judit-sync-monitorados` atualiza o campo `tracking_request_id` de um processo, esse ID também deve ser automaticamente registrado na tabela `tenant_banco_ids` para auditoria.
 
 ---
 
-## Solução Proposta
+## Mudanças Necessárias
 
-### 1. Adicionar Coluna para Request ID do Tracking
+### 1. Adicionar Novo Tipo ao Constraint
+
+O constraint `tenant_banco_ids_tipo_check` precisa incluir o novo tipo `request_tracking`:
 
 ```sql
-ALTER TABLE processos_oab 
-  ADD COLUMN tracking_request_id TEXT,
-  ADD COLUMN tracking_request_data TIMESTAMPTZ;
+ALTER TABLE tenant_banco_ids DROP CONSTRAINT IF EXISTS tenant_banco_ids_tipo_check;
+ALTER TABLE tenant_banco_ids ADD CONSTRAINT tenant_banco_ids_tipo_check 
+  CHECK (tipo IN (
+    'oab', 
+    'processo', 
+    'tracking', 
+    'tracking_desativado', 
+    'request_busca', 
+    'request_detalhes', 
+    'request_tracking',  -- NOVO
+    'push_doc', 
+    'tracking_push_doc'
+  ));
 ```
 
-Esta coluna armazenará o `request_id` mais recente obtido via GET /tracking.
+### 2. Atualizar Trigger `registrar_banco_id_processo`
 
-### 2. Atualizar Edge Function `judit-sync-monitorados`
+Adicionar lógica para capturar mudanças no campo `tracking_request_id`:
 
-Após buscar o request_id do tracking, salvar no banco:
+```sql
+-- No INSERT: se tracking_request_id já veio preenchido
+IF NEW.tracking_request_id IS NOT NULL THEN
+  INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+  VALUES (
+    NEW.tenant_id,
+    'request_tracking',
+    NEW.id,
+    NEW.tracking_request_id,
+    'Request Tracking: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+    jsonb_build_object(
+      'numero_cnj', NEW.numero_cnj, 
+      'tracking_id', NEW.tracking_id,
+      'data_request', NEW.tracking_request_data
+    )
+  );
+END IF;
 
-```typescript
-// Após encontrar requestId...
-await supabase
-  .from('processos_oab')
-  .update({
-    tracking_request_id: requestId,
-    tracking_request_data: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  })
-  .eq('id', processo.id);
+-- No UPDATE: quando tracking_request_id muda
+IF TG_OP = 'UPDATE' 
+   AND NEW.tracking_request_id IS DISTINCT FROM OLD.tracking_request_id 
+   AND NEW.tracking_request_id IS NOT NULL THEN
+  INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+  VALUES (
+    NEW.tenant_id,
+    'request_tracking',
+    NEW.id,
+    NEW.tracking_request_id,
+    'Request Tracking: ' || COALESCE(NEW.numero_cnj, 'Processo'),
+    jsonb_build_object(
+      'numero_cnj', NEW.numero_cnj, 
+      'tracking_id', NEW.tracking_id,
+      'data_request', NEW.tracking_request_data
+    )
+  );
+END IF;
 ```
 
-### 3. Reorganizar Interface SuperAdminMonitoramento
+### 3. Migrar Dados Existentes
 
-A nova interface terá:
+Se já existem processos com `tracking_request_id` preenchido que ainda não foram registrados:
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ MONITORAMENTO DE PROCESSOS                     [Sincronizar]    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ ┌─────────────────┬─────────────────┬─────────────────┬───────┐ │
-│ │ Total Monitorando│ Com Request ID  │ Sem Request ID  │ Erro │ │
-│ │      166         │      160        │        6        │  0   │ │
-│ └─────────────────┴─────────────────┴─────────────────┴───────┘ │
-│                                                                 │
-│ ┌───────────────────────────────────────────────────────────┐   │
-│ │ Filtro: [Todos ▼]  [Apenas com Request ID] [Sem Request]   │   │
-│ └───────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│ TABELA POR TENANT                                               │
-│ ┌────────────────────────────────────────────────────────────┐  │
-│ │ TENANT     │ CNJ           │ TRACKING_ID    │ REQUEST_ID   │  │
-│ ├────────────┼───────────────┼────────────────┼──────────────┤  │
-│ │ SOLVENZA   │ 0000097...    │ f641d036...    │ dd5ed103... │  │
-│ │ SOLVENZA   │ 0000118...    │ c2f6a295...    │ 342c7ca8... │  │
-│ │ Lucas H.   │ 0808890...    │ 83eb64c7...    │ (vazio)     │  │
-│ └────────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│ AÇÕES POR PROCESSO:                                             │
-│ [🔍 Consultar Tracking] [📥 Forçar GET Response] [📋 Copiar ID] │
-└─────────────────────────────────────────────────────────────────┘
+```sql
+INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
+SELECT 
+  po.tenant_id,
+  'request_tracking',
+  po.id,
+  po.tracking_request_id,
+  'Request Tracking: ' || po.numero_cnj,
+  jsonb_build_object(
+    'numero_cnj', po.numero_cnj, 
+    'tracking_id', po.tracking_id,
+    'data_request', po.tracking_request_data
+  )
+FROM processos_oab po
+WHERE po.tracking_request_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM tenant_banco_ids tbi 
+    WHERE tbi.external_id = po.tracking_request_id 
+      AND tbi.tipo = 'request_tracking'
+  );
 ```
-
-### 4. Nova Funcionalidade: "Forçar GET Response"
-
-Botão para processos individuais que:
-1. Consulta GET /tracking/{id} → obtém request_id
-2. Consulta GET /responses?request_id={id} → obtém andamentos
-3. Insere no banco com deduplicação
-4. Atualiza `tracking_request_id` e `tracking_request_data`
 
 ---
 
-## Arquivos a Modificar
+## Resultado no Banco de IDs
+
+A aba "Requests" no TenantCard mostrará dois tipos de requests:
+
+| Tipo | Descrição |
+|------|-----------|
+| `request_detalhes` | Request IDs de buscas avulsas (POST /lawsuit_cnj) |
+| `request_tracking` | Request IDs obtidos via monitoramento (GET /tracking) |
+
+---
+
+## Arquivo a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| Migração SQL | Adicionar colunas `tracking_request_id` e `tracking_request_data` |
-| `supabase/functions/judit-sync-monitorados/index.ts` | Salvar request_id obtido do tracking |
-| `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` | Reorganizar UI com tabela detalhada |
+| Nova migração SQL | Atualizar constraint + trigger + migrar dados existentes |
 
 ---
 
-## Fluxo de Dados Atualizado
+## Fluxo Completo
 
 ```text
-[Processo Monitorado]
-       │
-       ▼
- tracking_id (armazenado ao ativar monitoramento)
-       │
-       ▼
- GET /tracking/{tracking_id}
-       │
-       ▼
- request_id (NOVO: armazenar em tracking_request_id)
-       │
-       ▼
- GET /responses?request_id={id}
-       │
-       ▼
- Andamentos → processos_oab_andamentos
+1. Edge Function sync chama GET /tracking/{id}
+2. Obtém request_id da resposta
+3. Atualiza processos_oab.tracking_request_id
+4. Trigger dispara automaticamente
+5. Novo registro em tenant_banco_ids (tipo: request_tracking)
+6. SuperAdmin vê no Banco de IDs do tenant
 ```
 
----
-
-## Detalhes Técnicos
-
-### Migração SQL
-```sql
--- Adicionar colunas para armazenar request_id do tracking
-ALTER TABLE processos_oab 
-  ADD COLUMN IF NOT EXISTS tracking_request_id TEXT,
-  ADD COLUMN IF NOT EXISTS tracking_request_data TIMESTAMPTZ;
-
--- Comentário para documentação
-COMMENT ON COLUMN processos_oab.tracking_request_id IS 
-  'Request ID mais recente obtido via GET /tracking. Diferente de detalhes_request_id que vem de POST.';
-```
-
-### Atualização da Edge Function
-
-Na função `processarProcesso`:
-```typescript
-// Após encontrar o requestId...
-console.log(`[SYNC] Saving request_id ${requestId} to DB`);
-
-await supabase
-  .from('processos_oab')
-  .update({
-    tracking_request_id: requestId,
-    tracking_request_data: new Date().toISOString(),
-  })
-  .eq('id', processo.id);
-
-// Continuar com GET /responses...
-```
-
-### Nova Estrutura da UI
-
-A tabela mostrará:
-- **Tenant**: Nome do cliente
-- **CNJ**: Número do processo
-- **Tracking ID**: ID do monitoramento (copiável)
-- **Request ID (Tracking)**: Último request_id obtido via tracking
-- **Request ID (Detalhes)**: Request ID de buscas avulsas
-- **Último Sync**: Data/hora da última sincronização
-- **Ações**: Consultar tracking, Forçar sync, Copiar IDs
-
----
-
-## Benefícios
-
-1. **Rastreabilidade Completa**: Saber exatamente qual request_id foi usado
-2. **Auditoria por Tenant**: Ver claramente quais processos de cada cliente têm dados
-3. **Debug Facilitado**: Identificar processos sem request_id para investigar
-4. **Reutilização de IDs**: Evitar chamadas desnecessárias usando request_id armazenado
-
----
-
-## Dados Atuais (Contexto)
-
-```text
-| Tenant                | Monitorados | Com Request ID |
-|-----------------------|-------------|----------------|
-| SOLVENZA              | 166         | 192 (inclui detalhes) |
-| Lucas Harles          | 1           | 3              |
-| Maximillian Oliveira  | 1           | 3              |
-| cordeiro              | 0           | 11             |
-| Metal System          | 0           | 0              |
-| Vouti                 | 0           | 0              |
-```
-
-Os processos que têm `tracking_id` mas não têm `tracking_request_id` passarão a ter após a próxima sincronização.
