@@ -1,80 +1,94 @@
 
-# Corrigir Dropdown da Busca Rapida Aparecendo Atras dos Drawers
+# Dashboard como Drawer Fixo (Sempre Renderizado)
 
-## Problema
+## Conceito
 
-O dropdown de resultados da busca rapida aparece por baixo dos drawers abertos, mesmo com z-index alto (z-60).
+Transformar a arquitetura atual para que o Dashboard seja sempre renderizado "por baixo" dos outros drawers. Assim:
+- O Dashboard carrega uma vez e permanece montado
+- Outros drawers (Projetos, CRM, Financeiro, etc.) abrem por cima
+- Navegacao entre secoes e de volta ao Dashboard e instantanea
 
-## Causa Raiz
-
-O problema e um **stacking context** do CSS:
+## Arquitetura Proposta
 
 ```text
-+-- Header (z-30) <-- Cria contexto de empilhamento
-|   +-- ProjectQuickSearch
-|       +-- Dropdown (z-60) <-- Limitado pelo z-30 do pai!
-|
-+-- Drawer (z-50 via Portal) <-- Fora do header, z-50 global
++---------------------------+
+|      Topbar              |
++------+--------------------+
+|      |                    |
+| Side |   DASHBOARD        | <-- Sempre renderizado (fundo)
+| bar  |   (RoleMetrics)    |
+|      |                    |
+|      +--------------------+
+|      |   DRAWER ATIVO     | <-- Abre por cima quando clica
+|      |   (ex: CRM)        |     em outra secao
+|      |                    |
++------+--------------------+
 ```
 
-Quando um elemento pai cria um stacking context (com z-index definido), todos os filhos ficam limitados a esse contexto. O dropdown com `z-[60]` esta dentro do header `z-30`, entao na pratica ele vale `30 + 60` dentro do contexto, mas nao supera o z-50 global do drawer que esta fora.
+## Mudancas Tecnicas
 
-## Solucao
+### 1. Reestruturar o DashboardLayout
 
-Usar um **Portal** do React para renderizar o dropdown de resultados **fora** da arvore DOM do header, permitindo que o z-index funcione globalmente.
+Mover a logica de drawers do `DashboardSidebar` para o `DashboardLayout` principal, onde o conteudo do Dashboard fica sempre visivel.
 
-## Mudancas no Codigo
+**Arquivo**: `src/components/Dashboard/DashboardLayout.tsx`
 
-### Arquivo: `src/components/Search/ProjectQuickSearch.tsx`
+- Adicionar estado `activeDrawer` diretamente no layout
+- Renderizar o conteudo do Dashboard sempre (children)
+- Renderizar os drawers condicionalmente por cima
 
-**Adicionar imports:**
-```tsx
-import { createPortal } from 'react-dom';
-```
+### 2. Atualizar DashboardSidebar
 
-**Adicionar estado para posicao do dropdown:**
-```tsx
-const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
-```
+Transformar o sidebar para ser um componente controlado que recebe callbacks do pai.
 
-**Calcular posicao quando abre:**
-```tsx
-useEffect(() => {
-  if (open && containerRef.current) {
-    const rect = containerRef.current.getBoundingClientRect();
-    setDropdownPosition({
-      top: rect.bottom + 4,
-      left: rect.left
-    });
-  }
-}, [open, searchTerm]);
-```
+**Arquivo**: `src/components/Dashboard/DashboardSidebar.tsx`
 
-**Renderizar dropdown via Portal:**
-```tsx
-{open && filteredProjects.length > 0 && createPortal(
-  <div 
-    className="fixed w-64 z-[100] bg-popover border border-border rounded-md shadow-lg"
-    style={{ top: dropdownPosition.top, left: dropdownPosition.left }}
-  >
-    <Command>
-      ...
-    </Command>
-  </div>,
-  document.body
-)}
-```
+- Remover estado interno `activeDrawer`
+- Receber props `activeDrawer` e `onDrawerChange` do pai
+- Remover os componentes de drawers daqui
 
-## Comportamento Apos a Mudanca
+### 3. Modificar a variante "inset" do Sheet
 
-| Cenario | Antes | Depois |
-|---------|-------|--------|
-| Drawer fechado | Dropdown visivel | Dropdown visivel |
-| Drawer aberto | Dropdown atras | Dropdown na frente |
-| Scroll da pagina | N/A | Dropdown segue posicao |
+Garantir que o drawer tem z-index adequado para ficar por cima do conteudo.
 
-## Arquivo a Modificar
+**Arquivo**: `src/components/ui/sheet.tsx`
+
+- Confirmar z-index correto (ja esta z-50)
+- Adicionar bg-background para cobrir o conteudo
+
+### 4. Atualizar Dashboard Page
+
+Passar o controle do drawer ativo para o layout.
+
+**Arquivo**: `src/pages/Dashboard.tsx`
+
+- Nenhuma mudanca necessaria (o layout cuidara de tudo)
+
+## Fluxo de Navegacao
+
+| Acao | Antes | Depois |
+|------|-------|--------|
+| Abrir Dashboard | Carrega pagina | Ja carregado, so fecha drawer |
+| Abrir CRM | Fecha drawer atual, abre CRM | Abre CRM por cima do Dashboard |
+| Voltar ao Dashboard | Navega para /dashboard | Apenas fecha o drawer ativo |
+| ESC ou X | Fecha drawer | Fecha drawer, Dashboard aparece |
+
+## Beneficios
+
+1. **Performance**: Dashboard carrega uma unica vez
+2. **Transicoes suaves**: Sem recarregamento de pagina
+3. **Estado preservado**: Metricas ficam em cache
+4. **UX melhor**: Sensacao de app nativo
+
+## Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/Search/ProjectQuickSearch.tsx` | Usar Portal para renderizar dropdown fora do header |
+| `src/components/Dashboard/DashboardLayout.tsx` | Gerenciar estado activeDrawer e renderizar drawers |
+| `src/components/Dashboard/DashboardSidebar.tsx` | Tornar controlado (receber props do pai) |
+
+## Consideracoes
+
+- O React Query ja cacheia os dados das metricas (staleTime: 5 min)
+- Os drawers ja usam `modal={false}` que permite interacao com o fundo
+- O conteudo do Dashboard sera visivel nas bordas quando o drawer abrir (variante left-offset)
