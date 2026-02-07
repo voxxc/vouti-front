@@ -10,7 +10,7 @@ import {
   FileText, 
   Layers,
   Columns3,
-  ExternalLink
+  History
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +19,7 @@ import { useProjectWorkspaces } from "@/hooks/useProjectWorkspaces";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Project, Task, ProjectSector, KanbanColumn as KanbanColumnType } from "@/types/project";
 import { User } from "@/types/user";
+import { checkIfUserIsAdmin } from "@/lib/auth-helpers";
 
 // Project components
 import { ProjectWorkspaceTabs } from "./ProjectWorkspaceTabs";
@@ -30,6 +31,8 @@ import CreateSectorDialog from "./CreateSectorDialog";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
 import TaskModal from "./TaskModal";
+import { ProjectClientDataDialog } from "./ProjectClientDataDialog";
+import ProjectHistoryDrawer from "./ProjectHistoryDrawer";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { cn } from "@/lib/utils";
 import { notifyTaskMovement } from "@/utils/notificationHelpers";
@@ -65,6 +68,11 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
   const [selectedColumnName, setSelectedColumnName] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Admin states
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isClientDataOpen, setIsClientDataOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Workspaces hook
   const {
@@ -87,6 +95,16 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
     createdAt: new Date(),
     updatedAt: new Date()
   } : undefined;
+
+  // Check admin status
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user?.id) return;
+      const isUserAdmin = await checkIfUserIsAdmin(user.id);
+      setIsAdmin(isUserAdmin);
+    };
+    checkAdmin();
+  }, [user?.id]);
 
   // Load project data
   useEffect(() => {
@@ -241,9 +259,10 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
     }
   };
 
-  const handleOpenFullProject = () => {
-    navigate(`/project/${projectId}`);
-    onClose();
+  const handleClienteLinked = (clienteId: string | null) => {
+    if (project) {
+      setProject({ ...project, clienteId });
+    }
   };
 
   const handleSectorClick = (sectorId: string) => {
@@ -351,15 +370,29 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
             <p className="text-sm text-muted-foreground truncate">{project.client}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleOpenFullProject}
-          className="gap-2 flex-shrink-0"
-        >
-          <ExternalLink className="h-4 w-4" />
-          <span className="hidden sm:inline">Abrir completo</span>
-        </Button>
+        {/* Admin buttons */}
+        {isAdmin && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsClientDataOpen(true)}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden lg:inline">Dados</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsHistoryOpen(true)}
+              className="gap-2"
+            >
+              <History className="h-4 w-4" />
+              <span className="hidden lg:inline">Histórico</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Workspace Tabs */}
@@ -518,6 +551,25 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
           }}
           currentUser={currentUser}
           projectId={project.id}
+        />
+      )}
+
+      {/* Admin Dialogs */}
+      {isAdmin && (
+        <ProjectClientDataDialog
+          open={isClientDataOpen}
+          onOpenChange={setIsClientDataOpen}
+          projectId={project.id}
+          clienteId={project.clienteId}
+          onClienteLinked={handleClienteLinked}
+        />
+      )}
+
+      {isAdmin && (
+        <ProjectHistoryDrawer
+          projectId={project.id}
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
         />
       )}
     </div>
