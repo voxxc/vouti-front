@@ -28,7 +28,7 @@ interface BancoId {
   created_at: string;
 }
 
-type TipoId = 'oab' | 'processo' | 'tracking' | 'tracking_desativado' | 'request_busca' | 'request_detalhes' | 'request_monitoramento';
+type TipoId = 'oab' | 'processo' | 'tracking' | 'tracking_desativado' | 'request_busca' | 'request_detalhes' | 'request_tracking';
 
 const TIPO_LABELS: Record<TipoId, { label: string; icon: typeof Database }> = {
   oab: { label: 'OABs', icon: FileText },
@@ -37,7 +37,7 @@ const TIPO_LABELS: Record<TipoId, { label: string; icon: typeof Database }> = {
   tracking_desativado: { label: 'Desativado', icon: Radio },
   request_busca: { label: 'Buscas', icon: Search },
   request_detalhes: { label: 'Detalhes', icon: FileText },
-  request_monitoramento: { label: 'Monitoramento', icon: Radio },
+  request_tracking: { label: 'Monitoramento', icon: Radio },
 };
 
 export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName }: TenantBancoIdsDialogProps) {
@@ -225,7 +225,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               Tracking ({getCountByType('tracking') + getCountByType('tracking_desativado')})
             </TabsTrigger>
             <TabsTrigger value="request_busca" className="text-xs">
-              Requests ({getCountByType('request_busca') + getCountByType('request_detalhes')})
+              Requests ({getCountByType('request_busca') + getCountByType('request_detalhes') + getCountByType('request_tracking')})
             </TabsTrigger>
           </TabsList>
 
@@ -242,8 +242,8 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
             ) : (
               <div className="space-y-3 pr-4">
                 {activeTab === 'request_busca' ? (
-                  // Mostrar tanto request_busca quanto request_detalhes na aba Requests
-                  [...bancoIds.filter((i) => i.tipo === 'request_busca' || i.tipo === 'request_detalhes')]
+                  // Mostrar request_busca, request_detalhes e request_tracking na aba Requests
+                  [...bancoIds.filter((i) => i.tipo === 'request_busca' || i.tipo === 'request_detalhes' || i.tipo === 'request_tracking')]
                     .filter((item) =>
                       searchTerm
                         ? item.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
