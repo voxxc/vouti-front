@@ -1,198 +1,145 @@
 
-# Acesso Rápido a Projetos via Drawer
 
-## Resumo
-Modificar o comportamento do buscador rápido de projetos (ProjectQuickSearch) no topbar para abrir o projeto selecionado em um drawer lateral (da direita para a esquerda), ao invés de navegar para a página completa. O drawer terá o mesmo visual do workspace já existente, proporcionando acesso instantâneo aos projetos.
+# Unificar Experiência do Projeto no Drawer
 
----
+## Problema Identificado
 
-## Arquitetura da Solução
+O `ProjectDrawerContent` atual é uma versão "resumida" com botão "Abrir Completo" que navega para a página `/project/:id`. Porém, isso não faz sentido porque:
 
-### Situacao Atual
-```text
-[ProjectQuickSearch] 
-       |
-       v (navigate)
-[/project/:id] --> [ProjectViewWrapper] --> [ProjectView com DashboardLayout]
+1. O drawer já ocupa o mesmo espaço visual (entre sidebar e topbar)
+2. Navegar para a página completa quebra o fluxo de drawer
+3. O usuário perde o contexto da navegação atual
+
+## Solucao
+
+Remover o botão "Abrir Completo" e adicionar ao `ProjectDrawerContent` TODAS as funcionalidades que existem no `ProjectView`:
+
+### Funcionalidades a Adicionar no Drawer
+
+| Funcionalidade | Existe no ProjectView | Falta no Drawer |
+|----------------|----------------------|-----------------|
+| Botão "Dados" (admin) | Sim | Adicionar |
+| Botão "Histórico" (admin) | Sim | Adicionar |
+| ProjectClientDataDialog | Sim | Adicionar |
+| ProjectHistoryDrawer | Sim | Adicionar |
+| Verificação isAdmin | Sim | Adicionar |
+
+### Mudancas no Codigo
+
+#### 1. Remover botao "Abrir Completo"
+
+Linha 354-362 do ProjectDrawerContent.tsx - remover:
+
+```tsx
+// REMOVER:
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={handleOpenFullProject}
+  className="gap-2 flex-shrink-0"
+>
+  <ExternalLink className="h-4 w-4" />
+  <span className="hidden sm:inline">Abrir completo</span>
+</Button>
 ```
 
-### Nova Arquitetura
-```text
-[ProjectQuickSearch]
-       |
-       v (callback onSelectProject)
-[DashboardLayout]
-       |
-       v (estado projectDrawerOpen + selectedProjectId)
-[ProjectDrawer] --> [ProjectDrawerContent (sem DashboardLayout)]
+#### 2. Adicionar verificacao de admin
+
+```tsx
+const [isAdmin, setIsAdmin] = useState(false);
+
+useEffect(() => {
+  const checkAdmin = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    setIsAdmin(!!data);
+  };
+  checkAdmin();
+}, [user?.id]);
 ```
 
----
+#### 3. Adicionar estados para dialogs
 
-## Arquivos a Criar/Modificar
+```tsx
+const [isClientDataOpen, setIsClientDataOpen] = useState(false);
+const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+```
 
-| Arquivo | Tipo | Descricao |
-|---------|------|-----------|
-| `src/components/Project/ProjectDrawer.tsx` | NOVO | Drawer container usando Sheet side="inset" |
-| `src/components/Project/ProjectDrawerContent.tsx` | NOVO | Conteudo do projeto adaptado para drawer |
-| `src/components/Search/ProjectQuickSearch.tsx` | MODIFICAR | Adicionar callback onSelectProject |
-| `src/components/Dashboard/DashboardLayout.tsx` | MODIFICAR | Gerenciar estado do ProjectDrawer |
-| `src/components/Dashboard/DashboardSidebar.tsx` | MODIFICAR | Incluir ProjectDrawer |
+#### 4. Adicionar botoes no header (para admins)
 
----
+```tsx
+{isAdmin && (
+  <Button variant="ghost" size="sm" onClick={() => setIsClientDataOpen(true)}>
+    <FileText className="h-4 w-4" />
+    <span className="hidden lg:inline">Dados</span>
+  </Button>
+)}
 
-## Detalhamento Tecnico
+{isAdmin && (
+  <Button variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)}>
+    <History className="h-4 w-4" />
+    <span className="hidden lg:inline">Histórico</span>
+  </Button>
+)}
+```
 
-### 1. ProjectDrawer.tsx
+#### 5. Adicionar componentes de dialogs
+
+```tsx
+{/* Client Data Dialog */}
+{isAdmin && project.clienteId && (
+  <ProjectClientDataDialog
+    isOpen={isClientDataOpen}
+    onClose={() => setIsClientDataOpen(false)}
+    clienteId={project.clienteId}
+  />
+)}
+
+{/* History Drawer */}
+{isAdmin && (
+  <ProjectHistoryDrawer
+    projectId={project.id}
+    projectName={project.name}
+    isOpen={isHistoryOpen}
+    onClose={() => setIsHistoryOpen(false)}
+  />
+)}
+```
+
+### Arquivo a Modificar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/Project/ProjectDrawerContent.tsx` | Adicionar funcionalidades completas |
+
+### Resultado Final
+
+O drawer tera a MESMA experiencia da pagina completa:
 
 ```text
-Estrutura do Drawer:
 +-------------------------------------------------------------------+
-| [ArrowLeft] Voltar    Nome do Projeto                         [X] |
-|                       Cliente                                     |
+| [FolderOpen] Nome do Projeto           [Dados] [Historico]    [X] |
+|              Cliente                                              |
 +-------------------------------------------------------------------+
 | [Workspace Tabs: Principal | Aba 2 | ...]                         |
 +-------------------------------------------------------------------+
 | [Processos] [Casos] [Colunas]    [Participantes] [Lock] [Setores] |
 +-------------------------------------------------------------------+
 |                                                                   |
-|  Conteudo scrollavel com:                                        |
-|  - ProjectProtocolosList (aba Processos)                         |
-|  - ProjectProcessos (aba Casos)                                   |
-|  - Kanban Board (aba Colunas)                                     |
+|  Conteudo completo (igual a pagina /project/:id)                  |
 |                                                                   |
 +-------------------------------------------------------------------+
 ```
 
-Props do componente:
-```typescript
-interface ProjectDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  projectId: string | null;
-}
-```
+### Beneficios
 
-### 2. ProjectDrawerContent.tsx
-
-Este componente sera uma versao adaptada do ProjectView SEM o DashboardLayout wrapper. Contera:
-
-- Header com nome do projeto editavel e botao voltar
-- WorkspaceTabs 
-- Tabs de navegacao (Processos, Casos, Colunas)
-- Conteudo de cada aba
-- Modais (TaskModal, CreateSectorDialog, etc.)
-
-### 3. ProjectQuickSearch.tsx - Modificacoes
-
-Adicionar prop callback para comunicar selecao ao parent:
-
-```typescript
-interface ProjectQuickSearchProps {
-  tenantPath: (path: string) => string;
-  onSelectProject?: (projectId: string) => void; // NOVO
-}
-
-// No handleSelect:
-const handleSelect = (projectId: string) => {
-  if (onSelectProject) {
-    onSelectProject(projectId); // Abre drawer
-  } else {
-    navigate(tenantPath(`project/${projectId}`)); // Fallback
-  }
-  setSearchTerm('');
-  setOpen(false);
-};
-```
-
-### 4. DashboardLayout.tsx - Modificacoes
-
-Gerenciar estado do drawer de projeto:
-
-```typescript
-// Estado
-const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
-const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-
-// Handler
-const handleQuickProjectSelect = (projectId: string) => {
-  setSelectedProjectId(projectId);
-  setProjectDrawerOpen(true);
-};
-
-// No render:
-<ProjectQuickSearch 
-  tenantPath={tenantPath} 
-  onSelectProject={handleQuickProjectSelect} 
-/>
-
-<ProjectDrawer 
-  open={projectDrawerOpen}
-  onOpenChange={setProjectDrawerOpen}
-  projectId={selectedProjectId}
-/>
-```
-
----
-
-## Comportamento do Drawer
-
-1. **Side**: `inset` - ocupa area principal (direita para esquerda), mesmo comportamento da Controladoria
-2. **Modal**: `false` - sidebar permanece interativa
-3. **Carregamento**: Busca dados do projeto ao abrir (similar ao ProjectViewWrapper)
-4. **Navegacao interna**: Manter tabs e workspace navigation funcionando dentro do drawer
-5. **Fechar**: Botao X ou clicar em outro item da sidebar
-
----
-
-## Fluxo do Usuario
-
-1. Usuario digita no campo de busca rapida
-2. Dropdown mostra projetos filtrados
-3. Usuario clica em um projeto
-4. Drawer abre instantaneamente da direita para esquerda
-5. Projeto carrega com skeleton/loading
-6. Usuario interage normalmente (trocar workspace, ver processos, etc.)
-7. Usuario pode fechar clicando no X ou abrindo outro drawer da sidebar
-
----
-
-## Reutilizacao de Codigo
-
-Para evitar duplicacao, o `ProjectDrawerContent` vai:
-
-1. **Reutilizar hooks existentes**:
-   - `useProjectWorkspaces`
-   - `useToast`
-   - `useAuth`
-
-2. **Reutilizar componentes existentes**:
-   - `ProjectWorkspaceTabs`
-   - `ProjectProtocolosList`
-   - `ProjectProcessos`
-   - `KanbanColumn`, `TaskCard` (para aba Colunas)
-   - `TaskModal`, `CreateSectorDialog`, etc.
-   - `EditableProjectName`
-   - `SetoresDropdown`
-
-3. **Extrair logica comum** do ProjectView em funcoes reutilizaveis quando possivel
-
----
-
-## Consideracoes de Performance
-
-- Carregar dados apenas quando drawer abre (lazy loading)
-- Manter cache de projetos recentemente abertos
-- Usar skeleton loaders durante carregamento
-- Subscriptions Supabase apenas enquanto drawer aberto
-
----
-
-## Compatibilidade
-
-- O comportamento existente de navegacao completa (`/project/:id`) permanece funcional
-- Usuarios podem acessar via:
-  - Busca rapida no topbar -> Drawer
-  - ProjectsDrawer (sidebar) -> Pagina completa
-  - URL direta -> Pagina completa
+1. **Experiencia consistente**: Nao ha diferenca entre drawer e pagina
+2. **Velocidade**: Usuario acessa tudo sem navegacao adicional
+3. **Contexto preservado**: Usuario permanece no drawer sem perder onde estava
+4. **Codigo mais simples**: Nao precisa manter duas versoes do mesmo componente
 
