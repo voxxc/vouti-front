@@ -20,27 +20,21 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
-import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
-import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
-import { CRMDrawer } from "@/components/CRM/CRMDrawer";
-import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
-import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
-import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
-import { DocumentosDrawer } from "@/components/Documentos/DocumentosDrawer";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
-type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | null;
+export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
+  activeDrawer?: ActiveDrawer;
+  onDrawerChange?: (drawer: ActiveDrawer) => void;
 }
 
-const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
+const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
@@ -83,6 +77,18 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     setIsMobileOpen(false);
   }, [navigateWithPrefetch, prefetchDashboard, prefetchProjects, prefetchControladoria, prefetchAgenda, prefetchCRM, prefetchFinancial, prefetchReunioes]);
 
+  // Handler para abrir drawer - notifica o pai
+  const handleOpenDrawer = useCallback((drawer: ActiveDrawer) => {
+    onDrawerChange?.(drawer);
+    setIsMobileOpen(false);
+  }, [onDrawerChange]);
+
+  // Handler para fechar drawer (clicando no Dashboard)
+  const handleDashboardClick = useCallback(() => {
+    onDrawerChange?.(null);
+    setIsMobileOpen(false);
+  }, [onDrawerChange]);
+
   // Mapeamento de seções para roles que têm acesso
   const sectionRoleMap: Record<string, string[]> = {
     'projetos': ['advogado'],
@@ -115,7 +121,13 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
 
+  // Item ativo considera o drawer aberto
   const isActive = (itemId: string) => {
+    // Se temos um drawer ativo, ele é o item ativo
+    if (activeDrawer) {
+      return itemId === activeDrawer;
+    }
+    // Caso contrário, verificar a página atual
     if (itemId === 'dashboard' && currentPage === 'dashboard') return true;
     if (itemId === 'projetos' && currentPage === 'projects') return true;
     if (itemId === 'agenda' && currentPage === 'agenda') return true;
@@ -127,6 +139,9 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
     if (itemId === 'extras' && currentPage === 'extras') return true;
     return false;
   };
+
+  // IDs que abrem drawers
+  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos'];
 
   return (
     <>
@@ -164,6 +179,7 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
         <Link 
           to={dashboardPath}
           onMouseEnter={() => handleMouseEnter('dashboard')}
+          onClick={handleDashboardClick}
           className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-7"
         >
             {isCollapsed ? (
@@ -184,17 +200,14 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
              
              if (!hasAccessToItem) return null;
 
-             // Tratamento especial para Projetos - abre drawer
-             if (item.id === 'projetos') {
+             // Dashboard - fecha qualquer drawer
+             if (item.id === 'dashboard') {
                return (
                  <Button
                    key={item.id}
                    variant={isActive(item.id) ? "secondary" : "ghost"}
                    onMouseEnter={() => handleMouseEnter(item.id)}
-                   onClick={() => {
-                     setActiveDrawer('projetos');
-                     setIsMobileOpen(false);
-                   }}
+                   onClick={handleDashboardClick}
                    className={cn(
                      "w-full justify-start gap-3 h-11",
                      isCollapsed && "justify-center px-2",
@@ -208,150 +221,28 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
                );
              }
 
-            // Tratamento especial para Agenda - abre drawer
-            if (item.id === 'agenda') {
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive(item.id) ? "secondary" : "ghost"}
-                  onMouseEnter={() => handleMouseEnter(item.id)}
-                  onClick={() => {
-                    setActiveDrawer('agenda');
-                    setIsMobileOpen(false);
-                  }}
-                  className={cn(
-                    "w-full justify-start gap-3 h-11",
-                    isCollapsed && "justify-center px-2",
-                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon size={20} />
-                  {!isCollapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            }
+             // Itens que abrem drawers
+             if (drawerItems.includes(item.id)) {
+               return (
+                 <Button
+                   key={item.id}
+                   variant={isActive(item.id) ? "secondary" : "ghost"}
+                   onMouseEnter={() => handleMouseEnter(item.id)}
+                   onClick={() => handleOpenDrawer(item.id as ActiveDrawer)}
+                   className={cn(
+                     "w-full justify-start gap-3 h-11",
+                     isCollapsed && "justify-center px-2",
+                     isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                   )}
+                   title={isCollapsed ? item.label : undefined}
+                 >
+                   <Icon size={20} />
+                   {!isCollapsed && <span>{item.label}</span>}
+                 </Button>
+               );
+             }
 
-            // Tratamento especial para Controladoria - abre drawer
-            if (item.id === 'controladoria') {
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive(item.id) ? "secondary" : "ghost"}
-                  onMouseEnter={() => handleMouseEnter(item.id)}
-                  onClick={() => {
-                    setActiveDrawer('controladoria');
-                    setIsMobileOpen(false);
-                  }}
-                  className={cn(
-                    "w-full justify-start gap-3 h-11",
-                    isCollapsed && "justify-center px-2",
-                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon size={20} />
-                  {!isCollapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            }
- 
-            // Tratamento especial para Clientes - abre drawer
-            if (item.id === 'clientes') {
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive(item.id) ? "secondary" : "ghost"}
-                  onMouseEnter={() => handleMouseEnter(item.id)}
-                  onClick={() => {
-                    setActiveDrawer('clientes');
-                    setIsMobileOpen(false);
-                  }}
-                  className={cn(
-                    "w-full justify-start gap-3 h-11",
-                    isCollapsed && "justify-center px-2",
-                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon size={20} />
-                  {!isCollapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            }
-
-            // Tratamento especial para Financeiro - abre drawer
-            if (item.id === 'financeiro') {
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive(item.id) ? "secondary" : "ghost"}
-                  onMouseEnter={() => handleMouseEnter(item.id)}
-                  onClick={() => {
-                    setActiveDrawer('financeiro');
-                    setIsMobileOpen(false);
-                  }}
-                  className={cn(
-                    "w-full justify-start gap-3 h-11",
-                    isCollapsed && "justify-center px-2",
-                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon size={20} />
-                  {!isCollapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            }
-
-            // Tratamento especial para Reuniões - abre drawer
-            if (item.id === 'reunioes') {
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive(item.id) ? "secondary" : "ghost"}
-                  onMouseEnter={() => handleMouseEnter(item.id)}
-                  onClick={() => {
-                    setActiveDrawer('reunioes');
-                    setIsMobileOpen(false);
-                  }}
-                  className={cn(
-                    "w-full justify-start gap-3 h-11",
-                    isCollapsed && "justify-center px-2",
-                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon size={20} />
-                  {!isCollapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            }
-
-            // Tratamento especial para Documentos - abre drawer
-            if (item.id === 'documentos') {
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive(item.id) ? "secondary" : "ghost"}
-                  onMouseEnter={() => handleMouseEnter(item.id)}
-                  onClick={() => {
-                    setActiveDrawer('documentos');
-                    setIsMobileOpen(false);
-                  }}
-                  className={cn(
-                    "w-full justify-start gap-3 h-11",
-                    isCollapsed && "justify-center px-2",
-                    isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <Icon size={20} />
-                  {!isCollapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            }
-
+             // Extras e outros - navegação normal
              return (
                <Button
                  key={item.id}
@@ -406,15 +297,6 @@ const DashboardSidebar = ({ currentPage }: DashboardSidebarProps) => {
 
       {/* Support Sheet */}
       <SupportSheet open={supportOpen} onOpenChange={setSupportOpen} />
-
-      {/* Drawers */}
-      <ProjectsDrawer open={activeDrawer === 'projetos'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
-      <ControladoriaDrawer open={activeDrawer === 'controladoria'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
-      <CRMDrawer open={activeDrawer === 'clientes'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
-      <FinancialDrawer open={activeDrawer === 'financeiro'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
-      <ReunioesDrawer open={activeDrawer === 'reunioes'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
-      <AgendaDrawer open={activeDrawer === 'agenda'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
-      <DocumentosDrawer open={activeDrawer === 'documentos'} onOpenChange={(open) => !open && setActiveDrawer(null)} />
 
       {/* Spacer to push content */}
       <div className={cn(
