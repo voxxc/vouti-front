@@ -1,66 +1,94 @@
 
-# Enquadrar Conteúdo do Projeto no Drawer
+# Corrigir Fechamento do Drawer de Projeto com ESC
 
-## Problema Identificado
+## Problema
 
-Quando o projeto abre no drawer, o conteúdo fica "colado" nas bordas (sidebar e topbar), sem o espaçamento adequado. Isso acontece porque:
+Ao selecionar um projeto pela busca rapida, o drawer do projeto so fecha se a pessoa:
+- Apertar ESC 2 vezes
+- Clicar no X
+- Clicar em outra secao
 
-| Elemento | Página Normal | Drawer Atual |
-|----------|---------------|--------------|
-| Container | `container max-w-7xl mx-auto` | Nenhum |
-| Padding | `px-6 py-8` | Nenhum (p-0 no SheetContent) |
-| Overflow | Scroll no main | `overflow-auto` no div |
+O primeiro ESC nao esta fechando o drawer.
 
-Na página normal, o `DashboardLayout` aplica essas classes no `<main>`:
+## Causa Raiz
+
+A causa esta no `ProjectQuickSearch`:
+
+```tsx
+const handleSelect = (projectId: string) => {
+  if (onSelectProject) {
+    onSelectProject(projectId);  // Abre o drawer
+  }
+  setSearchTerm('');
+  setOpen(false);
+  // PROBLEMA: O Input ainda mantem o foco!
+};
 ```
-<main className="container max-w-7xl mx-auto px-6 py-8">
-```
 
-No drawer, o `ProjectDrawerContent` apenas usa:
-```
-<div className="flex flex-col h-full overflow-auto">
-```
+Quando o usuario seleciona um projeto:
+1. O drawer abre
+2. Mas o campo Input da busca rapida continua com foco
+3. O primeiro ESC e capturado pelo Input (comportamento padrao de limpar/desfocar)
+4. O segundo ESC finalmente chega ao Sheet/Drawer
 
 ## Solucao
 
-Adicionar o mesmo enquadramento (container + padding) ao `ProjectDrawerContent` para replicar exatamente o visual da página original.
+Adicionar `blur()` no Input apos selecionar um projeto para remover o foco e permitir que o ESC va diretamente para o drawer.
 
 ## Mudanca no Codigo
 
-### Arquivo: `src/components/Project/ProjectDrawerContent.tsx`
+### Arquivo: `src/components/Search/ProjectQuickSearch.tsx`
 
-Modificar o wrapper de renderização (linhas 170-182):
+Adicionar uma ref ao Input e chamar blur() no handleSelect:
 
 **Antes:**
 ```tsx
-return (
-  <div className="flex flex-col h-full overflow-auto">
-    <ProjectView
-      ...
-    />
-  </div>
-);
+const handleSelect = (projectId: string) => {
+  if (onSelectProject) {
+    onSelectProject(projectId);
+  } else {
+    navigate(tenantPath(`project/${projectId}`));
+  }
+  setSearchTerm('');
+  setOpen(false);
+};
 ```
 
 **Depois:**
 ```tsx
-return (
-  <div className="flex-1 h-full overflow-auto">
-    <div className="container max-w-7xl mx-auto px-6 py-8">
-      <ProjectView
-        ...
-      />
-    </div>
-  </div>
-);
+const inputRef = useRef<HTMLInputElement>(null);
+
+const handleSelect = (projectId: string) => {
+  if (onSelectProject) {
+    onSelectProject(projectId);
+  } else {
+    navigate(tenantPath(`project/${projectId}`));
+  }
+  setSearchTerm('');
+  setOpen(false);
+  // Remove o foco do input para que ESC va direto para o drawer
+  inputRef.current?.blur();
+};
+
+// No Input:
+<Input
+  ref={inputRef}
+  placeholder="Busca Rápida..."
+  ...
+/>
 ```
 
-## Resultado Visual
+## Resultado
 
-O conteúdo terá:
-- Padding lateral de 24px (px-6)
-- Padding vertical de 32px (py-8) 
-- Largura máxima de 1280px (max-w-7xl)
-- Centralização horizontal (mx-auto)
+Apos a mudanca:
+1. Usuario digita no campo de busca
+2. Seleciona um projeto
+3. Drawer abre
+4. Input perde o foco automaticamente
+5. Um unico ESC fecha o drawer
 
-Exatamente igual à página original do projeto.
+## Arquivo a Modificar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/Search/ProjectQuickSearch.tsx` | Adicionar ref ao Input e blur() no handleSelect |
