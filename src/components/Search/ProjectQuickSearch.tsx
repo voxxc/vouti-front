@@ -27,6 +27,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Carregar projetos na montagem com filtro de permissão
   useEffect(() => {
@@ -112,6 +113,8 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
     }
     setSearchTerm('');
     setOpen(false);
+    // Remove o foco do input para que ESC va direto para o drawer
+    inputRef.current?.blur();
   };
 
   return (
@@ -119,6 +122,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
+          ref={inputRef}
           placeholder="Busca Rápida..."
           value={searchTerm}
           onChange={(e) => {
