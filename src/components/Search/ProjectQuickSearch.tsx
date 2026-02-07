@@ -116,7 +116,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   return (
     <div ref={containerRef} className="relative">
       <Input
-        placeholder="Busca Rápida"
+        placeholder="Busca Rápida..."
         value={searchTerm}
         onChange={(e) => {
           setSearchTerm(e.target.value);
@@ -131,7 +131,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
             setOpen(true);
           }
         }}
-        className="w-48 h-8 text-sm bg-background/50 border-border/50 focus:bg-background"
+        className="w-48 h-8 text-xs bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
       />
       
       {/* Dropdown de resultados */}
