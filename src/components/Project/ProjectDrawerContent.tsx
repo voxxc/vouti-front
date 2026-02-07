@@ -168,16 +168,18 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <ProjectView
-        onLogout={() => {}}
-        onBack={onClose}
-        project={project}
-        onUpdateProject={handleUpdateProject}
-        currentUser={currentUser}
-        users={[]}
-        embedded={true}
-      />
+    <div className="flex-1 h-full overflow-auto">
+      <div className="container max-w-7xl mx-auto px-6 py-8">
+        <ProjectView
+          onLogout={() => {}}
+          onBack={onClose}
+          project={project}
+          onUpdateProject={handleUpdateProject}
+          currentUser={currentUser}
+          users={[]}
+          embedded={true}
+        />
+      </div>
     </div>
   );
 }
