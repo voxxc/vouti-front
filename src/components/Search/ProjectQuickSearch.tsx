@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
@@ -23,11 +24,23 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const navigate = useNavigate();
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Calculate dropdown position when open
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left
+      });
+    }
+  }, [open, searchTerm]);
 
   // Carregar projetos na montagem com filtro de permissão
   useEffect(() => {
@@ -142,9 +155,12 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
         />
       </div>
       
-      {/* Dropdown de resultados */}
-      {open && filteredProjects.length > 0 && (
-        <div className="absolute top-full left-0 mt-1 w-64 z-[60] bg-popover border border-border rounded-md shadow-lg">
+      {/* Dropdown de resultados via Portal para sobrepor drawers */}
+      {open && filteredProjects.length > 0 && createPortal(
+        <div 
+          className="fixed w-64 z-[100] bg-popover border border-border rounded-md shadow-lg"
+          style={{ top: dropdownPosition.top, left: dropdownPosition.left }}
+        >
           <Command>
             <CommandList>
               <CommandGroup>
@@ -165,7 +181,8 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
               </CommandGroup>
             </CommandList>
           </Command>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
