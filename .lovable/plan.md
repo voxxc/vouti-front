@@ -1,115 +1,66 @@
 
-# Unificar Visual do Projeto no Drawer
+# Enquadrar Conteúdo do Projeto no Drawer
 
-## Problema
+## Problema Identificado
 
-O drawer atual (`ProjectDrawerContent`) tem um visual completamente diferente da página completa (`ProjectView`). O usuário quer que o drawer abra o projeto com **exatamente o mesmo visual** da página via URL.
+Quando o projeto abre no drawer, o conteúdo fica "colado" nas bordas (sidebar e topbar), sem o espaçamento adequado. Isso acontece porque:
 
-## Diferenças Identificadas
+| Elemento | Página Normal | Drawer Atual |
+|----------|---------------|--------------|
+| Container | `container max-w-7xl mx-auto` | Nenhum |
+| Padding | `px-6 py-8` | Nenhum (p-0 no SheetContent) |
+| Overflow | Scroll no main | `overflow-auto` no div |
 
-| Elemento | Página (ProjectView) | Drawer Atual |
-|----------|---------------------|--------------|
-| Header | Botão "Voltar" + Nome em H1 + links texto | Ícone + nome pequeno + botões |
-| Ações | Links texto: "Participantes", "Dados", "Histórico" | Botões com ícones |
-| Tabs | Texto simples com underline ativo | Radix TabsList com fundo cinza |
-| Setores | SetoresDropdown componente dedicado | DropdownMenu genérico |
-| Lock | Botão circular amarelo sempre visível no header | Escondido dentro das tabs |
-| Layout | space-y-6 com respiração visual | Compacto com flex-col |
+Na página normal, o `DashboardLayout` aplica essas classes no `<main>`:
+```
+<main className="container max-w-7xl mx-auto px-6 py-8">
+```
+
+No drawer, o `ProjectDrawerContent` apenas usa:
+```
+<div className="flex flex-col h-full overflow-auto">
+```
 
 ## Solucao
 
-Reutilizar diretamente o componente `ProjectView` dentro do `ProjectDrawerContent`, passando as props necessárias. O `ProjectView` já tem todo o layout correto, só precisa:
+Adicionar o mesmo enquadramento (container + padding) ao `ProjectDrawerContent` para replicar exatamente o visual da página original.
 
-1. Funcionar SEM o `DashboardLayout` (pois o drawer já está dentro dele)
-2. Receber uma prop para indicar que está em modo drawer
+## Mudanca no Codigo
 
-## Mudancas Tecnicas
+### Arquivo: `src/components/Project/ProjectDrawerContent.tsx`
 
-### 1. Modificar ProjectView.tsx
+Modificar o wrapper de renderização (linhas 170-182):
 
-Adicionar prop opcional `embedded` que remove o wrapper `DashboardLayout`:
-
+**Antes:**
 ```tsx
-interface ProjectViewProps {
-  // ... props existentes
-  embedded?: boolean; // NOVO: quando true, não renderiza DashboardLayout
-}
-
-// No return:
-const content = (
-  <div className="space-y-6">
-    {/* Todo o conteúdo atual */}
+return (
+  <div className="flex flex-col h-full overflow-auto">
+    <ProjectView
+      ...
+    />
   </div>
 );
-
-return embedded ? content : <DashboardLayout>{content}</DashboardLayout>;
 ```
 
-### 2. Simplificar ProjectDrawerContent.tsx
-
-Substituir toda a implementação duplicada por:
-
+**Depois:**
 ```tsx
-export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerContentProps) {
-  // Carregar dados do projeto (similar ao ProjectViewWrapper)
-  // ...loading state...
-
-  return (
-    <ProjectView
-      onLogout={() => {}}
-      onBack={onClose}
-      project={project}
-      onUpdateProject={handleUpdateProject}
-      currentUser={currentUser}
-      users={[]}
-      embedded={true}  // IMPORTANTE: modo drawer
-    />
-  );
-}
+return (
+  <div className="flex-1 h-full overflow-auto">
+    <div className="container max-w-7xl mx-auto px-6 py-8">
+      <ProjectView
+        ...
+      />
+    </div>
+  </div>
+);
 ```
 
-### 3. Ajustar o botão "Voltar" no modo embedded
+## Resultado Visual
 
-No `ProjectView`, quando `embedded=true`:
-- O botão "Voltar" fecha o drawer (chama `onBack`)
-- Não navega para outra página
+O conteúdo terá:
+- Padding lateral de 24px (px-6)
+- Padding vertical de 32px (py-8) 
+- Largura máxima de 1280px (max-w-7xl)
+- Centralização horizontal (mx-auto)
 
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/pages/ProjectView.tsx` | Adicionar prop `embedded` e renderização condicional |
-| `src/components/Project/ProjectDrawerContent.tsx` | Simplificar para usar ProjectView |
-
-## Resultado Final
-
-O drawer terá EXATAMENTE o mesmo visual da página:
-
-```
-+-------------------------------------------------------------------+
-| [<- Voltar]   ADRIANO SCHMIDT       Participantes Dados Histórico |
-|               ADRIANO SCHMIDT                     [Setores v] [O] |
-+-------------------------------------------------------------------+
-| [ADRIANO SCH...]  [+ Nova Aba]                                    |
-+-------------------------------------------------------------------+
-| Processos    Casos    Colunas                                     |
-|    ____                                                           |
-+-------------------------------------------------------------------+
-|                                                                   |
-|  [Processos] ^ [1]                           [+ Novo processo]    |
-|  +----------------------------------------------------------+    |
-|  | Q Buscar processos...     | Y | Todos os... v | ⇅ |          |
-|  +----------------------------------------------------------+    |
-|                                                                   |
-|  MANDAMENTAL - BANCO DO BRASIL                  [Em Andamento]   |
-|  2/3 etapas concluidas                                           |
-|                                                                   |
-+-------------------------------------------------------------------+
-```
-
-## Beneficios
-
-1. **Consistência total**: Drawer e página são visualmente idênticos
-2. **Código DRY**: Não duplica lógica entre drawer e página
-3. **Manutenção simplificada**: Alterações no ProjectView refletem automaticamente no drawer
-4. **Design preservado**: Todo o trabalho de design feito na página é aproveitado
+Exatamente igual à página original do projeto.
