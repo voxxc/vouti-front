@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
 import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
+import { Search } from 'lucide-react';
 
 interface ProjectQuickSearchProps {
   tenantPath: (path: string) => string;
@@ -115,24 +116,27 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
 
   return (
     <div ref={containerRef} className="relative">
-      <Input
-        placeholder="Busca Rápida..."
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          if (e.target.value.length >= 1) {
-            setOpen(true);
-          } else {
-            setOpen(false);
-          }
-        }}
-        onFocus={() => {
-          if (searchTerm.length >= 1) {
-            setOpen(true);
-          }
-        }}
-        className="w-48 h-8 text-xs bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
-      />
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Busca Rápida..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            if (e.target.value.length >= 1) {
+              setOpen(true);
+            } else {
+              setOpen(false);
+            }
+          }}
+          onFocus={() => {
+            if (searchTerm.length >= 1) {
+              setOpen(true);
+            }
+          }}
+          className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
+        />
+      </div>
       
       {/* Dropdown de resultados */}
       {open && filteredProjects.length > 0 && (
