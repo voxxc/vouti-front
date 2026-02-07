@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, AlertTriangle, Calendar } from "lucide-react";
@@ -7,17 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getFullGreeting } from "@/utils/greetingHelper";
+import { useQuery } from "@tanstack/react-query";
 
 interface FinanceiroMetricsProps {
   userId: string;
   userName: string;
-}
-
-interface Metrics {
-  activeProjects: number;
-  overdueDeadlines: number;
-  totalDeadlines: number;
-  complianceRate: number;
 }
 
 interface OverdueItem {
@@ -28,16 +21,9 @@ interface OverdueItem {
 }
 
 const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [overdueItems, setOverdueItems] = useState<OverdueItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [userId]);
-
-  const fetchMetrics = async () => {
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['financeiro-metrics', userId],
+    queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
       const [projectsRes, overdueRes, totalDeadlinesRes, overdueListRes] = await Promise.all([
@@ -61,20 +47,23 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
       const completedDeadlines = totalDeadlines - (overdueRes.count || 0);
       const complianceRate = totalDeadlines > 0 ? (completedDeadlines / totalDeadlines) * 100 : 0;
 
-      setMetrics({
-        activeProjects: projectsRes.count || 0,
-        overdueDeadlines: overdueRes.count || 0,
-        totalDeadlines: totalDeadlines,
-        complianceRate: parseFloat(complianceRate.toFixed(1))
-      });
+      return {
+        metrics: {
+          activeProjects: projectsRes.count || 0,
+          overdueDeadlines: overdueRes.count || 0,
+          totalDeadlines: totalDeadlines,
+          complianceRate: parseFloat(complianceRate.toFixed(1))
+        },
+        overdueItems: (overdueListRes.data || []) as OverdueItem[]
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    enabled: !!userId,
+  });
 
-      setOverdueItems(overdueListRes.data || []);
-    } catch (error) {
-      console.error('Erro ao buscar métricas financeiro:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const metrics = data?.metrics;
+  const overdueItems = data?.overdueItems || [];
 
   if (loading) {
     return (

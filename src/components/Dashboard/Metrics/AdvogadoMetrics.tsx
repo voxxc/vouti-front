@@ -71,6 +71,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
     enabled: !!userId,
   });
 
