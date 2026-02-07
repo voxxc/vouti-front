@@ -1,131 +1,198 @@
 
+# Acesso Rápido a Projetos via Drawer
 
-# Registrar Tracking Request ID no Banco de IDs
-
-## Objetivo
-Quando a Edge Function `judit-sync-monitorados` atualiza o campo `tracking_request_id` de um processo, esse ID também deve ser automaticamente registrado na tabela `tenant_banco_ids` para auditoria.
+## Resumo
+Modificar o comportamento do buscador rápido de projetos (ProjectQuickSearch) no topbar para abrir o projeto selecionado em um drawer lateral (da direita para a esquerda), ao invés de navegar para a página completa. O drawer terá o mesmo visual do workspace já existente, proporcionando acesso instantâneo aos projetos.
 
 ---
 
-## Mudanças Necessárias
+## Arquitetura da Solução
 
-### 1. Adicionar Novo Tipo ao Constraint
-
-O constraint `tenant_banco_ids_tipo_check` precisa incluir o novo tipo `request_tracking`:
-
-```sql
-ALTER TABLE tenant_banco_ids DROP CONSTRAINT IF EXISTS tenant_banco_ids_tipo_check;
-ALTER TABLE tenant_banco_ids ADD CONSTRAINT tenant_banco_ids_tipo_check 
-  CHECK (tipo IN (
-    'oab', 
-    'processo', 
-    'tracking', 
-    'tracking_desativado', 
-    'request_busca', 
-    'request_detalhes', 
-    'request_tracking',  -- NOVO
-    'push_doc', 
-    'tracking_push_doc'
-  ));
+### Situacao Atual
+```text
+[ProjectQuickSearch] 
+       |
+       v (navigate)
+[/project/:id] --> [ProjectViewWrapper] --> [ProjectView com DashboardLayout]
 ```
 
-### 2. Atualizar Trigger `registrar_banco_id_processo`
-
-Adicionar lógica para capturar mudanças no campo `tracking_request_id`:
-
-```sql
--- No INSERT: se tracking_request_id já veio preenchido
-IF NEW.tracking_request_id IS NOT NULL THEN
-  INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-  VALUES (
-    NEW.tenant_id,
-    'request_tracking',
-    NEW.id,
-    NEW.tracking_request_id,
-    'Request Tracking: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-    jsonb_build_object(
-      'numero_cnj', NEW.numero_cnj, 
-      'tracking_id', NEW.tracking_id,
-      'data_request', NEW.tracking_request_data
-    )
-  );
-END IF;
-
--- No UPDATE: quando tracking_request_id muda
-IF TG_OP = 'UPDATE' 
-   AND NEW.tracking_request_id IS DISTINCT FROM OLD.tracking_request_id 
-   AND NEW.tracking_request_id IS NOT NULL THEN
-  INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-  VALUES (
-    NEW.tenant_id,
-    'request_tracking',
-    NEW.id,
-    NEW.tracking_request_id,
-    'Request Tracking: ' || COALESCE(NEW.numero_cnj, 'Processo'),
-    jsonb_build_object(
-      'numero_cnj', NEW.numero_cnj, 
-      'tracking_id', NEW.tracking_id,
-      'data_request', NEW.tracking_request_data
-    )
-  );
-END IF;
-```
-
-### 3. Migrar Dados Existentes
-
-Se já existem processos com `tracking_request_id` preenchido que ainda não foram registrados:
-
-```sql
-INSERT INTO tenant_banco_ids (tenant_id, tipo, referencia_id, external_id, descricao, metadata)
-SELECT 
-  po.tenant_id,
-  'request_tracking',
-  po.id,
-  po.tracking_request_id,
-  'Request Tracking: ' || po.numero_cnj,
-  jsonb_build_object(
-    'numero_cnj', po.numero_cnj, 
-    'tracking_id', po.tracking_id,
-    'data_request', po.tracking_request_data
-  )
-FROM processos_oab po
-WHERE po.tracking_request_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM tenant_banco_ids tbi 
-    WHERE tbi.external_id = po.tracking_request_id 
-      AND tbi.tipo = 'request_tracking'
-  );
+### Nova Arquitetura
+```text
+[ProjectQuickSearch]
+       |
+       v (callback onSelectProject)
+[DashboardLayout]
+       |
+       v (estado projectDrawerOpen + selectedProjectId)
+[ProjectDrawer] --> [ProjectDrawerContent (sem DashboardLayout)]
 ```
 
 ---
 
-## Resultado no Banco de IDs
+## Arquivos a Criar/Modificar
 
-A aba "Requests" no TenantCard mostrará dois tipos de requests:
-
-| Tipo | Descrição |
-|------|-----------|
-| `request_detalhes` | Request IDs de buscas avulsas (POST /lawsuit_cnj) |
-| `request_tracking` | Request IDs obtidos via monitoramento (GET /tracking) |
-
----
-
-## Arquivo a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| Nova migração SQL | Atualizar constraint + trigger + migrar dados existentes |
+| Arquivo | Tipo | Descricao |
+|---------|------|-----------|
+| `src/components/Project/ProjectDrawer.tsx` | NOVO | Drawer container usando Sheet side="inset" |
+| `src/components/Project/ProjectDrawerContent.tsx` | NOVO | Conteudo do projeto adaptado para drawer |
+| `src/components/Search/ProjectQuickSearch.tsx` | MODIFICAR | Adicionar callback onSelectProject |
+| `src/components/Dashboard/DashboardLayout.tsx` | MODIFICAR | Gerenciar estado do ProjectDrawer |
+| `src/components/Dashboard/DashboardSidebar.tsx` | MODIFICAR | Incluir ProjectDrawer |
 
 ---
 
-## Fluxo Completo
+## Detalhamento Tecnico
+
+### 1. ProjectDrawer.tsx
 
 ```text
-1. Edge Function sync chama GET /tracking/{id}
-2. Obtém request_id da resposta
-3. Atualiza processos_oab.tracking_request_id
-4. Trigger dispara automaticamente
-5. Novo registro em tenant_banco_ids (tipo: request_tracking)
-6. SuperAdmin vê no Banco de IDs do tenant
+Estrutura do Drawer:
++-------------------------------------------------------------------+
+| [ArrowLeft] Voltar    Nome do Projeto                         [X] |
+|                       Cliente                                     |
++-------------------------------------------------------------------+
+| [Workspace Tabs: Principal | Aba 2 | ...]                         |
++-------------------------------------------------------------------+
+| [Processos] [Casos] [Colunas]    [Participantes] [Lock] [Setores] |
++-------------------------------------------------------------------+
+|                                                                   |
+|  Conteudo scrollavel com:                                        |
+|  - ProjectProtocolosList (aba Processos)                         |
+|  - ProjectProcessos (aba Casos)                                   |
+|  - Kanban Board (aba Colunas)                                     |
+|                                                                   |
++-------------------------------------------------------------------+
 ```
+
+Props do componente:
+```typescript
+interface ProjectDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectId: string | null;
+}
+```
+
+### 2. ProjectDrawerContent.tsx
+
+Este componente sera uma versao adaptada do ProjectView SEM o DashboardLayout wrapper. Contera:
+
+- Header com nome do projeto editavel e botao voltar
+- WorkspaceTabs 
+- Tabs de navegacao (Processos, Casos, Colunas)
+- Conteudo de cada aba
+- Modais (TaskModal, CreateSectorDialog, etc.)
+
+### 3. ProjectQuickSearch.tsx - Modificacoes
+
+Adicionar prop callback para comunicar selecao ao parent:
+
+```typescript
+interface ProjectQuickSearchProps {
+  tenantPath: (path: string) => string;
+  onSelectProject?: (projectId: string) => void; // NOVO
+}
+
+// No handleSelect:
+const handleSelect = (projectId: string) => {
+  if (onSelectProject) {
+    onSelectProject(projectId); // Abre drawer
+  } else {
+    navigate(tenantPath(`project/${projectId}`)); // Fallback
+  }
+  setSearchTerm('');
+  setOpen(false);
+};
+```
+
+### 4. DashboardLayout.tsx - Modificacoes
+
+Gerenciar estado do drawer de projeto:
+
+```typescript
+// Estado
+const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
+const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+// Handler
+const handleQuickProjectSelect = (projectId: string) => {
+  setSelectedProjectId(projectId);
+  setProjectDrawerOpen(true);
+};
+
+// No render:
+<ProjectQuickSearch 
+  tenantPath={tenantPath} 
+  onSelectProject={handleQuickProjectSelect} 
+/>
+
+<ProjectDrawer 
+  open={projectDrawerOpen}
+  onOpenChange={setProjectDrawerOpen}
+  projectId={selectedProjectId}
+/>
+```
+
+---
+
+## Comportamento do Drawer
+
+1. **Side**: `inset` - ocupa area principal (direita para esquerda), mesmo comportamento da Controladoria
+2. **Modal**: `false` - sidebar permanece interativa
+3. **Carregamento**: Busca dados do projeto ao abrir (similar ao ProjectViewWrapper)
+4. **Navegacao interna**: Manter tabs e workspace navigation funcionando dentro do drawer
+5. **Fechar**: Botao X ou clicar em outro item da sidebar
+
+---
+
+## Fluxo do Usuario
+
+1. Usuario digita no campo de busca rapida
+2. Dropdown mostra projetos filtrados
+3. Usuario clica em um projeto
+4. Drawer abre instantaneamente da direita para esquerda
+5. Projeto carrega com skeleton/loading
+6. Usuario interage normalmente (trocar workspace, ver processos, etc.)
+7. Usuario pode fechar clicando no X ou abrindo outro drawer da sidebar
+
+---
+
+## Reutilizacao de Codigo
+
+Para evitar duplicacao, o `ProjectDrawerContent` vai:
+
+1. **Reutilizar hooks existentes**:
+   - `useProjectWorkspaces`
+   - `useToast`
+   - `useAuth`
+
+2. **Reutilizar componentes existentes**:
+   - `ProjectWorkspaceTabs`
+   - `ProjectProtocolosList`
+   - `ProjectProcessos`
+   - `KanbanColumn`, `TaskCard` (para aba Colunas)
+   - `TaskModal`, `CreateSectorDialog`, etc.
+   - `EditableProjectName`
+   - `SetoresDropdown`
+
+3. **Extrair logica comum** do ProjectView em funcoes reutilizaveis quando possivel
+
+---
+
+## Consideracoes de Performance
+
+- Carregar dados apenas quando drawer abre (lazy loading)
+- Manter cache de projetos recentemente abertos
+- Usar skeleton loaders durante carregamento
+- Subscriptions Supabase apenas enquanto drawer aberto
+
+---
+
+## Compatibilidade
+
+- O comportamento existente de navegacao completa (`/project/:id`) permanece funcional
+- Usuarios podem acessar via:
+  - Busca rapida no topbar -> Drawer
+  - ProjectsDrawer (sidebar) -> Pagina completa
+  - URL direta -> Pagina completa
 
