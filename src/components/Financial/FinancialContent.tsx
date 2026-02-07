@@ -232,7 +232,7 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
           onClick={onNavigateMetrics}
           className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Métricas
+          Indicadores
         </button>
       </div>
 
