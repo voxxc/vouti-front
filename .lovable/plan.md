@@ -1,145 +1,115 @@
 
+# Unificar Visual do Projeto no Drawer
 
-# Unificar Experiência do Projeto no Drawer
+## Problema
 
-## Problema Identificado
+O drawer atual (`ProjectDrawerContent`) tem um visual completamente diferente da página completa (`ProjectView`). O usuário quer que o drawer abra o projeto com **exatamente o mesmo visual** da página via URL.
 
-O `ProjectDrawerContent` atual é uma versão "resumida" com botão "Abrir Completo" que navega para a página `/project/:id`. Porém, isso não faz sentido porque:
+## Diferenças Identificadas
 
-1. O drawer já ocupa o mesmo espaço visual (entre sidebar e topbar)
-2. Navegar para a página completa quebra o fluxo de drawer
-3. O usuário perde o contexto da navegação atual
+| Elemento | Página (ProjectView) | Drawer Atual |
+|----------|---------------------|--------------|
+| Header | Botão "Voltar" + Nome em H1 + links texto | Ícone + nome pequeno + botões |
+| Ações | Links texto: "Participantes", "Dados", "Histórico" | Botões com ícones |
+| Tabs | Texto simples com underline ativo | Radix TabsList com fundo cinza |
+| Setores | SetoresDropdown componente dedicado | DropdownMenu genérico |
+| Lock | Botão circular amarelo sempre visível no header | Escondido dentro das tabs |
+| Layout | space-y-6 com respiração visual | Compacto com flex-col |
 
 ## Solucao
 
-Remover o botão "Abrir Completo" e adicionar ao `ProjectDrawerContent` TODAS as funcionalidades que existem no `ProjectView`:
+Reutilizar diretamente o componente `ProjectView` dentro do `ProjectDrawerContent`, passando as props necessárias. O `ProjectView` já tem todo o layout correto, só precisa:
 
-### Funcionalidades a Adicionar no Drawer
+1. Funcionar SEM o `DashboardLayout` (pois o drawer já está dentro dele)
+2. Receber uma prop para indicar que está em modo drawer
 
-| Funcionalidade | Existe no ProjectView | Falta no Drawer |
-|----------------|----------------------|-----------------|
-| Botão "Dados" (admin) | Sim | Adicionar |
-| Botão "Histórico" (admin) | Sim | Adicionar |
-| ProjectClientDataDialog | Sim | Adicionar |
-| ProjectHistoryDrawer | Sim | Adicionar |
-| Verificação isAdmin | Sim | Adicionar |
+## Mudancas Tecnicas
 
-### Mudancas no Codigo
+### 1. Modificar ProjectView.tsx
 
-#### 1. Remover botao "Abrir Completo"
-
-Linha 354-362 do ProjectDrawerContent.tsx - remover:
+Adicionar prop opcional `embedded` que remove o wrapper `DashboardLayout`:
 
 ```tsx
-// REMOVER:
-<Button
-  variant="ghost"
-  size="sm"
-  onClick={handleOpenFullProject}
-  className="gap-2 flex-shrink-0"
->
-  <ExternalLink className="h-4 w-4" />
-  <span className="hidden sm:inline">Abrir completo</span>
-</Button>
+interface ProjectViewProps {
+  // ... props existentes
+  embedded?: boolean; // NOVO: quando true, não renderiza DashboardLayout
+}
+
+// No return:
+const content = (
+  <div className="space-y-6">
+    {/* Todo o conteúdo atual */}
+  </div>
+);
+
+return embedded ? content : <DashboardLayout>{content}</DashboardLayout>;
 ```
 
-#### 2. Adicionar verificacao de admin
+### 2. Simplificar ProjectDrawerContent.tsx
+
+Substituir toda a implementação duplicada por:
 
 ```tsx
-const [isAdmin, setIsAdmin] = useState(false);
+export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerContentProps) {
+  // Carregar dados do projeto (similar ao ProjectViewWrapper)
+  // ...loading state...
 
-useEffect(() => {
-  const checkAdmin = async () => {
-    if (!user?.id) return;
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-    setIsAdmin(!!data);
-  };
-  checkAdmin();
-}, [user?.id]);
+  return (
+    <ProjectView
+      onLogout={() => {}}
+      onBack={onClose}
+      project={project}
+      onUpdateProject={handleUpdateProject}
+      currentUser={currentUser}
+      users={[]}
+      embedded={true}  // IMPORTANTE: modo drawer
+    />
+  );
+}
 ```
 
-#### 3. Adicionar estados para dialogs
+### 3. Ajustar o botão "Voltar" no modo embedded
 
-```tsx
-const [isClientDataOpen, setIsClientDataOpen] = useState(false);
-const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-```
+No `ProjectView`, quando `embedded=true`:
+- O botão "Voltar" fecha o drawer (chama `onBack`)
+- Não navega para outra página
 
-#### 4. Adicionar botoes no header (para admins)
-
-```tsx
-{isAdmin && (
-  <Button variant="ghost" size="sm" onClick={() => setIsClientDataOpen(true)}>
-    <FileText className="h-4 w-4" />
-    <span className="hidden lg:inline">Dados</span>
-  </Button>
-)}
-
-{isAdmin && (
-  <Button variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)}>
-    <History className="h-4 w-4" />
-    <span className="hidden lg:inline">Histórico</span>
-  </Button>
-)}
-```
-
-#### 5. Adicionar componentes de dialogs
-
-```tsx
-{/* Client Data Dialog */}
-{isAdmin && project.clienteId && (
-  <ProjectClientDataDialog
-    isOpen={isClientDataOpen}
-    onClose={() => setIsClientDataOpen(false)}
-    clienteId={project.clienteId}
-  />
-)}
-
-{/* History Drawer */}
-{isAdmin && (
-  <ProjectHistoryDrawer
-    projectId={project.id}
-    projectName={project.name}
-    isOpen={isHistoryOpen}
-    onClose={() => setIsHistoryOpen(false)}
-  />
-)}
-```
-
-### Arquivo a Modificar
+## Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/Project/ProjectDrawerContent.tsx` | Adicionar funcionalidades completas |
+| `src/pages/ProjectView.tsx` | Adicionar prop `embedded` e renderização condicional |
+| `src/components/Project/ProjectDrawerContent.tsx` | Simplificar para usar ProjectView |
 
-### Resultado Final
+## Resultado Final
 
-O drawer tera a MESMA experiencia da pagina completa:
+O drawer terá EXATAMENTE o mesmo visual da página:
 
-```text
+```
 +-------------------------------------------------------------------+
-| [FolderOpen] Nome do Projeto           [Dados] [Historico]    [X] |
-|              Cliente                                              |
+| [<- Voltar]   ADRIANO SCHMIDT       Participantes Dados Histórico |
+|               ADRIANO SCHMIDT                     [Setores v] [O] |
 +-------------------------------------------------------------------+
-| [Workspace Tabs: Principal | Aba 2 | ...]                         |
+| [ADRIANO SCH...]  [+ Nova Aba]                                    |
 +-------------------------------------------------------------------+
-| [Processos] [Casos] [Colunas]    [Participantes] [Lock] [Setores] |
+| Processos    Casos    Colunas                                     |
+|    ____                                                           |
 +-------------------------------------------------------------------+
 |                                                                   |
-|  Conteudo completo (igual a pagina /project/:id)                  |
+|  [Processos] ^ [1]                           [+ Novo processo]    |
+|  +----------------------------------------------------------+    |
+|  | Q Buscar processos...     | Y | Todos os... v | ⇅ |          |
+|  +----------------------------------------------------------+    |
+|                                                                   |
+|  MANDAMENTAL - BANCO DO BRASIL                  [Em Andamento]   |
+|  2/3 etapas concluidas                                           |
 |                                                                   |
 +-------------------------------------------------------------------+
 ```
 
-### Beneficios
+## Beneficios
 
-1. **Experiencia consistente**: Nao ha diferenca entre drawer e pagina
-2. **Velocidade**: Usuario acessa tudo sem navegacao adicional
-3. **Contexto preservado**: Usuario permanece no drawer sem perder onde estava
-4. **Codigo mais simples**: Nao precisa manter duas versoes do mesmo componente
-
+1. **Consistência total**: Drawer e página são visualmente idênticos
+2. **Código DRY**: Não duplica lógica entre drawer e página
+3. **Manutenção simplificada**: Alterações no ProjectView refletem automaticamente no drawer
+4. **Design preservado**: Todo o trabalho de design feito na página é aproveitado
