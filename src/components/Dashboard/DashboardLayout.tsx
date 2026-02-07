@@ -16,6 +16,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import DashboardSidebar from "./DashboardSidebar";
+import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
 
@@ -47,6 +48,8 @@ const DashboardLayout = ({
   const [users, setUsers] = useState<UserType[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
+  const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -192,6 +195,11 @@ const DashboardLayout = ({
     navigate(tenantPath('/auth'));
   };
 
+  const handleQuickProjectSelect = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setProjectDrawerOpen(true);
+  };
+
   return (
     <>
       {/* Banner de Avisos para Administradores */}
@@ -213,7 +221,10 @@ const DashboardLayout = ({
           <div className="flex items-center justify-between px-6 py-3">
             {/* Left side - TOTP e Quick search */}
             <div className="hidden md:flex items-center gap-2">
-              <ProjectQuickSearch tenantPath={tenantPath} />
+              <ProjectQuickSearch 
+                tenantPath={tenantPath} 
+                onSelectProject={handleQuickProjectSelect}
+              />
             </div>
             <div className="w-10 md:hidden" />
             
@@ -288,6 +299,13 @@ const DashboardLayout = ({
       {canSeeTOTP && (
         <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} />
       )}
+      
+      {/* Project Drawer */}
+      <ProjectDrawer
+        open={projectDrawerOpen}
+        onOpenChange={setProjectDrawerOpen}
+        projectId={selectedProjectId}
+      />
     </>
   );
 };
