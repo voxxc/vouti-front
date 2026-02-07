@@ -15,8 +15,18 @@ import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
-import DashboardSidebar from "./DashboardSidebar";
+import DashboardSidebar, { ActiveDrawer } from "./DashboardSidebar";
 import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
+
+// Drawers
+import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
+import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
+import { CRMDrawer } from "@/components/CRM/CRMDrawer";
+import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
+import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
+import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
+import { DocumentosDrawer } from "@/components/Documentos/DocumentosDrawer";
+
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
 
@@ -50,6 +60,9 @@ const DashboardLayout = ({
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  
+  // Estado central para o drawer ativo - NOVA ARQUITETURA
+  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -200,6 +213,11 @@ const DashboardLayout = ({
     setProjectDrawerOpen(true);
   };
 
+  // Handler para mudança de drawer do sidebar
+  const handleDrawerChange = (drawer: ActiveDrawer) => {
+    setActiveDrawer(drawer);
+  };
+
   return (
     <>
       {/* Banner de Avisos para Administradores */}
@@ -211,8 +229,12 @@ const DashboardLayout = ({
       )}
       
       <div className="min-h-screen bg-background flex w-full">
-      {/* Sidebar */}
-      <DashboardSidebar currentPage={currentPage} />
+      {/* Sidebar - agora controlado */}
+      <DashboardSidebar 
+        currentPage={currentPage} 
+        activeDrawer={activeDrawer}
+        onDrawerChange={handleDrawerChange}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen">
@@ -281,7 +303,7 @@ const DashboardLayout = ({
           <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '2.5s' }} />
         </div>
 
-        {/* Main Content */}
+        {/* Main Content - Dashboard sempre renderizado */}
         <main className="flex-1 container max-w-7xl mx-auto px-6 py-8 relative z-10">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
@@ -300,11 +322,41 @@ const DashboardLayout = ({
         <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} />
       )}
       
-      {/* Project Drawer */}
+      {/* Project Drawer (busca rápida) */}
       <ProjectDrawer
         open={projectDrawerOpen}
         onOpenChange={setProjectDrawerOpen}
         projectId={selectedProjectId}
+      />
+
+      {/* Drawers de seções - agora gerenciados aqui no layout */}
+      <ProjectsDrawer 
+        open={activeDrawer === 'projetos'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <ControladoriaDrawer 
+        open={activeDrawer === 'controladoria'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <CRMDrawer 
+        open={activeDrawer === 'clientes'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <FinancialDrawer 
+        open={activeDrawer === 'financeiro'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <ReunioesDrawer 
+        open={activeDrawer === 'reunioes'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <AgendaDrawer 
+        open={activeDrawer === 'agenda'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <DocumentosDrawer 
+        open={activeDrawer === 'documentos'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
       />
     </>
   );
