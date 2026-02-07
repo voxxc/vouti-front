@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Reuniao } from "@/types/reuniao";
 import { useReuniaoStatus } from "@/hooks/useReuniaoStatus";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getFullGreeting } from "@/utils/greetingHelper";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 interface AgendaMetricsProps {
   userId: string;
@@ -15,19 +15,12 @@ interface AgendaMetricsProps {
 }
 
 const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsProps) => {
-  const [metrics, setMetrics] = useState<{ [statusId: string]: number }>({});
-  const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const { status } = useReuniaoStatus();
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [userId, isAdminView, filtroStatus]);
-
-  const fetchMetrics = async () => {
-    try {
-      setLoading(true);
-
+  const { data: metrics, isLoading: loading } = useQuery({
+    queryKey: ['agenda-metrics', userId, isAdminView, filtroStatus],
+    queryFn: async () => {
       // Build query
       let query = supabase.from('reunioes').select('status_id');
 
@@ -53,13 +46,12 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
         }
       });
 
-      setMetrics(metricsMap);
-    } catch (error) {
-      console.error('Error fetching agenda metrics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return metricsMap;
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    enabled: !!userId,
+  });
 
   if (loading) {
     return (
@@ -77,7 +69,7 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
     );
   }
 
-  const totalReunioes = Object.values(metrics).reduce((acc, val) => acc + val, 0);
+  const totalReunioes = Object.values(metrics || {}).reduce((acc, val) => acc + val, 0);
 
   return (
     <div className="space-y-6">
@@ -127,7 +119,7 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
         </Card>
 
         {status.filter(s => s.ativo).map(s => {
-          const count = metrics[s.id] || 0;
+          const count = metrics?.[s.id] || 0;
           return (
             <Card key={s.id}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

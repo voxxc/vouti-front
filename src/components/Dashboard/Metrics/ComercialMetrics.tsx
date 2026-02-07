@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserCheck, TrendingUp, AlertCircle, Clock } from "lucide-react";
@@ -7,19 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getFullGreeting } from "@/utils/greetingHelper";
+import { useQuery } from "@tanstack/react-query";
 
 interface ComercialMetricsProps {
   userId: string;
   userName: string;
-}
-
-interface Metrics {
-  totalLeads: number;
-  leadsCaptacao: number;
-  leadsQualificados: number;
-  leadsConvertidos: number;
-  conversionRate: number;
-  highPriorityLeads: number;
 }
 
 interface Lead {
@@ -32,16 +23,9 @@ interface Lead {
 }
 
 const ComercialMetrics = ({ userId, userName }: ComercialMetricsProps) => {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [userId]);
-
-  const fetchMetrics = async () => {
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['comercial-metrics', userId],
+    queryFn: async () => {
       const { data: allLeads, count: totalCount } = await supabase
         .from('leads_captacao')
         .select('*', { count: 'exact' })
@@ -57,22 +41,25 @@ const ComercialMetrics = ({ userId, userName }: ComercialMetricsProps) => {
       const total = totalCount || 0;
       const conversionRate = total > 0 ? (convertidos / total) * 100 : 0;
 
-      setMetrics({
-        totalLeads: total,
-        leadsCaptacao: captacao,
-        leadsQualificados: qualificados,
-        leadsConvertidos: convertidos,
-        conversionRate: parseFloat(conversionRate.toFixed(1)),
-        highPriorityLeads: highPriority
-      });
+      return {
+        metrics: {
+          totalLeads: total,
+          leadsCaptacao: captacao,
+          leadsQualificados: qualificados,
+          leadsConvertidos: convertidos,
+          conversionRate: parseFloat(conversionRate.toFixed(1)),
+          highPriorityLeads: highPriority
+        },
+        recentLeads: (allLeads || []) as Lead[]
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    enabled: !!userId,
+  });
 
-      setRecentLeads(allLeads || []);
-    } catch (error) {
-      console.error('Erro ao buscar métricas comercial:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const metrics = data?.metrics;
+  const recentLeads = data?.recentLeads || [];
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {

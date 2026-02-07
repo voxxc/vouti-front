@@ -84,6 +84,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
     enabled: !!userId && !!tenantId,
   });
 
