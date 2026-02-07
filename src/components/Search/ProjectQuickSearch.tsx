@@ -9,6 +9,7 @@ import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
 
 interface ProjectQuickSearchProps {
   tenantPath: (path: string) => string;
+  onSelectProject?: (projectId: string) => void;
 }
 
 interface ProjectItem {
@@ -17,7 +18,7 @@ interface ProjectItem {
   client: string | null;
 }
 
-export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
+export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuickSearchProps) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -103,7 +104,11 @@ export const ProjectQuickSearch = ({ tenantPath }: ProjectQuickSearchProps) => {
   );
 
   const handleSelect = (projectId: string) => {
-    navigate(tenantPath(`project/${projectId}`));
+    if (onSelectProject) {
+      onSelectProject(projectId);
+    } else {
+      navigate(tenantPath(`project/${projectId}`));
+    }
     setSearchTerm('');
     setOpen(false);
   };
