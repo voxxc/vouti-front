@@ -2863,6 +2863,47 @@ export type Database = {
           },
         ]
       }
+      password_reset_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          tenant_id: string | null
+          tenant_slug: string | null
+          used_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          tenant_id?: string | null
+          tenant_slug?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          tenant_id?: string | null
+          tenant_slug?: string | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "password_reset_codes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planos_config: {
         Row: {
           codigo: string

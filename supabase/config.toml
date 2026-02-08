@@ -101,3 +101,9 @@ verify_jwt = false
 
 [functions.judit-deletar-credencial]
 verify_jwt = true
+
+[functions.send-password-reset]
+verify_jwt = false
+
+[functions.verify-password-reset]
+verify_jwt = false

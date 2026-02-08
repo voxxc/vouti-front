@@ -310,8 +310,8 @@ function App() {
               </TenantRouteWrapper>
             } />
             
-            {/* Reset Password - Tenant Dynamic */}
-            <Route path="/:tenant/reset-password" element={
+            {/* Reset Password - Tenant Dynamic (with optional code) */}
+            <Route path="/:tenant/reset-password/:code?" element={
               <TenantProvider>
                 <AuthProvider>
                   <ThemeProvider>

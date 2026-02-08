@@ -10,6 +10,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useLocalTheme } from "@/hooks/useLocalTheme";
 import { AuthThemeToggle } from "@/components/Auth/AuthThemeToggle";
 import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import authOfficeBg from "@/assets/auth-office-bg.jpg";
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -137,20 +138,23 @@ const Auth = () => {
     }
     setIsLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/${tenantSlug}/reset-password`;
-      const {
-        error
-      } = await resetPassword(email, redirectUrl);
-      if (error) {
+      const { data, error } = await supabase.functions.invoke("send-password-reset", {
+        body: {
+          email: email.toLowerCase(),
+          tenant_slug: tenantSlug,
+        },
+      });
+
+      if (error || data?.error) {
         toast({
           title: "Erro",
-          description: error.message || "Erro ao enviar email de recuperacao.",
+          description: data?.error || error?.message || "Erro ao enviar email de recuperacao.",
           variant: "destructive"
         });
       } else {
         toast({
-          title: "Email enviado",
-          description: "Verifique sua caixa de entrada para redefinir sua senha."
+          title: "Código enviado!",
+          description: "Verifique sua caixa de entrada para obter o código de 6 dígitos."
         });
         setMode('login');
         setEmail("");
