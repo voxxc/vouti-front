@@ -103,12 +103,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Buscar todos os super admins para excluir da verificação
+    // Buscar todos os super admins
     const { data: superAdminUserIds } = await supabaseAdmin
       .from('super_admins')
       .select('user_id');
 
     const superAdminIds = superAdminUserIds?.map(sa => sa.user_id) || [];
+
+    // Verificar se email existe em auth.users
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === admin_email.toLowerCase());
+
+    // Verificar se o email pertence a um super admin
+    const isSuperAdminEmail = existingAuthUser && superAdminIds.includes(existingAuthUser.id);
 
     // Check if admin email already exists (excluindo super admins)
     const { data: existingProfile } = await supabaseAdmin
@@ -117,7 +124,7 @@ Deno.serve(async (req) => {
       .eq('email', admin_email)
       .maybeSingle();
 
-    // Só bloqueia se existir E não for super admin
+    // Bloqueia APENAS se existir, não for super admin E o auth user existir
     if (existingProfile && !superAdminIds.includes(existingProfile.user_id)) {
       return new Response(
         JSON.stringify({ error: 'A user with this email already exists' }),
@@ -152,70 +159,92 @@ Deno.serve(async (req) => {
 
     console.log('Tenant created:', tenant.id);
 
-    // Step 2: Create admin user
-    console.log('Step 2: Creating admin user...');
-    const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email: admin_email,
-      password: admin_password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: admin_name,
-      },
-    });
+    let adminUserId: string;
 
-    if (userError || !newUser.user) {
-      console.error('Error creating user:', userError);
-      // Rollback: delete tenant
-      await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
-      return new Response(
-        JSON.stringify({ error: `Error creating admin user: ${userError?.message || 'Unknown error'}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Admin user created:', newUser.user.id);
-
-    // Step 3: Update/Create profile with tenant_id
-    console.log('Step 3: Updating profile with tenant_id...');
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        user_id: newUser.user.id,
+    // Step 2: Create admin user OR reuse super admin's auth user
+    if (isSuperAdminEmail && existingAuthUser) {
+      // Reutilizar o auth user existente do super admin
+      console.log('Step 2: Reusing super admin auth user for tenant admin...');
+      adminUserId = existingAuthUser.id;
+      console.log('Reusing existing super admin user:', adminUserId);
+    } else {
+      // Criar novo usuário
+      console.log('Step 2: Creating new admin user...');
+      const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
         email: admin_email,
-        full_name: admin_name,
-        tenant_id: tenant.id,
-      }, {
-        onConflict: 'user_id',
+        password: admin_password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: admin_name,
+        },
       });
 
-    if (profileError) {
-      console.error('Error updating profile:', profileError);
-      // Rollback: delete user and tenant
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
-      return new Response(
-        JSON.stringify({ error: `Error updating profile: ${profileError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (userError || !newUser.user) {
+        console.error('Error creating user:', userError);
+        // Rollback: delete tenant
+        await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
+        return new Response(
+          JSON.stringify({ error: `Error creating admin user: ${userError?.message || 'Unknown error'}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      adminUserId = newUser.user.id;
+      console.log('Admin user created:', adminUserId);
     }
 
-    console.log('Profile updated with tenant_id');
+    // Step 3: Create NEW profile for this tenant (não faz upsert para super admin)
+    console.log('Step 3: Creating profile for tenant...');
+    
+    if (isSuperAdminEmail) {
+      // Para super admin, verificar se já existe profile para este tenant
+      // O super admin mantém seu profile original (tenant_id = null)
+      // Mas criamos um novo profile entry se necessário - na verdade, não podemos ter 2 profiles
+      // Então vamos apenas criar o admin role e deixar o super admin acessar via super admin panel
+      console.log('Super admin detected - skipping profile update to preserve super admin access');
+    } else {
+      // Usuário novo - criar profile normalmente
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          user_id: adminUserId,
+          email: admin_email,
+          full_name: admin_name,
+          tenant_id: tenant.id,
+        }, {
+          onConflict: 'user_id',
+        });
 
-    // Step 4: Create admin role
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        // Rollback: delete user and tenant
+        await supabaseAdmin.auth.admin.deleteUser(adminUserId);
+        await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
+        return new Response(
+          JSON.stringify({ error: `Error updating profile: ${profileError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log('Profile created with tenant_id');
+    }
+
+    // Step 4: Create admin role for the tenant
     console.log('Step 4: Creating admin role...');
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
-        user_id: newUser.user.id,
+        user_id: adminUserId,
         role: 'admin',
         tenant_id: tenant.id,
       });
 
     if (roleError) {
       console.error('Error creating role:', roleError);
-      // Rollback: delete profile, user and tenant
-      await supabaseAdmin.from('profiles').delete().eq('user_id', newUser.user.id);
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      // Rollback
+      if (!isSuperAdminEmail) {
+        await supabaseAdmin.from('profiles').delete().eq('user_id', adminUserId);
+        await supabaseAdmin.auth.admin.deleteUser(adminUserId);
+      }
       await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
       return new Response(
         JSON.stringify({ error: `Error creating admin role: ${roleError.message}` }),
@@ -224,6 +253,11 @@ Deno.serve(async (req) => {
     }
 
     console.log('Admin role created successfully');
+
+    // Build response message
+    const responseMessage = isSuperAdminEmail
+      ? `Tenant "${name}" created. Super admin "${admin_name}" (${admin_email}) now has admin access to this tenant via super admin panel.`
+      : `Tenant "${name}" created successfully with admin "${admin_name}" (${admin_email})`;
 
     // Success!
     return new Response(
@@ -236,11 +270,12 @@ Deno.serve(async (req) => {
           plano: tenantPlano,
         },
         admin: {
-          id: newUser.user.id,
+          id: adminUserId,
           email: admin_email,
           name: admin_name,
+          is_super_admin: isSuperAdminEmail,
         },
-        message: `Tenant "${name}" created successfully with admin "${admin_name}" (${admin_email})`,
+        message: responseMessage,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
