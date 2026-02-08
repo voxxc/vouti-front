@@ -8,11 +8,15 @@ import Logo from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [isProcessingToken, setIsProcessingToken] = useState(true);
   const { toast } = useToast();
   const { updatePassword } = useAuth();
   const navigate = useNavigate();
@@ -44,6 +48,62 @@ const ResetPassword = () => {
     };
   }, []);
 
+  // Process recovery tokens from URL hash
+  useEffect(() => {
+    const processRecoveryToken = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      console.log('[ResetPassword] Processing URL hash, type:', type);
+
+      if (type === 'recovery' && accessToken && refreshToken) {
+        console.log('[ResetPassword] Recovery tokens found, establishing session...');
+        
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (error) {
+          console.error('[ResetPassword] Error establishing session:', error);
+          toast({
+            title: "Link inválido",
+            description: "O link de recuperação expirou ou é inválido.",
+            variant: "destructive",
+          });
+          navigate(`/${tenantSlug}/auth`);
+        } else {
+          console.log('[ResetPassword] Session established successfully');
+          setSessionReady(true);
+          // Clear hash from URL for security
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } else {
+        // Check if there's already a valid session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('[ResetPassword] Existing session found');
+          setSessionReady(true);
+        } else {
+          console.log('[ResetPassword] No session found, redirecting...');
+          toast({
+            title: "Acesso não autorizado",
+            description: "Use o link enviado para seu email.",
+            variant: "destructive",
+          });
+          navigate(`/${tenantSlug}/auth`);
+        }
+      }
+      
+      setIsProcessingToken(false);
+    };
+
+    processRecoveryToken();
+  }, [navigate, tenantSlug, toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -68,7 +128,7 @@ const ResetPassword = () => {
     if (password !== confirmPassword) {
       toast({
         title: "Erro",
-        description: "As senhas nao coincidem.",
+        description: "As senhas não coincidem.",
         variant: "destructive",
       });
       return;
@@ -102,6 +162,23 @@ const ResetPassword = () => {
       setIsLoading(false);
     }
   };
+
+  // Show loading while processing recovery token
+  if (isProcessingToken) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Validando link de recuperação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render form if session is not ready
+  if (!sessionReady) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4 relative overflow-hidden">
