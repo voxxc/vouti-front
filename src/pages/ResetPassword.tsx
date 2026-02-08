@@ -1,113 +1,38 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Lock, KeyRound } from "lucide-react";
 
 const ResetPassword = () => {
+  const { code: urlCode } = useParams<{ code?: string }>();
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState(urlCode || "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
-  const [isProcessingToken, setIsProcessingToken] = useState(true);
   const { toast } = useToast();
-  const { updatePassword } = useAuth();
   const navigate = useNavigate();
   
-  // Try to get tenant context
-  let tenant = null;
+  // Get tenant context
   let tenantSlug = 'solvenza';
   try {
     const tenantContext = useTenant();
-    tenant = tenantContext.tenant;
     tenantSlug = tenantContext.tenantSlug || 'solvenza';
   } catch {
     // useTenant throws if not in TenantProvider
   }
 
-  // Force dark theme
-  useEffect(() => {
-    const root = document.documentElement;
-    const hadLightTheme = root.classList.contains('light');
-    
-    root.classList.remove('light');
-    root.classList.add('dark');
-    
-    return () => {
-      root.classList.remove('dark');
-      if (hadLightTheme) {
-        root.classList.add('light');
-      }
-    };
-  }, []);
-
-  // Process recovery tokens from URL hash
-  useEffect(() => {
-    const processRecoveryToken = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      const type = hashParams.get('type');
-
-      console.log('[ResetPassword] Processing URL hash, type:', type);
-
-      if (type === 'recovery' && accessToken && refreshToken) {
-        console.log('[ResetPassword] Recovery tokens found, establishing session...');
-        
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
-
-        if (error) {
-          console.error('[ResetPassword] Error establishing session:', error);
-          toast({
-            title: "Link inválido",
-            description: "O link de recuperação expirou ou é inválido.",
-            variant: "destructive",
-          });
-          navigate(`/${tenantSlug}/auth`);
-        } else {
-          console.log('[ResetPassword] Session established successfully');
-          setSessionReady(true);
-          // Clear hash from URL for security
-          window.history.replaceState(null, '', window.location.pathname);
-        }
-      } else {
-        // Check if there's already a valid session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          console.log('[ResetPassword] Existing session found');
-          setSessionReady(true);
-        } else {
-          console.log('[ResetPassword] No session found, redirecting...');
-          toast({
-            title: "Acesso não autorizado",
-            description: "Use o link enviado para seu email.",
-            variant: "destructive",
-          });
-          navigate(`/${tenantSlug}/auth`);
-        }
-      }
-      
-      setIsProcessingToken(false);
-    };
-
-    processRecoveryToken();
-  }, [navigate, tenantSlug, toast]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!password || !confirmPassword) {
+    if (!email || !code || !password || !confirmPassword) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos.",
@@ -137,22 +62,29 @@ const ResetPassword = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await updatePassword(password);
-      
-      if (error) {
+      const { data, error } = await supabase.functions.invoke("verify-password-reset", {
+        body: {
+          email: email.toLowerCase(),
+          code: code.trim(),
+          new_password: password,
+          tenant_slug: tenantSlug,
+        },
+      });
+
+      if (error || data?.error) {
         toast({
           title: "Erro",
-          description: error.message || "Erro ao atualizar senha.",
+          description: data?.error || error?.message || "Código inválido ou expirado.",
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Senha atualizada",
-          description: "Sua senha foi atualizada com sucesso.",
+          title: "Senha atualizada!",
+          description: "Sua senha foi redefinida com sucesso. Faça login.",
         });
         navigate(`/${tenantSlug}/auth`);
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
         description: "Erro inesperado ao atualizar senha.",
@@ -163,23 +95,6 @@ const ResetPassword = () => {
     }
   };
 
-  // Show loading while processing recovery token
-  if (isProcessingToken) {
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Validando link de recuperação...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render form if session is not ready
-  if (!sessionReady) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4 relative overflow-hidden">
       {/* Floating Elements */}
@@ -187,27 +102,72 @@ const ResetPassword = () => {
         <div className="absolute top-1/4 left-10 w-2 h-2 rounded-full bg-primary animate-float opacity-60" />
         <div className="absolute bottom-1/3 right-20 w-3 h-3 rounded-full bg-accent animate-float opacity-40" style={{ animationDelay: '1s' }} />
         <div className="absolute top-1/2 right-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-20 left-1/4 w-2 h-2 rounded-full bg-primary animate-float opacity-50" style={{ animationDelay: '0.5s' }} />
+        <div className="absolute bottom-32 left-1/3 w-2 h-2 rounded-full bg-primary animate-float opacity-60" style={{ animationDelay: '2.5s' }} />
       </div>
 
-      <div className="w-full max-w-md space-y-8 relative z-10">
+      <div className="w-full max-w-md space-y-6 relative z-10">
         <div className="text-center">
-          {tenant && (
-            <p className="text-sm text-muted-foreground mb-2">{tenant.name}</p>
-          )}
-          <Logo size="lg" className="justify-center mb-6" />
+          <Logo size="lg" className="justify-center mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">Redefinir Senha</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Digite o código recebido por email e sua nova senha
+          </p>
         </div>
 
         <Card className="shadow-card border-0">
-          <CardHeader className="space-y-1 text-center pb-4">
-            <h3 className="text-xl font-semibold text-foreground">Redefinir Senha</h3>
-            <p className="text-sm text-muted-foreground">
-              Digite sua nova senha
-            </p>
+          <CardHeader className="pb-2">
+            {urlCode && (
+              <div className="bg-primary/10 text-primary text-sm rounded-lg p-3 flex items-center gap-2">
+                <KeyRound className="h-4 w-4" />
+                <span>Código pré-preenchido: <strong>{urlCode}</strong></span>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="new-password">Nova Senha</Label>
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="email"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Confirme o email para o qual você solicitou a recuperação
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="code" className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-muted-foreground" />
+                  Código de Verificação
+                </Label>
+                <Input
+                  id="code"
+                  type="text"
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  disabled={isLoading}
+                  maxLength={6}
+                  className="text-center text-xl tracking-[0.5em] font-mono"
+                  autoComplete="one-time-code"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="new-password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  Nova Senha
+                </Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -215,11 +175,15 @@ const ResetPassword = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
+                  autoComplete="new-password"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirmar Senha</Label>
+                <Label htmlFor="confirm-password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  Confirmar Senha
+                </Label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -227,6 +191,7 @@ const ResetPassword = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={isLoading}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -236,11 +201,31 @@ const ResetPassword = () => {
                 variant="professional"
                 disabled={isLoading}
               >
-                {isLoading ? "Salvando..." : "Salvar nova senha"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar nova senha"
+                )}
               </Button>
+
+              <button 
+                type="button" 
+                onClick={() => navigate(`/${tenantSlug}/auth`)} 
+                className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Voltar ao login
+              </button>
             </form>
           </CardContent>
         </Card>
+
+        <p className="text-xs text-muted-foreground text-center">
+          O código expira em <strong>15 minutos</strong>. Se não recebeu, solicite novamente.
+        </p>
       </div>
     </div>
   );
