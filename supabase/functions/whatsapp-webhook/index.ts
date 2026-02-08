@@ -93,12 +93,12 @@ async function handleIncomingMessage(data: any) {
   // Buscar user_id E tenant_id da instância
   const { data: instance, error: instanceError } = await supabase
     .from('whatsapp_instances')
-    .select('user_id, tenant_id')
+    .select('user_id, tenant_id, zapi_url, zapi_token')
     .eq('instance_name', instanceId)
     .single();
 
-  if (instanceError || !instance?.user_id || !instance?.tenant_id) {
-    console.error('Instance not found, no user_id or no tenant_id:', instanceError);
+  if (instanceError || !instance?.user_id) {
+    console.error('Instance not found or no user_id:', instanceError);
     return;
   }
 
@@ -126,7 +126,21 @@ async function handleIncomingMessage(data: any) {
 
   console.log('✅ Mensagem salva:', { phone, text: text?.message });
 
-  // Check for active automations
+  // 🤖 PRIMEIRO: Verificar se IA está habilitada para este tenant
+  const aiHandled = await handleAIResponse(
+    phone, 
+    text?.message || '', 
+    instance.tenant_id, 
+    instance.zapi_url, 
+    instance.zapi_token
+  );
+
+  if (aiHandled) {
+    console.log('🤖 Mensagem tratada pela IA');
+    return;
+  }
+
+  // 📌 FALLBACK: Check for active automations (keyword-based)
   console.log('📥 Buscando automações para instance:', instanceId);
   const { data: automations, error: automationError } = await supabase
     .from('whatsapp_automations')
@@ -150,24 +164,16 @@ async function handleIncomingMessage(data: any) {
     if (messageText.includes(triggerKeyword)) {
       console.log(`🤖 Automação disparada: ${automation.id} | Keyword: "${triggerKeyword}"`);
       
-      // Buscar configuração Z-API da instância
-      const { data: instanceConfig } = await supabase
-        .from('whatsapp_instances')
-        .select('zapi_url, zapi_token')
-        .eq('instance_name', instanceId)
-        .single();
-
-      if (!instanceConfig?.zapi_url || !instanceConfig?.zapi_token) {
+      if (!instance.zapi_url || !instance.zapi_token) {
         console.error('❌ Z-API config not found for instance');
         continue;
       }
 
       // Enviar resposta usando Z-API diretamente
       try {
-        // Construir URL corretamente: base_url/token/CLIENT_TOKEN/send-text
-        const zapiUrl = `${instanceConfig.zapi_url}/token/${instanceConfig.zapi_token}/send-text`;
+        const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
         
-        console.log('🔗 Enviando para Z-API:', zapiUrl.replace(instanceConfig.zapi_token, '***'));
+        console.log('🔗 Enviando para Z-API:', zapiUrl.replace(instance.zapi_token, '***'));
         console.log('📱 Telefone destino:', phone);
         console.log('💬 Mensagem:', automation.response_message);
         
@@ -195,6 +201,88 @@ async function handleIncomingMessage(data: any) {
       
       break; // Only trigger first matching automation
     }
+  }
+}
+
+// 🤖 Handler para resposta via IA
+async function handleAIResponse(
+  phone: string, 
+  message: string, 
+  tenant_id: string | null, 
+  zapi_url: string | null, 
+  zapi_token: string | null
+): Promise<boolean> {
+  try {
+    // Verificar se IA está habilitada para este tenant
+    let query = supabase
+      .from('whatsapp_ai_config')
+      .select('*');
+
+    if (tenant_id) {
+      query = query.eq('tenant_id', tenant_id);
+    } else {
+      query = query.is('tenant_id', null);
+    }
+
+    const { data: aiConfig } = await query.maybeSingle();
+
+    if (!aiConfig || !aiConfig.is_enabled) {
+      console.log('⏭️ IA não habilitada para este tenant');
+      return false;
+    }
+
+    console.log('🤖 IA habilitada, processando mensagem...');
+
+    // Chamar Edge Function de IA
+    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-ai-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        phone,
+        message,
+        tenant_id,
+      }),
+    });
+
+    const aiData = await aiResponse.json();
+
+    if (!aiData.success || !aiData.response) {
+      console.log('⏭️ IA não retornou resposta');
+      return false;
+    }
+
+    console.log('✅ Resposta IA:', aiData.response.substring(0, 100));
+
+    // Enviar resposta via Z-API
+    if (!zapi_url || !zapi_token) {
+      console.error('❌ Z-API config não encontrada');
+      return false;
+    }
+
+    const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
+    
+    const sendResponse = await fetch(zapiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone,
+        message: aiData.response,
+      }),
+    });
+
+    if (sendResponse.ok) {
+      console.log('✅ Resposta IA enviada via Z-API');
+      return true;
+    } else {
+      console.error('❌ Erro ao enviar resposta IA:', await sendResponse.text());
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Erro no handler de IA:', error);
+    return false;
   }
 }
 

@@ -7,7 +7,11 @@ import {
   Megaphone, 
   HelpCircle, 
   Settings,
-  ArrowLeft
+  ArrowLeft,
+  Wifi,
+  Users2,
+  Bot,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +19,12 @@ import { WhatsAppSection } from "./WhatsAppLayout";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface WhatsAppSidebarProps {
   activeSection: WhatsAppSection;
@@ -29,7 +39,12 @@ const menuItems: { id: WhatsAppSection; label: string; icon: React.ElementType }
   { id: "reports", label: "Relatórios", icon: BarChart3 },
   { id: "campaigns", label: "Campanhas", icon: Megaphone },
   { id: "help", label: "Central de Ajuda", icon: HelpCircle },
-  { id: "settings", label: "Configurações", icon: Settings },
+];
+
+const settingsItems: { id: WhatsAppSection; label: string; icon: React.ElementType }[] = [
+  { id: "settings", label: "Conexão Z-API", icon: Wifi },
+  { id: "settings-leads", label: "Fonte de Leads", icon: Users2 },
+  { id: "ai-settings", label: "Agente IA", icon: Bot },
 ];
 
 export const WhatsAppSidebar = ({ activeSection, onSectionChange }: WhatsAppSidebarProps) => {
@@ -39,6 +54,8 @@ export const WhatsAppSidebar = ({ activeSection, onSectionChange }: WhatsAppSide
   const handleGoBack = () => {
     window.close();
   };
+
+  const isSettingsActive = activeSection === "settings" || activeSection === "settings-leads" || activeSection === "ai-settings";
 
   return (
     <aside className="w-56 bg-card border-r border-border flex flex-col h-full">
@@ -83,6 +100,38 @@ export const WhatsAppSidebar = ({ activeSection, onSectionChange }: WhatsAppSide
             </Button>
           );
         })}
+
+        {/* Dropdown Configurações */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant={isSettingsActive ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-10",
+                isSettingsActive && "bg-primary/10 text-primary"
+              )}
+            >
+              <Settings className="h-4 w-4" />
+              <span className="text-sm flex-1 text-left">Configurações</span>
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            {settingsItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <DropdownMenuItem
+                  key={item.id}
+                  onClick={() => onSectionChange(item.id)}
+                  className="gap-2"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
 
       {/* User Info */}

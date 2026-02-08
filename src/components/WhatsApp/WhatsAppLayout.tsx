@@ -8,6 +8,7 @@ import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppSettings } from "./sections/WhatsAppSettings";
+import { WhatsAppAISettings } from "./settings/WhatsAppAISettings";
 
 export type WhatsAppSection = 
   | "inbox" 
@@ -17,7 +18,9 @@ export type WhatsAppSection =
   | "reports" 
   | "campaigns" 
   | "help" 
-  | "settings";
+  | "settings"
+  | "settings-leads"
+  | "ai-settings";
 
 export const WhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
@@ -39,7 +42,10 @@ export const WhatsAppLayout = () => {
       case "help":
         return <WhatsAppHelp />;
       case "settings":
+      case "settings-leads":
         return <WhatsAppSettings />;
+      case "ai-settings":
+        return <WhatsAppAISettings />;
       default:
         return <WhatsAppInbox />;
     }

@@ -6766,6 +6766,56 @@ export type Database = {
           },
         ]
       }
+      whatsapp_ai_config: {
+        Row: {
+          agent_name: string | null
+          created_at: string | null
+          id: string
+          instance_name: string | null
+          is_enabled: boolean | null
+          max_history: number | null
+          model_name: string | null
+          system_prompt: string | null
+          temperature: number | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name?: string | null
+          is_enabled?: boolean | null
+          max_history?: number | null
+          model_name?: string | null
+          system_prompt?: string | null
+          temperature?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          created_at?: string | null
+          id?: string
+          instance_name?: string | null
+          is_enabled?: boolean | null
+          max_history?: number | null
+          model_name?: string | null
+          system_prompt?: string | null
+          temperature?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_automations: {
         Row: {
           created_at: string | null
