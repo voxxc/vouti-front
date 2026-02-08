@@ -1,0 +1,227 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { ConversationList } from "@/components/WhatsApp/components/ConversationList";
+import { ChatPanel } from "@/components/WhatsApp/components/ChatPanel";
+import { ContactInfoPanel } from "@/components/WhatsApp/components/ContactInfoPanel";
+import { 
+  WhatsAppConversation, 
+  WhatsAppMessage 
+} from "@/components/WhatsApp/sections/WhatsAppInbox";
+
+export const SuperAdminWhatsAppInbox = () => {
+  const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
+  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Effect para carregar conversas e subscription real-time
+  useEffect(() => {
+    loadConversations();
+
+    // Subscription real-time para atualizar lista de conversas
+    // Para Super Admin: filtrar mensagens onde tenant_id IS NULL
+    const conversationsChannel = supabase
+      .channel('superadmin-whatsapp-conversations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_messages'
+        },
+        (payload) => {
+          // Verificar se é mensagem sem tenant_id (Super Admin)
+          const newMsg = payload.new as any;
+          if (newMsg.tenant_id === null) {
+            loadConversations(false);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(conversationsChannel);
+    };
+  }, []);
+
+  // Effect para carregar mensagens e subscription real-time da conversa selecionada
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    // Carregar mensagens iniciais
+    loadMessages(selectedConversation.contactNumber);
+
+    // Subscription real-time para novas mensagens
+    const messagesChannel = supabase
+      .channel(`superadmin-whatsapp-messages-${selectedConversation.contactNumber}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_messages'
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          
+          // Verificar se é da conversa atual e sem tenant_id
+          if (newMsg.tenant_id === null && newMsg.from_number === selectedConversation.contactNumber) {
+            const formattedMsg: WhatsAppMessage = {
+              id: newMsg.id,
+              messageText: newMsg.message_text || "",
+              direction: newMsg.direction === "outgoing" ? "outgoing" : "incoming",
+              timestamp: newMsg.created_at,
+              isFromMe: newMsg.direction === "outgoing",
+            };
+            
+            // Adicionar mensagem evitando duplicação
+            setMessages(prev => {
+              if (prev.some(m => m.id === formattedMsg.id)) {
+                return prev;
+              }
+              return [...prev, formattedMsg];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup ao desmontar ou trocar conversa
+    return () => {
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [selectedConversation]);
+
+  const loadConversations = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      // Super Admin: buscar mensagens onde tenant_id IS NULL
+      const { data, error } = await supabase
+        .from("whatsapp_messages")
+        .select("*")
+        .is("tenant_id", null)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Agrupar mensagens por número de telefone
+      const conversationMap = new Map<string, WhatsAppConversation>();
+      
+      data?.forEach((msg) => {
+        const number = msg.from_number;
+        if (!conversationMap.has(number)) {
+          conversationMap.set(number, {
+            id: msg.id,
+            contactName: number, // TODO: buscar nome do contato da landing_leads
+            contactNumber: number,
+            lastMessage: msg.message_text || "",
+            lastMessageTime: msg.created_at,
+            unreadCount: 0,
+          });
+        }
+      });
+
+      setConversations(Array.from(conversationMap.values()));
+    } catch (error) {
+      console.error("Erro ao carregar conversas:", error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  };
+
+  // Polling automático para atualizar conversas a cada 2 segundos
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      loadConversations(false);
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const intervalId = setInterval(() => {
+      loadMessages(selectedConversation.contactNumber);
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [selectedConversation]);
+
+  const loadMessages = async (contactNumber: string) => {
+    try {
+      // Super Admin: buscar mensagens onde tenant_id IS NULL
+      const { data, error } = await supabase
+        .from("whatsapp_messages")
+        .select("*")
+        .is("tenant_id", null)
+        .eq("from_number", contactNumber)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => ({
+        id: msg.id,
+        messageText: msg.message_text || "",
+        direction: msg.direction === "outgoing" ? "outgoing" : "incoming",
+        timestamp: msg.created_at,
+        isFromMe: msg.direction === "outgoing",
+      }));
+
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error("Erro ao carregar mensagens:", error);
+    }
+  };
+
+  const handleSendMessage = async (text: string) => {
+    if (!selectedConversation) return;
+
+    try {
+      // Enviar via Z-API com mode: 'superadmin'
+      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          phone: selectedConversation.contactNumber,
+          message: text,
+          messageType: "text",
+          mode: "superadmin"
+        }
+      });
+
+      if (error) throw error;
+
+      // Não precisa recarregar manualmente - o real-time vai detectar o INSERT
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+    }
+  };
+
+  return (
+    <div className="flex h-full">
+      {/* Lista de Conversas */}
+      <ConversationList
+        conversations={conversations}
+        selectedConversation={selectedConversation}
+        onSelectConversation={setSelectedConversation}
+        isLoading={isLoading}
+      />
+
+      {/* Painel de Chat */}
+      <ChatPanel
+        conversation={selectedConversation}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+      />
+
+      {/* Painel de Info do Contato */}
+      {selectedConversation && (
+        <ContactInfoPanel conversation={selectedConversation} />
+      )}
+    </div>
+  );
+};

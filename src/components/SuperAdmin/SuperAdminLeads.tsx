@@ -41,6 +41,7 @@ import {
   Building2, 
   Calendar,
   MessageSquare,
+  MessageCircle,
   Trash2,
   RefreshCw,
   Loader2
@@ -102,6 +103,10 @@ export function SuperAdminLeads() {
     );
   }
 
+  const handleOpenWhatsApp = () => {
+    window.open('/super-admin/whatsapp', '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -112,10 +117,19 @@ export function SuperAdminLeads() {
             {leads.length} leads recebidos
           </p>
         </div>
-        <Button variant="outline" onClick={refetch}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            className="bg-green-600 hover:bg-green-700 text-white"
+            onClick={handleOpenWhatsApp}
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            WhatsApp
+          </Button>
+          <Button variant="outline" onClick={refetch}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
