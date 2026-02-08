@@ -71,10 +71,10 @@ export const WhatsAppSidebar = ({ activeSection, onSectionChange }: WhatsAppSide
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-              <MessageSquare className="h-4 w-4 text-white" />
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+              <Bot className="h-4 w-4 text-white" />
             </div>
-            <span className="font-semibold text-foreground">WhatsApp</span>
+            <span className="font-semibold text-foreground">Vouti.Bot</span>
           </div>
         </div>
       </div>
