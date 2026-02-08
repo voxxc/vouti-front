@@ -1,173 +1,71 @@
 
-# Plano: Página WhatsApp Dedicada para Super Admin
+# Plano: Corrigir Interface WhatsApp do Super Admin
 
-## Objetivo
-Criar uma página `/super-admin/whatsapp` que abre em nova janela ao clicar no botão "WhatsApp" na aba Leads do Super Admin, seguindo o mesmo padrão já usado pelos tenants.
+## Problema Identificado
 
-## Arquitetura
+A interface WhatsApp do Super Admin está diferente do padrão usado pelos tenants:
 
-```text
-TENANT (já existe):
-┌──────────────────────────┐     window.open     ┌──────────────────────────┐
-│  CRM (/:tenant/crm)      │ ─────────────────▶  │  /:tenant/whatsapp       │
-│  [Botão WhatsApp]        │    '_blank'         │  (WhatsAppLayout)        │
-└──────────────────────────┘                     └──────────────────────────┘
-
-SUPER ADMIN (a criar):
-┌──────────────────────────┐     window.open     ┌──────────────────────────┐
-│  Super Admin (/leads)    │ ─────────────────▶  │  /super-admin/whatsapp   │
-│  [Botão WhatsApp]        │    '_blank'         │  (SuperAdminWhatsApp)    │
-└──────────────────────────┘                     └──────────────────────────┘
-```
-
-## Diferenças Chave
-
-| Aspecto | Tenant WhatsApp | Super Admin WhatsApp |
+| Aspecto | Padrão (Tenant) | Super Admin (Atual) |
 |---------|-----------------|---------------------|
-| Rota | `/:tenant/whatsapp` | `/super-admin/whatsapp` |
-| Autenticação | TenantContext + AuthContext | useSuperAdmin |
-| Filtro de Mensagens | `tenant_id = tenantId` | `tenant_id IS NULL` |
-| Fonte de Leads | `leads_captacao` | `landing_leads` (homepage) |
-| Instance Z-API | Config do tenant | Instance padrão (whatsapp-bot) |
+| Itens de Menu | 8 itens | 4 itens |
+| Badge "SUPER ADMIN" | Não tem | Tem |
+| Seções | inbox, conversations, kanban, contacts, reports, campaigns, help, settings | inbox, conversations, contacts, settings |
 
-## Arquivos a Criar
+## Alterações Necessárias
 
-### 1. `src/pages/SuperAdminWhatsApp.tsx`
-Página dedicada que verifica se é Super Admin e renderiza o layout.
+### 1. Atualizar `SuperAdminWhatsAppLayout.tsx`
+
+Adicionar todas as 8 seções que existem no WhatsAppLayout dos tenants:
 
 ```typescript
-// Estrutura similar ao WhatsApp.tsx dos tenants
-// Usa useSuperAdmin para verificar autenticação
-// Renderiza SuperAdminWhatsAppLayout
+export type SuperAdminWhatsAppSection = 
+  | "inbox" 
+  | "conversations" 
+  | "kanban"      // ADICIONAR
+  | "contacts" 
+  | "reports"     // ADICIONAR
+  | "campaigns"   // ADICIONAR
+  | "help"        // ADICIONAR
+  | "settings";
 ```
 
-### 2. `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppLayout.tsx`
-Layout principal com sidebar e conteúdo.
+E adicionar os cases no switch para cada seção.
+
+### 2. Atualizar `SuperAdminWhatsAppSidebar.tsx`
+
+Adicionar todos os 8 itens de menu e remover a badge "SUPER ADMIN":
 
 ```typescript
-// Estrutura igual ao WhatsAppLayout.tsx
-// Renderiza SuperAdminWhatsAppSidebar + seções
+const menuItems = [
+  { id: "inbox", label: "Caixa de Entrada", icon: Inbox },
+  { id: "conversations", label: "Conversas", icon: MessageSquare },
+  { id: "kanban", label: "Kanban CRM", icon: Columns3 },      // ADICIONAR
+  { id: "contacts", label: "Contatos", icon: Users },
+  { id: "reports", label: "Relatórios", icon: BarChart3 },    // ADICIONAR
+  { id: "campaigns", label: "Campanhas", icon: Megaphone },   // ADICIONAR
+  { id: "help", label: "Central de Ajuda", icon: HelpCircle },// ADICIONAR
+  { id: "settings", label: "Configurações", icon: Settings },
+];
 ```
 
-### 3. `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppSidebar.tsx`
-Sidebar com menu de navegação.
-
-```typescript
-// Estrutura igual ao WhatsAppSidebar.tsx
-// Usa useSuperAdmin para info do usuário
-// Botão voltar fecha a janela
-```
-
-### 4. `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`
-Inbox adaptado para o Super Admin.
-
-```typescript
-// Estrutura similar ao WhatsAppInbox.tsx
-// DIFERENÇA: busca mensagens onde tenant_id IS NULL
-// Usa RPC ou query customizada
-// Real-time + polling a cada 2 segundos
+E remover o bloco:
+```jsx
+{/* Super Admin Badge */}
+<div className="px-4 py-2 bg-primary/10 border-b border-border">
+  <span className="text-xs font-medium text-primary">SUPER ADMIN</span>
+</div>
 ```
 
 ## Arquivos a Modificar
 
-### 1. `src/components/SuperAdmin/SuperAdminLeads.tsx`
-Adicionar botão "WhatsApp" ao lado de "Atualizar".
-
-```typescript
-// Importar MessageCircle do lucide-react
-// Adicionar:
-<Button 
-  className="bg-green-600 hover:bg-green-700 text-white"
-  onClick={() => window.open('/super-admin/whatsapp', '_blank')}
->
-  <MessageCircle className="w-4 h-4 mr-2" />
-  WhatsApp
-</Button>
-```
-
-### 2. `src/App.tsx`
-Adicionar rota `/super-admin/whatsapp`.
-
-```typescript
-// Importar SuperAdminWhatsApp
-import SuperAdminWhatsApp from "@/pages/SuperAdminWhatsApp";
-
-// Adicionar rota antes do wildcard 404
-<Route path="/super-admin/whatsapp" element={<SuperAdminWhatsApp />} />
-```
-
-### 3. `supabase/functions/whatsapp-send-message/index.ts`
-Adicionar suporte para modo Super Admin.
-
-```typescript
-// Se mode === 'superadmin':
-// - Usar instance_name padrão 'whatsapp-bot'
-// - Não definir tenant_id ao salvar mensagem (NULL)
-```
-
-## Migração SQL
-
-Criar política RLS para Super Admin acessar mensagens sem tenant_id:
-
-```sql
--- Super Admin pode gerenciar mensagens sem tenant (homepage leads)
-CREATE POLICY "Super admins can manage whatsapp messages without tenant"
-ON whatsapp_messages FOR ALL
-USING (
-  tenant_id IS NULL AND is_super_admin(auth.uid())
-);
-```
-
-## Fluxo de Dados
-
-```text
-1. Super Admin clica "WhatsApp" na aba Leads
-           │
-           ▼
-2. window.open('/super-admin/whatsapp', '_blank')
-           │
-           ▼
-3. SuperAdminWhatsApp.tsx verifica autenticação
-           │
-           ▼
-4. SuperAdminWhatsAppInbox busca:
-   SELECT * FROM whatsapp_messages WHERE tenant_id IS NULL
-           │
-           ▼
-5. Real-time + Polling atualizam a cada 2 segundos
-           │
-           ▼
-6. Ao enviar mensagem:
-   supabase.functions.invoke('whatsapp-send-message', {
-     phone, message, mode: 'superadmin'
-   })
-           │
-           ▼
-7. Edge Function salva com tenant_id = NULL
-```
-
-## Estrutura de Pastas Final
-
-```text
-src/
-├── pages/
-│   ├── SuperAdmin.tsx          (existente)
-│   └── SuperAdminWhatsApp.tsx  (NOVO)
-│
-├── components/
-│   └── SuperAdmin/
-│       ├── SuperAdminLeads.tsx (modificar - adicionar botão)
-│       └── WhatsApp/           (NOVO diretório)
-│           ├── SuperAdminWhatsAppLayout.tsx
-│           ├── SuperAdminWhatsAppSidebar.tsx
-│           └── SuperAdminWhatsAppInbox.tsx
-```
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppLayout.tsx` | Adicionar 4 seções faltantes ao tipo e switch |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppSidebar.tsx` | Adicionar 4 itens de menu + remover badge SUPER ADMIN |
 
 ## Resultado Esperado
 
-1. Botão verde "WhatsApp" aparece ao lado de "Atualizar" na aba Leads
-2. Ao clicar, abre nova janela com `/super-admin/whatsapp`
-3. Interface igual à dos tenants (sidebar + chat)
-4. Super Admin vê conversas de leads da homepage (tenant_id IS NULL)
-5. Chat em tempo real funciona com polling a cada 2 segundos
-6. Botão "voltar" fecha a janela (window.close)
+A interface `/super-admin/whatsapp` ficará idêntica à `/:tenant/whatsapp`:
+- 8 itens de menu na sidebar
+- Sem badge "SUPER ADMIN" 
+- Layout igual ao print de referência
