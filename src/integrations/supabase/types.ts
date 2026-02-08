@@ -6857,6 +6857,56 @@ export type Database = {
           },
         ]
       }
+      whatsapp_lead_triggers: {
+        Row: {
+          created_at: string | null
+          followup_delay_hours: number | null
+          followup_enabled: boolean | null
+          followup_message: string | null
+          id: string
+          is_active: boolean | null
+          lead_source: string
+          tenant_id: string
+          updated_at: string | null
+          welcome_delay_minutes: number | null
+          welcome_message: string
+        }
+        Insert: {
+          created_at?: string | null
+          followup_delay_hours?: number | null
+          followup_enabled?: boolean | null
+          followup_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          lead_source: string
+          tenant_id: string
+          updated_at?: string | null
+          welcome_delay_minutes?: number | null
+          welcome_message: string
+        }
+        Update: {
+          created_at?: string | null
+          followup_delay_hours?: number | null
+          followup_enabled?: boolean | null
+          followup_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          lead_source?: string
+          tenant_id?: string
+          updated_at?: string | null
+          welcome_delay_minutes?: number | null
+          welcome_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_lead_triggers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           created_at: string | null
