@@ -30,17 +30,83 @@ export const WhatsAppInbox = () => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Effect para carregar conversas e subscription real-time
   useEffect(() => {
-    if (tenantId) {
-      loadConversations();
-    }
+    if (!tenantId) return;
+
+    loadConversations();
+
+    // Subscription real-time para atualizar lista de conversas
+    const conversationsChannel = supabase
+      .channel('whatsapp-conversations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_messages',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          // Recarregar lista de conversas quando nova mensagem chegar
+          loadConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(conversationsChannel);
+    };
   }, [tenantId]);
 
+  // Effect para carregar mensagens e subscription real-time da conversa selecionada
   useEffect(() => {
-    if (selectedConversation) {
-      loadMessages(selectedConversation.contactNumber);
-    }
-  }, [selectedConversation]);
+    if (!selectedConversation || !tenantId) return;
+
+    // Carregar mensagens iniciais
+    loadMessages(selectedConversation.contactNumber);
+
+    // Subscription real-time para novas mensagens
+    const messagesChannel = supabase
+      .channel(`whatsapp-messages-${selectedConversation.contactNumber}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_messages',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          
+          // Verificar se é da conversa atual
+          if (newMsg.from_number === selectedConversation.contactNumber) {
+            const formattedMsg: WhatsAppMessage = {
+              id: newMsg.id,
+              messageText: newMsg.message_text || "",
+              direction: newMsg.direction === "outgoing" ? "outgoing" : "incoming",
+              timestamp: newMsg.created_at,
+              isFromMe: newMsg.direction === "outgoing",
+            };
+            
+            // Adicionar mensagem evitando duplicação
+            setMessages(prev => {
+              if (prev.some(m => m.id === formattedMsg.id)) {
+                return prev;
+              }
+              return [...prev, formattedMsg];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup ao desmontar ou trocar conversa
+    return () => {
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [selectedConversation, tenantId]);
 
   const loadConversations = async () => {
     if (!tenantId) return;
@@ -122,8 +188,7 @@ export const WhatsAppInbox = () => {
 
       if (error) throw error;
 
-      // Recarregar mensagens
-      await loadMessages(selectedConversation.contactNumber);
+      // Não precisa recarregar manualmente - o real-time vai detectar o INSERT
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
