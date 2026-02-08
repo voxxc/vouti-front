@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { SuperAdminWhatsAppSidebar } from "./SuperAdminWhatsAppSidebar";
 import { SuperAdminWhatsAppInbox } from "./SuperAdminWhatsAppInbox";
+import { WhatsAppConversations } from "@/components/WhatsApp/sections/WhatsAppConversations";
+import { WhatsAppKanban } from "@/components/WhatsApp/sections/WhatsAppKanban";
+import { WhatsAppContacts } from "@/components/WhatsApp/sections/WhatsAppContacts";
+import { WhatsAppReports } from "@/components/WhatsApp/sections/WhatsAppReports";
+import { WhatsAppCampaigns } from "@/components/WhatsApp/sections/WhatsAppCampaigns";
+import { WhatsAppHelp } from "@/components/WhatsApp/sections/WhatsAppHelp";
+import { WhatsAppSettings } from "@/components/WhatsApp/sections/WhatsAppSettings";
 
 export type SuperAdminWhatsAppSection = 
   | "inbox" 
   | "conversations" 
+  | "kanban"
   | "contacts" 
+  | "reports"
+  | "campaigns"
+  | "help"
   | "settings";
 
 export const SuperAdminWhatsAppLayout = () => {
@@ -16,19 +27,19 @@ export const SuperAdminWhatsAppLayout = () => {
       case "inbox":
         return <SuperAdminWhatsAppInbox />;
       case "conversations":
-        return <SuperAdminWhatsAppInbox />; // Reutiliza inbox por enquanto
+        return <WhatsAppConversations />;
+      case "kanban":
+        return <WhatsAppKanban />;
       case "contacts":
-        return (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <p>Contatos - Em breve</p>
-          </div>
-        );
+        return <WhatsAppContacts />;
+      case "reports":
+        return <WhatsAppReports />;
+      case "campaigns":
+        return <WhatsAppCampaigns />;
+      case "help":
+        return <WhatsAppHelp />;
       case "settings":
-        return (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <p>Configurações - Em breve</p>
-          </div>
-        );
+        return <WhatsAppSettings />;
       default:
         return <SuperAdminWhatsAppInbox />;
     }

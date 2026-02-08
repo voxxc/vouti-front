@@ -1,7 +1,11 @@
 import { 
   Inbox, 
   MessageSquare, 
+  Columns3,
   Users, 
+  BarChart3,
+  Megaphone,
+  HelpCircle,
   Settings,
   ArrowLeft
 } from "lucide-react";
@@ -19,7 +23,11 @@ interface SuperAdminWhatsAppSidebarProps {
 const menuItems: { id: SuperAdminWhatsAppSection; label: string; icon: React.ElementType }[] = [
   { id: "inbox", label: "Caixa de Entrada", icon: Inbox },
   { id: "conversations", label: "Conversas", icon: MessageSquare },
+  { id: "kanban", label: "Kanban CRM", icon: Columns3 },
   { id: "contacts", label: "Contatos", icon: Users },
+  { id: "reports", label: "Relatórios", icon: BarChart3 },
+  { id: "campaigns", label: "Campanhas", icon: Megaphone },
+  { id: "help", label: "Central de Ajuda", icon: HelpCircle },
   { id: "settings", label: "Configurações", icon: Settings },
 ];
 
@@ -50,11 +58,6 @@ export const SuperAdminWhatsAppSidebar = ({ activeSection, onSectionChange }: Su
             <span className="font-semibold text-foreground">WhatsApp</span>
           </div>
         </div>
-      </div>
-
-      {/* Super Admin Badge */}
-      <div className="px-4 py-2 bg-primary/10 border-b border-border">
-        <span className="text-xs font-medium text-primary">SUPER ADMIN</span>
       </div>
 
       {/* Menu Items */}
