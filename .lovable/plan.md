@@ -1,90 +1,73 @@
 
-# Atualização Automática do Dashboard a Cada 5 Minutos
+# Correção do Botão Landing Pages no CRM
 
-## Problema
+## Problema Identificado
 
-Com o Dashboard sempre montado (fixo por baixo dos drawers), os dados não se atualizam automaticamente. O usuário precisa recarregar a página para ver informações atualizadas.
+O botão "LANDING PAGES" no componente `CRMContent.tsx` não tem nenhuma funcionalidade - falta o `onClick` e o Dialog para selecionar landing pages.
+
+**Arquivo afetado:** `src/components/CRM/CRMContent.tsx` (linhas 145-151)
+
+```tsx
+// Código atual (não funciona)
+<Button 
+  variant="default"
+  className="gap-2"
+>
+  <Layout size={16} />
+  LANDING PAGES
+</Button>
+```
 
 ## Solução
 
-Adicionar `refetchInterval: 5 * 60 * 1000` (5 minutos) em todas as queries do Dashboard para que os dados sejam atualizados automaticamente em segundo plano.
+Adicionar:
+1. Estado `isLandingPagesDialogOpen` para controlar o modal
+2. Handler `onClick` no botão
+3. Componente `Dialog` com as landing pages disponíveis
 
-## Situação Atual dos Componentes
+## Mudanças Técnicas
 
-| Componente | Método Atual | Tem Atualização Automática? |
-|------------|--------------|---------------------------|
-| AdminMetrics | React Query | Não |
-| AdvogadoMetrics | React Query | Não |
-| ComercialMetrics | useEffect | Não |
-| FinanceiroMetrics | useEffect | Não |
-| AgendaMetrics | useEffect | Não |
+### Arquivo: `src/components/CRM/CRMContent.tsx`
 
-## Mudanças Necessárias
+1. **Importar componentes necessários** (Dialog, DialogContent, DialogHeader, DialogTitle, ScrollArea)
 
-### 1. Componentes com React Query (adicionar refetchInterval)
-
-**Arquivos:**
-- `src/components/Dashboard/Metrics/AdminMetrics.tsx`
-- `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx`
-
+2. **Adicionar estado para controle do dialog**
 ```tsx
-const { data: metrics, isLoading: loading } = useQuery({
-  queryKey: ['admin-metrics', userId, tenantId],
-  queryFn: async () => { ... },
-  staleTime: 5 * 60 * 1000,
-  refetchInterval: 5 * 60 * 1000,  // ADICIONAR ESTA LINHA
-  enabled: !!userId && !!tenantId,
-});
+const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
 ```
 
-### 2. Componentes com useEffect (migrar para React Query)
-
-**Arquivos:**
-- `src/components/Dashboard/Metrics/ComercialMetrics.tsx`
-- `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx`
-- `src/components/Dashboard/Metrics/AgendaMetrics.tsx`
-
-Transformar de:
+3. **Adicionar onClick ao botão**
 ```tsx
-const [metrics, setMetrics] = useState<Metrics | null>(null);
-const [loading, setLoading] = useState(true);
-
-useEffect(() => {
-  fetchMetrics();
-}, [userId]);
+<Button 
+  variant="default"
+  className="gap-2"
+  title="Abrir lista de Landing Pages"
+  onClick={() => setIsLandingPagesDialogOpen(true)}
+>
 ```
 
-Para:
+4. **Adicionar o Dialog no final do componente** (antes do fechamento da div principal)
 ```tsx
-const { data: metrics, isLoading: loading } = useQuery({
-  queryKey: ['comercial-metrics', userId],
-  queryFn: fetchMetrics,
-  staleTime: 5 * 60 * 1000,
-  refetchInterval: 5 * 60 * 1000,
-  enabled: !!userId,
-});
+<Dialog open={isLandingPagesDialogOpen} onOpenChange={setIsLandingPagesDialogOpen}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Selecione uma Landing Page</DialogTitle>
+    </DialogHeader>
+    <ScrollArea className="h-[400px] pr-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Button variant="outline" onClick={() => { window.open(tenantPath('/landing-1'), '_blank'); setIsLandingPagesDialogOpen(false); }}>
+          Landing Page 1 - Agronegócio
+        </Button>
+        <Button variant="outline" onClick={() => { window.open(tenantPath('/office'), '_blank'); setIsLandingPagesDialogOpen(false); }}>
+          Landing Page 2 - Advocacia
+        </Button>
+        {/* ... demais landing pages desabilitadas */}
+      </div>
+    </ScrollArea>
+  </DialogContent>
+</Dialog>
 ```
 
-## Benefícios
+## Resultado Esperado
 
-1. **Atualização automática**: Dados atualizados a cada 5 minutos sem ação do usuário
-2. **Consistência**: Todos os componentes seguem o mesmo padrão (React Query)
-3. **Performance**: React Query evita refetch desnecessário se os dados ainda estão frescos
-4. **Cache inteligente**: Transições entre drawers mostram dados em cache instantaneamente
-
-## Comportamento Esperado
-
-- Dashboard carrega os dados iniciais
-- A cada 5 minutos, os dados são atualizados silenciosamente em segundo plano
-- O usuário vê os números atualizarem sem precisar fazer nada
-- Se o usuário estava em um drawer e volta ao Dashboard, os dados mais recentes já estão disponíveis
-
-## Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/Dashboard/Metrics/AdminMetrics.tsx` | Adicionar `refetchInterval` |
-| `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` | Adicionar `refetchInterval` |
-| `src/components/Dashboard/Metrics/ComercialMetrics.tsx` | Migrar para React Query com `refetchInterval` |
-| `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx` | Migrar para React Query com `refetchInterval` |
-| `src/components/Dashboard/Metrics/AgendaMetrics.tsx` | Migrar para React Query com `refetchInterval` |
+Ao clicar no botão "LANDING PAGES" no drawer do CRM, abre um modal com as opções de landing pages disponíveis, permitindo abrir cada uma em nova aba.
