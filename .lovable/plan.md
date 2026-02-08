@@ -1,136 +1,138 @@
 
-# Correção do Email de Recuperação de Senha
 
-## Diagnóstico
+# Fluxo Customizado de Recuperação de Senha
 
-Analisando o código de recuperação de senha:
+## Resumo da Mudança
 
-1. **Auth.tsx** - O fluxo de solicitação está correto:
-   ```typescript
-   const redirectUrl = `${window.location.origin}/${tenantSlug}/reset-password`;
-   await resetPassword(email, redirectUrl);
-   ```
+Substituir o fluxo padrão do Supabase (que usa tokens longos no hash da URL) por um sistema customizado que:
 
-2. **AuthContext.tsx** - A função usa o método nativo do Supabase:
-   ```typescript
-   const resetPassword = async (email: string, redirectUrl: string) => {
-     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-       redirectTo: redirectUrl,
-     });
-     return { error };
-   };
-   ```
+- Gera um **código curto de 6 dígitos** (ex: `382941`)
+- Link limpo: `vouti.co/tenant/reset-password/382941`
+- **Expira em 15 minutos**
+- Usuário precisa informar **email + código + nova senha**
 
-3. **ResetPassword.tsx** - A página de redefinição tem um problema: não processa os parâmetros do URL que o Supabase envia (access_token, refresh_token, type=recovery).
-
-## Problema Principal
-
-Quando o Supabase envia o email de recuperação, o link contém parâmetros de autenticação no fragmento do URL:
-```
-https://vouti.lovable.app/demorais/reset-password#access_token=xxx&refresh_token=yyy&type=recovery
-```
-
-A página `ResetPassword.tsx` precisa:
-1. Detectar esses parâmetros
-2. Estabelecer a sessão com o token de recovery
-3. Só então permitir que o usuário atualize a senha
-
-Atualmente, a página não faz isso - ela simplesmente tenta atualizar a senha sem verificar se há uma sessão válida de recovery.
-
-## Solução
-
-### Arquivo: `src/pages/ResetPassword.tsx`
-
-Adicionar lógica para processar os parâmetros de recovery do URL:
-
-```typescript
-useEffect(() => {
-  // Processar hash params do Supabase (type=recovery)
-  const hashParams = new URLSearchParams(window.location.hash.substring(1));
-  const accessToken = hashParams.get('access_token');
-  const refreshToken = hashParams.get('refresh_token');
-  const type = hashParams.get('type');
-
-  if (type === 'recovery' && accessToken && refreshToken) {
-    // Estabelecer sessão com tokens de recovery
-    supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken
-    }).then(({ error }) => {
-      if (error) {
-        console.error('Erro ao estabelecer sessão:', error);
-        toast({
-          title: "Link inválido",
-          description: "O link de recuperação expirou ou é inválido.",
-          variant: "destructive",
-        });
-        navigate(`/${tenantSlug}/auth`);
-      } else {
-        setSessionReady(true);
-        // Limpar hash da URL para segurança
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    });
-  } else {
-    // Verificar se já tem sessão válida
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setSessionReady(true);
-      } else {
-        toast({
-          title: "Acesso não autorizado",
-          description: "Use o link enviado para seu email.",
-          variant: "destructive",
-        });
-        navigate(`/${tenantSlug}/auth`);
-      }
-    });
-  }
-}, []);
-```
-
-### Mudanças Específicas
-
-1. **Adicionar import do supabase client**
-2. **Adicionar estado `sessionReady`** para controlar quando o formulário pode ser exibido
-3. **Adicionar useEffect** para processar tokens de recovery
-4. **Mostrar loading** enquanto processa os tokens
-5. **Validar sessão** antes de permitir atualização
-
-## Fluxo Corrigido
+## Fluxo Proposto
 
 ```text
-Usuário solicita reset
-       │
-       ▼
-Supabase envia email com link
-       │
-       ▼
-Link: /{tenant}/reset-password#access_token=xxx&type=recovery
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│ ResetPassword.tsx detecta parâmetros    │
-│ ─► Chama setSession() com tokens        │
-│ ─► Estabelece sessão de recovery        │
-│ ─► Habilita formulário de nova senha    │
-└─────────────────────────────────────────┘
-       │
-       ▼
-Usuário digita nova senha
-       │
-       ▼
-updatePassword() funciona (tem sessão)
+Usuário solicita recuperação em /{tenant}/auth
+              │
+              ▼
+┌─────────────────────────────────────────────┐
+│ Edge Function: send-password-reset          │
+│ ─► Gera código de 6 dígitos                 │
+│ ─► Salva na tabela password_reset_codes     │
+│ ─► Expira em 15 minutos                     │
+│ ─► Envia email via Resend                   │
+└─────────────────────────────────────────────┘
+              │
+              ▼
+Email recebido: "Seu código é: 382941"
+Link: vouti.co/{tenant}/reset-password/382941
+              │
+              ▼
+┌─────────────────────────────────────────────┐
+│ Página: /{tenant}/reset-password/:code      │
+│ ─► Pré-preenche o código da URL             │
+│ ─► Exige: Email + Nova Senha                │
+│ ─► Valida código + email + expiração        │
+│ ─► Atualiza senha via Edge Function         │
+└─────────────────────────────────────────────┘
 ```
 
-## Configurações Necessárias no Supabase
+## Benefícios
 
-Além da correção no código, verificar no Supabase Dashboard:
+| Antes (Supabase nativo) | Depois (Customizado) |
+|------------------------|----------------------|
+| URL com tokens gigantes no hash | URL limpa com código curto |
+| Não pede email na redefinição | Obrigatório confirmar email |
+| Token não expira rápido | Expira em 15 minutos |
+| Difícil debugar | Logs claros no sistema |
 
-1. **Authentication > URL Configuration**:
-   - Site URL: `https://vouti.lovable.app`
-   - Redirect URLs: Adicionar `https://vouti.lovable.app/*/reset-password` (com wildcard para tenants)
+## Implementação
 
-2. **Authentication > Email Templates**:
-   - Verificar se o template "Reset Password" está configurado
-   - O `{{ .ConfirmationURL }}` deve estar presente no template
+### 1. Nova Tabela: `password_reset_codes`
+
+```sql
+CREATE TABLE password_reset_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  code TEXT NOT NULL,
+  tenant_id UUID REFERENCES tenants(id),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Índice para busca rápida
+CREATE INDEX idx_prc_code_email ON password_reset_codes(code, email);
+
+-- RLS: Apenas service_role pode acessar
+ALTER TABLE password_reset_codes ENABLE ROW LEVEL SECURITY;
+```
+
+### 2. Edge Function: `send-password-reset`
+
+Responsável por:
+- Gerar código de 6 dígitos aleatório
+- Salvar na tabela com expiração de 15 minutos
+- Invalidar códigos anteriores do mesmo email
+- Enviar email via Resend com template bonito
+
+### 3. Edge Function: `verify-password-reset`
+
+Responsável por:
+- Validar código + email + expiração
+- Marcar código como usado
+- Atualizar senha do usuário via Admin API
+
+### 4. Atualizar `src/pages/Auth.tsx`
+
+Mudar `handleResetPassword` para chamar a nova Edge Function em vez do `resetPasswordForEmail` do Supabase.
+
+### 5. Atualizar `src/pages/ResetPassword.tsx`
+
+- Adicionar campo de email obrigatório
+- Remover lógica de processamento de tokens do hash
+- Pegar código da URL (`:code`)
+- Chamar `verify-password-reset` para validar e atualizar
+
+### 6. Atualizar `src/App.tsx`
+
+- Nova rota: `/:tenant/reset-password/:code`
+- Manter rota sem código para compatibilidade
+
+## Arquivos a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/send-password-reset/index.ts` | Criar |
+| `supabase/functions/verify-password-reset/index.ts` | Criar |
+| `src/pages/Auth.tsx` | Modificar |
+| `src/pages/ResetPassword.tsx` | Reescrever |
+| `src/App.tsx` | Adicionar rota com parâmetro |
+| Migração SQL | Criar tabela `password_reset_codes` |
+
+## Template do Email
+
+```html
+<h1>Recuperação de Senha</h1>
+<p>Você solicitou recuperação de senha para o sistema VOUTI.</p>
+
+<div style="font-size: 32px; font-weight: bold; letter-spacing: 0.3em;">
+  382941
+</div>
+
+<p>Este código expira em <strong>15 minutos</strong>.</p>
+
+<a href="https://vouti.co/{tenant}/reset-password/382941">
+  Clique aqui para redefinir sua senha
+</a>
+```
+
+## Segurança
+
+- Códigos são armazenados com hash? **Não necessário** - expiram rápido
+- Rate limiting no envio de códigos (máximo 3 por hora por email)
+- Código invalidado após uso
+- Verificação de email impede uso indevido do link
+
