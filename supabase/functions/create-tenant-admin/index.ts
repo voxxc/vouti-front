@@ -146,26 +146,49 @@
         userId = existingUser.id;
         isExistingUser = true;
         console.log('User already exists, will add admin role:', userId);
+      } else if (isExistingSuperAdmin && existingUser) {
+        // É um super admin - reutilizar o auth user existente
+        console.log('Super admin detected - reusing existing auth user:', existingUser.id);
+        
+        // Verificar se já é admin deste tenant
+        const { data: existingRole } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', existingUser.id)
+          .eq('tenant_id', tenant_id)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        if (existingRole) {
+          return new Response(
+            JSON.stringify({ error: 'Este super admin já é administrador deste cliente' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        userId = existingUser.id;
+        isExistingUser = true; // Marcar como existente para não criar profile novo
       } else {
-       // Criar novo usuário
-       const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-         email,
-         password,
-         email_confirm: true,
-         user_metadata: { full_name }
-       });
+        // Criar novo usuário
+        console.log('Creating new user...');
+        const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { full_name }
+        });
  
-       if (createUserError || !newUser.user) {
-         console.error('Error creating user:', createUserError);
-         return new Response(
-           JSON.stringify({ error: 'Erro ao criar usuário: ' + (createUserError?.message || 'Erro desconhecido') }),
-           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-         );
-       }
+        if (createUserError || !newUser.user) {
+          console.error('Error creating user:', createUserError);
+          return new Response(
+            JSON.stringify({ error: 'Erro ao criar usuário: ' + (createUserError?.message || 'Erro desconhecido') }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
  
-       userId = newUser.user.id;
-       console.log('User created:', userId);
-     }
+        userId = newUser.user.id;
+        console.log('User created:', userId);
+      }
  
      // Atualizar/criar profile com tenant_id (apenas para novos usuários ou se não tiver tenant)
      if (!isExistingUser) {
