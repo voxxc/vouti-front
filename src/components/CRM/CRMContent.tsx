@@ -328,7 +328,7 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
                   key={lp.id}
                   className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => {
-                    window.open(lp.path, '_blank');
+                    window.open(tenantPath(lp.path), '_blank');
                     setIsLandingPagesDialogOpen(false);
                   }}
                 >
