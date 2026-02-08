@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Users, ArrowLeft, Loader2 } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Users, ArrowLeft, Loader2, User, DollarSign, TrendingUp } from "lucide-react";
 import { CRMContent } from "./CRMContent";
 import { ClienteDetails } from "./ClienteDetails";
 import { ClienteForm } from "./ClienteForm";
@@ -22,13 +23,25 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [loadingCliente, setLoadingCliente] = useState(false);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   
   // Estados para criar projeto vinculado
   const [criarProjeto, setCriarProjeto] = useState(false);
   const [nomeProjeto, setNomeProjeto] = useState('');
   
-  const { fetchClienteById, fetchClientes } = useClientes();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { fetchClienteById, fetchClientes, loading } = useClientes();
+
+  // Carregar clientes ao abrir drawer
+  useEffect(() => {
+    if (open) {
+      loadClientes();
+    }
+  }, [open]);
+
+  const loadClientes = async () => {
+    const data = await fetchClientes();
+    setClientes(data);
+  };
 
   // Resetar view ao fechar drawer
   useEffect(() => {
@@ -78,7 +91,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
 
   const handleFormSuccess = async () => {
     // Atualizar lista de clientes
-    setRefreshKey(prev => prev + 1);
+    await loadClientes();
     
     if (view === 'novo') {
       handleBack();
@@ -98,6 +111,18 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
       return cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || 'Cliente';
     }
     return 'Cliente';
+  };
+
+  // Calcular métricas
+  const totalClientes = clientes.length;
+  const valorTotalContratos = clientes.reduce((acc, c) => acc + (c.valor_contrato || 0), 0);
+  const totalParcelados = clientes.filter(c => (c.numero_parcelas || 0) > 1).length;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
   return (
@@ -129,11 +154,46 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
           <div className="p-6">
             {/* View: Lista de clientes */}
             {view === 'lista' && (
-              <CRMContent 
-                key={refreshKey}
-                onViewCliente={handleViewCliente}
-                onNewCliente={handleNewCliente}
-              />
+              <div className="space-y-6">
+                {/* Cards de Métricas */}
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Total</p>
+                        <p className="text-2xl font-bold">{totalClientes}</p>
+                      </div>
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Contratos</p>
+                        <p className="text-lg font-bold">{formatCurrency(valorTotalContratos)}</p>
+                      </div>
+                      <DollarSign className="h-5 w-5 text-primary" />
+                    </div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Parcelados</p>
+                        <p className="text-2xl font-bold">{totalParcelados}</p>
+                      </div>
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Conteúdo CRM */}
+                <CRMContent 
+                  onViewCliente={handleViewCliente}
+                  onNewCliente={handleNewCliente}
+                  clientes={clientes}
+                  onRefresh={loadClientes}
+                />
+              </div>
             )}
             
             {/* View: Novo cliente */}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, User, DollarSign, TrendingUp, Trash2, AlertCircle, Layout } from "lucide-react";
+import { Search, Plus, User, Trash2, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,13 +26,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,7 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CaptacaoSheet } from "@/components/CRM/CaptacaoSheet";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useClientes } from "@/hooks/useClientes";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
@@ -49,27 +41,32 @@ import { Cliente as ClienteType } from "@/types/cliente";
 interface CRMContentProps {
   onViewCliente?: (clienteId: string) => void;
   onNewCliente?: () => void;
+  clientes?: ClienteType[];
+  onRefresh?: () => void;
 }
 
-export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
+export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClientes, onRefresh }: CRMContentProps) {
   const navigate = useNavigate();
   const { tenantPath } = useTenantNavigation();
-  const { user } = useAuth();
   const { toast } = useToast();
   const { fetchClientes, deleteCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [activeTab, setActiveTab] = useState("clientes");
-  const [clientes, setClientes] = useState<ClienteType[]>([]);
-  const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
+  const [internalClientes, setInternalClientes] = useState<ClienteType[]>([]);
+
+  // Use external clientes if provided, otherwise fetch internally
+  const clientes = externalClientes || internalClientes;
 
   useEffect(() => {
-    loadClientes();
-  }, []);
+    if (!externalClientes) {
+      loadClientes();
+    }
+  }, [externalClientes]);
 
   const loadClientes = async () => {
     const data = await fetchClientes();
-    setClientes(data);
+    setInternalClientes(data);
   };
 
   const handleNewCliente = () => {
@@ -96,7 +93,11 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
         title: "Cliente excluído com sucesso",
         description: `${nomeCliente} e todos os registros financeiros foram removidos.`,
       });
-      loadClientes();
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        loadClientes();
+      }
     }
   };
 
@@ -112,14 +113,6 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
     return matchesSearch && matchesStatus;
   });
 
-  const formatCurrency = (value?: number) => {
-    if (!value) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
   const getStatusBadge = (status?: string) => {
     const s = status || 'ativo';
     switch (s) {
@@ -134,78 +127,57 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
     }
   };
 
-  const totalClientes = clientes.length;
-  const valorTotalContratos = clientes.reduce((acc, c) => acc + (c.valor_contrato || 0), 0);
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">CRM - Gestão de Clientes</h1>
-          <p className="text-muted-foreground">Gerencie leads, prospects e clientes</p>
-        </div>
-        <div className="flex flex-wrap gap-3 justify-end">
-          <Button variant="professional" className="gap-2" onClick={handleNewCliente}>
-            <Plus size={16} />
-            Novo Cliente
-          </Button>
-          <Button 
-            variant="default"
-            className="gap-2"
-            onClick={() => setIsLandingPagesDialogOpen(true)}
-          >
-            <Layout size={16} />
-            LANDING PAGES
-          </Button>
-        </div>
-      </div>
-
-      {/* Search */}
-
-      {/* Search */}
-      <div className="flex gap-4 items-center flex-1">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar por nome ou email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar por status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="ativo">Ativos</SelectItem>
-            <SelectItem value="inativo">Inativos</SelectItem>
-            <SelectItem value="contrato_encerrado">Encerrados</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
+    <div className="space-y-4">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="captacao">CAPTAÇÃO</TabsTrigger>
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
           <TabsTrigger 
-            value="whatsapp" 
-            disabled 
-            className="opacity-60 cursor-not-allowed"
+            value="clientes"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
           >
-            WhatsApp Bot
-            <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">
-              Em breve
-            </Badge>
+            Clientes
+          </TabsTrigger>
+          <TabsTrigger 
+            value="captacao"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+          >
+            CAPTAÇÃO
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="clientes" className="space-y-4">
+        <TabsContent value="clientes" className="space-y-4 mt-4">
+          {/* Search and Filters */}
+          <div className="flex gap-3 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Buscar por nome ou email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="ativo">Ativos</SelectItem>
+                <SelectItem value="inativo">Inativos</SelectItem>
+                <SelectItem value="contrato_encerrado">Encerrados</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button variant="professional" size="sm" className="gap-2" onClick={handleNewCliente}>
+              <Plus size={16} />
+              Novo Cliente
+            </Button>
+          </div>
+
+          {/* Client List */}
           {filteredClientes.length === 0 ? (
             <Card className="p-8 text-center">
               <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -222,7 +194,7 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
                     <TableHead>Telefone</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="w-[80px]">Ações</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -253,7 +225,7 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
                               <Button 
                                 variant="ghost" 
                                 size="icon"
-                                className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -290,61 +262,10 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
           )}
         </TabsContent>
 
-        <TabsContent value="captacao">
+        <TabsContent value="captacao" className="mt-4">
           <CaptacaoSheet />
         </TabsContent>
       </Tabs>
-
-      {/* Dialog de Landing Pages */}
-      <Dialog open={isLandingPagesDialogOpen} onOpenChange={setIsLandingPagesDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Selecione uma Landing Page</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="h-[300px] pr-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Button 
-                variant="outline" 
-                className="h-auto py-4 flex flex-col gap-2"
-                onClick={() => { 
-                  window.open(tenantPath('/landing-1'), '_blank'); 
-                  setIsLandingPagesDialogOpen(false); 
-                }}
-              >
-                <span className="font-medium">Agronegócio</span>
-                <span className="text-xs text-muted-foreground">Landing Page 1</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-auto py-4 flex flex-col gap-2"
-                onClick={() => { 
-                  window.open(tenantPath('/office'), '_blank'); 
-                  setIsLandingPagesDialogOpen(false); 
-                }}
-              >
-                <span className="font-medium">Advocacia</span>
-                <span className="text-xs text-muted-foreground">Landing Page 2</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-auto py-4 flex flex-col gap-2 opacity-50"
-                disabled
-              >
-                <span className="font-medium">Em breve</span>
-                <span className="text-xs text-muted-foreground">Landing Page 3</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-auto py-4 flex flex-col gap-2 opacity-50"
-                disabled
-              >
-                <span className="font-medium">Em breve</span>
-                <span className="text-xs text-muted-foreground">Landing Page 4</span>
-              </Button>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
