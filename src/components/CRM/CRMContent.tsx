@@ -26,6 +26,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -54,6 +61,7 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [activeTab, setActiveTab] = useState("clientes");
   const [clientes, setClientes] = useState<ClienteType[]>([]);
+  const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
 
   useEffect(() => {
     loadClientes();
@@ -145,6 +153,7 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
           <Button 
             variant="default"
             className="gap-2"
+            onClick={() => setIsLandingPagesDialogOpen(true)}
           >
             <Layout size={16} />
             LANDING PAGES
@@ -285,6 +294,57 @@ export function CRMContent({ onViewCliente, onNewCliente }: CRMContentProps) {
           <CaptacaoSheet />
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Landing Pages */}
+      <Dialog open={isLandingPagesDialogOpen} onOpenChange={setIsLandingPagesDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Selecione uma Landing Page</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[300px] pr-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Button 
+                variant="outline" 
+                className="h-auto py-4 flex flex-col gap-2"
+                onClick={() => { 
+                  window.open(tenantPath('/landing-1'), '_blank'); 
+                  setIsLandingPagesDialogOpen(false); 
+                }}
+              >
+                <span className="font-medium">Agronegócio</span>
+                <span className="text-xs text-muted-foreground">Landing Page 1</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="h-auto py-4 flex flex-col gap-2"
+                onClick={() => { 
+                  window.open(tenantPath('/office'), '_blank'); 
+                  setIsLandingPagesDialogOpen(false); 
+                }}
+              >
+                <span className="font-medium">Advocacia</span>
+                <span className="text-xs text-muted-foreground">Landing Page 2</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="h-auto py-4 flex flex-col gap-2 opacity-50"
+                disabled
+              >
+                <span className="font-medium">Em breve</span>
+                <span className="text-xs text-muted-foreground">Landing Page 3</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="h-auto py-4 flex flex-col gap-2 opacity-50"
+                disabled
+              >
+                <span className="font-medium">Em breve</span>
+                <span className="text-xs text-muted-foreground">Landing Page 4</span>
+              </Button>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
