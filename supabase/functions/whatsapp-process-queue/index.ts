@@ -78,7 +78,7 @@ serve(async (req) => {
         .from('whatsapp_instances')
         .select('instance_name, instance_id, token, api_url, user_id')
         .eq('tenant_id', msg.tenant_id)
-        .eq('is_connected', true)
+        .eq('connection_status', 'connected')
         .single();
 
       if (instanceError || !instance) {
