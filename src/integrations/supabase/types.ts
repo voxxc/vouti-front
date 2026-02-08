@@ -6816,6 +6816,41 @@ export type Database = {
           },
         ]
       }
+      whatsapp_ai_disabled_contacts: {
+        Row: {
+          disabled_at: string | null
+          disabled_by: string | null
+          id: string
+          phone_number: string
+          reason: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          disabled_at?: string | null
+          disabled_by?: string | null
+          id?: string
+          phone_number: string
+          reason?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          disabled_at?: string | null
+          disabled_by?: string | null
+          id?: string
+          phone_number?: string
+          reason?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_disabled_contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_automations: {
         Row: {
           created_at: string | null
