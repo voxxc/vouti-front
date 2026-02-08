@@ -107,7 +107,7 @@ export function CaptacaoSheet() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [statusGroups, setStatusGroups] = useState<StatusGroup[]>([
-    { label: "Captação", statusValues: ["captacao"], isOpen: true },
+    { label: "Captação", statusValues: ["captacao"], isOpen: false },
     { label: "VALIDADO", statusValues: ["1a tentativa de contato", "2a tentativa de contato", "3a tentativa de contato", "4a tentativa de contato"], isOpen: false },
     { label: "Em agendamento / Agendar", statusValues: ["agendado", "agendar"], isOpen: false },
     { label: "Reunião realizada", statusValues: ["1a reuniao realizada", "2a reuniao realizada"], isOpen: false },
