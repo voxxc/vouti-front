@@ -6966,6 +6966,69 @@ export type Database = {
           },
         ]
       }
+      whatsapp_pending_messages: {
+        Row: {
+          attempts: number | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          lead_id: string
+          lead_source: string
+          message: string
+          phone: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string | null
+          tenant_id: string
+          trigger_id: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          lead_source: string
+          message: string
+          phone: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string | null
+          tenant_id: string
+          trigger_id?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          lead_source?: string
+          message?: string
+          phone?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string | null
+          tenant_id?: string
+          trigger_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_pending_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_pending_messages_trigger_id_fkey"
+            columns: ["trigger_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_lead_triggers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.verify-password-reset]
 verify_jwt = false
+
+[functions.whatsapp-process-queue]
+verify_jwt = false
