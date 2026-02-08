@@ -56,6 +56,7 @@ import BatinkAdmin from "@/pages/BatinkAdmin";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
 import VeridictoLanding from "@/pages/VeridictoLanding";
 import SuperAdmin from "@/pages/SuperAdmin";
+import SuperAdminWhatsApp from "@/pages/SuperAdminWhatsApp";
 import NotFound from "@/pages/NotFound";
 import Documentos from "@/pages/Documentos";
 import DocumentoEditar from "@/pages/DocumentoEditar";
@@ -600,6 +601,7 @@ function App() {
             
             {/* Super Admin Panel */}
             <Route path="/super-admin" element={<SuperAdmin />} />
+            <Route path="/super-admin/whatsapp" element={<SuperAdminWhatsApp />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

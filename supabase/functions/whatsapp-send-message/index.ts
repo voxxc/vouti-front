@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +21,7 @@ serve(async (req) => {
       throw new Error('Z-API credentials not configured');
     }
 
-    const { phone, message, messageType = 'text', mediaUrl } = await req.json();
+    const { phone, message, messageType = 'text', mediaUrl, mode } = await req.json();
 
     if (!phone || !message) {
       throw new Error('Phone and message are required');
@@ -46,7 +47,7 @@ serve(async (req) => {
       throw new Error('Invalid message type or missing media URL');
     }
 
-    console.log(`Sending ${messageType} message to ${phone}`);
+    console.log(`Sending ${messageType} message to ${phone} (mode: ${mode || 'tenant'})`);
 
     // Make request to Z-API
     const zapiResponse = await fetch(apiEndpoint, {
@@ -63,6 +64,54 @@ serve(async (req) => {
 
     if (!zapiResponse.ok) {
       throw new Error(`Z-API Error: ${zapiData.message || 'Failed to send message'}`);
+    }
+
+    // Save message to database
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Se mode === 'superadmin', não define tenant_id (fica NULL)
+    const messageRecord: Record<string, unknown> = {
+      from_number: phone,
+      message_text: message,
+      direction: 'outgoing',
+      instance_name: mode === 'superadmin' ? 'whatsapp-bot' : 'default',
+      is_from_me: true,
+    };
+
+    // Apenas define tenant_id se NÃO for Super Admin
+    if (mode !== 'superadmin') {
+      // Tentar extrair tenant_id do JWT se disponível
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const { data: { user } } = await supabase.auth.getUser(token);
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('tenant_id')
+              .eq('user_id', user.id)
+              .single();
+            if (profile?.tenant_id) {
+              messageRecord.tenant_id = profile.tenant_id;
+            }
+          }
+        } catch (e) {
+          console.log('Could not extract tenant_id from token:', e);
+        }
+      }
+    }
+
+    // Salvar mensagem
+    const { error: insertError } = await supabase
+      .from('whatsapp_messages')
+      .insert(messageRecord);
+
+    if (insertError) {
+      console.log('Error saving message to DB:', insertError);
+      // Não falha a requisição, apenas loga o erro
     }
 
     return new Response(JSON.stringify({
