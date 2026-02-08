@@ -95,48 +95,58 @@
        );
      }
  
-     // Verificar se usuário já existe
-     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-     const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
- 
-     let userId: string;
-     let isExistingUser = false;
- 
-     if (existingUser) {
-       // Usuário já existe - verificar se está no tenant correto
-       const { data: existingProfile } = await supabaseAdmin
-         .from('profiles')
-         .select('tenant_id')
-         .eq('user_id', existingUser.id)
-         .maybeSingle();
- 
-       if (existingProfile?.tenant_id && existingProfile.tenant_id !== tenant_id) {
-         return new Response(
-           JSON.stringify({ error: 'Este email já está cadastrado em outro cliente. Não é possível adicionar ao cliente ' + tenant.name }),
-           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-         );
-       }
- 
-       // Verificar se já é admin deste tenant
-       const { data: existingRole } = await supabaseAdmin
-         .from('user_roles')
-         .select('id')
-         .eq('user_id', existingUser.id)
-         .eq('tenant_id', tenant_id)
-         .eq('role', 'admin')
-         .maybeSingle();
- 
-       if (existingRole) {
-         return new Response(
-           JSON.stringify({ error: 'Este usuário já é administrador deste cliente' }),
-           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-         );
-       }
- 
-       userId = existingUser.id;
-       isExistingUser = true;
-       console.log('User already exists, will add admin role:', userId);
-     } else {
+      // Buscar super admins para excluir da verificação
+      const { data: superAdminUserIds } = await supabaseAdmin
+        .from('super_admins')
+        .select('user_id');
+
+      const superAdminIds = superAdminUserIds?.map(sa => sa.user_id) || [];
+
+      // Verificar se usuário já existe
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+
+      let userId: string;
+      let isExistingUser = false;
+
+      // Verificar se o usuário existente é um super admin (deve ser ignorado)
+      const isExistingSuperAdmin = existingUser && superAdminIds.includes(existingUser.id);
+
+      if (existingUser && !isExistingSuperAdmin) {
+        // Usuário já existe e NÃO é super admin - verificar se está no tenant correto
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', existingUser.id)
+          .maybeSingle();
+
+        if (existingProfile?.tenant_id && existingProfile.tenant_id !== tenant_id) {
+          return new Response(
+            JSON.stringify({ error: 'Este email já está cadastrado em outro cliente. Não é possível adicionar ao cliente ' + tenant.name }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verificar se já é admin deste tenant
+        const { data: existingRole } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', existingUser.id)
+          .eq('tenant_id', tenant_id)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        if (existingRole) {
+          return new Response(
+            JSON.stringify({ error: 'Este usuário já é administrador deste cliente' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        userId = existingUser.id;
+        isExistingUser = true;
+        console.log('User already exists, will add admin role:', userId);
+      } else {
        // Criar novo usuário
        const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
          email,

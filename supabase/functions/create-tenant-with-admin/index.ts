@@ -103,14 +103,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if admin email already exists
+    // Buscar todos os super admins para excluir da verificação
+    const { data: superAdminUserIds } = await supabaseAdmin
+      .from('super_admins')
+      .select('user_id');
+
+    const superAdminIds = superAdminUserIds?.map(sa => sa.user_id) || [];
+
+    // Check if admin email already exists (excluindo super admins)
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('user_id')
       .eq('email', admin_email)
       .maybeSingle();
 
-    if (existingProfile) {
+    // Só bloqueia se existir E não for super admin
+    if (existingProfile && !superAdminIds.includes(existingProfile.user_id)) {
       return new Response(
         JSON.stringify({ error: 'A user with this email already exists' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
