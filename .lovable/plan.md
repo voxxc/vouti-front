@@ -1,130 +1,136 @@
 
-# Isolamento Total do Super Admin
+# Correção do Email de Recuperação de Senha
 
-## Problema Identificado
+## Diagnóstico
 
-Atualmente, quando um Super Admin (ex: `danieldemorais@vouti.co`) tenta criar um novo cliente usando o **mesmo email**, o sistema bloqueia porque verifica se o email já existe na tabela `profiles`.
+Analisando o código de recuperação de senha:
 
-O Super Admin deveria ser **completamente isolado** dos tenants normais, permitindo:
-- Mesmo email em `super_admins` e em um tenant específico
-- Usuários completamente separados no `auth.users`
-- Nenhuma interferência entre as contas
+1. **Auth.tsx** - O fluxo de solicitação está correto:
+   ```typescript
+   const redirectUrl = `${window.location.origin}/${tenantSlug}/reset-password`;
+   await resetPassword(email, redirectUrl);
+   ```
 
-## Fluxo Atual (com problema)
+2. **AuthContext.tsx** - A função usa o método nativo do Supabase:
+   ```typescript
+   const resetPassword = async (email: string, redirectUrl: string) => {
+     const { error } = await supabase.auth.resetPasswordForEmail(email, {
+       redirectTo: redirectUrl,
+     });
+     return { error };
+   };
+   ```
 
-```text
-Tentativa de criar tenant com admin_email = danieldemorais@vouti.co
-        │
-        ▼
-┌───────────────────────────────────────┐
-│ Busca em profiles por email           │
-│ ─► Encontra o profile do super admin  │
-│ ─► Retorna ERRO: "email já existe"    │
-└───────────────────────────────────────┘
+3. **ResetPassword.tsx** - A página de redefinição tem um problema: não processa os parâmetros do URL que o Supabase envia (access_token, refresh_token, type=recovery).
+
+## Problema Principal
+
+Quando o Supabase envia o email de recuperação, o link contém parâmetros de autenticação no fragmento do URL:
+```
+https://vouti.lovable.app/demorais/reset-password#access_token=xxx&refresh_token=yyy&type=recovery
 ```
 
-## Solução Proposta
+A página `ResetPassword.tsx` precisa:
+1. Detectar esses parâmetros
+2. Estabelecer a sessão com o token de recovery
+3. Só então permitir que o usuário atualize a senha
 
-### 1. Modificar `create-tenant-with-admin`
+Atualmente, a página não faz isso - ela simplesmente tenta atualizar a senha sem verificar se há uma sessão válida de recovery.
 
-Alterar a verificação de email existente para **excluir super admins** da busca:
+## Solução
 
-```sql
--- Verificar email existente, EXCLUINDO super admins
-SELECT user_id FROM profiles 
-WHERE email = 'danieldemorais@vouti.co'
-  AND user_id NOT IN (SELECT user_id FROM super_admins)
+### Arquivo: `src/pages/ResetPassword.tsx`
+
+Adicionar lógica para processar os parâmetros de recovery do URL:
+
+```typescript
+useEffect(() => {
+  // Processar hash params do Supabase (type=recovery)
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
+  const type = hashParams.get('type');
+
+  if (type === 'recovery' && accessToken && refreshToken) {
+    // Estabelecer sessão com tokens de recovery
+    supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    }).then(({ error }) => {
+      if (error) {
+        console.error('Erro ao estabelecer sessão:', error);
+        toast({
+          title: "Link inválido",
+          description: "O link de recuperação expirou ou é inválido.",
+          variant: "destructive",
+        });
+        navigate(`/${tenantSlug}/auth`);
+      } else {
+        setSessionReady(true);
+        // Limpar hash da URL para segurança
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    });
+  } else {
+    // Verificar se já tem sessão válida
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSessionReady(true);
+      } else {
+        toast({
+          title: "Acesso não autorizado",
+          description: "Use o link enviado para seu email.",
+          variant: "destructive",
+        });
+        navigate(`/${tenantSlug}/auth`);
+      }
+    });
+  }
+}, []);
 ```
 
-### 2. Modificar `create-tenant-admin`
+### Mudanças Específicas
 
-Aplicar a mesma lógica ao verificar usuários existentes via Admin API - ignorar se o user_id for de um super admin.
+1. **Adicionar import do supabase client**
+2. **Adicionar estado `sessionReady`** para controlar quando o formulário pode ser exibido
+3. **Adicionar useEffect** para processar tokens de recovery
+4. **Mostrar loading** enquanto processa os tokens
+5. **Validar sessão** antes de permitir atualização
 
 ## Fluxo Corrigido
 
 ```text
-Tentativa de criar tenant com admin_email = danieldemorais@vouti.co
-        │
-        ▼
-┌───────────────────────────────────────────────────────┐
-│ Busca em profiles por email EXCLUINDO super_admins    │
-│ ─► Não encontra (super admin é ignorado)              │
-│ ─► Cria NOVO usuário em auth.users                    │
-│ ─► Cria NOVO profile com tenant_id do novo cliente    │
-│ ─► Cria role admin para o novo tenant                 │
-└───────────────────────────────────────────────────────┘
+Usuário solicita reset
+       │
+       ▼
+Supabase envia email com link
+       │
+       ▼
+Link: /{tenant}/reset-password#access_token=xxx&type=recovery
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│ ResetPassword.tsx detecta parâmetros    │
+│ ─► Chama setSession() com tokens        │
+│ ─► Estabelece sessão de recovery        │
+│ ─► Habilita formulário de nova senha    │
+└─────────────────────────────────────────┘
+       │
+       ▼
+Usuário digita nova senha
+       │
+       ▼
+updatePassword() funciona (tem sessão)
 ```
 
-## Resultado
+## Configurações Necessárias no Supabase
 
-Após a implementação:
+Além da correção no código, verificar no Supabase Dashboard:
 
-| Contexto | Email | user_id | tenant_id |
-|----------|-------|---------|-----------|
-| Super Admin | danieldemorais@vouti.co | 8eda80fa-... | NULL |
-| Admin Tenant X | danieldemorais@vouti.co | **NOVO-ID** | UUID do tenant X |
+1. **Authentication > URL Configuration**:
+   - Site URL: `https://vouti.lovable.app`
+   - Redirect URLs: Adicionar `https://vouti.lovable.app/*/reset-password` (com wildcard para tenants)
 
-Duas contas completamente separadas no sistema.
-
-## Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/create-tenant-with-admin/index.ts` | Excluir super admins da verificação de email existente |
-| `supabase/functions/create-tenant-admin/index.ts` | Excluir super admins da verificação de usuário existente |
-
-## Detalhes Técnicos
-
-### Mudança em `create-tenant-with-admin/index.ts`
-
-**Antes (linhas 106-118):**
-```typescript
-const { data: existingProfile } = await supabaseAdmin
-  .from('profiles')
-  .select('user_id')
-  .eq('email', admin_email)
-  .maybeSingle();
-
-if (existingProfile) {
-  return new Response(
-    JSON.stringify({ error: 'A user with this email already exists' }),
-    ...
-  );
-}
-```
-
-**Depois:**
-```typescript
-// Buscar super admins para excluir da verificação
-const { data: superAdminUserIds } = await supabaseAdmin
-  .from('super_admins')
-  .select('user_id');
-
-const superAdminIds = superAdminUserIds?.map(sa => sa.user_id) || [];
-
-// Verificar se email existe em profiles (excluindo super admins)
-const { data: existingProfile } = await supabaseAdmin
-  .from('profiles')
-  .select('user_id')
-  .eq('email', admin_email)
-  .maybeSingle();
-
-// Só bloqueia se existir E não for super admin
-if (existingProfile && !superAdminIds.includes(existingProfile.user_id)) {
-  return new Response(
-    JSON.stringify({ error: 'A user with this email already exists' }),
-    ...
-  );
-}
-```
-
-### Mudança em `create-tenant-admin/index.ts`
-
-Similar alteração para ignorar usuários que são super admins ao verificar emails existentes via Admin API.
-
-## Considerações de Segurança
-
-- Super admins continuam invisíveis nas listagens de tenants (já implementado via `get_users_with_roles`)
-- Cada conta (super admin vs admin de tenant) terá credenciais separadas
-- O login do super admin continua em `/super-admin`, o login do tenant em `/{slug}/auth`
-- Não há vazamento de dados entre os contextos
+2. **Authentication > Email Templates**:
+   - Verificar se o template "Reset Password" está configurado
+   - O `{{ .ConfirmationURL }}` deve estar presente no template
