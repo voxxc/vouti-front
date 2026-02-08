@@ -392,14 +392,13 @@ const WhatsAppBot: React.FC = () => {
   };
 
   const handleDeleteAllConversations = async () => {
+    if (!tenantId) return;
+    
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
       const { error } = await supabase
         .from('whatsapp_messages')
         .delete()
-        .eq('user_id', userData.user.id);
+        .eq('tenant_id', tenantId);
 
       if (error) throw error;
 
@@ -422,14 +421,13 @@ const WhatsAppBot: React.FC = () => {
   };
 
   const handleDeleteContact = async (contactNumber: string) => {
+    if (!tenantId) return;
+    
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
       const { error } = await supabase
         .from('whatsapp_messages')
         .delete()
-        .eq('user_id', userData.user.id)
+        .eq('tenant_id', tenantId)
         .eq('from_number', contactNumber);
 
       if (error) throw error;
@@ -607,20 +605,17 @@ const WhatsAppBot: React.FC = () => {
     checkConnectionStatus();
   }, []);
 
-  // Carregar conversas reais do banco
+  // Carregar conversas reais do banco - filtrar por tenant_id
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !tenantId) return;
     
     const loadConversations = async () => {
       try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return;
-
-        // Buscar todas as mensagens do usuário
+        // Buscar todas as mensagens do tenant
         const { data: messages, error } = await supabase
           .from('whatsapp_messages')
           .select('*')
-          .eq('user_id', userData.user.id)
+          .eq('tenant_id', tenantId)
           .order('timestamp', { ascending: false });
 
         if (error) {
@@ -669,7 +664,7 @@ const WhatsAppBot: React.FC = () => {
     // Atualizar a cada 5 segundos
     const interval = setInterval(loadConversations, 5000);
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [isConnected, tenantId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

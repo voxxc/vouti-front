@@ -90,19 +90,19 @@ async function handleIncomingMessage(data: any) {
     return;
   }
   
-  // Buscar user_id da instância
+  // Buscar user_id E tenant_id da instância
   const { data: instance, error: instanceError } = await supabase
     .from('whatsapp_instances')
-    .select('user_id')
+    .select('user_id, tenant_id')
     .eq('instance_name', instanceId)
     .single();
 
-  if (instanceError || !instance?.user_id) {
-    console.error('Instance not found or no user_id:', instanceError);
+  if (instanceError || !instance?.user_id || !instance?.tenant_id) {
+    console.error('Instance not found, no user_id or no tenant_id:', instanceError);
     return;
   }
 
-  // Salvar mensagem com user_id
+  // Salvar mensagem com user_id E tenant_id
   const { error: insertError } = await supabase
     .from('whatsapp_messages')
     .insert({
@@ -114,6 +114,7 @@ async function handleIncomingMessage(data: any) {
       direction: 'received',
       raw_data: data,
       user_id: instance.user_id,
+      tenant_id: instance.tenant_id,
       timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
       is_read: false
     });
