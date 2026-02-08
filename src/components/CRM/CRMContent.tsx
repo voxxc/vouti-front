@@ -13,7 +13,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, User, Trash2, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Search, Plus, User, Trash2, AlertCircle, MessageCircle, Layout, ExternalLink } from "lucide-react";
+import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,10 +58,21 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
   const { tenantPath } = useTenantNavigation();
   const { toast } = useToast();
   const { fetchClientes, deleteCliente } = useClientes();
+  const { isWhatsAppEnabled } = useTenantFeatures();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [activeTab, setActiveTab] = useState("clientes");
   const [internalClientes, setInternalClientes] = useState<ClienteType[]>([]);
+  const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
+
+  const handleOpenWhatsApp = () => {
+    window.open(tenantPath('/whatsapp'), '_blank');
+  };
+
+  const landingPages = [
+    { id: 'agro', name: 'Agronegócio', path: '/landing-1', description: 'Landing page para captação de leads do agronegócio' },
+    { id: 'office', name: 'Advocacia', path: '/office', description: 'Página institucional do escritório' },
+  ];
 
   // Use external clientes if provided, otherwise fetch internally
   const clientes = externalClientes || internalClientes;
@@ -131,20 +150,46 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
     <div className="space-y-4">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-          <TabsTrigger 
-            value="clientes"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-          >
-            Clientes
-          </TabsTrigger>
-          <TabsTrigger 
-            value="captacao"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-          >
-            CAPTAÇÃO
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between border-b">
+          <TabsList className="justify-start rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger 
+              value="clientes"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+            >
+              Clientes
+            </TabsTrigger>
+            <TabsTrigger 
+              value="captacao"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+            >
+              CAPTAÇÃO
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex gap-2 pb-2">
+            {isWhatsAppEnabled && (
+              <Button 
+                variant="default"
+                size="sm"
+                className="gap-1 bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleOpenWhatsApp}
+              >
+                <MessageCircle size={14} />
+                WhatsApp
+                <ExternalLink size={12} />
+              </Button>
+            )}
+            <Button 
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={() => setIsLandingPagesDialogOpen(true)}
+            >
+              <Layout size={14} />
+              LPs
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value="clientes" className="space-y-4 mt-4">
           {/* Search and Filters */}
@@ -266,6 +311,40 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
           <CaptacaoSheet />
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Landing Pages */}
+      <Dialog open={isLandingPagesDialogOpen} onOpenChange={setIsLandingPagesDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layout className="h-5 w-5" />
+              Landing Pages
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[400px]">
+            <div className="space-y-3">
+              {landingPages.map((lp) => (
+                <Card 
+                  key={lp.id}
+                  className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    window.open(lp.path, '_blank');
+                    setIsLandingPagesDialogOpen(false);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">{lp.name}</h4>
+                      <p className="text-sm text-muted-foreground">{lp.description}</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
