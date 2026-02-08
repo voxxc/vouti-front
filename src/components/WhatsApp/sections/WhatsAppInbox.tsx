@@ -108,10 +108,10 @@ export const WhatsAppInbox = () => {
     };
   }, [selectedConversation, tenantId]);
 
-  const loadConversations = async () => {
+  const loadConversations = async (showLoading = true) => {
     if (!tenantId) return;
     
-    setIsLoading(true);
+    if (showLoading) setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from("whatsapp_messages")
@@ -142,9 +142,35 @@ export const WhatsAppInbox = () => {
     } catch (error) {
       console.error("Erro ao carregar conversas:", error);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
+
+  // Polling automático para atualizar conversas a cada 2 segundos
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const intervalId = setInterval(() => {
+      loadConversations(false);
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [tenantId]);
+
+  // Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
+  useEffect(() => {
+    if (!selectedConversation || !tenantId) return;
+
+    const intervalId = setInterval(() => {
+      loadMessages(selectedConversation.contactNumber);
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [selectedConversation, tenantId]);
 
   const loadMessages = async (contactNumber: string) => {
     if (!tenantId) return;
