@@ -1,229 +1,255 @@
 
-# Plano: Automação de WhatsApp para Leads da Página Inicial
+# Plano: Redesign Completo do WhatsApp Bot como Página Dedicada
 
-## Resumo
+## Entendimento do Problema
 
-Quando um lead se cadastra na página inicial (`vouti.co/`), o sistema automaticamente enviará uma mensagem de boas-vindas via WhatsApp usando as credenciais Z-API configuradas pelo tenant que controla essa automação.
+### Problema 1: Mensagens não estão sendo enviadas
+A edge function `whatsapp-process-queue` não tem logs, indicando que **nunca foi invocada**. O trigger do banco insere na fila `whatsapp_pending_messages`, mas a função precisa ser chamada para processar. Além disso, a função busca por `is_connected = true` que não existe na tabela `whatsapp_instances`.
 
-## Desafio Especial: `landing_leads` não tem `tenant_id`
+### Problema 2: Redesign da Interface
+Você quer transformar o WhatsApp Bot em uma **página dedicada** (não mais dentro das tabs do CRM), com layout similar ao print fornecido:
+- Sidebar esquerda com menu
+- Drawer de conversas (Caixa de Entrada)
+- Painel de mensagens central
+- Painel de informações do contato à direita
 
-A tabela `landing_leads` (usada pela página inicial) **não possui** coluna `tenant_id`, diferente de `leads_captacao`. Isso requer uma abordagem especial:
+---
+
+## Arquitetura Proposta
 
 ```text
-┌────────────────────────────────────────────────────────────────────┐
-│                    ARQUITETURA PROPOSTA                           │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  Lead cadastra em vouti.co/ (HomePage.tsx)                        │
-│              │                                                     │
-│              ▼                                                     │
-│  INSERT em landing_leads (SEM tenant_id)                          │
-│              │                                                     │
-│              ▼                                                     │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │   DB Trigger: tr_landing_leads_whatsapp                    │   │
-│  │   Busca automações ativas para lead_source='landing_leads' │   │
-│  │   Insere na fila whatsapp_pending_messages                 │   │
-│  └────────────────────────────────────────────────────────────┘   │
-│              │                                                     │
-│              ▼                                                     │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │   Edge Function: whatsapp-process-queue (cron/invocação)   │   │
-│  │   - Busca mensagens pendentes com scheduled_at <= NOW()    │   │
-│  │   - Busca credenciais Z-API do tenant via trigger config   │   │
-│  │   - Envia mensagem via Z-API                               │   │
-│  │   - Atualiza status para 'sent' ou 'failed'                │   │
-│  └────────────────────────────────────────────────────────────┘   │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                         /:tenant/whatsapp  (Nova Página Dedicada)                          │
+├──────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                              │
+│  ┌─────────────────┐  ┌────────────────────────────────────────────────────────────────────┐│
+│  │   SIDEBAR       │  │                       CONTEUDO PRINCIPAL                          ││
+│  │   ESQUERDA      │  │                                                                    ││
+│  │                 │  │  ┌─────────────────────────────────────────────────────────────┐  ││
+│  │ ◉ Caixa Entrada │  │  │  Renderizado baseado no item selecionado no sidebar:       │  ││
+│  │ ○ Conversas     │  │  │                                                             │  ││
+│  │ ○ Kanban CRM    │  │  │  - Caixa de Entrada: Grid de mensagens + Chat + Contato    │  ││
+│  │ ○ Contatos      │  │  │  - Conversas: Lista de todas conversas ativas              │  ││
+│  │ ○ Relatórios    │  │  │  - Kanban CRM: Pipeline visual de leads                    │  ││
+│  │ ○ Campanhas     │  │  │  - Contatos: Lista de contatos do WhatsApp                 │  ││
+│  │ ○ Central Ajuda │  │  │  - Relatórios: Métricas e gráficos                         │  ││
+│  │ ○ Configurações │  │  │  - Campanhas: Mensagens em massa                           │  ││
+│  │                 │  │  │  - Central Ajuda: Docs/FAQ                                 │  ││
+│  │                 │  │  │  - Configurações: Z-API + Fonte de Leads                   │  ││
+│  │                 │  │  └─────────────────────────────────────────────────────────────┘  ││
+│  └─────────────────┘  └────────────────────────────────────────────────────────────────────┘│
+│                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Implementação em 3 Etapas
+---
 
-### ETAPA 1: Criar Tabela de Fila de Mensagens
+## Layout da Caixa de Entrada (Principal)
 
-Nova tabela `whatsapp_pending_messages` para enfileirar mensagens a enviar:
+Baseado no print fornecido:
 
-```sql
-CREATE TABLE whatsapp_pending_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenants(id) NOT NULL,
-  trigger_id UUID REFERENCES whatsapp_lead_triggers(id),
-  lead_source TEXT NOT NULL, -- 'landing_leads' ou 'leads_captacao'
-  lead_id UUID NOT NULL,
-  phone TEXT NOT NULL,
-  message TEXT NOT NULL,
-  status TEXT DEFAULT 'pending', -- pending, sent, failed
-  scheduled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  sent_at TIMESTAMPTZ,
-  error_message TEXT,
-  attempts INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Índice para busca eficiente
-CREATE INDEX idx_pending_status_scheduled 
-  ON whatsapp_pending_messages(status, scheduled_at) 
-  WHERE status = 'pending';
-
--- RLS
-ALTER TABLE whatsapp_pending_messages ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "service_role_all" ON whatsapp_pending_messages
-  FOR ALL USING (true) WITH CHECK (true);
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  SIDEBAR MENU   │        LISTA CONVERSAS         │       CHAT ATIVO        │   INFO CONTATO       │
+│  (w-48)         │        (w-80)                  │       (flex-1)          │   (w-80)             │
+│                 │                                 │                         │                      │
+│ Caixa Entrada   │ 🔵 Juliana Grupo:              │  Daniel de Morais       │  [Avatar]            │
+│ Conversas       │    "Oi, Michelle..."           │  🏷️ Trafego Pago       │  Daniel De Morais    │
+│ Kanban CRM      │    Nova Mensagem    [2d]       │                         │  📞 +559291276333    │
+│ Contatos        │                                 │  [Histórico de msgs]   │  📧 559291@whats...  │
+│ Relatórios      │ Daniel Morais:                 │                         │                      │
+│ Campanhas       │    Anexo                       │  ┌─────────────────┐    │  ⚡ Habilitar Bot    │
+│ Central Ajuda   │    Nova Mensagem    [5d]       │  │ Bom dia Daniel  │    │                      │
+│ Configurações   │                                 │  │ Recebi a proc...│    │  [Ações da Conversa]│
+│                 │ [... mais conversas]           │  └─────────────────┘    │  [Typebot Bot]       │
+│                 │                                 │                         │  [Msgs Agendadas]    │
+│ [User Avatar]   │                                 │  [Input de mensagem]   │  [Kanban CRM]        │
+│ Daniel Solvenza │                                 │                         │  [Macros]            │
+│                 │                                 │                         │  [Info Contato]      │
+│                 │                                 │                         │  [Atributos]         │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### ETAPA 2: Criar Database Trigger para `landing_leads`
+---
 
-Trigger que dispara quando um novo lead é inserido:
+## Implementação em 5 Fases
 
-```sql
-CREATE OR REPLACE FUNCTION notify_whatsapp_landing_lead()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_trigger RECORD;
-  v_message TEXT;
-BEGIN
-  -- Buscar triggers ativos para landing_leads
-  FOR v_trigger IN 
-    SELECT * FROM whatsapp_lead_triggers 
-    WHERE lead_source = 'landing_leads' 
-      AND is_active = true
-  LOOP
-    -- Substituir variáveis na mensagem
-    v_message := v_trigger.welcome_message;
-    v_message := REPLACE(v_message, '{{nome}}', COALESCE(NEW.nome, ''));
-    v_message := REPLACE(v_message, '{{email}}', COALESCE(NEW.email, ''));
-    v_message := REPLACE(v_message, '{{telefone}}', COALESCE(NEW.telefone, ''));
-    v_message := REPLACE(v_message, '{{tamanho_escritorio}}', COALESCE(NEW.tamanho_escritorio, ''));
-    v_message := REPLACE(v_message, '{{origem}}', COALESCE(NEW.origem, ''));
-    
-    -- Inserir na fila SOMENTE se tiver telefone
-    IF NEW.telefone IS NOT NULL AND NEW.telefone != '' THEN
-      INSERT INTO whatsapp_pending_messages (
-        tenant_id,
-        trigger_id,
-        lead_source,
-        lead_id,
-        phone,
-        message,
-        scheduled_at
-      ) VALUES (
-        v_trigger.tenant_id,
-        v_trigger.id,
-        'landing_leads',
-        NEW.id,
-        NEW.telefone,
-        v_message,
-        NOW() + (v_trigger.welcome_delay_minutes || ' minutes')::INTERVAL
-      );
-    END IF;
-  END LOOP;
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public';
+### FASE 1: Criar Nova Página `/whatsapp`
 
-CREATE TRIGGER tr_landing_leads_whatsapp
-  AFTER INSERT ON landing_leads
-  FOR EACH ROW
-  EXECUTE FUNCTION notify_whatsapp_landing_lead();
-```
+**Nova página**: `src/pages/WhatsApp.tsx`
+- Layout próprio (sem DashboardLayout)
+- Sidebar fixa à esquerda
+- Conteúdo dinâmico baseado no item selecionado
 
-### ETAPA 3: Criar Edge Function para Processar Fila
-
-Nova Edge Function `whatsapp-process-queue` que processa mensagens pendentes:
-
+**Rota no App.tsx**:
 ```typescript
-// supabase/functions/whatsapp-process-queue/index.ts
-
-// 1. Busca mensagens com status='pending' e scheduled_at <= NOW()
-// 2. Para cada mensagem:
-//    a. Busca credenciais Z-API do tenant via whatsapp_instances
-//    b. Formata telefone para padrão internacional
-//    c. Envia via Z-API
-//    d. Atualiza status para 'sent' ou 'failed'
-// 3. Salva mensagem enviada em whatsapp_messages para histórico
+<Route path="/:tenant/whatsapp" element={
+  <TenantRouteWrapper>
+    <WhatsApp />
+  </TenantRouteWrapper>
+} />
 ```
 
-### ETAPA 4: Configurar Automação para DEMORAIS
+### FASE 2: Criar Componentes do WhatsApp
 
-Inserir configuração na tabela `whatsapp_lead_triggers`:
+| Componente | Descrição |
+|------------|-----------|
+| `WhatsAppLayout.tsx` | Container principal com sidebar |
+| `WhatsAppSidebar.tsx` | Menu lateral com as 8 opções |
+| `WhatsAppInbox.tsx` | Caixa de entrada (3 colunas: lista, chat, contato) |
+| `WhatsAppConversations.tsx` | Lista expandida de conversas |
+| `WhatsAppKanban.tsx` | Pipeline visual de leads |
+| `WhatsAppContacts.tsx` | Gestão de contatos |
+| `WhatsAppReports.tsx` | Relatórios e métricas |
+| `WhatsAppCampaigns.tsx` | Campanhas de mensagens |
+| `WhatsAppHelp.tsx` | Central de ajuda |
+| `WhatsAppSettings.tsx` | Configurações Z-API + Fonte de Leads |
+| `WhatsAppChatPanel.tsx` | Área de chat com histórico |
+| `WhatsAppContactInfo.tsx` | Painel lateral com info do contato |
 
-```sql
-INSERT INTO whatsapp_lead_triggers (
-  tenant_id,
-  lead_source,
-  is_active,
-  welcome_message,
-  welcome_delay_minutes
-) VALUES (
-  'd395b3a1-1ea1-4710-bcc1-ff5f6a279750', -- DEMORAIS
-  'landing_leads',
-  true,
-  '👋 Olá, {{nome}}!
+### FASE 3: Modificar CRM para Abrir Nova Janela
 
-Vi que você se cadastrou na VOUTI. Sou da equipe de atendimento e gostaria de saber:
+**Em `src/pages/CRM.tsx`**:
+- Trocar tab "WhatsApp Bot" por botão que abre nova janela
+- `window.open(tenantPath('/whatsapp'), '_blank')`
 
-Como posso te ajudar hoje? 
+### FASE 4: Corrigir Edge Function de Processamento
 
-- Quer conhecer nossos planos?
-- Tem alguma dúvida específica?
-- Deseja agendar uma demonstração?
+**Problema identificado**: A função `whatsapp-process-queue` busca `is_connected = true`, mas a coluna não existe na tabela (é `connection_status`).
 
-É só responder! 😊',
-  1 -- Envia após 1 minuto
-);
+**Correção**:
+```typescript
+// Antes (incorreto)
+.eq('is_connected', true)
+
+// Depois (correto)
+.eq('connection_status', 'connected')
 ```
 
-## Arquivos a Criar/Modificar
+### FASE 5: Criar Mecanismo de Invocação da Fila
+
+A edge function precisa ser invocada. Opções:
+1. **Supabase pg_cron** (recomendado) - trigger a cada 1 minuto
+2. **Webhook externo** (ex: cron-job.org)
+3. **Realtime + invocação** - quando insere na fila, chama a função
+
+---
+
+## Estrutura de Arquivos a Criar
+
+```
+src/
+├── pages/
+│   └── WhatsApp.tsx                    # Página principal
+├── components/
+│   └── WhatsApp/
+│       ├── WhatsAppLayout.tsx          # Container principal
+│       ├── WhatsAppSidebar.tsx         # Menu lateral
+│       ├── sections/
+│       │   ├── WhatsAppInbox.tsx       # Caixa de entrada
+│       │   ├── WhatsAppConversations.tsx
+│       │   ├── WhatsAppKanban.tsx
+│       │   ├── WhatsAppContacts.tsx
+│       │   ├── WhatsAppReports.tsx
+│       │   ├── WhatsAppCampaigns.tsx
+│       │   ├── WhatsAppHelp.tsx
+│       │   └── WhatsAppSettings.tsx
+│       └── components/
+│           ├── ConversationList.tsx    # Lista de conversas
+│           ├── ChatPanel.tsx           # Painel de chat
+│           └── ContactInfoPanel.tsx    # Info do contato
+```
+
+---
+
+## Menu da Sidebar
+
+| Item | Ícone | Descrição |
+|------|-------|-----------|
+| Caixa de Entrada | `Inbox` | Vista principal com 3 colunas |
+| Conversas | `MessageSquare` | Lista completa de conversas |
+| Kanban CRM | `LayoutKanban` | Pipeline de leads WhatsApp |
+| Contatos | `Users` | Gestão de contatos |
+| Relatórios | `BarChart3` | Métricas e analytics |
+| Campanhas | `Megaphone` | Mensagens em massa |
+| Central de Ajuda | `HelpCircle` | Documentação e FAQ |
+| Configurações | `Settings` | Z-API + Fonte de Leads |
+
+---
+
+## Arquivos a Modificar
 
 | Arquivo | Ação | Descrição |
 |---------|------|-----------|
-| Migração SQL | Criar | Tabela `whatsapp_pending_messages` + triggers |
-| `supabase/functions/whatsapp-process-queue/index.ts` | Criar | Processador de fila |
-| `supabase/config.toml` | Modificar | Registrar nova função |
-| `src/components/CRM/WhatsAppBot.tsx` | Modificar | UI para ver/editar triggers |
+| `src/App.tsx` | Modificar | Adicionar rota `/:tenant/whatsapp` |
+| `src/pages/WhatsApp.tsx` | Criar | Nova página dedicada |
+| `src/pages/CRM.tsx` | Modificar | Trocar tab por botão que abre nova janela |
+| `src/components/WhatsApp/*` | Criar | Todos os componentes listados acima |
+| `supabase/functions/whatsapp-process-queue/index.ts` | Modificar | Corrigir `connection_status` |
+| Migração SQL | Criar | Adicionar trigger para invocar edge function |
 
-## Fluxo Completo
+---
 
-```text
-1. Visitante acessa vouti.co/
-          │
-2. Preenche formulário (nome, email, whatsapp, tamanho)
-          │
-3. createLandingLead() insere em landing_leads
-          │
-4. Trigger tr_landing_leads_whatsapp dispara
-          │
-5. Busca automações ativas para 'landing_leads'
-   └─ Encontra: DEMORAIS (tenant_id: d395b3a1-...)
-          │
-6. Insere em whatsapp_pending_messages:
-   - phone: "45998011658"
-   - message: "Olá, Rafael Morais! Vi que você..."
-   - scheduled_at: NOW() + 1 minute
-          │
-7. Edge Function whatsapp-process-queue (invocada)
-          │
-8. Busca credenciais Z-API do DEMORAIS em whatsapp_instances
-          │
-9. Envia via Z-API para 5545998011658
-          │
-10. Lead recebe WhatsApp instantâneo!
-```
+## Detalhes da Caixa de Entrada
 
-## Considerações Importantes
+A **Caixa de Entrada** é a view principal e mais complexa. Ela terá:
 
-1. **Múltiplos Tenants**: Vários tenants podem ter automações para `landing_leads`. Cada um receberá uma cópia do lead em sua fila.
+**Coluna 1 - Lista de Conversas** (w-80):
+- Avatar + Nome do contato
+- Preview da última mensagem
+- Tempo desde última mensagem
+- Badge de mensagens não lidas
+- Busca no topo
 
-2. **Formatação de Telefone**: A Edge Function deve formatar o telefone para o padrão internacional (55 + DDD + número).
+**Coluna 2 - Chat Ativo** (flex-1):
+- Header com nome do contato + status
+- Histórico de mensagens (scrollable)
+- Input de mensagem com emoji, anexo, áudio
+- Indicador de digitação
 
-3. **Rate Limiting**: Implementar limite de 100 mensagens/hora por tenant para evitar bloqueio da Z-API.
+**Coluna 3 - Info do Contato** (w-80):
+- Avatar grande
+- Nome + telefone + email WhatsApp
+- Toggle "Habilitar Bot"
+- Accordion com:
+  - Ações da conversa (resolver, transferir, etc)
+  - Typebot Bot
+  - Mensagens Agendadas
+  - Kanban CRM (estágio do lead)
+  - Macros (respostas rápidas)
+  - Informação da conversa
+  - Atributos do contato (Skip Evaluation, Skip Greetings, etc)
 
-4. **Invocação da Função**: Pode ser via:
-   - Cron job externo (recomendado)
-   - Supabase pg_cron
-   - Chamada após INSERT (via Supabase Realtime)
+---
 
-5. **Histórico**: Mensagens enviadas devem ser salvas em `whatsapp_messages` para aparecerem no inbox.
+## Considerações Técnicas
+
+1. **Tenant Isolation**: Todas as queries filtradas por `tenant_id`
+2. **Realtime**: Subscription para novas mensagens do WhatsApp
+3. **Estado Global**: Contexto para conversa selecionada
+4. **Responsividade**: Mobile-first com drawer colapsável
+5. **Tema**: Respeitar dark/light mode do tenant
+
+---
+
+## Correção do Bug de Envio de Mensagens
+
+Além do redesign, vou corrigir:
+
+1. **Edge Function**: Trocar `is_connected` por `connection_status = 'connected'`
+2. **Campos faltantes na tabela**: A query busca `instance_id` e `token` que podem não existir - usar campos corretos
+3. **Invocação automática**: Adicionar chamada periódica ou trigger
+
+---
+
+## Ordem de Implementação
+
+1. Corrigir edge function `whatsapp-process-queue`
+2. Criar estrutura de pastas e componentes base
+3. Criar página `WhatsApp.tsx` com layout
+4. Criar sidebar com navegação
+5. Implementar view de Configurações (migrar do atual)
+6. Implementar Caixa de Entrada (principal)
+7. Modificar CRM para abrir nova janela
+8. Adicionar rota no App.tsx
+9. Implementar demais views (Conversas, Kanban, etc) - podem ser placeholders inicialmente
