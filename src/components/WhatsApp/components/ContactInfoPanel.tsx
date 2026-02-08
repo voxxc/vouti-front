@@ -6,7 +6,6 @@ import {
   MessageSquare, 
   Calendar, 
   Tag, 
-  FileText,
   ChevronDown,
   ChevronRight,
   Bot,
@@ -24,6 +23,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { cn } from "@/lib/utils";
+import { AIControlSection } from "./AIControlSection";
+import { useTenantId } from "@/hooks/useTenantId";
 
 interface ContactInfoPanelProps {
   conversation: WhatsAppConversation;
@@ -38,7 +39,7 @@ interface AccordionItem {
 
 export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
-  const [botEnabled, setBotEnabled] = useState(false);
+  const { tenantId } = useTenantId();
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) =>
@@ -173,16 +174,11 @@ export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
         </p>
       </div>
 
-      {/* Bot Toggle */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">Habilitar Bot</span>
-          </div>
-          <Switch checked={botEnabled} onCheckedChange={setBotEnabled} />
-        </div>
-      </div>
+      {/* AI Control Section */}
+      <AIControlSection 
+        phoneNumber={conversation.contactNumber} 
+        tenantId={tenantId}
+      />
 
       {/* Accordion Sections */}
       <ScrollArea className="flex-1">

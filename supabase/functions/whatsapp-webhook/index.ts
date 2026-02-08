@@ -213,6 +213,25 @@ async function handleAIResponse(
   zapi_token: string | null
 ): Promise<boolean> {
   try {
+    // 🔒 PRIMEIRO: Verificar se IA está desabilitada para este contato específico
+    let disabledQuery = supabase
+      .from('whatsapp_ai_disabled_contacts')
+      .select('id')
+      .eq('phone_number', phone);
+    
+    if (tenant_id) {
+      disabledQuery = disabledQuery.eq('tenant_id', tenant_id);
+    } else {
+      disabledQuery = disabledQuery.is('tenant_id', null);
+    }
+    
+    const { data: disabledContact } = await disabledQuery.maybeSingle();
+    
+    if (disabledContact) {
+      console.log('⏭️ IA desabilitada para este contato (atendimento humano)');
+      return false;
+    }
+
     // Verificar se IA está habilitada para este tenant
     let query = supabase
       .from('whatsapp_ai_config')
