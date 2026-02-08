@@ -1,145 +1,99 @@
 
-# Plano: Adicionar Real-Time ao Chat WhatsApp
+# Plano: Corrigir Permissão de UPDATE na Tabela Tenants
 
-## Problema
-Quando um lead responde no WhatsApp, a mensagem é salva no banco via webhook, mas a interface não atualiza automaticamente. O usuário precisa trocar de conversa ou recarregar a página para ver novas mensagens.
+## Problema Identificado
 
-## Causa Raiz
-O `WhatsAppInbox.tsx` não tem **Supabase Realtime subscription** para a tabela `whatsapp_messages`. Ele apenas carrega as mensagens uma vez quando a conversa é selecionada.
+A configuração "Fonte de Lead" (`whatsapp_lead_source`) **não está sendo salva** porque a tabela `tenants` não permite UPDATE para usuários normais.
 
-## Solução
-Adicionar subscription real-time para detectar INSERT na tabela `whatsapp_messages` e atualizar a UI automaticamente.
+### Diagnóstico
 
-## Fluxo Atual vs. Proposto
+| Consulta | Resultado |
+|----------|-----------|
+| `settings` do tenant demorais | `{ "whatsapp_enabled": true }` |
+| `whatsapp_lead_source` no banco | **Ausente** |
+
+### Políticas RLS Atuais
 
 ```text
-ATUAL:
-Lead responde → Webhook salva no banco → (nada acontece na UI)
-
-PROPOSTO:
-Lead responde → Webhook salva no banco → Realtime detecta INSERT → UI atualiza
+tenants:
+├── SELECT: "Public can view active tenants by slug" ✅
+├── SELECT: "Super admins can view all tenants" ✅
+├── SELECT: "Users can view their own tenant" ✅
+└── ALL: "Super admins can manage tenants" ✅
+    └── (somente super_admins podem UPDATE)
 ```
 
-## Alterações em `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+**Problema**: Nenhuma política permite que **admins do próprio tenant** façam UPDATE nas settings.
 
-### 1. Adicionar Subscription Real-Time para Mensagens
+## Solução
 
-Dentro do `useEffect` que monitora `selectedConversation`, criar uma subscription:
+Criar uma política RLS que permita admins atualizarem as settings do próprio tenant.
 
-```typescript
-useEffect(() => {
-  if (!selectedConversation || !tenantId) return;
+### Nova Política RLS
 
-  // Carregar mensagens iniciais
-  loadMessages(selectedConversation.contactNumber);
-
-  // Subscription real-time para novas mensagens
-  const channel = supabase
-    .channel(`whatsapp-messages-${selectedConversation.contactNumber}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'whatsapp_messages',
-        filter: `tenant_id=eq.${tenantId}`
-      },
-      (payload) => {
-        const newMsg = payload.new;
-        // Verificar se é da conversa atual
-        if (newMsg.from_number === selectedConversation.contactNumber) {
-          const formattedMsg: WhatsAppMessage = {
-            id: newMsg.id,
-            messageText: newMsg.message_text || "",
-            direction: newMsg.direction === "outgoing" ? "outgoing" : "incoming",
-            timestamp: newMsg.created_at,
-            isFromMe: newMsg.direction === "outgoing",
-          };
-          setMessages(prev => [...prev, formattedMsg]);
-        }
-      }
-    )
-    .subscribe();
-
-  // Cleanup ao desmontar ou trocar conversa
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [selectedConversation, tenantId]);
+```sql
+CREATE POLICY "Tenant admins can update own tenant settings"
+ON tenants
+FOR UPDATE
+TO authenticated
+USING (id = get_user_tenant_id())
+WITH CHECK (id = get_user_tenant_id());
 ```
 
-### 2. Adicionar Subscription para Lista de Conversas
+**Nota**: Esta política permite que qualquer usuário autenticado do tenant atualize o registro do tenant. Se quiser restringir apenas para admins:
 
-Atualizar também a lista de conversas quando chegar nova mensagem:
-
-```typescript
-useEffect(() => {
-  if (!tenantId) return;
-
-  loadConversations();
-
-  // Subscription para atualizar lista de conversas
-  const conversationsChannel = supabase
-    .channel('whatsapp-conversations')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'whatsapp_messages',
-        filter: `tenant_id=eq.${tenantId}`
-      },
-      () => {
-        // Recarregar lista de conversas
-        loadConversations();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(conversationsChannel);
-  };
-}, [tenantId]);
+```sql
+CREATE POLICY "Tenant admins can update own tenant settings"
+ON tenants
+FOR UPDATE
+TO authenticated
+USING (
+  id = get_user_tenant_id() 
+  AND EXISTS (
+    SELECT 1 FROM user_roles 
+    WHERE user_id = auth.uid() 
+    AND tenant_id = id 
+    AND role = 'admin'
+  )
+)
+WITH CHECK (
+  id = get_user_tenant_id() 
+  AND EXISTS (
+    SELECT 1 FROM user_roles 
+    WHERE user_id = auth.uid() 
+    AND tenant_id = id 
+    AND role = 'admin'
+  )
+);
 ```
 
-### 3. Evitar Duplicação de Mensagens
+## Alterações Necessárias
 
-Adicionar verificação para não duplicar mensagens que já existem:
+| Tipo | Descrição |
+|------|-----------|
+| **Database Migration** | Adicionar política RLS para UPDATE na tabela `tenants` |
 
-```typescript
-setMessages(prev => {
-  // Verificar se mensagem já existe
-  if (prev.some(m => m.id === formattedMsg.id)) {
-    return prev;
-  }
-  return [...prev, formattedMsg];
-});
+## Fluxo Após Correção
+
+```text
+Admin clica "Landing Pages do Escritório"
+       │
+       ▼
+updateFeature('whatsapp_lead_source', 'leads_captacao')
+       │
+       ▼
+supabase.from('tenants').update({ settings: {...} })
+       │
+       ▼ (RLS permite UPDATE pois é admin do próprio tenant)
+       │
+Banco atualiza settings = { whatsapp_enabled: true, whatsapp_lead_source: 'leads_captacao' }
+       │
+       ▼
+Ao mudar de página, TenantContext recarrega com valor correto
 ```
-
-## Arquivo a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Adicionar subscriptions real-time para mensagens e conversas |
 
 ## Resultado Esperado
 
-1. Quando lead responde, mensagem aparece **instantaneamente** no chat
-2. Lista de conversas atualiza com última mensagem
-3. Experiência similar ao WhatsApp Web real
-4. Subscriptions são limpas corretamente ao trocar conversa ou desmontar componente
-
-## Diagrama do Fluxo Real-Time
-
-```text
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Lead envia    │────▶│   Z-API Webhook  │────▶│   Edge Function │
-│   mensagem      │     │                  │     │   salva no DB   │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘
-                                                          │
-                                                          ▼
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   UI atualiza   │◀────│   Subscription   │◀────│   Supabase      │
-│   mensagens     │     │   detecta INSERT │     │   Realtime      │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-```
+1. Admin do tenant DEMORAIS consegue salvar "Fonte de Lead"
+2. Configuração persiste ao mudar de página
+3. Valor carrega corretamente do banco na próxima visita
