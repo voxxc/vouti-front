@@ -5,11 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, User, DollarSign, TrendingUp, Layout, Bot, MessageCircle } from "lucide-react";
+import { ArrowLeft, User, DollarSign, TrendingUp, Layout, MessageCircle, ExternalLink } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { CaptacaoSheet } from "@/components/CRM/CaptacaoSheet";
 import { ClientesLista } from "@/components/CRM/ClientesLista";
-import WhatsAppBot from "@/components/CRM/WhatsAppBot";
 import { useClientes } from "@/hooks/useClientes";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
@@ -48,6 +47,10 @@ const CRM = () => {
   const totalClientes = clientes.length;
   const valorTotalContratos = clientes.reduce((acc, c) => acc + (c.valor_contrato || 0), 0);
 
+  const handleOpenWhatsApp = () => {
+    window.open(tenantPath('/whatsapp'), '_blank');
+  };
+
   return (
     <DashboardLayout currentPage="crm">
       <div className="space-y-6">
@@ -63,15 +66,28 @@ const CRM = () => {
               <p className="text-muted-foreground">Gerencie leads, prospects e clientes</p>
             </div>
           </div>
-          <Button 
-            variant="default"
-            className="gap-2"
-            title="Abrir lista de Landing Pages"
-            onClick={() => setIsLandingPagesDialogOpen(true)}
-          >
-            <Layout size={16} />
-            LANDING PAGES
-          </Button>
+          <div className="flex gap-2">
+            {isWhatsAppEnabled && (
+              <Button 
+                variant="default"
+                className="gap-2 bg-green-600 hover:bg-green-700"
+                onClick={handleOpenWhatsApp}
+              >
+                <MessageCircle size={16} />
+                WhatsApp
+                <ExternalLink size={14} />
+              </Button>
+            )}
+            <Button 
+              variant="outline"
+              className="gap-2"
+              title="Abrir lista de Landing Pages"
+              onClick={() => setIsLandingPagesDialogOpen(true)}
+            >
+              <Layout size={16} />
+              LANDING PAGES
+            </Button>
+          </div>
         </div>
 
         {/* Métricas */}
@@ -123,22 +139,9 @@ const CRM = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
             <TabsTrigger value="captacao">CAPTAÇÃO</TabsTrigger>
-            <TabsTrigger 
-              value="whatsapp" 
-              disabled={!isWhatsAppEnabled}
-              className={!isWhatsAppEnabled ? "opacity-60 cursor-not-allowed" : ""}
-            >
-              <MessageCircle className="h-4 w-4 mr-1" />
-              WhatsApp Bot
-              {!isWhatsAppEnabled && (
-                <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">
-                  Em breve
-                </Badge>
-              )}
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="clientes" className="space-y-4">
@@ -150,32 +153,6 @@ const CRM = () => {
 
           <TabsContent value="captacao">
             <CaptacaoSheet />
-          </TabsContent>
-
-          <TabsContent value="whatsapp">
-            {isWhatsAppEnabled ? (
-              <WhatsAppBot />
-            ) : (
-              <Card className="border-dashed border-2 border-muted">
-                <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                  <div className="p-4 bg-muted/50 rounded-full">
-                    <Bot className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-foreground">
-                      WhatsApp Bot - Em Desenvolvimento
-                    </h3>
-                    <p className="text-muted-foreground max-w-md">
-                      Estamos trabalhando para trazer uma integração completa com WhatsApp Business. 
-                      Em breve você poderá automatizar conversas, criar respostas automáticas e muito mais.
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="text-sm px-4 py-1">
-                    🚧 Aguarde novidades
-                  </Badge>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
         </Tabs>
 

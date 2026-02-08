@@ -26,6 +26,7 @@ import Projects from "@/pages/Projects";
 import ProjectViewWrapper from "@/pages/ProjectViewWrapper";
 import Agenda from "@/pages/Agenda";
 import CRM from "@/pages/CRM";
+import WhatsApp from "@/pages/WhatsApp";
 import ClienteCadastro from "@/pages/ClienteCadastro";
 import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
 import Financial from "@/pages/Financial";
@@ -364,6 +365,13 @@ function App() {
             <Route path="/:tenant/crm" element={
               <TenantRouteWrapper>
                 <CRM />
+              </TenantRouteWrapper>
+            } />
+            
+            {/* WhatsApp - Tenant Dynamic (nova página dedicada) */}
+            <Route path="/:tenant/whatsapp" element={
+              <TenantRouteWrapper>
+                <WhatsApp />
               </TenantRouteWrapper>
             } />
             
