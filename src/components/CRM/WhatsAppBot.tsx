@@ -10,9 +10,12 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { QrCode, Smartphone, MessageCircle, Bot, BarChart3, Plus, Trash2, Edit, Send, CheckCircle2, Clock, Zap, Wifi, WifiOff, Users, Phone, Settings } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { QrCode, Smartphone, MessageCircle, Bot, BarChart3, Plus, Trash2, Edit, Send, CheckCircle2, Clock, Zap, Wifi, WifiOff, Users, Phone, Settings, Globe, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantFeatures } from '@/hooks/useTenantFeatures';
+import { useTenantId } from '@/hooks/useTenantId';
 
 interface WhatsAppContact {
   id: string;
@@ -40,6 +43,9 @@ interface WhatsAppAutomation {
 
 const WhatsAppBot: React.FC = () => {
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
+  const { whatsappLeadSource, updateFeature } = useTenantFeatures();
+  
   const [activeTab, setActiveTab] = useState('conexao');
   const [isConnected, setIsConnected] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -54,6 +60,10 @@ const WhatsAppBot: React.FC = () => {
   const [newResponse, setNewResponse] = useState('');
   const [instanceName] = useState('whatsapp-bot');
   const [isResetting, setIsResetting] = useState(false);
+  const [leadSource, setLeadSource] = useState<'landing_leads' | 'leads_captacao'>(
+    whatsappLeadSource || 'leads_captacao'
+  );
+  const [isSavingLeadSource, setIsSavingLeadSource] = useState(false);
   
   // Configurações Z-API
   const [zapiConfig, setZapiConfig] = useState({
@@ -62,6 +72,37 @@ const WhatsAppBot: React.FC = () => {
     token: ''
   });
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  // Sincronizar com settings do tenant
+  useEffect(() => {
+    if (whatsappLeadSource) {
+      setLeadSource(whatsappLeadSource);
+    }
+  }, [whatsappLeadSource]);
+
+  const handleLeadSourceChange = async (value: 'landing_leads' | 'leads_captacao') => {
+    setLeadSource(value);
+    setIsSavingLeadSource(true);
+    
+    const success = await updateFeature('whatsapp_lead_source', value);
+    
+    if (success) {
+      toast({
+        title: "Fonte de leads atualizada",
+        description: value === 'leads_captacao' 
+          ? "Leads serão capturados das Landing Pages do Escritório"
+          : "Leads serão capturados da Landing Page Principal",
+      });
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a configuração",
+        variant: "destructive",
+      });
+    }
+    
+    setIsSavingLeadSource(false);
+  };
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -853,6 +894,76 @@ const WhatsAppBot: React.FC = () => {
                   )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Card de Fonte de Leads */}
+          <Card className="border-0 shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Fonte de Leads para Automação
+              </CardTitle>
+              <CardDescription>
+                Escolha de onde vêm os leads que receberão mensagens automáticas de WhatsApp
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup 
+                value={leadSource} 
+                onValueChange={(value) => handleLeadSourceChange(value as 'landing_leads' | 'leads_captacao')}
+                disabled={isSavingLeadSource}
+              >
+                <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+                  <RadioGroupItem value="leads_captacao" id="leads_captacao" className="mt-1" />
+                  <Label htmlFor="leads_captacao" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span className="font-medium">Landing Pages do Escritório</span>
+                      {leadSource === 'leads_captacao' && (
+                        <Badge variant="secondary" className="text-xs">Ativo</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Leads capturados nas páginas <code className="bg-muted px-1 rounded">/landing-1</code> e <code className="bg-muted px-1 rounded">/office</code> do seu escritório.
+                      Cada tenant tem suas próprias landing pages.
+                    </p>
+                  </Label>
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+                  <RadioGroupItem value="landing_leads" id="landing_leads" className="mt-1" />
+                  <Label htmlFor="landing_leads" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Globe className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">Landing Page Principal</span>
+                      {leadSource === 'landing_leads' && (
+                        <Badge variant="secondary" className="text-xs">Ativo</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Leads capturados na página principal <code className="bg-muted px-1 rounded">vouti.co/</code>.
+                      Leads da landing page global compartilhada.
+                    </p>
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {isSavingLeadSource && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock size={14} className="animate-spin" />
+                  Salvando configuração...
+                </div>
+              )}
+
+              <Alert>
+                <Zap className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Como funciona:</strong> Quando um novo lead preencher o formulário na fonte selecionada, 
+                  ele será automaticamente adicionado à fila de mensagens do WhatsApp Bot e receberá 
+                  sua mensagem de boas-vindas configurada.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>

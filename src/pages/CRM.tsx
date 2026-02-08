@@ -5,19 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, User, DollarSign, TrendingUp, Layout, Bot } from "lucide-react";
+import { ArrowLeft, User, DollarSign, TrendingUp, Layout, Bot, MessageCircle } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { CaptacaoSheet } from "@/components/CRM/CaptacaoSheet";
 import { ClientesLista } from "@/components/CRM/ClientesLista";
+import WhatsAppBot from "@/components/CRM/WhatsAppBot";
 import { useClientes } from "@/hooks/useClientes";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
+import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 import { Cliente as ClienteType } from "@/types/cliente";
 
 const CRM = () => {
   const { tenantPath } = useTenantNavigation();
   const { fetchClientes } = useClientes();
   const { stopLoading, navigationId } = useNavigationLoading();
+  const { isWhatsAppEnabled } = useTenantFeatures();
   const [activeTab, setActiveTab] = useState("clientes");
   const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
   const [clientes, setClientes] = useState<ClienteType[]>([]);
@@ -125,13 +128,16 @@ const CRM = () => {
             <TabsTrigger value="captacao">CAPTAÇÃO</TabsTrigger>
             <TabsTrigger 
               value="whatsapp" 
-              disabled 
-              className="opacity-60 cursor-not-allowed"
+              disabled={!isWhatsAppEnabled}
+              className={!isWhatsAppEnabled ? "opacity-60 cursor-not-allowed" : ""}
             >
+              <MessageCircle className="h-4 w-4 mr-1" />
               WhatsApp Bot
-              <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">
-                Em breve
-              </Badge>
+              {!isWhatsAppEnabled && (
+                <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">
+                  Em breve
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -147,25 +153,29 @@ const CRM = () => {
           </TabsContent>
 
           <TabsContent value="whatsapp">
-            <Card className="border-dashed border-2 border-muted">
-              <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                <div className="p-4 bg-muted/50 rounded-full">
-                  <Bot className="h-12 w-12 text-muted-foreground" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-semibold text-foreground">
-                    WhatsApp Bot - Em Desenvolvimento
-                  </h3>
-                  <p className="text-muted-foreground max-w-md">
-                    Estamos trabalhando para trazer uma integração completa com WhatsApp Business. 
-                    Em breve você poderá automatizar conversas, criar respostas automáticas e muito mais.
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-sm px-4 py-1">
-                  🚧 Aguarde novidades
-                </Badge>
-              </CardContent>
-            </Card>
+            {isWhatsAppEnabled ? (
+              <WhatsAppBot />
+            ) : (
+              <Card className="border-dashed border-2 border-muted">
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                  <div className="p-4 bg-muted/50 rounded-full">
+                    <Bot className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold text-foreground">
+                      WhatsApp Bot - Em Desenvolvimento
+                    </h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Estamos trabalhando para trazer uma integração completa com WhatsApp Business. 
+                      Em breve você poderá automatizar conversas, criar respostas automáticas e muito mais.
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-sm px-4 py-1">
+                    🚧 Aguarde novidades
+                  </Badge>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
 
