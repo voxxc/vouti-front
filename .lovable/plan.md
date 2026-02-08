@@ -1,99 +1,104 @@
 
-# Plano: Corrigir Permissão de UPDATE na Tabela Tenants
+# Plano: Polling Automático de 2 Segundos na Caixa de Entrada WhatsApp
 
-## Problema Identificado
+## Objetivo
+Implementar atualização automática em segundo plano a cada 2 segundos para a página da Caixa de Entrada do WhatsApp, garantindo que mensagens e conversas estejam sempre sincronizadas.
 
-A configuração "Fonte de Lead" (`whatsapp_lead_source`) **não está sendo salva** porque a tabela `tenants` não permite UPDATE para usuários normais.
+## Implementação Atual
 
-### Diagnóstico
+O componente já possui:
+- Real-time via Supabase para detectar INSERT
+- Carregamento inicial de conversas e mensagens
 
-| Consulta | Resultado |
-|----------|-----------|
-| `settings` do tenant demorais | `{ "whatsapp_enabled": true }` |
-| `whatsapp_lead_source` no banco | **Ausente** |
+## Solução Proposta
 
-### Políticas RLS Atuais
+Adicionar um **useEffect com setInterval** para polling complementar ao real-time:
+
+### Alterações em `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+
+#### 1. Novo useEffect para Polling de Conversas (a cada 2 segundos)
+
+```typescript
+// Polling automático para atualizar conversas a cada 2 segundos
+useEffect(() => {
+  if (!tenantId) return;
+
+  const intervalId = setInterval(() => {
+    loadConversations();
+  }, 2000); // 2 segundos
+
+  return () => {
+    clearInterval(intervalId);
+  };
+}, [tenantId]);
+```
+
+#### 2. Novo useEffect para Polling de Mensagens da Conversa Ativa
+
+```typescript
+// Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
+useEffect(() => {
+  if (!selectedConversation || !tenantId) return;
+
+  const intervalId = setInterval(() => {
+    loadMessages(selectedConversation.contactNumber);
+  }, 2000); // 2 segundos
+
+  return () => {
+    clearInterval(intervalId);
+  };
+}, [selectedConversation, tenantId]);
+```
+
+#### 3. Remover `setIsLoading(true)` do Polling
+
+Para evitar flickering visual durante o polling, modificar `loadConversations`:
+
+```typescript
+const loadConversations = async (showLoading = true) => {
+  if (!tenantId) return;
+  
+  if (showLoading) setIsLoading(true);
+  try {
+    // ... fetch data
+  } finally {
+    if (showLoading) setIsLoading(false);
+  }
+};
+```
+
+E no polling, chamar `loadConversations(false)` para não exibir loading.
+
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Adicionar useEffect com setInterval para polling de conversas e mensagens |
+
+## Fluxo Final
 
 ```text
-tenants:
-├── SELECT: "Public can view active tenants by slug" ✅
-├── SELECT: "Super admins can view all tenants" ✅
-├── SELECT: "Users can view their own tenant" ✅
-└── ALL: "Super admins can manage tenants" ✅
-    └── (somente super_admins podem UPDATE)
-```
-
-**Problema**: Nenhuma política permite que **admins do próprio tenant** façam UPDATE nas settings.
-
-## Solução
-
-Criar uma política RLS que permita admins atualizarem as settings do próprio tenant.
-
-### Nova Política RLS
-
-```sql
-CREATE POLICY "Tenant admins can update own tenant settings"
-ON tenants
-FOR UPDATE
-TO authenticated
-USING (id = get_user_tenant_id())
-WITH CHECK (id = get_user_tenant_id());
-```
-
-**Nota**: Esta política permite que qualquer usuário autenticado do tenant atualize o registro do tenant. Se quiser restringir apenas para admins:
-
-```sql
-CREATE POLICY "Tenant admins can update own tenant settings"
-ON tenants
-FOR UPDATE
-TO authenticated
-USING (
-  id = get_user_tenant_id() 
-  AND EXISTS (
-    SELECT 1 FROM user_roles 
-    WHERE user_id = auth.uid() 
-    AND tenant_id = id 
-    AND role = 'admin'
-  )
-)
-WITH CHECK (
-  id = get_user_tenant_id() 
-  AND EXISTS (
-    SELECT 1 FROM user_roles 
-    WHERE user_id = auth.uid() 
-    AND tenant_id = id 
-    AND role = 'admin'
-  )
-);
-```
-
-## Alterações Necessárias
-
-| Tipo | Descrição |
-|------|-----------|
-| **Database Migration** | Adicionar política RLS para UPDATE na tabela `tenants` |
-
-## Fluxo Após Correção
-
-```text
-Admin clica "Landing Pages do Escritório"
-       │
-       ▼
-updateFeature('whatsapp_lead_source', 'leads_captacao')
-       │
-       ▼
-supabase.from('tenants').update({ settings: {...} })
-       │
-       ▼ (RLS permite UPDATE pois é admin do próprio tenant)
-       │
-Banco atualiza settings = { whatsapp_enabled: true, whatsapp_lead_source: 'leads_captacao' }
-       │
-       ▼
-Ao mudar de página, TenantContext recarrega com valor correto
+┌─────────────────────────────────────────────────────────────┐
+│                    WhatsApp Inbox Page                       │
+├─────────────────────────────────────────────────────────────┤
+│  ATUALIZAÇÃO REAL-TIME (Supabase Realtime)                  │
+│  └─ Detecta INSERT instantaneamente                          │
+│                                                              │
+│  ATUALIZAÇÃO POR POLLING (Backup a cada 2 seg)              │
+│  └─ Garante sincronização mesmo se real-time falhar          │
+│  └─ Atualiza lista de conversas                              │
+│  └─ Atualiza mensagens da conversa ativa                     │
+│                                                              │
+│  CLEANUP                                                     │
+│  └─ clearInterval ao sair da página                          │
+│  └─ removeChannel das subscriptions                          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Resultado Esperado
 
-1. Admin do tenant DEMORAIS consegue salvar "Fonte de Lead"
-2. Configuração persiste ao mudar de página
-3. Valor carrega corretamente do banco na próxima visita
+1. Página atualiza automaticamente a cada 2 segundos
+2. Novas mensagens aparecem mesmo se real-time estiver instável
+3. Lista de conversas sempre sincronizada
+4. Sem flickering visual durante polling (loading oculto)
+5. Cleanup adequado ao sair da página para evitar memory leaks
