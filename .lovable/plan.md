@@ -1,73 +1,130 @@
 
-# Correção do Botão Landing Pages no CRM
+# Isolamento Total do Super Admin
 
 ## Problema Identificado
 
-O botão "LANDING PAGES" no componente `CRMContent.tsx` não tem nenhuma funcionalidade - falta o `onClick` e o Dialog para selecionar landing pages.
+Atualmente, quando um Super Admin (ex: `danieldemorais@vouti.co`) tenta criar um novo cliente usando o **mesmo email**, o sistema bloqueia porque verifica se o email já existe na tabela `profiles`.
 
-**Arquivo afetado:** `src/components/CRM/CRMContent.tsx` (linhas 145-151)
+O Super Admin deveria ser **completamente isolado** dos tenants normais, permitindo:
+- Mesmo email em `super_admins` e em um tenant específico
+- Usuários completamente separados no `auth.users`
+- Nenhuma interferência entre as contas
 
-```tsx
-// Código atual (não funciona)
-<Button 
-  variant="default"
-  className="gap-2"
->
-  <Layout size={16} />
-  LANDING PAGES
-</Button>
+## Fluxo Atual (com problema)
+
+```text
+Tentativa de criar tenant com admin_email = danieldemorais@vouti.co
+        │
+        ▼
+┌───────────────────────────────────────┐
+│ Busca em profiles por email           │
+│ ─► Encontra o profile do super admin  │
+│ ─► Retorna ERRO: "email já existe"    │
+└───────────────────────────────────────┘
 ```
 
-## Solução
+## Solução Proposta
 
-Adicionar:
-1. Estado `isLandingPagesDialogOpen` para controlar o modal
-2. Handler `onClick` no botão
-3. Componente `Dialog` com as landing pages disponíveis
+### 1. Modificar `create-tenant-with-admin`
 
-## Mudanças Técnicas
+Alterar a verificação de email existente para **excluir super admins** da busca:
 
-### Arquivo: `src/components/CRM/CRMContent.tsx`
-
-1. **Importar componentes necessários** (Dialog, DialogContent, DialogHeader, DialogTitle, ScrollArea)
-
-2. **Adicionar estado para controle do dialog**
-```tsx
-const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
+```sql
+-- Verificar email existente, EXCLUINDO super admins
+SELECT user_id FROM profiles 
+WHERE email = 'danieldemorais@vouti.co'
+  AND user_id NOT IN (SELECT user_id FROM super_admins)
 ```
 
-3. **Adicionar onClick ao botão**
-```tsx
-<Button 
-  variant="default"
-  className="gap-2"
-  title="Abrir lista de Landing Pages"
-  onClick={() => setIsLandingPagesDialogOpen(true)}
->
+### 2. Modificar `create-tenant-admin`
+
+Aplicar a mesma lógica ao verificar usuários existentes via Admin API - ignorar se o user_id for de um super admin.
+
+## Fluxo Corrigido
+
+```text
+Tentativa de criar tenant com admin_email = danieldemorais@vouti.co
+        │
+        ▼
+┌───────────────────────────────────────────────────────┐
+│ Busca em profiles por email EXCLUINDO super_admins    │
+│ ─► Não encontra (super admin é ignorado)              │
+│ ─► Cria NOVO usuário em auth.users                    │
+│ ─► Cria NOVO profile com tenant_id do novo cliente    │
+│ ─► Cria role admin para o novo tenant                 │
+└───────────────────────────────────────────────────────┘
 ```
 
-4. **Adicionar o Dialog no final do componente** (antes do fechamento da div principal)
-```tsx
-<Dialog open={isLandingPagesDialogOpen} onOpenChange={setIsLandingPagesDialogOpen}>
-  <DialogContent className="max-w-2xl">
-    <DialogHeader>
-      <DialogTitle>Selecione uma Landing Page</DialogTitle>
-    </DialogHeader>
-    <ScrollArea className="h-[400px] pr-4">
-      <div className="grid grid-cols-2 gap-4">
-        <Button variant="outline" onClick={() => { window.open(tenantPath('/landing-1'), '_blank'); setIsLandingPagesDialogOpen(false); }}>
-          Landing Page 1 - Agronegócio
-        </Button>
-        <Button variant="outline" onClick={() => { window.open(tenantPath('/office'), '_blank'); setIsLandingPagesDialogOpen(false); }}>
-          Landing Page 2 - Advocacia
-        </Button>
-        {/* ... demais landing pages desabilitadas */}
-      </div>
-    </ScrollArea>
-  </DialogContent>
-</Dialog>
+## Resultado
+
+Após a implementação:
+
+| Contexto | Email | user_id | tenant_id |
+|----------|-------|---------|-----------|
+| Super Admin | danieldemorais@vouti.co | 8eda80fa-... | NULL |
+| Admin Tenant X | danieldemorais@vouti.co | **NOVO-ID** | UUID do tenant X |
+
+Duas contas completamente separadas no sistema.
+
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/create-tenant-with-admin/index.ts` | Excluir super admins da verificação de email existente |
+| `supabase/functions/create-tenant-admin/index.ts` | Excluir super admins da verificação de usuário existente |
+
+## Detalhes Técnicos
+
+### Mudança em `create-tenant-with-admin/index.ts`
+
+**Antes (linhas 106-118):**
+```typescript
+const { data: existingProfile } = await supabaseAdmin
+  .from('profiles')
+  .select('user_id')
+  .eq('email', admin_email)
+  .maybeSingle();
+
+if (existingProfile) {
+  return new Response(
+    JSON.stringify({ error: 'A user with this email already exists' }),
+    ...
+  );
+}
 ```
 
-## Resultado Esperado
+**Depois:**
+```typescript
+// Buscar super admins para excluir da verificação
+const { data: superAdminUserIds } = await supabaseAdmin
+  .from('super_admins')
+  .select('user_id');
 
-Ao clicar no botão "LANDING PAGES" no drawer do CRM, abre um modal com as opções de landing pages disponíveis, permitindo abrir cada uma em nova aba.
+const superAdminIds = superAdminUserIds?.map(sa => sa.user_id) || [];
+
+// Verificar se email existe em profiles (excluindo super admins)
+const { data: existingProfile } = await supabaseAdmin
+  .from('profiles')
+  .select('user_id')
+  .eq('email', admin_email)
+  .maybeSingle();
+
+// Só bloqueia se existir E não for super admin
+if (existingProfile && !superAdminIds.includes(existingProfile.user_id)) {
+  return new Response(
+    JSON.stringify({ error: 'A user with this email already exists' }),
+    ...
+  );
+}
+```
+
+### Mudança em `create-tenant-admin/index.ts`
+
+Similar alteração para ignorar usuários que são super admins ao verificar emails existentes via Admin API.
+
+## Considerações de Segurança
+
+- Super admins continuam invisíveis nas listagens de tenants (já implementado via `get_users_with_roles`)
+- Cada conta (super admin vs admin de tenant) terá credenciais separadas
+- O login do super admin continua em `/super-admin`, o login do tenant em `/{slug}/auth`
+- Não há vazamento de dados entre os contextos
