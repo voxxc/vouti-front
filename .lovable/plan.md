@@ -1,116 +1,71 @@
 
 
-# Plano: Corrigir Endpoint de QR Code e Melhorar Tratamento de Resposta
+# Plano: Corrigir Endpoint do QR Code para `/qr-code/image`
 
 ## Problema Identificado
 
-| Aspecto | Atual | Correto |
-|---------|-------|---------|
-| Endpoint QR | `/qr-code/image` | `/qrcode` |
-| Logs | Chamada feita, sem resposta | Precisa logar resposta |
-| Loading | Fica infinito se der erro | Precisa timeout |
+| Aspecto | Valor Atual (ERRADO) | Valor Correto |
+|---------|---------------------|---------------|
+| Endpoint | `/qrcode` | `/qr-code/image` |
+| Resposta esperada | JSON com value | Imagem base64 diretamente |
 
-## Causa Raiz
+## Logs que Comprovam o Problema
 
-A Edge Function usa `/qr-code/image` mas a documentacao Z-API indica que o endpoint correto pode ser `/qrcode` (sem hifen). Alem disso, se a resposta demorar ou falhar, o loading fica infinito no frontend.
+```text
+Z-API Action: qr-code -> .../qrcode
+Z-API Response: {
+  error: "NOT_FOUND",
+  message: "Unable to find matching target resource method"
+}
+```
 
-## Solucao
+## Documentacao Oficial da Z-API
 
-### 1. Corrigir o Endpoint na Edge Function
+Segundo a documentacao em `developer.z-api.io`:
+
+```text
+/qr-code        -> Retorna BYTES do QR code
+/qr-code/image  -> Retorna IMAGEM base64
+```
+
+O endpoint correto para obter a imagem base64 eh:
+```
+GET https://api.z-api.io/instances/{INSTANCE_ID}/token/{TOKEN}/qr-code/image
+```
+
+## Correcao na Edge Function
+
+Arquivo: `supabase/functions/whatsapp-zapi-action/index.ts`
 
 ```typescript
-// supabase/functions/whatsapp-zapi-action/index.ts
-
+// ANTES (linha 69):
 case 'qr-code':
-  // ANTES: endpoint = `${baseUrl}/qr-code/image`;
-  // DEPOIS: Usar o formato correto da Z-API
   endpoint = `${baseUrl}/qrcode`;
+  break;
+
+// DEPOIS:
+case 'qr-code':
+  endpoint = `${baseUrl}/qr-code/image`;
   break;
 ```
 
-### 2. Melhorar Tratamento de Resposta
+## Resultado Esperado
 
-```typescript
-// Garantir que a resposta seja processada corretamente
-const zapiResponse = await fetch(endpoint, {
-  method: method,
-  headers: headers,
-});
-
-// Verificar se a resposta eh imagem (qr-code pode retornar PNG direto)
-const contentType = zapiResponse.headers.get('content-type');
-
-let zapiData;
-if (contentType?.includes('image/')) {
-  // Se for imagem, converter para base64
-  const buffer = await zapiResponse.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-  zapiData = { value: `data:image/png;base64,${base64}` };
-} else {
-  // Se for JSON, parse normal
-  zapiData = await zapiResponse.json();
-}
-
-console.log('Z-API Response:', zapiData);
-```
-
-### 3. Adicionar Timeout no Frontend
-
-```typescript
-// SuperAdminAgentsSettings.tsx - handleGenerateQRCode
-
-setIsGeneratingQR(true);
-try {
-  // Adicionar timeout de 30 segundos
-  const timeoutPromise = new Promise((_, reject) => 
-    setTimeout(() => reject(new Error('Timeout ao gerar QR Code')), 30000)
-  );
-
-  const { data, error } = await Promise.race([
-    supabase.functions.invoke("whatsapp-zapi-action", {
-      body: {
-        action: "qr-code",
-        zapi_instance_id: config.zapi_instance_id,
-        zapi_instance_token: config.zapi_instance_token,
-        zapi_client_token: config.zapi_client_token || undefined,
-      },
-    }),
-    timeoutPromise
-  ]) as any;
-
-  // Processar resposta...
-}
-```
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `supabase/functions/whatsapp-zapi-action/index.ts` | Corrigir endpoint e tratamento de resposta |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Adicionar timeout e melhor feedback |
-
-## Fluxo Esperado Apos Correcao
+Apos a correcao:
 
 ```text
 1. Usuario clica "Conectar via QR Code"
-2. Loading aparece
-3. Edge Function chama /qrcode
-4. Z-API retorna QR Code (JSON ou imagem)
-5. Edge Function processa e retorna base64
-6. Frontend recebe e exibe o QR Code
-7. Polling inicia para verificar conexao
-8. Usuario escaneia QR Code
-9. Polling detecta connected=true
-10. UI atualiza para "Conectado"
+2. Edge Function chama: /qr-code/image
+3. Z-API retorna: imagem PNG ou JSON com base64
+4. Frontend renderiza: <img src="data:image/png;base64,..." />
+5. Usuario escaneia e conecta
 ```
 
-## Validacao
+## Observacao
 
-Apos implementar, o log deve mostrar:
+O codigo ja tem logica para tratar tanto resposta de imagem (binary) quanto JSON:
+- Se `Content-Type` for `image/*` -> converte para base64
+- Se for JSON -> usa o campo `value` diretamente
 
-```text
-Z-API Action: qr-code -> https://api.z-api.io/instances/.../token/.../qrcode
-Client-Token: [PROVIDED]
-Z-API Response: { value: "data:image/png;base64,..." }
-```
+Isso garante compatibilidade com qualquer formato que a Z-API retornar.
 
