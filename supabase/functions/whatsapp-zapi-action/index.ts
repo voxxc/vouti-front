@@ -66,7 +66,7 @@ serve(async (req) => {
         method = 'POST';
         break;
       case 'qr-code':
-        endpoint = `${baseUrl}/qrcode`;
+        endpoint = `${baseUrl}/qr-code/image`;
         break;
       default:
         throw new Error(`Invalid action: ${action}`);
