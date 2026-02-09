@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Agent } from "@/components/WhatsApp/settings/AgentCard";
@@ -36,6 +36,19 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   const [isConnected, setIsConnected] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Função para extrair token da URL
+  const getTokenFromUrl = (url: string): string | null => {
+    const match = url.match(/\/token\/([A-F0-9]+)/i);
+    return match ? match[1] : null;
+  };
+
+  // Validar se o token inserido é igual ao token da URL (INCORRETO!)
+  const isTokenInvalid = useMemo(() => {
+    if (!config.zapi_url || !config.zapi_token) return false;
+    const urlToken = getTokenFromUrl(config.zapi_url);
+    return urlToken?.toUpperCase() === config.zapi_token.toUpperCase();
+  }, [config.zapi_url, config.zapi_token]);
 
   // Carregar config da instância do agente
   useEffect(() => {
@@ -335,18 +348,37 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_token">Client Token</Label>
+              <Label htmlFor="zapi_token">Client Token (Security Token)</Label>
               <Input
                 id="zapi_token"
                 type="password"
                 value={config.zapi_token}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_token: e.target.value }))}
-                placeholder="Token de autenticação"
+                placeholder="Token de segurança (diferente do token da URL)"
+                className={isTokenInvalid ? "border-destructive" : ""}
               />
               <p className="text-xs text-muted-foreground">
+                ⚠️ <strong>NÃO</strong> use o token da URL!<br/>
                 Encontre em: Painel Z-API → Security → Client-Token
               </p>
             </div>
+
+            {isTokenInvalid && (
+              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-destructive">Token Incorreto Detectado</p>
+                    <p className="text-muted-foreground mt-1">
+                      O Client-Token inserido é o mesmo da URL. Você precisa usar o <strong>Security Token</strong> do painel Z-API, que é diferente.
+                    </p>
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      📍 Onde encontrar: <strong>Painel Z-API → Configurações → Security → Client-Token</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -386,7 +418,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                   variant="outline" 
                   className="flex-1 gap-2" 
                   onClick={handleConnect}
-                  disabled={!config.zapi_url || !config.zapi_instance_id || !config.zapi_token}
+                  disabled={!config.zapi_url || !config.zapi_instance_id || !config.zapi_token || isTokenInvalid}
                 >
                   <QrCode className="h-4 w-4" />
                   Conectar via QR Code
