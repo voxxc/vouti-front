@@ -148,10 +148,12 @@ export const WhatsAppInbox = () => {
 
       if (messagesResult.error) throw messagesResult.error;
 
-      // Criar mapa de nomes de contatos
-      const contactNameMap = new Map(
-        contactsResult.data?.map(c => [c.phone, c.name]) || []
-      );
+      // Criar mapa de nomes de contatos (normalizado)
+      const contactNameMap = new Map<string, string>();
+      contactsResult.data?.forEach(c => {
+        contactNameMap.set(normalizePhone(c.phone), c.name);
+        contactNameMap.set(c.phone, c.name);
+      });
 
       // Agrupar mensagens por número de telefone (normalizado)
       const conversationMap = new Map<string, WhatsAppConversation>();
