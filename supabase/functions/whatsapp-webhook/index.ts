@@ -129,6 +129,23 @@ async function handleIncomingMessage(data: any) {
     console.log(`📞 Telefone normalizado: ${rawPhone} -> ${phone}`);
   }
   
+  // Buscar user_id, tenant_id E credenciais Z-API da instância
+  // ✅ Busca pelo zapi_instance_id (ID real da Z-API que chega no webhook)
+  const { data: instance, error: instanceError } = await supabase
+    .from('whatsapp_instances')
+    .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
+    .eq('zapi_instance_id', instanceId)
+    .limit(1)
+    .maybeSingle();
+
+  if (instanceError || !instance?.user_id) {
+    console.error('Instance not found or no user_id:', instanceError);
+    return;
+  }
+
+  // Detectar se é instância do Super Admin (sem tenant_id)
+  const effectiveTenantId = instance.tenant_id || null;
+
   // ✅ Mensagens enviadas por mim (fromMe: true)
   if (fromMe) {
     // Ignorar mensagens enviadas pela plataforma/API (já salvas via saveOutgoingMessage)
@@ -159,25 +176,8 @@ async function handleIncomingMessage(data: any) {
     } else {
       console.log('📱 Mensagem enviada pelo celular salva no histórico:', { phone, text: text?.message });
     }
-    return; // Não processa IA nem automações
-  }
-  
-  // Buscar user_id, tenant_id E credenciais Z-API da instância
-  // ✅ Busca pelo zapi_instance_id (ID real da Z-API que chega no webhook)
-  const { data: instance, error: instanceError } = await supabase
-    .from('whatsapp_instances')
-    .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
-    .eq('zapi_instance_id', instanceId)
-    .single();
-
-  if (instanceError || !instance?.user_id) {
-    console.error('Instance not found or no user_id:', instanceError);
     return;
   }
-
-  // Detectar se é instância do Super Admin (sem tenant_id)
-  // Isso mantém mensagens de leads da homepage separadas dos tenants
-  const effectiveTenantId = instance.tenant_id || null;
   
   // Salvar mensagem com user_id E tenant_id correto
   const { error: insertError } = await supabase
