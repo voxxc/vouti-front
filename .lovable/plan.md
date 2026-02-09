@@ -1,162 +1,213 @@
 
+# Plano: Vouti.Bot como Drawer + Configurações com Menu Retrátil
 
-# Plano: Expandir Configurações com Menu Lateral Estilo Chatwoot
+## Entendimento do Problema
 
-## Contexto
+A implementação atual tem dois problemas:
 
-Baseado na imagem de referência do Chatwoot, você quer replicar a estrutura de sidebar de configurações com os seguintes itens:
-
-| Item do Chatwoot | Adaptação para Vouti.Bot |
-|-----------------|-------------------------|
-| Conta | Conta (configurações da conta do tenant) |
-| **Agentes** | **Agentes** (usuários que podem atender + suas configurações Z-API) |
-| Times | Times (grupos de agentes) |
-| Caixas de Entrada | Caixas de Entrada (instâncias WhatsApp) |
-| Etiquetas | Etiquetas (para organizar conversas) |
-| Atributos | Atributos (campos personalizados) |
-| Kanban CRM | Kanban CRM (já existe) |
-| Automação | Automação (já existe parcialmente) |
-| N8N | Integrações N8N |
-| Bots | Bots / Agente IA (já existe) |
-| Typebot Bot | Typebot Bot |
-| Macros | Macros (respostas rápidas) |
-| Respostas Prontas | Respostas Prontas |
-| Aplicações | Aplicações (integrações) |
-| Integrações | Integrações externas |
-| Permissões | Permissões de acesso |
+1. **Configurações abre uma nova sidebar** - Deveria ser um dropdown/collapsible retrátil dentro da sidebar principal
+2. **Vouti.Bot roda como página separada** - Deveria funcionar como drawer (igual CRMDrawer, AgendaDrawer) para maior celeridade
 
 ---
 
 ## Arquitetura Proposta
 
-### 1. Nova Estrutura de Navegação
+### 1. Vouti.Bot como Drawer
 
-Transformar as "Configurações" em uma **seção completa** com sidebar própria, similar ao Chatwoot:
+Transformar a interface WhatsApp em um drawer que abre sobre o dashboard, seguindo o mesmo padrão do CRMDrawer:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────┐
-│  WHATSAPP LAYOUT                                                   │
+│  DASHBOARD                                                          │
 ├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  ┌─────────────┐  ┌──────────────────────────────────────────────┐│
-│  │ Sidebar     │  │                                              ││
-│  │ Principal   │  │         CONTEÚDO                             ││
-│  │             │  │                                              ││
-│  │ - Inbox     │  │   (quando "Configurações" selecionado)       ││
-│  │ - Conversas │  │   ┌───────────┬───────────────────────────┐  ││
-│  │ - Kanban    │  │   │ Sub-menu  │    Conteúdo da seção      │  ││
-│  │ - Contatos  │  │   │           │                           │  ││
-│  │ - ...       │  │   │ • Conta   │    Ex: Configurações      │  ││
-│  │ - Config ▼  │  │   │ • Agentes │    do Agente selecionado  │  ││
-│  │             │  │   │ • Times   │                           │  ││
-│  └─────────────┘  │   │ • ...     │                           │  ││
-│                   │   └───────────┴───────────────────────────┘  ││
-│                   └──────────────────────────────────────────────┘│
+│                                                                     │
+│  ┌─────────────┐  ┌──────────────────────────────────────────────┐ │
+│  │ Sidebar     │  │                                              │ │
+│  │ Principal   │  │         DRAWER VOUTI.BOT (side="inset")     │ │
+│  │             │  │                                              │ │
+│  │ - Projetos  │  │   ┌────────────┬────────────────────────┐   │ │
+│  │ - Clientes  │  │   │ Sub-menu   │    Conteúdo da seção   │   │ │
+│  │ - Agenda    │  │   │            │                        │   │ │
+│  │ - ...       │  │   │ Inbox      │    Ex: Lista de        │   │ │
+│  │ - Vouti.Bot │  │   │ Conversas  │    conversas           │   │ │
+│  │             │  │   │ Kanban     │                        │   │ │
+│  └─────────────┘  │   │ Config ▼   │                        │   │ │
+│                   │   │  └ Conta   │                        │   │ │
+│                   │   │  └ Agentes │                        │   │ │
+│                   │   │  └ Times   │                        │   │ │
+│                   │   └────────────┴────────────────────────┘   │ │
+│                   └──────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
----
+### 2. Configurações como Dropdown Retrátil (Collapsible)
 
-## Arquivos a Criar/Modificar
+Dentro do drawer do Vouti.Bot, o botão "Configurações" expande/colapsa um submenu com todas as opções:
 
-### Novos Arquivos
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/WhatsApp/settings/WhatsAppSettingsLayout.tsx` | Layout com sidebar de configurações |
-| `src/components/WhatsApp/settings/WhatsAppSettingsSidebar.tsx` | Sidebar com os itens de menu |
-| `src/components/WhatsApp/settings/WhatsAppAccountSettings.tsx` | Configurações da Conta |
-| `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` | Gerenciamento de Agentes |
-| `src/components/WhatsApp/settings/WhatsAppTeamsSettings.tsx` | Gerenciamento de Times |
-| `src/components/WhatsApp/settings/WhatsAppInboxSettings.tsx` | Caixas de Entrada |
-| `src/components/WhatsApp/settings/WhatsAppLabelsSettings.tsx` | Etiquetas |
-| `src/components/WhatsApp/settings/WhatsAppAttributesSettings.tsx` | Atributos |
-| `src/components/WhatsApp/settings/WhatsAppAutomationSettings.tsx` | Automação |
-| `src/components/WhatsApp/settings/WhatsAppN8NSettings.tsx` | Integrações N8N |
-| `src/components/WhatsApp/settings/WhatsAppTypebotSettings.tsx` | Typebot |
-| `src/components/WhatsApp/settings/WhatsAppMacrosSettings.tsx` | Macros |
-| `src/components/WhatsApp/settings/WhatsAppCannedResponses.tsx` | Respostas Prontas |
-| `src/components/WhatsApp/settings/WhatsAppAppsSettings.tsx` | Aplicações |
-| `src/components/WhatsApp/settings/WhatsAppIntegrationsSettings.tsx` | Integrações |
-| `src/components/WhatsApp/settings/WhatsAppPermissionsSettings.tsx` | Permissões |
-
-### Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/WhatsApp/WhatsAppLayout.tsx` | Usar novo SettingsLayout quando seção = settings |
-| `src/components/WhatsApp/WhatsAppSidebar.tsx` | Simplificar dropdown para apenas "Configurações" |
-
----
-
-## Estrutura do WhatsAppSettingsSidebar
-
-```typescript
-const settingsMenuItems = [
-  { id: "account", label: "Conta", icon: User },
-  { id: "agents", label: "Agentes", icon: Users2 },
-  { id: "teams", label: "Times", icon: UsersRound },
-  { id: "inboxes", label: "Caixas de Entrada", icon: Inbox },
-  { id: "labels", label: "Etiquetas", icon: Tag },
-  { id: "attributes", label: "Atributos", icon: Sliders },
-  { id: "kanban", label: "Kanban CRM", icon: Columns3 },
-  { id: "automation", label: "Automação", icon: Zap },
-  { id: "n8n", label: "N8N", icon: Workflow },
-  { id: "bots", label: "Bots", icon: Bot },
-  { id: "typebot", label: "Typebot Bot", icon: MessageSquare },
-  { id: "macros", label: "Macros", icon: FileText },
-  { id: "canned", label: "Respostas Prontas", icon: MessageCircle },
-  { id: "apps", label: "Aplicações", icon: AppWindow },
-  { id: "integrations", label: "Integrações", icon: Plug },
-  { id: "permissions", label: "Permissões", icon: Shield },
-];
+```text
+Sidebar do Drawer:
+┌─────────────────────────┐
+│ ← Vouti.Bot             │
+├─────────────────────────┤
+│ ○ Caixa de Entrada      │
+│ ○ Conversas             │
+│ ○ Kanban CRM            │
+│ ○ Contatos              │
+│ ○ Relatórios            │
+│ ○ Campanhas             │
+│ ○ Central de Ajuda      │
+│ ▼ Configurações         │  ← Clicável, expande/colapsa
+│   └ Conta               │
+│   └ Agentes             │
+│   └ Times               │
+│   └ Caixas de Entrada   │
+│   └ Etiquetas           │
+│   └ Atributos           │
+│   └ ... (16 itens)      │
+└─────────────────────────┘
 ```
 
 ---
 
-## Funcionalidade Principal: Agentes
+## Modificacoes Necessarias
 
-A seção "Agentes" será a mais importante inicialmente:
+### Novos Arquivos
 
-### Listagem de Agentes
-- Mostrar todos os usuários do tenant (via `profiles` + `user_roles`)
-- Exibir avatar, nome, email, role, status de verificação
-- Botão "Adicionar Agente" (reutilizar lógica de criar usuários)
+| Arquivo | Descricao |
+|---------|-----------|
+| `src/components/WhatsApp/WhatsAppDrawer.tsx` | Drawer principal do Vouti.Bot (igual CRMDrawer) |
 
-### Configurações por Agente (cada agente pode ter)
-- **Sua própria instância Z-API** (credenciais separadas)
-- Permissões específicas de WhatsApp
-- Status (ativo/inativo)
+### Arquivos a Modificar
 
-### Estrutura de Dados (se necessário)
-Para suportar múltiplas instâncias Z-API por agente, a tabela `whatsapp_instances` já tem `user_id`, então cada agente pode ter sua própria configuração.
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/WhatsApp/WhatsAppSidebar.tsx` | Adicionar Collapsible para Configuracoes com subitens |
+| `src/components/WhatsApp/WhatsAppLayout.tsx` | Remover logica de settings separado, usar renderizacao normal |
+| `src/components/Dashboard/DashboardLayout.tsx` | Adicionar WhatsAppDrawer ao sistema de drawers |
+| `src/components/Dashboard/DashboardSidebar.tsx` | Adicionar 'whatsapp' ao tipo ActiveDrawer |
 
----
+### Arquivos a Remover
 
-## Implementação em Fases
-
-### Fase 1: Estrutura Base
-1. Criar `WhatsAppSettingsLayout.tsx` com sidebar
-2. Criar `WhatsAppSettingsSidebar.tsx` com menu
-3. Criar componentes placeholder para cada seção
-4. Integrar com `WhatsAppLayout.tsx`
-
-### Fase 2: Seção Agentes
-1. Implementar listagem de agentes do tenant
-2. Criar tela de detalhes do agente com suas configurações Z-API
-3. Permitir que cada agente tenha sua própria instância
-
-### Fase 3: Outras Seções
-1. Implementar cada seção conforme necessidade
+| Arquivo | Motivo |
+|---------|--------|
+| `src/components/WhatsApp/settings/WhatsAppSettingsLayout.tsx` | Nao mais necessario |
+| `src/components/WhatsApp/settings/WhatsAppSettingsSidebar.tsx` | Nao mais necessario |
 
 ---
 
-## Resultado Esperado
+## Detalhes Tecnicos
 
-Ao clicar em "Configurações" na sidebar principal:
+### 1. WhatsAppDrawer.tsx (Novo)
 
-1. Abre layout com **sub-sidebar** à esquerda (como Chatwoot)
-2. Lista de seções: Conta, Agentes, Times, etc.
-3. Ao clicar em "Agentes" → lista de agentes do tenant
-4. Ao clicar em um agente → suas configurações individuais (incluindo Z-API próprio)
+Estrutura similar ao CRMDrawer:
 
+```typescript
+export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent side="inset" className="p-0 flex flex-col">
+        <SheetTitle className="sr-only">Vouti.Bot</SheetTitle>
+        
+        <div className="flex h-full">
+          {/* Sidebar interna do WhatsApp */}
+          <WhatsAppSidebar 
+            activeSection={activeSection} 
+            onSectionChange={setActiveSection} 
+          />
+          
+          {/* Conteudo da secao ativa */}
+          <main className="flex-1 overflow-hidden">
+            {renderSection()}
+          </main>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+```
+
+### 2. WhatsAppSidebar.tsx (Modificar)
+
+Usar Collapsible para Configuracoes:
+
+```typescript
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronRight } from "lucide-react";
+
+// Dentro do componente:
+const [settingsOpen, setSettingsOpen] = useState(false);
+
+// No JSX:
+<Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+  <CollapsibleTrigger asChild>
+    <Button variant="ghost" className="w-full justify-between">
+      <span className="flex items-center gap-3">
+        <Settings className="h-4 w-4" />
+        Configuracoes
+      </span>
+      {settingsOpen ? <ChevronDown /> : <ChevronRight />}
+    </Button>
+  </CollapsibleTrigger>
+  <CollapsibleContent className="pl-6 space-y-1">
+    {settingsMenuItems.map((item) => (
+      <Button
+        key={item.id}
+        variant={activeSection === item.id ? "secondary" : "ghost"}
+        className="w-full justify-start gap-2 h-8 text-sm"
+        onClick={() => onSectionChange(item.id)}
+      >
+        <item.icon className="h-3 w-3" />
+        {item.label}
+      </Button>
+    ))}
+  </CollapsibleContent>
+</Collapsible>
+```
+
+### 3. DashboardSidebar.tsx (Modificar)
+
+Adicionar ao tipo e lista de items:
+
+```typescript
+export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 
+                           'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | null;
+
+// Novo item no menu (se WhatsApp habilitado):
+{ id: "whatsapp", label: "Vouti.Bot", icon: MessageCircle }
+```
+
+### 4. DashboardLayout.tsx (Modificar)
+
+Adicionar o drawer:
+
+```typescript
+import { WhatsAppDrawer } from "@/components/WhatsApp/WhatsAppDrawer";
+
+// Junto aos outros drawers:
+<WhatsAppDrawer 
+  open={activeDrawer === 'whatsapp'} 
+  onOpenChange={(open) => !open && setActiveDrawer(null)} 
+/>
+```
+
+---
+
+## Fluxo do Usuario
+
+1. Usuario clica em "Vouti.Bot" na sidebar do dashboard
+2. Drawer abre com `side="inset"` (ocupa area de conteudo, sidebar fica visivel)
+3. Dentro do drawer, sidebar interna com menu:
+   - Inbox, Conversas, Kanban, etc.
+   - "Configuracoes" com chevron que expande subitens
+4. Ao clicar em subitem de configuracao, conteudo carrega no lado direito
+5. Clicar fora ou no X fecha o drawer
+
+---
+
+## Beneficios
+
+1. **Celeridade**: Drawer abre instantaneamente sem navegacao de pagina
+2. **Consistencia**: Segue mesmo padrao de CRMDrawer, AgendaDrawer
+3. **Minimalismo**: Configuracoes como dropdown retratil, nao sidebar separada
+4. **Sidebar sempre visivel**: Usuario pode trocar de modulo rapidamente (modal={false})
+5. **Contexto preservado**: Nao perde estado do dashboard ao abrir Vouti.Bot
