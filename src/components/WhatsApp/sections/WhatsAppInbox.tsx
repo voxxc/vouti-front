@@ -114,23 +114,35 @@ export const WhatsAppInbox = () => {
     
     if (showLoading) setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      // Buscar mensagens e contatos em paralelo
+      const [messagesResult, contactsResult] = await Promise.all([
+        supabase
+          .from("whatsapp_messages")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("whatsapp_contacts")
+          .select("phone, name")
+          .eq("tenant_id", tenantId)
+      ]);
 
-      if (error) throw error;
+      if (messagesResult.error) throw messagesResult.error;
+
+      // Criar mapa de nomes de contatos
+      const contactNameMap = new Map(
+        contactsResult.data?.map(c => [c.phone, c.name]) || []
+      );
 
       // Agrupar mensagens por número de telefone
       const conversationMap = new Map<string, WhatsAppConversation>();
       
-      data?.forEach((msg) => {
+      messagesResult.data?.forEach((msg) => {
         const number = msg.from_number;
         if (!conversationMap.has(number)) {
           conversationMap.set(number, {
             id: msg.id,
-            contactName: number, // TODO: buscar nome do contato
+            contactName: contactNameMap.get(number) || number,
             contactNumber: number,
             lastMessage: msg.message_text || "",
             lastMessageTime: msg.created_at,
@@ -223,6 +235,13 @@ export const WhatsAppInbox = () => {
     }
   };
 
+  // Callback para refresh após salvar contato
+  const handleContactSaved = useCallback(() => {
+    setTimeout(() => {
+      loadConversations(false);
+    }, 2000);
+  }, [loadConversations]);
+
   return (
     <div className="flex h-full">
       {/* Lista de Conversas */}
@@ -242,7 +261,10 @@ export const WhatsAppInbox = () => {
 
       {/* Painel de Info do Contato */}
       {selectedConversation && (
-        <ContactInfoPanel conversation={selectedConversation} />
+        <ContactInfoPanel 
+          conversation={selectedConversation} 
+          onContactSaved={handleContactSaved}
+        />
       )}
     </div>
   );

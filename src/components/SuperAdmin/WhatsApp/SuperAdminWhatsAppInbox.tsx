@@ -96,24 +96,35 @@ export const SuperAdminWhatsAppInbox = () => {
   const loadConversations = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
-      // Super Admin: buscar mensagens onde tenant_id IS NULL
-      const { data, error } = await supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .is("tenant_id", null)
-        .order("created_at", { ascending: false });
+      // Super Admin: buscar mensagens e contatos em paralelo
+      const [messagesResult, contactsResult] = await Promise.all([
+        supabase
+          .from("whatsapp_messages")
+          .select("*")
+          .is("tenant_id", null)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("whatsapp_contacts")
+          .select("phone, name")
+          .is("tenant_id", null)
+      ]);
 
-      if (error) throw error;
+      if (messagesResult.error) throw messagesResult.error;
+
+      // Criar mapa de nomes de contatos
+      const contactNameMap = new Map(
+        contactsResult.data?.map(c => [c.phone, c.name]) || []
+      );
 
       // Agrupar mensagens por número de telefone
       const conversationMap = new Map<string, WhatsAppConversation>();
       
-      data?.forEach((msg) => {
+      messagesResult.data?.forEach((msg) => {
         const number = msg.from_number;
         if (!conversationMap.has(number)) {
           conversationMap.set(number, {
             id: msg.id,
-            contactName: number, // TODO: buscar nome do contato da landing_leads
+            contactName: contactNameMap.get(number) || number,
             contactNumber: number,
             lastMessage: msg.message_text || "",
             lastMessageTime: msg.created_at,
@@ -204,6 +215,13 @@ export const SuperAdminWhatsAppInbox = () => {
     }
   };
 
+  // Callback para refresh após salvar contato
+  const handleContactSaved = useCallback(() => {
+    setTimeout(() => {
+      loadConversations(false);
+    }, 2000);
+  }, [loadConversations]);
+
   return (
     <div className="flex h-full">
       {/* Lista de Conversas */}
@@ -223,7 +241,10 @@ export const SuperAdminWhatsAppInbox = () => {
 
       {/* Painel de Info do Contato */}
       {selectedConversation && (
-        <ContactInfoPanel conversation={selectedConversation} />
+        <ContactInfoPanel 
+          conversation={selectedConversation} 
+          onContactSaved={handleContactSaved}
+        />
       )}
     </div>
   );
