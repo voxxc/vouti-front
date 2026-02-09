@@ -11,17 +11,32 @@ serve(async (req) => {
   }
 
   try {
-    const { action, zapi_url, zapi_token } = await req.json();
+    const body = await req.json();
+    const { action, zapi_instance_id, zapi_instance_token, zapi_client_token, zapi_url, zapi_token } = body;
 
-    // Validar parametros
-    if (!action || !zapi_url || !zapi_token) {
-      throw new Error('Missing required fields: action, zapi_url, or zapi_token');
+    if (!action) {
+      throw new Error('Missing required field: action');
     }
 
-    // Normalizar URL: remover trailing slash e /send-text se existir
-    const baseUrl = zapi_url
-      .replace(/\/send-text\/?$/, '')
-      .replace(/\/$/, '');
+    let baseUrl: string;
+    let authToken: string;
+
+    // NOVO FORMATO: Instance ID + Instance Token + Client Token (opcional)
+    if (zapi_instance_id && zapi_instance_token) {
+      baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
+      // Se Client-Token fornecido, usa ele; senão, usa Instance Token
+      authToken = zapi_client_token || zapi_instance_token;
+    } 
+    // FORMATO ANTIGO: URL completa + Token (retrocompatibilidade)
+    else if (zapi_url && zapi_token) {
+      baseUrl = zapi_url
+        .replace(/\/send-text\/?$/, '')
+        .replace(/\/$/, '');
+      authToken = zapi_token;
+    } 
+    else {
+      throw new Error('Missing Z-API credentials. Provide either (zapi_instance_id + zapi_instance_token) or (zapi_url + zapi_token)');
+    }
 
     let endpoint = '';
     let method = 'GET';
@@ -46,7 +61,7 @@ serve(async (req) => {
     const zapiResponse = await fetch(endpoint, {
       method: method,
       headers: {
-        'Client-Token': zapi_token,
+        'Client-Token': authToken,
         'Content-Type': 'application/json',
       },
     });
