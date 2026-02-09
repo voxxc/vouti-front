@@ -367,7 +367,52 @@ async function handleAIResponse(
 
     console.log('🤖 IA habilitada, processando mensagem...');
 
-    // Chamar Edge Function de IA
+    // ⏳ DEBOUNCE: Se delay configurado, usar sistema de timer
+    const delaySeconds = aiConfig.response_delay_seconds || 0;
+    if (delaySeconds > 0) {
+      console.log(`⏳ Debounce ativado: ${delaySeconds}s para ${phone}`);
+      
+      const scheduledAt = new Date(Date.now() + delaySeconds * 1000).toISOString();
+      
+      // Upsert no registro pendente (reseta timer se já existe)
+      const { error: upsertError } = await supabase
+        .from('whatsapp_ai_pending_responses')
+        .upsert({
+          phone,
+          tenant_id,
+          instance_id: instanceId,
+          scheduled_at: scheduledAt,
+          status: 'pending',
+        }, { onConflict: 'phone,tenant_id' });
+
+      if (upsertError) {
+        console.error('❌ Erro ao criar timer debounce:', upsertError);
+        // Fallback: responder imediatamente
+      } else {
+        // Fire-and-forget: disparar a função de debounce
+        fetch(`${supabaseUrl}/functions/v1/whatsapp-ai-debounce`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            phone,
+            tenant_id,
+            instance_id: instanceId,
+            scheduled_at: scheduledAt,
+            user_id,
+            delay_seconds: delaySeconds,
+            instance_credentials: instanceCredentials,
+          }),
+        }).catch(err => console.error('❌ Erro ao disparar debounce:', err));
+
+        console.log('📤 Debounce disparado, aguardando...');
+        return true;
+      }
+    }
+
+    // Chamar Edge Function de IA (resposta imediata)
     const aiResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-ai-chat`, {
       method: 'POST',
       headers: {
@@ -424,7 +469,6 @@ async function handleAIResponse(
 
     const apiEndpoint = `${baseUrl}/send-text`;
     console.log('🔗 Enviando resposta IA para Z-API:', apiEndpoint);
-    console.log('📱 Telefone destino:', phone);
     
     // Construir headers - só adiciona Client-Token se existir
     const headers: Record<string, string> = {
