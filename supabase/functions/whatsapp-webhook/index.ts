@@ -166,8 +166,8 @@ async function handleIncomingMessage(data: any) {
     phone, 
     text?.message || '', 
     effectiveTenantId, 
-    instance.zapi_url, 
-    instance.zapi_token
+    instanceId,
+    instance.user_id
   );
 
   if (aiHandled) {
@@ -204,26 +204,28 @@ async function handleIncomingMessage(data: any) {
         continue;
       }
 
-      // Enviar resposta usando Z-API diretamente
+      // Enviar resposta usando Z-API diretamente (usando secrets globais)
       try {
-        const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
+        const globalZapiUrl = Deno.env.get('Z_API_URL');
+        const globalZapiToken = Deno.env.get('Z_API_TOKEN');
         
-        // Mascarar token para log seguro
-        const maskedUrl = zapiUrl.replace(/\/token\/[^\/]+\//, '/token/****/');
-        console.log('🔗 Enviando para Z-API:', maskedUrl);
+        if (!globalZapiUrl || !globalZapiToken) {
+          console.error('❌ Z_API_URL ou Z_API_TOKEN não configurados');
+          continue;
+        }
+        
+        const apiEndpoint = `${globalZapiUrl}/send-text`;
+        
+        console.log('🔗 Enviando para Z-API:', apiEndpoint);
         console.log('📱 Telefone destino:', phone);
         console.log('💬 Mensagem:', automation.response_message.substring(0, 100));
         
-        // Headers - só incluir Client-Token se existir secret específico
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        const clientToken = Deno.env.get('Z_API_CLIENT_TOKEN');
-        if (clientToken) {
-          headers['Client-Token'] = clientToken;
-        }
-        
-        const response = await fetch(zapiUrl, {
+        const response = await fetch(apiEndpoint, {
           method: 'POST',
-          headers,
+          headers: {
+            'Content-Type': 'application/json',
+            'Client-Token': globalZapiToken,
+          },
           body: JSON.stringify({
             phone: phone,
             message: automation.response_message,
@@ -269,8 +271,8 @@ async function handleAIResponse(
   phone: string, 
   message: string, 
   tenant_id: string | null, 
-  zapi_url: string | null, 
-  zapi_token: string | null
+  instanceId: string,
+  user_id: string
 ): Promise<boolean> {
   try {
     // 🔒 PRIMEIRO: Verificar se IA está desabilitada para este contato específico
@@ -335,29 +337,35 @@ async function handleAIResponse(
 
     console.log('✅ Resposta IA:', aiData.response.substring(0, 100));
 
-    // Enviar resposta via Z-API
-    if (!zapi_url || !zapi_token) {
-      console.error('❌ Z-API config não encontrada');
-      return false;
+    // Salvar mensagem da IA no banco IMEDIATAMENTE (aparece na UI)
+    await saveOutgoingMessage(
+      phone,
+      aiData.response,
+      tenant_id,
+      instanceId,
+      user_id
+    );
+    console.log('💾 Mensagem IA salva no histórico');
+
+    // Enviar resposta via Z-API usando secrets globais
+    const globalZapiUrl = Deno.env.get('Z_API_URL');
+    const globalZapiToken = Deno.env.get('Z_API_TOKEN');
+    
+    if (!globalZapiUrl || !globalZapiToken) {
+      console.error('❌ Z_API_URL ou Z_API_TOKEN não configurados');
+      return true; // Retorna true pois a mensagem foi salva
     }
 
-    const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
-    
-    // Mascarar token para log seguro
-    const maskedUrl = zapiUrl.replace(/\/token\/[^\/]+\//, '/token/****/');
-    console.log('🔗 Enviando resposta IA para Z-API:', maskedUrl);
+    const apiEndpoint = `${globalZapiUrl}/send-text`;
+    console.log('🔗 Enviando resposta IA para Z-API:', apiEndpoint);
     console.log('📱 Telefone destino:', phone);
     
-    // Headers - só incluir Client-Token se existir secret específico
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const clientToken = Deno.env.get('Z_API_CLIENT_TOKEN');
-    if (clientToken) {
-      headers['Client-Token'] = clientToken;
-    }
-    
-    const sendResponse = await fetch(zapiUrl, {
+    const sendResponse = await fetch(apiEndpoint, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Client-Token': globalZapiToken,
+      },
       body: JSON.stringify({
         phone,
         message: aiData.response,
@@ -377,21 +385,10 @@ async function handleAIResponse(
 
     if (sendResponse.ok) {
       console.log('✅ Resposta IA enviada via Z-API com sucesso');
-      
-      // Save AI response to database - buscar instanceId do contexto
-      // Nota: precisamos passar instanceId aqui, mas não temos acesso direto
-      // Vamos usar um placeholder que será corrigido pelo caller
-      await saveOutgoingMessage(
-        phone,
-        aiData.response,
-        tenant_id,
-        'ai-response', // TODO: passar instanceId real do caller
-      );
-      
       return true;
     } else {
       console.error(`❌ Erro ao enviar resposta IA [${sendResponse.status}]:`, responseData);
-      return false;
+      return true; // Retorna true pois a mensagem já foi salva na UI
     }
   } catch (error) {
     console.error('❌ Erro no handler de IA:', error);
