@@ -8,9 +8,11 @@ import { WhatsAppReports } from "@/components/WhatsApp/sections/WhatsAppReports"
 import { WhatsAppCampaigns } from "@/components/WhatsApp/sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "@/components/WhatsApp/sections/WhatsAppHelp";
 
-// Settings sections (same as tenant)
+// Settings sections - Super Admin specific
+import { SuperAdminAgentsSettings } from "./SuperAdminAgentsSettings";
+
+// Settings sections (shared with tenant)
 import { WhatsAppAccountSettings } from "@/components/WhatsApp/settings/WhatsAppAccountSettings";
-import { WhatsAppAgentsSettings } from "@/components/WhatsApp/settings/WhatsAppAgentsSettings";
 import { WhatsAppTeamsSettings } from "@/components/WhatsApp/settings/WhatsAppTeamsSettings";
 import { WhatsAppInboxSettings } from "@/components/WhatsApp/settings/WhatsAppInboxSettings";
 import { WhatsAppLabelsSettings } from "@/components/WhatsApp/settings/WhatsAppLabelsSettings";
@@ -75,7 +77,7 @@ export const SuperAdminWhatsAppLayout = () => {
       case "account":
         return <WhatsAppAccountSettings />;
       case "agents":
-        return <WhatsAppAgentsSettings />;
+        return <SuperAdminAgentsSettings />;
       case "teams":
         return <WhatsAppTeamsSettings />;
       case "inboxes":
