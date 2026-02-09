@@ -66,7 +66,7 @@ serve(async (req) => {
         method = 'POST';
         break;
       case 'qr-code':
-        endpoint = `${baseUrl}/qr-code/image`;
+        endpoint = `${baseUrl}/qrcode`;
         break;
       default:
         throw new Error(`Invalid action: ${action}`);
@@ -89,8 +89,27 @@ serve(async (req) => {
       headers: headers,
     });
 
-    const zapiData = await zapiResponse.json();
-    console.log('Z-API Response:', zapiData);
+    // Verificar se a resposta é imagem (QR Code pode retornar PNG direto)
+    const contentType = zapiResponse.headers.get('content-type');
+    console.log('Z-API Response Content-Type:', contentType);
+    
+    let zapiData;
+    if (contentType?.includes('image/')) {
+      // Se for imagem, converter para base64
+      const buffer = await zapiResponse.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      zapiData = { value: `data:image/png;base64,${base64}` };
+      console.log('Z-API Response: [IMAGE converted to base64]');
+    } else {
+      // Se for JSON, parse normal
+      zapiData = await zapiResponse.json();
+      console.log('Z-API Response:', zapiData);
+    }
 
     return new Response(JSON.stringify({
       success: zapiResponse.ok,
