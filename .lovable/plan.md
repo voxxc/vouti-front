@@ -1,123 +1,95 @@
 
 
-# Plano: Corrigir Integração Z-API no Super Admin
+# Plano: Melhorar UX para Evitar Confusão entre Tokens Z-API
 
 ## Problema Identificado
 
-Analisando os logs da Edge Function:
+O erro `Client-Token not allowed` ocorre porque o usuário está inserindo o **token da URL** no campo "Client Token", quando deveria inserir o **Security Token** (Client-Token) que é diferente.
 
-```
-Z-API Action: qr-code -> https://api.z-api.io/instances/3E8A7687638142678C80FA4754EC29F2/token/F5DA3871D271E4965BD44484/qr-code/image
-Z-API Response: { error: "Client-Token F5DA3871D271E4965BD44484 not allowed" }
-```
+### Dados Atuais no Banco
 
-O erro ocorre porque há **confusão entre dois tokens diferentes** da Z-API:
+| Campo | Valor Atual | Correto? |
+|-------|-------------|----------|
+| `zapi_url` | `https://api.z-api.io/instances/3E8A768.../token/F5DA387.../send-text` | Sim |
+| `zapi_token` | `F5DA3871D271E4965BD44484` | **NÃO** (é o token da URL, não o Client-Token) |
 
-1. **Token da URL** (`/token/{TOKEN}`) - Faz parte do endpoint da instância
-2. **Client-Token** (header HTTP) - Token de autenticação do cliente
+### O Que São Os Tokens Z-API
 
-O usuário está salvando a URL completa (que já inclui o token da instância), mas o código tenta usar o mesmo token como `Client-Token` no header.
-
-## Formato Correto Z-API
-
-A Z-API requer:
-- **URL Base**: `https://api.z-api.io/instances/{INSTANCE_ID}/token/{INSTANCE_TOKEN}`
-- **Header HTTP**: `Client-Token: {CLIENT_TOKEN}` (token diferente!)
+| Token | Onde Está | Uso |
+|-------|-----------|-----|
+| **Instance Token** | Na URL após `/token/` | Faz parte do endpoint |
+| **Client-Token** | Obtido no painel Z-API (Security) | Header HTTP para autenticação |
 
 ## Solução
 
-### Opção Escolhida: Simplificar a Interface
+Melhorar a interface para:
 
-Alterar o formulário para aceitar apenas:
-1. **URL Completa** - A URL da instância Z-API (já contém instance ID e token da URL)
-2. **Client Token** - O token de autenticação separado
+1. **Detectar automaticamente** se o token inserido é igual ao token da URL e exibir um aviso
+2. **Melhorar as instruções** com texto mais claro sobre onde encontrar o Client-Token
+3. **Adicionar um link** para a documentação Z-API
 
-E remover o campo "Instance ID" que está causando confusão.
+## Alterações no Código
 
-### Alterações no Drawer
+### Arquivo: `SuperAdminAgentConfigDrawer.tsx`
 
-No arquivo `SuperAdminAgentConfigDrawer.tsx`:
+1. Adicionar função para detectar duplicação de token:
 
-```text
-┌────────────────────────────────────────┐
-│ Credenciais Z-API                      │
-├────────────────────────────────────────┤
-│ URL da Instância                       │
-│ ┌────────────────────────────────────┐ │
-│ │ https://api.z-api.io/instances/... │ │  <- URL completa com token
-│ └────────────────────────────────────┘ │
-│                                        │
-│ Client Token                           │
-│ ┌────────────────────────────────────┐ │
-│ │ ••••••••••••                       │ │  <- Token de autenticação
-│ └────────────────────────────────────┘ │
-└────────────────────────────────────────┘
+```typescript
+const isTokenFromUrl = (url: string, token: string): boolean => {
+  if (!url || !token) return false;
+  const match = url.match(/\/token\/([A-F0-9]+)/i);
+  return match ? match[1].toUpperCase() === token.toUpperCase() : false;
+};
 ```
 
-### Alterações na Edge Function
+2. Exibir **Alert de erro** se detectar duplicação:
 
-Verificar se a URL já contém `/token/` na path e usar diretamente, enviando o `Client-Token` corretamente no header.
+```tsx
+{isTokenFromUrl(config.zapi_url, config.zapi_token) && (
+  <Alert variant="destructive">
+    <AlertCircle className="h-4 w-4" />
+    <AlertDescription>
+      O Client Token não pode ser igual ao token da URL. 
+      Acesse o painel Z-API → Security → Client-Token para obter o token correto.
+    </AlertDescription>
+  </Alert>
+)}
+```
+
+3. **Melhorar o label e descrição** do campo Client Token:
+
+```tsx
+<Label htmlFor="zapi_token">
+  Client Token (Security Token)
+</Label>
+<p className="text-xs text-muted-foreground">
+  Encontre no painel Z-API: Configurações → Security → Client-Token.
+  <strong> Este token é DIFERENTE do que aparece na URL!</strong>
+</p>
+```
+
+4. **Bloquear o botão "Conectar"** se o token estiver incorreto:
+
+```tsx
+<Button 
+  variant="outline" 
+  className="flex-1 gap-2" 
+  onClick={handleConnect}
+  disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
+>
+```
 
 ## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Simplificar formulário removendo campo "Instance ID" e melhorando labels |
-| `supabase/functions/whatsapp-zapi-action/index.ts` | Garantir que o token do header seja o correto |
-
-## Detalhes Técnicos
-
-### SuperAdminAgentConfigDrawer.tsx
-
-1. Remover o campo `zapi_instance_id` do estado e formulário
-2. Renomear labels para clareza:
-   - "URL da API" → "URL da Instância"
-   - "Token" → "Client Token"
-3. Ao salvar, extrair o instance_id automaticamente da URL para o campo `instance_name`:
-
-```typescript
-// Extrair instance_id da URL para salvar no banco
-const extractInstanceId = (url: string): string => {
-  const match = url.match(/instances\/([A-F0-9]+)/i);
-  return match ? match[1] : url;
-};
-```
-
-### whatsapp-zapi-action/index.ts
-
-Verificar se a normalização da URL está correta:
-
-```typescript
-// A URL já vem completa do banco: https://api.z-api.io/instances/{ID}/token/{TOKEN}
-// Apenas adicionar o endpoint (/status, /qr-code/image, etc.)
-const baseUrl = zapi_url.replace(/\/$/, ''); // Remove trailing slash
-let endpoint = '';
-
-switch (action) {
-  case 'status':
-    endpoint = `${baseUrl}/status`;
-    break;
-  case 'qr-code':
-    endpoint = `${baseUrl}/qr-code/image`;
-    break;
-  // ...
-}
-
-// O Client-Token no header é diferente do token na URL
-const zapiResponse = await fetch(endpoint, {
-  method: method,
-  headers: {
-    'Client-Token': zapi_token,  // Este é o CLIENT token, não o da URL
-    'Content-Type': 'application/json',
-  },
-});
-```
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Adicionar validação, alerta e melhorar labels |
 
 ## Resultado Esperado
 
 Após as alterações:
-- Interface mais clara com apenas 2 campos necessários
-- QR Code gerado corretamente
-- Conexão/desconexão funcionando
-- Status verificado corretamente
+
+1. Se o usuário colar o token da URL, verá um **aviso vermelho** explicando o erro
+2. O botão "Conectar" ficará **desabilitado** até o token correto ser inserido
+3. Instruções mais claras sobre **onde encontrar** o Client-Token no painel Z-API
 
