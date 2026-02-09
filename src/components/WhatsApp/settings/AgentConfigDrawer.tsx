@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
@@ -22,15 +23,26 @@ interface AgentConfigDrawerProps {
 interface InstanceConfig {
   id?: string;
   zapi_url: string;
-  zapi_instance_id: string;
   zapi_token: string;
 }
+
+// Extrair instance_id da URL para salvar no banco
+const extractInstanceId = (url: string): string => {
+  const match = url.match(/instances\/([A-F0-9]+)/i);
+  return match ? match[1] : 'instance';
+};
+
+// Detectar se o token inserido é o mesmo da URL (erro comum)
+const isTokenFromUrl = (url: string, token: string): boolean => {
+  if (!url || !token) return false;
+  const match = url.match(/\/token\/([A-F0-9]+)/i);
+  return match ? match[1].toUpperCase() === token.toUpperCase() : false;
+};
 
 export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }: AgentConfigDrawerProps) => {
   const { tenantId } = useTenantId();
   const [config, setConfig] = useState<InstanceConfig>({
     zapi_url: "",
-    zapi_instance_id: "",
     zapi_token: "",
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -63,15 +75,12 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
         setConfig({
           id: data.id,
           zapi_url: data.zapi_url || "",
-          zapi_instance_id: data.instance_name || "",
           zapi_token: data.zapi_token || "",
         });
         setIsConnected(data.connection_status === "connected");
-        // Não verificar automaticamente - usar valor do banco como fonte de verdade
       } else {
         setConfig({
           zapi_url: "",
-          zapi_instance_id: "",
           zapi_token: "",
         });
         setIsConnected(false);
@@ -83,8 +92,8 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     }
   };
 
-  const checkConnectionStatus = async (url: string, instanceId: string, token: string) => {
-    if (!url || !instanceId || !token) return;
+  const checkConnectionStatus = async (url: string, token: string) => {
+    if (!url || !token) return;
     
     setIsCheckingStatus(true);
     try {
@@ -127,13 +136,15 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     
     setIsSaving(true);
     try {
+      const instanceName = extractInstanceId(config.zapi_url);
+      
       if (config.id) {
         // Update
         const { error } = await supabase
           .from("whatsapp_instances")
           .update({
             zapi_url: config.zapi_url,
-            instance_name: config.zapi_instance_id,
+            instance_name: instanceName,
             zapi_token: config.zapi_token,
           })
           .eq("id", config.id);
@@ -146,7 +157,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           .insert({
             tenant_id: tenantId,
             agent_id: agent.id,
-            instance_name: config.zapi_instance_id,
+            instance_name: instanceName,
             zapi_url: config.zapi_url,
             zapi_token: config.zapi_token,
             connection_status: "disconnected",
@@ -162,7 +173,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
       onAgentUpdated();
       
       // Verificar status após salvar
-      checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token);
+      checkConnectionStatus(config.zapi_url, config.zapi_token);
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
       toast.error("Erro ao salvar configurações");
@@ -172,7 +183,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
   };
 
   const handleConnect = async () => {
-    if (!config.zapi_url || !config.zapi_instance_id || !config.zapi_token) {
+    if (!config.zapi_url || !config.zapi_token) {
       toast.error("Preencha as credenciais Z-API primeiro");
       return;
     }
@@ -195,7 +206,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
         toast.success("Escaneie o QR Code com seu WhatsApp");
       } else {
         toast.info("Dispositivo já conectado ou aguardando...");
-        checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token);
+        checkConnectionStatus(config.zapi_url, config.zapi_token);
       }
     } catch (error) {
       console.error("Erro ao conectar:", error);
@@ -265,7 +276,6 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
 
       setConfig({
         zapi_url: "",
-        zapi_instance_id: "",
         zapi_token: "",
       });
       setIsConnected(false);
@@ -321,27 +331,20 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
             <h3 className="font-medium text-sm">Credenciais Z-API</h3>
             
             <div className="space-y-2">
-              <Label htmlFor="zapi_url">URL da API</Label>
+              <Label htmlFor="zapi_url">URL da Instância</Label>
               <Input
                 id="zapi_url"
                 value={config.zapi_url}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_url: e.target.value }))}
                 placeholder="https://api.z-api.io/instances/..."
               />
+              <p className="text-xs text-muted-foreground">
+                Cole a URL completa da sua instância Z-API
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_instance_id">Instance ID</Label>
-              <Input
-                id="zapi_instance_id"
-                value={config.zapi_instance_id}
-                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
-                placeholder="ID da instância"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="zapi_token">Token</Label>
+              <Label htmlFor="zapi_token">Client Token (Security Token)</Label>
               <Input
                 id="zapi_token"
                 type="password"
@@ -349,7 +352,21 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_token: e.target.value }))}
                 placeholder="Client Token"
               />
+              <p className="text-xs text-muted-foreground">
+                Encontre no painel Z-API: Configurações → Security → Client-Token.
+                <strong> Este token é DIFERENTE do que aparece na URL!</strong>
+              </p>
             </div>
+
+            {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  O Client Token não pode ser igual ao token da URL. 
+                  Acesse o painel Z-API → Security → Client-Token para obter o token correto.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -378,7 +395,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
+                    onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
                   >
                     <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                   </Button>
@@ -387,13 +404,18 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
             ) : (
               // DESCONECTADO - mostrar opção de QR Code
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 gap-2" onClick={handleConnect}>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2" 
+                  onClick={handleConnect}
+                  disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
+                >
                   <QrCode className="h-4 w-4" />
                   Conectar via QR Code
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
+                  onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
                 >
                   <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                 </Button>
