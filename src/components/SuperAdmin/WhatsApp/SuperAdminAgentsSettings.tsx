@@ -260,6 +260,10 @@ export const SuperAdminAgentsSettings = () => {
 
     setIsGeneratingQR(true);
     try {
+      // Timeout de 30 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const { data, error } = await supabase.functions.invoke("whatsapp-zapi-action", {
         body: {
           action: "qr-code",
@@ -269,7 +273,11 @@ export const SuperAdminAgentsSettings = () => {
         },
       });
 
+      clearTimeout(timeoutId);
+
       if (error) throw error;
+
+      console.log("QR Code response:", data);
 
       // A Z-API retorna o QR Code em data.value (base64)
       const qrValue = data?.data?.value;
@@ -281,13 +289,17 @@ export const SuperAdminAgentsSettings = () => {
           description: "Escaneie o código com seu WhatsApp",
         });
       } else {
-        throw new Error("QR Code não retornado pela API");
+        console.error("Resposta sem QR Code:", data);
+        throw new Error(data?.data?.error || "QR Code não retornado pela API");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao gerar QR Code:", error);
+      const message = error?.name === 'AbortError' 
+        ? "Timeout: A requisição demorou muito" 
+        : "Não foi possível gerar o QR Code";
       toast({
         title: "Erro",
-        description: "Não foi possível gerar o QR Code",
+        description: message,
         variant: "destructive",
       });
     } finally {
