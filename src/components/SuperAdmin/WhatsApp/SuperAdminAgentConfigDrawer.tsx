@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,10 +37,22 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   const [isConnected, setIsConnected] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
 
   // Carregar config da instância do agente
   useEffect(() => {
-    if (!agent || !open) return;
+    if (!agent || !open) {
+      stopPolling();
+      return;
+    }
     loadInstanceConfig();
   }, [agent, open]);
 
@@ -165,6 +177,51 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     }
   };
 
+  const startPolling = () => {
+    if (pollingIntervalRef.current) return;
+    
+    setIsPolling(true);
+    
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const response = await supabase.functions.invoke('whatsapp-zapi-action', {
+          body: {
+            action: 'status',
+            zapi_instance_id: config.zapi_instance_id,
+            zapi_instance_token: config.zapi_instance_token,
+            zapi_client_token: config.zapi_client_token,
+          }
+        });
+
+        if (response.data?.success && response.data?.data?.connected === true) {
+          stopPolling();
+          setIsConnected(true);
+          setQrCode(null);
+          
+          if (config.id) {
+            await supabase
+              .from("whatsapp_instances")
+              .update({ connection_status: "connected" })
+              .eq("id", config.id);
+          }
+          
+          toast.success("WhatsApp conectado com sucesso!");
+          onAgentUpdated();
+        }
+      } catch (error) {
+        console.error("Erro no polling:", error);
+      }
+    }, 5000);
+  };
+
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  };
+
   const handleConnect = async () => {
     if (!config.zapi_instance_id || !config.zapi_instance_token) {
       toast.error("Preencha Instance ID e Instance Token primeiro");
@@ -188,6 +245,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       if (result.success && result.data?.value) {
         setQrCode(result.data.value);
         toast.success("Escaneie o QR Code com seu WhatsApp");
+        startPolling();
       } else {
         toast.info("Dispositivo já conectado ou aguardando...");
         checkConnectionStatus();
@@ -425,8 +483,16 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             <div className="flex flex-col items-center gap-3 p-4 bg-muted rounded-lg">
               <span className="text-sm font-medium">Escaneie o QR Code</span>
               <img src={`data:image/png;base64,${qrCode}`} alt="QR Code" className="w-48 h-48" />
-              <Button variant="ghost" size="sm" onClick={() => setQrCode(null)}>
-                Fechar
+              
+              {isPolling && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Aguardando conexão...</span>
+                </div>
+              )}
+              
+              <Button variant="ghost" size="sm" onClick={() => { stopPolling(); setQrCode(null); }}>
+                Cancelar
               </Button>
             </div>
           )}
