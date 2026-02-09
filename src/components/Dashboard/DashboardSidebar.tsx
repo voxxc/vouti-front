@@ -16,14 +16,15 @@ import {
   Menu,
   Headphones,
   Star,
-  FileText
+  FileText,
+  MessageSquare
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 
-export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | null;
+export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -118,6 +119,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
     { id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
+    { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.Bot', route: '/whatsapp' },
     { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
 
@@ -141,7 +143,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   };
 
   // IDs que abrem drawers
-  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos'];
+  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp'];
 
   return (
     <>

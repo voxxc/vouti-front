@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { WhatsAppSidebar } from "./WhatsAppSidebar";
 import { WhatsAppInbox } from "./sections/WhatsAppInbox";
 import { WhatsAppConversations } from "./sections/WhatsAppConversations";
@@ -25,14 +26,40 @@ import { WhatsAppCannedResponses } from "./settings/WhatsAppCannedResponses";
 import { WhatsAppAppsSettings } from "./settings/WhatsAppAppsSettings";
 import { WhatsAppIntegrationsSettings } from "./settings/WhatsAppIntegrationsSettings";
 import { WhatsAppPermissionsSettings } from "./settings/WhatsAppPermissionsSettings";
-import { WhatsAppSection } from "./WhatsAppDrawer";
 
-export const WhatsAppLayout = () => {
+export type WhatsAppSection = 
+  | "inbox" 
+  | "conversations" 
+  | "kanban" 
+  | "contacts" 
+  | "reports" 
+  | "campaigns" 
+  | "help"
+  // Settings sections
+  | "account"
+  | "agents"
+  | "teams"
+  | "inboxes"
+  | "labels"
+  | "attributes"
+  | "kanban-settings"
+  | "automation"
+  | "n8n"
+  | "bots"
+  | "typebot"
+  | "macros"
+  | "canned"
+  | "apps"
+  | "integrations"
+  | "permissions";
+
+interface WhatsAppDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
-
-  const handleGoBack = () => {
-    window.close();
-  };
 
   const renderSection = () => {
     switch (activeSection) {
@@ -89,15 +116,24 @@ export const WhatsAppLayout = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background">
-      <WhatsAppSidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection}
-        onClose={handleGoBack}
-      />
-      <main className="flex-1 overflow-hidden">
-        {renderSection()}
-      </main>
-    </div>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent 
+        side="inset"
+        className="p-0 flex flex-col"
+      >
+        <SheetTitle className="sr-only">Vouti.Bot</SheetTitle>
+        
+        <div className="flex h-full">
+          <WhatsAppSidebar 
+            activeSection={activeSection} 
+            onSectionChange={setActiveSection}
+            onClose={() => onOpenChange(false)}
+          />
+          <main className="flex-1 overflow-hidden">
+            {renderSection()}
+          </main>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
-};
+}
