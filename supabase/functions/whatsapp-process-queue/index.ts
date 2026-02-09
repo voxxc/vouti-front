@@ -214,7 +214,7 @@ serve(async (req) => {
             .eq('id', msg.id);
 
           // 6. Save to whatsapp_messages for history/inbox
-          await supabase
+          const { error: insertError } = await supabase
             .from('whatsapp_messages')
             .insert({
               instance_name: instance.instance_name,
@@ -225,8 +225,14 @@ serve(async (req) => {
               direction: 'outgoing',
               user_id: instance.user_id,
               tenant_id: msg.tenant_id,
-              is_from_me: true
+              agent_id: instance.agent_id || null
             });
+
+          if (insertError) {
+            console.error(`[whatsapp-process-queue] ⚠️ Failed to save message to inbox:`, insertError);
+          } else {
+            console.log(`[whatsapp-process-queue] 📥 Message saved to inbox for ${formattedPhone}`);
+          }
 
           sent++;
           console.log(`[whatsapp-process-queue] ✅ Message sent to ${formattedPhone}`);
