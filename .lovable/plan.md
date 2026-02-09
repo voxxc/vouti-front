@@ -1,121 +1,62 @@
 
 
-# Plano: Corrigir Gestão de Agentes no Super Admin
+# Plano: Adicionar Políticas RLS para Super Admin na Tabela whatsapp_agents
 
 ## Problema Identificado
 
-Os componentes de gerenciamento de agentes (`WhatsAppAgentsSettings`, `AddAgentDialog`, `AgentConfigDrawer`) dependem do hook `useTenantId()` que retorna `null` no contexto do Super Admin.
+A criação de agentes no `/super-admin/bot` falha porque as políticas RLS da tabela `whatsapp_agents` bloqueiam operações quando `tenant_id` é `NULL`.
 
-Isso causa:
+### Políticas Atuais (Problemáticas)
 
-1. **Loading infinito**: O `useEffect` em `WhatsAppAgentsSettings` (linha 17-21) nunca executa `loadAgents()` porque `tenantId` é `null`
-2. **Impossível criar agentes**: O `AddAgentDialog` verifica `if (!tenantId)` e mostra erro
-3. **Drawer não funciona**: O `AgentConfigDrawer` usa `tenantId` para buscar/salvar configurações
+| Operação | Condição | Resultado para Super Admin |
+|----------|----------|---------------------------|
+| SELECT | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
+| INSERT | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
+| UPDATE | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
+| DELETE | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
+
+O Super Admin não tem `tenant_id`, então `get_user_tenant_id()` retorna `NULL`, e em SQL `NULL = NULL` não é `TRUE`.
 
 ## Solução
 
-Criar versões específicas para o Super Admin que usem `tenant_id IS NULL` (conforme memória do sistema):
+Adicionar políticas RLS específicas para Super Admin usando `is_super_admin(auth.uid())`, seguindo o mesmo padrão já usado em outras tabelas do sistema.
 
-### 1. Novo arquivo: `SuperAdminAgentsSettings.tsx`
+## Migração SQL Necessária
 
-Cópia adaptada de `WhatsAppAgentsSettings` que:
-- Remove dependência de `useTenantId()`
-- Busca agentes onde `tenant_id IS NULL`
-- Usa dialog e drawer específicos para Super Admin
+```sql
+-- Política para Super Admin SELECT
+CREATE POLICY "superadmin_select_agents" ON public.whatsapp_agents
+  FOR SELECT TO public
+  USING (is_super_admin(auth.uid()));
 
-```typescript
-// Diferença principal na query:
-const { data } = await supabase
-  .from("whatsapp_agents")
-  .select("*")
-  .is("tenant_id", null)  // <-- IS NULL ao invés de .eq()
-  .order("created_at", { ascending: true });
-```
+-- Política para Super Admin INSERT  
+CREATE POLICY "superadmin_insert_agents" ON public.whatsapp_agents
+  FOR INSERT TO public
+  WITH CHECK (is_super_admin(auth.uid()));
 
-### 2. Novo arquivo: `SuperAdminAddAgentDialog.tsx`
+-- Política para Super Admin UPDATE
+CREATE POLICY "superadmin_update_agents" ON public.whatsapp_agents
+  FOR UPDATE TO public
+  USING (is_super_admin(auth.uid()));
 
-Cópia adaptada de `AddAgentDialog` que:
-- Não exige `tenantId`
-- Insere agente com `tenant_id: null`
-
-```typescript
-const { error } = await supabase
-  .from("whatsapp_agents")
-  .insert({
-    tenant_id: null,  // <-- Explicitamente null
-    name: name.trim(),
-    role,
-    is_active: true,
-  });
-```
-
-### 3. Novo arquivo: `SuperAdminAgentConfigDrawer.tsx`
-
-Cópia adaptada de `AgentConfigDrawer` que:
-- Busca instâncias onde `tenant_id IS NULL`
-- Salva instâncias com `tenant_id: null`
-
-```typescript
-// Busca
-const { data } = await supabase
-  .from("whatsapp_instances")
-  .select("*")
-  .is("tenant_id", null)
-  .eq("agent_id", agent.id)
-  .maybeSingle();
-
-// Insert
-await supabase
-  .from("whatsapp_instances")
-  .insert({
-    tenant_id: null,  // <-- Explicitamente null
-    agent_id: agent.id,
-    // ...
-  });
-```
-
-### 4. Atualizar `SuperAdminWhatsAppLayout.tsx`
-
-Substituir o uso de `WhatsAppAgentsSettings` por `SuperAdminAgentsSettings` no case `"agents"`:
-
-```typescript
-case "agents":
-  return <SuperAdminAgentsSettings />;
-```
-
-## Arquivos a Criar
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Listagem de agentes (tenant_id IS NULL) |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAddAgentDialog.tsx` | Dialog para criar agente (tenant_id: null) |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Drawer de config Z-API (tenant_id IS NULL) |
-
-## Arquivo a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppLayout.tsx` | Usar `SuperAdminAgentsSettings` no case "agents" |
-
-## Fluxo Corrigido
-
-```text
-Super Admin acessa /super-admin/bot → Seção "Agentes"
-                    │
-                    ▼
-      SuperAdminAgentsSettings.tsx
-      (query: tenant_id IS NULL)
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
-SuperAdminAddAgentDialog    SuperAdminAgentConfigDrawer
-(insert: tenant_id: null)   (query/insert: tenant_id IS NULL/null)
+-- Política para Super Admin DELETE
+CREATE POLICY "superadmin_delete_agents" ON public.whatsapp_agents
+  FOR DELETE TO public
+  USING (is_super_admin(auth.uid()));
 ```
 
 ## Resultado Esperado
 
-- Super Admin pode visualizar agentes sem tenant
-- Super Admin pode criar novos agentes com tenant_id = null
-- Super Admin pode configurar Z-API para cada agente
-- Loading será resolvido imediatamente ao carregar a página
+Após a migração:
+
+| Operação | Super Admin | Tenant |
+|----------|-------------|--------|
+| SELECT | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
+| INSERT | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
+| UPDATE | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
+| DELETE | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
+
+## Arquivos
+
+Nenhum arquivo de código precisa ser alterado - o código atual (`SuperAdminAddAgentDialog.tsx`) já está correto. O problema é apenas nas políticas RLS do banco de dados.
 
