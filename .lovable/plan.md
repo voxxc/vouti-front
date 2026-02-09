@@ -1,148 +1,156 @@
 
-# Plano: Desabilitar Agente IA por Conversa
+# Plano: Registrar Mensagens Enviadas na Conversa
 
-## Objetivo
-Permitir que um atendente humano assuma a conversa, desabilitando a IA para aquele lead específico.
+## Problema Identificado
 
-## Como Vai Funcionar
+As mensagens enviadas pela plataforma não estão aparecendo porque:
+
+1. **Webhook não salva respostas**: Quando a IA ou automações enviam mensagens, elas não são salvas no banco
+2. **Campo incorreto**: A Edge Function `whatsapp-send-message` usa `from_number` para mensagens outgoing, mas deveria usar o mesmo campo para manter consistência na conversa
+
+## Solução
+
+Salvar toda mensagem enviada no banco com:
+- `from_number` = telefone do lead (para agrupar na mesma conversa)
+- `direction` = 'outgoing' (para identificar que foi enviada)
+- `is_from_me` = true
+
+## Arquivos a Modificar
+
+### 1. `supabase/functions/whatsapp-webhook/index.ts`
+
+Adicionar função para salvar mensagens enviadas e chamá-la após cada envio:
+
+| Local | Alteração |
+|-------|-----------|
+| Nova função | `saveOutgoingMessage(phone, message, tenant_id, instance_name)` |
+| Linha ~193 | Após enviar resposta automática, salvar no banco |
+| Linha ~286 | Após enviar resposta IA, salvar no banco |
+
+### 2. `supabase/functions/whatsapp-send-message/index.ts`
+
+Garantir que `from_number` seja o telefone do destinatário (lead) para agrupar corretamente:
+
+| Local | Alteração |
+|-------|-----------|
+| Linha 75-81 | Já está correto (`from_number: phone`), apenas garantir que está salvando |
+
+## Lógica de Salvamento
+
+A nova função `saveOutgoingMessage`:
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    FLUXO DE ATENDIMENTO                                     │
+│  saveOutgoingMessage(phone, message, tenant_id, instance_name)              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   Lead envia mensagem                                                       │
-│           │                                                                 │
-│           ▼                                                                 │
-│   whatsapp-webhook verifica:                                                │
-│           │                                                                 │
-│           ├─ IA desabilitada para este telefone? ──────┐                    │
-│           │                                            │                    │
-│           ▼ NÃO                                        ▼ SIM                │
-│   IA responde automaticamente              Não faz nada (humano atende)     │
+│  INSERT INTO whatsapp_messages:                                             │
+│                                                                             │
+│  - from_number: phone (telefone do lead - para agrupar na conversa)         │
+│  - message_text: message                                                    │
+│  - direction: 'outgoing'                                                    │
+│  - is_from_me: true                                                         │
+│  - tenant_id: tenant_id                                                     │
+│  - instance_name: instance_name                                             │
+│  - message_id: 'out_' + timestamp (ID único)                                │
+│  - message_type: 'text'                                                     │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Interface no Painel Lateral
+## Fluxo Atualizado
 
-O toggle "Habilitar Bot" que já existe vai ser transformado em "Desabilitar IA (Atendimento Humano)":
+### Resposta por Automação (keyword)
 
 ```text
-┌─────────────────────────────────────────┐
-│            João Silva                   │
-│         +55 45 9999-9999                │
-│      joaosilva@whatsapp.com             │
-├─────────────────────────────────────────┤
-│                                         │
-│  🤖 Agente IA                           │
-│  ┌───────────────────────────────────┐  │
-│  │  Status: Respondendo               │  │ ← Badge verde
-│  │                                   │  │
-│  │  [  Assumir Atendimento  ]        │  │ ← Botão para humano assumir
-│  └───────────────────────────────────┘  │
-│                                         │
-│  OU (quando desabilitado):              │
-│                                         │
-│  🤖 Agente IA                           │
-│  ┌───────────────────────────────────┐  │
-│  │  Status: Desabilitado (Humano)    │  │ ← Badge amarelo
-│  │                                   │  │
-│  │  [  Reativar Agente IA  ]         │  │ ← Botão para devolver à IA
-│  └───────────────────────────────────┘  │
-│                                         │
-└─────────────────────────────────────────┘
+1. Mensagem recebida do lead
+2. Salva mensagem (direction: 'received')
+3. Processa automação → encontra keyword
+4. Envia via Z-API
+5. ✅ NOVO: Salva mensagem (direction: 'outgoing')  ← ADICIONAR
 ```
 
-## Componentes a Criar/Modificar
+### Resposta por IA
 
-### 1. Nova Tabela: `whatsapp_ai_disabled_contacts`
+```text
+1. Mensagem recebida do lead
+2. Salva mensagem (direction: 'received')
+3. IA habilitada → chama whatsapp-ai-chat
+4. Recebe resposta da IA
+5. Envia via Z-API
+6. ✅ NOVO: Salva mensagem (direction: 'outgoing')  ← ADICIONAR
+```
 
-Armazena os contatos que tiveram a IA desabilitada:
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid | PK |
-| tenant_id | uuid | Tenant do contato (NULL para Super Admin) |
-| phone_number | text | Número do telefone |
-| disabled_by | uuid | Usuário que desabilitou |
-| disabled_at | timestamp | Quando foi desabilitado |
-| reason | text | Motivo (opcional) |
-
-### 2. Modificar: `ContactInfoPanel.tsx`
-
-- Adicionar lógica real para buscar/alterar status da IA por contato
-- Mostrar status atual (IA respondendo ou Humano atendendo)
-- Botões para alternar entre modos
-
-### 3. Modificar: `whatsapp-webhook/index.ts`
-
-Na função `handleAIResponse`, verificar ANTES se o contato tem IA desabilitada:
+## Código da Nova Função
 
 ```typescript
-// Verificar se IA está desabilitada para este número específico
-const { data: disabledContact } = await supabase
-  .from('whatsapp_ai_disabled_contacts')
-  .select('id')
-  .eq('phone_number', phone)
-  .eq('tenant_id', tenant_id)
-  .maybeSingle();
+async function saveOutgoingMessage(
+  phone: string,
+  message: string,
+  tenant_id: string | null,
+  instance_name: string,
+  user_id?: string
+) {
+  const { error } = await supabase
+    .from('whatsapp_messages')
+    .insert({
+      from_number: phone,  // Mesmo número do lead para agrupar
+      message_text: message,
+      direction: 'outgoing',
+      is_from_me: true,
+      tenant_id: tenant_id,
+      instance_name: instance_name,
+      message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      message_type: 'text',
+      user_id: user_id || null,
+      timestamp: new Date().toISOString(),
+      is_read: true,  // Mensagens enviadas já estão "lidas"
+    });
 
-if (disabledContact) {
-  console.log('⏭️ IA desabilitada para este contato (atendimento humano)');
-  return false;
+  if (error) {
+    console.error('❌ Erro ao salvar mensagem enviada:', error);
+  } else {
+    console.log('✅ Mensagem enviada salva no histórico');
+  }
 }
 ```
 
-## Arquivos a Criar
+## Resultado Visual
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/hooks/useWhatsAppAIControl.ts` | Hook para gerenciar estado de IA por contato |
-
-## Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/WhatsApp/components/ContactInfoPanel.tsx` | UI funcional para controle de IA |
-| `supabase/functions/whatsapp-webhook/index.ts` | Verificar se IA está desabilitada para o contato |
-
-## Migração SQL
-
-```sql
--- Tabela de contatos com IA desabilitada
-CREATE TABLE public.whatsapp_ai_disabled_contacts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
-  phone_number text NOT NULL,
-  disabled_by uuid REFERENCES auth.users(id),
-  disabled_at timestamptz DEFAULT now(),
-  reason text,
-  
-  UNIQUE(tenant_id, phone_number)
-);
-
--- RLS
-ALTER TABLE whatsapp_ai_disabled_contacts ENABLE ROW LEVEL SECURITY;
-
--- Tenant pode gerenciar seus contatos
-CREATE POLICY "tenant_manage_disabled_contacts"
-ON whatsapp_ai_disabled_contacts FOR ALL
-USING (tenant_id = get_user_tenant_id())
-WITH CHECK (tenant_id = get_user_tenant_id());
-
--- Super Admin (tenant NULL)
-CREATE POLICY "superadmin_manage_disabled_contacts"
-ON whatsapp_ai_disabled_contacts FOR ALL
-USING (tenant_id IS NULL AND is_super_admin(auth.uid()))
-WITH CHECK (tenant_id IS NULL AND is_super_admin(auth.uid()));
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Conversa com +55 45 9999-9999                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────────────────┐                                           │
+│  │ Olá, preciso de ajuda       │  ← Mensagem do lead (direction: received) │
+│  └──────────────────────────────┘                                           │
+│                                              ┌────────────────────────────┐ │
+│                                              │ Olá! Sou a assistente     │ │
+│                                              │ do escritório. Como       │ │
+│                                              │ posso ajudar?             │ │ ← NOVA: Mensagem da IA
+│                                              └────────────────────────────┘ │
+│                                                (direction: outgoing)        │
+│                                                                             │
+│  ┌──────────────────────────────┐                                           │
+│  │ Quero saber sobre processos │  ← Lead responde                          │
+│  └──────────────────────────────┘                                           │
+│                                              ┌────────────────────────────┐ │
+│                                              │ Posso verificar...        │ │ ← NOVA: Resposta IA
+│                                              └────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Resultado Esperado
+## Técnico
 
-1. No painel lateral de cada conversa, aparece seção "Agente IA"
-2. Mostra status: "Respondendo" (verde) ou "Desabilitado" (amarelo)
-3. Botão "Assumir Atendimento" para humano assumir
-4. Botão "Reativar Agente IA" para devolver à automação
-5. Quando humano assume, a IA para de responder aquele contato específico
-6. Funciona tanto para tenants quanto para Super Admin
+### Alterações no `whatsapp-webhook/index.ts`
+
+1. Adicionar função `saveOutgoingMessage` após linha 30
+2. Após linha 193 (envio por automação), chamar `saveOutgoingMessage`
+3. Após linha 293 (envio por IA), chamar `saveOutgoingMessage`
+
+### Alterações no `whatsapp-send-message/index.ts`
+
+1. O código atual já salva (linhas 107-115), mas precisa garantir que `user_id` não seja obrigatório (já que service role pode não ter)
+2. Verificar se o erro no console está sendo ignorado corretamente
