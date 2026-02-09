@@ -8,7 +8,8 @@ const corsHeaders = {
 
 // Normaliza telefone brasileiro para formato com 9 dígitos
 function normalizePhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
+  // Remover sufixos do WhatsApp (@lid, @c.us, @s.whatsapp.net)
+  let cleaned = phone.replace(/@.*$/, '').replace(/\D/g, '');
   // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar o 9
   if (cleaned.length === 12 && cleaned.startsWith('55')) {
     const ddd = cleaned.substring(2, 4);
@@ -16,6 +17,55 @@ function normalizePhoneNumber(phone: string): string {
     return `55${ddd}9${number}`;
   }
   return cleaned;
+}
+
+// Detecta se um número é um LID (Linked ID) do WhatsApp, não um telefone real
+function isLidNumber(phone: string): boolean {
+  if (phone.includes('@lid')) return true;
+  const digits = phone.replace(/\D/g, '');
+  // LIDs geralmente não começam com 55 e têm formato diferente de telefone BR
+  if (digits.length > 13 && !digits.startsWith('55')) return true;
+  return false;
+}
+
+// Resolve o número real do destinatário quando a Z-API envia um LID
+async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<string | null> {
+  // 1. Tentar extrair de chatId (formato: 5545999180026@c.us)
+  if (data.chatId && typeof data.chatId === 'string') {
+    const chatPhone = data.chatId.replace(/@.*$/, '').replace(/\D/g, '');
+    if (chatPhone.startsWith('55') && chatPhone.length >= 12 && chatPhone.length <= 13) {
+      console.log(`🔄 LID resolvido via chatId: ${originalPhone} -> ${chatPhone}`);
+      return chatPhone;
+    }
+  }
+  
+  // 2. Tentar extrair de data.to
+  if (data.to && typeof data.to === 'string') {
+    const toPhone = data.to.replace(/@.*$/, '').replace(/\D/g, '');
+    if (toPhone.startsWith('55') && toPhone.length >= 12 && toPhone.length <= 13) {
+      console.log(`🔄 LID resolvido via 'to': ${originalPhone} -> ${toPhone}`);
+      return toPhone;
+    }
+  }
+
+  // 3. Fallback: buscar no banco a última mensagem recebida com esse chatLid
+  const lidClean = originalPhone.replace(/@.*$/, '');
+  const { data: match } = await supabase
+    .from('whatsapp_messages')
+    .select('from_number')
+    .eq('direction', 'received')
+    .or(`raw_data->>phone.eq.${lidClean},raw_data->>chatLid.eq.${lidClean}`)
+    .order('timestamp', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (match?.from_number) {
+    console.log(`🔄 LID resolvido via banco: ${originalPhone} -> ${match.from_number}`);
+    return match.from_number;
+  }
+
+  console.warn(`⚠️ Não foi possível resolver LID: ${originalPhone}`);
+  return null;
 }
 
 // Validate webhook data structure (permissive to accept all Z-API event types)
@@ -129,8 +179,21 @@ serve(async (req) => {
 async function handleIncomingMessage(data: any) {
   const { instanceId, phone: rawPhone, messageId, text, chatName, momment, fromMe } = data;
   
+  // ✅ Resolver LID antes de normalizar
+  let resolvedPhone = rawPhone;
+  if (rawPhone && isLidNumber(rawPhone)) {
+    console.log(`🔍 LID detectado: ${rawPhone}, buscando número real...`);
+    const realPhone = await resolvePhoneFromLid(data, rawPhone);
+    if (realPhone) {
+      resolvedPhone = realPhone;
+    } else {
+      console.warn(`⚠️ Descartando mensagem: impossível resolver LID ${rawPhone}`);
+      return;
+    }
+  }
+  
   // ✅ Normalizar telefone ANTES de qualquer operação
-  const phone = normalizePhoneNumber(rawPhone);
+  const phone = normalizePhoneNumber(resolvedPhone);
   if (phone !== rawPhone) {
     console.log(`📞 Telefone normalizado: ${rawPhone} -> ${phone}`);
   }
