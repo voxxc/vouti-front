@@ -84,7 +84,10 @@ serve(async (req) => {
     }
 
     // Comparar scheduled_at - se mudou, outra mensagem chegou e resetou o timer
-    if (pending.scheduled_at !== scheduled_at) {
+    // Usa comparação numérica com tolerância de 1s (formatos ISO vs PostgreSQL diferem como string)
+    const pendingTime = new Date(pending.scheduled_at).getTime();
+    const expectedTime = new Date(scheduled_at).getTime();
+    if (Math.abs(pendingTime - expectedTime) > 1000) {
       console.log('⏭️ Debounce: timer resetado por nova mensagem, ignorando');
       return new Response(
         JSON.stringify({ success: true, action: 'skipped', reason: 'timer_reset' }),
