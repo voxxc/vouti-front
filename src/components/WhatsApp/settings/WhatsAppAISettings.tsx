@@ -50,6 +50,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isLandingAgent, setIsLandingAgent] = useState(false);
+  const [landingPageSource, setLandingPageSource] = useState<string | null>(null);
   const [config, setConfig] = useState<AIConfig>({
     is_enabled: false,
     agent_name: "Assistente",
@@ -110,6 +111,19 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           setIsLandingAgent(agentData.is_landing_agent || false);
         }
       }
+
+      // Carregar landing_page_source do agente (Tenants)
+      if (!isSuperAdmin && agentId) {
+        const { data: agentData } = await supabase
+          .from('whatsapp_agents')
+          .select('landing_page_source')
+          .eq('id', agentId)
+          .single();
+        
+        if (agentData) {
+          setLandingPageSource(agentData.landing_page_source || null);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar configuração:', error);
     } finally {
@@ -147,6 +161,46 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
       });
     } catch (error) {
       console.error('Erro ao atualizar landing agent:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a configuração",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLandingPageSourceChange = async (value: string) => {
+    if (!agentId || !tenantId) return;
+
+    const actualValue = value === 'none' ? null : value;
+
+    try {
+      // Se for selecionar uma página, desmarcar outros agentes
+      if (actualValue) {
+        await supabase
+          .from('whatsapp_agents')
+          .update({ landing_page_source: null })
+          .eq('tenant_id', tenantId)
+          .eq('landing_page_source', actualValue);
+      }
+
+      // Atualizar este agente
+      const { error } = await supabase
+        .from('whatsapp_agents')
+        .update({ landing_page_source: actualValue })
+        .eq('id', agentId);
+
+      if (error) throw error;
+
+      setLandingPageSource(actualValue);
+      toast({
+        title: actualValue ? "Landing page vinculada" : "Vínculo removido",
+        description: actualValue 
+          ? `Este agente responderá leads da ${actualValue === 'landing_page_1' ? 'Landing Page 1' : 'Landing Page 2'}`
+          : "Este agente não responderá mais leads de landing pages",
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar landing page source:', error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar a configuração",
@@ -263,6 +317,29 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           </div>
         </CardContent>
       </Card>
+    )}
+
+    {/* Select Landing Page (apenas Tenants) */}
+    {!isSuperAdmin && agentId && (
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Landing Page</Label>
+        <Select
+          value={landingPageSource || 'none'}
+          onValueChange={handleLandingPageSourceChange}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione a página" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Nenhuma</SelectItem>
+            <SelectItem value="landing_page_1">Landing Page 1 (/landing-1)</SelectItem>
+            <SelectItem value="landing_page_2">Landing Page 2 (/office)</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Ao selecionar, leads dessa página serão atendidos por este agente
+        </p>
+      </div>
     )}
 
     {/* Toggle Principal */}

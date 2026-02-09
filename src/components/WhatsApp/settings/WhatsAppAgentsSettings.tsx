@@ -742,7 +742,7 @@ export const WhatsAppAgentsSettings = () => {
 
                         {/* Aba Comportamento da IA */}
                         <TabsContent value="ai" className="mt-0">
-                          <WhatsAppAISettings isSuperAdmin={false} />
+                          <WhatsAppAISettings isSuperAdmin={false} agentId={agent.id} />
                         </TabsContent>
                       </CardContent>
                     </Tabs>
