@@ -1,107 +1,109 @@
 
+# Plano: Unificar Interface do Vouti.Bot entre Super Admin e Tenants
 
-# Plano: Corrigir URL Base da Z-API para Acoes
+## Problema Atual
 
-## Problema Identificado
+O Super Admin tem uma interface de Vouti.Bot diferente da dos Tenants:
 
-Os logs da Edge Function revelam o problema:
-
-```text
-URL salvo no banco:
-https://api.z-api.io/instances/.../token/.../send-text
-
-Edge Function constroi:
-${zapi_url}/qr-code/image
-
-Resultado ERRADO:
-.../send-text/qr-code/image
-     ^^^^^^^^^
-     Nao deveria estar aqui!
-```
-
-A URL salva no campo `zapi_url` do banco de dados inclui o sufixo `/send-text`, que e usado apenas para envio de mensagens. As demais acoes (status, disconnect, qr-code) usam a URL base sem esse sufixo.
+| Aspecto | Tenant | Super Admin |
+|---------|--------|-------------|
+| Menu Config | Collapsible com 16 itens | Dropdown com 4 itens |
+| Seções | account, agents, teams, inboxes, labels, attributes, kanban-settings, automation, n8n, bots, typebot, macros, canned, apps, integrations, permissions | agents, settings, settings-leads, ai-settings |
+| Estilo | ScrollArea com Collapsible | DropdownMenu simples |
 
 ## Solucao
 
-Modificar a Edge Function para **remover o sufixo `/send-text`** da URL antes de construir o endpoint:
+Refatorar os componentes do Super Admin para usar a mesma estrutura dos Tenants, mantendo apenas a diferenca de contexto (tenant_id = null).
+
+## Alteracoes Necessarias
+
+### 1. `SuperAdminWhatsAppLayout.tsx` - Adicionar todas as secoes
+
+Adicionar os mesmos cases que o WhatsAppLayout.tsx:
 
 ```typescript
-// Antes
-endpoint = `${zapi_url}/qr-code/image`;
+// Adicionar imports
+import { WhatsAppAccountSettings } from "@/components/WhatsApp/settings/WhatsAppAccountSettings";
+import { WhatsAppTeamsSettings } from "@/components/WhatsApp/settings/WhatsAppTeamsSettings";
+import { WhatsAppInboxSettings } from "@/components/WhatsApp/settings/WhatsAppInboxSettings";
+// ... todos os 16 imports de settings
 
-// Depois
-const baseUrl = zapi_url.replace(/\/send-text$/, ''); // Remove /send-text do final
-endpoint = `${baseUrl}/qr-code/image`;
+// Atualizar type
+export type SuperAdminWhatsAppSection = 
+  | "inbox" 
+  | "conversations" 
+  | "kanban"
+  | "contacts" 
+  | "reports"
+  | "campaigns"
+  | "help"
+  // Settings sections (igual ao tenant)
+  | "account"
+  | "agents"
+  | "teams"
+  | "inboxes"
+  | "labels"
+  | "attributes"
+  | "kanban-settings"
+  | "automation"
+  | "n8n"
+  | "bots"
+  | "typebot"
+  | "macros"
+  | "canned"
+  | "apps"
+  | "integrations"
+  | "permissions";
+
+// Atualizar renderSection com todos os cases
 ```
 
-## Alteracao na Edge Function
+### 2. `SuperAdminWhatsAppSidebar.tsx` - Usar Collapsible igual ao Tenant
 
-### `supabase/functions/whatsapp-zapi-action/index.ts`
+Substituir o DropdownMenu por Collapsible com ScrollArea, usando os mesmos 16 itens de configuracao:
 
 ```typescript
-serve(async (req) => {
-  // ...
+// Imports
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-  try {
-    const { action, zapi_url, zapi_token } = await req.json();
+// Mesmo settingsMenuItems do WhatsAppSidebar
+const settingsMenuItems = [
+  { id: "account", label: "Conta", icon: User },
+  { id: "agents", label: "Agentes", icon: Users2 },
+  { id: "teams", label: "Times", icon: UsersRound },
+  { id: "inboxes", label: "Caixas de Entrada", icon: Inbox },
+  { id: "labels", label: "Etiquetas", icon: Tag },
+  { id: "attributes", label: "Atributos", icon: Sliders },
+  { id: "kanban-settings", label: "Kanban CRM", icon: Columns3 },
+  { id: "automation", label: "Automacao", icon: Zap },
+  { id: "n8n", label: "N8N", icon: Workflow },
+  { id: "bots", label: "Bots", icon: Bot },
+  { id: "typebot", label: "Typebot Bot", icon: MessageSquare },
+  { id: "macros", label: "Macros", icon: FileText },
+  { id: "canned", label: "Respostas Prontas", icon: MessageCircle },
+  { id: "apps", label: "Aplicacoes", icon: AppWindow },
+  { id: "integrations", label: "Integracoes", icon: Plug },
+  { id: "permissions", label: "Permissoes", icon: Shield },
+];
 
-    if (!action || !zapi_url || !zapi_token) {
-      throw new Error('Missing required fields');
-    }
-
-    // NOVO: Normalizar URL removendo /send-text se existir
-    const baseUrl = zapi_url.replace(/\/send-text\/?$/, '');
-
-    let endpoint = '';
-    let method = 'GET';
-
-    switch (action) {
-      case 'status':
-        endpoint = `${baseUrl}/status`;
-        break;
-      case 'disconnect':
-        endpoint = `${baseUrl}/disconnect`;
-        method = 'POST';
-        break;
-      case 'qr-code':
-        endpoint = `${baseUrl}/qr-code/image`;
-        break;
-      default:
-        throw new Error(`Invalid action: ${action}`);
-    }
-
-    // ... resto do codigo
-  }
-});
+// Usar Collapsible ao inves de DropdownMenu
 ```
 
-## Fluxo Corrigido
+## Arquivos a Modificar
 
-```text
-URL do banco: .../token/XXX/send-text
-                         │
-                         ▼
-     baseUrl = url.replace(/\/send-text\/?$/, '')
-                         │
-                         ▼
-URL normalizada: .../token/XXX
-                         │
-                         ▼
-     endpoint = baseUrl + '/qr-code/image'
-                         │
-                         ▼
-URL final: .../token/XXX/qr-code/image  ✓ CORRETO
-```
-
-## Arquivo Modificado
-
-- `supabase/functions/whatsapp-zapi-action/index.ts`
+| Arquivo | Acao |
+|---------|------|
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppLayout.tsx` | Adicionar imports e cases para todas as 16 secoes de settings |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppSidebar.tsx` | Substituir Dropdown por Collapsible, adicionar todos os 16 itens de menu |
 
 ## Resultado Esperado
 
-| Acao | Antes (Erro) | Depois (Correto) |
-|------|--------------|------------------|
-| qr-code | .../send-text/qr-code/image | .../qr-code/image |
-| status | .../send-text/status | .../status |
-| disconnect | .../send-text/disconnect | .../disconnect |
+Apos as alteracoes, o Super Admin tera a mesma interface visual e funcional que os Tenants:
 
+- Menu Configuracoes com Collapsible expandivel
+- Todas as 16 secoes de configuracao acessiveis
+- ScrollArea para navegacao quando muitos itens
+- Mesmo estilo visual e comportamento de selecao
+
+A unica diferenca sera o contexto (tenant_id = null para Super Admin), que e tratado internamente por cada componente de settings.
