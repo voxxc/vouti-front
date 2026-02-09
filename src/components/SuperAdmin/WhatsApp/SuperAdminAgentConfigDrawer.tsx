@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -356,10 +357,10 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             </div>
 
             {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="animate-pulse border-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  O Client Token não pode ser igual ao token da URL. 
+                  <strong>Token Incorreto!</strong> O Client Token não pode ser igual ao token da URL. 
                   Acesse o painel Z-API → Security → Client-Token para obter o token correto.
                 </AlertDescription>
               </Alert>
@@ -399,15 +400,28 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
               </div>
             ) : (
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  className="flex-1 gap-2" 
-                  onClick={handleConnect}
-                  disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
-                >
-                  <QrCode className="h-4 w-4" />
-                  Conectar via QR Code
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1">
+                        <Button 
+                          variant="outline" 
+                          className="w-full gap-2" 
+                          onClick={handleConnect}
+                          disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
+                        >
+                          <QrCode className="h-4 w-4" />
+                          Conectar via QR Code
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
+                      <TooltipContent>
+                        <p>Token inválido - use o Client-Token do painel Z-API</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
                 <Button 
                   variant="outline" 
                   onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
