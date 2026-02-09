@@ -1,47 +1,44 @@
 
 
-## Mensagem Enviada Aparecendo Instantaneamente na Conversa
+## Correcao: Mensagens enviadas pelo celular nao aparecem na Caixa de Entrada
 
-### Problema
+### Problema Identificado
 
-Quando voce envia uma mensagem pela Caixa de Entrada (digitando e clicando Enviar), a mensagem e salva no banco e enviada via Z-API, mas ela so aparece na conversa apos o polling de 2 segundos buscar novamente. Isso da a impressao de que a mensagem nao foi registrada.
+Nos logs da edge function `whatsapp-webhook`, ha erros "Invalid webhook data received" nos horarios exatos em que voce enviou mensagens pelo celular (18:31:54 e 18:24:06). Isso significa que a funcao de validacao (`validateWebhookData`) esta rejeitando o payload da Z-API para mensagens `fromMe: true`.
 
-### Causa
-
-O componente `ChatPanel` limpa o campo de texto apos enviar, mas nao adiciona a mensagem localmente na lista de mensagens. O sistema depende exclusivamente do polling (2s) ou do real-time para exibir a mensagem enviada.
+A validacao atual so aceita os tipos `ReceivedCallback` e `message` com validacao rigorosa do campo `phone` (regex `^\d{10,15}$`). Quando voce envia uma mensagem pelo celular, a Z-API pode enviar o webhook com um tipo diferente (ex: `"SentByMeCallback"`) ou com o campo `phone` em formato diferente, e a validacao bloqueia antes de chegar na logica de processamento.
 
 ### Solucao
 
-Adicionar um **update otimista** no estado local de mensagens imediatamente apos o envio. A mensagem aparece no chat instantaneamente, sem esperar o polling.
+**Arquivo: `supabase/functions/whatsapp-webhook/index.ts`**
 
-### Alteracoes
+1. Adicionar log do payload bruto ANTES da validacao para diagnosticar o formato exato que a Z-API envia para mensagens `fromMe: true`
+2. Flexibilizar a funcao `validateWebhookData` para aceitar tipos adicionais de webhook da Z-API (como `SentByMeCallback`, `MessageStatusCallback`, etc.)
+3. Tratar payloads com `fromMe: true` que podem vir com campo `phone` ausente mas com `chatId` ou estrutura diferente
 
-**1. `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`**
+### Alteracoes detalhadas
 
-Na funcao `handleSendMessage`, apos chamar a edge function com sucesso, inserir a mensagem diretamente no estado `messages`:
+**1. Log de diagnostico antes da validacao**
+
+Adicionar um `console.log` do payload bruto antes de chamar `validateWebhookData`, para que possamos ver exatamente o que a Z-API esta enviando quando voce manda uma mensagem pelo celular.
+
+**2. Flexibilizar a validacao**
 
 ```text
-handleSendMessage(text):
-  1. Chamar whatsapp-send-message (ja existe)
-  2. Se sucesso: adicionar ao state local:
-     {
-       id: uuid temporario,
-       messageText: text,
-       direction: "outgoing",
-       timestamp: agora,
-       isFromMe: true
-     }
+function validateWebhookData(data):
+  - Aceitar tipo 'ReceivedCallback' (ja aceito)
+  - Aceitar tipo 'message' (ja aceito)  
+  - Aceitar tipo 'status' (ja aceito)
+  - Aceitar tipo 'qrcode' (ja aceito)
+  - NOVO: Aceitar QUALQUER tipo desconhecido com log (nao rejeitar)
+  - Mover validacao de phone para ser condicional (so quando ReceivedCallback/message)
 ```
 
-Isso faz a mensagem aparecer no chat imediatamente. Quando o polling rodar, ele traz a versao do banco (com id real), e a logica de deduplicacao evita duplicatas.
+**3. Roteamento do tipo de webhook**
 
-**2. `src/components/WhatsApp/sections/WhatsAppInbox.tsx`**
+No bloco de roteamento (linha 94-105), adicionar tratamento para que mensagens com `fromMe: true` de qualquer tipo reconhecido sejam encaminhadas para `handleIncomingMessage`, que ja tem a logica correta de salvar mensagens do celular.
 
-Aplicar a mesma alteracao no inbox dos Tenants para manter paridade.
+### Resumo tecnico
 
-### Detalhes tecnicos
-
-- O id temporario usa `crypto.randomUUID()` para gerar um UUID unico
-- O polling substituira a mensagem otimista pela versao real do banco na proxima iteracao (2s)
-- Nenhuma alteracao no backend e necessaria - as mensagens ja sao salvas corretamente pela edge function `whatsapp-send-message`
+A raiz do problema e que a funcao de validacao e muito restritiva e rejeita payloads validos da Z-API. A correcao torna a validacao mais permissiva (aceita tipos desconhecidos com log) e garante que mensagens `fromMe: true` sempre sejam processadas e salvas no banco, aparecendo na Caixa de Entrada via polling.
 
