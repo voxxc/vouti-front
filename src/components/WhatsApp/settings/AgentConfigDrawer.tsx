@@ -67,7 +67,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           zapi_token: data.zapi_token || "",
         });
         setIsConnected(data.connection_status === "connected");
-        checkConnectionStatus(data.zapi_url || "", data.instance_name || "", data.zapi_token || "");
+        // Não verificar automaticamente - usar valor do banco como fonte de verdade
       } else {
         setConfig({
           zapi_url: "",
@@ -94,13 +94,23 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
       
       if (response.ok) {
         const data = await response.json();
-        setIsConnected(data?.connected === true);
-      } else {
-        setIsConnected(false);
+        const connected = data?.connected === true;
+        setIsConnected(connected);
+        
+        // Sincronizar com o banco de dados
+        if (config.id) {
+          await supabase
+            .from("whatsapp_instances")
+            .update({ connection_status: connected ? "connected" : "disconnected" })
+            .eq("id", config.id);
+          onAgentUpdated();
+        }
       }
+      // Se falhar, manter o status atual (não sobrescrever)
     } catch (error) {
       console.error("Erro ao verificar status:", error);
-      setIsConnected(false);
+      toast.error("Não foi possível verificar o status");
+      // Manter o status atual - não sobrescrever para false
     } finally {
       setIsCheckingStatus(false);
     }
@@ -329,27 +339,42 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           <div className="space-y-3">
             <h3 className="font-medium text-sm">Ações</h3>
             
-            <div className="flex gap-2">
-              {!isConnected ? (
+            {isConnected ? (
+              // CONECTADO - mostrar status e opção de desconectar
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <span className="text-green-600 font-medium">WhatsApp Conectado</span>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1 gap-2" onClick={handleDisconnect}>
+                    <XCircle className="h-4 w-4" />
+                    Desconectar
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // DESCONECTADO - mostrar opção de QR Code
+              <div className="flex gap-2">
                 <Button variant="outline" className="flex-1 gap-2" onClick={handleConnect}>
                   <QrCode className="h-4 w-4" />
-                  Conectar
+                  Conectar via QR Code
                 </Button>
-              ) : (
-                <Button variant="outline" className="flex-1 gap-2" onClick={handleDisconnect}>
-                  <XCircle className="h-4 w-4" />
-                  Desconectar
+                <Button 
+                  variant="outline" 
+                  onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                 </Button>
-              )}
-              
-              <Button 
-                variant="outline" 
-                className="gap-2" 
-                onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
-              >
-                <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
+              </div>
+            )}
 
             {config.id && (
               <Button variant="destructive" className="w-full gap-2" onClick={handleReset}>
