@@ -49,7 +49,7 @@ serve(async (req) => {
         break;
         
       case 'get_qrcode':
-        apiEndpoint = `${zapiUrl}/qr-code`;
+        apiEndpoint = `${zapiUrl}/qr-code/image`;
         break;
         
       case 'disconnect':
@@ -117,9 +117,21 @@ serve(async (req) => {
       }
     }
 
+    // Retornar resposta formatada baseado na action
+    if (action === 'get_qrcode') {
+      return new Response(JSON.stringify({
+        success: true,
+        qrcode: zapiData.value,  // base64 da imagem
+        action: action
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({
       success: true,
       data: zapiData,
+      status: zapiData.connected ? 'connected' : 'disconnected',
       action: action
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
