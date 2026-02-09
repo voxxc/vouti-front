@@ -1,137 +1,249 @@
 
 
-## Revisão Completa: Sistema de Chat WhatsApp (Vouti.Bot)
+## Plano: Automação WhatsApp para Leads da Landing Page (Super Admin)
 
-### Status Atual: ✅ FUNCIONANDO
+### Análise do Cenário Atual
 
-Os logs confirmam que o sistema está operacional:
-- **08:00:23**: Mensagem "Bom dia" recebida do lead (554588083583)
-- **08:00:25**: IA processou com Gemini 3 Flash
-- **08:00:27**: Resposta gerada e enviada via Z-API (status 200)
-- **08:00:27**: Resposta salva no banco para exibição na UI
+**Infraestrutura existente:**
+- Trigger `tr_landing_leads_whatsapp` dispara quando um lead é inserido
+- Função `notify_whatsapp_landing_lead()` insere na fila `whatsapp_pending_messages`
+- Edge Function `whatsapp-process-queue` processa e envia mensagens
+- Super Admin tem instância conectada (`tenant_id = NULL`)
+
+**Problemas identificados:**
+
+| Problema | Impacto |
+|----------|---------|
+| `whatsapp_lead_triggers.tenant_id` é **NOT NULL** | Não permite trigger para Super Admin |
+| Trigger busca triggers com `tenant_id` específico de tenants | Leads da landing não disparam para Super Admin |
+| `whatsapp_pending_messages.tenant_id` é **NOT NULL** | Não aceita mensagens do Super Admin |
+| `whatsapp-process-queue` busca instância por `tenant_id` | Não encontra instância do Super Admin |
+| Telefone não está normalizado com +55 | Formato inconsistente no banco |
 
 ---
 
-### Arquitetura Atual
+### Solução Proposta
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                         Z-API (WhatsApp)                        │
-└───────────────────────────────┬─────────────────────────────────┘
-                                │ webhook POST
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      whatsapp-webhook                           │
-│  1. Valida dados do webhook                                     │
-│  2. Busca instância por zapi_instance_id                        │
-│  3. Determina tenant_id (NULL = Super Admin)                    │
-│  4. Salva mensagem recebida                                     │
-│  5. Chama whatsapp-ai-chat se IA habilitada                     │
-│  6. Salva e envia resposta via Z-API                            │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌──────────────────────┴──────────────────────┐
-         ▼                                             ▼
-┌─────────────────────┐                    ┌─────────────────────┐
-│   Tenant Inbox      │                    │  Super Admin Inbox  │
-│ (tenant_id = UUID)  │                    │ (tenant_id = NULL)  │
-│                     │                    │                     │
-│ Filtra mensagens    │                    │ Filtra mensagens    │
-│ WHERE tenant_id =   │                    │ WHERE tenant_id IS  │
-│ 'd395b3a1-...'      │                    │ NULL                │
-└─────────────────────┘                    └─────────────────────┘
+Criar uma experiência **diferenciada para o Super Admin** sem alterar o funcionamento dos Tenants.
+
+---
+
+### Etapa 1: Ajustes no Banco de Dados
+
+**1.1 Permitir tenant_id NULL nas tabelas:**
+
+```sql
+-- whatsapp_lead_triggers: permitir Super Admin (tenant_id NULL)
+ALTER TABLE whatsapp_lead_triggers 
+  ALTER COLUMN tenant_id DROP NOT NULL;
+
+-- whatsapp_pending_messages: permitir Super Admin (tenant_id NULL)
+ALTER TABLE whatsapp_pending_messages 
+  ALTER COLUMN tenant_id DROP NOT NULL;
+```
+
+**1.2 Criar trigger específico para Super Admin:**
+
+```sql
+INSERT INTO whatsapp_lead_triggers (
+  tenant_id,            -- NULL = Super Admin
+  lead_source,
+  is_active,
+  welcome_message,
+  welcome_delay_minutes -- 0 = imediato
+) VALUES (
+  NULL,
+  'landing_leads',
+  true,
+  '👋 Olá, {{nome}}!
+
+Sou o agente virtual da VOUTI. Vi que você acabou de conhecer nossa plataforma!
+
+Como posso ajudar você hoje?',
+  0
+);
+```
+
+**1.3 Atualizar função do trigger:**
+
+A função `notify_whatsapp_landing_lead()` precisa ser ajustada para incluir triggers onde `tenant_id IS NULL`:
+
+```sql
+CREATE OR REPLACE FUNCTION notify_whatsapp_landing_lead()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_trigger RECORD;
+  v_message TEXT;
+  v_phone TEXT;
+BEGIN
+  -- Normalizar telefone com +55
+  v_phone := REGEXP_REPLACE(NEW.telefone, '[^0-9]', '', 'g');
+  IF LENGTH(v_phone) = 10 OR LENGTH(v_phone) = 11 THEN
+    v_phone := '55' || v_phone;
+  END IF;
+
+  -- Buscar triggers ativos (incluindo Super Admin com tenant_id NULL)
+  FOR v_trigger IN 
+    SELECT * FROM whatsapp_lead_triggers 
+    WHERE lead_source = 'landing_leads' 
+      AND is_active = true
+  LOOP
+    -- Substituir variáveis na mensagem
+    v_message := v_trigger.welcome_message;
+    v_message := REPLACE(v_message, '{{nome}}', COALESCE(NEW.nome, ''));
+    v_message := REPLACE(v_message, '{{email}}', COALESCE(NEW.email, ''));
+    v_message := REPLACE(v_message, '{{telefone}}', COALESCE(NEW.telefone, ''));
+    v_message := REPLACE(v_message, '{{tamanho_escritorio}}', COALESCE(NEW.tamanho_escritorio, ''));
+    v_message := REPLACE(v_message, '{{origem}}', COALESCE(NEW.origem, ''));
+    
+    -- Inserir na fila SOMENTE se tiver telefone
+    IF NEW.telefone IS NOT NULL AND NEW.telefone != '' THEN
+      INSERT INTO whatsapp_pending_messages (
+        tenant_id,
+        trigger_id,
+        lead_source,
+        lead_id,
+        phone,
+        message,
+        scheduled_at
+      ) VALUES (
+        v_trigger.tenant_id,  -- NULL para Super Admin
+        v_trigger.id,
+        'landing_leads',
+        NEW.id,
+        v_phone,              -- Telefone normalizado
+        v_message,
+        NOW() + (v_trigger.welcome_delay_minutes || ' minutes')::INTERVAL
+      );
+    END IF;
+  END LOOP;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public';
 ```
 
 ---
 
-### Modelo de Dados
+### Etapa 2: Ajustar Edge Function `whatsapp-process-queue`
 
-| Tabela | Propósito | Isolamento |
-|--------|-----------|------------|
-| `whatsapp_agents` | Agentes (atendentes virtuais) | Por `tenant_id` |
-| `whatsapp_instances` | Credenciais Z-API por agente | Por `tenant_id` + `agent_id` |
-| `whatsapp_messages` | Histórico de conversas | Por `tenant_id` |
-| `whatsapp_ai_config` | Configuração IA (prompt, modelo) | Por `tenant_id` |
-| `whatsapp_ai_disabled_contacts` | Contatos em atendimento humano | Por `tenant_id` |
+A função precisa buscar a instância corretamente para o Super Admin:
 
----
+| Contexto | Busca atual | Busca correta |
+|----------|-------------|---------------|
+| Tenant | `tenant_id = msg.tenant_id` | Mantém |
+| Super Admin | (não suportado) | `tenant_id IS NULL` |
 
-### Fluxo Completo de uma Mensagem
+**Mudança principal:**
 
-1. **Lead envia mensagem** → WhatsApp → Z-API
-2. **Z-API dispara webhook** com `instanceId` (ex: `3E8A7687...`)
-3. **Webhook busca** `whatsapp_instances WHERE zapi_instance_id = '3E8A7687...'`
-4. **Encontra instância** com `tenant_id`, `user_id`, credenciais
-5. **Salva mensagem** em `whatsapp_messages` com isolamento correto
-6. **Verifica IA** em `whatsapp_ai_config` para o tenant
-7. **Gera resposta** via Lovable AI Gateway (Gemini)
-8. **Salva resposta** imediatamente (aparece na UI)
-9. **Envia via Z-API** usando credenciais da instância
-10. **Inbox atualiza** via polling de 2 segundos
+```typescript
+// ANTES: Busca apenas por tenant_id específico
+const { data: instance } = await supabase
+  .from('whatsapp_instances')
+  .select('*')
+  .eq('tenant_id', msg.tenant_id)
+  .eq('connection_status', 'connected')
+  .single();
 
----
+// DEPOIS: Suporta Super Admin (tenant_id NULL)
+let instanceQuery = supabase
+  .from('whatsapp_instances')
+  .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id')
+  .eq('connection_status', 'connected');
 
-### Isolamento Multi-Tenant
+if (msg.tenant_id === null) {
+  instanceQuery = instanceQuery.is('tenant_id', null);
+} else {
+  instanceQuery = instanceQuery.eq('tenant_id', msg.tenant_id);
+}
 
-| Contexto | tenant_id | Comportamento |
-|----------|-----------|---------------|
-| **Super Admin** | `NULL` | Gerencia leads da landing page global |
-| **Tenant (ex: Solvenza)** | `UUID` | Gerencia leads próprios do escritório |
-
-**Garantias:**
-- Inbox do Tenant filtra `WHERE tenant_id = 'd395b3a1...'`
-- Inbox do Super Admin filtra `WHERE tenant_id IS NULL`
-- Webhook determina `tenant_id` pela instância conectada
-- Cada agente pode ter seu próprio número (instância Z-API)
+const { data: instance } = await instanceQuery.single();
+```
 
 ---
 
-### Tabelas Atuais no Banco
+### Etapa 3: Normalização do Telefone
 
-**whatsapp_instances (1 registro ativo):**
-| Campo | Valor |
-|-------|-------|
-| instance_name | `tenant-d395b3a1...-80a953f6...` |
-| tenant_id | `d395b3a1-1ea1-4710-bcc1-ff5f6a279750` |
-| agent_id | `80a953f6-73e1-4985-9717-ec73e1c40c1b` (Daniel) |
-| zapi_instance_id | `3E8A7687638142678C80FA4754EC29F2` |
-| connection_status | `connected` |
+**No formulário da HomePage:**
 
-**whatsapp_agents (3 agentes):**
-- Admin (Super Admin, tenant_id NULL)
-- Daniel (Solvenza, admin)
-- Juliana (Solvenza, atendente)
+O telefone será normalizado com prefixo `55` antes de salvar:
 
----
+```typescript
+// Antes de salvar
+const normalizedPhone = formData.whatsapp
+  ? '55' + formData.whatsapp.replace(/\D/g, '')
+  : undefined;
+```
 
-### Próximas Fases Sugeridas
-
-1. **Múltiplos Agentes por Tenant**
-   - Cada agente com seu próprio número Z-API
-   - Roteamento inteligente de leads
-
-2. **Times (Setores)**
-   - Agrupar agentes por área (Comercial, Suporte, Financeiro)
-
-3. **Transferência de Atendimento**
-   - Human takeover já implementado
-   - Adicionar transferência entre agentes
-
-4. **Dashboard de Métricas**
-   - Tempo médio de resposta
-   - Taxa de conversão
-   - Volume de mensagens
+**Formato no banco:** `5545988083583` (sem +, sem espaços)
 
 ---
 
-### Validação Necessária
+### Arquitetura Final
 
-Para confirmar que tudo está funcionando:
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    LANDING PAGE (vouti.co/)                     │
+│         Lead preenche: Nome, Email, WhatsApp, Tamanho          │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ INSERT com telefone normalizado
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              TRIGGER: tr_landing_leads_whatsapp                 │
+│     Função: notify_whatsapp_landing_lead()                      │
+│     Busca triggers onde tenant_id IS NULL (Super Admin)         │
+│     Insere em whatsapp_pending_messages                         │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ INSERT na fila
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              EDGE FUNCTION: whatsapp-process-queue              │
+│     Executa via CRON (1 minuto) ou chamada manual               │
+│     Busca instância: tenant_id IS NULL                          │
+│     Envia via Z-API usando credenciais do Super Admin           │
+│     Salva em whatsapp_messages                                  │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              CAIXA DE ENTRADA SUPER ADMIN                       │
+│     Filtra: tenant_id IS NULL                                   │
+│     Mostra conversas com leads da landing                       │
+│     Lead responde → IA (Gemini) processa e responde             │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-1. Abra a **Caixa de Entrada** no painel do Tenant
-2. Verifique se a conversa com `554588083583` aparece
-3. Confirme que a resposta "Esse primeiro momento..." está visível
-4. Envie uma nova mensagem do celular e verifique atualização em 2 segundos
+---
 
-O sistema está **100% operacional** conforme a arquitetura planejada.
+### Resumo das Alterações
+
+| Componente | Arquivo | Alteração |
+|------------|---------|-----------|
+| **Banco** | Migração SQL | Permitir `tenant_id NULL` nas tabelas |
+| **Banco** | Migração SQL | Atualizar função do trigger com normalização |
+| **Banco** | Migração SQL | Inserir trigger do Super Admin |
+| **Edge Function** | `whatsapp-process-queue/index.ts` | Suportar busca de instância com `tenant_id IS NULL` |
+| **Frontend** | `src/pages/HomePage.tsx` | Normalizar telefone com prefixo `55` |
+
+---
+
+### Formato do Telefone
+
+| Entrada do usuário | Salvo no banco | Enviado para Z-API |
+|--------------------|----------------|-------------------|
+| `45 98808-3583` | `5545988083583` | `5545988083583` |
+| `(45) 98808-3583` | `5545988083583` | `5545988083583` |
+| `988083583` | `55988083583` | `55988083583` |
+
+A Z-API espera o formato `55XXXXXXXXXXX` sem o `+`.
+
+---
+
+### Segurança e Isolamento
+
+- Leads da landing page terão `tenant_id = NULL` na fila
+- Mensagens enviadas terão `tenant_id = NULL` no histórico
+- Caixa de entrada do Super Admin filtra `WHERE tenant_id IS NULL`
+- Tenants continuam isolados com seus próprios `tenant_id`
+- Sem interferência entre os sistemas
 
