@@ -6766,9 +6766,39 @@ export type Database = {
           },
         ]
       }
+      whatsapp_agent_roles: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["whatsapp_agent_role"]
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["whatsapp_agent_role"]
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["whatsapp_agent_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_agent_roles_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_agents: {
         Row: {
           created_at: string | null
+          email: string | null
           id: string
           is_active: boolean | null
           is_landing_agent: boolean | null
@@ -6781,6 +6811,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          email?: string | null
           id?: string
           is_active?: boolean | null
           is_landing_agent?: boolean | null
@@ -6793,6 +6824,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          email?: string | null
           id?: string
           is_active?: boolean | null
           is_landing_agent?: boolean | null
@@ -7285,6 +7317,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_whatsapp_bot_access: {
+        Args: { _tenant_id: string; _user_email: string }
+        Returns: {
+          access_type: string
+          agent_id: string
+          agent_name: string
+          agent_role: Database["public"]["Enums"]["whatsapp_agent_role"]
+          has_access: boolean
+        }[]
+      }
       is_admin_in_same_tenant: {
         Args: { _target_user_id: string }
         Returns: boolean
@@ -7360,6 +7402,7 @@ export type Database = {
         | "sentenca"
         | "transito_julgado"
       user_role_type: "admin" | "advogado" | "comercial" | "financeiro"
+      whatsapp_agent_role: "admin" | "atendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -7536,6 +7579,7 @@ export const Constants = {
         "transito_julgado",
       ],
       user_role_type: ["admin", "advogado", "comercial", "financeiro"],
+      whatsapp_agent_role: ["admin", "atendente"],
     },
   },
 } as const

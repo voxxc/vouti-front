@@ -1,14 +1,10 @@
-import { useState, useEffect } from "react";
-import { useTenantId } from "@/hooks/useTenantId";
-import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { WhatsAppLayout } from "@/components/WhatsApp/WhatsAppLayout";
+import { WhatsAppAccessGate } from "@/components/WhatsApp/WhatsAppAccessGate";
 
 const WhatsApp = () => {
-  const { tenantId } = useTenantId();
-  const { tenantPath } = useTenantNavigation();
   const { isWhatsAppEnabled } = useTenantFeatures();
 
   if (!isWhatsAppEnabled) {
@@ -28,7 +24,11 @@ const WhatsApp = () => {
     );
   }
 
-  return <WhatsAppLayout />;
+  return (
+    <WhatsAppAccessGate>
+      <WhatsAppLayout />
+    </WhatsAppAccessGate>
+  );
 };
 
 export default WhatsApp;
