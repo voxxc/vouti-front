@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     let endpoint = '';
     let method = 'GET';
 
+    let requestBody: string | null = null;
+
     switch (action) {
       case 'status':
         endpoint = `${baseUrl}/status`;
@@ -67,6 +69,11 @@ Deno.serve(async (req) => {
         break;
       case 'qr-code':
         endpoint = `${baseUrl}/qr-code/image`;
+        break;
+      case 'update-notify-sent-by-me':
+        endpoint = `${baseUrl}/update-notify-sent-by-me`;
+        method = 'PUT';
+        requestBody = JSON.stringify({ notifySentByMe: true });
         break;
       default:
         throw new Error(`Invalid action: ${action}`);
@@ -84,10 +91,15 @@ Deno.serve(async (req) => {
       headers['Client-Token'] = clientToken;
     }
 
-    const zapiResponse = await fetch(endpoint, {
+    const fetchOptions: RequestInit = {
       method: method,
       headers: headers,
-    });
+    };
+    if (requestBody) {
+      fetchOptions.body = requestBody;
+    }
+
+    const zapiResponse = await fetch(endpoint, fetchOptions);
 
     // Verificar se a resposta é imagem (QR Code pode retornar PNG direto)
     const contentType = zapiResponse.headers.get('content-type');

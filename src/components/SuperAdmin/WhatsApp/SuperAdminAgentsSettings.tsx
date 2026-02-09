@@ -350,6 +350,21 @@ export const SuperAdminAgentsSettings = () => {
               .eq("id", config.id);
           }
 
+          // Ativar captura de mensagens enviadas pelo celular
+          try {
+            await supabase.functions.invoke("whatsapp-zapi-action", {
+              body: {
+                action: "update-notify-sent-by-me",
+                zapi_instance_id: config.zapi_instance_id,
+                zapi_instance_token: config.zapi_instance_token,
+                zapi_client_token: config.zapi_client_token || undefined,
+              },
+            });
+            console.log("notifySentByMe ativado com sucesso");
+          } catch (e) {
+            console.error("Erro ao ativar notifySentByMe:", e);
+          }
+
           // Recarregar agentes para atualizar o card
           await loadAgents();
 
