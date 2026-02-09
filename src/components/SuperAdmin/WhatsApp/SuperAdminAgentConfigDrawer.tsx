@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Agent } from "@/components/WhatsApp/settings/AgentCard";
@@ -28,6 +29,13 @@ interface InstanceConfig {
 const extractInstanceId = (url: string): string => {
   const match = url.match(/instances\/([A-F0-9]+)/i);
   return match ? match[1] : 'instance';
+};
+
+// Detectar se o token inserido é o mesmo da URL (erro comum)
+const isTokenFromUrl = (url: string, token: string): boolean => {
+  if (!url || !token) return false;
+  const match = url.match(/\/token\/([A-F0-9]+)/i);
+  return match ? match[1].toUpperCase() === token.toUpperCase() : false;
 };
 
 export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }: SuperAdminAgentConfigDrawerProps) => {
@@ -333,7 +341,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_token">Client Token</Label>
+              <Label htmlFor="zapi_token">Client Token (Security Token)</Label>
               <Input
                 id="zapi_token"
                 type="password"
@@ -342,9 +350,20 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                 placeholder="Token de autenticação do cliente"
               />
               <p className="text-xs text-muted-foreground">
-                Token diferente do que está na URL (Security Token)
+                Encontre no painel Z-API: Configurações → Security → Client-Token.
+                <strong> Este token é DIFERENTE do que aparece na URL!</strong>
               </p>
             </div>
+
+            {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  O Client Token não pode ser igual ao token da URL. 
+                  Acesse o painel Z-API → Security → Client-Token para obter o token correto.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -380,7 +399,12 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
               </div>
             ) : (
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 gap-2" onClick={handleConnect}>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2" 
+                  onClick={handleConnect}
+                  disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
+                >
                   <QrCode className="h-4 w-4" />
                   Conectar via QR Code
                 </Button>
