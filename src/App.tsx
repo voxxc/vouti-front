@@ -370,7 +370,7 @@ function App() {
             } />
             
             {/* WhatsApp - Tenant Dynamic (nova página dedicada) */}
-            <Route path="/:tenant/whatsapp" element={
+            <Route path="/:tenant/bot" element={
               <TenantRouteWrapper>
                 <WhatsApp />
               </TenantRouteWrapper>
@@ -601,7 +601,7 @@ function App() {
             
             {/* Super Admin Panel */}
             <Route path="/super-admin" element={<SuperAdmin />} />
-            <Route path="/super-admin/whatsapp" element={<SuperAdminWhatsApp />} />
+            <Route path="/super-admin/bot" element={<SuperAdminWhatsApp />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
