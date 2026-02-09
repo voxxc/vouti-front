@@ -18,17 +18,18 @@ function normalizePhoneNumber(phone: string): string {
   return cleaned;
 }
 
-// Validate webhook data structure
+// Validate webhook data structure (permissive to accept all Z-API event types)
 function validateWebhookData(data: any): boolean {
   if (!data || typeof data !== 'object') return false;
-  if (!data.type || typeof data.type !== 'string') return false;
-  if (!data.instanceId || typeof data.instanceId !== 'string') return false;
-  if (data.instanceId.length > 100) return false;
+  if (!data.instanceId && !data.phone) return false; // Need at least one identifier
+  if (data.instanceId && typeof data.instanceId !== 'string') return false;
+  if (data.instanceId && data.instanceId.length > 100) return false;
   
-  // Validate based on type
-  if (data.type === 'ReceivedCallback' || data.type === 'message') {
-    if (!data.phone || typeof data.phone !== 'string') return false;
-    if (!/^\d{10,15}$/.test(data.phone)) return false; // Valid phone format
+  // Only validate phone format for message types that have it
+  if (data.phone && typeof data.phone === 'string') {
+    // Clean phone and validate - allow broader formats
+    const cleanPhone = data.phone.replace(/\D/g, '');
+    if (cleanPhone.length < 8 || cleanPhone.length > 15) return false;
     if (data.text?.message && data.text.message.length > 10000) return false;
   }
   
@@ -78,30 +79,35 @@ serve(async (req) => {
   try {
     const webhookData = await req.json();
     
+    // Log raw payload BEFORE validation for diagnostics
+    console.log('📩 Raw webhook payload:', JSON.stringify(webhookData).substring(0, 500));
+    
     // Validate input data
     if (!validateWebhookData(webhookData)) {
-      console.error('Invalid webhook data received');
+      console.error('❌ Invalid webhook data received. Keys:', Object.keys(webhookData).join(', '));
       return new Response(
         JSON.stringify({ error: 'Invalid webhook data format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log('Received webhook data:', JSON.stringify(webhookData, null, 2));
+    console.log('Received webhook:', webhookData.type, '| fromMe:', webhookData.fromMe, '| phone:', webhookData.phone);
 
     const { type, instanceId, fromMe } = webhookData;
 
-    // Z-API envia webhooks com type: 'ReceivedCallback' para mensagens
-    if (type === 'ReceivedCallback') {
+    // Route based on webhook type - accept message-like types broadly
+    if (type === 'ReceivedCallback' || type === 'message' || type === 'SentByMeCallback') {
       await handleIncomingMessage(webhookData);
-    } else if (type === 'message') {
-      await handleIncomingMessage(webhookData);
-    } else if (type === 'status') {
+    } else if (type === 'status' || type === 'MessageStatusCallback') {
       await handleStatusUpdate(webhookData);
     } else if (type === 'qrcode') {
       await handleQRCodeUpdate(webhookData);
+    } else if (webhookData.phone && (webhookData.text || webhookData.fromMe !== undefined)) {
+      // Fallback: any payload with phone + text/fromMe is likely a message
+      console.log(`📨 Unknown type "${type}" but has phone/text, treating as message`);
+      await handleIncomingMessage(webhookData);
     } else {
-      console.log(`Unhandled webhook type: ${type}`);
+      console.log(`⏭️ Unhandled webhook type: ${type}`);
     }
 
     return new Response(JSON.stringify({ success: true }), {
