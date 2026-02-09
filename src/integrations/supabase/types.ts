@@ -6772,6 +6772,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_landing_agent: boolean | null
+          landing_page_source: string | null
           name: string
           role: string
           tenant_id: string | null
@@ -6783,6 +6784,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_landing_agent?: boolean | null
+          landing_page_source?: string | null
           name: string
           role?: string
           tenant_id?: string | null
@@ -6794,6 +6796,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_landing_agent?: boolean | null
+          landing_page_source?: string | null
           name?: string
           role?: string
           tenant_id?: string | null
