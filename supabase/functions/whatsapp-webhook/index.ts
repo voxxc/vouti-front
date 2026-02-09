@@ -38,8 +38,17 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
       return chatPhone;
     }
   }
+
+  // 2. Tentar extrair de chatLid (formato: 5545999180026@c.us ou phone@lid)
+  if (data.chatLid && typeof data.chatLid === 'string') {
+    const chatLidPhone = data.chatLid.replace(/@.*$/, '').replace(/\D/g, '');
+    if (chatLidPhone.startsWith('55') && chatLidPhone.length >= 12 && chatLidPhone.length <= 13) {
+      console.log(`🔄 LID resolvido via chatLid: ${originalPhone} -> ${chatLidPhone}`);
+      return chatLidPhone;
+    }
+  }
   
-  // 2. Tentar extrair de data.to
+  // 3. Tentar extrair de data.to
   if (data.to && typeof data.to === 'string') {
     const toPhone = data.to.replace(/@.*$/, '').replace(/\D/g, '');
     if (toPhone.startsWith('55') && toPhone.length >= 12 && toPhone.length <= 13) {
@@ -48,13 +57,16 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     }
   }
 
-  // 3. Fallback: buscar no banco a última mensagem recebida com esse chatLid
+  // 4. Fallback: buscar no banco usando o valor ORIGINAL (com @lid) no campo raw_data->>'chatLid'
+  // Mensagens recebidas do mesmo contato têm chatLid completo E from_number real
+  const lidOriginal = originalPhone.includes('@') ? originalPhone : `${originalPhone}@lid`;
   const lidClean = originalPhone.replace(/@.*$/, '');
+  
   const { data: match } = await supabase
     .from('whatsapp_messages')
     .select('from_number')
     .eq('direction', 'received')
-    .or(`raw_data->>phone.eq.${lidClean},raw_data->>chatLid.eq.${lidClean}`)
+    .or(`raw_data->>chatLid.eq.${lidOriginal},raw_data->>chatLid.eq.${lidClean},raw_data->>phone.eq.${lidClean}`)
     .order('timestamp', { ascending: false })
     .limit(1)
     .maybeSingle();
