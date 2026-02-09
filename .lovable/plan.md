@@ -1,86 +1,70 @@
 
 
-## Plano: Corrigir Crash na Caixa de Entrada do Super Admin
+## Plano: Corrigir Crash na Seção de Contatos do Super Admin
 
 ### Diagnóstico
 
-O crash ocorre porque o componente `SaveContactDialog` usa o hook `useAuth()`, mas a rota `/super-admin/bot` **não está envolvida pelo `AuthProvider`**.
+O componente `WhatsAppContacts` usa o hook `useAuth()` na linha 40, mas a rota `/super-admin/bot` não possui `AuthProvider`.
 
-**Fluxo do erro:**
-
-```text
-/super-admin/bot
-    └── SuperAdminWhatsApp (SEM AuthProvider)
-        └── SuperAdminWhatsAppLayout
-            └── SuperAdminWhatsAppInbox
-                └── ContactInfoPanel (renderizado ao selecionar conversa)
-                    └── SaveContactDialog
-                        └── useAuth() ← CRASH!
-```
-
-**Erro exato:**
-```
-Error: useAuth must be used within an AuthProvider
+**Código atual (linha 40):**
+```tsx
+const { user } = useAuth();  // ❌ Crash no Super Admin
 ```
 
 ---
 
 ### Solução
 
-Modificar o `SaveContactDialog` para **não depender do `useAuth()`** diretamente. Em vez disso, buscar o usuário diretamente do Supabase, tornando o componente compatível com qualquer contexto.
+Aplicar a mesma correção feita no `SaveContactDialog`: substituir `useAuth()` por busca direta via `supabase.auth.getUser()`.
 
 ---
 
 ### Alteração Proposta
 
-**Arquivo:** `src/components/WhatsApp/components/SaveContactDialog.tsx`
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppContacts.tsx`
 
 **Antes:**
 ```tsx
 import { useAuth } from "@/contexts/AuthContext";
 
-export const SaveContactDialog = (...) => {
-  const { user } = useAuth();  // ❌ Requer AuthProvider
+export const WhatsAppContacts = () => {
+  const { user } = useAuth();
   // ...
-  created_by: user?.id,
-};
+  if (!user?.id) return;
 ```
 
 **Depois:**
 ```tsx
-import { supabase } from "@/integrations/supabase/client";
+// Remover import do useAuth
 
-export const SaveContactDialog = (...) => {
+export const WhatsAppContacts = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
+  // Buscar usuário diretamente do Supabase
   useEffect(() => {
-    // Buscar usuário diretamente do Supabase Auth
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id || null);
     });
   }, []);
   
   // ...
-  created_by: currentUserId,
-};
+  if (!currentUserId) return;
 ```
 
 ---
 
-### Benefícios
+### Resultado Esperado
 
-| Aspecto | Resultado |
-|---------|-----------|
-| **Compatibilidade** | Funciona com ou sem AuthProvider |
-| **Super Admin** | Não crasha mais ao clicar em conversas |
-| **Tenants** | Continua funcionando normalmente |
-| **Simplicidade** | Mudança mínima, sem refatoração grande |
+| Antes | Depois |
+|-------|--------|
+| Crash ao clicar em "Contatos" | Funciona normalmente |
+| Requer AuthProvider | Compatível com qualquer contexto |
 
 ---
 
-### Arquivos a Modificar
+### Arquivo a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/WhatsApp/components/SaveContactDialog.tsx` | Substituir `useAuth()` por `supabase.auth.getUser()` |
+| `src/components/WhatsApp/sections/WhatsAppContacts.tsx` | Substituir `useAuth()` por `supabase.auth.getUser()` |
 
