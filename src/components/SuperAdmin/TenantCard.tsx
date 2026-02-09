@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,10 @@ import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
+import CloudIcon from '@/components/CloudIcon';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
  import {
    DropdownMenu,
    DropdownMenuContent,
@@ -37,9 +41,10 @@ interface TenantCardProps {
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
   onDelete: (tenantId: string, tenantName: string) => void;
   pendingPayments?: number;
+  onSettingsChange?: (tenantId: string, settings: unknown) => void;
 }
 
-export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete, pendingPayments = 0 }: TenantCardProps) {
+export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete, pendingPayments = 0, onSettingsChange }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
@@ -49,6 +54,10 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showPushDocs, setShowPushDocs] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+
+  // Extrair status do Vouti.Bot das settings
+  const isWhatsAppEnabled = (tenant.settings as Record<string, unknown>)?.whatsapp_enabled === true;
 
   const handleOpenTenant = () => {
     window.open(`/${tenant.slug}/dashboard`, '_blank');
@@ -63,6 +72,38 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
       // Dialog permanece aberto se der erro
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleWhatsApp = async () => {
+    setWhatsAppLoading(true);
+    try {
+      const currentSettings = (tenant.settings as Record<string, unknown>) || {};
+      const newSettings = {
+        ...currentSettings,
+        whatsapp_enabled: !isWhatsAppEnabled
+      };
+
+      const { error } = await supabase
+        .from('tenants')
+        .update({ settings: newSettings as unknown as Record<string, never> })
+        .eq('id', tenant.id);
+
+      if (error) throw error;
+
+      toast.success(
+        isWhatsAppEnabled 
+          ? 'Vouti.Bot desativado para este cliente' 
+          : 'Vouti.Bot ativado para este cliente'
+      );
+
+      // Notificar componente pai sobre a mudança
+      onSettingsChange?.(tenant.id, newSettings);
+    } catch (error) {
+      console.error('Erro ao alterar status do Vouti.Bot:', error);
+      toast.error('Erro ao alterar configuração');
+    } finally {
+      setWhatsAppLoading(false);
     }
   };
 
@@ -246,6 +287,27 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
                 >
                   {pendingPayments}
                 </Badge>
+              )}
+            </Button>
+            
+            {/* Botão Vouti.Bot Toggle */}
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className={cn(
+                "h-8 w-8 transition-colors",
+                isWhatsAppEnabled 
+                  ? "text-green-500 hover:text-green-600 hover:bg-green-500/10" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={handleToggleWhatsApp}
+              disabled={whatsAppLoading}
+              title={isWhatsAppEnabled ? "Vouti.Bot: Ativado" : "Vouti.Bot: Desativado"}
+            >
+              {whatsAppLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CloudIcon className="h-5 w-5" />
               )}
             </Button>
           </div>

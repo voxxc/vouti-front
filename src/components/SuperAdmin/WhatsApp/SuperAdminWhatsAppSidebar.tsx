@@ -42,6 +42,7 @@ const menuItems: { id: SuperAdminWhatsAppSection; label: string; icon: React.Ele
 ];
 
 const settingsItems: { id: SuperAdminWhatsAppSection; label: string; icon: React.ElementType }[] = [
+  { id: "agents", label: "Agentes", icon: Users2 },
   { id: "settings", label: "Conexão Z-API", icon: Wifi },
   { id: "settings-leads", label: "Fonte de Leads", icon: Users2 },
   { id: "ai-settings", label: "Agente IA", icon: Bot },
@@ -54,7 +55,7 @@ export const SuperAdminWhatsAppSidebar = ({ activeSection, onSectionChange }: Su
     window.close();
   };
 
-  const isSettingsActive = activeSection === "settings" || activeSection === "settings-leads" || activeSection === "ai-settings";
+  const isSettingsActive = activeSection === "settings" || activeSection === "settings-leads" || activeSection === "ai-settings" || activeSection === "agents";
 
   return (
     <aside className="w-56 bg-card border-r border-border flex flex-col h-full">
