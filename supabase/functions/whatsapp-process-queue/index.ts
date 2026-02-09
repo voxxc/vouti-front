@@ -73,13 +73,20 @@ serve(async (req) => {
     for (const msg of pendingMessages) {
       processed++;
 
-      // 2. Get Z-API credentials for this tenant
-      const { data: instance, error: instanceError } = await supabase
+      // 2. Get Z-API credentials for this tenant (or Super Admin if tenant_id is NULL)
+      let instanceQuery = supabase
         .from('whatsapp_instances')
-        .select('instance_name, instance_id, token, api_url, user_id')
-        .eq('tenant_id', msg.tenant_id)
-        .eq('connection_status', 'connected')
-        .single();
+        .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id')
+        .eq('connection_status', 'connected');
+
+      // Suporta Super Admin (tenant_id NULL) e Tenants (tenant_id UUID)
+      if (msg.tenant_id === null) {
+        instanceQuery = instanceQuery.is('tenant_id', null);
+      } else {
+        instanceQuery = instanceQuery.eq('tenant_id', msg.tenant_id);
+      }
+
+      const { data: instance, error: instanceError } = await instanceQuery.single();
 
       if (instanceError || !instance) {
         console.error(`[whatsapp-process-queue] No Z-API instance found for tenant ${msg.tenant_id}`);
@@ -102,16 +109,39 @@ serve(async (req) => {
       console.log(`[whatsapp-process-queue] Sending to ${formattedPhone} (original: ${msg.phone})`);
 
       // 4. Send message via Z-API
-      const apiUrl = instance.api_url || `https://api.z-api.io/instances/${instance.instance_id}/token/${instance.token}`;
-      const sendUrl = `${apiUrl}/send-text`;
+      // Usar credenciais específicas da instância ou fallback para secrets globais
+      const zapiInstanceId = instance.zapi_instance_id || Deno.env.get('Z_API_INSTANCE_ID');
+      const zapiInstanceToken = instance.zapi_instance_token || Deno.env.get('Z_API_TOKEN');
+      const zapiClientToken = instance.zapi_client_token; // Opcional
+
+      if (!zapiInstanceId || !zapiInstanceToken) {
+        console.error(`[whatsapp-process-queue] Missing Z-API credentials for tenant ${msg.tenant_id}`);
+        await supabase
+          .from('whatsapp_pending_messages')
+          .update({ 
+            status: 'failed',
+            error_message: 'Missing Z-API credentials',
+            attempts: msg.attempts + 1
+          })
+          .eq('id', msg.id);
+        failed++;
+        continue;
+      }
+
+      const sendUrl = `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiInstanceToken}/send-text`;
+
+      // Headers - incluir Client-Token apenas se configurado
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (zapiClientToken) {
+        headers['Client-Token'] = zapiClientToken;
+      }
 
       try {
         const zapiResponse = await fetch(sendUrl, {
           method: 'POST',
-          headers: {
-            'Client-Token': instance.token,
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             phone: formattedPhone,
             message: msg.message

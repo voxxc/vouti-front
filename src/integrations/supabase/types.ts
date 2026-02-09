@@ -7014,7 +7014,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           lead_source: string
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string | null
           welcome_delay_minutes: number | null
           welcome_message: string
@@ -7027,7 +7027,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           lead_source: string
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string | null
           welcome_delay_minutes?: number | null
           welcome_message: string
@@ -7040,7 +7040,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           lead_source?: string
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string | null
           welcome_delay_minutes?: number | null
           welcome_message?: string
@@ -7127,7 +7127,7 @@ export type Database = {
           scheduled_at: string
           sent_at: string | null
           status: string | null
-          tenant_id: string
+          tenant_id: string | null
           trigger_id: string | null
         }
         Insert: {
@@ -7142,7 +7142,7 @@ export type Database = {
           scheduled_at?: string
           sent_at?: string | null
           status?: string | null
-          tenant_id: string
+          tenant_id?: string | null
           trigger_id?: string | null
         }
         Update: {
@@ -7157,7 +7157,7 @@ export type Database = {
           scheduled_at?: string
           sent_at?: string | null
           status?: string | null
-          tenant_id?: string
+          tenant_id?: string | null
           trigger_id?: string | null
         }
         Relationships: [
