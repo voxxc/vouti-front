@@ -77,7 +77,10 @@ serve(async (req) => {
       message_text: message,
       direction: 'outgoing',
       instance_name: mode === 'superadmin' ? 'whatsapp-bot' : 'default',
-      is_from_me: true,
+      message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      message_type: 'text',
+      timestamp: new Date().toISOString(),
+      is_read: true,
     };
 
     // Apenas define tenant_id se NÃO for Super Admin
