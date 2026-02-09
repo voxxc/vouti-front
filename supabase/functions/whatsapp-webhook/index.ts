@@ -205,9 +205,9 @@ async function handleIncomingMessage(data: any) {
 
       // Enviar resposta usando Z-API diretamente
       try {
-        const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
+        const zapiUrl = `${instance.zapi_url}/send-text`;
         
-        console.log('🔗 Enviando para Z-API:', zapiUrl.replace(instance.zapi_token, '***'));
+        console.log('🔗 Enviando para Z-API:', zapiUrl);
         console.log('📱 Telefone destino:', phone);
         console.log('💬 Mensagem:', automation.response_message);
         
@@ -215,6 +215,7 @@ async function handleIncomingMessage(data: any) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Client-Token': instance.zapi_token,
           },
           body: JSON.stringify({
             phone: phone,
@@ -324,11 +325,14 @@ async function handleAIResponse(
       return false;
     }
 
-    const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
+    const zapiUrl = `${zapi_url}/send-text`;
     
     const sendResponse = await fetch(zapiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Client-Token': zapi_token || '',
+      },
       body: JSON.stringify({
         phone,
         message: aiData.response,
