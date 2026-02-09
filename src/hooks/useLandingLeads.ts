@@ -146,6 +146,27 @@ export function useLandingLeads() {
   };
 }
 
+// Normaliza telefone para formato 55XXXXXXXXXXX (sem +, sem espaços)
+function normalizePhoneNumber(phone?: string): string | null {
+  if (!phone) return null;
+  
+  // Remove tudo que não é número
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Se tem 10 ou 11 dígitos (sem código do país), adiciona 55
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    return `55${cleaned}`;
+  }
+  
+  // Se já começa com 55, retorna como está
+  if (cleaned.startsWith('55') && cleaned.length >= 12) {
+    return cleaned;
+  }
+  
+  // Retorna o número limpo como fallback
+  return cleaned || null;
+}
+
 // Funcao para criar lead (usada na landing page)
 export async function createLandingLead(data: {
   nome: string;
@@ -154,12 +175,15 @@ export async function createLandingLead(data: {
   tamanho_escritorio?: string;
   origem?: string;
 }) {
+  // Normaliza o telefone antes de salvar
+  const normalizedPhone = normalizePhoneNumber(data.telefone);
+
   const { error } = await supabase
     .from('landing_leads')
     .insert({
       nome: data.nome,
       email: data.email || null,
-      telefone: data.telefone || null,
+      telefone: normalizedPhone,
       tamanho_escritorio: data.tamanho_escritorio || null,
       origem: data.origem || 'vouti_landing'
     });
