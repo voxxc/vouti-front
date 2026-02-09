@@ -540,7 +540,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
           {qrCode && (
             <div className="flex flex-col items-center gap-3 p-4 bg-muted rounded-lg">
               <span className="text-sm font-medium">Escaneie o QR Code</span>
-              <img src={`data:image/png;base64,${qrCode}`} alt="QR Code" className="w-48 h-48" />
+              <img src={qrCode.startsWith('data:image/') ? qrCode : `data:image/png;base64,${qrCode}`} alt="QR Code" className="w-48 h-48" />
               
               {isPolling && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
