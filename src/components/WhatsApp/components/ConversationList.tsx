@@ -9,11 +9,17 @@ import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+interface ConversationWithAgent extends WhatsAppConversation {
+  agentId?: string;
+  agentName?: string;
+}
+
 interface ConversationListProps {
-  conversations: WhatsAppConversation[];
-  selectedConversation: WhatsAppConversation | null;
-  onSelectConversation: (conversation: WhatsAppConversation) => void;
+  conversations: ConversationWithAgent[];
+  selectedConversation: ConversationWithAgent | null;
+  onSelectConversation: (conversation: ConversationWithAgent) => void;
   isLoading: boolean;
+  showAgentBadge?: boolean;
 }
 
 export const ConversationList = ({
@@ -21,6 +27,7 @@ export const ConversationList = ({
   selectedConversation,
   onSelectConversation,
   isLoading,
+  showAgentBadge = false,
 }: ConversationListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -75,7 +82,7 @@ export const ConversationList = ({
           <div className="p-2 space-y-1">
             {filteredConversations.map((conversation) => (
               <button
-                key={conversation.id}
+                key={`${conversation.id}-${conversation.agentId || 'no-agent'}`}
                 onClick={() => onSelectConversation(conversation)}
                 className={cn(
                   "w-full p-3 rounded-lg flex items-start gap-3 text-left transition-colors",
@@ -91,9 +98,16 @@ export const ConversationList = ({
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-foreground truncate text-sm">
-                      {conversation.contactName}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {showAgentBadge && conversation.agentName && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary shrink-0">
+                          {conversation.agentName}
+                        </Badge>
+                      )}
+                      <span className="font-medium text-foreground truncate text-sm">
+                        {conversation.contactName}
+                      </span>
+                    </div>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {formatTime(conversation.lastMessageTime)}
                     </span>

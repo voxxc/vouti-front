@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { WhatsAppSidebar } from "./WhatsAppSidebar";
 import { WhatsAppInbox } from "./sections/WhatsAppInbox";
+import { WhatsAppAllConversations } from "./sections/WhatsAppAllConversations";
 import { WhatsAppConversations } from "./sections/WhatsAppConversations";
 import { WhatsAppKanban } from "./sections/WhatsAppKanban";
 import { WhatsAppContacts } from "./sections/WhatsAppContacts";
@@ -29,19 +30,32 @@ import { WhatsAppSection } from "./WhatsAppDrawer";
 
 export const WhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
+  const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
 
   const handleGoBack = () => {
     window.close();
+  };
+
+  const handleKanbanAgentSelect = (agentId: string, agentName: string) => {
+    setSelectedKanbanAgent({ id: agentId, name: agentName });
   };
 
   const renderSection = () => {
     switch (activeSection) {
       case "inbox":
         return <WhatsAppInbox />;
+      case "all-conversations":
+        return <WhatsAppAllConversations />;
       case "conversations":
         return <WhatsAppConversations />;
       case "kanban":
-        return <WhatsAppKanban />;
+        return selectedKanbanAgent ? (
+          <WhatsAppKanban agentId={selectedKanbanAgent.id} agentName={selectedKanbanAgent.name} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p>Selecione um agente no menu para ver o Kanban</p>
+          </div>
+        );
       case "contacts":
         return <WhatsAppContacts />;
       case "reports":
@@ -94,6 +108,8 @@ export const WhatsAppLayout = () => {
         activeSection={activeSection} 
         onSectionChange={setActiveSection}
         onClose={handleGoBack}
+        onKanbanAgentSelect={handleKanbanAgentSelect}
+        selectedKanbanAgentId={selectedKanbanAgent?.id}
       />
       <main className="flex-1 overflow-hidden">
         {renderSection()}
