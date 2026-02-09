@@ -7,8 +7,7 @@ import { WhatsAppContacts } from "./sections/WhatsAppContacts";
 import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
-import { WhatsAppSettings } from "./sections/WhatsAppSettings";
-import { WhatsAppAISettings } from "./settings/WhatsAppAISettings";
+import { WhatsAppSettingsLayout } from "./settings/WhatsAppSettingsLayout";
 
 export type WhatsAppSection = 
   | "inbox" 
@@ -18,12 +17,14 @@ export type WhatsAppSection =
   | "reports" 
   | "campaigns" 
   | "help" 
-  | "settings"
-  | "settings-leads"
-  | "ai-settings";
+  | "settings";
 
 export const WhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
+
+  const handleBackFromSettings = () => {
+    setActiveSection("inbox");
+  };
 
   const renderSection = () => {
     switch (activeSection) {
@@ -42,14 +43,20 @@ export const WhatsAppLayout = () => {
       case "help":
         return <WhatsAppHelp />;
       case "settings":
-      case "settings-leads":
-        return <WhatsAppSettings />;
-      case "ai-settings":
-        return <WhatsAppAISettings />;
+        return <WhatsAppSettingsLayout onBack={handleBackFromSettings} />;
       default:
         return <WhatsAppInbox />;
     }
   };
+
+  // Se estiver em settings, não mostra a sidebar principal
+  if (activeSection === "settings") {
+    return (
+      <div className="flex h-screen w-full bg-background">
+        {renderSection()}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full bg-background">
