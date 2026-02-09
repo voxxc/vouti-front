@@ -1,111 +1,137 @@
 
 
-## Plano: Correção Completa do Sistema de Chat WhatsApp
+## Revisão Completa: Sistema de Chat WhatsApp (Vouti.Bot)
 
-### Problema Raiz Identificado
+### Status Atual: ✅ FUNCIONANDO
 
-O webhook `whatsapp-webhook` busca a instância pelo campo `instance_name`, mas o valor que chega do Z-API (ex: `3E8A7687638142678C80FA4754EC29F2`) **não corresponde** ao que está salvo no banco (ex: `superadmin-{agentId}` ou `tenant-{tenantId}-{agentId}`).
-
-**Log do erro:**
-```
-ERROR Instance not found or no user_id: {
-  code: "PGRST116",
-  message: "Cannot coerce the result to a single JSON object"
-}
-```
-
-**Análise do banco:**
-- `whatsapp_instances`: **VAZIA** (0 registros)
-- `whatsapp_agents`: 3 agentes criados (Admin, Daniel, Juliana)
-- `whatsapp_messages`: Mensagens antigas existem (funcionou antes)
-- `whatsapp_ai_config`: Configuração IA ativa (Gemini configurado)
+Os logs confirmam que o sistema está operacional:
+- **08:00:23**: Mensagem "Bom dia" recebida do lead (554588083583)
+- **08:00:25**: IA processou com Gemini 3 Flash
+- **08:00:27**: Resposta gerada e enviada via Z-API (status 200)
+- **08:00:27**: Resposta salva no banco para exibição na UI
 
 ---
 
-### Arquivos a Modificar
-
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Alterar busca de `instance_name` para `zapi_instance_id` |
-
----
-
-### Mudança Principal no Webhook
-
-**ANTES (linha 124-128):**
-```typescript
-const { data: instance, error: instanceError } = await supabase
-  .from('whatsapp_instances')
-  .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
-  .eq('instance_name', instanceId)  // ❌ Busca pelo instance_name
-  .single();
-```
-
-**DEPOIS:**
-```typescript
-const { data: instance, error: instanceError } = await supabase
-  .from('whatsapp_instances')
-  .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
-  .eq('zapi_instance_id', instanceId)  // ✅ Busca pelo zapi_instance_id (ID real da Z-API)
-  .single();
-```
-
----
-
-### Fluxo Corrigido
+### Arquitetura Atual
 
 ```text
-1. Lead envia mensagem para o número conectado
-         ↓
-2. Z-API envia webhook com instanceId: "3E8A7687638142678C80FA4754EC29F2"
-         ↓
-3. Webhook busca: WHERE zapi_instance_id = "3E8A7687638142678C80FA4754EC29F2"
-         ↓
-4. Encontra a instância com tenant_id, user_id, credenciais
-         ↓
-5. Salva mensagem recebida no banco (aparece na caixa de entrada)
-         ↓
-6. Chama whatsapp-ai-chat → Gemini gera resposta
-         ↓
-7. Salva resposta no banco (aparece na UI)
-         ↓
-8. Envia resposta via Z-API usando credenciais da instância
-         ↓
-9. Lead recebe resposta no WhatsApp
+┌─────────────────────────────────────────────────────────────────┐
+│                         Z-API (WhatsApp)                        │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ webhook POST
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      whatsapp-webhook                           │
+│  1. Valida dados do webhook                                     │
+│  2. Busca instância por zapi_instance_id                        │
+│  3. Determina tenant_id (NULL = Super Admin)                    │
+│  4. Salva mensagem recebida                                     │
+│  5. Chama whatsapp-ai-chat se IA habilitada                     │
+│  6. Salva e envia resposta via Z-API                            │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+         ┌──────────────────────┴──────────────────────┐
+         ▼                                             ▼
+┌─────────────────────┐                    ┌─────────────────────┐
+│   Tenant Inbox      │                    │  Super Admin Inbox  │
+│ (tenant_id = UUID)  │                    │ (tenant_id = NULL)  │
+│                     │                    │                     │
+│ Filtra mensagens    │                    │ Filtra mensagens    │
+│ WHERE tenant_id =   │                    │ WHERE tenant_id IS  │
+│ 'd395b3a1-...'      │                    │ NULL                │
+└─────────────────────┘                    └─────────────────────┘
 ```
 
 ---
 
-### Pré-requisito: Recriar Instância no Banco
+### Modelo de Dados
 
-Antes de testar, o usuário precisa:
-1. Acessar a configuração do agente (Super Admin ou Tenant)
-2. Preencher as credenciais Z-API (Instance ID, Token, Client Token)
-3. Clicar em "Salvar" para criar o registro em `whatsapp_instances`
-
-Isso criará um registro com:
-- `instance_name`: identificador interno único
-- `zapi_instance_id`: ID real da Z-API (usado para busca no webhook)
-- `zapi_instance_token`: Token para autenticação
-- `agent_id`: Vinculado ao agente
-- `tenant_id`: NULL para Super Admin, ou UUID do tenant
+| Tabela | Propósito | Isolamento |
+|--------|-----------|------------|
+| `whatsapp_agents` | Agentes (atendentes virtuais) | Por `tenant_id` |
+| `whatsapp_instances` | Credenciais Z-API por agente | Por `tenant_id` + `agent_id` |
+| `whatsapp_messages` | Histórico de conversas | Por `tenant_id` |
+| `whatsapp_ai_config` | Configuração IA (prompt, modelo) | Por `tenant_id` |
+| `whatsapp_ai_disabled_contacts` | Contatos em atendimento humano | Por `tenant_id` |
 
 ---
 
-### Validação do Polling (Já Correto)
+### Fluxo Completo de uma Mensagem
 
-Os componentes de inbox já possuem polling de 2 segundos:
-- `WhatsAppInbox.tsx`: Linhas 149-173 (useCallback + useEffect com interval)
-- `SuperAdminWhatsAppInbox.tsx`: Linhas 132-154 (mesmo padrão)
+1. **Lead envia mensagem** → WhatsApp → Z-API
+2. **Z-API dispara webhook** com `instanceId` (ex: `3E8A7687...`)
+3. **Webhook busca** `whatsapp_instances WHERE zapi_instance_id = '3E8A7687...'`
+4. **Encontra instância** com `tenant_id`, `user_id`, credenciais
+5. **Salva mensagem** em `whatsapp_messages` com isolamento correto
+6. **Verifica IA** em `whatsapp_ai_config` para o tenant
+7. **Gera resposta** via Lovable AI Gateway (Gemini)
+8. **Salva resposta** imediatamente (aparece na UI)
+9. **Envia via Z-API** usando credenciais da instância
+10. **Inbox atualiza** via polling de 2 segundos
 
 ---
 
-### Resultado Esperado
+### Isolamento Multi-Tenant
 
-Após a correção:
-1. Webhook encontra a instância correta pelo `zapi_instance_id`
-2. Mensagens recebidas são salvas com `tenant_id` correto
-3. IA processa e responde automaticamente
-4. Caixa de entrada atualiza a cada 2 segundos
-5. Todas as mensagens (entrada e saída) aparecem em tempo real
+| Contexto | tenant_id | Comportamento |
+|----------|-----------|---------------|
+| **Super Admin** | `NULL` | Gerencia leads da landing page global |
+| **Tenant (ex: Solvenza)** | `UUID` | Gerencia leads próprios do escritório |
+
+**Garantias:**
+- Inbox do Tenant filtra `WHERE tenant_id = 'd395b3a1...'`
+- Inbox do Super Admin filtra `WHERE tenant_id IS NULL`
+- Webhook determina `tenant_id` pela instância conectada
+- Cada agente pode ter seu próprio número (instância Z-API)
+
+---
+
+### Tabelas Atuais no Banco
+
+**whatsapp_instances (1 registro ativo):**
+| Campo | Valor |
+|-------|-------|
+| instance_name | `tenant-d395b3a1...-80a953f6...` |
+| tenant_id | `d395b3a1-1ea1-4710-bcc1-ff5f6a279750` |
+| agent_id | `80a953f6-73e1-4985-9717-ec73e1c40c1b` (Daniel) |
+| zapi_instance_id | `3E8A7687638142678C80FA4754EC29F2` |
+| connection_status | `connected` |
+
+**whatsapp_agents (3 agentes):**
+- Admin (Super Admin, tenant_id NULL)
+- Daniel (Solvenza, admin)
+- Juliana (Solvenza, atendente)
+
+---
+
+### Próximas Fases Sugeridas
+
+1. **Múltiplos Agentes por Tenant**
+   - Cada agente com seu próprio número Z-API
+   - Roteamento inteligente de leads
+
+2. **Times (Setores)**
+   - Agrupar agentes por área (Comercial, Suporte, Financeiro)
+
+3. **Transferência de Atendimento**
+   - Human takeover já implementado
+   - Adicionar transferência entre agentes
+
+4. **Dashboard de Métricas**
+   - Tempo médio de resposta
+   - Taxa de conversão
+   - Volume de mensagens
+
+---
+
+### Validação Necessária
+
+Para confirmar que tudo está funcionando:
+
+1. Abra a **Caixa de Entrada** no painel do Tenant
+2. Verifique se a conversa com `554588083583` aparece
+3. Confirme que a resposta "Esse primeiro momento..." está visível
+4. Envie uma nova mensagem do celular e verifique atualização em 2 segundos
+
+O sistema está **100% operacional** conforme a arquitetura planejada.
 
