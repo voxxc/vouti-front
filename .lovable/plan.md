@@ -1,17 +1,24 @@
 
 
-## Plano: Correção do Polling de 2 Segundos na Caixa de Entrada
+## Plano: Correção Completa do Sistema de Chat WhatsApp
 
-### Problema Identificado
+### Problema Raiz Identificado
 
-As funções `loadConversations` e `loadMessages` são declaradas como funções regulares dentro do componente, causando:
-- **Closure obsoleta**: Os `useEffect` de polling capturam versões antigas das funções
-- **Dependências incompletas**: O ESLint/React não rastreia corretamente as dependências
-- **Inconsistência**: O polling pode não buscar dados atualizados corretamente
+O webhook `whatsapp-webhook` busca a instância pelo campo `instance_name`, mas o valor que chega do Z-API (ex: `3E8A7687638142678C80FA4754EC29F2`) **não corresponde** ao que está salvo no banco (ex: `superadmin-{agentId}` ou `tenant-{tenantId}-{agentId}`).
 
-### Solução
+**Log do erro:**
+```
+ERROR Instance not found or no user_id: {
+  code: "PGRST116",
+  message: "Cannot coerce the result to a single JSON object"
+}
+```
 
-Refatorar ambos os componentes (`WhatsAppInbox.tsx` e `SuperAdminWhatsAppInbox.tsx`) para usar `useCallback` nas funções de carregamento e adicionar as dependências corretas nos `useEffect`.
+**Análise do banco:**
+- `whatsapp_instances`: **VAZIA** (0 registros)
+- `whatsapp_agents`: 3 agentes criados (Admin, Daniel, Juliana)
+- `whatsapp_messages`: Mensagens antigas existem (funcionou antes)
+- `whatsapp_ai_config`: Configuração IA ativa (Gemini configurado)
 
 ---
 
@@ -19,98 +26,86 @@ Refatorar ambos os componentes (`WhatsAppInbox.tsx` e `SuperAdminWhatsAppInbox.t
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Refatorar com `useCallback` |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx` | Refatorar com `useCallback` |
+| `supabase/functions/whatsapp-webhook/index.ts` | Alterar busca de `instance_name` para `zapi_instance_id` |
 
 ---
 
-### Mudanças Detalhadas
+### Mudança Principal no Webhook
 
-#### 1. WhatsAppInbox.tsx (Tenant)
-
+**ANTES (linha 124-128):**
 ```typescript
-// ANTES: Funções simples
-const loadConversations = async (showLoading = true) => { ... }
-const loadMessages = async (contactNumber: string) => { ... }
-
-// DEPOIS: Usar useCallback para estabilizar referências
-const loadConversations = useCallback(async (showLoading = true) => {
-  if (!tenantId) return;
-  // ... lógica existente
-}, [tenantId]);
-
-const loadMessages = useCallback(async (contactNumber: string) => {
-  if (!tenantId) return;
-  // ... lógica existente
-}, [tenantId]);
+const { data: instance, error: instanceError } = await supabase
+  .from('whatsapp_instances')
+  .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
+  .eq('instance_name', instanceId)  // ❌ Busca pelo instance_name
+  .single();
 ```
 
-#### 2. Atualizar dependências dos useEffect
-
+**DEPOIS:**
 ```typescript
-// Polling de conversas - ADICIONAR loadConversations nas dependências
-useEffect(() => {
-  if (!tenantId) return;
-  const intervalId = setInterval(() => {
-    loadConversations(false);
-  }, 2000);
-  return () => clearInterval(intervalId);
-}, [tenantId, loadConversations]); // ← Adicionar dependência
-
-// Polling de mensagens - ADICIONAR loadMessages nas dependências
-useEffect(() => {
-  if (!selectedConversation || !tenantId) return;
-  const intervalId = setInterval(() => {
-    loadMessages(selectedConversation.contactNumber);
-  }, 2000);
-  return () => clearInterval(intervalId);
-}, [selectedConversation, tenantId, loadMessages]); // ← Adicionar dependência
+const { data: instance, error: instanceError } = await supabase
+  .from('whatsapp_instances')
+  .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
+  .eq('zapi_instance_id', instanceId)  // ✅ Busca pelo zapi_instance_id (ID real da Z-API)
+  .single();
 ```
-
-#### 3. Aplicar mesma lógica no SuperAdminWhatsAppInbox.tsx
-
-Mesma refatoração, mas sem a dependência de `tenantId` (Super Admin não usa tenant).
 
 ---
 
-### Ordem Final dos Hooks (Importante)
+### Fluxo Corrigido
 
-A ordem correta será:
+```text
+1. Lead envia mensagem para o número conectado
+         ↓
+2. Z-API envia webhook com instanceId: "3E8A7687638142678C80FA4754EC29F2"
+         ↓
+3. Webhook busca: WHERE zapi_instance_id = "3E8A7687638142678C80FA4754EC29F2"
+         ↓
+4. Encontra a instância com tenant_id, user_id, credenciais
+         ↓
+5. Salva mensagem recebida no banco (aparece na caixa de entrada)
+         ↓
+6. Chama whatsapp-ai-chat → Gemini gera resposta
+         ↓
+7. Salva resposta no banco (aparece na UI)
+         ↓
+8. Envia resposta via Z-API usando credenciais da instância
+         ↓
+9. Lead recebe resposta no WhatsApp
+```
 
-1. **Estados** (`useState`)
-2. **Funções com `useCallback`** (loadConversations, loadMessages)
-3. **useEffect de carregamento inicial + real-time**
-4. **useEffect de polling**
+---
 
-Isso garante que as funções estejam definidas antes de serem usadas nos `useEffect`.
+### Pré-requisito: Recriar Instância no Banco
+
+Antes de testar, o usuário precisa:
+1. Acessar a configuração do agente (Super Admin ou Tenant)
+2. Preencher as credenciais Z-API (Instance ID, Token, Client Token)
+3. Clicar em "Salvar" para criar o registro em `whatsapp_instances`
+
+Isso criará um registro com:
+- `instance_name`: identificador interno único
+- `zapi_instance_id`: ID real da Z-API (usado para busca no webhook)
+- `zapi_instance_token`: Token para autenticação
+- `agent_id`: Vinculado ao agente
+- `tenant_id`: NULL para Super Admin, ou UUID do tenant
+
+---
+
+### Validação do Polling (Já Correto)
+
+Os componentes de inbox já possuem polling de 2 segundos:
+- `WhatsAppInbox.tsx`: Linhas 149-173 (useCallback + useEffect com interval)
+- `SuperAdminWhatsAppInbox.tsx`: Linhas 132-154 (mesmo padrão)
 
 ---
 
 ### Resultado Esperado
 
-- **Polling funcionando corretamente**: A cada 2 segundos, busca novas mensagens
-- **Sem closures obsoletas**: As funções sempre terão acesso aos valores atualizados
-- **Atualização em tempo real**: Mensagens de leads aparecerão automaticamente na caixa de entrada
-
----
-
-### Detalhes Técnicos
-
-**Imports necessários:**
-```typescript
-import { useState, useEffect, useCallback } from "react";
-```
-
-**Estrutura refatorada do componente:**
-```text
-WhatsAppInbox
-├── useState (conversations, selectedConversation, messages, isLoading)
-├── useCallback: loadConversations(showLoading)
-├── useCallback: loadMessages(contactNumber)
-├── useEffect: Carregamento inicial + real-time subscription (depende de tenantId)
-├── useEffect: Real-time subscription para mensagens (depende de selectedConversation, tenantId)
-├── useEffect: Polling conversas 2s (depende de tenantId, loadConversations)
-├── useEffect: Polling mensagens 2s (depende de selectedConversation, tenantId, loadMessages)
-└── handleSendMessage + render
-```
+Após a correção:
+1. Webhook encontra a instância correta pelo `zapi_instance_id`
+2. Mensagens recebidas são salvas com `tenant_id` correto
+3. IA processa e responde automaticamente
+4. Caixa de entrada atualiza a cada 2 segundos
+5. Todas as mensagens (entrada e saída) aparecem em tempo real
 
