@@ -6766,6 +6766,47 @@ export type Database = {
           },
         ]
       }
+      whatsapp_agents: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          role: string
+          tenant_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          role?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          role?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_agents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_ai_config: {
         Row: {
           agent_name: string | null
@@ -6897,6 +6938,7 @@ export type Database = {
       }
       whatsapp_instances: {
         Row: {
+          agent_id: string | null
           connection_status: string | null
           created_at: string | null
           id: string
@@ -6909,6 +6951,7 @@ export type Database = {
           zapi_url: string | null
         }
         Insert: {
+          agent_id?: string | null
           connection_status?: string | null
           created_at?: string | null
           id?: string
@@ -6921,6 +6964,7 @@ export type Database = {
           zapi_url?: string | null
         }
         Update: {
+          agent_id?: string | null
           connection_status?: string | null
           created_at?: string | null
           id?: string
@@ -6933,6 +6977,13 @@ export type Database = {
           zapi_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_instances_tenant_id_fkey"
             columns: ["tenant_id"]
