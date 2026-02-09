@@ -1,71 +1,126 @@
 
+# Plano: Fazer a IA Responder nas Conversas do WhatsApp
 
-# Plano: Corrigir Salvamento de Mensagens Enviadas Manualmente
+## Problema Atual
 
-## Problema Identificado
+O fluxo da IA **já está implementado**, mas não funciona porque há uma inconsistência de `tenant_id`:
 
-Nos logs da Edge Function:
+| Componente | tenant_id |
+|------------|-----------|
+| Config IA (whatsapp_ai_config) | `NULL` (Super Admin) |
+| Instância Z-API (whatsapp_instances) | `d395b3a1-...` (Solvenza) |
+| Webhook verifica IA com | `instance.tenant_id` (Solvenza) |
+| Resultado | ❌ "IA não habilitada para este tenant" |
 
+**Causa raiz:** O webhook passa `instance.tenant_id` para `handleAIResponse()`, mas a IA está configurada com `tenant_id: NULL`.
+
+## Fluxo Atual vs Corrigido
+
+```text
+FLUXO ATUAL (Problema):
+
+   Lead envia mensagem
+          ↓
+   Webhook busca instance → tenant_id = "d395b3a1..." (Solvenza)
+          ↓
+   handleAIResponse(tenant_id = "d395b3a1...")
+          ↓
+   Busca whatsapp_ai_config WHERE tenant_id = "d395b3a1..."
+          ↓
+   NÃO ENCONTRA (config tem tenant_id = NULL)
+          ↓
+   "IA não habilitada" ❌
+
+
+FLUXO CORRIGIDO:
+
+   Lead envia mensagem
+          ↓
+   Webhook busca instance
+          ↓
+   effectiveTenantId = instance.tenant_id || null
+          ↓
+   handleAIResponse(tenant_id = effectiveTenantId)
+          ↓
+   Busca whatsapp_ai_config WHERE tenant_id IS NULL (ou = effectiveTenantId)
+          ↓
+   ENCONTRA config IA ✅
+          ↓
+   Gera resposta via Lovable AI
+          ↓
+   Envia via Z-API
+          ↓
+   Salva no banco (aparece na conversa)
 ```
-Error saving message to DB: {
-  code: "23502",
-  message: 'null value in column "user_id" violates not-null constraint'
-}
-```
-
-**A mensagem É enviada para o WhatsApp** (Z-API retorna sucesso), mas **NÃO é salva no banco** porque a coluna `user_id` é obrigatória (NOT NULL) e o código não está passando esse valor.
 
 ## Solução
 
-Há duas opções:
+Modificar a linha 164-170 do `whatsapp-webhook/index.ts` para passar `effectiveTenantId` em vez de `instance.tenant_id`:
 
-| Opção | Descrição | Prós | Contras |
-|-------|-----------|------|---------|
-| **A. Alterar a tabela** | Tornar `user_id` nullable | Simples, rápido | Mensagens podem ficar sem autor |
-| **B. Corrigir o código** | Extrair `user_id` do JWT e passar | Mantém integridade | Mais código |
+| Antes | Depois |
+|-------|--------|
+| `handleAIResponse(..., instance.tenant_id, ...)` | `handleAIResponse(..., effectiveTenantId, ...)` |
 
-**Recomendação:** Opção A (tornar `user_id` nullable) porque:
-- Mensagens do webhook/bot não têm `user_id` associado
-- O campo `direction` já indica se é do sistema ou usuário
-- Evita erros em todos os fluxos
+## Arquivos a Modificar
 
-## Alterações
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/whatsapp-webhook/index.ts` | Usar `effectiveTenantId` na chamada de `handleAIResponse` |
 
-### 1. Migração SQL (Alterar tabela)
+## Detalhes Técnicos
 
-```sql
-ALTER TABLE whatsapp_messages 
-ALTER COLUMN user_id DROP NOT NULL;
+### Linha 163-170 (webhook atual):
+```typescript
+// 🤖 PRIMEIRO: Verificar se IA está habilitada para este tenant
+const aiHandled = await handleAIResponse(
+  phone, 
+  text?.message || '', 
+  instance.tenant_id,  // ← PROBLEMA: usa tenant_id da instância
+  instance.zapi_url, 
+  instance.zapi_token
+);
 ```
 
-### 2. Nenhuma alteração no código necessária
-
-A Edge Function já tenta salvar com todos os campos corretos. Só falta permitir `user_id` nulo.
-
-## Fluxo Corrigido
-
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  USUÁRIO ENVIA MENSAGEM                                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   1. Super Admin/Tenant clica "Enviar"                                      │
-│   2. ChatPanel chama whatsapp-send-message                                  │
-│   3. Edge Function envia via Z-API (OK ✅)                                  │
-│   4. Edge Function salva no banco:                                          │
-│      - from_number: telefone do lead                                        │
-│      - direction: 'outgoing'                                                │
-│      - tenant_id: NULL (Super Admin) ou tenant_id (Tenant)                  │
-│      - user_id: NULL (agora permitido) ✅                                   │
-│   5. Mensagem aparece na conversa! ✅                                       │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+### Linha 163-170 (corrigido):
+```typescript
+// 🤖 PRIMEIRO: Verificar se IA está habilitada para este tenant
+const aiHandled = await handleAIResponse(
+  phone, 
+  text?.message || '', 
+  effectiveTenantId,  // ← CORRIGIDO: usa effectiveTenantId (pode ser NULL)
+  instance.zapi_url, 
+  instance.zapi_token
+);
 ```
+
+## Fluxo Completo Após Correção
+
+1. **Lead envia mensagem** → Z-API recebe e envia webhook
+2. **Webhook processa**:
+   - Busca instância pelo `instanceId`
+   - Calcula `effectiveTenantId = instance.tenant_id || null`
+   - Salva mensagem com `effectiveTenantId`
+3. **Verifica IA**:
+   - Chama `handleAIResponse(phone, message, effectiveTenantId, ...)`
+   - Busca config IA onde `tenant_id IS NULL` (Super Admin)
+   - ENCONTRA config ✅
+4. **Processa IA**:
+   - Chama `whatsapp-ai-chat` Edge Function
+   - Busca histórico de mensagens do telefone
+   - Monta contexto com system_prompt do Daniel
+   - Chama Lovable AI Gateway (google/gemini-3-flash-preview)
+   - Retorna resposta
+5. **Envia resposta**:
+   - Envia via Z-API com `Client-Token`
+   - Salva resposta no banco (`direction: 'outgoing'`)
+6. **UI atualiza**:
+   - Polling de 2 segundos detecta nova mensagem
+   - Conversa mostra mensagem do lead E resposta do bot
 
 ## Resultado Esperado
 
-Após a migração:
-- Mensagens enviadas manualmente serão salvas no banco
-- A conversa atualizará em tempo real com suas mensagens
-- O polling de 2 segundos mostrará as novas mensagens
-
+Após a correção:
+- Lead envia "Olá, preciso de ajuda com dívidas"
+- IA (Daniel) responde automaticamente com base no system_prompt
+- Resposta aparece na conversa em tempo real
+- Super Admin pode ver toda a conversa (mensagens do lead + respostas do bot)
