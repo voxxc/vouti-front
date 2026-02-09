@@ -1,159 +1,93 @@
 
-# Plano: Sincronizar AgentConfigDrawer dos Tenants com Versão Atualizada
 
-## Problema Identificado
+# Diagnóstico: Botão "Conectar via QR Code" Desabilitado
 
-O componente `AgentConfigDrawer.tsx` (usado pelos tenants/usuários normais) está **desatualizado** em comparação com o `SuperAdminAgentConfigDrawer.tsx` que foi corrigido anteriormente.
+## Situação Atual
 
-### Diferenças Críticas
+O botão está funcionando corretamente! Ele está **intencionalmente desabilitado** porque a validação detectou um erro de configuração:
 
-| Aspecto | SuperAdmin (OK) | Tenant (Problema) |
-|---------|-----------------|-------------------|
-| Campos | 2 campos | 3 campos (Instance ID manual) |
-| Validação | Detecta token duplicado | Sem validação |
-| Instruções | Claras e detalhadas | Vagas |
-| Extração ID | Automática da URL | Manual |
+| Campo | Valor Atual | Problema |
+|-------|-------------|----------|
+| `zapi_url` | `...token/F5DA3871D271E4965BD44484/send-text` | OK |
+| `zapi_token` | `F5DA3871D271E4965BD44484` | Token DUPLICADO (é o mesmo da URL) |
 
-## Solução
+A função `isTokenFromUrl()` detecta que o token salvo é igual ao token da URL e desabilita o botão para evitar o erro "Client-Token not allowed".
 
-Aplicar as mesmas melhorias do `SuperAdminAgentConfigDrawer.tsx` no `AgentConfigDrawer.tsx`:
+## Problema Real
 
-1. **Remover campo `zapi_instance_id`** do estado e formulário
-2. **Adicionar função `extractInstanceId()`** para extrair ID automaticamente da URL
-3. **Adicionar função `isTokenFromUrl()`** para detectar erro comum
-4. **Adicionar Alert destrutivo** quando token incorreto
-5. **Atualizar labels e descrições** com instruções claras
-6. **Desabilitar botão "Conectar"** quando configuração inválida
+O **Client-Token** salvo no banco é INCORRETO. O usuário precisa:
 
-## Arquivo a Modificar
+1. Acessar o painel Z-API
+2. Ir em Configurações → Security → Client-Token
+3. Copiar o token CORRETO (diferente do que aparece na URL)
+4. Atualizar no drawer de configurações
 
-`src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
+## Solução Proposta
 
-## Alterações Detalhadas
+Para melhorar a experiência do usuário:
 
-### 1. Imports (adicionar)
+1. **Tornar o Alert mais visível** - Adicionar um estado de destaque visual
+2. **Mostrar feedback no botão** - Exibir tooltip explicando por que está desabilitado
+3. **Adicionar link para documentação Z-API** - Facilitar acesso às instruções
+
+### Alterações no Código
+
+**Arquivo**: `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx`
+
+1. Adicionar import do Tooltip:
 ```typescript
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 ```
 
-### 2. Interface InstanceConfig (simplificar)
-```typescript
-// ANTES
-interface InstanceConfig {
-  id?: string;
-  zapi_url: string;
-  zapi_instance_id: string;  // REMOVER
-  zapi_token: string;
-}
-
-// DEPOIS
-interface InstanceConfig {
-  id?: string;
-  zapi_url: string;
-  zapi_token: string;
-}
-```
-
-### 3. Funções auxiliares (adicionar)
-```typescript
-// Extrair instance_id da URL para salvar no banco
-const extractInstanceId = (url: string): string => {
-  const match = url.match(/instances\/([A-F0-9]+)/i);
-  return match ? match[1] : 'instance';
-};
-
-// Detectar se o token inserido é o mesmo da URL
-const isTokenFromUrl = (url: string, token: string): boolean => {
-  if (!url || !token) return false;
-  const match = url.match(/\/token\/([A-F0-9]+)/i);
-  return match ? match[1].toUpperCase() === token.toUpperCase() : false;
-};
-```
-
-### 4. Estado inicial (simplificar)
-```typescript
-// REMOVER zapi_instance_id do estado inicial
-const [config, setConfig] = useState<InstanceConfig>({
-  zapi_url: "",
-  zapi_token: "",
-});
-```
-
-### 5. loadInstanceConfig (ajustar)
-Remover referência ao `zapi_instance_id` no setState
-
-### 6. checkConnectionStatus (simplificar)
-Remover parâmetro `instanceId` que não é mais necessário
-
-### 7. handleSave (usar extração automática)
-```typescript
-const instanceName = extractInstanceId(config.zapi_url);
-// Usar instanceName ao salvar no campo instance_name
-```
-
-### 8. handleConnect (simplificar validação)
-```typescript
-// ANTES
-if (!config.zapi_url || !config.zapi_instance_id || !config.zapi_token) {
-
-// DEPOIS  
-if (!config.zapi_url || !config.zapi_token) {
-```
-
-### 9. UI do formulário
-
-**Remover campo Instance ID completamente**
-
-**Atualizar label do campo URL:**
+2. Envolver o botão desabilitado com Tooltip explicativo:
 ```tsx
-<Label htmlFor="zapi_url">URL da Instância</Label>
-// ...
-<p className="text-xs text-muted-foreground">
-  Cole a URL completa da sua instância Z-API
-</p>
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className="flex-1">
+        <Button 
+          variant="outline" 
+          className="w-full gap-2" 
+          onClick={handleConnect}
+          disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
+        >
+          <QrCode className="h-4 w-4" />
+          Conectar via QR Code
+        </Button>
+      </div>
+    </TooltipTrigger>
+    {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
+      <TooltipContent>
+        <p>Token inválido - use o Client-Token do painel Z-API</p>
+      </TooltipContent>
+    )}
+  </Tooltip>
+</TooltipProvider>
 ```
 
-**Atualizar label do campo Token:**
-```tsx
-<Label htmlFor="zapi_token">Client Token (Security Token)</Label>
-// ...
-<p className="text-xs text-muted-foreground">
-  Encontre no painel Z-API: Configurações → Security → Client-Token.
-  <strong> Este token é DIFERENTE do que aparece na URL!</strong>
-</p>
-```
-
-**Adicionar Alert de erro:**
+3. Melhorar o Alert com ícone piscante para chamar mais atenção:
 ```tsx
 {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
-  <Alert variant="destructive">
+  <Alert variant="destructive" className="animate-pulse">
     <AlertCircle className="h-4 w-4" />
     <AlertDescription>
-      O Client Token não pode ser igual ao token da URL. 
+      <strong>Token Incorreto!</strong> O Client Token não pode ser igual ao token da URL. 
       Acesse o painel Z-API → Security → Client-Token para obter o token correto.
     </AlertDescription>
   </Alert>
 )}
 ```
 
-**Desabilitar botão Conectar:**
-```tsx
-<Button 
-  variant="outline" 
-  className="flex-1 gap-2" 
-  onClick={handleConnect}
-  disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
->
-```
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Adicionar Tooltip e melhorar Alert |
 
 ## Resultado Esperado
 
-Após as alterações:
+1. Quando o token está incorreto, o usuário verá:
+   - Alert vermelho piscante chamando atenção
+   - Tooltip explicativo ao passar mouse sobre o botão desabilitado
+2. Instruções claras sobre onde encontrar o Client-Token correto
 
-1. Interface simplificada com apenas 2 campos necessários (URL + Client Token)
-2. Instance ID extraído automaticamente da URL
-3. Validação visual se usuário usar token errado
-4. Instruções claras sobre onde encontrar o Client Token correto
-5. Botão desabilitado quando configuração inválida
-6. Paridade total com o componente do Super Admin
