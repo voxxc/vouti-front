@@ -93,10 +93,7 @@ serve(async (req) => {
 
     // Z-API envia webhooks com type: 'ReceivedCallback' para mensagens
     if (type === 'ReceivedCallback') {
-      // Se fromMe = false, é mensagem recebida de contato
-      if (!fromMe) {
-        await handleIncomingMessage(webhookData);
-      }
+      await handleIncomingMessage(webhookData);
     } else if (type === 'message') {
       await handleIncomingMessage(webhookData);
     } else if (type === 'status') {
@@ -132,10 +129,37 @@ async function handleIncomingMessage(data: any) {
     console.log(`📞 Telefone normalizado: ${rawPhone} -> ${phone}`);
   }
   
-  // ✅ Ignorar mensagens enviadas pelo próprio bot
+  // ✅ Mensagens enviadas por mim (fromMe: true)
   if (fromMe) {
-    console.log('⏭️ Ignorando mensagem própria (fromMe: true)');
-    return;
+    // Ignorar mensagens enviadas pela plataforma/API (já salvas via saveOutgoingMessage)
+    if (data.fromApi) {
+      console.log('⏭️ Ignorando mensagem já salva pela plataforma (fromApi: true)');
+      return;
+    }
+    
+    // Salvar mensagem enviada manualmente pelo celular como outgoing
+    const { error: outErr } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        instance_name: instanceId,
+        message_id: messageId || `msg_${Date.now()}`,
+        from_number: phone,
+        message_text: text?.message || '',
+        message_type: 'text',
+        direction: 'outgoing',
+        raw_data: data,
+        user_id: instance.user_id,
+        tenant_id: effectiveTenantId,
+        timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
+        is_read: true,
+      });
+    
+    if (outErr) {
+      console.error('❌ Erro ao salvar mensagem do celular:', outErr);
+    } else {
+      console.log('📱 Mensagem enviada pelo celular salva no histórico:', { phone, text: text?.message });
+    }
+    return; // Não processa IA nem automações
   }
   
   // Buscar user_id, tenant_id E credenciais Z-API da instância
