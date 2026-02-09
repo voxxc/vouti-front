@@ -74,19 +74,42 @@ serve(async (req) => {
       processed++;
 
       // 2. Get Z-API credentials for this tenant (or Super Admin if tenant_id is NULL)
-      let instanceQuery = supabase
-        .from('whatsapp_instances')
-        .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id')
-        .eq('connection_status', 'connected');
+      let instance: any = null;
+      let instanceError: any = null;
 
       // Suporta Super Admin (tenant_id NULL) e Tenants (tenant_id UUID)
       if (msg.tenant_id === null) {
-        instanceQuery = instanceQuery.is('tenant_id', null);
+        // Para Super Admin, buscar instância do agente marcado como landing_agent
+        const { data, error } = await supabase
+          .from('whatsapp_instances')
+          .select(`
+            instance_name, 
+            zapi_instance_id, 
+            zapi_instance_token, 
+            zapi_client_token, 
+            user_id,
+            agent_id,
+            whatsapp_agents!inner(is_landing_agent)
+          `)
+          .eq('connection_status', 'connected')
+          .is('tenant_id', null)
+          .eq('whatsapp_agents.is_landing_agent', true)
+          .single();
+        
+        instance = data;
+        instanceError = error;
       } else {
-        instanceQuery = instanceQuery.eq('tenant_id', msg.tenant_id);
+        // Para Tenants, buscar qualquer instância conectada
+        const { data, error } = await supabase
+          .from('whatsapp_instances')
+          .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id')
+          .eq('connection_status', 'connected')
+          .eq('tenant_id', msg.tenant_id)
+          .single();
+        
+        instance = data;
+        instanceError = error;
       }
-
-      const { data: instance, error: instanceError } = await instanceQuery.single();
 
       if (instanceError || !instance) {
         console.error(`[whatsapp-process-queue] No Z-API instance found for tenant ${msg.tenant_id}`);
