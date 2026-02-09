@@ -1,0 +1,32 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tag } from "lucide-react";
+
+export const WhatsAppLabelsSettings = () => {
+  return (
+    <div className="h-full overflow-auto p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Etiquetas</h1>
+          <p className="text-muted-foreground">Organize suas conversas com etiquetas</p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5" />
+              Gerenciamento de Etiquetas
+            </CardTitle>
+            <CardDescription>
+              Crie e gerencie etiquetas para organizar conversas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              Em desenvolvimento...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
