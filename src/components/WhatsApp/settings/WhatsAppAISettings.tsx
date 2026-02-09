@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Bot, Sparkles, MessageSquare, Thermometer, History, Save, Globe, Send } from "lucide-react";
+import { Bot, Sparkles, MessageSquare, Thermometer, History, Save, Globe, Send, Timer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -27,6 +27,7 @@ interface AIConfig {
   model_name: string;
   temperature: number;
   max_history: number;
+  response_delay_seconds: number;
 }
 
 const DEFAULT_PROMPT = `Você é um assistente virtual prestativo. Responda de forma amigável e profissional.
@@ -66,6 +67,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
     model_name: "google/gemini-3-flash-preview",
     temperature: 0.7,
     max_history: 10,
+    response_delay_seconds: 0,
   });
 
   useEffect(() => {
@@ -104,6 +106,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           model_name: data.model_name || "google/gemini-3-flash-preview",
           temperature: data.temperature || 0.7,
           max_history: data.max_history || 10,
+          response_delay_seconds: data.response_delay_seconds || 0,
         });
       }
 
@@ -288,6 +291,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         model_name: config.model_name,
         temperature: config.temperature,
         max_history: config.max_history,
+        response_delay_seconds: config.response_delay_seconds,
         updated_at: new Date().toISOString(),
       };
 
@@ -577,6 +581,31 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
             />
             <p className="text-xs text-muted-foreground">
               Quantas mensagens anteriores usar como contexto (1-50)
+            </p>
+          </div>
+
+          {/* Tempo de Espera (Debounce) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <Timer className="h-4 w-4" />
+                Tempo de Espera: {config.response_delay_seconds}s
+              </Label>
+            </div>
+            <Slider
+              value={[config.response_delay_seconds]}
+              onValueChange={([value]) => setConfig(prev => ({ ...prev, response_delay_seconds: value }))}
+              min={0}
+              max={30}
+              step={1}
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Imediato</span>
+              <span>30 segundos</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O agente aguarda este tempo após a última mensagem antes de responder. 
+              Permite que o cliente termine de digitar. (0 = resposta imediata)
             </p>
           </div>
         </CardContent>

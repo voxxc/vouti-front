@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.whatsapp-process-queue]
 verify_jwt = false
+
+[functions.whatsapp-ai-debounce]
+verify_jwt = false

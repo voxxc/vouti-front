@@ -6854,6 +6854,7 @@ export type Database = {
           is_enabled: boolean | null
           max_history: number | null
           model_name: string | null
+          response_delay_seconds: number
           system_prompt: string | null
           temperature: number | null
           tenant_id: string | null
@@ -6867,6 +6868,7 @@ export type Database = {
           is_enabled?: boolean | null
           max_history?: number | null
           model_name?: string | null
+          response_delay_seconds?: number
           system_prompt?: string | null
           temperature?: number | null
           tenant_id?: string | null
@@ -6880,6 +6882,7 @@ export type Database = {
           is_enabled?: boolean | null
           max_history?: number | null
           model_name?: string | null
+          response_delay_seconds?: number
           system_prompt?: string | null
           temperature?: number | null
           tenant_id?: string | null
@@ -6929,6 +6932,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_ai_pending_responses: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          instance_id: string
+          phone: string
+          scheduled_at: string
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          instance_id: string
+          phone: string
+          scheduled_at: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string
+          phone?: string
+          scheduled_at?: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
       }
       whatsapp_automations: {
         Row: {
