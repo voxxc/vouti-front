@@ -53,7 +53,7 @@ serve(async (req) => {
         break;
         
       case 'disconnect':
-        apiEndpoint = `${zapiUrl}/logout`;
+        apiEndpoint = `${zapiUrl}/disconnect`;
         break;
         
       case 'restart':
