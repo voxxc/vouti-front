@@ -8,10 +8,16 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Bot, Sparkles, MessageSquare, Thermometer, History, Save, Globe } from "lucide-react";
+import { Bot, Sparkles, MessageSquare, Thermometer, History, Save, Globe, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
+
+const DEFAULT_WELCOME_MESSAGE = `👋 Olá, {{nome}}!
+
+Sou o agente virtual da VOUTI. Vi que você acabou de conhecer nossa plataforma de gestão jurídica!
+
+Como posso ajudar você hoje?`;
 
 interface AIConfig {
   id?: string;
@@ -49,8 +55,10 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingWelcome, setIsSavingWelcome] = useState(false);
   const [isLandingAgent, setIsLandingAgent] = useState(false);
   const [landingPageSource, setLandingPageSource] = useState<string | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState(DEFAULT_WELCOME_MESSAGE);
   const [config, setConfig] = useState<AIConfig>({
     is_enabled: false,
     agent_name: "Assistente",
@@ -110,6 +118,18 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         if (agentData) {
           setIsLandingAgent(agentData.is_landing_agent || false);
         }
+
+        // Carregar mensagem de boas-vindas do trigger
+        const { data: triggerData } = await supabase
+          .from('whatsapp_lead_triggers')
+          .select('*')
+          .is('tenant_id', null)
+          .eq('lead_source', 'landing_leads')
+          .maybeSingle();
+        
+        if (triggerData?.welcome_message) {
+          setWelcomeMessage(triggerData.welcome_message);
+        }
       }
 
       // Carregar landing_page_source do agente (Tenants)
@@ -153,6 +173,27 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
       if (error) throw error;
 
       setIsLandingAgent(checked);
+
+      // Se ativando, criar/atualizar trigger de boas-vindas
+      if (checked) {
+        await supabase
+          .from('whatsapp_lead_triggers')
+          .upsert({
+            tenant_id: null,
+            lead_source: 'landing_leads',
+            welcome_message: welcomeMessage || DEFAULT_WELCOME_MESSAGE,
+            welcome_delay_minutes: 0,
+            is_active: true
+          }, { onConflict: 'tenant_id,lead_source' });
+      } else {
+        // Desativar trigger
+        await supabase
+          .from('whatsapp_lead_triggers')
+          .update({ is_active: false })
+          .is('tenant_id', null)
+          .eq('lead_source', 'landing_leads');
+      }
+
       toast({
         title: checked ? "Agente da Homepage ativado" : "Agente da Homepage desativado",
         description: checked 
@@ -166,6 +207,33 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         description: "Não foi possível atualizar a configuração",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleSaveWelcomeMessage = async () => {
+    setIsSavingWelcome(true);
+    try {
+      const { error } = await supabase
+        .from('whatsapp_lead_triggers')
+        .update({ welcome_message: welcomeMessage })
+        .is('tenant_id', null)
+        .eq('lead_source', 'landing_leads');
+
+      if (error) throw error;
+
+      toast({
+        title: "Mensagem salva",
+        description: "A mensagem de boas-vindas foi atualizada com sucesso",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a mensagem",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingWelcome(false);
     }
   };
 
@@ -315,6 +383,47 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+    )}
+
+    {/* Campo de Mensagem de Boas-Vindas (aparece quando is_landing_agent = true) */}
+    {isSuperAdmin && agentId && isLandingAgent && (
+      <Card className="border-primary/50">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Mensagem de Boas-Vindas
+          </CardTitle>
+          <CardDescription>
+            Esta é a primeira mensagem enviada automaticamente ao lead.
+            Após o lead responder, a IA assumirá a conversa.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            value={welcomeMessage}
+            onChange={(e) => setWelcomeMessage(e.target.value)}
+            placeholder="Ex: Olá {{nome}}! Bem-vindo à Vouti..."
+            className="min-h-[150px]"
+          />
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{nome}}"}</span>
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{email}}"}</span>
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{telefone}}"}</span>
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{tamanho_escritorio}}"}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use as variáveis acima para personalizar a mensagem. A mensagem será enviada automaticamente quando um lead preencher o formulário.
+          </p>
+          <Button 
+            onClick={handleSaveWelcomeMessage} 
+            size="sm"
+            disabled={isSavingWelcome}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSavingWelcome ? "Salvando..." : "Salvar Mensagem"}
+          </Button>
         </CardContent>
       </Card>
     )}
