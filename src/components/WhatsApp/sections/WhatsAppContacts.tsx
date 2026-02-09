@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
-import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,7 +52,7 @@ interface WhatsAppLabel {
 
 export const WhatsAppContacts = () => {
   const { tenantId } = useTenantId();
-  const { user } = useAuth();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
   const [labels, setLabels] = useState<WhatsAppLabel[]>([]);
   const [selectedLabel, setSelectedLabel] = useState<string>("all");
@@ -63,19 +62,26 @@ export const WhatsAppContacts = () => {
   const [editingContact, setEditingContact] = useState<WhatsAppContact | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
 
+  // Buscar usuário diretamente do Supabase (compatível com/sem AuthProvider)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id || null);
+    });
+  }, []);
+
   // Check if super admin
   useEffect(() => {
     const checkSuperAdmin = async () => {
-      if (!user?.id) return;
+      if (!currentUserId) return;
       const { data } = await supabase
         .from("super_admins")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", currentUserId)
         .maybeSingle();
       setIsSuperAdmin(!!data);
     };
     checkSuperAdmin();
-  }, [user?.id]);
+  }, [currentUserId]);
 
   // Load contacts
   const loadContacts = useCallback(async () => {
