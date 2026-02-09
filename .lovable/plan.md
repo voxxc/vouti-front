@@ -1,118 +1,110 @@
 
 
-# Plano: Resolver Autenticação Z-API e Melhorar UX
+# Plano: Restaurar 3 Campos Z-API no Drawer dos Tenants
 
-## Problema Raiz Confirmado
+## Situação Atual
 
-Os logs mostram claramente:
+| Componente | Campos |
+|------------|--------|
+| **SuperAdminAgentConfigDrawer** | 3 campos: Instance ID, URL, Token ✅ |
+| **AgentConfigDrawer** (Tenants) | 2 campos: URL, Token ❌ |
+
+## Objetivo
+
+Sincronizar o drawer dos tenants com o do Super Admin, restaurando os **3 campos manuais**:
+1. Instance ID
+2. URL da Instância
+3. Client Token
+
+## Alterações no Arquivo
+
+**Arquivo**: `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
+
+### 1. Adicionar useMemo ao import
+```typescript
+import { useState, useEffect, useMemo } from "react";
 ```
-Z-API Response: { error: "Client-Token F5DA3871D271E4965BD44484 not allowed" }
+
+### 2. Atualizar interface InstanceConfig
+```typescript
+interface InstanceConfig {
+  id?: string;
+  zapi_instance_id: string;  // ADICIONAR
+  zapi_url: string;
+  zapi_token: string;
+}
 ```
 
-### Dados Salvos no Banco (INCORRETOS)
+### 3. Remover função extractInstanceId (não mais necessária)
+A extração automática será substituída pelo campo manual.
 
-| Campo | Valor | Status |
-|-------|-------|--------|
-| `zapi_url` | `https://api.z-api.io/instances/3E8A768.../token/F5DA387.../send-text` | OK |
-| `zapi_token` | `F5DA3871D271E4965BD44484` | **ERRADO** (igual ao token da URL) |
-
-### O Que a Z-API Espera
-
-Segundo a [documentação oficial](https://developer.z-api.io/en/security/client-token):
-
-| Token | Onde Obter | Como Usar |
-|-------|------------|-----------|
-| **Instance Token** | Faz parte da URL | URL do endpoint |
-| **Client-Token** | Painel Z-API → Security | Header HTTP `Client-Token` |
-
-O **Client-Token** é diferente do token que aparece na URL!
-
----
-
-## Solução em Duas Partes
-
-### Parte 1: Você Precisa Obter o Token Correto
-
-1. Acesse o painel Z-API
-2. Vá em **Configurações** ou **Security**
-3. Procure por **"Client-Token"** ou **"Security Token"**
-4. Copie esse token (será diferente do que está na URL)
-5. Cole no campo "Client Token" do drawer
-
-### Parte 2: Melhorar o Feedback na Interface
-
-Para evitar esse erro no futuro, vou implementar:
-
-1. **Validação visual** que detecta se o token inserido é igual ao token da URL
-2. **Instruções mais claras** com exemplo visual
-3. **Debug info** para facilitar diagnóstico
-
----
-
-## Alterações Técnicas
-
-### Arquivo: `SuperAdminAgentConfigDrawer.tsx`
-
-**Adicionar função de validação:**
+### 4. Adicionar validação de token (igual ao SuperAdmin)
 ```typescript
 const getTokenFromUrl = (url: string): string | null => {
   const match = url.match(/\/token\/([A-F0-9]+)/i);
   return match ? match[1] : null;
 };
 
-const isTokenInvalid = config.zapi_url && config.zapi_token && 
-  getTokenFromUrl(config.zapi_url)?.toUpperCase() === config.zapi_token.toUpperCase();
+const isTokenInvalid = useMemo(() => {
+  if (!config.zapi_url || !config.zapi_token) return false;
+  const urlToken = getTokenFromUrl(config.zapi_url);
+  return urlToken?.toUpperCase() === config.zapi_token.toUpperCase();
+}, [config.zapi_url, config.zapi_token]);
 ```
 
-**Adicionar alerta visual quando token estiver errado:**
+### 5. Atualizar estado inicial
+```typescript
+const [config, setConfig] = useState<InstanceConfig>({
+  zapi_instance_id: "",
+  zapi_url: "",
+  zapi_token: "",
+});
+```
+
+### 6. Atualizar loadInstanceConfig
+```typescript
+setConfig({
+  id: data.id,
+  zapi_instance_id: data.instance_name || "",
+  zapi_url: data.zapi_url || "",
+  zapi_token: data.zapi_token || "",
+});
+```
+
+### 7. Atualizar handleSave
+```typescript
+// Usar o campo manual zapi_instance_id
+instance_name: config.zapi_instance_id,
+```
+
+### 8. Adicionar campo Instance ID no formulário
 ```tsx
-{isTokenInvalid && (
-  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
-    <p className="font-medium text-destructive">⚠️ Token Incorreto Detectado</p>
-    <p className="text-muted-foreground mt-1">
-      O Client-Token não pode ser igual ao token da URL.
-      Obtenha o token correto em: <strong>Painel Z-API → Security → Client-Token</strong>
-    </p>
-  </div>
-)}
+<div className="space-y-2">
+  <Label htmlFor="zapi_instance_id">Instance ID</Label>
+  <Input
+    id="zapi_instance_id"
+    value={config.zapi_instance_id}
+    onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
+    placeholder="ID da instância Z-API"
+  />
+  <p className="text-xs text-muted-foreground">
+    Identificador único da sua instância
+  </p>
+</div>
 ```
 
-**Desabilitar botão quando inválido:**
+### 9. Atualizar alerta de token inválido
+Usar a validação `isTokenInvalid` com melhor feedback visual (igual ao SuperAdmin).
+
+### 10. Atualizar condição do botão Conectar
 ```tsx
-<Button 
-  disabled={!config.zapi_url || !config.zapi_token || isTokenInvalid}
->
-  Conectar via QR Code
-</Button>
+disabled={!config.zapi_url || !config.zapi_instance_id || !config.zapi_token || isTokenInvalid}
 ```
 
-**Melhorar descrição do campo Client Token:**
-```tsx
-<Label>Client Token (Security Token)</Label>
-<p className="text-xs text-muted-foreground">
-  ⚠️ <strong>NÃO</strong> use o token da URL!<br/>
-  Encontre em: Painel Z-API → Security → Client-Token
-</p>
-```
+## Resultado Esperado
 
----
-
-## Ação Imediata Necessária
-
-Você precisa acessar o painel Z-API e obter o **Client-Token** correto. O token atual (`F5DA387...`) é o Instance Token da URL, não o Security Token.
-
-**Onde encontrar:**
-```text
-Painel Z-API → Sua Instância → Configurações → Security → Client-Token
-```
-
-Depois de obter o token correto, atualize no drawer e o QR Code será gerado.
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Adicionar validação e feedback visual |
+Após as alterações, o drawer dos tenants terá:
+- 3 campos manuais: Instance ID, URL, Client Token
+- Validação visual se token estiver incorreto
+- Paridade total com o componente do Super Admin
 
