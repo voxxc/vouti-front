@@ -1,213 +1,283 @@
 
-# Plano: Vouti.Bot como Drawer + Configurações com Menu Retrátil
+# Plano: Caixa de Entrada com Drawer em 2o Plano + Sistema de Agentes
 
-## Entendimento do Problema
+## Resumo das Alteracoes
 
-A implementação atual tem dois problemas:
+O usuario solicitou tres funcionalidades principais:
 
-1. **Configurações abre uma nova sidebar** - Deveria ser um dropdown/collapsible retrátil dentro da sidebar principal
-2. **Vouti.Bot roda como página separada** - Deveria funcionar como drawer (igual CRMDrawer, AgendaDrawer) para maior celeridade
-
----
-
-## Arquitetura Proposta
-
-### 1. Vouti.Bot como Drawer
-
-Transformar a interface WhatsApp em um drawer que abre sobre o dashboard, seguindo o mesmo padrão do CRMDrawer:
-
-```text
-┌────────────────────────────────────────────────────────────────────┐
-│  DASHBOARD                                                          │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌─────────────┐  ┌──────────────────────────────────────────────┐ │
-│  │ Sidebar     │  │                                              │ │
-│  │ Principal   │  │         DRAWER VOUTI.BOT (side="inset")     │ │
-│  │             │  │                                              │ │
-│  │ - Projetos  │  │   ┌────────────┬────────────────────────┐   │ │
-│  │ - Clientes  │  │   │ Sub-menu   │    Conteúdo da seção   │   │ │
-│  │ - Agenda    │  │   │            │                        │   │ │
-│  │ - ...       │  │   │ Inbox      │    Ex: Lista de        │   │ │
-│  │ - Vouti.Bot │  │   │ Conversas  │    conversas           │   │ │
-│  │             │  │   │ Kanban     │                        │   │ │
-│  └─────────────┘  │   │ Config ▼   │                        │   │ │
-│                   │   │  └ Conta   │                        │   │ │
-│                   │   │  └ Agentes │                        │   │ │
-│                   │   │  └ Times   │                        │   │ │
-│                   │   └────────────┴────────────────────────┘   │ │
-│                   └──────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### 2. Configurações como Dropdown Retrátil (Collapsible)
-
-Dentro do drawer do Vouti.Bot, o botão "Configurações" expande/colapsa um submenu com todas as opções:
-
-```text
-Sidebar do Drawer:
-┌─────────────────────────┐
-│ ← Vouti.Bot             │
-├─────────────────────────┤
-│ ○ Caixa de Entrada      │
-│ ○ Conversas             │
-│ ○ Kanban CRM            │
-│ ○ Contatos              │
-│ ○ Relatórios            │
-│ ○ Campanhas             │
-│ ○ Central de Ajuda      │
-│ ▼ Configurações         │  ← Clicável, expande/colapsa
-│   └ Conta               │
-│   └ Agentes             │
-│   └ Times               │
-│   └ Caixas de Entrada   │
-│   └ Etiquetas           │
-│   └ Atributos           │
-│   └ ... (16 itens)      │
-└─────────────────────────┘
-```
+1. **Caixa de Entrada como Drawer com carregamento em 2o plano** - As conversas devem ser pre-carregadas e atualizadas silenciosamente a cada 2 segundos
+2. **Sistema de Agentes** - Cadastro de agentes com nome e funcao, cada um com seu proprio card de configuracoes Z-API
+3. **Primeiro agente pre-criado** - Card do "Daniel" com as configuracoes Z-API existentes
 
 ---
 
-## Modificacoes Necessarias
+## Arquitetura
+
+### 1. Carregamento em Segundo Plano (Inbox)
+
+O componente `WhatsAppInbox` ja possui polling de 2 segundos. A melhoria sera:
+
+- Mover a logica de carregamento para o nivel do `WhatsAppDrawer`
+- Pre-carregar conversas assim que o drawer abre (mesmo em outra secao)
+- Manter estado compartilhado entre secoes
+
+```text
+WhatsAppDrawer (estado compartilhado)
+├── conversations[]     ← carregado em 2o plano sempre
+├── polling a cada 2s   ← atualiza silenciosamente
+│
+└── renderSection()
+    ├── WhatsAppInbox   ← recebe conversations via props
+    ├── WhatsAppAgents  ← nova tela de agentes
+    └── ...outras secoes
+```
+
+### 2. Sistema de Agentes
+
+#### Nova Tabela: `whatsapp_agents`
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid | PK |
+| tenant_id | uuid | FK para tenants |
+| user_id | uuid | FK para profiles (opcional) |
+| name | text | Nome do agente |
+| role | text | Funcao (admin, atendente, etc) |
+| whatsapp_instance_id | uuid | FK para whatsapp_instances (opcional) |
+| is_active | boolean | Se o agente esta ativo |
+| created_at | timestamp | Data de criacao |
+| updated_at | timestamp | Data de atualizacao |
+
+#### Fluxo de Cadastro
+
+1. Usuario clica em "Adicionar Agente"
+2. Dialog solicita: Nome + Funcao
+3. Ao salvar, cria registro em `whatsapp_agents`
+4. Card do agente aparece na listagem
+5. Ao clicar no card, abre drawer lateral com configuracoes Z-API individuais
+
+---
+
+## Arquivos a Modificar
 
 ### Novos Arquivos
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/components/WhatsApp/WhatsAppDrawer.tsx` | Drawer principal do Vouti.Bot (igual CRMDrawer) |
+| `src/components/WhatsApp/settings/AgentCard.tsx` | Card do agente na listagem |
+| `src/components/WhatsApp/settings/AgentConfigDrawer.tsx` | Drawer de configuracoes do agente (Z-API) |
+| `src/components/WhatsApp/settings/AddAgentDialog.tsx` | Dialog para adicionar novo agente |
 
 ### Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/WhatsApp/WhatsAppSidebar.tsx` | Adicionar Collapsible para Configuracoes com subitens |
-| `src/components/WhatsApp/WhatsAppLayout.tsx` | Remover logica de settings separado, usar renderizacao normal |
-| `src/components/Dashboard/DashboardLayout.tsx` | Adicionar WhatsAppDrawer ao sistema de drawers |
-| `src/components/Dashboard/DashboardSidebar.tsx` | Adicionar 'whatsapp' ao tipo ActiveDrawer |
-
-### Arquivos a Remover
-
-| Arquivo | Motivo |
-|---------|--------|
-| `src/components/WhatsApp/settings/WhatsAppSettingsLayout.tsx` | Nao mais necessario |
-| `src/components/WhatsApp/settings/WhatsAppSettingsSidebar.tsx` | Nao mais necessario |
+| `src/components/WhatsApp/WhatsAppDrawer.tsx` | Adicionar estado compartilhado + polling global |
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Receber conversations via props (opcional) |
+| `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` | Implementar listagem + cadastro de agentes |
 
 ---
 
-## Detalhes Tecnicos
+## Detalhes de Implementacao
 
-### 1. WhatsAppDrawer.tsx (Novo)
-
-Estrutura similar ao CRMDrawer:
+### 1. WhatsAppDrawer - Estado Compartilhado
 
 ```typescript
-export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-      <SheetContent side="inset" className="p-0 flex flex-col">
-        <SheetTitle className="sr-only">Vouti.Bot</SheetTitle>
-        
-        <div className="flex h-full">
-          {/* Sidebar interna do WhatsApp */}
-          <WhatsAppSidebar 
-            activeSection={activeSection} 
-            onSectionChange={setActiveSection} 
-          />
-          
-          {/* Conteudo da secao ativa */}
-          <main className="flex-1 overflow-hidden">
-            {renderSection()}
-          </main>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
+export function WhatsAppDrawer({ open, onOpenChange }) {
+  const { tenantId } = useTenantId();
+  const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
+  
+  // Pre-carregar conversas em 2o plano
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    
+    loadConversations();
+    
+    // Polling silencioso a cada 2s
+    const interval = setInterval(() => {
+      loadConversations();
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [open, tenantId]);
+  
+  // ... passar conversations para WhatsAppInbox via props ou context
 }
 ```
 
-### 2. WhatsAppSidebar.tsx (Modificar)
-
-Usar Collapsible para Configuracoes:
+### 2. WhatsAppAgentsSettings - Listagem de Agentes
 
 ```typescript
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight } from "lucide-react";
-
-// Dentro do componente:
-const [settingsOpen, setSettingsOpen] = useState(false);
-
-// No JSX:
-<Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-  <CollapsibleTrigger asChild>
-    <Button variant="ghost" className="w-full justify-between">
-      <span className="flex items-center gap-3">
-        <Settings className="h-4 w-4" />
-        Configuracoes
-      </span>
-      {settingsOpen ? <ChevronDown /> : <ChevronRight />}
-    </Button>
-  </CollapsibleTrigger>
-  <CollapsibleContent className="pl-6 space-y-1">
-    {settingsMenuItems.map((item) => (
-      <Button
-        key={item.id}
-        variant={activeSection === item.id ? "secondary" : "ghost"}
-        className="w-full justify-start gap-2 h-8 text-sm"
-        onClick={() => onSectionChange(item.id)}
-      >
-        <item.icon className="h-3 w-3" />
-        {item.label}
-      </Button>
-    ))}
-  </CollapsibleContent>
-</Collapsible>
+export const WhatsAppAgentsSettings = () => {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  
+  return (
+    <div className="h-full overflow-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1>Agentes</h1>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus /> Adicionar Agente
+        </Button>
+      </div>
+      
+      {/* Grid de Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {agents.map(agent => (
+          <AgentCard 
+            key={agent.id} 
+            agent={agent} 
+            onClick={() => setSelectedAgent(agent)}
+          />
+        ))}
+      </div>
+      
+      {/* Dialog para adicionar */}
+      <AddAgentDialog 
+        open={isAddDialogOpen} 
+        onOpenChange={setIsAddDialogOpen}
+      />
+      
+      {/* Drawer de configuracoes do agente */}
+      <AgentConfigDrawer 
+        agent={selectedAgent}
+        open={!!selectedAgent}
+        onOpenChange={() => setSelectedAgent(null)}
+      />
+    </div>
+  );
+};
 ```
 
-### 3. DashboardSidebar.tsx (Modificar)
-
-Adicionar ao tipo e lista de items:
+### 3. AgentCard - Card do Agente
 
 ```typescript
-export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 
-                           'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | null;
-
-// Novo item no menu (se WhatsApp habilitado):
-{ id: "whatsapp", label: "Vouti.Bot", icon: MessageCircle }
+export const AgentCard = ({ agent, onClick }) => {
+  return (
+    <Card 
+      className="cursor-pointer hover:border-primary transition-colors"
+      onClick={onClick}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarFallback>{agent.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <CardTitle className="text-base">{agent.name}</CardTitle>
+            <CardDescription>{agent.role}</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-2 text-sm">
+          <div className={cn(
+            "w-2 h-2 rounded-full",
+            agent.isConnected ? "bg-green-500" : "bg-gray-400"
+          )} />
+          <span>{agent.isConnected ? "Conectado" : "Desconectado"}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 ```
 
-### 4. DashboardLayout.tsx (Modificar)
+### 4. AgentConfigDrawer - Configuracoes do Agente
 
-Adicionar o drawer:
+O drawer lateral tera as mesmas configuracoes Z-API que ja existem em `WhatsAppSettings.tsx`:
+- Status da conexao (conectado/desconectado)
+- Credenciais Z-API (URL, Instance ID, Token)
+- Botao Conectar (gera QR Code)
+- Botao Resetar
 
-```typescript
-import { WhatsAppDrawer } from "@/components/WhatsApp/WhatsAppDrawer";
+### 5. Primeiro Agente: Daniel
 
-// Junto aos outros drawers:
-<WhatsAppDrawer 
-  open={activeDrawer === 'whatsapp'} 
-  onOpenChange={(open) => !open && setActiveDrawer(null)} 
-/>
+Ao implementar, ja criar o registro inicial:
+
+```sql
+INSERT INTO whatsapp_agents (tenant_id, name, role, is_active)
+VALUES ('d395b3a1-1ea1-4710-bcc1-ff5f6a279750', 'Daniel', 'admin', true);
+```
+
+E vincular a instancia Z-API existente a ele.
+
+---
+
+## Migracao do Banco de Dados
+
+```sql
+-- Criar tabela de agentes
+CREATE TABLE whatsapp_agents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  user_id UUID REFERENCES profiles(user_id),
+  name TEXT NOT NULL,
+  role TEXT DEFAULT 'atendente',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Adicionar referencia na tabela de instancias
+ALTER TABLE whatsapp_instances 
+ADD COLUMN agent_id UUID REFERENCES whatsapp_agents(id);
+
+-- RLS
+ALTER TABLE whatsapp_agents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view agents in their tenant" ON whatsapp_agents
+  FOR SELECT USING (tenant_id = get_user_tenant_id());
+
+CREATE POLICY "Admins can manage agents in their tenant" ON whatsapp_agents
+  FOR ALL USING (tenant_id = get_user_tenant_id() AND is_admin_or_controller_in_tenant());
 ```
 
 ---
 
-## Fluxo do Usuario
+## Resultado Esperado
 
-1. Usuario clica em "Vouti.Bot" na sidebar do dashboard
-2. Drawer abre com `side="inset"` (ocupa area de conteudo, sidebar fica visivel)
-3. Dentro do drawer, sidebar interna com menu:
-   - Inbox, Conversas, Kanban, etc.
-   - "Configuracoes" com chevron que expande subitens
-4. Ao clicar em subitem de configuracao, conteudo carrega no lado direito
-5. Clicar fora ou no X fecha o drawer
+1. **Drawer Vouti.Bot abre** - Conversas comecam a carregar em 2o plano
+2. **Navegando entre secoes** - Conversas continuam atualizando (polling 2s)
+3. **Secao Agentes** - Mostra grid de cards
+   - Card "Daniel" ja aparece com status de conexao
+4. **Clicar no card** - Abre drawer lateral com configuracoes Z-API
+5. **Botao "Adicionar Agente"** - Dialog simples (Nome + Funcao)
+6. **Novo agente** - Aparece na grid, pode configurar Z-API individual
 
 ---
 
-## Beneficios
+## Interface Visual
 
-1. **Celeridade**: Drawer abre instantaneamente sem navegacao de pagina
-2. **Consistencia**: Segue mesmo padrao de CRMDrawer, AgendaDrawer
-3. **Minimalismo**: Configuracoes como dropdown retratil, nao sidebar separada
-4. **Sidebar sempre visivel**: Usuario pode trocar de modulo rapidamente (modal={false})
-5. **Contexto preservado**: Nao perde estado do dashboard ao abrir Vouti.Bot
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│  AGENTES                                           [+ Adicionar Agente] │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐ │
+│  │  👤 Daniel         │  │  👤 Maria          │  │  👤 Pedro          │ │
+│  │  Admin             │  │  Atendente         │  │  Atendente         │ │
+│  │  ● Conectado       │  │  ○ Desconectado    │  │  ○ Desconectado    │ │
+│  │  [Clique p/ config]│  │                    │  │                    │ │
+│  └────────────────────┘  └────────────────────┘  └────────────────────┘ │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Ao clicar em "Daniel":
+
+┌──────────────────────────────────────────────────┬──────────────────────┐
+│                                                  │ Configuracoes        │
+│          (Grid de Agentes - esmaecido)           │ ─────────────────    │
+│                                                  │ Agente: Daniel       │
+│                                                  │                      │
+│                                                  │ Status: ● Conectado  │
+│                                                  │                      │
+│                                                  │ Credenciais Z-API    │
+│                                                  │ URL: [...]           │
+│                                                  │ Instance: [...]      │
+│                                                  │ Token: [...]         │
+│                                                  │                      │
+│                                                  │ [Salvar] [Resetar]   │
+└──────────────────────────────────────────────────┴──────────────────────┘
+```
