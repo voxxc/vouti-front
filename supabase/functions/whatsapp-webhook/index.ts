@@ -28,6 +28,37 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Helper function to save outgoing messages to the database
+async function saveOutgoingMessage(
+  phone: string,
+  message: string,
+  tenant_id: string | null,
+  instance_name: string,
+  user_id?: string
+) {
+  const { error } = await supabase
+    .from('whatsapp_messages')
+    .insert({
+      from_number: phone,  // Lead's phone to group in the same conversation
+      message_text: message,
+      direction: 'outgoing',
+      is_from_me: true,
+      tenant_id: tenant_id,
+      instance_name: instance_name,
+      message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      message_type: 'text',
+      user_id: user_id || null,
+      timestamp: new Date().toISOString(),
+      is_read: true,  // Outgoing messages are already "read"
+    });
+
+  if (error) {
+    console.error('❌ Erro ao salvar mensagem enviada:', error);
+  } else {
+    console.log('✅ Mensagem enviada salva no histórico');
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -192,6 +223,15 @@ async function handleIncomingMessage(data: any) {
         
         if (response.ok) {
           console.log(`✅ Resposta automática enviada:`, responseData);
+          
+          // Save outgoing message to database
+          await saveOutgoingMessage(
+            phone,
+            automation.response_message,
+            instance.tenant_id,
+            instanceId,
+            instance.user_id
+          );
         } else {
           console.error(`❌ Erro Z-API: ${response.status}`, responseData);
         }
@@ -294,6 +334,15 @@ async function handleAIResponse(
 
     if (sendResponse.ok) {
       console.log('✅ Resposta IA enviada via Z-API');
+      
+      // Save AI response to database
+      await saveOutgoingMessage(
+        phone,
+        aiData.response,
+        tenant_id,
+        'ai-response',
+      );
+      
       return true;
     } else {
       console.error('❌ Erro ao enviar resposta IA:', await sendResponse.text());
