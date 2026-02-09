@@ -21,14 +21,18 @@ interface SuperAdminAgentConfigDrawerProps {
 interface InstanceConfig {
   id?: string;
   zapi_url: string;
-  zapi_instance_id: string;
   zapi_token: string;
 }
+
+// Extrair instance_id da URL para salvar no banco
+const extractInstanceId = (url: string): string => {
+  const match = url.match(/instances\/([A-F0-9]+)/i);
+  return match ? match[1] : 'instance';
+};
 
 export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }: SuperAdminAgentConfigDrawerProps) => {
   const [config, setConfig] = useState<InstanceConfig>({
     zapi_url: "",
-    zapi_instance_id: "",
     zapi_token: "",
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -62,14 +66,12 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         setConfig({
           id: data.id,
           zapi_url: data.zapi_url || "",
-          zapi_instance_id: data.instance_name || "",
           zapi_token: data.zapi_token || "",
         });
         setIsConnected(data.connection_status === "connected");
       } else {
         setConfig({
           zapi_url: "",
-          zapi_instance_id: "",
           zapi_token: "",
         });
         setIsConnected(false);
@@ -81,8 +83,8 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     }
   };
 
-  const checkConnectionStatus = async (url: string, instanceId: string, token: string) => {
-    if (!url || !instanceId || !token) return;
+  const checkConnectionStatus = async (url: string, token: string) => {
+    if (!url || !token) return;
     
     setIsCheckingStatus(true);
     try {
@@ -123,13 +125,15 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     
     setIsSaving(true);
     try {
+      const instanceName = extractInstanceId(config.zapi_url);
+      
       if (config.id) {
         // Update
         const { error } = await supabase
           .from("whatsapp_instances")
           .update({
             zapi_url: config.zapi_url,
-            instance_name: config.zapi_instance_id,
+            instance_name: instanceName,
             zapi_token: config.zapi_token,
           })
           .eq("id", config.id);
@@ -142,7 +146,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
           .insert({
             tenant_id: null, // Explicitamente null para Super Admin
             agent_id: agent.id,
-            instance_name: config.zapi_instance_id,
+            instance_name: instanceName,
             zapi_url: config.zapi_url,
             zapi_token: config.zapi_token,
             connection_status: "disconnected",
@@ -158,7 +162,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       onAgentUpdated();
       
       // Verificar status após salvar
-      checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token);
+      checkConnectionStatus(config.zapi_url, config.zapi_token);
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
       toast.error("Erro ao salvar configurações");
@@ -168,7 +172,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   };
 
   const handleConnect = async () => {
-    if (!config.zapi_url || !config.zapi_instance_id || !config.zapi_token) {
+    if (!config.zapi_url || !config.zapi_token) {
       toast.error("Preencha as credenciais Z-API primeiro");
       return;
     }
@@ -191,7 +195,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         toast.success("Escaneie o QR Code com seu WhatsApp");
       } else {
         toast.info("Dispositivo já conectado ou aguardando...");
-        checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token);
+        checkConnectionStatus(config.zapi_url, config.zapi_token);
       }
     } catch (error) {
       console.error("Erro ao conectar:", error);
@@ -261,7 +265,6 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
 
       setConfig({
         zapi_url: "",
-        zapi_instance_id: "",
         zapi_token: "",
       });
       setIsConnected(false);
@@ -317,34 +320,30 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             <h3 className="font-medium text-sm">Credenciais Z-API</h3>
             
             <div className="space-y-2">
-              <Label htmlFor="zapi_url">URL da API</Label>
+              <Label htmlFor="zapi_url">URL da Instância</Label>
               <Input
                 id="zapi_url"
                 value={config.zapi_url}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_url: e.target.value }))}
-                placeholder="https://api.z-api.io/instances/..."
+                placeholder="https://api.z-api.io/instances/{ID}/token/{TOKEN}"
               />
+              <p className="text-xs text-muted-foreground">
+                Cole a URL completa da sua instância Z-API
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_instance_id">Instance ID</Label>
-              <Input
-                id="zapi_instance_id"
-                value={config.zapi_instance_id}
-                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
-                placeholder="ID da instância"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="zapi_token">Token</Label>
+              <Label htmlFor="zapi_token">Client Token</Label>
               <Input
                 id="zapi_token"
                 type="password"
                 value={config.zapi_token}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_token: e.target.value }))}
-                placeholder="Client Token"
+                placeholder="Token de autenticação do cliente"
               />
+              <p className="text-xs text-muted-foreground">
+                Token diferente do que está na URL (Security Token)
+              </p>
             </div>
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
@@ -361,9 +360,9 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             
             {isConnected ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-green-600 font-medium">WhatsApp Conectado</span>
+                <div className="flex items-center justify-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="text-primary font-medium">WhatsApp Conectado</span>
                 </div>
                 
                 <div className="flex gap-2">
@@ -373,7 +372,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
+                    onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
                   >
                     <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                   </Button>
@@ -387,7 +386,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_instance_id, config.zapi_token)}
+                  onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
                 >
                   <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                 </Button>
