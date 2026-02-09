@@ -24,12 +24,19 @@ serve(async (req) => {
     // PRIORIDADE 1: Credenciais específicas do agente (novo formato)
     if (zapi_instance_id && zapi_instance_token) {
       baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
-      // Client-Token SÓ é enviado se foi fornecido explicitamente
+      // Client-Token: usa o fornecido OU fallback para Z_API_TOKEN das env vars
       if (zapi_client_token && zapi_client_token.trim() !== '') {
         clientToken = zapi_client_token.trim();
+      } else {
+        // Fallback: usar Z_API_TOKEN se existir (para instâncias com Security Token ativo)
+        const envToken = Deno.env.get('Z_API_TOKEN');
+        if (envToken) {
+          clientToken = envToken;
+          console.log('Using Z_API_TOKEN fallback for Client-Token');
+        }
       }
       console.log('Using agent-specific credentials');
-    } 
+    }
     // PRIORIDADE 2: Formato antigo com URL completa (retrocompatibilidade)
     else if (zapi_url && zapi_token) {
       baseUrl = zapi_url
