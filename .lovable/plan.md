@@ -1,156 +1,189 @@
 
-# Plano: Registrar Mensagens Enviadas na Conversa
 
-## Problema Identificado
+# Plano: Corrigir Registro e Atualização de Conversas WhatsApp
 
-As mensagens enviadas pela plataforma não estão aparecendo porque:
+## Problemas Identificados
 
-1. **Webhook não salva respostas**: Quando a IA ou automações enviam mensagens, elas não são salvas no banco
-2. **Campo incorreto**: A Edge Function `whatsapp-send-message` usa `from_number` para mensagens outgoing, mas deveria usar o mesmo campo para manter consistência na conversa
+### 1. Coluna `is_from_me` NÃO EXISTE na tabela
 
-## Solução
-
-Salvar toda mensagem enviada no banco com:
-- `from_number` = telefone do lead (para agrupar na mesma conversa)
-- `direction` = 'outgoing' (para identificar que foi enviada)
-- `is_from_me` = true
-
-## Arquivos a Modificar
-
-### 1. `supabase/functions/whatsapp-webhook/index.ts`
-
-Adicionar função para salvar mensagens enviadas e chamá-la após cada envio:
-
-| Local | Alteração |
-|-------|-----------|
-| Nova função | `saveOutgoingMessage(phone, message, tenant_id, instance_name)` |
-| Linha ~193 | Após enviar resposta automática, salvar no banco |
-| Linha ~286 | Após enviar resposta IA, salvar no banco |
-
-### 2. `supabase/functions/whatsapp-send-message/index.ts`
-
-Garantir que `from_number` seja o telefone do destinatário (lead) para agrupar corretamente:
-
-| Local | Alteração |
-|-------|-----------|
-| Linha 75-81 | Já está correto (`from_number: phone`), apenas garantir que está salvando |
-
-## Lógica de Salvamento
-
-A nova função `saveOutgoingMessage`:
-
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  saveOutgoingMessage(phone, message, tenant_id, instance_name)              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  INSERT INTO whatsapp_messages:                                             │
-│                                                                             │
-│  - from_number: phone (telefone do lead - para agrupar na conversa)         │
-│  - message_text: message                                                    │
-│  - direction: 'outgoing'                                                    │
-│  - is_from_me: true                                                         │
-│  - tenant_id: tenant_id                                                     │
-│  - instance_name: instance_name                                             │
-│  - message_id: 'out_' + timestamp (ID único)                                │
-│  - message_type: 'text'                                                     │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+Nos logs da Edge Function:
 ```
-
-## Fluxo Atualizado
-
-### Resposta por Automação (keyword)
-
-```text
-1. Mensagem recebida do lead
-2. Salva mensagem (direction: 'received')
-3. Processa automação → encontra keyword
-4. Envia via Z-API
-5. ✅ NOVO: Salva mensagem (direction: 'outgoing')  ← ADICIONAR
-```
-
-### Resposta por IA
-
-```text
-1. Mensagem recebida do lead
-2. Salva mensagem (direction: 'received')
-3. IA habilitada → chama whatsapp-ai-chat
-4. Recebe resposta da IA
-5. Envia via Z-API
-6. ✅ NOVO: Salva mensagem (direction: 'outgoing')  ← ADICIONAR
-```
-
-## Código da Nova Função
-
-```typescript
-async function saveOutgoingMessage(
-  phone: string,
-  message: string,
-  tenant_id: string | null,
-  instance_name: string,
-  user_id?: string
-) {
-  const { error } = await supabase
-    .from('whatsapp_messages')
-    .insert({
-      from_number: phone,  // Mesmo número do lead para agrupar
-      message_text: message,
-      direction: 'outgoing',
-      is_from_me: true,
-      tenant_id: tenant_id,
-      instance_name: instance_name,
-      message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      message_type: 'text',
-      user_id: user_id || null,
-      timestamp: new Date().toISOString(),
-      is_read: true,  // Mensagens enviadas já estão "lidas"
-    });
-
-  if (error) {
-    console.error('❌ Erro ao salvar mensagem enviada:', error);
-  } else {
-    console.log('✅ Mensagem enviada salva no histórico');
-  }
+Error saving message to DB: {
+  code: "PGRST204",
+  message: "Could not find the 'is_from_me' column of 'whatsapp_messages' in the schema cache"
 }
 ```
 
-## Resultado Visual
+Ambas as Edge Functions (`whatsapp-webhook` e `whatsapp-send-message`) tentam salvar `is_from_me: true`, mas essa coluna não existe na tabela.
+
+**Colunas existentes na tabela `whatsapp_messages`:**
+- id, instance_name, message_id, from_number, to_number
+- message_text, message_type, direction, timestamp
+- raw_data, created_at, user_id, is_read, tenant_id
+
+### 2. Super Admin não vê mensagens porque todas têm `tenant_id`
+
+Consultando o banco:
+```
+tenant_id: d395b3a1-1ea1-4710-bcc1-ff5f6a279750
+```
+Todas as mensagens recentes têm `tenant_id` definido. O Super Admin busca com `.is("tenant_id", null)`, então não encontra nada.
+
+### 3. Webhook salva com `tenant_id` da instância, não do Super Admin
+
+Quando você envia do Super Admin:
+1. `whatsapp-send-message` envia com `mode: 'superadmin'` (correto)
+2. Tenta salvar com `tenant_id: null` (correto)
+3. Mas falha por causa do `is_from_me`
+
+Quando lead responde:
+1. Webhook recebe a mensagem
+2. Busca a instância associada ao `instanceId`
+3. Salva com o `tenant_id` da instância (errado para Super Admin)
+
+## Soluções
+
+### Parte 1: Remover campo inexistente `is_from_me`
+
+Remover `is_from_me` de ambas as Edge Functions, já que `direction: 'outgoing'` já indica isso.
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `whatsapp-webhook/index.ts` | Remover `is_from_me: true` da função `saveOutgoingMessage` |
+| `whatsapp-send-message/index.ts` | Remover `is_from_me: true` do objeto `messageRecord` |
+
+### Parte 2: Corrigir lógica de `tenant_id` no Webhook
+
+O webhook precisa detectar se a instância é do "Super Admin" (whatsapp-bot) e manter `tenant_id: null` nesses casos.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Conversa com +55 45 9999-9999                                              │
+│  FLUXO ATUAL (PROBLEMA)                                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌──────────────────────────────┐                                           │
-│  │ Olá, preciso de ajuda       │  ← Mensagem do lead (direction: received) │
-│  └──────────────────────────────┘                                           │
-│                                              ┌────────────────────────────┐ │
-│                                              │ Olá! Sou a assistente     │ │
-│                                              │ do escritório. Como       │ │
-│                                              │ posso ajudar?             │ │ ← NOVA: Mensagem da IA
-│                                              └────────────────────────────┘ │
-│                                                (direction: outgoing)        │
+│   Lead responde → Webhook → Busca instance → Pega tenant_id da instância    │
+│                                               ↓                             │
+│                                   Salva com tenant_id = "xyz"               │
+│                                               ↓                             │
+│                            Super Admin busca tenant_id IS NULL              │
+│                                               ↓                             │
+│                                    NÃO ENCONTRA MENSAGEM! ❌                 │
 │                                                                             │
-│  ┌──────────────────────────────┐                                           │
-│  │ Quero saber sobre processos │  ← Lead responde                          │
-│  └──────────────────────────────┘                                           │
-│                                              ┌────────────────────────────┐ │
-│                                              │ Posso verificar...        │ │ ← NOVA: Resposta IA
-│                                              └────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FLUXO CORRIGIDO                                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Lead responde → Webhook → Busca instance → Verifica instance_name         │
+│                                               ↓                             │
+│                       Se instance_name == 'whatsapp-bot':                   │
+│                           tenant_id = NULL (Super Admin)                    │
+│                       Senão:                                                │
+│                           tenant_id = instance.tenant_id                    │
+│                                               ↓                             │
+│                            Super Admin encontra mensagem! ✅                 │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Técnico
+### Parte 3: Ajustar Super Admin para usar instância correta
 
-### Alterações no `whatsapp-webhook/index.ts`
+Verificar se existe uma instância "whatsapp-bot" ou se o Super Admin usa as credenciais globais (Z_API_URL, Z_API_TOKEN).
 
-1. Adicionar função `saveOutgoingMessage` após linha 30
-2. Após linha 193 (envio por automação), chamar `saveOutgoingMessage`
-3. Após linha 293 (envio por IA), chamar `saveOutgoingMessage`
+## Arquivos a Modificar
 
-### Alterações no `whatsapp-send-message/index.ts`
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/whatsapp-webhook/index.ts` | 1. Remover `is_from_me` 2. Detectar instância Super Admin |
+| `supabase/functions/whatsapp-send-message/index.ts` | Remover `is_from_me` |
 
-1. O código atual já salva (linhas 107-115), mas precisa garantir que `user_id` não seja obrigatório (já que service role pode não ter)
-2. Verificar se o erro no console está sendo ignorado corretamente
+## Alterações Detalhadas
+
+### 1. `whatsapp-webhook/index.ts` - Função `saveOutgoingMessage`
+
+```typescript
+// ANTES (linha 45):
+is_from_me: true,
+
+// DEPOIS:
+// Removido - campo não existe na tabela
+```
+
+### 2. `whatsapp-webhook/index.ts` - Função `handleIncomingMessage`
+
+```typescript
+// ANTES (linhas 147-148):
+user_id: instance.user_id,
+tenant_id: instance.tenant_id,
+
+// DEPOIS:
+user_id: instance.user_id,
+// Se instância for do Super Admin (whatsapp-bot ou credenciais globais), tenant_id = null
+tenant_id: instance.instance_name === 'whatsapp-bot' || !instance.tenant_id 
+  ? null 
+  : instance.tenant_id,
+```
+
+### 3. `whatsapp-send-message/index.ts`
+
+```typescript
+// ANTES (linha 80):
+is_from_me: true,
+
+// DEPOIS:
+// Removido - campo não existe na tabela
+```
+
+## Fluxo Visual Corrigido
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SUPER ADMIN ENVIA MENSAGEM                                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   1. Super Admin clica "Enviar"                                             │
+│   2. whatsapp-send-message recebe mode: 'superadmin'                        │
+│   3. Envia via Z-API (credenciais globais)                                  │
+│   4. Salva no banco COM:                                                    │
+│      - from_number: telefone do lead                                        │
+│      - direction: 'outgoing'                                                │
+│      - tenant_id: NULL                                                      │
+│   5. Inbox do Super Admin atualiza (tenant_id IS NULL)                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  LEAD RESPONDE                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   1. Z-API envia webhook                                                    │
+│   2. whatsapp-webhook verifica instanceId                                   │
+│   3. Se instanceId usa credenciais globais ou whatsapp-bot:                 │
+│      → tenant_id = NULL (Super Admin)                                       │
+│   4. Salva mensagem COM tenant_id correto                                   │
+│   5. Inbox correto atualiza (Tenant OU Super Admin)                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Problema Adicional: Instance ID
+
+Nos logs, o `instanceId` é `3E8A7687638142678C80FA4754EC29F2` - esse é o ID da Z-API, não o nome da instância no banco.
+
+Preciso verificar como a instância do Super Admin está configurada para garantir que o webhook identifique corretamente.
+
+## Resumo das Correções
+
+1. **Remover `is_from_me`** de ambas as Edge Functions (campo não existe)
+2. **Detectar instância Super Admin** no webhook e manter `tenant_id: null`
+3. **Garantir consistência** entre envio e recebimento de mensagens
+
+## Resultado Esperado
+
+Após as correções:
+- Mensagens enviadas pelo Super Admin serão salvas com `tenant_id: null`
+- Mensagens recebidas de leads (via instância global) terão `tenant_id: null`
+- O inbox do Super Admin vai exibir todas as mensagens corretamente
+- A conversa vai atualizar em tempo real
+
