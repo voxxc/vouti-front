@@ -19,20 +19,22 @@ serve(async (req) => {
     }
 
     let baseUrl: string;
-    let authToken: string;
+    let clientToken: string | null = null;
 
     // NOVO FORMATO: Instance ID + Instance Token + Client Token (opcional)
     if (zapi_instance_id && zapi_instance_token) {
       baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
-      // Se Client-Token fornecido, usa ele; senão, usa Instance Token
-      authToken = zapi_client_token || zapi_instance_token;
+      // Client-Token SÓ é enviado se foi fornecido explicitamente
+      if (zapi_client_token && zapi_client_token.trim() !== '') {
+        clientToken = zapi_client_token.trim();
+      }
     } 
     // FORMATO ANTIGO: URL completa + Token (retrocompatibilidade)
     else if (zapi_url && zapi_token) {
       baseUrl = zapi_url
         .replace(/\/send-text\/?$/, '')
         .replace(/\/$/, '');
-      authToken = zapi_token;
+      clientToken = zapi_token;
     } 
     else {
       throw new Error('Missing Z-API credentials. Provide either (zapi_instance_id + zapi_instance_token) or (zapi_url + zapi_token)');
@@ -57,13 +59,20 @@ serve(async (req) => {
     }
 
     console.log(`Z-API Action: ${action} -> ${endpoint}`);
+    console.log(`Client-Token: ${clientToken ? '[PROVIDED]' : '[NOT SENT]'}`);
+
+    // Headers - só adiciona Client-Token se foi fornecido explicitamente
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (clientToken) {
+      headers['Client-Token'] = clientToken;
+    }
 
     const zapiResponse = await fetch(endpoint, {
       method: method,
-      headers: {
-        'Client-Token': authToken,
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
     });
 
     const zapiData = await zapiResponse.json();
