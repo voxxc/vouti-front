@@ -21,6 +21,7 @@ interface SaveContactDialogProps {
   onOpenChange: (open: boolean) => void;
   phone: string;
   initialName?: string;
+  onContactSaved?: () => void;
 }
 
 export const SaveContactDialog = ({
@@ -28,6 +29,7 @@ export const SaveContactDialog = ({
   onOpenChange,
   phone,
   initialName,
+  onContactSaved,
 }: SaveContactDialogProps) => {
   const { tenantId } = useTenantId();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -112,6 +114,7 @@ export const SaveContactDialog = ({
       }
 
       onOpenChange(false);
+      onContactSaved?.();
     } catch (error: any) {
       console.error("Erro ao salvar contato:", error);
       toast.error(error.message || "Erro ao salvar contato");

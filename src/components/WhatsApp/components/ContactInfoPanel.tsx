@@ -30,6 +30,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 
 interface ContactInfoPanelProps {
   conversation: WhatsAppConversation;
+  onContactSaved?: () => void;
 }
 
 interface AccordionItem {
@@ -39,7 +40,7 @@ interface AccordionItem {
   content: React.ReactNode;
 }
 
-export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
+export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const { tenantId } = useTenantId();
@@ -195,6 +196,7 @@ export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
         onOpenChange={setShowSaveDialog}
         phone={conversation.contactNumber}
         initialName={conversation.contactName}
+        onContactSaved={onContactSaved}
       />
 
       {/* AI Control Section */}
