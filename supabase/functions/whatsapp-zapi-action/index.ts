@@ -18,19 +18,22 @@ serve(async (req) => {
       throw new Error('Missing required fields: action, zapi_url, or zapi_token');
     }
 
+    // Normalizar URL removendo /send-text se existir no final
+    const baseUrl = zapi_url.replace(/\/send-text\/?$/, '');
+
     let endpoint = '';
     let method = 'GET';
 
     switch (action) {
       case 'status':
-        endpoint = `${zapi_url}/status`;
+        endpoint = `${baseUrl}/status`;
         break;
       case 'disconnect':
-        endpoint = `${zapi_url}/disconnect`;
+        endpoint = `${baseUrl}/disconnect`;
         method = 'POST';
         break;
       case 'qr-code':
-        endpoint = `${zapi_url}/qr-code/image`;
+        endpoint = `${baseUrl}/qr-code/image`;
         break;
       default:
         throw new Error(`Invalid action: ${action}`);
