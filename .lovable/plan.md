@@ -1,195 +1,225 @@
 
 
-# Plano: Corrigir Leitura de Status e Funcionamento do QR Code
+# Plano: Reconstruir Interface de Configuracao com Abas Inline + Corrigir Edge Function
 
-## Problema Identificado
+## Problemas Identificados
 
-| Componente | Estado Atual | Problema |
-|------------|--------------|----------|
-| `whatsapp_instances` | VAZIO | Nenhuma instância salva para o agente "Admin" |
-| Agente "Admin" | Existe (`abd8ace2...`) | Sem instância vinculada |
-| Edge Function | Tem fallback para env vars | Funciona quando não recebe credenciais |
-| Frontend (Drawer) | Requer credenciais no form | Não usa fallback das env vars |
+| Problema | Causa | Solucao |
+|----------|-------|---------|
+| QR Code nao funciona | Edge Function envia Instance Token como Client-Token | Corrigir logica de headers |
+| Status mostra "Desconectado" | Credenciais do agente sobrescrevem env vars | Usar fallback corretamente |
+| Interface eh drawer lateral | Usuario quer expansao inline | Reconstruir com Tabs |
+| Nao mostra configuracao da IA | Drawer nao tem aba de IA | Adicionar WhatsAppAISettings |
 
-## Diagnóstico Visual
+## Dados Confirmados no Banco
+
+| Campo | Valor |
+|-------|-------|
+| agent_name | Daniel |
+| is_enabled | true |
+| model_name | google/gemini-3-flash-preview |
+| max_history | 50 |
+| system_prompt | Prompt completo (190 linhas) |
+
+## Arquitetura da Solucao
 
 ```text
-SITUACAO ATUAL
-┌─────────────────────────────────────────────────────────────────┐
-│ Drawer abre → Busca whatsapp_instances → VAZIO                  │
-│            → config.zapi_instance_id = ""                       │
-│            → config.zapi_instance_token = ""                    │
-│            → Botão "Conectar" DESABILITADO (disabled)           │
-│            → checkConnectionStatus() NÃO executa (linha 98)     │
-│                                                                 │
-│ RESULTADO: Mostra "Desconectado" mesmo estando conectado        │
-└─────────────────────────────────────────────────────────────────┘
-
-COMO DEVERIA SER
-┌─────────────────────────────────────────────────────────────────┐
-│ Drawer abre → Busca whatsapp_instances → VAZIO                  │
-│            → Usa FALLBACK das variáveis de ambiente             │
-│            → Chama checkConnectionStatus() mesmo sem credenciais│
-│            → Edge function usa Z_API_URL e Z_API_TOKEN          │
-│            → Retorna connected: true                            │
-│                                                                 │
-│ RESULTADO: Mostra "Conectado" corretamente                      │
-└─────────────────────────────────────────────────────────────────┘
+SuperAdminAgentsSettings (PAGINA PRINCIPAL)
+├── Header (Titulo + Botao Adicionar)
+├── Grid de AgentCards
+│   └── Ao clicar no card:
+│       └── Expande INLINE (nao drawer) com Tabs
+│
+└── Card Expandido (quando agente selecionado)
+    ├── TabsList
+    │   ├── "Conexao Z-API"
+    │   └── "Comportamento da IA"
+    │
+    ├── TabsContent "zapi"
+    │   ├── Status da Conexao (verificacao automatica)
+    │   ├── Campos: Instance ID, Token, Client-Token (opcional)
+    │   ├── Botao Salvar
+    │   ├── Botao Conectar via QR Code
+    │   ├── Botao Desconectar
+    │   ├── Botao Resetar
+    │   └── QR Code (quando gerado) + Polling automatico
+    │
+    └── TabsContent "ai"
+        └── WhatsAppAISettings (componente existente)
 ```
 
-## Solução
+## Arquivos a Modificar
 
-### Arquivos a Modificar
+| Arquivo | Acao |
+|---------|------|
+| `supabase/functions/whatsapp-zapi-action/index.ts` | Corrigir logica de Client-Token |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Reescrever com expansao inline + Tabs |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | MANTER (para referencia de logica) |
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `SuperAdminAgentConfigDrawer.tsx` | Usar fallback para env vars quando drawer vazio |
-| `AgentConfigDrawer.tsx` | Mesma lógica |
+## Correcao da Edge Function
 
-### Alterações no Código
+O problema atual:
 
-#### 1. Verificar Status ao Abrir (mesmo sem credenciais)
+```text
+QUANDO ENVIA: { zapi_instance_id: "3E8A...", zapi_instance_token: "F5DA..." }
+
+EDGE FUNCTION FAZ:
+baseUrl = https://api.z-api.io/instances/3E8A.../token/F5DA.../
+headers['Client-Token'] = ... (PROBLEMA: esta pegando o token errado)
+```
+
+A correcao:
 
 ```typescript
-// checkConnectionStatus - Remover validação que bloqueia
-const checkConnectionStatus = async () => {
-  // REMOVER ESTA LINHA:
-  // if (!config.zapi_instance_id || !config.zapi_instance_token) return;
+// PRIORIDADE 1: Credenciais especificas do agente
+if (zapi_instance_id && zapi_instance_token) {
+  baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
   
-  setIsCheckingStatus(true);
-  try {
-    const response = await supabase.functions.invoke('whatsapp-zapi-action', {
-      body: {
-        action: 'status',
-        // Se tiver credenciais do agente, usa. Senão, envia vazio
-        // e a Edge Function usa o fallback das env vars
-        zapi_instance_id: config.zapi_instance_id || undefined,
-        zapi_instance_token: config.zapi_instance_token || undefined,
-        zapi_client_token: config.zapi_client_token || undefined,
-      }
-    });
-    // ... resto do código
+  // Client-Token SO eh enviado se foi fornecido EXPLICITAMENTE pelo usuario
+  // NAO usar o instance_token como client_token!
+  if (zapi_client_token && zapi_client_token.trim() !== '') {
+    clientToken = zapi_client_token.trim();
   }
-};
+  // Se nao forneceu zapi_client_token, NAO ENVIA header Client-Token
+}
+
+// PRIORIDADE 2: Fallback para env vars
+else {
+  const envUrl = Deno.env.get('Z_API_URL');
+  const envToken = Deno.env.get('Z_API_TOKEN');
+  // Usar normalmente
+}
 ```
 
-#### 2. Chamar checkConnectionStatus ao Abrir o Drawer
+## Nova Estrutura do SuperAdminAgentsSettings
 
 ```typescript
-const loadInstanceConfig = async () => {
-  // ... código existente que carrega do banco ...
+export const SuperAdminAgentsSettings = () => {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"zapi" | "ai">("zapi");
   
-  // NOVO: Verificar status real após carregar (mesmo se não tiver config)
-  setTimeout(() => {
-    checkConnectionStatus();
-  }, 300);
-};
-```
-
-#### 3. Permitir Botão "Conectar via QR Code" Sem Credenciais
-
-```typescript
-// Remover disabled quando não tem credenciais específicas
-// A Edge Function vai usar o fallback
-
-<Button 
-  variant="outline" 
-  className="flex-1 gap-2" 
-  onClick={handleConnect}
-  // REMOVER: disabled={!config.zapi_instance_id || !config.zapi_instance_token}
->
-  <QrCode className="h-4 w-4" />
-  Conectar via QR Code
-</Button>
-```
-
-#### 4. handleConnect - Remover Validação Bloqueante
-
-```typescript
-const handleConnect = async () => {
-  // REMOVER:
-  // if (!config.zapi_instance_id || !config.zapi_instance_token) {
-  //   toast.error("Preencha Instance ID e Instance Token primeiro");
-  //   return;
-  // }
-
-  try {
-    const response = await supabase.functions.invoke('whatsapp-zapi-action', {
-      body: {
-        action: 'qr-code',
-        zapi_instance_id: config.zapi_instance_id || undefined,
-        zapi_instance_token: config.zapi_instance_token || undefined,
-        zapi_client_token: config.zapi_client_token || undefined,
-      }
-    });
-    // ... resto do código
-  }
-};
-```
-
-#### 5. handleDisconnect - Mesmo Padrão
-
-```typescript
-const handleDisconnect = async () => {
-  // REMOVER validação bloqueante
-  // Permitir que Edge Function use fallback
-};
-```
-
-#### 6. handleReset - Desconectar Antes de Limpar
-
-```typescript
-const handleReset = async () => {
-  // 1. Desconectar da Z-API (usando fallback se necessário)
-  await supabase.functions.invoke('whatsapp-zapi-action', {
-    body: {
-      action: 'disconnect',
-      zapi_instance_id: config.zapi_instance_id || undefined,
-      zapi_instance_token: config.zapi_instance_token || undefined,
+  // Estados para Z-API
+  const [config, setConfig] = useState<InstanceConfig>({...});
+  const [isConnected, setIsConnected] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  
+  // Ao clicar no card
+  const handleAgentClick = (agent: Agent) => {
+    if (expandedAgentId === agent.id) {
+      setExpandedAgentId(null); // Fecha
+    } else {
+      setExpandedAgentId(agent.id); // Abre
+      loadInstanceConfig(agent.id); // Carrega dados
+      setActiveTab("zapi"); // Tab inicial
     }
-  }).catch(() => {}); // Ignorar erros
-  
-  // 2. Limpar do banco
-  if (config.id) {
-    await supabase.from("whatsapp_instances").delete().eq("id", config.id);
-  }
-  
-  // 3. Limpar estado local
-  setConfig({ zapi_instance_id: "", zapi_instance_token: "", zapi_client_token: "" });
-  setIsConnected(false);
-  
-  toast.success("Configurações resetadas e WhatsApp desconectado");
+  };
+
+  return (
+    <div className="h-full overflow-auto p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div>...</div>
+
+        {/* Grid de Agentes */}
+        <div className="space-y-4">
+          {agents.map(agent => (
+            <div key={agent.id}>
+              <AgentCard agent={agent} onClick={() => handleAgentClick(agent)} />
+              
+              {/* Expansao Inline */}
+              {expandedAgentId === agent.id && (
+                <Card className="mt-4 border-primary">
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <CardHeader className="pb-0">
+                      <TabsList>
+                        <TabsTrigger value="zapi">Conexao Z-API</TabsTrigger>
+                        <TabsTrigger value="ai">Comportamento da IA</TabsTrigger>
+                      </TabsList>
+                    </CardHeader>
+                    
+                    <CardContent>
+                      <TabsContent value="zapi">
+                        {/* Status + Credenciais + Botoes + QR Code */}
+                      </TabsContent>
+                      
+                      <TabsContent value="ai">
+                        <WhatsAppAISettings isSuperAdmin={true} />
+                      </TabsContent>
+                    </CardContent>
+                  </Tabs>
+                </Card>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 ```
 
-## Fluxo Esperado Após Correção
+## Fluxo de Conexao Corrigido
 
-### Cenário 1: Abrir Drawer (já conectado via site Z-API)
-1. Drawer abre
-2. Carrega config do banco (vazio)
-3. Chama `checkConnectionStatus()` automaticamente
-4. Edge Function usa fallback `Z_API_URL` + `Z_API_TOKEN`
-5. Retorna `connected: true`
-6. UI mostra **"Conectado"**
+```text
+CENARIO 1: Usuario abre card do agente
+1. Card expande
+2. Sistema carrega config do banco (whatsapp_instances)
+3. Sistema verifica status via Edge Function
+4. Se connected=true, mostra "Conectado"
+5. Se connected=false, mostra "Desconectado"
 
-### Cenário 2: Resetar Configurações
-1. Clica "Resetar Configurações"
-2. Chama `disconnect` na Z-API (com fallback)
-3. Limpa registro do banco
-4. UI mostra **"Desconectado"**
+CENARIO 2: Usuario clica "Conectar via QR Code"
+1. Edge Function constroi URL: /instances/{id}/token/{token}/qr-code/image
+2. NAO envia Client-Token (a menos que usuario preencheu explicitamente)
+3. Retorna base64 do QR Code
+4. Frontend renderiza: <img src="data:image/png;base64,..." />
+5. Inicia polling a cada 5 segundos
+6. Quando connected=true:
+   - Para polling
+   - Limpa QR Code
+   - Atualiza UI para "Conectado"
+   - Salva no banco
 
-### Cenário 3: Gerar QR Code
-1. Clica "Conectar via QR Code"
-2. Edge Function usa fallback
-3. Retorna QR Code
-4. Polling verifica status até conectar
+CENARIO 3: Usuario clica "Desconectar"
+1. Edge Function chama POST /disconnect
+2. Atualiza banco para "disconnected"
+3. UI mostra "Desconectado"
 
-## Resumo
+CENARIO 4: Usuario clica "Resetar"
+1. Tenta desconectar (ignora erros)
+2. Deleta registro do banco
+3. Limpa formulario
+4. UI volta ao estado inicial
+```
 
-O problema central é que o frontend **exige** credenciais nos campos do formulário, mas as credenciais estão nas **variáveis de ambiente**. A solução é:
+## Logica de Credenciais (Fallback)
 
-1. Remover validações que bloqueiam quando campos estão vazios
-2. Deixar a Edge Function usar o fallback automaticamente
-3. Chamar `checkConnectionStatus()` ao abrir o drawer
-4. Permitir todas as ações mesmo sem credenciais no formulário
+```text
+CAMPO DO FORM PREENCHIDO?
+├── SIM: Usa credenciais do form
+│   └── Instance ID + Instance Token → URL da Z-API
+│   └── Client-Token (opcional) → Header Client-Token
+│
+└── NAO: Edge Function usa env vars
+    └── Z_API_URL → URL completa ja configurada
+    └── Z_API_TOKEN → Header Client-Token
+```
+
+## Resultado Esperado
+
+1. Usuario abre "Configuracoes > Agentes"
+2. Ve o card do agente "Admin"
+3. Clica no card
+4. Card expande mostrando duas abas
+5. Aba "Conexao Z-API":
+   - Mostra status atual (verificacao automatica)
+   - Pode gerar QR Code que FUNCIONA
+   - Pode desconectar
+   - Pode resetar
+6. Aba "Comportamento da IA":
+   - Mostra nome "Daniel"
+   - Mostra prompt completo (190 linhas)
+   - Pode editar e salvar
 
