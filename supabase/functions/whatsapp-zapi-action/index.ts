@@ -21,23 +21,37 @@ serve(async (req) => {
     let baseUrl: string;
     let clientToken: string | null = null;
 
-    // NOVO FORMATO: Instance ID + Instance Token + Client Token (opcional)
+    // PRIORIDADE 1: Credenciais específicas do agente (novo formato)
     if (zapi_instance_id && zapi_instance_token) {
       baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
       // Client-Token SÓ é enviado se foi fornecido explicitamente
       if (zapi_client_token && zapi_client_token.trim() !== '') {
         clientToken = zapi_client_token.trim();
       }
+      console.log('Using agent-specific credentials');
     } 
-    // FORMATO ANTIGO: URL completa + Token (retrocompatibilidade)
+    // PRIORIDADE 2: Formato antigo com URL completa (retrocompatibilidade)
     else if (zapi_url && zapi_token) {
       baseUrl = zapi_url
         .replace(/\/send-text\/?$/, '')
         .replace(/\/$/, '');
       clientToken = zapi_token;
+      console.log('Using legacy URL format');
     } 
+    // PRIORIDADE 3: Fallback para variáveis de ambiente (secrets globais)
     else {
-      throw new Error('Missing Z-API credentials. Provide either (zapi_instance_id + zapi_instance_token) or (zapi_url + zapi_token)');
+      const envUrl = Deno.env.get('Z_API_URL');
+      const envToken = Deno.env.get('Z_API_TOKEN');
+      
+      if (envUrl && envToken) {
+        baseUrl = envUrl
+          .replace(/\/send-text\/?$/, '')
+          .replace(/\/$/, '');
+        clientToken = envToken;
+        console.log('Using environment variable fallback');
+      } else {
+        throw new Error('Missing Z-API credentials. Provide credentials or configure Z_API_URL and Z_API_TOKEN environment variables');
+      }
     }
 
     let endpoint = '';
