@@ -91,6 +91,7 @@ export const WhatsAppSidebar = ({
   );
   const [agents, setAgents] = useState<WhatsAppAgent[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isAdminOrController, setIsAdminOrController] = useState(false);
 
   // Check if super admin
   useEffect(() => {
@@ -106,9 +107,28 @@ export const WhatsAppSidebar = ({
     checkSuperAdmin();
   }, [user?.id]);
 
+  // Check if user is admin or controller
+  useEffect(() => {
+    const checkRole = async () => {
+      if (!user?.id || !tenantId) return;
+      
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("tenant_id", tenantId)
+        .in("role", ["admin", "controller"]);
+
+      setIsAdminOrController(!!data && data.length > 0);
+    };
+    checkRole();
+  }, [user?.id, tenantId]);
+
   // Load agents for Kanban dropdown
   useEffect(() => {
     const loadAgents = async () => {
+      if (!user?.email) return;
+
       let query = supabase
         .from("whatsapp_agents")
         .select("id, name")
@@ -116,6 +136,11 @@ export const WhatsAppSidebar = ({
 
       if (tenantId) {
         query = query.eq("tenant_id", tenantId);
+        
+        // If not admin/controller, only show agent's own entry
+        if (!isAdminOrController) {
+          query = query.eq("email", user.email);
+        }
       } else if (isSuperAdmin) {
         query = query.is("tenant_id", null);
       }
@@ -127,7 +152,7 @@ export const WhatsAppSidebar = ({
     if (tenantId || isSuperAdmin) {
       loadAgents();
     }
-  }, [tenantId, isSuperAdmin]);
+  }, [tenantId, isSuperAdmin, isAdminOrController, user?.email]);
 
   // Verificar se a seção ativa é uma seção de configuração
   const isSettingsSection = settingsSectionIds.includes(activeSection);
