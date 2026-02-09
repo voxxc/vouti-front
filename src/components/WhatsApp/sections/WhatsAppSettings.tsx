@@ -263,7 +263,9 @@ export const WhatsAppSettings = () => {
           user_id: userData.user.id,
           tenant_id: tenantId,
           connection_status: 'disconnected',
-          last_update: new Date().toISOString()
+          last_update: new Date().toISOString(),
+          zapi_url: zapiConfig.url,
+          zapi_token: zapiConfig.token
         }, {
           onConflict: 'instance_name'
         });
