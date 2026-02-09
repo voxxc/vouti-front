@@ -374,16 +374,39 @@ async function handleAIResponse(
       
       const scheduledAt = new Date(Date.now() + delaySeconds * 1000).toISOString();
       
-      // Upsert no registro pendente (reseta timer se já existe)
-      const { error: upsertError } = await supabase
+      // Manual upsert (onConflict não funciona com NULL tenant_id)
+      let existingQuery = supabase
         .from('whatsapp_ai_pending_responses')
-        .upsert({
-          phone,
-          tenant_id,
-          instance_id: instanceId,
-          scheduled_at: scheduledAt,
-          status: 'pending',
-        }, { onConflict: 'phone,tenant_id' });
+        .select('id')
+        .eq('phone', phone);
+      
+      if (tenant_id) {
+        existingQuery = existingQuery.eq('tenant_id', tenant_id);
+      } else {
+        existingQuery = existingQuery.is('tenant_id', null);
+      }
+      
+      const { data: existingPending } = await existingQuery.maybeSingle();
+      
+      let upsertError: any = null;
+      if (existingPending) {
+        const { error } = await supabase
+          .from('whatsapp_ai_pending_responses')
+          .update({ scheduled_at: scheduledAt, status: 'pending' })
+          .eq('id', existingPending.id);
+        upsertError = error;
+      } else {
+        const { error } = await supabase
+          .from('whatsapp_ai_pending_responses')
+          .insert({
+            phone,
+            tenant_id,
+            instance_id: instanceId,
+            scheduled_at: scheduledAt,
+            status: 'pending',
+          });
+        upsertError = error;
+      }
 
       if (upsertError) {
         console.error('❌ Erro ao criar timer debounce:', upsertError);
