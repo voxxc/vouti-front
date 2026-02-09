@@ -208,26 +208,41 @@ async function handleIncomingMessage(data: any) {
       try {
         const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
         
-        console.log('🔗 Enviando para Z-API:', zapiUrl);
+        // Mascarar token para log seguro
+        const maskedUrl = zapiUrl.replace(/\/token\/[^\/]+\//, '/token/****/');
+        console.log('🔗 Enviando para Z-API:', maskedUrl);
         console.log('📱 Telefone destino:', phone);
-        console.log('💬 Mensagem:', automation.response_message);
+        console.log('💬 Mensagem:', automation.response_message.substring(0, 100));
+        
+        // Headers - só incluir Client-Token se existir secret específico
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        const clientToken = Deno.env.get('Z_API_CLIENT_TOKEN');
+        if (clientToken) {
+          headers['Client-Token'] = clientToken;
+        }
         
         const response = await fetch(zapiUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Client-Token': instance.zapi_token,
-          },
+          headers,
           body: JSON.stringify({
             phone: phone,
             message: automation.response_message,
           }),
         });
 
-        const responseData = await response.json();
+        // Parse resposta com fallback para texto
+        const responseText = await response.text();
+        let responseData: any;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = { raw: responseText };
+        }
+        
+        console.log(`📡 Z-API Response [${response.status}]:`, JSON.stringify(responseData).substring(0, 200));
         
         if (response.ok) {
-          console.log(`✅ Resposta automática enviada:`, responseData);
+          console.log(`✅ Resposta automática enviada com sucesso`);
           
           // Save outgoing message to database
           await saveOutgoingMessage(
@@ -238,7 +253,7 @@ async function handleIncomingMessage(data: any) {
             instance.user_id
           );
         } else {
-          console.error(`❌ Erro Z-API: ${response.status}`, responseData);
+          console.error(`❌ Erro Z-API [${response.status}]:`, responseData);
         }
       } catch (error) {
         console.error('❌ Erro ao enviar resposta automática:', error);
@@ -328,32 +343,54 @@ async function handleAIResponse(
 
     const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
     
+    // Mascarar token para log seguro
+    const maskedUrl = zapiUrl.replace(/\/token\/[^\/]+\//, '/token/****/');
+    console.log('🔗 Enviando resposta IA para Z-API:', maskedUrl);
+    console.log('📱 Telefone destino:', phone);
+    
+    // Headers - só incluir Client-Token se existir secret específico
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const clientToken = Deno.env.get('Z_API_CLIENT_TOKEN');
+    if (clientToken) {
+      headers['Client-Token'] = clientToken;
+    }
+    
     const sendResponse = await fetch(zapiUrl, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Client-Token': zapi_token || '',
-      },
+      headers,
       body: JSON.stringify({
         phone,
         message: aiData.response,
       }),
     });
 
+    // Parse resposta com fallback para texto
+    const responseText = await sendResponse.text();
+    let responseData: any;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = { raw: responseText };
+    }
+    
+    console.log(`📡 Z-API IA Response [${sendResponse.status}]:`, JSON.stringify(responseData).substring(0, 200));
+
     if (sendResponse.ok) {
-      console.log('✅ Resposta IA enviada via Z-API');
+      console.log('✅ Resposta IA enviada via Z-API com sucesso');
       
-      // Save AI response to database
+      // Save AI response to database - buscar instanceId do contexto
+      // Nota: precisamos passar instanceId aqui, mas não temos acesso direto
+      // Vamos usar um placeholder que será corrigido pelo caller
       await saveOutgoingMessage(
         phone,
         aiData.response,
         tenant_id,
-        'ai-response',
+        'ai-response', // TODO: passar instanceId real do caller
       );
       
       return true;
     } else {
-      console.error('❌ Erro ao enviar resposta IA:', await sendResponse.text());
+      console.error(`❌ Erro ao enviar resposta IA [${sendResponse.status}]:`, responseData);
       return false;
     }
   } catch (error) {
