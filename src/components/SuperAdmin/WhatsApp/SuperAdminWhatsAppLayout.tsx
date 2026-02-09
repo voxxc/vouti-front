@@ -7,9 +7,24 @@ import { WhatsAppContacts } from "@/components/WhatsApp/sections/WhatsAppContact
 import { WhatsAppReports } from "@/components/WhatsApp/sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "@/components/WhatsApp/sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "@/components/WhatsApp/sections/WhatsAppHelp";
-import { WhatsAppSettings } from "@/components/WhatsApp/sections/WhatsAppSettings";
-import { WhatsAppAISettings } from "@/components/WhatsApp/settings/WhatsAppAISettings";
+
+// Settings sections (same as tenant)
+import { WhatsAppAccountSettings } from "@/components/WhatsApp/settings/WhatsAppAccountSettings";
 import { WhatsAppAgentsSettings } from "@/components/WhatsApp/settings/WhatsAppAgentsSettings";
+import { WhatsAppTeamsSettings } from "@/components/WhatsApp/settings/WhatsAppTeamsSettings";
+import { WhatsAppInboxSettings } from "@/components/WhatsApp/settings/WhatsAppInboxSettings";
+import { WhatsAppLabelsSettings } from "@/components/WhatsApp/settings/WhatsAppLabelsSettings";
+import { WhatsAppAttributesSettings } from "@/components/WhatsApp/settings/WhatsAppAttributesSettings";
+import { WhatsAppKanbanSettings } from "@/components/WhatsApp/settings/WhatsAppKanbanSettings";
+import { WhatsAppAutomationSettings } from "@/components/WhatsApp/settings/WhatsAppAutomationSettings";
+import { WhatsAppN8NSettings } from "@/components/WhatsApp/settings/WhatsAppN8NSettings";
+import { WhatsAppBotsSettings } from "@/components/WhatsApp/settings/WhatsAppBotsSettings";
+import { WhatsAppTypebotSettings } from "@/components/WhatsApp/settings/WhatsAppTypebotSettings";
+import { WhatsAppMacrosSettings } from "@/components/WhatsApp/settings/WhatsAppMacrosSettings";
+import { WhatsAppCannedResponses } from "@/components/WhatsApp/settings/WhatsAppCannedResponses";
+import { WhatsAppAppsSettings } from "@/components/WhatsApp/settings/WhatsAppAppsSettings";
+import { WhatsAppIntegrationsSettings } from "@/components/WhatsApp/settings/WhatsAppIntegrationsSettings";
+import { WhatsAppPermissionsSettings } from "@/components/WhatsApp/settings/WhatsAppPermissionsSettings";
 
 export type SuperAdminWhatsAppSection = 
   | "inbox" 
@@ -19,10 +34,23 @@ export type SuperAdminWhatsAppSection =
   | "reports"
   | "campaigns"
   | "help"
-  | "settings"
-  | "settings-leads"
-  | "ai-settings"
-  | "agents";
+  // Settings sections (same as tenant)
+  | "account"
+  | "agents"
+  | "teams"
+  | "inboxes"
+  | "labels"
+  | "attributes"
+  | "kanban-settings"
+  | "automation"
+  | "n8n"
+  | "bots"
+  | "typebot"
+  | "macros"
+  | "canned"
+  | "apps"
+  | "integrations"
+  | "permissions";
 
 export const SuperAdminWhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<SuperAdminWhatsAppSection>("inbox");
@@ -43,13 +71,39 @@ export const SuperAdminWhatsAppLayout = () => {
         return <WhatsAppCampaigns />;
       case "help":
         return <WhatsAppHelp />;
-      case "settings":
-      case "settings-leads":
-        return <WhatsAppSettings />;
-      case "ai-settings":
-        return <WhatsAppAISettings isSuperAdmin />;
+      // Settings sections (same as tenant)
+      case "account":
+        return <WhatsAppAccountSettings />;
       case "agents":
         return <WhatsAppAgentsSettings />;
+      case "teams":
+        return <WhatsAppTeamsSettings />;
+      case "inboxes":
+        return <WhatsAppInboxSettings />;
+      case "labels":
+        return <WhatsAppLabelsSettings />;
+      case "attributes":
+        return <WhatsAppAttributesSettings />;
+      case "kanban-settings":
+        return <WhatsAppKanbanSettings />;
+      case "automation":
+        return <WhatsAppAutomationSettings />;
+      case "n8n":
+        return <WhatsAppN8NSettings />;
+      case "bots":
+        return <WhatsAppBotsSettings />;
+      case "typebot":
+        return <WhatsAppTypebotSettings />;
+      case "macros":
+        return <WhatsAppMacrosSettings />;
+      case "canned":
+        return <WhatsAppCannedResponses />;
+      case "apps":
+        return <WhatsAppAppsSettings />;
+      case "integrations":
+        return <WhatsAppIntegrationsSettings />;
+      case "permissions":
+        return <WhatsAppPermissionsSettings />;
       default:
         return <SuperAdminWhatsAppInbox />;
     }
