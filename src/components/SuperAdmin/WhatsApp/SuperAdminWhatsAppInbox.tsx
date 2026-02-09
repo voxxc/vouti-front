@@ -241,7 +241,15 @@ export const SuperAdminWhatsAppInbox = () => {
 
       if (error) throw error;
 
-      // Não precisa recarregar manualmente - o real-time vai detectar o INSERT
+      // Update otimista: adicionar mensagem localmente
+      const optimisticMsg: WhatsAppMessage = {
+        id: crypto.randomUUID(),
+        messageText: text,
+        direction: "outgoing",
+        timestamp: new Date().toISOString(),
+        isFromMe: true,
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
