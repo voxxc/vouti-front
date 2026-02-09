@@ -1,129 +1,86 @@
 
 
-## Problemas Identificados
+# Plano: Corrigir Persistência das Credenciais Z-API
 
-### Problema 1: Status mostra "Desconectado" mesmo conectado
+## Problema Identificado
 
-| Aspecto | O que acontece | Por que está errado |
-|---------|----------------|---------------------|
-| Banco de dados | `connection_status: 'disconnected'` | Deveria ser `'connected'` |
-| `checkConnectionStatus()` | Apenas atualiza o estado local (React) | Não atualiza o banco de dados |
-| Ao carregar a página | Lê do banco → mostra desconectado | Ignora o status real da Z-API |
+| Aspecto | O que acontece | O que deveria acontecer |
+|---------|----------------|------------------------|
+| `saveZapiConfig()` | Salva apenas `instance_name`, `user_id`, `tenant_id` | Deveria salvar também `zapi_url` e `zapi_token` |
+| `save-zapi-config` edge function | Apenas loga os valores, não salva nada | Deveria nem ser necessária |
+| Banco de dados | `zapi_url: NULL`, `zapi_token: NULL` | Deveria ter os valores preenchidos |
 
-O fluxo atual:
-1. Página carrega → busca `connection_status` do banco → mostra "Desconectado"
-2. `checkConnectionStatus()` chama Z-API → retorna `connected: true`
-3. Atualiza apenas `useState` local, **NÃO atualiza o banco**
-4. Usuário recarrega página → volta a mostrar "Desconectado"
-
-### Problema 2: Botão "Desconectar" não aparece
-
-Como o status está "desconectado" na UI, o código exibe o botão "Conectar" ao invés de "Desconectar":
-```tsx
-{connectionStatus === 'connected' ? (
-  <Button onClick={handleDisconnect}>Desconectar</Button>  // ← NÃO aparece
-) : (
-  <Button onClick={handleConnect}>Conectar</Button>        // ← Aparece sempre
-)}
+### Dados atuais no banco:
+```text
+instance_name: 3E8A7687638142678C80FA4754EC29F2
+zapi_url: NULL ← PROBLEMA!
+zapi_token: NULL ← PROBLEMA!
 ```
-
-### Problema 3: Botão Resetar não funciona
-
-| Código atual | Problema |
-|--------------|----------|
-| `.delete().eq('user_id', userData.user.id)` | O `user_id` no banco é `d4bcecc4-661a-430c-9b84-abdc3576a896` |
-| `userData.user.id` | Retorna `c3bdf9c8-22b7-4597-8f68-bba7c742864d` (usuário logado) |
-| Resultado | IDs diferentes → delete não encontra registro → campos não limpam |
-
-Além disso, o estado local (`zapiConfig`) não é limpo após o delete.
 
 ---
 
-## Correções Necessárias
+## Correção Necessária
 
-### 1. Atualizar banco quando verificar status real da Z-API
-
-No `checkConnectionStatus()`:
-```typescript
-const checkConnectionStatus = async () => {
-  try {
-    const { data } = await supabase.functions.invoke('whatsapp-connect', {
-      body: { action: 'get_status' }
-    });
-
-    if (data?.success && data?.data?.connected) {
-      setIsConnected(true);
-      setConnectionStatus('connected');
-      
-      // NOVO: Atualizar banco de dados também
-      if (tenantId) {
-        await supabase
-          .from('whatsapp_instances')
-          .update({ connection_status: 'connected' })
-          .eq('tenant_id', tenantId);
-      }
-    } else {
-      // Também atualizar quando desconectado
-      setIsConnected(false);
-      setConnectionStatus('disconnected');
-      
-      if (tenantId) {
-        await supabase
-          .from('whatsapp_instances')
-          .update({ connection_status: 'disconnected' })
-          .eq('tenant_id', tenantId);
-      }
-    }
-  } catch (error) {
-    console.error('Erro ao verificar status:', error);
-  }
-};
-```
-
-### 2. Adicionar `tenantId` como dependência do useEffect
+### Modificar `saveZapiConfig` para incluir URL e Token no upsert:
 
 ```typescript
-useEffect(() => {
-  if (tenantId) {
-    checkConnectionStatus();
-  }
-}, [tenantId]);  // Rodar quando tenantId estiver disponível
-```
-
-### 3. Corrigir botão Resetar
-
-```typescript
-const handleReset = async () => {
-  setIsResetting(true);
+const saveZapiConfig = async () => {
+  setIsSavingConfig(true);
   
   try {
-    // Usar tenant_id ao invés de user_id
-    const { error } = await supabase
+    if (!zapiConfig.url || !zapiConfig.instanceId || !zapiConfig.token) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos de configuração",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+
+    // CORRIGIDO: Incluir zapi_url e zapi_token no upsert
+    const { error: instanceError } = await supabase
       .from('whatsapp_instances')
-      .delete()
-      .eq('tenant_id', tenantId);
+      .upsert({
+        instance_name: zapiConfig.instanceId,
+        user_id: userData.user.id,
+        tenant_id: tenantId,
+        connection_status: 'disconnected',
+        last_update: new Date().toISOString(),
+        zapi_url: zapiConfig.url,      // ← NOVO
+        zapi_token: zapiConfig.token   // ← NOVO
+      }, {
+        onConflict: 'instance_name'
+      });
 
-    if (error) throw error;
+    if (instanceError) throw instanceError;
 
-    // Limpar estado local
-    setZapiConfig({ url: '', instanceId: '', token: '' });
-    setIsConnected(false);
-    setQrCode(null);
-    setConnectionStatus('disconnected');
-    
-    toast({
-      title: "Configurações resetadas",
-      description: "Todos os campos foram limpos. Configure novamente.",
+    // A edge function não é mais necessária para salvar, 
+    // mas podemos manter para log
+    await supabase.functions.invoke('save-zapi-config', {
+      body: {
+        url: zapiConfig.url,
+        instanceId: zapiConfig.instanceId,
+        token: zapiConfig.token
+      }
     });
+
+    toast({
+      title: "Configuração salva",
+      description: "Credenciais salvas com sucesso! Agora você pode conectar.",
+    });
+    setActiveTab('conexao');
   } catch (error) {
-    console.error('Erro ao resetar:', error);
+    console.error('Erro ao salvar configuração:', error);
     toast({
       title: "Erro",
-      description: "Falha ao resetar configurações",
+      description: "Falha ao salvar configuração Z-API",
       variant: "destructive",
     });
   } finally {
-    setIsResetting(false);
+    setIsSavingConfig(false);
   }
 };
 ```
@@ -132,19 +89,19 @@ const handleReset = async () => {
 
 ## Arquivo a Modificar
 
-| Arquivo | Alterações |
-|---------|------------|
-| `src/components/WhatsApp/sections/WhatsAppSettings.tsx` | 3 funções: `checkConnectionStatus`, `useEffect`, `handleReset` |
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/WhatsApp/sections/WhatsAppSettings.tsx` | Adicionar `zapi_url` e `zapi_token` no upsert (linhas 259-269) |
 
 ---
 
 ## Resultado Esperado
 
-Após as correções:
-
-1. **Status correto**: Ao abrir a página, verifica o status real na Z-API e atualiza banco + UI
-2. **Botão Desconectar**: Aparece quando a Z-API está conectada
-3. **Botão Resetar funciona**: Deleta pelo `tenant_id` correto e limpa os campos da UI
+Após a correção:
+1. Usuário preenche URL, Instance ID e Token
+2. Clica em "Salvar Configuração"
+3. Dados são salvos no banco: `zapi_url`, `zapi_token`, `instance_name`
+4. Ao recarregar a página, os campos aparecem preenchidos (já funciona no `loadExistingConfig`)
 
 ---
 
@@ -152,28 +109,27 @@ Após as correções:
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│  USUÁRIO ABRE CONFIGURAÇÕES                                        │
+│  USUÁRIO SALVA CONFIGURAÇÃO                                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  1. Carrega config do banco (url, instanceId, token)               │
-│  2. Chama Z-API /status para verificar conexão REAL                │
-│  3. Se conectado:                                                   │
-│     - Atualiza banco: connection_status = 'connected'              │
-│     - Atualiza UI: mostra "Conectado" + botão "Desconectar"        │
-│  4. Se desconectado:                                                │
-│     - Atualiza banco: connection_status = 'disconnected'           │
-│     - Atualiza UI: mostra "Desconectado" + botão "Conectar"        │
+│  1. Preenche URL Base, Instance ID, Token                          │
+│  2. Clica "Salvar Configuração"                                    │
+│  3. UPSERT com TODOS os campos:                                    │
+│     - instance_name (Instance ID)                                  │
+│     - zapi_url (URL Base) ← NOVO                                   │
+│     - zapi_token (Token) ← NOVO                                    │
+│     - tenant_id, user_id                                           │
+│  4. Toast: "Credenciais salvas com sucesso!"                       │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│  USUÁRIO CLICA "RESETAR"                                           │
+│  USUÁRIO RECARREGA PÁGINA                                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  1. Delete do banco usando tenant_id (não user_id)                 │
-│  2. Limpa estado local: url='', instanceId='', token=''            │
-│  3. Reseta status: disconnected                                     │
-│  4. Toast: "Todos os campos foram limpos"                          │
+│  1. loadExistingConfig() busca do banco                            │
+│  2. Preenche os inputs com valores salvos ✅                        │
+│  3. Campos aparecem preenchidos automaticamente                    │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
