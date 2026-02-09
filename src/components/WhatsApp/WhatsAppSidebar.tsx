@@ -13,6 +13,7 @@ import {
   Bot,
   ChevronDown
 } from "lucide-react";
+import CloudIcon from "@/components/CloudIcon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WhatsAppSection } from "./WhatsAppLayout";
@@ -71,9 +72,7 @@ export const WhatsAppSidebar = ({ activeSection, onSectionChange }: WhatsAppSide
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <Bot className="h-4 w-4 text-white" />
-            </div>
+            <CloudIcon className="w-8 h-8" />
             <span className="font-semibold text-foreground">Vouti.Bot</span>
           </div>
         </div>
