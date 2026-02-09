@@ -314,6 +314,18 @@ export const WhatsAppSettings = () => {
         return;
       }
 
+      // Tentar desconectar da Z-API primeiro (se estiver conectado)
+      if (connectionStatus === 'connected') {
+        try {
+          await supabase.functions.invoke('whatsapp-connect', {
+            body: { action: 'disconnect' }
+          });
+        } catch (disconnectError) {
+          console.log('Aviso: Não foi possível desconectar da Z-API:', disconnectError);
+          // Continua mesmo se falhar - o importante é limpar os dados locais
+        }
+      }
+
       // Deletar usando tenant_id
       const { error } = await supabase
         .from('whatsapp_instances')
@@ -330,7 +342,7 @@ export const WhatsAppSettings = () => {
       
       toast({
         title: "Configurações resetadas",
-        description: "Todos os campos foram limpos. Configure novamente.",
+        description: "WhatsApp desconectado e configurações limpas.",
       });
     } catch (error) {
       console.error('Erro ao resetar:', error);
