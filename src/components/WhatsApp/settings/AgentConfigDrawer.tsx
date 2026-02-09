@@ -88,13 +88,19 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     
     setIsCheckingStatus(true);
     try {
-      const response = await fetch(`${url}/status`, {
-        headers: { "Client-Token": token }
+      const response = await supabase.functions.invoke('whatsapp-zapi-action', {
+        body: {
+          action: 'status',
+          zapi_url: url,
+          zapi_token: token,
+        }
       });
+
+      if (response.error) throw response.error;
       
-      if (response.ok) {
-        const data = await response.json();
-        const connected = data?.connected === true;
+      const result = response.data;
+      if (result.success) {
+        const connected = result.data?.connected === true;
         setIsConnected(connected);
         
         // Sincronizar com o banco de dados
@@ -172,16 +178,20 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     }
 
     try {
-      const response = await fetch(`${config.zapi_url}/qr-code/image`, {
-        headers: { "Client-Token": config.zapi_token }
+      const response = await supabase.functions.invoke('whatsapp-zapi-action', {
+        body: {
+          action: 'qr-code',
+          zapi_url: config.zapi_url,
+          zapi_token: config.zapi_token,
+        }
       });
 
-      if (!response.ok) throw new Error("Erro ao obter QR Code");
+      if (response.error) throw response.error;
 
-      const data = await response.json();
+      const result = response.data;
       
-      if (data?.value) {
-        setQrCode(data.value);
+      if (result.success && result.data?.value) {
+        setQrCode(result.data.value);
         toast.success("Escaneie o QR Code com seu WhatsApp");
       } else {
         toast.info("Dispositivo já conectado ou aguardando...");
@@ -197,10 +207,21 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     if (!config.zapi_url || !config.zapi_token) return;
 
     try {
-      await fetch(`${config.zapi_url}/disconnect`, {
-        method: "POST",
-        headers: { "Client-Token": config.zapi_token }
+      const response = await supabase.functions.invoke('whatsapp-zapi-action', {
+        body: {
+          action: 'disconnect',
+          zapi_url: config.zapi_url,
+          zapi_token: config.zapi_token,
+        }
       });
+
+      if (response.error) throw response.error;
+      
+      const result = response.data;
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao desconectar');
+      }
 
       setIsConnected(false);
       setQrCode(null);
@@ -213,11 +234,11 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           .eq("id", config.id);
       }
 
-      toast.success("Desconectado");
+      toast.success("Desconectado com sucesso!");
       onAgentUpdated();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao desconectar:", error);
-      toast.error("Erro ao desconectar");
+      toast.error(error.message || "Erro ao desconectar");
     }
   };
 
@@ -225,11 +246,14 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     if (!config.id) return;
 
     try {
-      // Desconectar primeiro
+      // Desconectar primeiro via Edge Function
       if (config.zapi_url && config.zapi_token) {
-        await fetch(`${config.zapi_url}/disconnect`, {
-          method: "POST",
-          headers: { "Client-Token": config.zapi_token }
+        await supabase.functions.invoke('whatsapp-zapi-action', {
+          body: {
+            action: 'disconnect',
+            zapi_url: config.zapi_url,
+            zapi_token: config.zapi_token,
+          }
         }).catch(() => {});
       }
 
