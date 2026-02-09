@@ -89,6 +89,11 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
         });
         setIsConnected(false);
       }
+      
+      // Verificar status real na Z-API ao abrir (mesmo sem credenciais no form)
+      setTimeout(() => {
+        checkConnectionStatusOnLoad();
+      }, 300);
     } catch (error) {
       console.error("Erro ao carregar config:", error);
     } finally {
@@ -96,17 +101,16 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     }
   };
 
-  const checkConnectionStatus = async () => {
-    if (!config.zapi_instance_id || !config.zapi_instance_token) return;
-    
+  // Verificação de status ao abrir o drawer (usa fallback das env vars)
+  const checkConnectionStatusOnLoad = async () => {
     setIsCheckingStatus(true);
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'status',
-          zapi_instance_id: config.zapi_instance_id,
-          zapi_instance_token: config.zapi_instance_token,
-          zapi_client_token: config.zapi_client_token,
+          zapi_instance_id: config.zapi_instance_id || undefined,
+          zapi_instance_token: config.zapi_instance_token || undefined,
+          zapi_client_token: config.zapi_client_token || undefined,
         }
       });
 
@@ -124,6 +128,41 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
             .eq("id", config.id);
           onAgentUpdated();
         }
+      }
+    } catch (error) {
+      console.error("Erro ao verificar status:", error);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  const checkConnectionStatus = async () => {
+    setIsCheckingStatus(true);
+    try {
+      const response = await supabase.functions.invoke('whatsapp-zapi-action', {
+        body: {
+          action: 'status',
+          zapi_instance_id: config.zapi_instance_id || undefined,
+          zapi_instance_token: config.zapi_instance_token || undefined,
+          zapi_client_token: config.zapi_client_token || undefined,
+        }
+      });
+
+      if (response.error) throw response.error;
+      
+      const result = response.data;
+      if (result.success) {
+        const connected = result.data?.connected === true;
+        setIsConnected(connected);
+        
+        if (config.id) {
+          await supabase
+            .from("whatsapp_instances")
+            .update({ connection_status: connected ? "connected" : "disconnected" })
+            .eq("id", config.id);
+          onAgentUpdated();
+        }
+        toast.success(connected ? "WhatsApp conectado!" : "WhatsApp desconectado");
       }
     } catch (error) {
       console.error("Erro ao verificar status:", error);
@@ -225,18 +264,13 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
   };
 
   const handleConnect = async () => {
-    if (!config.zapi_instance_id || !config.zapi_instance_token) {
-      toast.error("Preencha Instance ID e Instance Token primeiro");
-      return;
-    }
-
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'qr-code',
-          zapi_instance_id: config.zapi_instance_id,
-          zapi_instance_token: config.zapi_instance_token,
-          zapi_client_token: config.zapi_client_token,
+          zapi_instance_id: config.zapi_instance_id || undefined,
+          zapi_instance_token: config.zapi_instance_token || undefined,
+          zapi_client_token: config.zapi_client_token || undefined,
         }
       });
 
@@ -259,15 +293,13 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
   };
 
   const handleDisconnect = async () => {
-    if (!config.zapi_instance_id || !config.zapi_instance_token) return;
-
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'disconnect',
-          zapi_instance_id: config.zapi_instance_id,
-          zapi_instance_token: config.zapi_instance_token,
-          zapi_client_token: config.zapi_client_token,
+          zapi_instance_id: config.zapi_instance_id || undefined,
+          zapi_instance_token: config.zapi_instance_token || undefined,
+          zapi_client_token: config.zapi_client_token || undefined,
         }
       });
 
@@ -298,24 +330,24 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
   };
 
   const handleReset = async () => {
-    if (!config.id) return;
-
     try {
-      if (config.zapi_instance_id && config.zapi_instance_token) {
-        await supabase.functions.invoke('whatsapp-zapi-action', {
-          body: {
-            action: 'disconnect',
-            zapi_instance_id: config.zapi_instance_id,
-            zapi_instance_token: config.zapi_instance_token,
-            zapi_client_token: config.zapi_client_token,
-          }
-        }).catch(() => {});
-      }
+      // Sempre tentar desconectar (Edge Function usa fallback se necessário)
+      await supabase.functions.invoke('whatsapp-zapi-action', {
+        body: {
+          action: 'disconnect',
+          zapi_instance_id: config.zapi_instance_id || undefined,
+          zapi_instance_token: config.zapi_instance_token || undefined,
+          zapi_client_token: config.zapi_client_token || undefined,
+        }
+      }).catch(() => {});
 
-      await supabase
-        .from("whatsapp_instances")
-        .delete()
-        .eq("id", config.id);
+      // Limpar do banco se existir
+      if (config.id) {
+        await supabase
+          .from("whatsapp_instances")
+          .delete()
+          .eq("id", config.id);
+      }
 
       setConfig({
         zapi_instance_id: "",
@@ -458,7 +490,6 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                   variant="outline" 
                   className="flex-1 gap-2" 
                   onClick={handleConnect}
-                  disabled={!config.zapi_instance_id || !config.zapi_instance_token}
                 >
                   <QrCode className="h-4 w-4" />
                   Conectar via QR Code
