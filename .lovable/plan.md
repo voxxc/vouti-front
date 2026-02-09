@@ -1,104 +1,31 @@
 
-
-## Plano: Capturar Mensagens Enviadas pelo Celular no Webhook
+## Corrigir botao "Novo Usuario" no drawer de gerenciamento de usuarios
 
 ### Problema
 
-O webhook descarta todas as mensagens com `fromMe: true`. Isso impede que mensagens enviadas manualmente pelo celular apareçam na caixa de entrada do Vouti.Bot.
+No painel do tenant (ex: `/solvenza/dashboard`), ao abrir o drawer de "Usuarios" e clicar em "Novo Usuario", nada acontece. O botao esta conectado a uma funcao (`handleAddUser`) que apenas recarrega a lista de usuarios -- nao abre nenhum formulario de criacao.
 
-### Solução
+A logica de criacao de usuario existe no componente antigo `UserManagement.tsx`, mas o drawer (`UserManagementDrawer.tsx`) que substituiu a interface nao inclui essa funcionalidade.
 
-Salvar mensagens `fromMe: true` como `direction: 'outgoing'` no banco, mas **sem disparar IA nem automacoes** para elas.
+### Solucao
 
-### Alteracao
+Adicionar um dialog de criacao de usuario diretamente dentro do `UserManagementDrawer.tsx`, reutilizando a mesma logica de criacao que existe no `UserManagement.tsx` (chamada a edge function `create-user`).
 
-**Arquivo:** `supabase/functions/whatsapp-webhook/index.ts`
+### Alteracoes
 
-**Logica atual:**
-```
-ReceivedCallback + fromMe = IGNORADO
-handleIncomingMessage + fromMe = IGNORADO
-```
+**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
 
-**Logica nova:**
-```
-ReceivedCallback + fromMe = SALVAR como outgoing (sem IA, sem automacao)
-ReceivedCallback + !fromMe = SALVAR como received + processar IA/automacao (atual)
-```
+1. Adicionar estados para controlar o dialog de criacao e o formulario (nome, email, senha, perfil, permissoes adicionais)
+2. Adicionar um Dialog de criacao com campos: Nome, Email, Senha, Perfil (select), Permissoes Adicionais (checkboxes)
+3. No `handleCreateSubmit`, chamar a edge function `create-user` com os dados do formulario e o `tenantId`
+4. Apos sucesso, chamar `onAddUser()` para recarregar a lista e fechar o dialog
+5. Integrar verificacao de limite de plano via `usePlanoLimites()` para desabilitar o botao quando o limite for atingido
 
-**Mudancas especificas:**
+### Detalhes tecnicos
 
-1. No handler principal (serve), remover o filtro `if (!fromMe)` e sempre chamar `handleIncomingMessage`
-2. Dentro de `handleIncomingMessage`, em vez de `return` quando `fromMe`, salvar a mensagem como `direction: 'outgoing'` e retornar sem processar IA/automacoes
-
-```typescript
-// ANTES (descarta):
-if (fromMe) {
-  console.log('Ignorando mensagem propria');
-  return;
-}
-
-// DEPOIS (salva como outgoing):
-if (fromMe) {
-  // Salvar mensagem enviada pelo celular no historico
-  await supabase.from('whatsapp_messages').insert({
-    instance_name: instanceId,
-    message_id: messageId || `msg_${Date.now()}`,
-    from_number: phone, // ja normalizado
-    message_text: text?.message || '',
-    message_type: 'text',
-    direction: 'outgoing',
-    raw_data: data,
-    user_id: instance.user_id,
-    tenant_id: effectiveTenantId,
-    timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
-    is_read: true,
-  });
-  console.log('Mensagem enviada pelo celular salva no historico');
-  return; // Nao processa IA nem automacoes
-}
-```
-
-3. No handler principal, remover a condicao `!fromMe`:
-```typescript
-// ANTES:
-if (type === 'ReceivedCallback') {
-  if (!fromMe) {
-    await handleIncomingMessage(webhookData);
-  }
-}
-
-// DEPOIS:
-if (type === 'ReceivedCallback') {
-  await handleIncomingMessage(webhookData);
-}
-```
-
-### Prevencao de Duplicatas
-
-Mensagens enviadas **pela plataforma** (via `saveOutgoingMessage`) ja sao salvas. O webhook tambem recebera essas mensagens com `fromMe: true` e `fromApi: true`. Para evitar duplicatas:
-
-- Verificar se `fromApi: true` (enviada pela API/plataforma) e ignorar, pois ja foi salva
-- Apenas salvar quando `fromApi: false` (enviada manualmente pelo celular)
-
-```typescript
-if (fromMe) {
-  if (data.fromApi) {
-    console.log('Ignorando mensagem ja salva pela plataforma (fromApi: true)');
-    return;
-  }
-  // Salvar mensagem manual do celular...
-}
-```
-
-### Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Salvar mensagens fromMe como outgoing, filtrar fromApi |
-
-### Resultado
-
-- Mensagens enviadas pelo celular aparecerao na caixa de entrada como mensagens enviadas
-- IA e automacoes continuam sendo disparadas apenas para mensagens recebidas de leads
-- Mensagens enviadas pela plataforma nao serao duplicadas (filtro fromApi)
+- Reutilizar a mesma chamada `supabase.functions.invoke('create-user', { body: { email, password, full_name, role, additional_roles, tenant_id } })`
+- Usar o hook `usePlanoLimites()` ja existente para verificar `podeAdicionarUsuario`
+- Mostrar `LimiteAlert` quando o limite estiver proximo ou atingido
+- O formulario de criacao sera um `Dialog` separado do dialog de edicao ja existente
+- Campos obrigatorios: nome, email, senha (min 6 chars), perfil
+- Permissoes adicionais: mesmos checkboxes do formulario de edicao (Agenda, Clientes, Financeiro, Controladoria, Reunioes)
