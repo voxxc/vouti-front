@@ -1,168 +1,183 @@
 
-# Plano: Corrigir Exibicao do Status de Conexao no Drawer do Agente
+# Plano: Corrigir Funcao Desconectar do Z-API
 
-## Problema
+## Problema Identificado
 
-Ao abrir o drawer do Daniel (que esta conectado), a secao de Acoes mostra "Conectar" ao inves de "Desconectar". Isso acontece porque:
+O botao "Desconectar" no drawer do agente nao funciona porque:
 
-1. O drawer carrega o status do banco (`connected`) corretamente
-2. Em seguida, chama `checkConnectionStatus()` que faz uma requisicao direta a API Z-API
-3. Se a requisicao falhar (CORS, timeout, etc.), o estado e sobrescrito para `false`
+1. **CORS**: O navegador faz chamada direta para `${config.zapi_url}/disconnect`, que falha por restricoes de CORS
+2. **Silencioso**: O erro e capturado no try/catch mas o toast de erro nao aparece (ou o usuario nao percebe)
+3. **Edge Function existente**: A `whatsapp-connect` usa credenciais globais, nao as do agente especifico
 
 ## Solucao
 
-Modificar a logica para:
+Criar uma nova Edge Function `whatsapp-zapi-action` que:
+- Aceita credenciais dinamicas (url, token) como parametros
+- Executa acoes (status, disconnect, qr-code) na Z-API via backend (sem CORS)
+- Retorna o resultado para o frontend
 
-1. **Priorizar o status do banco de dados** como fonte de verdade inicial
-2. **Nao sobrescrever automaticamente** o status ao abrir o drawer
-3. **Atualizar apenas quando o usuario clicar no botao de refresh** ou apos acoes explicitas
+## Nova Edge Function
 
-## Alteracoes no Arquivo
+### `supabase/functions/whatsapp-zapi-action/index.ts`
+
+```typescript
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { action, zapi_url, zapi_token } = await req.json();
+
+    // Validar parametros
+    if (!action || !zapi_url || !zapi_token) {
+      throw new Error('Missing required fields: action, zapi_url, or zapi_token');
+    }
+
+    let endpoint = '';
+    let method = 'GET';
+
+    switch (action) {
+      case 'status':
+        endpoint = `${zapi_url}/status`;
+        break;
+      case 'disconnect':
+        endpoint = `${zapi_url}/disconnect`;
+        method = 'POST';
+        break;
+      case 'qr-code':
+        endpoint = `${zapi_url}/qr-code/image`;
+        break;
+      default:
+        throw new Error(`Invalid action: ${action}`);
+    }
+
+    console.log(`Z-API Action: ${action} -> ${endpoint}`);
+
+    const zapiResponse = await fetch(endpoint, {
+      method: method,
+      headers: {
+        'Client-Token': zapi_token,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const zapiData = await zapiResponse.json();
+    console.log('Z-API Response:', zapiData);
+
+    return new Response(JSON.stringify({
+      success: zapiResponse.ok,
+      data: zapiData,
+      action: action
+    }), {
+      status: zapiResponse.ok ? 200 : 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in whatsapp-zapi-action:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
+```
+
+## Alteracoes no Frontend
 
 ### `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
 
-#### 1. Remover chamada automatica ao checkConnectionStatus
+Modificar `handleDisconnect` para usar a Edge Function:
 
 ```typescript
-// ANTES (linha 70)
-if (data) {
-  setConfig({...});
-  setIsConnected(data.connection_status === "connected");
-  checkConnectionStatus(...); // <- REMOVE esta linha
-}
+const handleDisconnect = async () => {
+  if (!config.zapi_url || !config.zapi_token) return;
 
-// DEPOIS
-if (data) {
-  setConfig({...});
-  setIsConnected(data.connection_status === "connected");
-  // Nao verificar automaticamente - usar valor do banco
-}
-```
-
-#### 2. Modificar checkConnectionStatus para atualizar o banco
-
-Quando o usuario clicar no refresh, alem de verificar o status, tambem atualizar o banco:
-
-```typescript
-const checkConnectionStatus = async (url: string, instanceId: string, token: string) => {
-  if (!url || !instanceId || !token) return;
-  
-  setIsCheckingStatus(true);
   try {
-    const response = await fetch(`${url}/status`, {
-      headers: { "Client-Token": token }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      const connected = data?.connected === true;
-      setIsConnected(connected);
-      
-      // Sincronizar com o banco de dados
-      if (config.id) {
-        await supabase
-          .from("whatsapp_instances")
-          .update({ connection_status: connected ? "connected" : "disconnected" })
-          .eq("id", config.id);
-        onAgentUpdated();
+    const response = await supabase.functions.invoke('whatsapp-zapi-action', {
+      body: {
+        action: 'disconnect',
+        zapi_url: config.zapi_url,
+        zapi_token: config.zapi_token,
       }
+    });
+
+    if (response.error) throw response.error;
+    
+    const data = response.data;
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao desconectar');
     }
-    // Se falhar, manter o status atual (nao sobrescrever)
-  } catch (error) {
-    console.error("Erro ao verificar status:", error);
-    toast.error("Nao foi possivel verificar o status");
-    // Manter o status atual - nao sobrescrever para false
-  } finally {
-    setIsCheckingStatus(false);
+
+    setIsConnected(false);
+    setQrCode(null);
+    
+    // Atualizar status no DB
+    if (config.id) {
+      await supabase
+        .from("whatsapp_instances")
+        .update({ connection_status: "disconnected" })
+        .eq("id", config.id);
+    }
+
+    toast.success("Desconectado com sucesso!");
+    onAgentUpdated();
+  } catch (error: any) {
+    console.error("Erro ao desconectar:", error);
+    toast.error(error.message || "Erro ao desconectar");
   }
 };
 ```
 
-#### 3. Melhorar UX da secao de Acoes
+Tambem atualizar `checkConnectionStatus` e `handleConnect` para usar a mesma Edge Function.
 
-Quando conectado, mostrar visual claro:
+## Arquivos a Criar/Modificar
 
-```typescript
-{/* Acoes de Conexao */}
-<div className="space-y-3">
-  <h3 className="font-medium text-sm">Acoes</h3>
-  
-  {isConnected ? (
-    // CONECTADO - mostrar status e opcao de desconectar
-    <div className="space-y-3">
-      <div className="flex items-center justify-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-        <CheckCircle2 className="h-5 w-5 text-green-500" />
-        <span className="text-green-600 font-medium">WhatsApp Conectado</span>
-      </div>
-      
-      <div className="flex gap-2">
-        <Button variant="outline" className="flex-1 gap-2" onClick={handleDisconnect}>
-          <XCircle className="h-4 w-4" />
-          Desconectar
-        </Button>
-        <Button variant="outline" onClick={handleRefresh}>
-          <RefreshCw className={isCheckingStatus ? 'animate-spin' : ''} />
-        </Button>
-      </div>
-    </div>
-  ) : (
-    // DESCONECTADO - mostrar QR Code
-    <div className="flex gap-2">
-      <Button variant="outline" className="flex-1 gap-2" onClick={handleConnect}>
-        <QrCode className="h-4 w-4" />
-        Conectar via QR Code
-      </Button>
-      <Button variant="outline" onClick={handleRefresh}>
-        <RefreshCw className={isCheckingStatus ? 'animate-spin' : ''} />
-      </Button>
-    </div>
-  )}
-
-  {config.id && (
-    <Button variant="destructive" className="w-full gap-2" onClick={handleReset}>
-      <Trash2 className="h-4 w-4" />
-      Resetar Configuracoes
-    </Button>
-  )}
-</div>
-```
+| Arquivo | Acao |
+|---------|------|
+| `supabase/functions/whatsapp-zapi-action/index.ts` | **CRIAR** |
+| `src/components/WhatsApp/settings/AgentConfigDrawer.tsx` | Modificar handlers |
 
 ## Fluxo Corrigido
 
 ```text
-Drawer Abre
-    |
-    v
-Carrega dados do DB
-    |
-    v
-connection_status = "connected"
-    |
-    v
-setIsConnected(true) <-- MANTIDO
-    |
-    v
-UI mostra "Conectado" + botao "Desconectar"
-
-    [Usuario clica Refresh]
-            |
-            v
-    Chama API Z-API /status
-            |
-            +-- Sucesso: Atualiza estado + banco
-            |
-            +-- Falha: Mostra toast de erro, MANTEM estado atual
+Usuario clica "Desconectar"
+        |
+        v
+Frontend chama Edge Function
+supabase.functions.invoke('whatsapp-zapi-action', {
+  action: 'disconnect',
+  zapi_url: '...',
+  zapi_token: '...'
+})
+        |
+        v
+Edge Function faz POST para Z-API
+(sem problema de CORS)
+        |
+        v
+Retorna resultado
+        |
+        v
+Frontend atualiza estado + banco + mostra toast
 ```
 
 ## Resultado Esperado
 
-| Situacao | Antes | Depois |
-|----------|-------|--------|
-| Daniel conectado, abre drawer | Mostra "Conectar" (bug) | Mostra "Conectado" + "Desconectar" |
-| Clica refresh, API ok | Atualiza estado | Atualiza estado + banco |
-| Clica refresh, API falha | Muda para desconectado | Mantem estado + mostra erro |
-| Clica reset | Limpa tudo | Limpa tudo (sem mudanca) |
-
-## Arquivo Modificado
-
-- `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
+| Acao | Antes | Depois |
+|------|-------|--------|
+| Desconectar | Falha silenciosa (CORS) | Funciona via Edge Function |
+| Verificar Status | Pode falhar (CORS) | Funciona via Edge Function |
+| Obter QR Code | Pode falhar (CORS) | Funciona via Edge Function |
