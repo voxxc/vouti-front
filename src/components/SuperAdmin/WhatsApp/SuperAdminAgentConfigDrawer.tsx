@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Agent } from "@/components/WhatsApp/settings/AgentCard";
@@ -22,25 +20,14 @@ interface SuperAdminAgentConfigDrawerProps {
 
 interface InstanceConfig {
   id?: string;
+  zapi_instance_id: string;
   zapi_url: string;
   zapi_token: string;
 }
 
-// Extrair instance_id da URL para salvar no banco
-const extractInstanceId = (url: string): string => {
-  const match = url.match(/instances\/([A-F0-9]+)/i);
-  return match ? match[1] : 'instance';
-};
-
-// Detectar se o token inserido é o mesmo da URL (erro comum)
-const isTokenFromUrl = (url: string, token: string): boolean => {
-  if (!url || !token) return false;
-  const match = url.match(/\/token\/([A-F0-9]+)/i);
-  return match ? match[1].toUpperCase() === token.toUpperCase() : false;
-};
-
 export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }: SuperAdminAgentConfigDrawerProps) => {
   const [config, setConfig] = useState<InstanceConfig>({
+    zapi_instance_id: "",
     zapi_url: "",
     zapi_token: "",
   });
@@ -61,7 +48,6 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     
     setIsLoading(true);
     try {
-      // Buscar instância onde tenant_id IS NULL (Super Admin)
       const { data, error } = await supabase
         .from("whatsapp_instances")
         .select("*")
@@ -74,12 +60,14 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       if (data) {
         setConfig({
           id: data.id,
+          zapi_instance_id: data.instance_name || "",
           zapi_url: data.zapi_url || "",
           zapi_token: data.zapi_token || "",
         });
         setIsConnected(data.connection_status === "connected");
       } else {
         setConfig({
+          zapi_instance_id: "",
           zapi_url: "",
           zapi_token: "",
         });
@@ -112,7 +100,6 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         const connected = result.data?.connected === true;
         setIsConnected(connected);
         
-        // Sincronizar com o banco de dados
         if (config.id) {
           await supabase
             .from("whatsapp_instances")
@@ -134,28 +121,24 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     
     setIsSaving(true);
     try {
-      const instanceName = extractInstanceId(config.zapi_url);
-      
       if (config.id) {
-        // Update
         const { error } = await supabase
           .from("whatsapp_instances")
           .update({
+            instance_name: config.zapi_instance_id,
             zapi_url: config.zapi_url,
-            instance_name: instanceName,
             zapi_token: config.zapi_token,
           })
           .eq("id", config.id);
 
         if (error) throw error;
       } else {
-        // Insert com tenant_id: null
         const { data, error } = await supabase
           .from("whatsapp_instances")
           .insert({
-            tenant_id: null, // Explicitamente null para Super Admin
+            tenant_id: null,
             agent_id: agent.id,
-            instance_name: instanceName,
+            instance_name: config.zapi_instance_id,
             zapi_url: config.zapi_url,
             zapi_token: config.zapi_token,
             connection_status: "disconnected",
@@ -170,7 +153,6 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       toast.success("Configurações salvas!");
       onAgentUpdated();
       
-      // Verificar status após salvar
       checkConnectionStatus(config.zapi_url, config.zapi_token);
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
@@ -181,8 +163,8 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   };
 
   const handleConnect = async () => {
-    if (!config.zapi_url || !config.zapi_token) {
-      toast.error("Preencha as credenciais Z-API primeiro");
+    if (!config.zapi_url || !config.zapi_instance_id || !config.zapi_token) {
+      toast.error("Preencha todas as credenciais Z-API primeiro");
       return;
     }
 
@@ -235,7 +217,6 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       setIsConnected(false);
       setQrCode(null);
       
-      // Atualizar status no DB
       if (config.id) {
         await supabase
           .from("whatsapp_instances")
@@ -255,7 +236,6 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     if (!config.id) return;
 
     try {
-      // Desconectar primeiro via Edge Function
       if (config.zapi_url && config.zapi_token) {
         await supabase.functions.invoke('whatsapp-zapi-action', {
           body: {
@@ -266,13 +246,13 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         }).catch(() => {});
       }
 
-      // Deletar do DB
       await supabase
         .from("whatsapp_instances")
         .delete()
         .eq("id", config.id);
 
       setConfig({
+        zapi_instance_id: "",
         zapi_url: "",
         zapi_token: "",
       });
@@ -329,6 +309,19 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             <h3 className="font-medium text-sm">Credenciais Z-API</h3>
             
             <div className="space-y-2">
+              <Label htmlFor="zapi_instance_id">Instance ID</Label>
+              <Input
+                id="zapi_instance_id"
+                value={config.zapi_instance_id}
+                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
+                placeholder="ID da instância Z-API"
+              />
+              <p className="text-xs text-muted-foreground">
+                Identificador único da sua instância
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="zapi_url">URL da Instância</Label>
               <Input
                 id="zapi_url"
@@ -337,34 +330,23 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                 placeholder="https://api.z-api.io/instances/{ID}/token/{TOKEN}"
               />
               <p className="text-xs text-muted-foreground">
-                Cole a URL completa da sua instância Z-API
+                URL completa da API Z-API
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_token">Client Token (Security Token)</Label>
+              <Label htmlFor="zapi_token">Client Token</Label>
               <Input
                 id="zapi_token"
                 type="password"
                 value={config.zapi_token}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_token: e.target.value }))}
-                placeholder="Token de autenticação do cliente"
+                placeholder="Token de autenticação"
               />
               <p className="text-xs text-muted-foreground">
-                Encontre no painel Z-API: Configurações → Security → Client-Token.
-                <strong> Este token é DIFERENTE do que aparece na URL!</strong>
+                Encontre em: Painel Z-API → Security → Client-Token
               </p>
             </div>
-
-            {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
-              <Alert variant="destructive" className="animate-pulse border-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Token Incorreto!</strong> O Client Token não pode ser igual ao token da URL. 
-                  Acesse o painel Z-API → Security → Client-Token para obter o token correto.
-                </AlertDescription>
-              </Alert>
-            )}
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -400,28 +382,15 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
               </div>
             ) : (
               <div className="flex gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1">
-                        <Button 
-                          variant="outline" 
-                          className="w-full gap-2" 
-                          onClick={handleConnect}
-                          disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
-                        >
-                          <QrCode className="h-4 w-4" />
-                          Conectar via QR Code
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
-                      <TooltipContent>
-                        <p>Token inválido - use o Client-Token do painel Z-API</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2" 
+                  onClick={handleConnect}
+                  disabled={!config.zapi_url || !config.zapi_instance_id || !config.zapi_token}
+                >
+                  <QrCode className="h-4 w-4" />
+                  Conectar via QR Code
+                </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
