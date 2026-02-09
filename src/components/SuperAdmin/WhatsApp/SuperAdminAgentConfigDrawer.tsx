@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Agent } from "@/components/WhatsApp/settings/AgentCard";
@@ -21,34 +21,21 @@ interface SuperAdminAgentConfigDrawerProps {
 interface InstanceConfig {
   id?: string;
   zapi_instance_id: string;
-  zapi_url: string;
-  zapi_token: string;
+  zapi_instance_token: string;
+  zapi_client_token: string;
 }
 
 export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }: SuperAdminAgentConfigDrawerProps) => {
   const [config, setConfig] = useState<InstanceConfig>({
     zapi_instance_id: "",
-    zapi_url: "",
-    zapi_token: "",
+    zapi_instance_token: "",
+    zapi_client_token: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-
-  // Função para extrair token da URL
-  const getTokenFromUrl = (url: string): string | null => {
-    const match = url.match(/\/token\/([A-F0-9]+)/i);
-    return match ? match[1] : null;
-  };
-
-  // Validar se o token inserido é igual ao token da URL (INCORRETO!)
-  const isTokenInvalid = useMemo(() => {
-    if (!config.zapi_url || !config.zapi_token) return false;
-    const urlToken = getTokenFromUrl(config.zapi_url);
-    return urlToken?.toUpperCase() === config.zapi_token.toUpperCase();
-  }, [config.zapi_url, config.zapi_token]);
 
   // Carregar config da instância do agente
   useEffect(() => {
@@ -74,15 +61,15 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         setConfig({
           id: data.id,
           zapi_instance_id: data.instance_name || "",
-          zapi_url: data.zapi_url || "",
-          zapi_token: data.zapi_token || "",
+          zapi_instance_token: data.zapi_token || "",
+          zapi_client_token: data.zapi_url || "", // Reutilizando campo para client_token
         });
         setIsConnected(data.connection_status === "connected");
       } else {
         setConfig({
           zapi_instance_id: "",
-          zapi_url: "",
-          zapi_token: "",
+          zapi_instance_token: "",
+          zapi_client_token: "",
         });
         setIsConnected(false);
       }
@@ -93,16 +80,17 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     }
   };
 
-  const checkConnectionStatus = async (url: string, token: string) => {
-    if (!url || !token) return;
+  const checkConnectionStatus = async () => {
+    if (!config.zapi_instance_id || !config.zapi_instance_token) return;
     
     setIsCheckingStatus(true);
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'status',
-          zapi_url: url,
-          zapi_token: token,
+          zapi_instance_id: config.zapi_instance_id,
+          zapi_instance_token: config.zapi_instance_token,
+          zapi_client_token: config.zapi_client_token,
         }
       });
 
@@ -139,8 +127,8 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
           .from("whatsapp_instances")
           .update({
             instance_name: config.zapi_instance_id,
-            zapi_url: config.zapi_url,
-            zapi_token: config.zapi_token,
+            zapi_token: config.zapi_instance_token,
+            zapi_url: config.zapi_client_token, // Reutilizando campo
           })
           .eq("id", config.id);
 
@@ -152,8 +140,8 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
             tenant_id: null,
             agent_id: agent.id,
             instance_name: config.zapi_instance_id,
-            zapi_url: config.zapi_url,
-            zapi_token: config.zapi_token,
+            zapi_token: config.zapi_instance_token,
+            zapi_url: config.zapi_client_token,
             connection_status: "disconnected",
           })
           .select()
@@ -166,7 +154,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       toast.success("Configurações salvas!");
       onAgentUpdated();
       
-      checkConnectionStatus(config.zapi_url, config.zapi_token);
+      checkConnectionStatus();
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
       toast.error("Erro ao salvar configurações");
@@ -176,8 +164,8 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   };
 
   const handleConnect = async () => {
-    if (!config.zapi_url || !config.zapi_instance_id || !config.zapi_token) {
-      toast.error("Preencha todas as credenciais Z-API primeiro");
+    if (!config.zapi_instance_id || !config.zapi_instance_token) {
+      toast.error("Preencha Instance ID e Instance Token primeiro");
       return;
     }
 
@@ -185,8 +173,9 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'qr-code',
-          zapi_url: config.zapi_url,
-          zapi_token: config.zapi_token,
+          zapi_instance_id: config.zapi_instance_id,
+          zapi_instance_token: config.zapi_instance_token,
+          zapi_client_token: config.zapi_client_token,
         }
       });
 
@@ -199,7 +188,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         toast.success("Escaneie o QR Code com seu WhatsApp");
       } else {
         toast.info("Dispositivo já conectado ou aguardando...");
-        checkConnectionStatus(config.zapi_url, config.zapi_token);
+        checkConnectionStatus();
       }
     } catch (error) {
       console.error("Erro ao conectar:", error);
@@ -208,14 +197,15 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   };
 
   const handleDisconnect = async () => {
-    if (!config.zapi_url || !config.zapi_token) return;
+    if (!config.zapi_instance_id || !config.zapi_instance_token) return;
 
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'disconnect',
-          zapi_url: config.zapi_url,
-          zapi_token: config.zapi_token,
+          zapi_instance_id: config.zapi_instance_id,
+          zapi_instance_token: config.zapi_instance_token,
+          zapi_client_token: config.zapi_client_token,
         }
       });
 
@@ -249,12 +239,13 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
     if (!config.id) return;
 
     try {
-      if (config.zapi_url && config.zapi_token) {
+      if (config.zapi_instance_id && config.zapi_instance_token) {
         await supabase.functions.invoke('whatsapp-zapi-action', {
           body: {
             action: 'disconnect',
-            zapi_url: config.zapi_url,
-            zapi_token: config.zapi_token,
+            zapi_instance_id: config.zapi_instance_id,
+            zapi_instance_token: config.zapi_instance_token,
+            zapi_client_token: config.zapi_client_token,
           }
         }).catch(() => {});
       }
@@ -266,8 +257,8 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
 
       setConfig({
         zapi_instance_id: "",
-        zapi_url: "",
-        zapi_token: "",
+        zapi_instance_token: "",
+        zapi_client_token: "",
       });
       setIsConnected(false);
       setQrCode(null);
@@ -327,58 +318,39 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                 id="zapi_instance_id"
                 value={config.zapi_instance_id}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
-                placeholder="ID da instância Z-API"
+                placeholder="Ex: 3E8A768C5D9F4A7B8C2E1D3F"
               />
               <p className="text-xs text-muted-foreground">
-                Identificador único da sua instância
+                Encontre no painel Z-API → Sua instância
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_url">URL da Instância</Label>
+              <Label htmlFor="zapi_instance_token">Instance Token</Label>
               <Input
-                id="zapi_url"
-                value={config.zapi_url}
-                onChange={(e) => setConfig(prev => ({ ...prev, zapi_url: e.target.value }))}
-                placeholder="https://api.z-api.io/instances/{ID}/token/{TOKEN}"
+                id="zapi_instance_token"
+                value={config.zapi_instance_token}
+                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_token: e.target.value }))}
+                placeholder="Token da instância (obrigatório)"
               />
               <p className="text-xs text-muted-foreground">
-                URL completa da API Z-API
+                Token que aparece na URL da API Z-API
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zapi_token">Client Token (Security Token)</Label>
+              <Label htmlFor="zapi_client_token">Client-Token (Opcional)</Label>
               <Input
-                id="zapi_token"
+                id="zapi_client_token"
                 type="password"
-                value={config.zapi_token}
-                onChange={(e) => setConfig(prev => ({ ...prev, zapi_token: e.target.value }))}
-                placeholder="Token de segurança (diferente do token da URL)"
-                className={isTokenInvalid ? "border-destructive" : ""}
+                value={config.zapi_client_token}
+                onChange={(e) => setConfig(prev => ({ ...prev, zapi_client_token: e.target.value }))}
+                placeholder="Só preencha se ativou Security Token"
               />
               <p className="text-xs text-muted-foreground">
-                ⚠️ <strong>NÃO</strong> use o token da URL!<br/>
-                Encontre em: Painel Z-API → Security → Client-Token
+                Somente se você ativou o Security Token em: Painel Z-API → Security
               </p>
             </div>
-
-            {isTokenInvalid && (
-              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-medium text-destructive">Token Incorreto Detectado</p>
-                    <p className="text-muted-foreground mt-1">
-                      O Client-Token inserido é o mesmo da URL. Você precisa usar o <strong>Security Token</strong> do painel Z-API, que é diferente.
-                    </p>
-                    <p className="text-muted-foreground mt-2 text-xs">
-                      📍 Onde encontrar: <strong>Painel Z-API → Configurações → Security → Client-Token</strong>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -406,7 +378,7 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
+                    onClick={checkConnectionStatus}
                   >
                     <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                   </Button>
@@ -418,14 +390,14 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
                   variant="outline" 
                   className="flex-1 gap-2" 
                   onClick={handleConnect}
-                  disabled={!config.zapi_url || !config.zapi_instance_id || !config.zapi_token || isTokenInvalid}
+                  disabled={!config.zapi_instance_id || !config.zapi_instance_token}
                 >
                   <QrCode className="h-4 w-4" />
                   Conectar via QR Code
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => checkConnectionStatus(config.zapi_url, config.zapi_token)}
+                  onClick={checkConnectionStatus}
                 >
                   <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                 </Button>
