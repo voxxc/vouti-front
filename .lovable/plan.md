@@ -1,44 +1,61 @@
 
 
-## Correcao: Mensagens enviadas pelo celular nao aparecem na Caixa de Entrada
+## Correcao: Mensagem enviada pelo celular cria conversa com numero estranho (LID)
 
-### Problema Identificado
+### Problema
 
-Nos logs da edge function `whatsapp-webhook`, ha erros "Invalid webhook data received" nos horarios exatos em que voce enviou mensagens pelo celular (18:31:54 e 18:24:06). Isso significa que a funcao de validacao (`validateWebhookData`) esta rejeitando o payload da Z-API para mensagens `fromMe: true`.
+Quando voce envia uma mensagem pelo celular, a Z-API envia o webhook com `phone: "23081254949024@lid"` (um identificador interno do WhatsApp chamado LID) ao inves do numero real do contato (`5545999180026`). O sistema salva esse LID como `from_number`, criando uma conversa separada com um numero sem sentido.
 
-A validacao atual so aceita os tipos `ReceivedCallback` e `message` com validacao rigorosa do campo `phone` (regex `^\d{10,15}$`). Quando voce envia uma mensagem pelo celular, a Z-API pode enviar o webhook com um tipo diferente (ex: `"SentByMeCallback"`) ou com o campo `phone` em formato diferente, e a validacao bloqueia antes de chegar na logica de processamento.
+### Causa
+
+A funcao `normalizePhoneNumber` apenas limpa caracteres nao-numericos, transformando `"23081254949024@lid"` em `"23081254949024"`. Ela nao detecta que isso e um LID e nao um telefone real.
 
 ### Solucao
 
 **Arquivo: `supabase/functions/whatsapp-webhook/index.ts`**
 
-1. Adicionar log do payload bruto ANTES da validacao para diagnosticar o formato exato que a Z-API envia para mensagens `fromMe: true`
-2. Flexibilizar a funcao `validateWebhookData` para aceitar tipos adicionais de webhook da Z-API (como `SentByMeCallback`, `MessageStatusCallback`, etc.)
-3. Tratar payloads com `fromMe: true` que podem vir com campo `phone` ausente mas com `chatId` ou estrutura diferente
+1. **Detectar formato LID no campo `phone`**: Se o telefone contem `@lid` ou nao comeca com `55` e tem formato incompativel com telefone brasileiro, buscar o numero real em campos alternativos do payload da Z-API.
+
+2. **Extrair telefone real de campos alternativos**: O payload da Z-API para mensagens `fromMe: true` inclui o campo `connectedPhone` (seu numero) e outros campos. Para mensagens enviadas, o numero do destinatario pode ser extraido de:
+   - `data.chatId` (formato `5545999180026@c.us`)
+   - `data.to` (numero direto em alguns payloads)
+   - Buscar no banco a ultima mensagem recebida do mesmo `chatLid`
+
+3. **Fallback com busca no banco**: Se nenhum campo alternativo tiver o numero real, buscar na tabela `whatsapp_messages` a ultima mensagem recebida que tenha o mesmo `chatLid` no `raw_data`, e usar o `from_number` dessa mensagem.
 
 ### Alteracoes detalhadas
 
-**1. Log de diagnostico antes da validacao**
+**`supabase/functions/whatsapp-webhook/index.ts` - funcao `handleIncomingMessage`**
 
-Adicionar um `console.log` do payload bruto antes de chamar `validateWebhookData`, para que possamos ver exatamente o que a Z-API esta enviando quando voce manda uma mensagem pelo celular.
-
-**2. Flexibilizar a validacao**
+Adicionar logica ANTES da normalizacao para resolver o LID:
 
 ```text
-function validateWebhookData(data):
-  - Aceitar tipo 'ReceivedCallback' (ja aceito)
-  - Aceitar tipo 'message' (ja aceito)  
-  - Aceitar tipo 'status' (ja aceito)
-  - Aceitar tipo 'qrcode' (ja aceito)
-  - NOVO: Aceitar QUALQUER tipo desconhecido com log (nao rejeitar)
-  - Mover validacao de phone para ser condicional (so quando ReceivedCallback/message)
+handleIncomingMessage(data):
+  1. Extrair phone do payload
+  2. NOVO: Se phone contem "@lid" ou nao parece telefone valido:
+     a. Tentar extrair de data.chatId (remover @c.us)
+     b. Tentar extrair de data.to
+     c. Se nenhum funcionou: buscar no banco whatsapp_messages
+        onde raw_data->chatLid = phone_original
+        e direction = 'received'
+        pegar from_number da ultima mensagem
+     d. Se ainda nao encontrou: logar aviso e descartar
+  3. Normalizar o telefone resolvido
+  4. Continuar processamento normal
 ```
 
-**3. Roteamento do tipo de webhook**
+**`supabase/functions/whatsapp-webhook/index.ts` - funcao `normalizePhoneNumber`**
 
-No bloco de roteamento (linha 94-105), adicionar tratamento para que mensagens com `fromMe: true` de qualquer tipo reconhecido sejam encaminhadas para `handleIncomingMessage`, que ja tem a logica correta de salvar mensagens do celular.
+Adicionar deteccao de LID para rejeitar numeros que claramente nao sao telefones:
 
-### Resumo tecnico
+```text
+normalizePhoneNumber(phone):
+  - Remover @lid, @c.us e outros sufixos WhatsApp
+  - Se resultado nao comeca com 55 e tem mais de 13 digitos: retornar vazio
+  - Logica existente de adicionar 9o digito
+```
 
-A raiz do problema e que a funcao de validacao e muito restritiva e rejeita payloads validos da Z-API. A correcao torna a validacao mais permissiva (aceita tipos desconhecidos com log) e garante que mensagens `fromMe: true` sempre sejam processadas e salvas no banco, aparecendo na Caixa de Entrada via polling.
+### Resumo
+
+O problema e que a Z-API usa um identificador interno (LID) em vez do numero real para mensagens `fromMe`. A correcao detecta esse formato e busca o numero real em campos alternativos do payload ou no historico de mensagens do banco.
 
