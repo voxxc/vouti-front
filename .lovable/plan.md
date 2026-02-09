@@ -1,126 +1,131 @@
 
-# Plano: Fazer a IA Responder nas Conversas do WhatsApp
 
-## Problema Atual
+# Plano: Corrigir Carregamento de Credenciais Z-API no Tenant /demorais
 
-O fluxo da IA **já está implementado**, mas não funciona porque há uma inconsistência de `tenant_id`:
+## Situação Atual
 
-| Componente | tenant_id |
-|------------|-----------|
-| Config IA (whatsapp_ai_config) | `NULL` (Super Admin) |
-| Instância Z-API (whatsapp_instances) | `d395b3a1-...` (Solvenza) |
-| Webhook verifica IA com | `instance.tenant_id` (Solvenza) |
-| Resultado | ❌ "IA não habilitada para este tenant" |
+### Banco de Dados (whatsapp_instances)
 
-**Causa raiz:** O webhook passa `instance.tenant_id` para `handleAIResponse()`, mas a IA está configurada com `tenant_id: NULL`.
+| Instance ID | tenant_id | zapi_url | zapi_token |
+|-------------|-----------|----------|------------|
+| 3E8A7687... | demorais ✅ | https://api.z-api.io/instances/3E8A7687... | F5DA3871... |
+| 3E9FB06B... | NULL | NULL | NULL |
 
-## Fluxo Atual vs Corrigido
+### Problema
 
-```text
-FLUXO ATUAL (Problema):
-
-   Lead envia mensagem
-          ↓
-   Webhook busca instance → tenant_id = "d395b3a1..." (Solvenza)
-          ↓
-   handleAIResponse(tenant_id = "d395b3a1...")
-          ↓
-   Busca whatsapp_ai_config WHERE tenant_id = "d395b3a1..."
-          ↓
-   NÃO ENCONTRA (config tem tenant_id = NULL)
-          ↓
-   "IA não habilitada" ❌
-
-
-FLUXO CORRIGIDO:
-
-   Lead envia mensagem
-          ↓
-   Webhook busca instance
-          ↓
-   effectiveTenantId = instance.tenant_id || null
-          ↓
-   handleAIResponse(tenant_id = effectiveTenantId)
-          ↓
-   Busca whatsapp_ai_config WHERE tenant_id IS NULL (ou = effectiveTenantId)
-          ↓
-   ENCONTRA config IA ✅
-          ↓
-   Gera resposta via Lovable AI
-          ↓
-   Envia via Z-API
-          ↓
-   Salva no banco (aparece na conversa)
-```
+1. **WhatsAppSettings.tsx** não carrega as credenciais existentes da tabela `whatsapp_instances`
+2. Os campos URL, Instance ID e Token aparecem **vazios** mesmo tendo dados no banco
+3. Quando o usuário tenta enviar pelo chat, o webhook já funciona porque usa credenciais da tabela
 
 ## Solução
 
-Modificar a linha 164-170 do `whatsapp-webhook/index.ts` para passar `effectiveTenantId` em vez de `instance.tenant_id`:
+### 1. Modificar WhatsAppSettings.tsx
 
-| Antes | Depois |
-|-------|--------|
-| `handleAIResponse(..., instance.tenant_id, ...)` | `handleAIResponse(..., effectiveTenantId, ...)` |
+Adicionar um `useEffect` para carregar as credenciais existentes do banco quando o componente montar:
+
+```typescript
+// Carregar credenciais existentes do tenant
+useEffect(() => {
+  const loadExistingConfig = async () => {
+    if (!tenantId) return;
+    
+    const { data: instance } = await supabase
+      .from('whatsapp_instances')
+      .select('instance_name, zapi_url, zapi_token, connection_status')
+      .eq('tenant_id', tenantId)
+      .single();
+    
+    if (instance) {
+      // Extrair URL base da zapi_url (sem o instance id)
+      const baseUrl = instance.zapi_url?.replace(`/instances/${instance.instance_name}`, '') || '';
+      
+      setZapiConfig({
+        url: instance.zapi_url || '',
+        instanceId: instance.instance_name || '',
+        token: instance.zapi_token || ''
+      });
+      
+      setConnectionStatus(
+        instance.connection_status === 'connected' ? 'connected' : 'disconnected'
+      );
+      setIsConnected(instance.connection_status === 'connected');
+    }
+  };
+  
+  loadExistingConfig();
+}, [tenantId]);
+```
+
+### 2. Corrigir saveZapiConfig
+
+Atualizar para salvar as credenciais diretamente na tabela `whatsapp_instances`:
+
+```typescript
+const saveZapiConfig = async () => {
+  // ... validação ...
+  
+  const zapiUrlComplete = zapiConfig.url.endsWith(`/${zapiConfig.instanceId}`)
+    ? zapiConfig.url
+    : `${zapiConfig.url}/instances/${zapiConfig.instanceId}`;
+  
+  await supabase
+    .from('whatsapp_instances')
+    .upsert({
+      instance_name: zapiConfig.instanceId,
+      tenant_id: tenantId,
+      user_id: userData.user.id,
+      zapi_url: zapiUrlComplete,
+      zapi_token: zapiConfig.token,
+      connection_status: 'disconnected',
+      last_update: new Date().toISOString()
+    }, {
+      onConflict: 'instance_name'
+    });
+};
+```
+
+### 3. Limpar Instância Órfã (SQL)
+
+Remover a instância sem credenciais vinculada a NULL:
+
+```sql
+DELETE FROM whatsapp_instances 
+WHERE instance_name = '3E9FB06B7411D139EDBECA3E99AAFF93' 
+  AND tenant_id IS NULL;
+```
 
 ## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Usar `effectiveTenantId` na chamada de `handleAIResponse` |
+| `src/components/WhatsApp/sections/WhatsAppSettings.tsx` | Adicionar useEffect para carregar config existente |
+| **SQL (via insert tool)** | Deletar instância órfã |
 
-## Detalhes Técnicos
+## Fluxo Corrigido
 
-### Linha 163-170 (webhook atual):
-```typescript
-// 🤖 PRIMEIRO: Verificar se IA está habilitada para este tenant
-const aiHandled = await handleAIResponse(
-  phone, 
-  text?.message || '', 
-  instance.tenant_id,  // ← PROBLEMA: usa tenant_id da instância
-  instance.zapi_url, 
-  instance.zapi_token
-);
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  TENANT /demorais ABRE CONFIGURAÇÕES                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   1. WhatsAppSettings monta                                                 │
+│   2. useEffect busca: SELECT * FROM whatsapp_instances                      │
+│                       WHERE tenant_id = 'd395b3a1-...'                      │
+│   3. Encontra instância 3E8A7687...                                         │
+│   4. Preenche campos:                                                       │
+│      - URL: https://api.z-api.io/instances/3E8A7687...                      │
+│      - Instance ID: 3E8A7687...                                             │
+│      - Token: F5DA3871... (mascarado)                                       │
+│   5. Status mostra: Desconectado (precisa escanear QR)                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Linha 163-170 (corrigido):
-```typescript
-// 🤖 PRIMEIRO: Verificar se IA está habilitada para este tenant
-const aiHandled = await handleAIResponse(
-  phone, 
-  text?.message || '', 
-  effectiveTenantId,  // ← CORRIGIDO: usa effectiveTenantId (pode ser NULL)
-  instance.zapi_url, 
-  instance.zapi_token
-);
-```
-
-## Fluxo Completo Após Correção
-
-1. **Lead envia mensagem** → Z-API recebe e envia webhook
-2. **Webhook processa**:
-   - Busca instância pelo `instanceId`
-   - Calcula `effectiveTenantId = instance.tenant_id || null`
-   - Salva mensagem com `effectiveTenantId`
-3. **Verifica IA**:
-   - Chama `handleAIResponse(phone, message, effectiveTenantId, ...)`
-   - Busca config IA onde `tenant_id IS NULL` (Super Admin)
-   - ENCONTRA config ✅
-4. **Processa IA**:
-   - Chama `whatsapp-ai-chat` Edge Function
-   - Busca histórico de mensagens do telefone
-   - Monta contexto com system_prompt do Daniel
-   - Chama Lovable AI Gateway (google/gemini-3-flash-preview)
-   - Retorna resposta
-5. **Envia resposta**:
-   - Envia via Z-API com `Client-Token`
-   - Salva resposta no banco (`direction: 'outgoing'`)
-6. **UI atualiza**:
-   - Polling de 2 segundos detecta nova mensagem
-   - Conversa mostra mensagem do lead E resposta do bot
 
 ## Resultado Esperado
 
-Após a correção:
-- Lead envia "Olá, preciso de ajuda com dívidas"
-- IA (Daniel) responde automaticamente com base no system_prompt
-- Resposta aparece na conversa em tempo real
-- Super Admin pode ver toda a conversa (mensagens do lead + respostas do bot)
+Após implementação:
+- Ao abrir `/demorais/whatsapp` > Configurações, os campos já estarão preenchidos
+- Usuário pode ver/editar credenciais existentes
+- Instância órfã do Super Admin será removida
+- Fluxo de envio/recebimento continua funcionando normalmente
+
