@@ -206,7 +206,7 @@ async function handleIncomingMessage(data: any) {
 
       // Enviar resposta usando Z-API diretamente
       try {
-        const zapiUrl = `${instance.zapi_url}/send-text`;
+        const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
         
         console.log('🔗 Enviando para Z-API:', zapiUrl);
         console.log('📱 Telefone destino:', phone);
@@ -326,7 +326,7 @@ async function handleAIResponse(
       return false;
     }
 
-    const zapiUrl = `${zapi_url}/send-text`;
+    const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
     
     const sendResponse = await fetch(zapiUrl, {
       method: 'POST',
