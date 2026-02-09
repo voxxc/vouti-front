@@ -80,10 +80,14 @@ export const WhatsAppSettings = () => {
   }, [tenantId]);
 
   useEffect(() => {
-    checkConnectionStatus();
-  }, []);
+    if (tenantId) {
+      checkConnectionStatus();
+    }
+  }, [tenantId]);
 
   const checkConnectionStatus = async () => {
+    if (!tenantId) return;
+    
     try {
       const { data } = await supabase.functions.invoke('whatsapp-connect', {
         body: { action: 'get_status' }
@@ -92,6 +96,20 @@ export const WhatsAppSettings = () => {
       if (data?.success && data?.data?.connected) {
         setIsConnected(true);
         setConnectionStatus('connected');
+        
+        // Atualizar banco de dados também
+        await supabase
+          .from('whatsapp_instances')
+          .update({ connection_status: 'connected' })
+          .eq('tenant_id', tenantId);
+      } else {
+        setIsConnected(false);
+        setConnectionStatus('disconnected');
+        
+        await supabase
+          .from('whatsapp_instances')
+          .update({ connection_status: 'disconnected' })
+          .eq('tenant_id', tenantId);
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);
@@ -285,18 +303,32 @@ export const WhatsAppSettings = () => {
     setIsResetting(true);
     
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
+      if (!tenantId) {
+        toast({
+          title: "Erro",
+          description: "Tenant não identificado",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      // Deletar usando tenant_id
+      const { error } = await supabase
+        .from('whatsapp_instances')
+        .delete()
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+
+      // Limpar estado local
+      setZapiConfig({ url: '', instanceId: '', token: '' });
       setIsConnected(false);
       setQrCode(null);
       setConnectionStatus('disconnected');
       
-      await supabase.from('whatsapp_instances').delete().eq('user_id', userData.user.id);
-      
       toast({
         title: "Configurações resetadas",
-        description: "Você pode reconfigurar agora com novos dados",
+        description: "Todos os campos foram limpos. Configure novamente.",
       });
     } catch (error) {
       console.error('Erro ao resetar:', error);
