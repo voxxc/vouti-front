@@ -6974,6 +6974,144 @@ export type Database = {
           },
         ]
       }
+      whatsapp_contact_labels: {
+        Row: {
+          contact_id: string
+          created_at: string | null
+          id: string
+          label_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string | null
+          id?: string
+          label_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string | null
+          id?: string
+          label_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contact_labels_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contact_labels_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_contacts: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_conversation_kanban: {
+        Row: {
+          agent_id: string | null
+          card_order: number
+          column_id: string | null
+          created_at: string | null
+          id: string
+          phone: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          card_order?: number
+          column_id?: string | null
+          created_at?: string | null
+          id?: string
+          phone: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          card_order?: number
+          column_id?: string | null
+          created_at?: string | null
+          id?: string
+          phone?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_kanban_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_kanban_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_kanban_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           agent_id: string | null
@@ -7043,6 +7181,86 @@ export type Database = {
           },
         ]
       }
+      whatsapp_kanban_columns: {
+        Row: {
+          agent_id: string | null
+          color: string
+          column_order: number
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          color?: string
+          column_order?: number
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          color?: string
+          column_order?: number
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_kanban_columns_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_kanban_columns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_labels: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          name: string
+          tenant_id: string | null
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name: string
+          tenant_id?: string | null
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_labels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_lead_triggers: {
         Row: {
           created_at: string | null
@@ -7095,6 +7313,7 @@ export type Database = {
       }
       whatsapp_messages: {
         Row: {
+          agent_id: string | null
           created_at: string | null
           direction: string | null
           from_number: string
@@ -7111,6 +7330,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          agent_id?: string | null
           created_at?: string | null
           direction?: string | null
           from_number: string
@@ -7127,6 +7347,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          agent_id?: string | null
           created_at?: string | null
           direction?: string | null
           from_number?: string
@@ -7143,6 +7364,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_messages_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -7229,6 +7457,10 @@ export type Database = {
           p_tribunal_sigla?: string
         }
         Returns: string
+      }
+      create_default_kanban_columns: {
+        Args: { p_agent_id: string; p_tenant_id?: string }
+        Returns: undefined
       }
       create_project_notification: {
         Args: {

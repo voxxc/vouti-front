@@ -56,6 +56,7 @@ export type SuperAdminWhatsAppSection =
 
 export const SuperAdminWhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<SuperAdminWhatsAppSection>("inbox");
+  const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -64,7 +65,13 @@ export const SuperAdminWhatsAppLayout = () => {
       case "conversations":
         return <WhatsAppConversations />;
       case "kanban":
-        return <WhatsAppKanban />;
+        return selectedKanbanAgent ? (
+          <WhatsAppKanban agentId={selectedKanbanAgent.id} agentName={selectedKanbanAgent.name} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p>Selecione um agente no menu para ver o Kanban</p>
+          </div>
+        );
       case "contacts":
         return <WhatsAppContacts />;
       case "reports":
@@ -115,7 +122,12 @@ export const SuperAdminWhatsAppLayout = () => {
     <div className="flex h-screen w-full bg-background">
       <SuperAdminWhatsAppSidebar 
         activeSection={activeSection} 
-        onSectionChange={setActiveSection} 
+        onSectionChange={setActiveSection}
+        onKanbanAgentSelect={(agentId, agentName) => {
+          setSelectedKanbanAgent({ id: agentId, name: agentName });
+          setActiveSection("kanban");
+        }}
+        selectedKanbanAgentId={selectedKanbanAgent?.id}
       />
       <main className="flex-1 overflow-hidden">
         {renderSection()}

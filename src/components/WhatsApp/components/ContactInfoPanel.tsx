@@ -13,7 +13,8 @@ import {
   Columns3,
   Sparkles,
   Info,
-  Settings2
+  Settings2,
+  Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { cn } from "@/lib/utils";
 import { AIControlSection } from "./AIControlSection";
+import { SaveContactDialog } from "./SaveContactDialog";
 import { useTenantId } from "@/hooks/useTenantId";
 
 interface ContactInfoPanelProps {
@@ -39,6 +41,7 @@ interface AccordionItem {
 
 export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const { tenantId } = useTenantId();
 
   const toggleSection = (id: string) => {
@@ -156,11 +159,23 @@ export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
     <div className="w-80 border-l border-border bg-card flex flex-col">
       {/* Contact Header */}
       <div className="p-6 border-b border-border text-center">
-        <Avatar className="h-20 w-20 mx-auto mb-4">
-          <AvatarFallback className="bg-green-500/20 text-green-600 text-2xl">
-            {conversation.contactName.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative inline-block">
+          <Avatar className="h-20 w-20 mx-auto mb-4">
+            <AvatarFallback className="bg-green-500/20 text-green-600 text-2xl">
+              {conversation.contactName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          {/* Save Contact Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute -top-1 -right-1 h-7 w-7 rounded-full bg-background shadow-md hover:bg-accent border"
+            onClick={() => setShowSaveDialog(true)}
+            title="Salvar contato"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <h3 className="font-semibold text-lg text-foreground">
           {conversation.contactName}
         </h3>
@@ -173,6 +188,14 @@ export const ContactInfoPanel = ({ conversation }: ContactInfoPanelProps) => {
           {conversation.contactNumber}@whatsapp.com
         </p>
       </div>
+
+      {/* Save Contact Dialog */}
+      <SaveContactDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        phone={conversation.contactNumber}
+        initialName={conversation.contactName}
+      />
 
       {/* AI Control Section */}
       <AIControlSection 

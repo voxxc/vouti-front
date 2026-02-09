@@ -36,6 +36,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface SuperAdminWhatsAppSidebarProps {
   activeSection: SuperAdminWhatsAppSection;
   onSectionChange: (section: SuperAdminWhatsAppSection) => void;
+  onKanbanAgentSelect?: (agentId: string, agentName: string) => void;
+  selectedKanbanAgentId?: string;
 }
 
 const menuItems: { id: SuperAdminWhatsAppSection; label: string; icon: React.ElementType }[] = [
@@ -68,7 +70,12 @@ const settingsMenuItems: { id: SuperAdminWhatsAppSection; label: string; icon: R
   { id: "permissions", label: "Permissões", icon: Shield },
 ];
 
-export const SuperAdminWhatsAppSidebar = ({ activeSection, onSectionChange }: SuperAdminWhatsAppSidebarProps) => {
+export const SuperAdminWhatsAppSidebar = ({ 
+  activeSection, 
+  onSectionChange,
+  onKanbanAgentSelect,
+  selectedKanbanAgentId 
+}: SuperAdminWhatsAppSidebarProps) => {
   const { currentUserEmail } = useSuperAdmin();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
