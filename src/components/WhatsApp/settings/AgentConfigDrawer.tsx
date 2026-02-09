@@ -64,7 +64,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           id: data.id,
           zapi_instance_id: data.instance_name || "",
           zapi_instance_token: data.zapi_token || "",
-          zapi_client_token: data.zapi_url || "", // Reutilizando campo para client_token
+          zapi_client_token: "", // Client-Token é opcional, começa vazio (não carregar zapi_url antigo)
         });
         setIsConnected(data.connection_status === "connected");
       } else {
@@ -130,7 +130,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           .update({
             instance_name: config.zapi_instance_id,
             zapi_token: config.zapi_instance_token,
-            zapi_url: config.zapi_client_token, // Reutilizando campo
+            zapi_url: null, // Não usar mais esse campo
           })
           .eq("id", config.id);
 
@@ -143,7 +143,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
             agent_id: agent.id,
             instance_name: config.zapi_instance_id,
             zapi_token: config.zapi_instance_token,
-            zapi_url: config.zapi_client_token,
+            zapi_url: null, // Não usar mais esse campo
             connection_status: "disconnected",
           })
           .select()
