@@ -1,73 +1,42 @@
 
 
-## Ativar captura de mensagens enviadas pelo celular automaticamente
+## Correcao: Resolucao de LID falhando - mensagens do celular descartadas
 
-### Contexto
+### Problema Identificado
 
-A Z-API possui um endpoint especifico para ativar o recebimento de webhooks de mensagens enviadas pelo celular: `PUT /update-notify-sent-by-me` com body `{ "notifySentByMe": true }`. Sem essa configuracao, a Z-API nao envia o callback `SentByMeCallback` e as mensagens do celular nunca chegam ao webhook.
+Os logs confirmam que o LID e detectado corretamente, mas todas as 3 estrategias de resolucao falham:
 
-Atualmente, quando uma instancia conecta (apos escanear o QR Code), o sistema apenas atualiza o status no banco. Nao ativa o `notifySentByMe`.
+1. **`data.chatId`**: O payload da Z-API usa `chatLid`, nao `chatId`. O codigo atual verifica `data.chatId` que nunca existe.
+2. **`data.to`**: Nao existe no payload da Z-API para mensagens `fromMe`.
+3. **Busca no banco**: O codigo remove `@lid` do valor antes de buscar (`"54146770170054"`), mas no banco o campo `raw_data->>'chatLid'` esta salvo com o sufixo completo (`"54146770170054@lid"`). A query nunca encontra match.
 
 ### Solucao
 
-Configurar automaticamente o `notifySentByMe: true` no momento em que a instancia conecta com sucesso, garantindo que todo tenant (e o Super Admin) tenha essa funcionalidade sem precisar de configuracao manual.
+**Arquivo: `supabase/functions/whatsapp-webhook/index.ts` - funcao `resolvePhoneFromLid`**
 
-### Alteracoes
+Tres correcoes:
 
-**1. Edge Function `supabase/functions/whatsapp-zapi-action/index.ts`**
+1. Verificar `data.chatLid` alem de `data.chatId` - extrair o numero se estiver no formato `phone@c.us`
+2. Na busca no banco, usar o valor original COM `@lid` para comparar com `raw_data->>'chatLid'`
+3. Adicionar busca alternativa: procurar mensagens recebidas (direction='received') na mesma instancia que tenham o mesmo `chatLid` no raw_data, pois essas mensagens recebidas do mesmo contato CONTEM o telefone real no campo `phone`/`from_number`
 
-Adicionar duas novas actions no switch:
-
-- `update-notify-sent-by-me`: Chama `PUT {baseUrl}/update-notify-sent-by-me` com body `{ "notifySentByMe": true }`
-- `update-webhook-received`: (Opcional, para garantir que o webhook de recebimento tambem esta configurado) Chama `PUT {baseUrl}/update-webhook-received` com body `{ "value": "{webhookUrl}" }`
-
-```text
-switch (action):
-  case 'update-notify-sent-by-me':
-    endpoint = `${baseUrl}/update-notify-sent-by-me`
-    method = 'PUT'
-    body = { "notifySentByMe": true }
-    break;
-```
-
-**2. `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx`**
-
-No polling de status (funcao `startPolling`), quando detecta `data?.data?.connected`, adicionar uma chamada automatica para ativar o `notifySentByMe`:
+A logica corrigida:
 
 ```text
-if (data?.data?.connected) {
-  // ... codigo existente de update status ...
-
-  // NOVO: Ativar captura de mensagens enviadas pelo celular
-  await supabase.functions.invoke("whatsapp-zapi-action", {
-    body: {
-      action: "update-notify-sent-by-me",
-      zapi_instance_id: config.zapi_instance_id,
-      zapi_instance_token: config.zapi_instance_token,
-      zapi_client_token: config.zapi_client_token || undefined,
-    },
-  });
-}
+resolvePhoneFromLid(data, originalPhone):
+  1. Tentar data.chatId (formato 55xxxx@c.us) - manter existente
+  2. NOVO: Tentar data.chatLid - se formato phone@c.us, extrair
+  3. Tentar data.to - manter existente
+  4. CORRIGIDO: Buscar no banco usando originalPhone COM @lid:
+     SELECT from_number FROM whatsapp_messages
+     WHERE direction = 'received'
+       AND raw_data->>'chatLid' = '54146770170054@lid'  (valor original)
+     ORDER BY timestamp DESC LIMIT 1
 ```
 
-**3. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx`**
+A chave e que mensagens RECEBIDAS do mesmo contato tem `chatLid: "54146770170054@lid"` E `from_number: "5545999906046"`. Entao buscando por `chatLid` com o valor completo, encontramos o telefone real.
 
-Aplicar a mesma alteracao no componente de Tenants para manter paridade. A chamada ao `update-notify-sent-by-me` acontece automaticamente ao conectar.
+### Arquivo modificado
 
-### Resumo do fluxo
+1. `supabase/functions/whatsapp-webhook/index.ts` - Funcao `resolvePhoneFromLid`
 
-```text
-Agente escaneia QR Code
-  -> Polling detecta "connected"
-  -> Atualiza status no banco (ja existente)
-  -> NOVO: Chama PUT /update-notify-sent-by-me { notifySentByMe: true }
-  -> Z-API passa a enviar SentByMeCallback para o webhook
-  -> Webhook processa e salva mensagens do celular
-  -> Mensagens aparecem na Caixa de Entrada
-```
-
-### Arquivos modificados
-
-1. `supabase/functions/whatsapp-zapi-action/index.ts` - Nova action `update-notify-sent-by-me`
-2. `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` - Chamada automatica ao conectar
-3. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` - Mesma chamada para tenants
