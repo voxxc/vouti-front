@@ -1,123 +1,180 @@
 
-# Plano: Corrigir Envio Automático do Agente IA
 
-## Problema Identificado
+## Problemas Identificados
 
-Comparando as duas Edge Functions:
+### Problema 1: Status mostra "Desconectado" mesmo conectado
 
-| Aspecto | `whatsapp-send-message` (funciona) | `whatsapp-webhook` (falha) |
-|---------|-----------------------------------|---------------------------|
-| URL base | `Z_API_URL` (secret global) | `instance.zapi_url` (banco) |
-| Endpoint | `${zapiUrl}/send-text` | `${zapi_url}/token/${token}/send-text` |
-| Headers | `Client-Token: Z_API_TOKEN` | Nenhum header de auth |
-| Resultado | ✅ 200 OK | ❌ 400 "client-token is not configured" |
+| Aspecto | O que acontece | Por que está errado |
+|---------|----------------|---------------------|
+| Banco de dados | `connection_status: 'disconnected'` | Deveria ser `'connected'` |
+| `checkConnectionStatus()` | Apenas atualiza o estado local (React) | Não atualiza o banco de dados |
+| Ao carregar a página | Lê do banco → mostra desconectado | Ignora o status real da Z-API |
 
-## Causa Raiz
+O fluxo atual:
+1. Página carrega → busca `connection_status` do banco → mostra "Desconectado"
+2. `checkConnectionStatus()` chama Z-API → retorna `connected: true`
+3. Atualiza apenas `useState` local, **NÃO atualiza o banco**
+4. Usuário recarrega página → volta a mostrar "Desconectado"
 
-O `whatsapp-webhook` está usando credenciais do banco de dados ao invés dos **secrets globais** que funcionam. A Z-API requer o `Client-Token` no header (não na URL).
+### Problema 2: Botão "Desconectar" não aparece
 
-## Solução
+Como o status está "desconectado" na UI, o código exibe o botão "Conectar" ao invés de "Desconectar":
+```tsx
+{connectionStatus === 'connected' ? (
+  <Button onClick={handleDisconnect}>Desconectar</Button>  // ← NÃO aparece
+) : (
+  <Button onClick={handleConnect}>Conectar</Button>        // ← Aparece sempre
+)}
+```
 
-Modificar o `whatsapp-webhook` para usar **exatamente a mesma lógica** do `whatsapp-send-message`:
+### Problema 3: Botão Resetar não funciona
 
-```text
-ANTES (webhook):
-  URL: ${instance.zapi_url}/token/${instance.zapi_token}/send-text
-  Headers: { 'Content-Type': 'application/json' }
+| Código atual | Problema |
+|--------------|----------|
+| `.delete().eq('user_id', userData.user.id)` | O `user_id` no banco é `d4bcecc4-661a-430c-9b84-abdc3576a896` |
+| `userData.user.id` | Retorna `c3bdf9c8-22b7-4597-8f68-bba7c742864d` (usuário logado) |
+| Resultado | IDs diferentes → delete não encontra registro → campos não limpam |
 
-DEPOIS (webhook):
-  URL: ${Z_API_URL}/send-text  (secret global)
-  Headers: { 
-    'Content-Type': 'application/json',
-    'Client-Token': Z_API_TOKEN  (secret global)
+Além disso, o estado local (`zapiConfig`) não é limpo após o delete.
+
+---
+
+## Correções Necessárias
+
+### 1. Atualizar banco quando verificar status real da Z-API
+
+No `checkConnectionStatus()`:
+```typescript
+const checkConnectionStatus = async () => {
+  try {
+    const { data } = await supabase.functions.invoke('whatsapp-connect', {
+      body: { action: 'get_status' }
+    });
+
+    if (data?.success && data?.data?.connected) {
+      setIsConnected(true);
+      setConnectionStatus('connected');
+      
+      // NOVO: Atualizar banco de dados também
+      if (tenantId) {
+        await supabase
+          .from('whatsapp_instances')
+          .update({ connection_status: 'connected' })
+          .eq('tenant_id', tenantId);
+      }
+    } else {
+      // Também atualizar quando desconectado
+      setIsConnected(false);
+      setConnectionStatus('disconnected');
+      
+      if (tenantId) {
+        await supabase
+          .from('whatsapp_instances')
+          .update({ connection_status: 'disconnected' })
+          .eq('tenant_id', tenantId);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao verificar status:', error);
   }
+};
 ```
 
-## Arquivos a Modificar
+### 2. Adicionar `tenantId` como dependência do useEffect
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Usar secrets globais ao invés de valores do banco |
-
-## Detalhes Técnicos
-
-### 1. Bloco de Automações (linha ~208)
 ```typescript
-// ANTES
-const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
-
-// DEPOIS
-const zapiUrl = Deno.env.get('Z_API_URL');
-const zapiToken = Deno.env.get('Z_API_TOKEN');
-const apiEndpoint = `${zapiUrl}/send-text`;
-
-const response = await fetch(apiEndpoint, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Client-Token': zapiToken,
-  },
-  body: JSON.stringify({ phone, message: automation.response_message }),
-});
+useEffect(() => {
+  if (tenantId) {
+    checkConnectionStatus();
+  }
+}, [tenantId]);  // Rodar quando tenantId estiver disponível
 ```
 
-### 2. Bloco de Resposta IA (handleAIResponse ~linha 343)
+### 3. Corrigir botão Resetar
+
 ```typescript
-// ANTES
-const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
+const handleReset = async () => {
+  setIsResetting(true);
+  
+  try {
+    // Usar tenant_id ao invés de user_id
+    const { error } = await supabase
+      .from('whatsapp_instances')
+      .delete()
+      .eq('tenant_id', tenantId);
 
-// DEPOIS
-const zapiUrl = Deno.env.get('Z_API_URL');
-const zapiToken = Deno.env.get('Z_API_TOKEN');
-const apiEndpoint = `${zapiUrl}/send-text`;
+    if (error) throw error;
 
-const sendResponse = await fetch(apiEndpoint, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Client-Token': zapiToken,
-  },
-  body: JSON.stringify({ phone, message: aiData.response }),
-});
+    // Limpar estado local
+    setZapiConfig({ url: '', instanceId: '', token: '' });
+    setIsConnected(false);
+    setQrCode(null);
+    setConnectionStatus('disconnected');
+    
+    toast({
+      title: "Configurações resetadas",
+      description: "Todos os campos foram limpos. Configure novamente.",
+    });
+  } catch (error) {
+    console.error('Erro ao resetar:', error);
+    toast({
+      title: "Erro",
+      description: "Falha ao resetar configurações",
+      variant: "destructive",
+    });
+  } finally {
+    setIsResetting(false);
+  }
+};
 ```
 
-### 3. Salvar mensagem ANTES da validação do envio
-Para garantir que a mensagem apareça na UI mesmo se houver erro:
-```typescript
-// Salvar mensagem da IA no banco IMEDIATAMENTE após gerar
-await saveOutgoingMessage(phone, aiData.response, tenant_id, instanceId, user_id);
+---
 
-// Depois tenta enviar via Z-API
-const sendResponse = await fetch(apiEndpoint, { ... });
-```
+## Arquivo a Modificar
+
+| Arquivo | Alterações |
+|---------|------------|
+| `src/components/WhatsApp/sections/WhatsAppSettings.tsx` | 3 funções: `checkConnectionStatus`, `useEffect`, `handleReset` |
+
+---
+
+## Resultado Esperado
+
+Após as correções:
+
+1. **Status correto**: Ao abrir a página, verifica o status real na Z-API e atualiza banco + UI
+2. **Botão Desconectar**: Aparece quando a Z-API está conectada
+3. **Botão Resetar funciona**: Deleta pelo `tenant_id` correto e limpa os campos da UI
+
+---
 
 ## Fluxo Corrigido
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  LEAD ENVIA MENSAGEM                                                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│   1. Webhook recebe mensagem do lead                                    │
-│   2. Chama whatsapp-ai-chat → IA gera resposta ✅                       │
-│   3. Salva resposta no banco (aparece na UI imediatamente)              │
-│   4. Usa secrets globais: Z_API_URL + Z_API_TOKEN                       │
-│   5. POST para ${Z_API_URL}/send-text com Client-Token no header        │
-│   6. Z-API envia mensagem para o WhatsApp do lead ✅                    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  USUÁRIO ABRE CONFIGURAÇÕES                                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Carrega config do banco (url, instanceId, token)               │
+│  2. Chama Z-API /status para verificar conexão REAL                │
+│  3. Se conectado:                                                   │
+│     - Atualiza banco: connection_status = 'connected'              │
+│     - Atualiza UI: mostra "Conectado" + botão "Desconectar"        │
+│  4. Se desconectado:                                                │
+│     - Atualiza banco: connection_status = 'disconnected'           │
+│     - Atualiza UI: mostra "Desconectado" + botão "Conectar"        │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  USUÁRIO CLICA "RESETAR"                                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Delete do banco usando tenant_id (não user_id)                 │
+│  2. Limpa estado local: url='', instanceId='', token=''            │
+│  3. Reseta status: disconnected                                     │
+│  4. Toast: "Todos os campos foram limpos"                          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Resultado Esperado
-
-Após a correção:
-- Lead envia mensagem → IA gera resposta
-- Resposta aparece na interface imediatamente
-- Resposta é enviada para o WhatsApp do lead (igual quando você aperta Enter)
-- Logs mostram `Z-API Response [200]` com sucesso
-
-## Teste
-
-1. Envie uma mensagem do celular do lead
-2. Verifique se a resposta chega no celular do lead
-3. Verifique se a resposta aparece na UI da plataforma
