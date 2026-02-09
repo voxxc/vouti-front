@@ -1,225 +1,116 @@
 
 
-# Plano: Reconstruir Interface de Configuracao com Abas Inline + Corrigir Edge Function
+# Plano: Corrigir Endpoint de QR Code e Melhorar Tratamento de Resposta
 
-## Problemas Identificados
+## Problema Identificado
 
-| Problema | Causa | Solucao |
-|----------|-------|---------|
-| QR Code nao funciona | Edge Function envia Instance Token como Client-Token | Corrigir logica de headers |
-| Status mostra "Desconectado" | Credenciais do agente sobrescrevem env vars | Usar fallback corretamente |
-| Interface eh drawer lateral | Usuario quer expansao inline | Reconstruir com Tabs |
-| Nao mostra configuracao da IA | Drawer nao tem aba de IA | Adicionar WhatsAppAISettings |
+| Aspecto | Atual | Correto |
+|---------|-------|---------|
+| Endpoint QR | `/qr-code/image` | `/qrcode` |
+| Logs | Chamada feita, sem resposta | Precisa logar resposta |
+| Loading | Fica infinito se der erro | Precisa timeout |
 
-## Dados Confirmados no Banco
+## Causa Raiz
 
-| Campo | Valor |
-|-------|-------|
-| agent_name | Daniel |
-| is_enabled | true |
-| model_name | google/gemini-3-flash-preview |
-| max_history | 50 |
-| system_prompt | Prompt completo (190 linhas) |
+A Edge Function usa `/qr-code/image` mas a documentacao Z-API indica que o endpoint correto pode ser `/qrcode` (sem hifen). Alem disso, se a resposta demorar ou falhar, o loading fica infinito no frontend.
 
-## Arquitetura da Solucao
+## Solucao
 
-```text
-SuperAdminAgentsSettings (PAGINA PRINCIPAL)
-├── Header (Titulo + Botao Adicionar)
-├── Grid de AgentCards
-│   └── Ao clicar no card:
-│       └── Expande INLINE (nao drawer) com Tabs
-│
-└── Card Expandido (quando agente selecionado)
-    ├── TabsList
-    │   ├── "Conexao Z-API"
-    │   └── "Comportamento da IA"
-    │
-    ├── TabsContent "zapi"
-    │   ├── Status da Conexao (verificacao automatica)
-    │   ├── Campos: Instance ID, Token, Client-Token (opcional)
-    │   ├── Botao Salvar
-    │   ├── Botao Conectar via QR Code
-    │   ├── Botao Desconectar
-    │   ├── Botao Resetar
-    │   └── QR Code (quando gerado) + Polling automatico
-    │
-    └── TabsContent "ai"
-        └── WhatsAppAISettings (componente existente)
+### 1. Corrigir o Endpoint na Edge Function
+
+```typescript
+// supabase/functions/whatsapp-zapi-action/index.ts
+
+case 'qr-code':
+  // ANTES: endpoint = `${baseUrl}/qr-code/image`;
+  // DEPOIS: Usar o formato correto da Z-API
+  endpoint = `${baseUrl}/qrcode`;
+  break;
+```
+
+### 2. Melhorar Tratamento de Resposta
+
+```typescript
+// Garantir que a resposta seja processada corretamente
+const zapiResponse = await fetch(endpoint, {
+  method: method,
+  headers: headers,
+});
+
+// Verificar se a resposta eh imagem (qr-code pode retornar PNG direto)
+const contentType = zapiResponse.headers.get('content-type');
+
+let zapiData;
+if (contentType?.includes('image/')) {
+  // Se for imagem, converter para base64
+  const buffer = await zapiResponse.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  zapiData = { value: `data:image/png;base64,${base64}` };
+} else {
+  // Se for JSON, parse normal
+  zapiData = await zapiResponse.json();
+}
+
+console.log('Z-API Response:', zapiData);
+```
+
+### 3. Adicionar Timeout no Frontend
+
+```typescript
+// SuperAdminAgentsSettings.tsx - handleGenerateQRCode
+
+setIsGeneratingQR(true);
+try {
+  // Adicionar timeout de 30 segundos
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Timeout ao gerar QR Code')), 30000)
+  );
+
+  const { data, error } = await Promise.race([
+    supabase.functions.invoke("whatsapp-zapi-action", {
+      body: {
+        action: "qr-code",
+        zapi_instance_id: config.zapi_instance_id,
+        zapi_instance_token: config.zapi_instance_token,
+        zapi_client_token: config.zapi_client_token || undefined,
+      },
+    }),
+    timeoutPromise
+  ]) as any;
+
+  // Processar resposta...
+}
 ```
 
 ## Arquivos a Modificar
 
-| Arquivo | Acao |
-|---------|------|
-| `supabase/functions/whatsapp-zapi-action/index.ts` | Corrigir logica de Client-Token |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Reescrever com expansao inline + Tabs |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | MANTER (para referencia de logica) |
+| Arquivo | Alteracao |
+|---------|-----------|
+| `supabase/functions/whatsapp-zapi-action/index.ts` | Corrigir endpoint e tratamento de resposta |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Adicionar timeout e melhor feedback |
 
-## Correcao da Edge Function
-
-O problema atual:
+## Fluxo Esperado Apos Correcao
 
 ```text
-QUANDO ENVIA: { zapi_instance_id: "3E8A...", zapi_instance_token: "F5DA..." }
-
-EDGE FUNCTION FAZ:
-baseUrl = https://api.z-api.io/instances/3E8A.../token/F5DA.../
-headers['Client-Token'] = ... (PROBLEMA: esta pegando o token errado)
+1. Usuario clica "Conectar via QR Code"
+2. Loading aparece
+3. Edge Function chama /qrcode
+4. Z-API retorna QR Code (JSON ou imagem)
+5. Edge Function processa e retorna base64
+6. Frontend recebe e exibe o QR Code
+7. Polling inicia para verificar conexao
+8. Usuario escaneia QR Code
+9. Polling detecta connected=true
+10. UI atualiza para "Conectado"
 ```
 
-A correcao:
+## Validacao
 
-```typescript
-// PRIORIDADE 1: Credenciais especificas do agente
-if (zapi_instance_id && zapi_instance_token) {
-  baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
-  
-  // Client-Token SO eh enviado se foi fornecido EXPLICITAMENTE pelo usuario
-  // NAO usar o instance_token como client_token!
-  if (zapi_client_token && zapi_client_token.trim() !== '') {
-    clientToken = zapi_client_token.trim();
-  }
-  // Se nao forneceu zapi_client_token, NAO ENVIA header Client-Token
-}
-
-// PRIORIDADE 2: Fallback para env vars
-else {
-  const envUrl = Deno.env.get('Z_API_URL');
-  const envToken = Deno.env.get('Z_API_TOKEN');
-  // Usar normalmente
-}
-```
-
-## Nova Estrutura do SuperAdminAgentsSettings
-
-```typescript
-export const SuperAdminAgentsSettings = () => {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"zapi" | "ai">("zapi");
-  
-  // Estados para Z-API
-  const [config, setConfig] = useState<InstanceConfig>({...});
-  const [isConnected, setIsConnected] = useState(false);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isPolling, setIsPolling] = useState(false);
-  
-  // Ao clicar no card
-  const handleAgentClick = (agent: Agent) => {
-    if (expandedAgentId === agent.id) {
-      setExpandedAgentId(null); // Fecha
-    } else {
-      setExpandedAgentId(agent.id); // Abre
-      loadInstanceConfig(agent.id); // Carrega dados
-      setActiveTab("zapi"); // Tab inicial
-    }
-  };
-
-  return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div>...</div>
-
-        {/* Grid de Agentes */}
-        <div className="space-y-4">
-          {agents.map(agent => (
-            <div key={agent.id}>
-              <AgentCard agent={agent} onClick={() => handleAgentClick(agent)} />
-              
-              {/* Expansao Inline */}
-              {expandedAgentId === agent.id && (
-                <Card className="mt-4 border-primary">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <CardHeader className="pb-0">
-                      <TabsList>
-                        <TabsTrigger value="zapi">Conexao Z-API</TabsTrigger>
-                        <TabsTrigger value="ai">Comportamento da IA</TabsTrigger>
-                      </TabsList>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      <TabsContent value="zapi">
-                        {/* Status + Credenciais + Botoes + QR Code */}
-                      </TabsContent>
-                      
-                      <TabsContent value="ai">
-                        <WhatsAppAISettings isSuperAdmin={true} />
-                      </TabsContent>
-                    </CardContent>
-                  </Tabs>
-                </Card>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-```
-
-## Fluxo de Conexao Corrigido
+Apos implementar, o log deve mostrar:
 
 ```text
-CENARIO 1: Usuario abre card do agente
-1. Card expande
-2. Sistema carrega config do banco (whatsapp_instances)
-3. Sistema verifica status via Edge Function
-4. Se connected=true, mostra "Conectado"
-5. Se connected=false, mostra "Desconectado"
-
-CENARIO 2: Usuario clica "Conectar via QR Code"
-1. Edge Function constroi URL: /instances/{id}/token/{token}/qr-code/image
-2. NAO envia Client-Token (a menos que usuario preencheu explicitamente)
-3. Retorna base64 do QR Code
-4. Frontend renderiza: <img src="data:image/png;base64,..." />
-5. Inicia polling a cada 5 segundos
-6. Quando connected=true:
-   - Para polling
-   - Limpa QR Code
-   - Atualiza UI para "Conectado"
-   - Salva no banco
-
-CENARIO 3: Usuario clica "Desconectar"
-1. Edge Function chama POST /disconnect
-2. Atualiza banco para "disconnected"
-3. UI mostra "Desconectado"
-
-CENARIO 4: Usuario clica "Resetar"
-1. Tenta desconectar (ignora erros)
-2. Deleta registro do banco
-3. Limpa formulario
-4. UI volta ao estado inicial
+Z-API Action: qr-code -> https://api.z-api.io/instances/.../token/.../qrcode
+Client-Token: [PROVIDED]
+Z-API Response: { value: "data:image/png;base64,..." }
 ```
-
-## Logica de Credenciais (Fallback)
-
-```text
-CAMPO DO FORM PREENCHIDO?
-├── SIM: Usa credenciais do form
-│   └── Instance ID + Instance Token → URL da Z-API
-│   └── Client-Token (opcional) → Header Client-Token
-│
-└── NAO: Edge Function usa env vars
-    └── Z_API_URL → URL completa ja configurada
-    └── Z_API_TOKEN → Header Client-Token
-```
-
-## Resultado Esperado
-
-1. Usuario abre "Configuracoes > Agentes"
-2. Ve o card do agente "Admin"
-3. Clica no card
-4. Card expande mostrando duas abas
-5. Aba "Conexao Z-API":
-   - Mostra status atual (verificacao automatica)
-   - Pode gerar QR Code que FUNCIONA
-   - Pode desconectar
-   - Pode resetar
-6. Aba "Comportamento da IA":
-   - Mostra nome "Daniel"
-   - Mostra prompt completo (190 linhas)
-   - Pode editar e salvar
 
