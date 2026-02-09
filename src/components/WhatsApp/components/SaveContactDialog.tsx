@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -31,12 +30,19 @@ export const SaveContactDialog = ({
   initialName,
 }: SaveContactDialogProps) => {
   const { tenantId } = useTenantId();
-  const { user } = useAuth();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [name, setName] = useState(initialName || "");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [existingContact, setExistingContact] = useState<any>(null);
+
+  // Buscar usuário diretamente do Supabase (compatível com/sem AuthProvider)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id || null);
+    });
+  }, []);
 
   // Check if contact already exists
   useEffect(() => {
@@ -79,7 +85,7 @@ export const SaveContactDialog = ({
         name: name.trim(),
         email: email.trim() || null,
         notes: notes.trim() || null,
-        created_by: user?.id,
+        created_by: currentUserId,
       };
 
       if (existingContact) {
