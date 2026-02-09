@@ -1,90 +1,50 @@
 
+## Plano: Inserir Mensagem Histórica do Lead 0026
 
-## Plano: Fazer Conversas Iniciadas pelo Bot Aparecerem na Caixa de Entrada
+### Contexto
 
-### Problema Identificado
-
-Quando o bot inicia uma conversa com um lead (como o caso do telefone `5545999180026`):
-
-1. A mensagem é enviada com sucesso via Z-API
-2. O status na fila fica como `sent`
-3. **MAS** a mensagem não é salva na tabela `whatsapp_messages`
-4. Por isso, a conversa não aparece na Caixa de Entrada
-
-### Causa Raiz
-
-No arquivo `supabase/functions/whatsapp-process-queue/index.ts`, linhas 217-229:
-
-```typescript
-// O INSERT não verifica erros - falha silenciosa
-await supabase
-  .from('whatsapp_messages')
-  .insert({
-    instance_name: instance.instance_name,
-    message_id: zapiData.messageId || ...,
-    from_number: formattedPhone,
-    to_number: formattedPhone,
-    message_text: msg.message,
-    direction: 'outgoing',
-    user_id: instance.user_id,
-    tenant_id: msg.tenant_id,
-    is_from_me: true  // ❌ Coluna não existe no schema!
-  });
-// Sem verificação de erro = falha silenciosa
-```
-
-O campo `is_from_me` não existe na tabela - isso causa erro de INSERT que é ignorado.
-
----
+A mensagem para o lead `5545999180026` foi enviada às 10:21 (antes da correção ser deployada). O código antigo tinha o campo `is_from_me` inválido, causando falha silenciosa no INSERT.
 
 ### Solução
 
-**Arquivo:** `supabase/functions/whatsapp-process-queue/index.ts`
+Executar um INSERT manual via migração para adicionar essa mensagem ao histórico:
 
-1. **Remover o campo inválido** `is_from_me` do INSERT
-2. **Adicionar verificação de erro** no INSERT para logar falhas
-3. **Incluir `agent_id`** quando disponível para rastreabilidade
+```sql
+INSERT INTO whatsapp_messages (
+  instance_name,
+  message_id,
+  from_number,
+  to_number,
+  message_text,
+  direction,
+  user_id,
+  tenant_id,
+  agent_id,
+  created_at
+) VALUES (
+  'superadmin-5ee34df4-f07a-4c9b-a8ec-5a218ca812a9',
+  'manual_recovery_' || gen_random_uuid(),
+  '5545999180026',
+  '5545999180026',
+  'Olá, Laura Dama, Tudo bom ?
 
-**Código Corrigido:**
+Sou do atendimento do Vouti. Vi que você acabou de conhecer nossa plataforma.
 
-```typescript
-// 6. Save to whatsapp_messages for history/inbox
-const { error: insertError } = await supabase
-  .from('whatsapp_messages')
-  .insert({
-    instance_name: instance.instance_name,
-    message_id: zapiData.messageId || zapiData.id || zapiData.zaapId || `auto_${Date.now()}`,
-    from_number: formattedPhone,
-    to_number: formattedPhone,
-    message_text: msg.message,
-    direction: 'outgoing',
-    user_id: instance.user_id,
-    tenant_id: msg.tenant_id,
-    agent_id: instance.agent_id || null
-  });
-
-if (insertError) {
-  console.error(`[whatsapp-process-queue] ⚠️ Failed to save message to inbox:`, insertError);
-} else {
-  console.log(`[whatsapp-process-queue] 📥 Message saved to inbox for ${formattedPhone}`);
-}
+Antes de encaminhar para um especialista, queria entender um pouco da sua rotina: hoje você já utiliza alguma plataforma para gerenciar o dia a dia do seu escritório?',
+  'outgoing',
+  '8eda80fa-0319-4791-923e-551052282e62',
+  NULL,
+  '5ee34df4-f07a-4c9b-a8ec-5a218ca812a9',
+  '2026-02-09 10:21:00.859+00'
+);
 ```
-
----
 
 ### Resultado Esperado
 
-| Antes | Depois |
-|-------|--------|
-| Mensagem enviada mas não aparece no inbox | Mensagem enviada E aparece no inbox |
-| Falha silenciosa no INSERT | Erro logado para debug |
-| Sem `agent_id` | Com rastreabilidade do agente |
+1. A conversa com o lead `5545999180026` aparecerá imediatamente na Caixa de Entrada do Super Admin
+2. A mensagem terá o timestamp correto (10:21)
+3. Estará vinculada ao agente correto
 
----
+### Novas Mensagens
 
-### Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `supabase/functions/whatsapp-process-queue/index.ts` | Corrigir INSERT removendo `is_from_me`, adicionar verificação de erro, incluir `agent_id` |
-
+A correção já está ativa. Qualquer nova mensagem enviada pelo bot será automaticamente salva no histórico e aparecerá no inbox.
