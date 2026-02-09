@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ConversationList } from "@/components/WhatsApp/components/ConversationList";
 import { ChatPanel } from "@/components/WhatsApp/components/ChatPanel";
@@ -92,7 +92,8 @@ export const SuperAdminWhatsAppInbox = () => {
     };
   }, [selectedConversation]);
 
-  const loadConversations = async (showLoading = true) => {
+  // Função estabilizada para carregar conversas
+  const loadConversations = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
       // Super Admin: buscar mensagens onde tenant_id IS NULL
@@ -127,33 +128,10 @@ export const SuperAdminWhatsAppInbox = () => {
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  };
-
-  // Polling automático para atualizar conversas a cada 2 segundos
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      loadConversations(false);
-    }, 2000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
   }, []);
 
-  // Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
-  useEffect(() => {
-    if (!selectedConversation) return;
-
-    const intervalId = setInterval(() => {
-      loadMessages(selectedConversation.contactNumber);
-    }, 2000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [selectedConversation]);
-
-  const loadMessages = async (contactNumber: string) => {
+  // Função estabilizada para carregar mensagens
+  const loadMessages = useCallback(async (contactNumber: string) => {
     try {
       // Super Admin: buscar mensagens onde tenant_id IS NULL
       const { data, error } = await supabase
@@ -177,7 +155,32 @@ export const SuperAdminWhatsAppInbox = () => {
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }
-  };
+  }, []);
+
+  // Polling automático para atualizar conversas a cada 2 segundos
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      loadConversations(false);
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [loadConversations]);
+
+  // Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const intervalId = setInterval(() => {
+      loadMessages(selectedConversation.contactNumber);
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [selectedConversation, loadMessages]);
+
 
   const handleSendMessage = async (text: string) => {
     if (!selectedConversation) return;
