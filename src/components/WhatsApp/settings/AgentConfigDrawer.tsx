@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
@@ -22,29 +22,31 @@ interface AgentConfigDrawerProps {
 
 interface InstanceConfig {
   id?: string;
+  zapi_instance_id: string;
   zapi_url: string;
   zapi_token: string;
 }
 
-// Extrair instance_id da URL para salvar no banco
-const extractInstanceId = (url: string): string => {
-  const match = url.match(/instances\/([A-F0-9]+)/i);
-  return match ? match[1] : 'instance';
-};
-
-// Detectar se o token inserido é o mesmo da URL (erro comum)
-const isTokenFromUrl = (url: string, token: string): boolean => {
-  if (!url || !token) return false;
+// Extrair token da URL para validação
+const getTokenFromUrl = (url: string): string | null => {
   const match = url.match(/\/token\/([A-F0-9]+)/i);
-  return match ? match[1].toUpperCase() === token.toUpperCase() : false;
+  return match ? match[1] : null;
 };
 
 export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }: AgentConfigDrawerProps) => {
   const { tenantId } = useTenantId();
   const [config, setConfig] = useState<InstanceConfig>({
+    zapi_instance_id: "",
     zapi_url: "",
     zapi_token: "",
   });
+
+  // Validar se o token inserido é igual ao token da URL (erro comum)
+  const isTokenInvalid = useMemo(() => {
+    if (!config.zapi_url || !config.zapi_token) return false;
+    const urlToken = getTokenFromUrl(config.zapi_url);
+    return urlToken?.toUpperCase() === config.zapi_token.toUpperCase();
+  }, [config.zapi_url, config.zapi_token]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -74,12 +76,14 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
       if (data) {
         setConfig({
           id: data.id,
+          zapi_instance_id: data.instance_name || "",
           zapi_url: data.zapi_url || "",
           zapi_token: data.zapi_token || "",
         });
         setIsConnected(data.connection_status === "connected");
       } else {
         setConfig({
+          zapi_instance_id: "",
           zapi_url: "",
           zapi_token: "",
         });
@@ -136,15 +140,13 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     
     setIsSaving(true);
     try {
-      const instanceName = extractInstanceId(config.zapi_url);
-      
       if (config.id) {
         // Update
         const { error } = await supabase
           .from("whatsapp_instances")
           .update({
+            instance_name: config.zapi_instance_id,
             zapi_url: config.zapi_url,
-            instance_name: instanceName,
             zapi_token: config.zapi_token,
           })
           .eq("id", config.id);
@@ -157,7 +159,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           .insert({
             tenant_id: tenantId,
             agent_id: agent.id,
-            instance_name: instanceName,
+            instance_name: config.zapi_instance_id,
             zapi_url: config.zapi_url,
             zapi_token: config.zapi_token,
             connection_status: "disconnected",
@@ -275,6 +277,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
         .eq("id", config.id);
 
       setConfig({
+        zapi_instance_id: "",
         zapi_url: "",
         zapi_token: "",
       });
@@ -331,6 +334,19 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
             <h3 className="font-medium text-sm">Credenciais Z-API</h3>
             
             <div className="space-y-2">
+              <Label htmlFor="zapi_instance_id">Instance ID</Label>
+              <Input
+                id="zapi_instance_id"
+                value={config.zapi_instance_id}
+                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
+                placeholder="Ex: 3E8A768C5D9F4A7B8C2E1D3F"
+              />
+              <p className="text-xs text-muted-foreground">
+                Identificador único da sua instância Z-API
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="zapi_url">URL da Instância</Label>
               <Input
                 id="zapi_url"
@@ -351,19 +367,20 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                 value={config.zapi_token}
                 onChange={(e) => setConfig(prev => ({ ...prev, zapi_token: e.target.value }))}
                 placeholder="Client Token"
+                className={isTokenInvalid ? "border-destructive" : ""}
               />
               <p className="text-xs text-muted-foreground">
-                Encontre no painel Z-API: Configurações → Security → Client-Token.
-                <strong> Este token é DIFERENTE do que aparece na URL!</strong>
+                ⚠️ <strong>NÃO</strong> use o token da URL!<br/>
+                Encontre em: Painel Z-API → Security → Client-Token
               </p>
             </div>
 
-            {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
+            {isTokenInvalid && (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
+                <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  O Client Token não pode ser igual ao token da URL. 
-                  Acesse o painel Z-API → Security → Client-Token para obter o token correto.
+                  <strong>Token Incorreto!</strong> O Client-Token não pode ser igual ao token da URL. 
+                  Acesse o painel Z-API → <strong>Security</strong> → <strong>Client-Token</strong> para obter o token correto.
                 </AlertDescription>
               </Alert>
             )}
@@ -408,7 +425,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                   variant="outline" 
                   className="flex-1 gap-2" 
                   onClick={handleConnect}
-                  disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
+                  disabled={!config.zapi_instance_id || !config.zapi_url || !config.zapi_token || isTokenInvalid}
                 >
                   <QrCode className="h-4 w-4" />
                   Conectar via QR Code
