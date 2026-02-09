@@ -104,7 +104,7 @@ export function SuperAdminLeads() {
   }
 
   const handleOpenWhatsApp = () => {
-    window.open('/super-admin/whatsapp', '_blank');
+    window.open('/super-admin/bot', '_blank');
   };
 
   return (
