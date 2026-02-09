@@ -1,40 +1,69 @@
 
-
-# Plano: Melhorar UX para Evitar Confusão entre Tokens Z-API
+# Plano: Sincronizar AgentConfigDrawer dos Tenants com Versão Atualizada
 
 ## Problema Identificado
 
-O erro `Client-Token not allowed` ocorre porque o usuário está inserindo o **token da URL** no campo "Client Token", quando deveria inserir o **Security Token** (Client-Token) que é diferente.
+O componente `AgentConfigDrawer.tsx` (usado pelos tenants/usuários normais) está **desatualizado** em comparação com o `SuperAdminAgentConfigDrawer.tsx` que foi corrigido anteriormente.
 
-### Dados Atuais no Banco
+### Diferenças Críticas
 
-| Campo | Valor Atual | Correto? |
-|-------|-------------|----------|
-| `zapi_url` | `https://api.z-api.io/instances/3E8A768.../token/F5DA387.../send-text` | Sim |
-| `zapi_token` | `F5DA3871D271E4965BD44484` | **NÃO** (é o token da URL, não o Client-Token) |
-
-### O Que São Os Tokens Z-API
-
-| Token | Onde Está | Uso |
-|-------|-----------|-----|
-| **Instance Token** | Na URL após `/token/` | Faz parte do endpoint |
-| **Client-Token** | Obtido no painel Z-API (Security) | Header HTTP para autenticação |
+| Aspecto | SuperAdmin (OK) | Tenant (Problema) |
+|---------|-----------------|-------------------|
+| Campos | 2 campos | 3 campos (Instance ID manual) |
+| Validação | Detecta token duplicado | Sem validação |
+| Instruções | Claras e detalhadas | Vagas |
+| Extração ID | Automática da URL | Manual |
 
 ## Solução
 
-Melhorar a interface para:
+Aplicar as mesmas melhorias do `SuperAdminAgentConfigDrawer.tsx` no `AgentConfigDrawer.tsx`:
 
-1. **Detectar automaticamente** se o token inserido é igual ao token da URL e exibir um aviso
-2. **Melhorar as instruções** com texto mais claro sobre onde encontrar o Client-Token
-3. **Adicionar um link** para a documentação Z-API
+1. **Remover campo `zapi_instance_id`** do estado e formulário
+2. **Adicionar função `extractInstanceId()`** para extrair ID automaticamente da URL
+3. **Adicionar função `isTokenFromUrl()`** para detectar erro comum
+4. **Adicionar Alert destrutivo** quando token incorreto
+5. **Atualizar labels e descrições** com instruções claras
+6. **Desabilitar botão "Conectar"** quando configuração inválida
 
-## Alterações no Código
+## Arquivo a Modificar
 
-### Arquivo: `SuperAdminAgentConfigDrawer.tsx`
+`src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
 
-1. Adicionar função para detectar duplicação de token:
+## Alterações Detalhadas
 
+### 1. Imports (adicionar)
 ```typescript
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+```
+
+### 2. Interface InstanceConfig (simplificar)
+```typescript
+// ANTES
+interface InstanceConfig {
+  id?: string;
+  zapi_url: string;
+  zapi_instance_id: string;  // REMOVER
+  zapi_token: string;
+}
+
+// DEPOIS
+interface InstanceConfig {
+  id?: string;
+  zapi_url: string;
+  zapi_token: string;
+}
+```
+
+### 3. Funções auxiliares (adicionar)
+```typescript
+// Extrair instance_id da URL para salvar no banco
+const extractInstanceId = (url: string): string => {
+  const match = url.match(/instances\/([A-F0-9]+)/i);
+  return match ? match[1] : 'instance';
+};
+
+// Detectar se o token inserido é o mesmo da URL
 const isTokenFromUrl = (url: string, token: string): boolean => {
   if (!url || !token) return false;
   const match = url.match(/\/token\/([A-F0-9]+)/i);
@@ -42,8 +71,60 @@ const isTokenFromUrl = (url: string, token: string): boolean => {
 };
 ```
 
-2. Exibir **Alert de erro** se detectar duplicação:
+### 4. Estado inicial (simplificar)
+```typescript
+// REMOVER zapi_instance_id do estado inicial
+const [config, setConfig] = useState<InstanceConfig>({
+  zapi_url: "",
+  zapi_token: "",
+});
+```
 
+### 5. loadInstanceConfig (ajustar)
+Remover referência ao `zapi_instance_id` no setState
+
+### 6. checkConnectionStatus (simplificar)
+Remover parâmetro `instanceId` que não é mais necessário
+
+### 7. handleSave (usar extração automática)
+```typescript
+const instanceName = extractInstanceId(config.zapi_url);
+// Usar instanceName ao salvar no campo instance_name
+```
+
+### 8. handleConnect (simplificar validação)
+```typescript
+// ANTES
+if (!config.zapi_url || !config.zapi_instance_id || !config.zapi_token) {
+
+// DEPOIS  
+if (!config.zapi_url || !config.zapi_token) {
+```
+
+### 9. UI do formulário
+
+**Remover campo Instance ID completamente**
+
+**Atualizar label do campo URL:**
+```tsx
+<Label htmlFor="zapi_url">URL da Instância</Label>
+// ...
+<p className="text-xs text-muted-foreground">
+  Cole a URL completa da sua instância Z-API
+</p>
+```
+
+**Atualizar label do campo Token:**
+```tsx
+<Label htmlFor="zapi_token">Client Token (Security Token)</Label>
+// ...
+<p className="text-xs text-muted-foreground">
+  Encontre no painel Z-API: Configurações → Security → Client-Token.
+  <strong> Este token é DIFERENTE do que aparece na URL!</strong>
+</p>
+```
+
+**Adicionar Alert de erro:**
 ```tsx
 {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
   <Alert variant="destructive">
@@ -56,20 +137,7 @@ const isTokenFromUrl = (url: string, token: string): boolean => {
 )}
 ```
 
-3. **Melhorar o label e descrição** do campo Client Token:
-
-```tsx
-<Label htmlFor="zapi_token">
-  Client Token (Security Token)
-</Label>
-<p className="text-xs text-muted-foreground">
-  Encontre no painel Z-API: Configurações → Security → Client-Token.
-  <strong> Este token é DIFERENTE do que aparece na URL!</strong>
-</p>
-```
-
-4. **Bloquear o botão "Conectar"** se o token estiver incorreto:
-
+**Desabilitar botão Conectar:**
 ```tsx
 <Button 
   variant="outline" 
@@ -79,17 +147,13 @@ const isTokenFromUrl = (url: string, token: string): boolean => {
 >
 ```
 
-## Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Adicionar validação, alerta e melhorar labels |
-
 ## Resultado Esperado
 
 Após as alterações:
 
-1. Se o usuário colar o token da URL, verá um **aviso vermelho** explicando o erro
-2. O botão "Conectar" ficará **desabilitado** até o token correto ser inserido
-3. Instruções mais claras sobre **onde encontrar** o Client-Token no painel Z-API
-
+1. Interface simplificada com apenas 2 campos necessários (URL + Client Token)
+2. Instance ID extraído automaticamente da URL
+3. Validação visual se usuário usar token errado
+4. Instruções claras sobre onde encontrar o Client Token correto
+5. Botão desabilitado quando configuração inválida
+6. Paridade total com o componente do Super Admin
