@@ -42,7 +42,6 @@ async function saveOutgoingMessage(
       from_number: phone,  // Lead's phone to group in the same conversation
       message_text: message,
       direction: 'outgoing',
-      is_from_me: true,
       tenant_id: tenant_id,
       instance_name: instance_name,
       message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -133,7 +132,11 @@ async function handleIncomingMessage(data: any) {
     return;
   }
 
-  // Salvar mensagem com user_id E tenant_id
+  // Detectar se é instância do Super Admin (sem tenant_id)
+  // Isso mantém mensagens de leads da homepage separadas dos tenants
+  const effectiveTenantId = instance.tenant_id || null;
+  
+  // Salvar mensagem com user_id E tenant_id correto
   const { error: insertError } = await supabase
     .from('whatsapp_messages')
     .insert({
@@ -145,7 +148,7 @@ async function handleIncomingMessage(data: any) {
       direction: 'received',
       raw_data: data,
       user_id: instance.user_id,
-      tenant_id: instance.tenant_id,
+      tenant_id: effectiveTenantId,
       timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
       is_read: false
     });
