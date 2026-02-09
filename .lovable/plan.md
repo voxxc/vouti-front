@@ -1,189 +1,196 @@
 
 
-# Plano: Corrigir Registro e Atualização de Conversas WhatsApp
+# Plano: Corrigir Atualização de Conversas e Resposta do Bot
 
 ## Problemas Identificados
 
-### 1. Coluna `is_from_me` NÃO EXISTE na tabela
+### Problema 1: Mensagens salvas com `tenant_id` do tenant, não NULL para Super Admin
 
-Nos logs da Edge Function:
-```
-Error saving message to DB: {
-  code: "PGRST204",
-  message: "Could not find the 'is_from_me' column of 'whatsapp_messages' in the schema cache"
-}
-```
-
-Ambas as Edge Functions (`whatsapp-webhook` e `whatsapp-send-message`) tentam salvar `is_from_me: true`, mas essa coluna não existe na tabela.
-
-**Colunas existentes na tabela `whatsapp_messages`:**
-- id, instance_name, message_id, from_number, to_number
-- message_text, message_type, direction, timestamp
-- raw_data, created_at, user_id, is_read, tenant_id
-
-### 2. Super Admin não vê mensagens porque todas têm `tenant_id`
-
-Consultando o banco:
+No banco de dados, TODAS as mensagens recentes estão com:
 ```
 tenant_id: d395b3a1-1ea1-4710-bcc1-ff5f6a279750
 ```
-Todas as mensagens recentes têm `tenant_id` definido. O Super Admin busca com `.is("tenant_id", null)`, então não encontra nada.
 
-### 3. Webhook salva com `tenant_id` da instância, não do Super Admin
+O Super Admin busca com `.is("tenant_id", null)`, então **não encontra nenhuma mensagem**.
 
-Quando você envia do Super Admin:
-1. `whatsapp-send-message` envia com `mode: 'superadmin'` (correto)
-2. Tenta salvar com `tenant_id: null` (correto)
-3. Mas falha por causa do `is_from_me`
+**Causa raiz:** O webhook busca a instância Z-API pelo `instanceId` e usa o `tenant_id` dessa instância:
+```typescript
+const { data: instance } = await supabase
+  .from('whatsapp_instances')
+  .select('user_id, tenant_id, zapi_url, zapi_token')
+  .eq('instance_name', instanceId)  // instanceId = 3E8A7687638142678C80FA4754EC29F2
+  .single();
+```
 
-Quando lead responde:
-1. Webhook recebe a mensagem
-2. Busca a instância associada ao `instanceId`
-3. Salva com o `tenant_id` da instância (errado para Super Admin)
+A instância `3E8A7687638142678C80FA4754EC29F2` tem `tenant_id: d395b3a1-1ea1-4710-bcc1-ff5f6a279750` no banco.
+
+### Problema 2: Bot não responde - Erro na Z-API
+
+Nos logs:
+```
+❌ Erro Z-API: 400 { error: "your client-token is not configured" }
+```
+
+O webhook tenta enviar usando as credenciais da instância do banco (`instance.zapi_url`, `instance.zapi_token`), mas falta o header `Client-Token`.
+
+**Código atual (errado):**
+```typescript
+const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
+const response = await fetch(zapiUrl, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },  // FALTA Client-Token!
+  body: JSON.stringify({...}),
+});
+```
+
+**A Z-API requer o header `Client-Token`** para autenticação.
+
+### Problema 3: IA está habilitada mas verifica tenant errado
+
+A IA está configurada com `tenant_id: NULL` (Super Admin), mas o webhook verifica IA baseado no `tenant_id` da instância (que é `d395b3a1-...`).
+
+Como a config IA tem `tenant_id: NULL` e o webhook busca onde `tenant_id = 'd395b3a1-...'`, não encontra e diz:
+```
+⏭️ IA não habilitada para este tenant
+```
 
 ## Soluções
 
-### Parte 1: Remover campo inexistente `is_from_me`
+### 1. Corrigir lógica de tenant_id no webhook
 
-Remover `is_from_me` de ambas as Edge Functions, já que `direction: 'outgoing'` já indica isso.
+O problema é que a instância Z-API tem um `tenant_id` fixo, mas ela é COMPARTILHADA entre Super Admin e tenants.
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `whatsapp-webhook/index.ts` | Remover `is_from_me: true` da função `saveOutgoingMessage` |
-| `whatsapp-send-message/index.ts` | Remover `is_from_me: true` do objeto `messageRecord` |
+Precisamos determinar se a mensagem é para o Super Admin baseado em OUTRA lógica:
+- Se a instância usa credenciais globais (`whatsapp-bot`) → Super Admin
+- Se a instância NÃO tem `tenant_id` → Super Admin
+- Caso contrário → Tenant específico
 
-### Parte 2: Corrigir lógica de `tenant_id` no Webhook
+### 2. Adicionar header `Client-Token` nas chamadas Z-API do webhook
 
-O webhook precisa detectar se a instância é do "Super Admin" (whatsapp-bot) e manter `tenant_id: null` nesses casos.
+Atualmente o webhook usa a URL com token no path, mas a Z-API espera o token no header.
+
+**Corrigir de:**
+```typescript
+const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
+const response = await fetch(zapiUrl, {
+  headers: { 'Content-Type': 'application/json' },
+  ...
+});
+```
+
+**Para:**
+```typescript
+const zapiUrl = `${instance.zapi_url}/send-text`;
+const response = await fetch(zapiUrl, {
+  headers: { 
+    'Content-Type': 'application/json',
+    'Client-Token': instance.zapi_token  // ADICIONAR!
+  },
+  ...
+});
+```
+
+### 3. Corrigir verificação de IA habilitada
+
+Quando a instância é do Super Admin (sem tenant_id ou instância global), verificar IA com `tenant_id IS NULL`.
+
+## Diagrama do Fluxo Corrigido
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FLUXO ATUAL (PROBLEMA)                                                     │
+│  WEBHOOK RECEBE MENSAGEM                                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   Lead responde → Webhook → Busca instance → Pega tenant_id da instância    │
-│                                               ↓                             │
-│                                   Salva com tenant_id = "xyz"               │
-│                                               ↓                             │
-│                            Super Admin busca tenant_id IS NULL              │
-│                                               ↓                             │
-│                                    NÃO ENCONTRA MENSAGEM! ❌                 │
+│   1. Buscar instância pelo instanceId                                       │
 │                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  FLUXO CORRIGIDO                                                            │
-├─────────────────────────────────────────────────────────────────────────────┤
+│   2. DETERMINAR se é Super Admin:                                           │
+│      - instance.tenant_id é NULL? → Super Admin                             │
+│      - instance usa credenciais globais? → Super Admin                      │
+│      - Caso contrário → Tenant                                              │
 │                                                                             │
-│   Lead responde → Webhook → Busca instance → Verifica instance_name         │
-│                                               ↓                             │
-│                       Se instance_name == 'whatsapp-bot':                   │
-│                           tenant_id = NULL (Super Admin)                    │
-│                       Senão:                                                │
-│                           tenant_id = instance.tenant_id                    │
-│                                               ↓                             │
-│                            Super Admin encontra mensagem! ✅                 │
+│   3. SALVAR mensagem:                                                       │
+│      - Super Admin: tenant_id = NULL                                        │
+│      - Tenant: tenant_id = instance.tenant_id                               │
+│                                                                             │
+│   4. VERIFICAR IA:                                                          │
+│      - Usar o tenant_id EFETIVO (NULL ou específico)                        │
+│                                                                             │
+│   5. ENVIAR resposta com Client-Token:                                      │
+│      headers: { 'Client-Token': instance.zapi_token }                       │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Parte 3: Ajustar Super Admin para usar instância correta
-
-Verificar se existe uma instância "whatsapp-bot" ou se o Super Admin usa as credenciais globais (Z_API_URL, Z_API_TOKEN).
 
 ## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/whatsapp-webhook/index.ts` | 1. Remover `is_from_me` 2. Detectar instância Super Admin |
-| `supabase/functions/whatsapp-send-message/index.ts` | Remover `is_from_me` |
+| `supabase/functions/whatsapp-webhook/index.ts` | 1. Adicionar `Client-Token` header 2. Corrigir lógica tenant_id |
 
 ## Alterações Detalhadas
 
-### 1. `whatsapp-webhook/index.ts` - Função `saveOutgoingMessage`
+### 1. Adicionar `Client-Token` nas requisições Z-API
 
+**Linha ~214 (automação):**
 ```typescript
-// ANTES (linha 45):
-is_from_me: true,
+// ANTES
+headers: { 'Content-Type': 'application/json' }
 
-// DEPOIS:
-// Removido - campo não existe na tabela
+// DEPOIS
+headers: { 
+  'Content-Type': 'application/json',
+  'Client-Token': instance.zapi_token || ''
+}
 ```
 
-### 2. `whatsapp-webhook/index.ts` - Função `handleIncomingMessage`
-
+**Linha ~329 (resposta IA):**
 ```typescript
-// ANTES (linhas 147-148):
-user_id: instance.user_id,
-tenant_id: instance.tenant_id,
+// ANTES
+headers: { 'Content-Type': 'application/json' }
 
-// DEPOIS:
-user_id: instance.user_id,
-// Se instância for do Super Admin (whatsapp-bot ou credenciais globais), tenant_id = null
-tenant_id: instance.instance_name === 'whatsapp-bot' || !instance.tenant_id 
-  ? null 
-  : instance.tenant_id,
+// DEPOIS
+headers: { 
+  'Content-Type': 'application/json',
+  'Client-Token': zapi_token || ''
+}
 ```
 
-### 3. `whatsapp-send-message/index.ts`
+### 2. Corrigir lógica de tenant_id
 
-```typescript
-// ANTES (linha 80):
-is_from_me: true,
+O arquivo precisa ser ajustado para:
 
-// DEPOIS:
-// Removido - campo não existe na tabela
-```
+1. Buscar a instância com suas credenciais Z-API
+2. Determinar `effectiveTenantId`:
+   - Se `instance.tenant_id` for NULL → NULL (Super Admin)
+   - Se instância usa credenciais globais → NULL (Super Admin)
+   - Caso contrário → `instance.tenant_id`
+3. Usar `effectiveTenantId` para salvar mensagens E verificar IA
 
-## Fluxo Visual Corrigido
+### 3. Passar `zapi_token` para função de IA
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  SUPER ADMIN ENVIA MENSAGEM                                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   1. Super Admin clica "Enviar"                                             │
-│   2. whatsapp-send-message recebe mode: 'superadmin'                        │
-│   3. Envia via Z-API (credenciais globais)                                  │
-│   4. Salva no banco COM:                                                    │
-│      - from_number: telefone do lead                                        │
-│      - direction: 'outgoing'                                                │
-│      - tenant_id: NULL                                                      │
-│   5. Inbox do Super Admin atualiza (tenant_id IS NULL)                      │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+A função `handleAIResponse` precisa receber o token para adicionar o header correto.
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  LEAD RESPONDE                                                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   1. Z-API envia webhook                                                    │
-│   2. whatsapp-webhook verifica instanceId                                   │
-│   3. Se instanceId usa credenciais globais ou whatsapp-bot:                 │
-│      → tenant_id = NULL (Super Admin)                                       │
-│   4. Salva mensagem COM tenant_id correto                                   │
-│   5. Inbox correto atualiza (Tenant OU Super Admin)                         │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+## Problema da Instância Compartilhada
 
-## Problema Adicional: Instance ID
+Atualmente, a instância `3E8A7687638142678C80FA4754EC29F2` está cadastrada com:
+- `tenant_id: d395b3a1-1ea1-4710-bcc1-ff5f6a279750` (SOLVENZA)
 
-Nos logs, o `instanceId` é `3E8A7687638142678C80FA4754EC29F2` - esse é o ID da Z-API, não o nome da instância no banco.
+Isso significa que TODAS as mensagens recebidas por essa instância são associadas ao tenant SOLVENZA, não ao Super Admin.
 
-Preciso verificar como a instância do Super Admin está configurada para garantir que o webhook identifique corretamente.
+**Opções:**
+1. **Alterar o tenant_id da instância para NULL** no banco (para ser usada pelo Super Admin)
+2. **Criar uma nova instância para o Super Admin** com tenant_id NULL
+3. **Usar as credenciais globais (secrets)** para o Super Admin em vez de buscar no banco
 
-## Resumo das Correções
-
-1. **Remover `is_from_me`** de ambas as Edge Functions (campo não existe)
-2. **Detectar instância Super Admin** no webhook e manter `tenant_id: null`
-3. **Garantir consistência** entre envio e recebimento de mensagens
+A opção mais simples é ajustar o código para que, quando o Super Admin enviar mensagens (mode: 'superadmin'), as respostas também sejam tratadas como Super Admin.
 
 ## Resultado Esperado
 
 Após as correções:
-- Mensagens enviadas pelo Super Admin serão salvas com `tenant_id: null`
-- Mensagens recebidas de leads (via instância global) terão `tenant_id: null`
-- O inbox do Super Admin vai exibir todas as mensagens corretamente
-- A conversa vai atualizar em tempo real
+1. Mensagens do lead serão salvas com `tenant_id` correto (NULL para Super Admin)
+2. O inbox do Super Admin mostrará as conversas
+3. O bot responderá corretamente (com `Client-Token` no header)
+4. A IA será ativada quando configurada para o tenant correto
 
