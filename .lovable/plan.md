@@ -1,84 +1,123 @@
 
-## O que eu verifiquei (e por que ainda não enviou)
+# Plano: Corrigir Envio Automático do Agente IA
 
-Pelos logs anteriores do `whatsapp-webhook`, o erro real não era “IA não gerou resposta” (ela gerou), e sim o envio para a Z-API falhando com:
+## Problema Identificado
 
-- `Client-Token ... not allowed`
+Comparando as duas Edge Functions:
 
-Mesmo depois do ajuste de URL (`/token/{token}/send-text`), o código ainda envia o header:
+| Aspecto | `whatsapp-send-message` (funciona) | `whatsapp-webhook` (falha) |
+|---------|-----------------------------------|---------------------------|
+| URL base | `Z_API_URL` (secret global) | `instance.zapi_url` (banco) |
+| Endpoint | `${zapiUrl}/send-text` | `${zapi_url}/token/${token}/send-text` |
+| Headers | `Client-Token: Z_API_TOKEN` | Nenhum header de auth |
+| Resultado | ✅ 200 OK | ❌ 400 "client-token is not configured" |
 
-- `Client-Token: {zapi_token}`
+## Causa Raiz
 
-Na Z-API, o `Client-Token` (quando exigido) é um token de segurança da conta (diferente do token da instância). Enviar o token da instância no `Client-Token` pode continuar causando bloqueio, mesmo com a URL correta. Ou seja: **a mensagem é gerada e salva na interface, mas a chamada HTTP é negada pela Z-API**, então não chega no celular do lead.
+O `whatsapp-webhook` está usando credenciais do banco de dados ao invés dos **secrets globais** que funcionam. A Z-API requer o `Client-Token` no header (não na URL).
 
-Além disso, hoje o código não faz logging completo do retorno do Z-API (status/body) em todos os caminhos, o que dificulta diagnosticar rapidamente se o problema é token/endpoint/conta/limite.
+## Solução
 
-## Objetivo
-Garantir que **toda mensagem do Agente IA** (gerada no webhook) seja **enviada para o WhatsApp do lead** via Z-API com autenticação correta, e manter a mensagem registrada no histórico (UI).
+Modificar o `whatsapp-webhook` para usar **exatamente a mesma lógica** do `whatsapp-send-message`:
 
----
+```text
+ANTES (webhook):
+  URL: ${instance.zapi_url}/token/${instance.zapi_token}/send-text
+  Headers: { 'Content-Type': 'application/json' }
 
-## Mudanças propostas (implementação)
+DEPOIS (webhook):
+  URL: ${Z_API_URL}/send-text  (secret global)
+  Headers: { 
+    'Content-Type': 'application/json',
+    'Client-Token': Z_API_TOKEN  (secret global)
+  }
+```
 
-### 1) Ajustar o envio para Z-API (ponto crítico)
-No `supabase/functions/whatsapp-webhook/index.ts`, nos dois pontos de envio (automação e IA):
+## Arquivos a Modificar
 
-- Manter a URL no formato correto:
-  - `POST {zapi_url}/token/{zapi_token}/send-text`
-- **Remover o header `Client-Token` quando ele não for um token de segurança válido**
-  - Enviar apenas `Content-Type: application/json`
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/whatsapp-webhook/index.ts` | Usar secrets globais ao invés de valores do banco |
 
-Para não quebrar quem usa “Client-Token” de verdade:
-- Implementar suporte opcional a um secret novo (se necessário): `Z_API_CLIENT_TOKEN`
-  - Se existir, aí sim enviar `Client-Token: Z_API_CLIENT_TOKEN`
-  - Caso não exista, não enviar `Client-Token` nenhum
+## Detalhes Técnicos
 
-Resultado: o token de instância fica apenas na URL, e o Client-Token só é enviado se for o correto.
+### 1. Bloco de Automações (linha ~208)
+```typescript
+// ANTES
+const zapiUrl = `${instance.zapi_url}/token/${instance.zapi_token}/send-text`;
 
-### 2) Logging de debug robusto (para confirmar em 1 teste)
-Adicionar logs no webhook antes/depois do fetch:
-- URL final (sem expor token completo; mascarar parte)
-- status code da resposta
-- body em texto quando não for JSON
-- quando `response.ok === false`, logar o body inteiro
+// DEPOIS
+const zapiUrl = Deno.env.get('Z_API_URL');
+const zapiToken = Deno.env.get('Z_API_TOKEN');
+const apiEndpoint = `${zapiUrl}/send-text`;
 
-Isso vai deixar claro se o Z-API está respondendo 200/401/403/429 e o motivo.
+const response = await fetch(apiEndpoint, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Client-Token': zapiToken,
+  },
+  body: JSON.stringify({ phone, message: automation.response_message }),
+});
+```
 
-### 3) Robustez na leitura do retorno da Z-API
-Hoje o código faz `await response.json()` em alguns pontos. Se o Z-API responder texto/HTML em erro, isso pode gerar exceção e mascarar o erro real.
-- Trocar para ler `await response.text()` e tentar `JSON.parse` com fallback.
+### 2. Bloco de Resposta IA (handleAIResponse ~linha 343)
+```typescript
+// ANTES
+const zapiUrl = `${zapi_url}/token/${zapi_token}/send-text`;
 
-### 4) Salvar mensagem de saída com metadados consistentes (UI)
-Após envio bem-sucedido:
-- Continuar salvando em `whatsapp_messages` como outgoing
-- Garantir que `instance_name` seja a instância real (`instanceId`) e não `'ai-response'` (isso ajuda a UI a agrupar corretamente e evita confusão em multi-instância)
-- Incluir `user_id` (o dono da instância) quando disponível, mantendo isolamento por tenant
+// DEPOIS
+const zapiUrl = Deno.env.get('Z_API_URL');
+const zapiToken = Deno.env.get('Z_API_TOKEN');
+const apiEndpoint = `${zapiUrl}/send-text`;
 
----
+const sendResponse = await fetch(apiEndpoint, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Client-Token': zapiToken,
+  },
+  body: JSON.stringify({ phone, message: aiData.response }),
+});
+```
 
-## Arquivos afetados
-- `supabase/functions/whatsapp-webhook/index.ts`
-  - 2 blocos de envio (automations e IA)
-  - logging e parse de resposta
-  - header `Client-Token` opcional via secret
+### 3. Salvar mensagem ANTES da validação do envio
+Para garantir que a mensagem apareça na UI mesmo se houver erro:
+```typescript
+// Salvar mensagem da IA no banco IMEDIATAMENTE após gerar
+await saveOutgoingMessage(phone, aiData.response, tenant_id, instanceId, user_id);
 
-Opcional (somente se você confirmar que sua conta Z-API exige Client-Token):
-- Adicionar secret: `Z_API_CLIENT_TOKEN` (token de segurança da conta, não o token da instância)
+// Depois tenta enviar via Z-API
+const sendResponse = await fetch(apiEndpoint, { ... });
+```
 
----
+## Fluxo Corrigido
 
-## Plano de teste (passo a passo)
-1) Enviar uma mensagem do celular do lead para o WhatsApp conectado (a mesma conversa usada no teste).
-2) Verificar:
-   - Lead recebeu a resposta automática da IA no celular.
-3) Abrir logs do Edge Function `whatsapp-webhook`:
-   - Confirmar status `200` (ou ver o erro real vindo do Z-API no body).
-4) Confirmar na interface do tenant `/demorais/whatsapp` que a mensagem aparece como outgoing (além de ter chegado no celular).
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│  LEAD ENVIA MENSAGEM                                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   1. Webhook recebe mensagem do lead                                    │
+│   2. Chama whatsapp-ai-chat → IA gera resposta ✅                       │
+│   3. Salva resposta no banco (aparece na UI imediatamente)              │
+│   4. Usa secrets globais: Z_API_URL + Z_API_TOKEN                       │
+│   5. POST para ${Z_API_URL}/send-text com Client-Token no header        │
+│   6. Z-API envia mensagem para o WhatsApp do lead ✅                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
----
+## Resultado Esperado
 
-## Dúvida crítica (para fechar 100%)
-A sua conta Z-API exige “Client-Token (Security Token)” além do token da instância na URL?
-- Se sim: você tem esse token (diferente do token da instância)? Eu deixo o código pronto para usar o secret `Z_API_CLIENT_TOKEN`.
-- Se não: remover o `Client-Token` resolve (é o cenário mais provável dado o erro “not allowed”).
+Após a correção:
+- Lead envia mensagem → IA gera resposta
+- Resposta aparece na interface imediatamente
+- Resposta é enviada para o WhatsApp do lead (igual quando você aperta Enter)
+- Logs mostram `Z-API Response [200]` com sucesso
 
+## Teste
+
+1. Envie uma mensagem do celular do lead
+2. Verifique se a resposta chega no celular do lead
+3. Verifique se a resposta aparece na UI da plataforma
