@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
+import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 
 export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | null;
 
@@ -39,6 +40,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   const { navigateWithPrefetch } = useNavigationLoading();
   const { userRoles = [] } = useAuth();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
+  const { isWhatsAppEnabled } = useTenantFeatures();
   const { 
     prefetchDashboard, 
     prefetchProjects, 
@@ -108,6 +110,19 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
     // Verificar se QUALQUER role do usuário dá acesso à seção
     const allowedRoles = sectionRoleMap[section] || [];
     return userRoles.some(role => allowedRoles.includes(role));
+  };
+
+  // Verificar acesso ao item considerando feature flags
+  const hasAccessToItem = (itemId: string) => {
+    // Dashboard e Extras sempre visíveis
+    if (itemId === 'dashboard' || itemId === 'extras') return true;
+    
+    // Vouti.Bot - verificar feature flag + role admin
+    if (itemId === 'whatsapp') {
+      return isWhatsAppEnabled && userRoles.includes('admin');
+    }
+    
+    return hasAccess(itemId);
   };
 
   const menuItems = [
@@ -198,9 +213,8 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
            {menuItems.map((item) => {
              const Icon = item.icon;
-             const hasAccessToItem = item.id === 'dashboard' || item.id === 'extras' || hasAccess(item.id);
              
-             if (!hasAccessToItem) return null;
+             if (!hasAccessToItem(item.id)) return null;
 
              // Dashboard - fecha qualquer drawer
              if (item.id === 'dashboard') {

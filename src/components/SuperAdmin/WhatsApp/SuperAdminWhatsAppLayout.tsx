@@ -9,6 +9,7 @@ import { WhatsAppCampaigns } from "@/components/WhatsApp/sections/WhatsAppCampai
 import { WhatsAppHelp } from "@/components/WhatsApp/sections/WhatsAppHelp";
 import { WhatsAppSettings } from "@/components/WhatsApp/sections/WhatsAppSettings";
 import { WhatsAppAISettings } from "@/components/WhatsApp/settings/WhatsAppAISettings";
+import { WhatsAppAgentsSettings } from "@/components/WhatsApp/settings/WhatsAppAgentsSettings";
 
 export type SuperAdminWhatsAppSection = 
   | "inbox" 
@@ -20,7 +21,8 @@ export type SuperAdminWhatsAppSection =
   | "help"
   | "settings"
   | "settings-leads"
-  | "ai-settings";
+  | "ai-settings"
+  | "agents";
 
 export const SuperAdminWhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<SuperAdminWhatsAppSection>("inbox");
@@ -46,6 +48,8 @@ export const SuperAdminWhatsAppLayout = () => {
         return <WhatsAppSettings />;
       case "ai-settings":
         return <WhatsAppAISettings isSuperAdmin />;
+      case "agents":
+        return <WhatsAppAgentsSettings />;
       default:
         return <SuperAdminWhatsAppInbox />;
     }
