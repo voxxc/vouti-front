@@ -51,6 +51,34 @@ export const WhatsAppSettings = () => {
     }
   }, [whatsappLeadSource]);
 
+  // Carregar credenciais existentes do tenant
+  useEffect(() => {
+    const loadExistingConfig = async () => {
+      if (!tenantId) return;
+      
+      const { data: instance } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name, zapi_url, zapi_token, connection_status')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      
+      if (instance) {
+        setZapiConfig({
+          url: instance.zapi_url || '',
+          instanceId: instance.instance_name || '',
+          token: instance.zapi_token || ''
+        });
+        
+        setConnectionStatus(
+          instance.connection_status === 'connected' ? 'connected' : 'disconnected'
+        );
+        setIsConnected(instance.connection_status === 'connected');
+      }
+    };
+    
+    loadExistingConfig();
+  }, [tenantId]);
+
   useEffect(() => {
     checkConnectionStatus();
   }, []);
