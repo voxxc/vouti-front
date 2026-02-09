@@ -120,10 +120,10 @@ async function handleIncomingMessage(data: any) {
     return;
   }
   
-  // Buscar user_id E tenant_id da instância
+  // Buscar user_id, tenant_id E credenciais Z-API da instância
   const { data: instance, error: instanceError } = await supabase
     .from('whatsapp_instances')
-    .select('user_id, tenant_id, zapi_url, zapi_token')
+    .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
     .eq('instance_name', instanceId)
     .single();
 
@@ -167,7 +167,12 @@ async function handleIncomingMessage(data: any) {
     text?.message || '', 
     effectiveTenantId, 
     instanceId,
-    instance.user_id
+    instance.user_id,
+    {
+      zapi_instance_id: instance.zapi_instance_id,
+      zapi_instance_token: instance.zapi_instance_token,
+      zapi_client_token: instance.zapi_client_token,
+    }
   );
 
   if (aiHandled) {
@@ -272,7 +277,12 @@ async function handleAIResponse(
   message: string, 
   tenant_id: string | null, 
   instanceId: string,
-  user_id: string
+  user_id: string,
+  instanceCredentials: {
+    zapi_instance_id?: string;
+    zapi_instance_token?: string;
+    zapi_client_token?: string;
+  }
 ): Promise<boolean> {
   try {
     // 🔒 PRIMEIRO: Verificar se IA está desabilitada para este contato específico
@@ -347,25 +357,43 @@ async function handleAIResponse(
     );
     console.log('💾 Mensagem IA salva no histórico');
 
-    // Enviar resposta via Z-API usando secrets globais
-    const globalZapiUrl = Deno.env.get('Z_API_URL');
-    const globalZapiToken = Deno.env.get('Z_API_TOKEN');
+    // Enviar resposta via Z-API usando credenciais da instância (prioridade) ou fallback global
+    let baseUrl: string | undefined;
+    let clientToken: string | undefined;
     
-    if (!globalZapiUrl || !globalZapiToken) {
-      console.error('❌ Z_API_URL ou Z_API_TOKEN não configurados');
+    // PRIORIDADE 1: Credenciais específicas da instância
+    if (instanceCredentials.zapi_instance_id && instanceCredentials.zapi_instance_token) {
+      baseUrl = `https://api.z-api.io/instances/${instanceCredentials.zapi_instance_id}/token/${instanceCredentials.zapi_instance_token}`;
+      clientToken = instanceCredentials.zapi_client_token || undefined;
+      console.log('🔑 Usando credenciais específicas da instância');
+    } 
+    // PRIORIDADE 2: Fallback para secrets globais
+    else {
+      baseUrl = Deno.env.get('Z_API_URL');
+      clientToken = Deno.env.get('Z_API_TOKEN');
+      console.log('🔑 Usando credenciais globais (fallback)');
+    }
+    
+    if (!baseUrl) {
+      console.error('❌ Nenhuma credencial Z-API disponível (instância ou global)');
       return true; // Retorna true pois a mensagem foi salva
     }
 
-    const apiEndpoint = `${globalZapiUrl}/send-text`;
+    const apiEndpoint = `${baseUrl}/send-text`;
     console.log('🔗 Enviando resposta IA para Z-API:', apiEndpoint);
     console.log('📱 Telefone destino:', phone);
     
+    // Construir headers - só adiciona Client-Token se existir
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (clientToken) {
+      headers['Client-Token'] = clientToken;
+    }
+    
     const sendResponse = await fetch(apiEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Client-Token': globalZapiToken,
-      },
+      headers,
       body: JSON.stringify({
         phone,
         message: aiData.response,
