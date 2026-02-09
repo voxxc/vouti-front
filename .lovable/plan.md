@@ -1,123 +1,174 @@
 
 
-# Plano: Corrigir Dado Corrompido no Banco e Salvar Corretamente
+# Plano: Corrigir Autenticação Z-API - Header Client-Token
 
 ## Problema Identificado
 
-O campo `zapi_token` no banco de dados contém a **URL COMPLETA** ao invés de apenas o token:
-
-```text
-Valor Atual (ERRADO):
-┌──────────────────────────────────────────────────────────────────────┐
-│ zapi_token: https://api.z-api.io/instances/.../token/F5DA387.../    │
-└──────────────────────────────────────────────────────────────────────┘
-
-Valor Esperado (CORRETO):
-┌──────────────────────────────────────────────────────────────────────┐
-│ zapi_token: F5DA3871D271E4965BD44484                                 │
-└──────────────────────────────────────────────────────────────────────┘
+A Z-API está rejeitando a requisição com erro:
+```
+Client-Token F5DA3871D271E4965BD44484 not allowed
 ```
 
-Isso faz com que a Edge Function monte esta URL quebrada:
-```
-https://api.z-api.io/instances/{ID}/token/https://api.z-api.io/.../qr-code
-```
+A URL está correta, mas a **autenticação no header está errada**.
 
-## Causa Raiz
+## Como a Z-API Funciona
 
-Você provavelmente colou a URL completa no campo "Instance Token" quando o sistema esperava apenas o token isolado.
+| Cenário | Header Client-Token |
+|---------|---------------------|
+| Security Token **DESATIVADO** | NÃO enviar ou enviar vazio |
+| Security Token **ATIVADO** | Enviar o Account Security Token |
+
+O código atual **sempre** envia o Instance Token como Client-Token, o que é incorreto.
 
 ## Solução
 
-### 1. Limpar o Registro Corrompido no Banco
+### 1. Edge Function: Enviar Header Apenas Quando Necessário
 
-Executar SQL para corrigir o dado existente, extraindo apenas o token da URL:
-
-```sql
-UPDATE whatsapp_instances 
-SET zapi_token = 'F5DA3871D271E4965BD44484'
-WHERE id = 'b9417577-0019-4642-a2ee-1733233951e4';
-```
-
-### 2. Adicionar Validação no Frontend
-
-Para evitar que isso aconteça novamente, adicionar validação que:
-- Detecta se o usuário colou uma URL ao invés do token
-- Extrai automaticamente o token da URL colada
-- Mostra feedback visual quando detecta URL
-
-**Arquivo:** `SuperAdminAgentConfigDrawer.tsx`
+Modificar `whatsapp-zapi-action/index.ts`:
 
 ```typescript
-// Função para extrair token de uma URL ou retornar o valor como está
-const extractTokenFromValue = (value: string): string => {
-  // Se parece ser uma URL, extrai o token
-  const match = value.match(/\/token\/([A-F0-9]+)\/?/i);
-  if (match) {
-    return match[1];
-  }
-  // Caso contrário, retorna o valor limpo (sem espaços e barras finais)
-  return value.trim().replace(/\/$/, '');
+// ANTES (errado)
+const zapiResponse = await fetch(endpoint, {
+  method: method,
+  headers: {
+    'Client-Token': authToken,  // SEMPRE envia
+    'Content-Type': 'application/json',
+  },
+});
+
+// DEPOIS (correto)
+const headers: Record<string, string> = {
+  'Content-Type': 'application/json',
 };
 
-// No onChange do Instance Token:
-onChange={(e) => {
-  const extractedToken = extractTokenFromValue(e.target.value);
-  setConfig(prev => ({ ...prev, zapi_instance_token: extractedToken }));
-}}
+// Só adiciona Client-Token se foi fornecido explicitamente
+if (zapi_client_token) {
+  headers['Client-Token'] = zapi_client_token;
+}
+
+const zapiResponse = await fetch(endpoint, {
+  method: method,
+  headers: headers,
+});
 ```
 
-### 3. Mesma Lógica para Instance ID
+### 2. Lógica de Autenticação
 
-```typescript
-// Função para extrair Instance ID de uma URL
-const extractInstanceIdFromValue = (value: string): string => {
-  const match = value.match(/\/instances\/([A-F0-9]+)\//i);
-  if (match) {
-    return match[1];
-  }
-  return value.trim().replace(/\/$/, '');
-};
+```text
+Frontend envia:
+┌───────────────────────────────────────────┐
+│ zapi_instance_id: "3E8A768..."            │
+│ zapi_instance_token: "F5DA387..."         │
+│ zapi_client_token: "" (vazio)             │
+└───────────────────────────────────────────┘
+            │
+            ▼
+Edge Function:
+┌───────────────────────────────────────────┐
+│ URL: .../instances/{ID}/token/{TOKEN}/... │
+│                                           │
+│ Headers:                                  │
+│   Content-Type: application/json          │
+│   (SEM Client-Token - campo está vazio)   │
+└───────────────────────────────────────────┘
+            │
+            ▼
+Z-API aceita a requisição!
 ```
 
-## Arquivos a Modificar
+### 3. Quando o Usuário TEM Security Token Ativado
+
+Se o usuário ativou o Security Token no painel Z-API:
+
+```text
+Frontend envia:
+┌───────────────────────────────────────────┐
+│ zapi_instance_id: "3E8A768..."            │
+│ zapi_instance_token: "F5DA387..."         │
+│ zapi_client_token: "ABC123XYZ789"         │ ← Token de segurança
+└───────────────────────────────────────────┘
+            │
+            ▼
+Edge Function:
+┌───────────────────────────────────────────┐
+│ Headers:                                  │
+│   Content-Type: application/json          │
+│   Client-Token: ABC123XYZ789              │ ← Enviado!
+└───────────────────────────────────────────┘
+```
+
+## Arquivo a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `SuperAdminAgentConfigDrawer.tsx` | Adicionar extração automática de token/ID de URLs coladas |
-| `AgentConfigDrawer.tsx` | Mesma lógica para tenants |
+| `supabase/functions/whatsapp-zapi-action/index.ts` | Enviar Client-Token apenas quando fornecido |
 
-## Ação Imediata Necessária
+## Código Final da Edge Function
 
-Antes de testar novamente, é preciso corrigir o dado no banco. A correção do código vai evitar que isso aconteça novamente, mas o dado atual precisa ser limpo.
+```typescript
+serve(async (req) => {
+  // ... CORS handling ...
 
-## Fluxo Após Correção
+  try {
+    const body = await req.json();
+    const { action, zapi_instance_id, zapi_instance_token, zapi_client_token } = body;
 
-```text
-Usuário cola URL completa no campo "Instance Token":
-┌──────────────────────────────────────────────────────────────────┐
-│ https://api.z-api.io/instances/ABC123/token/F5DA387.../send-text │
-└──────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-Sistema extrai automaticamente:
-┌──────────────────────────────────────────────────────────────────┐
-│ zapi_instance_token: F5DA3871D271E4965BD44484                    │
-└──────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-URL montada corretamente:
-┌──────────────────────────────────────────────────────────────────┐
-│ https://api.z-api.io/instances/ABC123/token/F5DA387.../qr-code   │
-└──────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-QR Code gerado com sucesso!
+    if (!action || !zapi_instance_id || !zapi_instance_token) {
+      throw new Error('Missing required fields');
+    }
+
+    const baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
+
+    let endpoint = '';
+    let method = 'GET';
+
+    switch (action) {
+      case 'status':
+        endpoint = `${baseUrl}/status`;
+        break;
+      case 'disconnect':
+        endpoint = `${baseUrl}/disconnect`;
+        method = 'POST';
+        break;
+      case 'qr-code':
+        endpoint = `${baseUrl}/qr-code/image`;
+        break;
+    }
+
+    // Headers - só adiciona Client-Token se fornecido
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (zapi_client_token && zapi_client_token.trim() !== '') {
+      headers['Client-Token'] = zapi_client_token;
+    }
+
+    const zapiResponse = await fetch(endpoint, {
+      method: method,
+      headers: headers,
+    });
+
+    const zapiData = await zapiResponse.json();
+    
+    return new Response(JSON.stringify({
+      success: zapiResponse.ok,
+      data: zapiData,
+      action: action
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    // ... error handling ...
+  }
+});
 ```
 
 ## Resumo
 
-1. **Corrigir dado no banco** - Limpar a URL armazenada incorretamente
-2. **Adicionar validação inteligente** - Extrair token/ID de URLs coladas automaticamente
-3. **Aplicar em ambos os drawers** - Super Admin e Tenants
+O problema é que o código sempre envia o Instance Token como `Client-Token`, mas a Z-API só aceita:
+- Nenhum header (se Security Token desativado)
+- O Account Security Token correto (se ativado)
+
+A correção é simples: só enviar o header `Client-Token` quando o campo `zapi_client_token` for preenchido explicitamente pelo usuário.
 
