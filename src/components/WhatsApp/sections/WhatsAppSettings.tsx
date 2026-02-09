@@ -176,7 +176,7 @@ export const WhatsAppSettings = () => {
             body: { action: 'get_status' }
           });
 
-          if (connectionData?.success && connectionData.status === 'open') {
+          if (connectionData?.success && connectionData.data?.connected === true) {
             setIsConnected(true);
             setConnectionStatus('connected');
             setQrCode(null);
