@@ -1,104 +1,84 @@
 
-## Plano: Atualizar Nome da Conversa Após Salvar Contato
 
-### Problema Atual
+## Plano: Fazer Conversas Iniciadas pelo Bot Aparecerem na Caixa de Entrada
 
-Quando você salva um contato pela Caixa de Entrada:
-1. O nome é salvo na tabela `whatsapp_contacts`
-2. A lista de conversas não reflete o novo nome
-3. A função `loadConversations` usa apenas o número de telefone como nome
+### Problema Identificado
+
+Quando o bot inicia uma conversa com um lead (como o caso do telefone `5545999180026`):
+
+1. A mensagem é enviada com sucesso via Z-API
+2. O status na fila fica como `sent`
+3. **MAS** a mensagem não é salva na tabela `whatsapp_messages`
+4. Por isso, a conversa não aparece na Caixa de Entrada
+
+### Causa Raiz
+
+No arquivo `supabase/functions/whatsapp-process-queue/index.ts`, linhas 217-229:
+
+```typescript
+// O INSERT não verifica erros - falha silenciosa
+await supabase
+  .from('whatsapp_messages')
+  .insert({
+    instance_name: instance.instance_name,
+    message_id: zapiData.messageId || ...,
+    from_number: formattedPhone,
+    to_number: formattedPhone,
+    message_text: msg.message,
+    direction: 'outgoing',
+    user_id: instance.user_id,
+    tenant_id: msg.tenant_id,
+    is_from_me: true  // ❌ Coluna não existe no schema!
+  });
+// Sem verificação de erro = falha silenciosa
+```
+
+O campo `is_from_me` não existe na tabela - isso causa erro de INSERT que é ignorado.
+
+---
 
 ### Solução
 
-Duas alterações são necessárias:
+**Arquivo:** `supabase/functions/whatsapp-process-queue/index.ts`
 
----
+1. **Remover o campo inválido** `is_from_me` do INSERT
+2. **Adicionar verificação de erro** no INSERT para logar falhas
+3. **Incluir `agent_id`** quando disponível para rastreabilidade
 
-### 1. Adicionar callback no SaveContactDialog
+**Código Corrigido:**
 
-O `SaveContactDialog` precisa notificar o componente pai quando um contato for salvo, para que o refresh seja disparado.
+```typescript
+// 6. Save to whatsapp_messages for history/inbox
+const { error: insertError } = await supabase
+  .from('whatsapp_messages')
+  .insert({
+    instance_name: instance.instance_name,
+    message_id: zapiData.messageId || zapiData.id || zapiData.zaapId || `auto_${Date.now()}`,
+    from_number: formattedPhone,
+    to_number: formattedPhone,
+    message_text: msg.message,
+    direction: 'outgoing',
+    user_id: instance.user_id,
+    tenant_id: msg.tenant_id,
+    agent_id: instance.agent_id || null
+  });
 
-**Arquivo:** `src/components/WhatsApp/components/SaveContactDialog.tsx`
-
-- Adicionar prop `onContactSaved?: () => void`
-- Chamar esse callback após salvar com sucesso
-
----
-
-### 2. Modificar ContactInfoPanel para propagar o callback
-
-**Arquivo:** `src/components/WhatsApp/components/ContactInfoPanel.tsx`
-
-- Receber prop `onContactSaved?: () => void` do componente pai
-- Passar para o `SaveContactDialog`
-
----
-
-### 3. Modificar loadConversations para buscar nomes dos contatos
-
-**Arquivos:**
-- `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
-- `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`
-
-Alterar a lógica de agrupamento para:
-1. Após buscar mensagens, fazer uma consulta separada à tabela `whatsapp_contacts`
-2. Mapear os números de telefone para seus respectivos nomes salvos
-3. Usar o nome salvo se existir, senão usar o número
-
-```tsx
-// Exemplo da nova lógica
-const { data: contacts } = await supabase
-  .from("whatsapp_contacts")
-  .select("phone, name")
-  .is("tenant_id", null); // ou .eq() para tenants
-
-const contactNameMap = new Map(contacts?.map(c => [c.phone, c.name]) || []);
-
-// No loop de conversas:
-contactName: contactNameMap.get(number) || number,
+if (insertError) {
+  console.error(`[whatsapp-process-queue] ⚠️ Failed to save message to inbox:`, insertError);
+} else {
+  console.log(`[whatsapp-process-queue] 📥 Message saved to inbox for ${formattedPhone}`);
+}
 ```
 
 ---
 
-### 4. Passar callback e forçar refresh com delay de 2 segundos
+### Resultado Esperado
 
-**Arquivos:**
-- `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
-- `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`
-
-Passar uma função para o `ContactInfoPanel` que força o reload:
-
-```tsx
-const handleContactSaved = useCallback(() => {
-  // Aguardar 2 segundos e forçar refresh
-  setTimeout(() => {
-    loadConversations(false);
-  }, 2000);
-}, [loadConversations]);
-
-<ContactInfoPanel 
-  conversation={selectedConversation}
-  onContactSaved={handleContactSaved}
-/>
-```
-
----
-
-### Fluxo Final
-
-```
-Usuário salva contato
-    ↓
-SaveContactDialog chama onContactSaved()
-    ↓
-ContactInfoPanel propaga para Inbox
-    ↓
-Inbox aguarda 2 segundos
-    ↓
-loadConversations() busca nomes da tabela whatsapp_contacts
-    ↓
-Nome atualizado aparece na lista de conversas
-```
+| Antes | Depois |
+|-------|--------|
+| Mensagem enviada mas não aparece no inbox | Mensagem enviada E aparece no inbox |
+| Falha silenciosa no INSERT | Erro logado para debug |
+| Sem `agent_id` | Com rastreabilidade do agente |
 
 ---
 
@@ -106,8 +86,5 @@ Nome atualizado aparece na lista de conversas
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `SaveContactDialog.tsx` | Adicionar prop `onContactSaved` e chamá-la após salvar |
-| `ContactInfoPanel.tsx` | Receber e passar `onContactSaved` |
-| `WhatsAppInbox.tsx` | Buscar nomes dos contatos + passar callback |
-| `SuperAdminWhatsAppInbox.tsx` | Buscar nomes dos contatos + passar callback |
+| `supabase/functions/whatsapp-process-queue/index.ts` | Corrigir INSERT removendo `is_from_me`, adicionar verificação de erro, incluir `agent_id` |
 
