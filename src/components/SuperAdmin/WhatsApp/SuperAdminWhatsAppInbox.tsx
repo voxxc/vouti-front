@@ -8,6 +8,26 @@ import {
   WhatsAppMessage 
 } from "@/components/WhatsApp/sections/WhatsAppInbox";
 
+// Normaliza telefone brasileiro (12 dígitos → 13 dígitos com nono dígito)
+const normalizePhone = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    return `55${ddd}9${number}`;
+  }
+  return cleaned;
+};
+
+// Gera variante sem o 9 para busca retroativa
+const getPhoneVariant = (phone: string): string | null => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 13 && cleaned.startsWith('55')) {
+    return cleaned.substring(0, 4) + cleaned.substring(5);
+  }
+  return null;
+};
+
 export const SuperAdminWhatsAppInbox = () => {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
@@ -116,16 +136,16 @@ export const SuperAdminWhatsAppInbox = () => {
         contactsResult.data?.map(c => [c.phone, c.name]) || []
       );
 
-      // Agrupar mensagens por número de telefone
+      // Agrupar mensagens por número de telefone (normalizado)
       const conversationMap = new Map<string, WhatsAppConversation>();
       
       messagesResult.data?.forEach((msg) => {
-        const number = msg.from_number;
-        if (!conversationMap.has(number)) {
-          conversationMap.set(number, {
+        const normalizedNumber = normalizePhone(msg.from_number);
+        if (!conversationMap.has(normalizedNumber)) {
+          conversationMap.set(normalizedNumber, {
             id: msg.id,
-            contactName: contactNameMap.get(number) || number,
-            contactNumber: number,
+            contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(msg.from_number) || normalizedNumber,
+            contactNumber: normalizedNumber,
             lastMessage: msg.message_text || "",
             lastMessageTime: msg.created_at,
             unreadCount: 0,
@@ -145,12 +165,22 @@ export const SuperAdminWhatsAppInbox = () => {
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
       // Super Admin: buscar mensagens onde tenant_id IS NULL
-      const { data, error } = await supabase
+      // Buscar por ambos os formatos (com e sem 9) para retrocompatibilidade
+      const normalized = normalizePhone(contactNumber);
+      const variant = getPhoneVariant(normalized);
+      
+      let query = supabase
         .from("whatsapp_messages")
         .select("*")
-        .is("tenant_id", null)
-        .eq("from_number", contactNumber)
-        .order("created_at", { ascending: true });
+        .is("tenant_id", null);
+      
+      if (variant) {
+        query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
+      } else {
+        query = query.eq("from_number", normalized);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: true });
 
       if (error) throw error;
 

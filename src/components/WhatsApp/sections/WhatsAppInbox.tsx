@@ -23,6 +23,25 @@ export interface WhatsAppMessage {
   isFromMe: boolean;
 }
 
+// Normaliza telefone brasileiro (12 dígitos → 13 dígitos com nono dígito)
+const normalizePhone = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    return `55${ddd}9${number}`;
+  }
+  return cleaned;
+};
+
+const getPhoneVariant = (phone: string): string | null => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 13 && cleaned.startsWith('55')) {
+    return cleaned.substring(0, 4) + cleaned.substring(5);
+  }
+  return null;
+};
+
 export const WhatsAppInbox = () => {
   const { tenantId } = useTenantId();
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
@@ -134,16 +153,16 @@ export const WhatsAppInbox = () => {
         contactsResult.data?.map(c => [c.phone, c.name]) || []
       );
 
-      // Agrupar mensagens por número de telefone
+      // Agrupar mensagens por número de telefone (normalizado)
       const conversationMap = new Map<string, WhatsAppConversation>();
       
       messagesResult.data?.forEach((msg) => {
-        const number = msg.from_number;
-        if (!conversationMap.has(number)) {
-          conversationMap.set(number, {
+        const normalizedNumber = normalizePhone(msg.from_number);
+        if (!conversationMap.has(normalizedNumber)) {
+          conversationMap.set(normalizedNumber, {
             id: msg.id,
-            contactName: contactNameMap.get(number) || number,
-            contactNumber: number,
+            contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(msg.from_number) || normalizedNumber,
+            contactNumber: normalizedNumber,
             lastMessage: msg.message_text || "",
             lastMessageTime: msg.created_at,
             unreadCount: 0,
@@ -164,12 +183,21 @@ export const WhatsAppInbox = () => {
     if (!tenantId) return;
 
     try {
-      const { data, error } = await supabase
+      const normalized = normalizePhone(contactNumber);
+      const variant = getPhoneVariant(normalized);
+      
+      let query = supabase
         .from("whatsapp_messages")
         .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("from_number", contactNumber)
-        .order("created_at", { ascending: true });
+        .eq("tenant_id", tenantId);
+      
+      if (variant) {
+        query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
+      } else {
+        query = query.eq("from_number", normalized);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: true });
 
       if (error) throw error;
 

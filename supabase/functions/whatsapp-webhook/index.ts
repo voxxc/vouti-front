@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Normaliza telefone brasileiro para formato com 9 dígitos
+function normalizePhoneNumber(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '');
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar o 9
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    return `55${ddd}9${number}`;
+  }
+  return cleaned;
+}
+
 // Validate webhook data structure
 function validateWebhookData(data: any): boolean {
   if (!data || typeof data !== 'object') return false;
@@ -112,7 +124,13 @@ serve(async (req) => {
 });
 
 async function handleIncomingMessage(data: any) {
-  const { instanceId, phone, messageId, text, chatName, momment, fromMe } = data;
+  const { instanceId, phone: rawPhone, messageId, text, chatName, momment, fromMe } = data;
+  
+  // ✅ Normalizar telefone ANTES de qualquer operação
+  const phone = normalizePhoneNumber(rawPhone);
+  if (phone !== rawPhone) {
+    console.log(`📞 Telefone normalizado: ${rawPhone} -> ${phone}`);
+  }
   
   // ✅ Ignorar mensagens enviadas pelo próprio bot
   if (fromMe) {
