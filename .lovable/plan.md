@@ -1,93 +1,121 @@
 
 
-# Plano: Renomear Rotas de /whatsapp para /bot
+# Plano: Corrigir Gestão de Agentes no Super Admin
 
-## Resumo
+## Problema Identificado
 
-Alterar todas as rotas e referências de `/whatsapp` para `/bot` no sistema, tanto para tenants quanto para o Super Admin.
+Os componentes de gerenciamento de agentes (`WhatsAppAgentsSettings`, `AddAgentDialog`, `AgentConfigDrawer`) dependem do hook `useTenantId()` que retorna `null` no contexto do Super Admin.
 
-## Arquivos a Modificar
+Isso causa:
+
+1. **Loading infinito**: O `useEffect` em `WhatsAppAgentsSettings` (linha 17-21) nunca executa `loadAgents()` porque `tenantId` é `null`
+2. **Impossível criar agentes**: O `AddAgentDialog` verifica `if (!tenantId)` e mostra erro
+3. **Drawer não funciona**: O `AgentConfigDrawer` usa `tenantId` para buscar/salvar configurações
+
+## Solução
+
+Criar versões específicas para o Super Admin que usem `tenant_id IS NULL` (conforme memória do sistema):
+
+### 1. Novo arquivo: `SuperAdminAgentsSettings.tsx`
+
+Cópia adaptada de `WhatsAppAgentsSettings` que:
+- Remove dependência de `useTenantId()`
+- Busca agentes onde `tenant_id IS NULL`
+- Usa dialog e drawer específicos para Super Admin
+
+```typescript
+// Diferença principal na query:
+const { data } = await supabase
+  .from("whatsapp_agents")
+  .select("*")
+  .is("tenant_id", null)  // <-- IS NULL ao invés de .eq()
+  .order("created_at", { ascending: true });
+```
+
+### 2. Novo arquivo: `SuperAdminAddAgentDialog.tsx`
+
+Cópia adaptada de `AddAgentDialog` que:
+- Não exige `tenantId`
+- Insere agente com `tenant_id: null`
+
+```typescript
+const { error } = await supabase
+  .from("whatsapp_agents")
+  .insert({
+    tenant_id: null,  // <-- Explicitamente null
+    name: name.trim(),
+    role,
+    is_active: true,
+  });
+```
+
+### 3. Novo arquivo: `SuperAdminAgentConfigDrawer.tsx`
+
+Cópia adaptada de `AgentConfigDrawer` que:
+- Busca instâncias onde `tenant_id IS NULL`
+- Salva instâncias com `tenant_id: null`
+
+```typescript
+// Busca
+const { data } = await supabase
+  .from("whatsapp_instances")
+  .select("*")
+  .is("tenant_id", null)
+  .eq("agent_id", agent.id)
+  .maybeSingle();
+
+// Insert
+await supabase
+  .from("whatsapp_instances")
+  .insert({
+    tenant_id: null,  // <-- Explicitamente null
+    agent_id: agent.id,
+    // ...
+  });
+```
+
+### 4. Atualizar `SuperAdminWhatsAppLayout.tsx`
+
+Substituir o uso de `WhatsAppAgentsSettings` por `SuperAdminAgentsSettings` no case `"agents"`:
+
+```typescript
+case "agents":
+  return <SuperAdminAgentsSettings />;
+```
+
+## Arquivos a Criar
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Listagem de agentes (tenant_id IS NULL) |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAddAgentDialog.tsx` | Dialog para criar agente (tenant_id: null) |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Drawer de config Z-API (tenant_id IS NULL) |
+
+## Arquivo a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/App.tsx` | Mudar rota `/:tenant/whatsapp` → `/:tenant/bot` e `/super-admin/whatsapp` → `/super-admin/bot` |
-| `src/components/Dashboard/DashboardSidebar.tsx` | Mudar `route: '/whatsapp'` → `route: '/bot'` e referências no id/drawer |
-| `src/pages/CRM.tsx` | Mudar `tenantPath('/whatsapp')` → `tenantPath('/bot')` |
-| `src/components/CRM/CRMContent.tsx` | Mudar `tenantPath('/whatsapp')` → `tenantPath('/bot')` |
-| `src/components/SuperAdmin/SuperAdminLeads.tsx` | Mudar `/super-admin/whatsapp` → `/super-admin/bot` |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppLayout.tsx` | Usar `SuperAdminAgentsSettings` no case "agents" |
 
-## Detalhes Técnicos
+## Fluxo Corrigido
 
-### 1. `src/App.tsx`
-
-**Linha 373:**
-```typescript
-// De:
-<Route path="/:tenant/whatsapp" element={...}>
-
-// Para:
-<Route path="/:tenant/bot" element={...}>
+```text
+Super Admin acessa /super-admin/bot → Seção "Agentes"
+                    │
+                    ▼
+      SuperAdminAgentsSettings.tsx
+      (query: tenant_id IS NULL)
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+SuperAdminAddAgentDialog    SuperAdminAgentConfigDrawer
+(insert: tenant_id: null)   (query/insert: tenant_id IS NULL/null)
 ```
 
-**Linha 604:**
-```typescript
-// De:
-<Route path="/super-admin/whatsapp" element={<SuperAdminWhatsApp />} />
+## Resultado Esperado
 
-// Para:
-<Route path="/super-admin/bot" element={<SuperAdminWhatsApp />} />
-```
-
-### 2. `src/components/Dashboard/DashboardSidebar.tsx`
-
-**Linha 137:**
-```typescript
-// De:
-{ id: 'whatsapp', icon: MessageSquare, label: 'Vouti.Bot', route: '/whatsapp' },
-
-// Para:
-{ id: 'whatsapp', icon: MessageSquare, label: 'Vouti.Bot', route: '/bot' },
-```
-
-### 3. `src/pages/CRM.tsx`
-
-**Linha 51:**
-```typescript
-// De:
-window.open(tenantPath('/whatsapp'), '_blank');
-
-// Para:
-window.open(tenantPath('/bot'), '_blank');
-```
-
-### 4. `src/components/CRM/CRMContent.tsx`
-
-**Linha 69:**
-```typescript
-// De:
-window.open(tenantPath('/whatsapp'), '_blank');
-
-// Para:
-window.open(tenantPath('/bot'), '_blank');
-```
-
-### 5. `src/components/SuperAdmin/SuperAdminLeads.tsx`
-
-**Linha 107:**
-```typescript
-// De:
-window.open('/super-admin/whatsapp', '_blank');
-
-// Para:
-window.open('/super-admin/bot', '_blank');
-```
-
-## Resultado
-
-| Rota Antiga | Rota Nova |
-|-------------|-----------|
-| `/:tenant/whatsapp` | `/:tenant/bot` |
-| `/super-admin/whatsapp` | `/super-admin/bot` |
-
-Os nomes internos de componentes e arquivos (como `WhatsApp.tsx`, `WhatsAppLayout.tsx`) permanecerão iguais - apenas as URLs visíveis ao usuário serão alteradas.
+- Super Admin pode visualizar agentes sem tenant
+- Super Admin pode criar novos agentes com tenant_id = null
+- Super Admin pode configurar Z-API para cada agente
+- Loading será resolvido imediatamente ao carregar a página
 
