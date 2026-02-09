@@ -1,150 +1,220 @@
 
 
-## Plano: Checkbox "Atender Leads da Homepage" (Super Admin)
+## Plano: Vincular Agentes às Landing Pages (Tenants)
 
-### Ideia
+### Contexto
 
-Adicionar um campo `is_landing_agent` na tabela `whatsapp_agents` que, quando marcado, indica que aquele agente específico será responsável por atender os leads que chegam da homepage (vouti.co/).
+Os tenants possuem landing pages próprias que salvam leads na tabela `leads_captacao` com a coluna `origem`:
+- `landing_page_1` - Rota `/landing-1`
+- `landing_page_2` - Rota `/office`
 
-Isso permite que o Super Admin tenha múltiplos agentes para diferentes finalidades:
-- **Agente Landing Page** (checkbox marcado): Atende leads da homepage automaticamente
-- **Agentes para Demos**: Podem ser usados para demonstrações para clientes
-- **Agentes de Teste**: Para testar configurações sem afetar a produção
+Atualmente, não há automação de WhatsApp para leads dessas páginas. Precisamos criar uma solução minimalista para que o tenant escolha qual agente vai atender cada landing page.
 
 ---
 
-### Arquitetura da Solução
+### Solução Proposta
+
+Adicionar um campo simples na aba "Comportamento da IA" do agente (dos tenants) que permite selecionar qual landing page ele atenderá.
 
 | Componente | Alteração |
 |------------|-----------|
-| **Banco de dados** | Adicionar coluna `is_landing_agent BOOLEAN DEFAULT FALSE` em `whatsapp_agents` |
-| **Trigger do banco** | Atualizar `notify_whatsapp_landing_lead()` para buscar a instância do agente marcado |
-| **Frontend** | Adicionar checkbox na aba "Comportamento da IA" do Super Admin |
-| **Edge Function** | Atualizar `whatsapp-process-queue` para usar o agente correto |
+| **Banco de dados** | Adicionar coluna `landing_page_source TEXT` em `whatsapp_agents` |
+| **Banco de dados** | Criar trigger `tr_leads_captacao_whatsapp` para automação |
+| **Frontend** | Adicionar checkbox/select minimalista no `WhatsAppAISettings.tsx` |
+| **Edge Function** | Ajustar busca para encontrar agente por `landing_page_source` |
 
 ---
 
 ### Etapa 1: Migração SQL
 
 ```sql
--- Adicionar coluna is_landing_agent
+-- Adicionar campo para tenants escolherem landing page
 ALTER TABLE public.whatsapp_agents
-ADD COLUMN is_landing_agent BOOLEAN DEFAULT FALSE;
-
--- Garantir que apenas UM agente do Super Admin pode ser o landing agent
-CREATE UNIQUE INDEX unique_landing_agent_superadmin 
-ON public.whatsapp_agents (is_landing_agent) 
-WHERE tenant_id IS NULL AND is_landing_agent = TRUE;
+ADD COLUMN landing_page_source TEXT DEFAULT NULL;
 
 -- Comentário explicativo
-COMMENT ON COLUMN public.whatsapp_agents.is_landing_agent IS 
-'Indica se este agente é responsável por atender leads da homepage (apenas para Super Admin)';
+COMMENT ON COLUMN public.whatsapp_agents.landing_page_source IS 
+'Fonte de leads que este agente atende (landing_page_1 ou landing_page_2). NULL = não atende nenhuma.';
 ```
 
 ---
 
-### Etapa 2: Atualizar Trigger do Banco
+### Etapa 2: Trigger para `leads_captacao`
 
-A função `notify_whatsapp_landing_lead()` atualmente busca qualquer instância conectada do Super Admin. Precisamos filtrar pelo agente marcado:
+Criar uma função e trigger similar ao que existe para `landing_leads`:
 
 ```sql
--- Na parte onde busca a instância para enviar a mensagem
--- Buscar instância do agente marcado como landing_agent
-SELECT wi.* INTO v_instance
-FROM whatsapp_instances wi
-JOIN whatsapp_agents wa ON wa.id = wi.agent_id
-WHERE wi.connection_status = 'connected'
-  AND wi.tenant_id IS NULL
-  AND wa.is_landing_agent = TRUE
-LIMIT 1;
+CREATE OR REPLACE FUNCTION notify_whatsapp_captacao_lead()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_agent RECORD;
+  v_instance RECORD;
+  v_message TEXT;
+  v_phone TEXT;
+BEGIN
+  -- Normalizar telefone
+  v_phone := REGEXP_REPLACE(NEW.telefone, '[^0-9]', '', 'g');
+  IF LENGTH(v_phone) = 10 OR LENGTH(v_phone) = 11 THEN
+    v_phone := '55' || v_phone;
+  END IF;
+
+  -- Buscar agente configurado para esta landing page no tenant
+  SELECT wa.*, wi.zapi_instance_id, wi.connection_status
+  INTO v_agent
+  FROM whatsapp_agents wa
+  LEFT JOIN whatsapp_instances wi ON wi.agent_id = wa.id
+  WHERE wa.tenant_id = NEW.tenant_id
+    AND wa.landing_page_source = NEW.origem
+    AND wa.is_active = TRUE
+  LIMIT 1;
+
+  -- Se encontrou agente configurado e conectado
+  IF v_agent.id IS NOT NULL AND v_agent.connection_status = 'connected' THEN
+    -- Buscar configuração de trigger (mensagem de boas-vindas)
+    SELECT * INTO v_instance
+    FROM whatsapp_lead_triggers
+    WHERE tenant_id = NEW.tenant_id
+      AND lead_source = 'leads_captacao'
+      AND is_active = TRUE
+    LIMIT 1;
+
+    IF v_instance.id IS NOT NULL THEN
+      -- Preparar mensagem
+      v_message := v_instance.welcome_message;
+      v_message := REPLACE(v_message, '{{nome}}', COALESCE(NEW.nome, ''));
+      v_message := REPLACE(v_message, '{{telefone}}', COALESCE(NEW.telefone, ''));
+      v_message := REPLACE(v_message, '{{email}}', COALESCE(NEW.email, ''));
+
+      -- Inserir na fila
+      INSERT INTO whatsapp_pending_messages (
+        tenant_id,
+        trigger_id,
+        lead_source,
+        lead_id,
+        phone,
+        message,
+        scheduled_at
+      ) VALUES (
+        NEW.tenant_id,
+        v_instance.id,
+        'leads_captacao',
+        NEW.id,
+        v_phone,
+        v_message,
+        NOW() + (v_instance.welcome_delay_minutes || ' minutes')::INTERVAL
+      );
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public';
+
+-- Criar trigger
+CREATE TRIGGER tr_leads_captacao_whatsapp
+  AFTER INSERT ON leads_captacao
+  FOR EACH ROW
+  EXECUTE FUNCTION notify_whatsapp_captacao_lead();
 ```
 
 ---
 
-### Etapa 3: Interface do Checkbox
+### Etapa 3: Interface Minimalista
 
-Na aba "Comportamento da IA" do Super Admin, adicionar:
+Na aba "Comportamento da IA" (apenas para tenants), adicionar:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  ☑️ Agente da Homepage                                        │
-│                                                               │
-│  Quando marcado, este agente será responsável por atender    │
-│  automaticamente os leads que chegam da homepage vouti.co/   │
-│                                                               │
-│  ⚠️ Apenas um agente pode ter esta opção ativada             │
+│  Landing Page                                                 │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ Selecione a página                              ▼      │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  Ao marcar, leads dessa página serão atendidos por este     │
+│  agente.                                                     │
 └──────────────────────────────────────────────────────────────┘
+
+Opções do Select:
+- Nenhuma
+- Landing Page 1 (/landing-1)
+- Landing Page 2 (/office)
 ```
 
-O checkbox só aparecerá para agentes do Super Admin (não para Tenants).
+**Visual minimalista**: Um único select discreto, sem cards extras.
 
 ---
 
-### Etapa 4: Lógica no Edge Function
+### Etapa 4: Atualizar `WhatsAppAISettings.tsx`
 
-Atualizar `whatsapp-process-queue/index.ts`:
+```tsx
+// Adicionar estado
+const [landingPageSource, setLandingPageSource] = useState<string | null>(null);
+
+// No loadConfig, carregar do agente
+if (!isSuperAdmin && agentId) {
+  const { data: agentData } = await supabase
+    .from('whatsapp_agents')
+    .select('landing_page_source')
+    .eq('id', agentId)
+    .single();
+  
+  if (agentData) {
+    setLandingPageSource(agentData.landing_page_source);
+  }
+}
+
+// Função para atualizar
+const handleLandingPageChange = async (value: string | null) => {
+  const actualValue = value === 'none' ? null : value;
+  
+  // Se for selecionar uma página, desmarcar outros agentes
+  if (actualValue) {
+    await supabase
+      .from('whatsapp_agents')
+      .update({ landing_page_source: null })
+      .eq('tenant_id', tenantId)
+      .eq('landing_page_source', actualValue);
+  }
+
+  await supabase
+    .from('whatsapp_agents')
+    .update({ landing_page_source: actualValue })
+    .eq('id', agentId);
+
+  setLandingPageSource(actualValue);
+};
+```
+
+---
+
+### Etapa 5: Atualizar Edge Function
+
+Ajustar `whatsapp-process-queue` para buscar a instância correta baseado no agente:
 
 ```typescript
-// Para Super Admin (tenant_id NULL), buscar instância do agente landing
-if (msg.tenant_id === null) {
+// Para leads_captacao de tenants
+if (msg.lead_source === 'leads_captacao' && msg.tenant_id) {
+  // Buscar agente configurado para esta origem
+  const { data: lead } = await supabase
+    .from('leads_captacao')
+    .select('origem')
+    .eq('id', msg.lead_id)
+    .single();
+
   instanceQuery = supabase
     .from('whatsapp_instances')
     .select(`
       instance_name, 
       zapi_instance_id, 
       zapi_instance_token, 
-      zapi_client_token, 
-      user_id,
-      whatsapp_agents!inner(is_landing_agent)
+      zapi_client_token,
+      agent_id,
+      whatsapp_agents!inner(landing_page_source)
     `)
+    .eq('tenant_id', msg.tenant_id)
     .eq('connection_status', 'connected')
-    .is('tenant_id', null)
-    .eq('whatsapp_agents.is_landing_agent', true);
+    .eq('whatsapp_agents.landing_page_source', lead?.origem);
 }
 ```
-
----
-
-### Fluxo Atualizado
-
-```text
-LEAD ENTRA NA HOMEPAGE
-        │
-        ▼
-┌──────────────────────────────────────┐
-│  Trigger: notify_whatsapp_landing_lead │
-│  Insere em whatsapp_pending_messages   │
-│  com tenant_id = NULL                  │
-└───────────────────┬──────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────┐
-│  Edge: whatsapp-process-queue        │
-│                                       │
-│  1. Detecta tenant_id = NULL          │
-│  2. Busca agente com is_landing_agent │
-│  3. Usa credenciais desse agente      │
-│  4. Envia mensagem via Z-API          │
-└───────────────────┬──────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────┐
-│  Agente "Admin" ou "Vouti Bot"       │
-│  (marcado como Landing Agent)         │
-│  Responde automaticamente via IA      │
-└──────────────────────────────────────┘
-```
-
----
-
-### Benefícios
-
-| Benefício | Descrição |
-|-----------|-----------|
-| **Organização** | Múltiplos agentes com propósitos distintos |
-| **Flexibilidade** | Trocar o agente da homepage sem reconfigurar tudo |
-| **Controle** | Apenas um agente ativo por vez para a homepage |
-| **Escalabilidade** | Preparado para futuros agentes especializados |
 
 ---
 
@@ -152,26 +222,61 @@ LEAD ENTRA NA HOMEPAGE
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `Nova migração SQL` | Adicionar coluna e índice único |
-| `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` | Adicionar checkbox + prop `agentId` |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` | Passar `agentId` para o componente |
-| `supabase/functions/whatsapp-process-queue/index.ts` | Filtrar por `is_landing_agent` |
+| `Nova migração SQL` | Adicionar coluna `landing_page_source` e trigger |
+| `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` | Adicionar select de landing page para tenants |
+| `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` | Passar `agentId` para WhatsAppAISettings |
+| `supabase/functions/whatsapp-process-queue/index.ts` | Buscar instância por `landing_page_source` |
 
 ---
 
-### Validação de Unicidade
+### Fluxo Completo
 
-O índice único garante que apenas **um** agente do Super Admin pode ser marcado como `is_landing_agent = TRUE`. Se o usuário tentar marcar outro agente:
-1. O sistema desmarca automaticamente o anterior
-2. Ou exibe mensagem de erro pedindo para desmarcar o anterior primeiro
+```text
+LEAD ENTRA NA LANDING PAGE 1
+origem = "landing_page_1"
+        │
+        ▼
+┌──────────────────────────────────────┐
+│  INSERT em leads_captacao            │
+│  tenant_id = "abc123"                │
+│  origem = "landing_page_1"           │
+└───────────────────┬──────────────────┘
+                    │
+                    ▼
+┌──────────────────────────────────────┐
+│  TRIGGER: notify_whatsapp_captacao_lead │
+│                                       │
+│  1. Busca agente onde:               │
+│     tenant_id = "abc123"             │
+│     landing_page_source = "landing_page_1" │
+│  2. Se encontrar, insere na fila     │
+└───────────────────┬──────────────────┘
+                    │
+                    ▼
+┌──────────────────────────────────────┐
+│  whatsapp-process-queue              │
+│  Envia mensagem via Z-API            │
+│  Usa credenciais do agente correto   │
+└──────────────────────────────────────┘
+```
 
 ---
 
-### Dados Atuais
+### Diferenças Super Admin vs Tenants
 
-O Super Admin já possui 2 agentes:
-- **Admin** (tenant_id NULL)
-- **Atendente** (tenant_id NULL)
+| Aspecto | Super Admin | Tenants |
+|---------|-------------|---------|
+| Campo | Checkbox `is_landing_agent` | Select `landing_page_source` |
+| Tabela fonte | `landing_leads` | `leads_captacao` |
+| Estilo | Card destacado | Select minimalista |
+| Opções | Única (homepage vouti.co/) | Múltiplas (landing-1, office) |
 
-Após a implementação, você poderá escolher qual deles atenderá a homepage.
+---
+
+### Benefícios
+
+- **Minimalista**: Um único select discreto
+- **Flexível**: Cada agente pode atender uma landing específica
+- **Escalável**: Fácil adicionar novas landing pages no futuro
+- **Isolado**: Não afeta a lógica do Super Admin
 
