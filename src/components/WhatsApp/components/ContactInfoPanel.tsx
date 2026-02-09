@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Phone, 
   Mail, 
   Zap, 
   MessageSquare, 
   Calendar, 
-  Tag, 
   ChevronDown,
   ChevronRight,
   Bot,
@@ -26,7 +25,9 @@ import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { cn } from "@/lib/utils";
 import { AIControlSection } from "./AIControlSection";
 import { SaveContactDialog } from "./SaveContactDialog";
+import { AddLabelDropdown } from "./AddLabelDropdown";
 import { useTenantId } from "@/hooks/useTenantId";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ContactInfoPanelProps {
   conversation: WhatsAppConversation;
@@ -43,7 +44,28 @@ interface AccordionItem {
 export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [contactId, setContactId] = useState<string | null>(null);
   const { tenantId } = useTenantId();
+
+  // Load contact ID if exists
+  useEffect(() => {
+    const loadContactId = async () => {
+      let query = supabase
+        .from("whatsapp_contacts")
+        .select("id")
+        .eq("phone", conversation.contactNumber);
+
+      if (tenantId) {
+        query = query.eq("tenant_id", tenantId);
+      } else {
+        query = query.is("tenant_id", null);
+      }
+
+      const { data } = await query.maybeSingle();
+      setContactId(data?.id || null);
+    };
+    loadContactId();
+  }, [conversation.contactNumber, tenantId]);
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) =>
@@ -62,10 +84,11 @@ export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPa
             <MessageSquare className="h-4 w-4 mr-2" />
             Resolver conversa
           </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Tag className="h-4 w-4 mr-2" />
-            Adicionar etiqueta
-          </Button>
+          <AddLabelDropdown
+            contactId={contactId}
+            contactPhone={conversation.contactNumber}
+            onLabelsChange={() => {}}
+          />
           <Button variant="outline" size="sm" className="w-full justify-start">
             <Calendar className="h-4 w-4 mr-2" />
             Agendar follow-up
