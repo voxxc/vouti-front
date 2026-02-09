@@ -1,31 +1,51 @@
 
-## Corrigir botao "Novo Usuario" no drawer de gerenciamento de usuarios
+
+## Plano: Corrigir Webhook WhatsApp - Mensagens Nao Salvas
 
 ### Problema
 
-No painel do tenant (ex: `/solvenza/dashboard`), ao abrir o drawer de "Usuarios" e clicar em "Novo Usuario", nada acontece. O botao esta conectado a uma funcao (`handleAddUser`) que apenas recarrega a lista de usuarios -- nao abre nenhum formulario de criacao.
+Duas falhas impedem o processamento de mensagens no webhook:
 
-A logica de criacao de usuario existe no componente antigo `UserManagement.tsx`, mas o drawer (`UserManagementDrawer.tsx`) que substituiu a interface nao inclui essa funcionalidade.
+1. **ReferenceError (critico)**: No bloco `fromMe` (linhas 132-163), o codigo usa `instance.user_id` e `effectiveTenantId` que so sao declarados nas linhas 167-180. Isso causa `ReferenceError: Cannot access 'instance' before initialization` para TODAS as mensagens `fromMe: true`.
+
+2. **PGRST116 - Instancia duplicada**: Existem 2 registros na tabela `whatsapp_instances` com o mesmo `zapi_instance_id` (`3E8A7...`). A query usa `.single()` que falha quando retorna mais de 1 resultado. Isso impede o processamento de mensagens recebidas (como "Tudo joia" do numero 7710).
 
 ### Solucao
 
-Adicionar um dialog de criacao de usuario diretamente dentro do `UserManagementDrawer.tsx`, reutilizando a mesma logica de criacao que existe no `UserManagement.tsx` (chamada a edge function `create-user`).
+**Arquivo:** `supabase/functions/whatsapp-webhook/index.ts`
 
-### Alteracoes
+1. **Mover a busca da instancia para ANTES do bloco fromMe**: A query que busca a instancia no banco deve acontecer primeiro, e so depois verificar `fromMe`. Assim `instance` e `effectiveTenantId` estarao disponiveis.
 
-**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
+2. **Usar `.limit(1)` em vez de `.single()`**: Trocar `.single()` por `.limit(1).maybeSingle()` para evitar o erro PGRST116 quando ha registros duplicados.
 
-1. Adicionar estados para controlar o dialog de criacao e o formulario (nome, email, senha, perfil, permissoes adicionais)
-2. Adicionar um Dialog de criacao com campos: Nome, Email, Senha, Perfil (select), Permissoes Adicionais (checkboxes)
-3. No `handleCreateSubmit`, chamar a edge function `create-user` com os dados do formulario e o `tenantId`
-4. Apos sucesso, chamar `onAddUser()` para recarregar a lista e fechar o dialog
-5. Integrar verificacao de limite de plano via `usePlanoLimites()` para desabilitar o botao quando o limite for atingido
+### Alteracoes especificas
+
+Reorganizar a funcao `handleIncomingMessage` na seguinte ordem:
+
+```
+1. Normalizar telefone (ja existe)
+2. Buscar instancia no banco (.limit(1).maybeSingle()) ← MOVER PARA CIMA
+3. Definir effectiveTenantId ← MOVER PARA CIMA
+4. Verificar fromMe:
+   - fromApi: true → ignorar
+   - fromApi: false → salvar como outgoing com instance.user_id e effectiveTenantId
+   - return (sem IA/automacao)
+5. Salvar mensagem recebida (fluxo normal, ja existe)
+6. Processar IA e automacoes (ja existe)
+```
 
 ### Detalhes tecnicos
 
-- Reutilizar a mesma chamada `supabase.functions.invoke('create-user', { body: { email, password, full_name, role, additional_roles, tenant_id } })`
-- Usar o hook `usePlanoLimites()` ja existente para verificar `podeAdicionarUsuario`
-- Mostrar `LimiteAlert` quando o limite estiver proximo ou atingido
-- O formulario de criacao sera um `Dialog` separado do dialog de edicao ja existente
-- Campos obrigatorios: nome, email, senha (min 6 chars), perfil
-- Permissoes adicionais: mesmos checkboxes do formulario de edicao (Agenda, Clientes, Financeiro, Controladoria, Reunioes)
+- Linhas 132-163 (bloco fromMe): precisam de `instance` e `effectiveTenantId` que estao declarados nas linhas 167-180
+- Solucao: mover linhas 165-180 (busca instancia + effectiveTenantId) para antes da linha 132
+- Trocar `.single()` por `.limit(1).maybeSingle()` na query de instancia
+- Adicionar guard clause caso instancia nao seja encontrada (retornar early)
+- A mensagem "Tudo joia" do numero 7710 passara a ser salva corretamente apos o fix
+
+### Dados duplicados no banco
+
+Ha 2 instancias com o mesmo `zapi_instance_id`:
+- `superadmin-5ee34df4...` 
+- `superadmin-abd8ace2...`
+
+Ambas tem o mesmo `user_id` e `tenant_id: null`. O `.limit(1)` resolve o erro imediato, mas idealmente o registro duplicado deveria ser removido manualmente no futuro.
