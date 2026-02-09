@@ -1,62 +1,70 @@
 
-
-# Plano: Adicionar Políticas RLS para Super Admin na Tabela whatsapp_agents
+# Plano: Corrigir Constraint UNIQUE na Tabela whatsapp_instances
 
 ## Problema Identificado
 
-A criação de agentes no `/super-admin/bot` falha porque as políticas RLS da tabela `whatsapp_agents` bloqueiam operações quando `tenant_id` é `NULL`.
+A tabela `whatsapp_instances` tem uma constraint **UNIQUE global** no campo `instance_name`:
 
-### Políticas Atuais (Problemáticas)
+```sql
+CREATE UNIQUE INDEX whatsapp_instances_instance_name_key 
+ON public.whatsapp_instances USING btree (instance_name)
+```
 
-| Operação | Condição | Resultado para Super Admin |
-|----------|----------|---------------------------|
-| SELECT | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
-| INSERT | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
-| UPDATE | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
-| DELETE | `tenant_id = get_user_tenant_id()` | `NULL = NULL` → `NULL` (bloqueado) |
+Isso impede que:
+- Diferentes tenants usem o mesmo `instance_name`
+- O Super Admin use um `instance_name` já utilizado por algum tenant
 
-O Super Admin não tem `tenant_id`, então `get_user_tenant_id()` retorna `NULL`, e em SQL `NULL = NULL` não é `TRUE`.
+### Erro nos Logs
+
+```
+duplicate key value violates unique constraint "whatsapp_instances_instance_name_key"
+```
 
 ## Solução
 
-Adicionar políticas RLS específicas para Super Admin usando `is_super_admin(auth.uid())`, seguindo o mesmo padrão já usado em outras tabelas do sistema.
+Remover a constraint UNIQUE global e criar uma nova constraint que permita o mesmo `instance_name` em diferentes contextos.
 
-## Migração SQL Necessária
+### Opção Escolhida: UNIQUE por Combinação
+
+Criar um índice UNIQUE parcial que considera:
+- `instance_name` + `tenant_id` (para tenants)
+- `instance_name` + `agent_id` quando `tenant_id IS NULL` (para Super Admin)
+
+## Migração SQL
 
 ```sql
--- Política para Super Admin SELECT
-CREATE POLICY "superadmin_select_agents" ON public.whatsapp_agents
-  FOR SELECT TO public
-  USING (is_super_admin(auth.uid()));
+-- Remover a constraint antiga (global)
+DROP INDEX IF EXISTS whatsapp_instances_instance_name_key;
 
--- Política para Super Admin INSERT  
-CREATE POLICY "superadmin_insert_agents" ON public.whatsapp_agents
-  FOR INSERT TO public
-  WITH CHECK (is_super_admin(auth.uid()));
+-- Criar índice UNIQUE para instâncias com tenant
+CREATE UNIQUE INDEX whatsapp_instances_tenant_instance_name_key 
+ON public.whatsapp_instances (tenant_id, instance_name) 
+WHERE tenant_id IS NOT NULL;
 
--- Política para Super Admin UPDATE
-CREATE POLICY "superadmin_update_agents" ON public.whatsapp_agents
-  FOR UPDATE TO public
-  USING (is_super_admin(auth.uid()));
-
--- Política para Super Admin DELETE
-CREATE POLICY "superadmin_delete_agents" ON public.whatsapp_agents
-  FOR DELETE TO public
-  USING (is_super_admin(auth.uid()));
+-- Criar índice UNIQUE para instâncias do Super Admin (tenant_id NULL)
+CREATE UNIQUE INDEX whatsapp_instances_superadmin_instance_name_key 
+ON public.whatsapp_instances (agent_id, instance_name) 
+WHERE tenant_id IS NULL;
 ```
 
 ## Resultado Esperado
 
-Após a migração:
-
-| Operação | Super Admin | Tenant |
-|----------|-------------|--------|
-| SELECT | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
-| INSERT | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
-| UPDATE | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
-| DELETE | Permitido (via `is_super_admin`) | Permitido (via `tenant_id`) |
+| Cenário | Antes | Depois |
+|---------|-------|--------|
+| Tenant A usa `instance_name = "XYZ"` | OK | OK |
+| Tenant B usa `instance_name = "XYZ"` | ERRO | OK |
+| Super Admin usa `instance_name = "XYZ"` (já usado por tenant) | ERRO | OK |
+| Super Admin cria 2 instâncias com mesmo nome para agentes diferentes | ERRO | OK |
+| Mesmo tenant cria 2 instâncias com mesmo nome | ERRO | ERRO (correto) |
 
 ## Arquivos
 
-Nenhum arquivo de código precisa ser alterado - o código atual (`SuperAdminAddAgentDialog.tsx`) já está correto. O problema é apenas nas políticas RLS do banco de dados.
+Nenhum arquivo de código precisa ser alterado. A mudança é apenas no esquema do banco de dados.
 
+## Detalhes Técnicos
+
+A migração usa índices parciais (`WHERE` clause) para separar as regras de unicidade:
+1. Para registros com `tenant_id` definido: unicidade por `(tenant_id, instance_name)`
+2. Para registros sem `tenant_id` (Super Admin): unicidade por `(agent_id, instance_name)`
+
+Isso mantém a integridade dos dados enquanto permite flexibilidade entre diferentes contextos.
