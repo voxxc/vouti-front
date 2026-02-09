@@ -1,195 +1,168 @@
 
-# Plano: Ativacao do Vouti.Bot via Super Admin + Acesso Condicional nos Tenants
+# Plano: Corrigir Exibicao do Status de Conexao no Drawer do Agente
 
-## Resumo
+## Problema
 
-O usuario solicitou:
-1. **Ativacao via Super Admin** - Adicionar botao no card de cada tenant para ativar/desativar o Vouti.Bot
-2. **Acesso condicional** - O menu Vouti.Bot no sidebar dos tenants so deve aparecer quando ativado pelo Super Admin
-3. **Paridade Super Admin** - O padrao de Agentes do Vouti.Bot deve estar disponivel tambem no Super Admin
+Ao abrir o drawer do Daniel (que esta conectado), a secao de Acoes mostra "Conectar" ao inves de "Desconectar". Isso acontece porque:
 
----
+1. O drawer carrega o status do banco (`connected`) corretamente
+2. Em seguida, chama `checkConnectionStatus()` que faz uma requisicao direta a API Z-API
+3. Se a requisicao falhar (CORS, timeout, etc.), o estado e sobrescrito para `false`
 
-## Arquitetura da Solucao
+## Solucao
 
-### 1. Feature Flag
+Modificar a logica para:
 
-O sistema ja utiliza o campo `settings` (JSONB) na tabela `tenants` para armazenar `whatsapp_enabled`. A estrutura existente sera mantida:
+1. **Priorizar o status do banco de dados** como fonte de verdade inicial
+2. **Nao sobrescrever automaticamente** o status ao abrir o drawer
+3. **Atualizar apenas quando o usuario clicar no botao de refresh** ou apos acoes explicitas
 
-```json
-{
-  "whatsapp_enabled": true,
-  "whatsapp_lead_source": "landing_leads"
+## Alteracoes no Arquivo
+
+### `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
+
+#### 1. Remover chamada automatica ao checkConnectionStatus
+
+```typescript
+// ANTES (linha 70)
+if (data) {
+  setConfig({...});
+  setIsConnected(data.connection_status === "connected");
+  checkConnectionStatus(...); // <- REMOVE esta linha
+}
+
+// DEPOIS
+if (data) {
+  setConfig({...});
+  setIsConnected(data.connection_status === "connected");
+  // Nao verificar automaticamente - usar valor do banco
 }
 ```
 
-### 2. Fluxo de Ativacao
+#### 2. Modificar checkConnectionStatus para atualizar o banco
 
-```text
-Super Admin (TenantCard)
-        │
-        ├── Botao Vouti.Bot (Cloud icon)
-        │   └── Toggle: Ativado/Desativado
-        │
-        └── UPDATE tenants SET settings = jsonb_set(settings, '{whatsapp_enabled}', 'true')
-                    │
-                    ▼
-            Tenant Dashboard
-                    │
-                    └── useTenantFeatures().isWhatsAppEnabled
-                            │
-                            ├── TRUE: Mostra menu Vouti.Bot no sidebar
-                            └── FALSE: Esconde menu Vouti.Bot
-```
-
----
-
-## Alteracoes Necessarias
-
-### 1. TenantCard.tsx - Botao de Ativacao
-
-Adicionar um botao com icone de nuvem (CloudIcon) na linha de ferramentas do card:
-
-| Elemento | Descricao |
-|----------|-----------|
-| Icone | CloudIcon (mesmo do Vouti.Bot) |
-| Comportamento | Toggle - ativa/desativa `whatsapp_enabled` nas settings |
-| Visual | Cor verde quando ativo, cinza quando inativo |
-| Tooltip | "Vouti.Bot: Ativado" ou "Vouti.Bot: Desativado" |
+Quando o usuario clicar no refresh, alem de verificar o status, tambem atualizar o banco:
 
 ```typescript
-// Novo estado local para loading
-const [whatsAppLoading, setWhatsAppLoading] = useState(false);
-
-// Extrair status atual das settings
-const isWhatsAppEnabled = (tenant.settings as Record<string, unknown>)?.whatsapp_enabled === true;
-
-// Handler para toggle
-const handleToggleWhatsApp = async () => {
-  setWhatsAppLoading(true);
-  const newSettings = {
-    ...(tenant.settings as Record<string, unknown>),
-    whatsapp_enabled: !isWhatsAppEnabled
-  };
+const checkConnectionStatus = async (url: string, instanceId: string, token: string) => {
+  if (!url || !instanceId || !token) return;
   
-  await supabase
-    .from('tenants')
-    .update({ settings: newSettings })
-    .eq('id', tenant.id);
+  setIsCheckingStatus(true);
+  try {
+    const response = await fetch(`${url}/status`, {
+      headers: { "Client-Token": token }
+    });
     
-  // Atualizar UI...
-  setWhatsAppLoading(false);
-};
-```
-
-### 2. DashboardSidebar.tsx - Acesso Condicional
-
-Modificar a logica de visibilidade para incluir verificacao de `whatsapp`:
-
-```typescript
-// Adicionar hook
-const { isWhatsAppEnabled } = useTenantFeatures();
-
-// Modificar hasAccessToItem
-const hasAccessToItem = (itemId: string) => {
-  if (itemId === 'dashboard' || itemId === 'extras') return true;
-  
-  // Vouti.Bot - verificar feature flag
-  if (itemId === 'whatsapp') {
-    return isWhatsAppEnabled && userRoles.includes('admin');
+    if (response.ok) {
+      const data = await response.json();
+      const connected = data?.connected === true;
+      setIsConnected(connected);
+      
+      // Sincronizar com o banco de dados
+      if (config.id) {
+        await supabase
+          .from("whatsapp_instances")
+          .update({ connection_status: connected ? "connected" : "disconnected" })
+          .eq("id", config.id);
+        onAgentUpdated();
+      }
+    }
+    // Se falhar, manter o status atual (nao sobrescrever)
+  } catch (error) {
+    console.error("Erro ao verificar status:", error);
+    toast.error("Nao foi possivel verificar o status");
+    // Manter o status atual - nao sobrescrever para false
+  } finally {
+    setIsCheckingStatus(false);
   }
-  
-  return hasAccess(itemId);
 };
 ```
 
-### 3. SuperAdminWhatsAppLayout.tsx - Adicionar Seção de Agentes
+#### 3. Melhorar UX da secao de Acoes
 
-Atualizar para incluir a secao de Agentes criada anteriormente:
-
-```typescript
-// Adicionar ao type
-export type SuperAdminWhatsAppSection = 
-  | "inbox" 
-  | "conversations" 
-  // ... existentes ...
-  | "agents"  // NOVO
-
-// Adicionar ao renderSection
-case "agents":
-  return <WhatsAppAgentsSettings isSuperAdmin />;
-```
-
-### 4. SuperAdminWhatsAppSidebar.tsx - Adicionar Menu Agentes
-
-Adicionar item no menu de configuracoes:
+Quando conectado, mostrar visual claro:
 
 ```typescript
-const settingsItems = [
-  { id: "agents", label: "Agentes", icon: Users },  // NOVO
-  { id: "settings", label: "Conexão Z-API", icon: Wifi },
-  { id: "settings-leads", label: "Fonte de Leads", icon: Users2 },
-  { id: "ai-settings", label: "Agente IA", icon: Bot },
-];
+{/* Acoes de Conexao */}
+<div className="space-y-3">
+  <h3 className="font-medium text-sm">Acoes</h3>
+  
+  {isConnected ? (
+    // CONECTADO - mostrar status e opcao de desconectar
+    <div className="space-y-3">
+      <div className="flex items-center justify-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+        <CheckCircle2 className="h-5 w-5 text-green-500" />
+        <span className="text-green-600 font-medium">WhatsApp Conectado</span>
+      </div>
+      
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1 gap-2" onClick={handleDisconnect}>
+          <XCircle className="h-4 w-4" />
+          Desconectar
+        </Button>
+        <Button variant="outline" onClick={handleRefresh}>
+          <RefreshCw className={isCheckingStatus ? 'animate-spin' : ''} />
+        </Button>
+      </div>
+    </div>
+  ) : (
+    // DESCONECTADO - mostrar QR Code
+    <div className="flex gap-2">
+      <Button variant="outline" className="flex-1 gap-2" onClick={handleConnect}>
+        <QrCode className="h-4 w-4" />
+        Conectar via QR Code
+      </Button>
+      <Button variant="outline" onClick={handleRefresh}>
+        <RefreshCw className={isCheckingStatus ? 'animate-spin' : ''} />
+      </Button>
+    </div>
+  )}
+
+  {config.id && (
+    <Button variant="destructive" className="w-full gap-2" onClick={handleReset}>
+      <Trash2 className="h-4 w-4" />
+      Resetar Configuracoes
+    </Button>
+  )}
+</div>
 ```
 
----
-
-## Interface Visual - TenantCard
+## Fluxo Corrigido
 
 ```text
-┌────────────────────────────────────────────────────────┐
-│  [Logo] Escritório ABC                    [Switch On]  │
-│         escritorio-abc                                 │
-│                                                        │
-│  🟢 Ativo   |   Solo                                   │
-├────────────────────────────────────────────────────────┤
-│  [Configurar ▼]              [↗ Abrir]  [🗑 Excluir]   │
-│                                                        │
-│  [📊] [📈] [🔑] [📁] [#] [💳]  [☁️]  ◄── NOVO BOTAO   │
-│                                │                       │
-│                         Vouti.Bot Toggle               │
-│                         (verde = ativo)                │
-└────────────────────────────────────────────────────────┘
+Drawer Abre
+    |
+    v
+Carrega dados do DB
+    |
+    v
+connection_status = "connected"
+    |
+    v
+setIsConnected(true) <-- MANTIDO
+    |
+    v
+UI mostra "Conectado" + botao "Desconectar"
+
+    [Usuario clica Refresh]
+            |
+            v
+    Chama API Z-API /status
+            |
+            +-- Sucesso: Atualiza estado + banco
+            |
+            +-- Falha: Mostra toast de erro, MANTEM estado atual
 ```
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/SuperAdmin/TenantCard.tsx` | Adicionar botao toggle Vouti.Bot |
-| `src/components/Dashboard/DashboardSidebar.tsx` | Condicionar exibicao do menu ao feature flag |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppLayout.tsx` | Adicionar secao "agents" |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppSidebar.tsx` | Adicionar menu Agentes |
-| `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` | Adicionar prop `isSuperAdmin` (opcional) |
-
----
-
-## Callback para Atualizar UI
-
-O `TenantCard` precisara de um callback para notificar o componente pai quando as settings forem alteradas, para refletir a mudanca na UI:
-
-```typescript
-interface TenantCardProps {
-  // ... existentes ...
-  onSettingsChange?: (tenantId: string, settings: unknown) => void;
-}
-```
-
----
 
 ## Resultado Esperado
 
-1. **Super Admin** - Card do tenant tera botao com icone de nuvem
-   - Clique alterna `whatsapp_enabled` entre true/false
-   - Visual indica status (verde = ativo, cinza = inativo)
+| Situacao | Antes | Depois |
+|----------|-------|--------|
+| Daniel conectado, abre drawer | Mostra "Conectar" (bug) | Mostra "Conectado" + "Desconectar" |
+| Clica refresh, API ok | Atualiza estado | Atualiza estado + banco |
+| Clica refresh, API falha | Muda para desconectado | Mantem estado + mostra erro |
+| Clica reset | Limpa tudo | Limpa tudo (sem mudanca) |
 
-2. **Dashboard Tenant** - Menu lateral
-   - Se `whatsapp_enabled = true`: Menu Vouti.Bot aparece
-   - Se `whatsapp_enabled = false`: Menu Vouti.Bot nao aparece
+## Arquivo Modificado
 
-3. **Super Admin Vouti.Bot** - Pagina `/super-admin/whatsapp`
-   - Tera a mesma secao de Agentes dos tenants
-   - Gerencia instancias Z-API globais (homepage leads)
+- `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
