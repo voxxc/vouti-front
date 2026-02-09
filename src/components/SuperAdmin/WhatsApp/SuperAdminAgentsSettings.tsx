@@ -712,7 +712,7 @@ export const SuperAdminAgentsSettings = () => {
                           {qrCode && (
                             <div className="border rounded-lg p-6 bg-background flex flex-col items-center gap-4">
                               <img
-                                src={`data:image/png;base64,${qrCode}`}
+                                src={qrCode.startsWith('data:image/') ? qrCode : `data:image/png;base64,${qrCode}`}
                                 alt="QR Code WhatsApp"
                                 className="w-64 h-64"
                               />
