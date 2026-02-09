@@ -1,11 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,17 +22,12 @@ serve(async (req) => {
     // PRIORIDADE 1: Credenciais específicas do agente (novo formato)
     if (zapi_instance_id && zapi_instance_token) {
       baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
-      // Client-Token: usa o fornecido OU fallback para Z_API_TOKEN das env vars
+      // Client-Token: APENAS se foi fornecido explicitamente pelo usuário
+      // NÃO usar fallback para Z_API_TOKEN aqui - pode ser de outra instância
       if (zapi_client_token && zapi_client_token.trim() !== '') {
         clientToken = zapi_client_token.trim();
-      } else {
-        // Fallback: usar Z_API_TOKEN se existir (para instâncias com Security Token ativo)
-        const envToken = Deno.env.get('Z_API_TOKEN');
-        if (envToken) {
-          clientToken = envToken;
-          console.log('Using Z_API_TOKEN fallback for Client-Token');
-        }
       }
+      // Se não forneceu Client-Token, não envia o header (instância sem Security Token)
       console.log('Using agent-specific credentials');
     }
     // PRIORIDADE 2: Formato antigo com URL completa (retrocompatibilidade)
@@ -70,7 +63,7 @@ serve(async (req) => {
         break;
       case 'disconnect':
         endpoint = `${baseUrl}/disconnect`;
-        method = 'DELETE';
+        method = 'GET';
         break;
       case 'qr-code':
         endpoint = `${baseUrl}/qr-code/image`;
