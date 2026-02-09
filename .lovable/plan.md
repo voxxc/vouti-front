@@ -1,206 +1,179 @@
 
-## Plano: Kanban por Papel + Sistema Completo de Etiquetas
 
-### Resumo
+## Plano: Normalizar Telefones e Unificar Conversa Laura Dama
 
-Três funcionalidades estruturais:
+### Diagnóstico
 
-1. **Kanban com visibilidade por papel** - Atendentes veem só o próprio Kanban; Admins veem todos
-2. **Botão "Adicionar Etiqueta"** funcional - Dropdown para associar etiquetas a contatos
-3. **Tela de Configurações > Etiquetas** - CRUD completo de etiquetas com cores
+O contato Laura Dama (`5545999180026`) teve suas mensagens divididas em duas conversas devido a inconsistência no formato do número:
+
+| Mensagem | Número | Problema |
+|----------|--------|----------|
+| Mensagem inicial do bot | `5545999180026` | Correto (13 dígitos) |
+| Respostas via webhook | `554599180026` | Falta o 9 (12 dígitos) |
+
+**Causa:** A Z-API envia o número sem o nono dígito obrigatório para celulares brasileiros. O sistema atual não normaliza o número ao receber no webhook.
 
 ---
 
-### 1. Controle de Visibilidade do Kanban
+### Solução em 3 Partes
 
-**Problema atual:**
-A sidebar (`WhatsAppSidebar.tsx`) lista TODOS os agentes ativos. Colaboradores (atendentes) deveriam ver apenas seu próprio Kanban.
+#### Parte 1: Normalizar Telefones no Webhook (Prevenção)
 
-**Solução:**
+**Arquivo:** `supabase/functions/whatsapp-webhook/index.ts`
 
-| Papel | Comportamento |
-|-------|---------------|
-| **Admin / Controller** | Vê dropdown com todos os agentes |
-| **Atendente (agente)** | Vê apenas seu agente no menu (detectado via `agentId` do AccessGate) |
+Adicionar função de normalização que garante o formato correto:
 
-**Arquivos a modificar:**
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `WhatsAppAccessGate.tsx` | Já retorna `agentId` - OK |
-| `WhatsAppLayout.tsx` | Receber `agentId` via contexto ou prop drilling e passar para sidebar |
-| `WhatsAppSidebar.tsx` | Filtrar lista de agentes baseado no papel do usuário |
-
-**Lógica:**
-
-```tsx
-// WhatsAppSidebar.tsx - dentro de loadAgents()
-if (tenantId) {
-  // Verificar se usuário é admin/controller
-  const { data: roleData } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("tenant_id", tenantId)
-    .in("role", ["admin", "controller"])
-    .maybeSingle();
-    
-  if (roleData) {
-    // Admin/Controller: carregar todos os agentes
-    query = query.eq("tenant_id", tenantId);
-  } else {
-    // Atendente: carregar apenas seu próprio agente
-    query = query.eq("tenant_id", tenantId).eq("user_id", userId);
+```typescript
+// Normaliza telefone brasileiro para formato com 9 dígitos
+function normalizePhoneNumber(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar o 9
+  // Ex: 554599180026 -> 5545999180026
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    // Celulares brasileiros começam com 9 após DDD
+    return `55${ddd}9${number}`;
   }
+  
+  return cleaned;
+}
+```
+
+Aplicar na função `handleIncomingMessage()`:
+```typescript
+async function handleIncomingMessage(data: any) {
+  const { instanceId, phone, messageId, text, chatName, momment, fromMe } = data;
+  
+  // ✅ Normalizar telefone ANTES de salvar
+  const normalizedPhone = normalizePhoneNumber(phone);
+  console.log(`📞 Telefone normalizado: ${phone} -> ${normalizedPhone}`);
+  
+  // Usar normalizedPhone em todo o resto da função...
 }
 ```
 
 ---
 
-### 2. Botão "Adicionar Etiqueta" Funcional
+#### Parte 2: Normalizar no Inbox (Agrupamento Robusto)
 
-**Problema atual:**
-O botão em `ContactInfoPanel.tsx` não faz nada.
+**Arquivos:**
+- `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`
+- `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
 
-**Solução:**
-Criar dropdown com etiquetas existentes + opção de criar nova.
+Modificar a lógica de agrupamento para normalizar números ao agrupar:
 
-**Componente novo:** `AddLabelDropdown.tsx`
+```typescript
+// Função helper para normalizar telefone
+const normalizePhone = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar o 9
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    return `55${ddd}9${number}`;
+  }
+  return cleaned;
+};
 
-```tsx
-interface AddLabelDropdownProps {
-  contactId: string;
-  contactPhone: string;
-  currentLabels: string[];
-  onLabelsChange: () => void;
-}
+// No loadConversations():
+messagesResult.data?.forEach((msg) => {
+  const normalizedNumber = normalizePhone(msg.from_number);
+  if (!conversationMap.has(normalizedNumber)) {
+    conversationMap.set(normalizedNumber, {
+      id: msg.id,
+      contactName: contactNameMap.get(normalizedNumber) || 
+                   contactNameMap.get(msg.from_number) || 
+                   normalizedNumber,
+      contactNumber: normalizedNumber,
+      // ...
+    });
+  }
+});
 ```
 
-**Funcionalidade:**
-- Lista todas as etiquetas disponíveis
-- Checkbox para cada uma (toggle)
-- Botão "Criar nova etiqueta" inline
-- Ao clicar, insere/remove em `whatsapp_contact_labels`
-
-**Arquivos a criar/modificar:**
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/WhatsApp/components/AddLabelDropdown.tsx` | **Criar** - Dropdown com lista de etiquetas |
-| `ContactInfoPanel.tsx` | Substituir botão estático por `AddLabelDropdown` |
-
----
-
-### 3. Tela de Configurações > Etiquetas (CRUD)
-
-**Problema atual:**
-`WhatsAppLabelsSettings.tsx` mostra apenas "Em desenvolvimento..."
-
-**Solução:**
-Implementar CRUD completo:
-
-- **Listar** etiquetas com nome e cor
-- **Criar** nova etiqueta (nome + cor picker)
-- **Editar** etiqueta inline (nome + cor)
-- **Excluir** etiqueta com confirmação
-
-**Arquivos a modificar:**
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `WhatsAppLabelsSettings.tsx` | Implementar listagem, criação, edição e exclusão |
-
-**Componentes internos:**
-
-```tsx
-// Dentro de WhatsAppLabelsSettings
-- LabelRow: exibe etiqueta com ações (edit/delete)
-- CreateLabelForm: input nome + color picker
-- EditLabelDialog: modal de edição
-```
-
-**Interface visual:**
-```
-┌──────────────────────────────────────────────┐
-│ Etiquetas                                     │
-│ Organize suas conversas com etiquetas         │
-├──────────────────────────────────────────────┤
-│ + Criar Etiqueta  [Nome...] [🎨] [Salvar]    │
-├──────────────────────────────────────────────┤
-│ ● Lead Quente        [✏️] [🗑️]              │
-│ ● Suporte            [✏️] [🗑️]              │
-│ ● Fechado            [✏️] [🗑️]              │
-└──────────────────────────────────────────────┘
-```
-
-**Cores pré-definidas:**
-```tsx
-const PRESET_COLORS = [
-  "#ef4444", // red
-  "#f97316", // orange
-  "#eab308", // yellow
-  "#22c55e", // green
-  "#06b6d4", // cyan
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-];
+E no `loadMessages()`:
+```typescript
+const loadMessages = useCallback(async (contactNumber: string) => {
+  // Buscar mensagens por ambos os formatos (com e sem 9)
+  const normalized = normalizePhone(contactNumber);
+  const variant = // versão sem o 9 se aplicável
+  
+  const { data, error } = await supabase
+    .from("whatsapp_messages")
+    .select("*")
+    .is("tenant_id", null)
+    .or(`from_number.eq.${normalized},from_number.eq.${variant}`)
+    .order("created_at", { ascending: true });
+});
 ```
 
 ---
 
-### 4. Integração com Filtro de Contatos
+#### Parte 3: Corrigir Dados Existentes (Migração)
 
-**Status atual:**
-A seção `WhatsAppContacts.tsx` já tem um Select para filtrar por etiqueta - isso funcionará automaticamente após a criação de etiquetas.
+**Migração SQL** para unificar as mensagens da Laura Dama:
+
+```sql
+-- Atualizar mensagens com número incompleto para o formato correto
+UPDATE whatsapp_messages
+SET from_number = '5545999180026'
+WHERE from_number = '554599180026'
+  AND tenant_id IS NULL;
+
+-- Garantir que o contato salvo tenha o formato correto (já está)
+-- phone = '5545999180026' ✓
+```
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Tipo | Descrição |
+| Arquivo | Tipo | Alteração |
 |---------|------|-----------|
-| `WhatsAppLayout.tsx` | Modificar | Propagar contexto do usuário para sidebar |
-| `WhatsAppSidebar.tsx` | Modificar | Filtrar agentes baseado no papel |
-| `WhatsAppLabelsSettings.tsx` | Modificar | CRUD completo de etiquetas |
-| `ContactInfoPanel.tsx` | Modificar | Integrar dropdown de etiquetas |
-| `AddLabelDropdown.tsx` | **Criar** | Dropdown para adicionar etiquetas |
+| `supabase/functions/whatsapp-webhook/index.ts` | Edge Function | Adicionar normalização de telefone |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx` | Frontend | Normalizar ao agrupar conversas |
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Frontend | Normalizar ao agrupar conversas |
+| Migração SQL | Banco | Corrigir números existentes |
 
 ---
 
-### Fluxo Final
+### Fluxo Após Correção
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                     KANBAN                                   │
-├─────────────────────────────────────────────────────────────┤
-│ [Atendente] → Clica Kanban → Vê só seu pipeline             │
-│ [Admin]     → Clica Kanban → Dropdown com todos os agentes  │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ ANTES (PROBLEMA)                                              │
+├───────────────────────────────────────────────────────────────┤
+│ Bot envia → 5545999180026                                     │
+│ Lead responde → 554599180026 (Z-API remove o 9)               │
+│ → DUAS conversas diferentes!                                  │
+└───────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────┐
-│                  ETIQUETAS                                   │
-├─────────────────────────────────────────────────────────────┤
-│ Caixa de Entrada → Abre conversa → "Adicionar Etiqueta"     │
-│                  → Dropdown aparece com etiquetas           │
-│                  → Seleciona/cria → Vincula ao contato      │
-├─────────────────────────────────────────────────────────────┤
-│ Configurações → Etiquetas → CRUD de etiquetas               │
-│ Contatos → Filtro por etiqueta funciona automaticamente     │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ DEPOIS (SOLUÇÃO)                                              │
+├───────────────────────────────────────────────────────────────┤
+│ Bot envia → 5545999180026                                     │
+│ Lead responde → 554599180026 → normaliza → 5545999180026      │
+│ → MESMA conversa!                                             │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Detalhes Técnicos
 
-**Tabelas utilizadas:**
-- `whatsapp_labels` (id, tenant_id, name, color)
-- `whatsapp_contact_labels` (id, contact_id, label_id)
+**Regra de normalização brasileira:**
 
-**RLS:**
-As tabelas já possuem políticas baseadas em `tenant_id` - nenhuma migração necessária.
+Celulares no Brasil têm 9 dígitos após o DDD desde 2016. Se o número chega com 8 dígitos após DDD, é um celular e precisa do 9 prefixado.
 
-**Contexto de isolamento:**
-- Tenants: filtram por `tenant_id`
-- Super Admin: filtra por `tenant_id IS NULL`
+```text
+55 + DDD(2) + Número(8) = 12 dígitos → INCOMPLETO
+55 + DDD(2) + 9 + Número(8) = 13 dígitos → CORRETO
+```
+
+Exemplo Laura Dama:
+- Recebido: `554599180026` (12 dígitos)
+- DDD: `45`, Número: `99180026`
+- Normalizado: `55` + `45` + `9` + `9180026` = `5545999180026`
+
