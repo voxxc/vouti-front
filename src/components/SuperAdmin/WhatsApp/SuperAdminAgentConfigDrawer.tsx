@@ -10,6 +10,7 @@ import { Loader2, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2 } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Agent } from "@/components/WhatsApp/settings/AgentCard";
+import { extractInstanceId, extractInstanceToken } from "@/utils/zapiHelpers";
 
 interface SuperAdminAgentConfigDrawerProps {
   agent: Agent | null;
@@ -58,10 +59,11 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
       if (error) throw error;
 
       if (data) {
+        // Extrai valores corretos caso o banco tenha dados corrompidos (URLs)
         setConfig({
           id: data.id,
-          zapi_instance_id: data.instance_name || "",
-          zapi_instance_token: data.zapi_token || "",
+          zapi_instance_id: extractInstanceId(data.instance_name || ""),
+          zapi_instance_token: extractInstanceToken(data.zapi_token || ""),
           zapi_client_token: "", // Client-Token é opcional, começa vazio (não carregar zapi_url antigo)
         });
         setIsConnected(data.connection_status === "connected");
@@ -317,11 +319,14 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
               <Input
                 id="zapi_instance_id"
                 value={config.zapi_instance_id}
-                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_id: e.target.value }))}
+                onChange={(e) => setConfig(prev => ({ 
+                  ...prev, 
+                  zapi_instance_id: extractInstanceId(e.target.value) 
+                }))}
                 placeholder="Ex: 3E8A768C5D9F4A7B8C2E1D3F"
               />
               <p className="text-xs text-muted-foreground">
-                Encontre no painel Z-API → Sua instância
+                Cole a URL ou apenas o ID - extração automática
               </p>
             </div>
 
@@ -330,11 +335,14 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
               <Input
                 id="zapi_instance_token"
                 value={config.zapi_instance_token}
-                onChange={(e) => setConfig(prev => ({ ...prev, zapi_instance_token: e.target.value }))}
+                onChange={(e) => setConfig(prev => ({ 
+                  ...prev, 
+                  zapi_instance_token: extractInstanceToken(e.target.value) 
+                }))}
                 placeholder="Token da instância (obrigatório)"
               />
               <p className="text-xs text-muted-foreground">
-                Token que aparece na URL da API Z-API
+                Cole a URL ou apenas o Token - extração automática
               </p>
             </div>
 
