@@ -1,103 +1,85 @@
 
 
-# Plano: Corrigir Desconexão do WhatsApp Z-API
+# Plano: Adicionar Disconnect ao Botão Resetar
 
-## Problema Identificado
+## Contexto
 
-O botão "Desconectar" não funciona porque a edge function está chamando o endpoint **errado**.
+Quando o usuário clica em "Resetar", ele quer limpar toda a configuração. Se o WhatsApp estiver conectado, faz sentido desconectar primeiro antes de deletar os dados do banco.
 
-| Aspecto | Código Atual | Correto (Z-API Docs) |
-|---------|-------------|---------------------|
-| Endpoint | `/logout` | `/disconnect` |
-| URL completa | `{zapiUrl}/logout` | `{zapiUrl}/disconnect` |
+## Modificação Necessária
 
-### Logs comprovam que está conectado:
-```json
-{
-  "connected": true,
-  "error": "You are already connected.",
-  "smartphoneConnected": true
-}
-```
+### Arquivo: `src/components/WhatsApp/sections/WhatsAppSettings.tsx`
 
-### Documentação Z-API confirma:
-```
-GET https://api.z-api.io/instances/YOUR_INSTANCE/token/YOUR_TOKEN/disconnect
-Header: Client-Token: ACCOUNT SECURITY TOKEN
-```
+Adicionar chamada de disconnect antes de deletar os dados:
 
----
-
-## Correção Necessária
-
-### Arquivo: `supabase/functions/whatsapp-connect/index.ts`
-
-**Alterar linha 56:**
 ```typescript
-// ANTES
-case 'disconnect':
-  apiEndpoint = `${zapiUrl}/logout`;
-  break;
+const handleReset = async () => {
+  setIsResetting(true);
+  
+  try {
+    if (!tenantId) {
+      toast({
+        title: "Erro",
+        description: "Tenant não identificado",
+        variant: "destructive",
+      });
+      return;
+    }
 
-// DEPOIS  
-case 'disconnect':
-  apiEndpoint = `${zapiUrl}/disconnect`;
-  break;
+    // NOVO: Tentar desconectar da Z-API primeiro (se estiver conectado)
+    if (connectionStatus === 'connected') {
+      try {
+        await supabase.functions.invoke('whatsapp-connect', {
+          body: { action: 'disconnect' }
+        });
+      } catch (disconnectError) {
+        console.log('Aviso: Não foi possível desconectar da Z-API:', disconnectError);
+        // Continua mesmo se falhar - o importante é limpar os dados locais
+      }
+    }
+
+    // Deletar usando tenant_id
+    const { error } = await supabase
+      .from('whatsapp_instances')
+      .delete()
+      .eq('tenant_id', tenantId);
+
+    if (error) throw error;
+
+    // Limpar estado local
+    setZapiConfig({ url: '', instanceId: '', token: '' });
+    setIsConnected(false);
+    setQrCode(null);
+    setConnectionStatus('disconnected');
+    
+    toast({
+      title: "Configurações resetadas",
+      description: "WhatsApp desconectado e configurações limpas.",
+    });
+  } catch (error) {
+    // ... resto do catch
+  }
+};
 ```
 
----
-
-## Por que `/logout` não funciona?
-
-O endpoint `/logout` simplesmente não existe na API Z-API. Os endpoints disponíveis são:
-
-| Ação | Endpoint | Método |
-|------|----------|--------|
-| Ver status | `/status` | GET |
-| QR Code | `/qr-code` | GET |
-| **Desconectar** | **`/disconnect`** | **GET** |
-| Reiniciar | `/restart` | GET |
-
----
-
-## Resultado Esperado
-
-Após a correção:
-
-1. Usuário clica em "Desconectar"
-2. Edge function chama `{zapiUrl}/disconnect`
-3. Z-API desconecta o número
-4. O status muda para "disconnected" 
-5. O dashboard Z-API mostra como offline
-6. Usuário pode gerar novo QR Code para conectar outro número
-
----
-
-## Fluxo Corrigido
+## Fluxo Atualizado
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│  USUÁRIO CLICA "DESCONECTAR"                                       │
+│  USUÁRIO CLICA "RESETAR"                                           │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  1. Frontend chama edge function: { action: 'disconnect' }         │
-│  2. Edge function monta URL: {zapiUrl}/disconnect                  │
-│  3. GET request para Z-API com Client-Token header                 │
-│  4. Z-API retorna: { disconnected: true }                          │
-│  5. Edge function atualiza banco: connection_status = 'disconnected'│
-│  6. Frontend mostra: "WhatsApp desconectado"                       │
-│  7. Botão muda para "Conectar" (QR Code disponível)                │
+│  1. Verifica se está conectado                                     │
+│  2. SE conectado → chama Z-API /disconnect (desconecta número)     │
+│  3. Deleta registro do banco (tenant_id)                           │
+│  4. Limpa estados locais (url, instanceId, token)                  │
+│  5. Toast: "WhatsApp desconectado e configurações limpas"          │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
----
+## Benefício
 
-## Impacto
-
-Esta é uma correção simples de **1 linha** que resolve um problema crítico de autonomia do usuário:
-
-- Usuários poderão desconectar sem precisar do dono do SaaS
-- Usuários poderão reconectar com outro número facilmente
-- Múltiplos tenants poderão gerenciar suas próprias instâncias
+- Garante que o número seja desconectado da Z-API antes de limpar as configurações
+- Evita situação onde o número fica "preso" na instância Z-API sem controle pelo sistema
 
