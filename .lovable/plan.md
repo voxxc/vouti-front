@@ -1,89 +1,133 @@
 
-## Resumo: Alinhamento do Vouti.Bot entre Super Admin e Tenants
+## Plano: Integração Completa do Agente IA + Atualização da Caixa de Entrada
 
-### Situação Atual
+### Contexto
 
-**Super Admin (`/super-admin/bot`)**
-- Interface com **expansão inline**: ao clicar no card de um agente, abre um painel abaixo com **duas abas** (Conexão Z-API + Comportamento da IA)
-- Sistema robusto de credenciais com campos para colar URL completa ou preencher individualmente
-- Polling automático após gerar QR Code até detectar conexão
-- Feedback visual de status (conectado/desconectado/verificando)
-- Usa `useToast` (hook shadcn) para notificações
+O sistema atual do Vouti.Bot tem a lógica de IA implementada no `whatsapp-webhook`, mas há um problema crítico: **as respostas da IA estão sendo enviadas usando credenciais GLOBAIS** (`Z_API_URL`, `Z_API_TOKEN`) em vez das credenciais **específicas de cada agente/instância** (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`).
 
-**Tenant (`/:tenant/bot`)**
-- Interface com **drawer lateral** (Sheet): ao clicar no card, abre um drawer na direita
-- **NÃO tem a aba de Comportamento da IA** no drawer de configuração
-- Usa campos legados (`instance_name`, `zapi_token`) no banco em vez dos novos (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`)
-- Usa `toast` do sonner (inconsistência)
+Isso faz com que as respostas funcionem apenas se a instância global estiver configurada corretamente, ignorando a configuração individual de cada agente.
 
 ---
 
-### O que precisa ser alinhado
-
-1. **Interface de Agentes (principal)**
-   - Substituir o `AgentConfigDrawer` (Sheet) por uma estrutura de **expansão inline com abas**, igual ao Super Admin
-   - Incluir a aba "Comportamento da IA" (`WhatsAppAISettings`) dentro da configuração do agente
-
-2. **Campos de banco de dados**
-   - O drawer do tenant usa `instance_name` e `zapi_token` (campos antigos)
-   - Precisa usar `zapi_instance_id`, `zapi_instance_token`, `zapi_client_token` (campos novos)
-
-3. **Contexto de IA por agente**
-   - Atualmente `WhatsAppAISettings` filtra por `tenant_id`, mas não por `agent_id`
-   - Cada agente deveria poder ter seu próprio comportamento de IA (opcional, para fase futura)
-
-4. **Consistência de UX**
-   - Usar o mesmo sistema de toasts (`useToast` do shadcn)
-   - Manter os mesmos textos e fluxos
-
----
-
-### Arquivos que serão modificados
+### Arquivos a Serem Modificados
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` | **Reescrever** para usar expansão inline com abas (como SuperAdmin) |
-| `src/components/WhatsApp/settings/AgentConfigDrawer.tsx` | **Manter temporariamente** como fallback ou **remover** após migração |
+| `supabase/functions/whatsapp-webhook/index.ts` | **Atualizar** para usar credenciais específicas da instância |
 
 ---
 
-### Implementação planejada
+### Mudanças Detalhadas
 
-**1. Atualizar `WhatsAppAgentsSettings.tsx`**
-- Importar componentes de Tabs e Cards
-- Adicionar estados para: `expandedAgentId`, `activeTab`, `config`, `isConnected`, `qrCode`, etc.
-- Implementar funções: `loadInstanceConfig`, `checkZAPIStatus`, `handleSaveCredentials`, `handleGenerateQRCode`, `handleDisconnect`, `handleReset`
-- Renderizar grid de cards com expansão inline contendo duas abas:
-  - Aba "Conexão Z-API": formulário de credenciais + ações de conexão
-  - Aba "Comportamento da IA": componente `WhatsAppAISettings` (passando `isSuperAdmin={false}`)
-- Usar campos corretos do banco: `zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`
-- Usar `useToast` para consistência
+#### 1. Atualizar busca de credenciais da instância
 
-**2. Filtrar por tenant_id (já existe)**
-- As queries já filtram por `tenant_id` usando o hook `useTenantId`
-- Cada tenant verá apenas seus próprios agentes e instâncias
+Alterar a query que busca a instância para incluir os novos campos:
 
-**3. Remover uso do drawer antigo**
-- O componente `AddAgentDialog` continua sendo usado
-- O `AgentConfigDrawer` não será mais chamado (pode ser removido depois ou mantido para referência)
+```text
+ANTES:
+.select('user_id, tenant_id, zapi_url, zapi_token')
+
+DEPOIS:
+.select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
+```
+
+#### 2. Modificar `handleAIResponse` para receber credenciais da instância
+
+A função atualmente usa apenas secrets globais. Precisamos:
+- Passar as credenciais da instância como parâmetro
+- Construir a URL Z-API usando o padrão: `https://api.z-api.io/instances/{instance_id}/token/{instance_token}`
+- Usar `zapi_client_token` como header `Client-Token`
+- Manter fallback para secrets globais caso credenciais específicas não existam
+
+#### 3. Atualizar a assinatura da função `handleAIResponse`
+
+```text
+ANTES:
+async function handleAIResponse(
+  phone: string, 
+  message: string, 
+  tenant_id: string | null, 
+  instanceId: string,
+  user_id: string
+): Promise<boolean>
+
+DEPOIS:
+async function handleAIResponse(
+  phone: string, 
+  message: string, 
+  tenant_id: string | null, 
+  instanceId: string,
+  user_id: string,
+  instanceCredentials: {
+    zapi_instance_id?: string;
+    zapi_instance_token?: string;
+    zapi_client_token?: string;
+  }
+): Promise<boolean>
+```
+
+#### 4. Lógica de resolução de credenciais no envio da resposta IA
+
+```text
+// PRIORIDADE 1: Credenciais específicas da instância
+if (instanceCredentials.zapi_instance_id && instanceCredentials.zapi_instance_token) {
+  baseUrl = `https://api.z-api.io/instances/${instanceCredentials.zapi_instance_id}/token/${instanceCredentials.zapi_instance_token}`;
+  clientToken = instanceCredentials.zapi_client_token || Deno.env.get('Z_API_TOKEN');
+} 
+// PRIORIDADE 2: Fallback para secrets globais
+else {
+  baseUrl = Deno.env.get('Z_API_URL');
+  clientToken = Deno.env.get('Z_API_TOKEN');
+}
+```
 
 ---
 
-### Resultado esperado
+### Verificação da Caixa de Entrada
 
-- Tenants terão a **mesma interface** do Super Admin
-- Ao clicar em um agente, aparece um painel expansível com:
-  - **Aba Conexão Z-API**: campos de credenciais, botão salvar, botões de conectar/desconectar/resetar, QR Code
-  - **Aba Comportamento da IA**: configuração do agente IA (nome, prompt, modelo, temperatura)
-- Cada tenant é isolado (vê apenas seus próprios agentes)
-- Novos tenants começam com lista vazia
+| Componente | Status do Polling 2s |
+|------------|---------------------|
+| `WhatsAppInbox.tsx` (Tenant) | ✅ Já implementado (linhas 149-173) |
+| `SuperAdminWhatsAppInbox.tsx` | ✅ Já implementado (linhas 132-154) |
+
+Ambas as caixas de entrada já possuem o polling de 2 segundos para atualizar conversas e mensagens.
 
 ---
 
-### Detalhes Técnicos
+### Fluxo Final do Agente IA
 
-A nova estrutura do componente `WhatsAppAgentsSettings` será praticamente uma cópia do `SuperAdminAgentsSettings`, com as seguintes diferenças:
-- Usa `tenantId` do hook `useTenantId()` em vez de `null`
-- Queries filtram por `.eq("tenant_id", tenantId)` em vez de `.is("tenant_id", null)`
-- Usa `AddAgentDialog` em vez de `SuperAdminAddAgentDialog`
-- Passa `isSuperAdmin={false}` para `WhatsAppAISettings`
+```text
+1. Lead envia mensagem WhatsApp
+          ↓
+2. Z-API envia webhook para whatsapp-webhook
+          ↓
+3. Webhook salva mensagem recebida no banco
+          ↓
+4. handleAIResponse() verifica:
+   - IA desabilitada para contato? → Sai
+   - IA habilitada para tenant? → Continua
+          ↓
+5. Chama whatsapp-ai-chat Edge Function
+   - Busca system_prompt do whatsapp_ai_config
+   - Busca histórico de mensagens do lead
+   - Envia para Lovable AI Gateway (Gemini)
+          ↓
+6. Resposta IA recebida
+          ↓
+7. Salva resposta no whatsapp_messages (aparece na UI)
+          ↓
+8. Envia via Z-API usando CREDENCIAIS DA INSTÂNCIA
+   - Constrói URL: https://api.z-api.io/instances/{id}/token/{token}
+   - Header: Client-Token (específico ou fallback global)
+          ↓
+9. Lead recebe resposta no WhatsApp
+```
+
+---
+
+### Resultado Esperado
+
+- **Resposta automática funcional**: Quando um lead envia mensagem, o Agente IA lê, processa com Gemini e responde automaticamente via WhatsApp
+- **Credenciais corretas**: Cada agente usa suas próprias credenciais Z-API, não depende de secrets globais
+- **Atualização em tempo real**: As respostas aparecem na caixa de entrada em até 2 segundos (polling já existente)
+- **Isolamento multi-tenant**: Tenants usam seus próprios agentes e configs; Super Admin gerencia agentes globais (landing page)
