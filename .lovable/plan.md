@@ -1,136 +1,89 @@
 
-## O que está acontecendo (causa real do “não gera QR Code”)
+## Resumo: Alinhamento do Vouti.Bot entre Super Admin e Tenants
 
-Pelos logs que você já trouxe, o backend **está gerando e retornando o QR Code** (vem um `value` enorme começando com `data:image/png;base64,...`).
+### Situação Atual
 
-O problema é no front-end: hoje o código está montando o `src` do `<img>` assim:
+**Super Admin (`/super-admin/bot`)**
+- Interface com **expansão inline**: ao clicar no card de um agente, abre um painel abaixo com **duas abas** (Conexão Z-API + Comportamento da IA)
+- Sistema robusto de credenciais com campos para colar URL completa ou preencher individualmente
+- Polling automático após gerar QR Code até detectar conexão
+- Feedback visual de status (conectado/desconectado/verificando)
+- Usa `useToast` (hook shadcn) para notificações
 
-- ele **já recebe** `qrCode = "data:image/png;base64,...."`
-- mas renderiza como: `src={"data:image/png;base64," + qrCode}`
-
-Isso vira:
-```text
-data:image/png;base64,data:image/png;base64,iVBOR...
-```
-Resultado: a imagem fica inválida e “parece” que não gerou QR Code (ou fica “carregando”, ou mostra toast de sucesso mas sem imagem).
-
-Eu encontrei esse bug em **dois lugares**:
-- `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` (o que você está usando em `/super-admin/bot`)
-- `src/components/WhatsApp/settings/AgentConfigDrawer.tsx` (fluxo de tenant/drawer)
-
-Além disso, existe um terceiro componente antigo que também tem a mesma montagem de `src`:
-- `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` (se ainda estiver sendo usado em algum fluxo)
+**Tenant (`/:tenant/bot`)**
+- Interface com **drawer lateral** (Sheet): ao clicar no card, abre um drawer na direita
+- **NÃO tem a aba de Comportamento da IA** no drawer de configuração
+- Usa campos legados (`instance_name`, `zapi_token`) no banco em vez dos novos (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`)
+- Usa `toast` do sonner (inconsistência)
 
 ---
 
-## Objetivo da correção
+### O que precisa ser alinhado
 
-1) Fazer o front-end aceitar **ambos os formatos** que a Z-API/Edge Function podem devolver:
-- Formato A: `"data:image/png;base64,...."` (data URI completo)
-- Formato B: `"iVBORw0KGgo..."` (somente base64)
+1. **Interface de Agentes (principal)**
+   - Substituir o `AgentConfigDrawer` (Sheet) por uma estrutura de **expansão inline com abas**, igual ao Super Admin
+   - Incluir a aba "Comportamento da IA" (`WhatsAppAISettings`) dentro da configuração do agente
 
-2) Garantir que, se o QR vier no formato A, o `<img>` use diretamente sem “duplicar” prefixo.
+2. **Campos de banco de dados**
+   - O drawer do tenant usa `instance_name` e `zapi_token` (campos antigos)
+   - Precisa usar `zapi_instance_id`, `zapi_instance_token`, `zapi_client_token` (campos novos)
 
-3) Melhorar o feedback de erro: se vier `success: false` do Edge Function ou vier JSON com erro (ex: 405/NotAllowed), exibir a mensagem real no toast em vez de “Erro genérico”.
+3. **Contexto de IA por agente**
+   - Atualmente `WhatsAppAISettings` filtra por `tenant_id`, mas não por `agent_id`
+   - Cada agente deveria poder ter seu próprio comportamento de IA (opcional, para fase futura)
 
----
-
-## Mudanças planejadas (front-end)
-
-### A) Criar uma função utilitária pequena (local ou helper) para normalizar a URL da imagem
-Regra:
-- se `value` começar com `data:image`, usar do jeito que está
-- senão, prefixar `data:image/png;base64,`
-
-Pseudo:
-```ts
-function toQrSrc(value: string) {
-  const v = value.trim();
-  if (v.startsWith("data:image/")) return v;
-  return `data:image/png;base64,${v}`;
-}
-```
-
-### B) Ajustar o render do QR Code no Super Admin (rota /super-admin/bot)
-Arquivo: `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx`
-
-Trocar:
-```tsx
-<img src={`data:image/png;base64,${qrCode}`} ... />
-```
-Por:
-```tsx
-<img src={toQrSrc(qrCode)} ... />
-```
-
-E também manter `setQrCode(qrValue)` igual, só corrigindo o `src`.
-
-### C) Ajustar o render do QR Code no Drawer do Tenant
-Arquivo: `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
-
-Mesma troca no `<img>`.
-
-### D) (Opcional, mas recomendado) Ajustar o componente antigo do Super Admin Drawer
-Arquivo: `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx`
-
-Mesma troca no `<img>` para evitar regressões se esse componente ainda aparecer em algum lugar.
+4. **Consistência de UX**
+   - Usar o mesmo sistema de toasts (`useToast` do shadcn)
+   - Manter os mesmos textos e fluxos
 
 ---
 
-## Mudanças planejadas (Edge Function) — pequenas e seguras
+### Arquivos que serão modificados
 
-Arquivo: `supabase/functions/whatsapp-zapi-action/index.ts`
-
-Hoje ela pode retornar:
-- se `content-type` for imagem: `{ value: "data:image/png;base64,..." }`
-- se for JSON: repassa como vier do Z-API (pode ser base64 puro ou data-uri)
-
-Eu não vou quebrar isso, mas vou adicionar duas melhorias:
-
-1) **Padronizar a resposta para sempre ter também um campo `dataUri`**:
-- Se já vier `value` como data-uri, `dataUri = value`
-- Se vier base64 puro, `dataUri = "data:image/png;base64," + value`
-
-2) Quando a Z-API responder com erro JSON (ex: 405), **propagar isso de forma mais explícita** (pra UI mostrar a mensagem certa).
-
-Isso deixa o front mais simples e melhora diagnóstico.
+| Arquivo | Ação |
+|---------|------|
+| `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` | **Reescrever** para usar expansão inline com abas (como SuperAdmin) |
+| `src/components/WhatsApp/settings/AgentConfigDrawer.tsx` | **Manter temporariamente** como fallback ou **remover** após migração |
 
 ---
 
-## Sequência de implementação
+### Implementação planejada
 
-1) Corrigir `src` do `<img>` no `SuperAdminAgentsSettings.tsx` (principal).
-2) Corrigir `src` do `<img>` no `AgentConfigDrawer.tsx` (evita o mesmo bug em outro painel).
-3) (Se aplicável) Corrigir no `SuperAdminAgentConfigDrawer.tsx`.
-4) Refinar Edge Function para retornar `dataUri` e propagar erros de forma consistente.
-5) Validar manualmente no preview:
-   - clicar “Conectar via QR Code”
-   - confirmar que aparece a imagem
-   - escanear e confirmar que o polling detecta `connected: true` e muda o status
-   - testar com `Client-Token` vazio e preenchido (porque ele só deve ser enviado se preenchido)
+**1. Atualizar `WhatsAppAgentsSettings.tsx`**
+- Importar componentes de Tabs e Cards
+- Adicionar estados para: `expandedAgentId`, `activeTab`, `config`, `isConnected`, `qrCode`, etc.
+- Implementar funções: `loadInstanceConfig`, `checkZAPIStatus`, `handleSaveCredentials`, `handleGenerateQRCode`, `handleDisconnect`, `handleReset`
+- Renderizar grid de cards com expansão inline contendo duas abas:
+  - Aba "Conexão Z-API": formulário de credenciais + ações de conexão
+  - Aba "Comportamento da IA": componente `WhatsAppAISettings` (passando `isSuperAdmin={false}`)
+- Usar campos corretos do banco: `zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`
+- Usar `useToast` para consistência
 
----
+**2. Filtrar por tenant_id (já existe)**
+- As queries já filtram por `tenant_id` usando o hook `useTenantId`
+- Cada tenant verá apenas seus próprios agentes e instâncias
 
-## Critérios de aceite (como vamos saber que resolveu)
-
-- Ao clicar “Conectar via QR Code”, aparece o QR Code visualmente (sem precisar abrir console).
-- O toast “QR Code gerado” continua, mas agora a imagem aparece.
-- Se a Z-API devolver erro (ex: 405), a UI mostra uma mensagem mais específica.
-- O mesmo comportamento funciona no Super Admin e no painel de Tenant.
-
----
-
-## Arquivos que vou mexer
-
-- `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx`
-- `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`
-- (opcional/segurança) `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx`
-- `supabase/functions/whatsapp-zapi-action/index.ts`
+**3. Remover uso do drawer antigo**
+- O componente `AddAgentDialog` continua sendo usado
+- O `AgentConfigDrawer` não será mais chamado (pode ser removido depois ou mantido para referência)
 
 ---
 
-## Observação importante (sobre “você já conseguiu antes”)
+### Resultado esperado
 
-Você está certo em ficar bravo: o backend estava respondendo com sucesso, mas o front-end estava “estragando” o valor retornado na hora de montar a imagem. Esse tipo de bug é extremamente frustrante porque parece falha de integração/endpoint, quando na real é só o `src` duplicando o prefixo.
+- Tenants terão a **mesma interface** do Super Admin
+- Ao clicar em um agente, aparece um painel expansível com:
+  - **Aba Conexão Z-API**: campos de credenciais, botão salvar, botões de conectar/desconectar/resetar, QR Code
+  - **Aba Comportamento da IA**: configuração do agente IA (nome, prompt, modelo, temperatura)
+- Cada tenant é isolado (vê apenas seus próprios agentes)
+- Novos tenants começam com lista vazia
 
-Assim que você aprovar este plano, eu implemento a correção do `src` (que é o ponto mais crítico) e a gente deve ver o QR imediatamente.
+---
+
+### Detalhes Técnicos
+
+A nova estrutura do componente `WhatsAppAgentsSettings` será praticamente uma cópia do `SuperAdminAgentsSettings`, com as seguintes diferenças:
+- Usa `tenantId` do hook `useTenantId()` em vez de `null`
+- Queries filtram por `.eq("tenant_id", tenantId)` em vez de `.is("tenant_id", null)`
+- Usa `AddAgentDialog` em vez de `SuperAdminAddAgentDialog`
+- Passa `isSuperAdmin={false}` para `WhatsAppAISettings`
