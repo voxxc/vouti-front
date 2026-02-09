@@ -1,61 +1,73 @@
 
 
-## Correcao: Mensagem enviada pelo celular cria conversa com numero estranho (LID)
+## Ativar captura de mensagens enviadas pelo celular automaticamente
 
-### Problema
+### Contexto
 
-Quando voce envia uma mensagem pelo celular, a Z-API envia o webhook com `phone: "23081254949024@lid"` (um identificador interno do WhatsApp chamado LID) ao inves do numero real do contato (`5545999180026`). O sistema salva esse LID como `from_number`, criando uma conversa separada com um numero sem sentido.
+A Z-API possui um endpoint especifico para ativar o recebimento de webhooks de mensagens enviadas pelo celular: `PUT /update-notify-sent-by-me` com body `{ "notifySentByMe": true }`. Sem essa configuracao, a Z-API nao envia o callback `SentByMeCallback` e as mensagens do celular nunca chegam ao webhook.
 
-### Causa
-
-A funcao `normalizePhoneNumber` apenas limpa caracteres nao-numericos, transformando `"23081254949024@lid"` em `"23081254949024"`. Ela nao detecta que isso e um LID e nao um telefone real.
+Atualmente, quando uma instancia conecta (apos escanear o QR Code), o sistema apenas atualiza o status no banco. Nao ativa o `notifySentByMe`.
 
 ### Solucao
 
-**Arquivo: `supabase/functions/whatsapp-webhook/index.ts`**
+Configurar automaticamente o `notifySentByMe: true` no momento em que a instancia conecta com sucesso, garantindo que todo tenant (e o Super Admin) tenha essa funcionalidade sem precisar de configuracao manual.
 
-1. **Detectar formato LID no campo `phone`**: Se o telefone contem `@lid` ou nao comeca com `55` e tem formato incompativel com telefone brasileiro, buscar o numero real em campos alternativos do payload da Z-API.
+### Alteracoes
 
-2. **Extrair telefone real de campos alternativos**: O payload da Z-API para mensagens `fromMe: true` inclui o campo `connectedPhone` (seu numero) e outros campos. Para mensagens enviadas, o numero do destinatario pode ser extraido de:
-   - `data.chatId` (formato `5545999180026@c.us`)
-   - `data.to` (numero direto em alguns payloads)
-   - Buscar no banco a ultima mensagem recebida do mesmo `chatLid`
+**1. Edge Function `supabase/functions/whatsapp-zapi-action/index.ts`**
 
-3. **Fallback com busca no banco**: Se nenhum campo alternativo tiver o numero real, buscar na tabela `whatsapp_messages` a ultima mensagem recebida que tenha o mesmo `chatLid` no `raw_data`, e usar o `from_number` dessa mensagem.
+Adicionar duas novas actions no switch:
 
-### Alteracoes detalhadas
-
-**`supabase/functions/whatsapp-webhook/index.ts` - funcao `handleIncomingMessage`**
-
-Adicionar logica ANTES da normalizacao para resolver o LID:
+- `update-notify-sent-by-me`: Chama `PUT {baseUrl}/update-notify-sent-by-me` com body `{ "notifySentByMe": true }`
+- `update-webhook-received`: (Opcional, para garantir que o webhook de recebimento tambem esta configurado) Chama `PUT {baseUrl}/update-webhook-received` com body `{ "value": "{webhookUrl}" }`
 
 ```text
-handleIncomingMessage(data):
-  1. Extrair phone do payload
-  2. NOVO: Se phone contem "@lid" ou nao parece telefone valido:
-     a. Tentar extrair de data.chatId (remover @c.us)
-     b. Tentar extrair de data.to
-     c. Se nenhum funcionou: buscar no banco whatsapp_messages
-        onde raw_data->chatLid = phone_original
-        e direction = 'received'
-        pegar from_number da ultima mensagem
-     d. Se ainda nao encontrou: logar aviso e descartar
-  3. Normalizar o telefone resolvido
-  4. Continuar processamento normal
+switch (action):
+  case 'update-notify-sent-by-me':
+    endpoint = `${baseUrl}/update-notify-sent-by-me`
+    method = 'PUT'
+    body = { "notifySentByMe": true }
+    break;
 ```
 
-**`supabase/functions/whatsapp-webhook/index.ts` - funcao `normalizePhoneNumber`**
+**2. `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx`**
 
-Adicionar deteccao de LID para rejeitar numeros que claramente nao sao telefones:
+No polling de status (funcao `startPolling`), quando detecta `data?.data?.connected`, adicionar uma chamada automatica para ativar o `notifySentByMe`:
 
 ```text
-normalizePhoneNumber(phone):
-  - Remover @lid, @c.us e outros sufixos WhatsApp
-  - Se resultado nao comeca com 55 e tem mais de 13 digitos: retornar vazio
-  - Logica existente de adicionar 9o digito
+if (data?.data?.connected) {
+  // ... codigo existente de update status ...
+
+  // NOVO: Ativar captura de mensagens enviadas pelo celular
+  await supabase.functions.invoke("whatsapp-zapi-action", {
+    body: {
+      action: "update-notify-sent-by-me",
+      zapi_instance_id: config.zapi_instance_id,
+      zapi_instance_token: config.zapi_instance_token,
+      zapi_client_token: config.zapi_client_token || undefined,
+    },
+  });
+}
 ```
 
-### Resumo
+**3. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx`**
 
-O problema e que a Z-API usa um identificador interno (LID) em vez do numero real para mensagens `fromMe`. A correcao detecta esse formato e busca o numero real em campos alternativos do payload ou no historico de mensagens do banco.
+Aplicar a mesma alteracao no componente de Tenants para manter paridade. A chamada ao `update-notify-sent-by-me` acontece automaticamente ao conectar.
 
+### Resumo do fluxo
+
+```text
+Agente escaneia QR Code
+  -> Polling detecta "connected"
+  -> Atualiza status no banco (ja existente)
+  -> NOVO: Chama PUT /update-notify-sent-by-me { notifySentByMe: true }
+  -> Z-API passa a enviar SentByMeCallback para o webhook
+  -> Webhook processa e salva mensagens do celular
+  -> Mensagens aparecem na Caixa de Entrada
+```
+
+### Arquivos modificados
+
+1. `supabase/functions/whatsapp-zapi-action/index.ts` - Nova action `update-notify-sent-by-me`
+2. `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` - Chamada automatica ao conectar
+3. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` - Mesma chamada para tenants
