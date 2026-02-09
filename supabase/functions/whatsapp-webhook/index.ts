@@ -121,10 +121,11 @@ async function handleIncomingMessage(data: any) {
   }
   
   // Buscar user_id, tenant_id E credenciais Z-API da instância
+  // ✅ Busca pelo zapi_instance_id (ID real da Z-API que chega no webhook)
   const { data: instance, error: instanceError } = await supabase
     .from('whatsapp_instances')
-    .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
-    .eq('instance_name', instanceId)
+    .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
+    .eq('zapi_instance_id', instanceId)
     .single();
 
   if (instanceError || !instance?.user_id) {
