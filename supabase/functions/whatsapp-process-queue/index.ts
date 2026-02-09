@@ -151,7 +151,7 @@ serve(async (req) => {
         const zapiData = await zapiResponse.json();
         console.log(`[whatsapp-process-queue] Z-API response for ${formattedPhone}:`, zapiData);
 
-        if (zapiResponse.ok && zapiData.zapiMessageId) {
+        if (zapiResponse.ok && (zapiData.messageId || zapiData.id || zapiData.zaapId)) {
           // 5. Update pending message as sent
           await supabase
             .from('whatsapp_pending_messages')
@@ -167,7 +167,7 @@ serve(async (req) => {
             .from('whatsapp_messages')
             .insert({
               instance_name: instance.instance_name,
-              message_id: zapiData.zapiMessageId || `auto_${Date.now()}`,
+              message_id: zapiData.messageId || zapiData.id || zapiData.zaapId || `auto_${Date.now()}`,
               from_number: formattedPhone,
               to_number: formattedPhone,
               message_text: msg.message,
