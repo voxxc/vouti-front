@@ -1,174 +1,78 @@
 
 
-# Plano: Corrigir Autenticação Z-API - Header Client-Token
+# Plano: Corrigir Sistema de Agentes para Usar Credenciais Corretas
 
-## Problema Identificado
+## Diagnóstico Confirmado
 
-A Z-API está rejeitando a requisição com erro:
-```
-Client-Token F5DA3871D271E4965BD44484 not allowed
-```
+O sistema **original funcionava** porque usa a edge function `whatsapp-connect` com **variáveis de ambiente** (secrets):
+- `Z_API_URL` 
+- `Z_API_TOKEN`
+- `Z_API_INSTANCE_ID`
 
-A URL está correta, mas a **autenticação no header está errada**.
+O sistema de **agentes não funciona** porque:
+1. A tabela `whatsapp_instances` está **VAZIA** (não há credenciais salvas)
+2. Os valores digitados anteriormente estavam **INVERTIDOS** (Instance ID no lugar do Token e vice-versa)
+3. O sistema novo não tem **fallback** para usar os secrets globais
 
-## Como a Z-API Funciona
+## Solução: Fallback para Variáveis de Ambiente
 
-| Cenário | Header Client-Token |
-|---------|---------------------|
-| Security Token **DESATIVADO** | NÃO enviar ou enviar vazio |
-| Security Token **ATIVADO** | Enviar o Account Security Token |
+Modificar a edge function `whatsapp-zapi-action` para usar as variáveis de ambiente como fallback quando não receber credenciais específicas do agente.
 
-O código atual **sempre** envia o Instance Token como Client-Token, o que é incorreto.
-
-## Solução
-
-### 1. Edge Function: Enviar Header Apenas Quando Necessário
-
-Modificar `whatsapp-zapi-action/index.ts`:
-
-```typescript
-// ANTES (errado)
-const zapiResponse = await fetch(endpoint, {
-  method: method,
-  headers: {
-    'Client-Token': authToken,  // SEMPRE envia
-    'Content-Type': 'application/json',
-  },
-});
-
-// DEPOIS (correto)
-const headers: Record<string, string> = {
-  'Content-Type': 'application/json',
-};
-
-// Só adiciona Client-Token se foi fornecido explicitamente
-if (zapi_client_token) {
-  headers['Client-Token'] = zapi_client_token;
-}
-
-const zapiResponse = await fetch(endpoint, {
-  method: method,
-  headers: headers,
-});
-```
-
-### 2. Lógica de Autenticação
-
-```text
-Frontend envia:
-┌───────────────────────────────────────────┐
-│ zapi_instance_id: "3E8A768..."            │
-│ zapi_instance_token: "F5DA387..."         │
-│ zapi_client_token: "" (vazio)             │
-└───────────────────────────────────────────┘
-            │
-            ▼
-Edge Function:
-┌───────────────────────────────────────────┐
-│ URL: .../instances/{ID}/token/{TOKEN}/... │
-│                                           │
-│ Headers:                                  │
-│   Content-Type: application/json          │
-│   (SEM Client-Token - campo está vazio)   │
-└───────────────────────────────────────────┘
-            │
-            ▼
-Z-API aceita a requisição!
-```
-
-### 3. Quando o Usuário TEM Security Token Ativado
-
-Se o usuário ativou o Security Token no painel Z-API:
-
-```text
-Frontend envia:
-┌───────────────────────────────────────────┐
-│ zapi_instance_id: "3E8A768..."            │
-│ zapi_instance_token: "F5DA387..."         │
-│ zapi_client_token: "ABC123XYZ789"         │ ← Token de segurança
-└───────────────────────────────────────────┘
-            │
-            ▼
-Edge Function:
-┌───────────────────────────────────────────┐
-│ Headers:                                  │
-│   Content-Type: application/json          │
-│   Client-Token: ABC123XYZ789              │ ← Enviado!
-└───────────────────────────────────────────┘
-```
-
-## Arquivo a Modificar
+### Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/whatsapp-zapi-action/index.ts` | Enviar Client-Token apenas quando fornecido |
+| `whatsapp-zapi-action/index.ts` | Adicionar fallback para variáveis de ambiente |
 
-## Código Final da Edge Function
+### Lógica do Fallback
 
-```typescript
-serve(async (req) => {
-  // ... CORS handling ...
-
-  try {
-    const body = await req.json();
-    const { action, zapi_instance_id, zapi_instance_token, zapi_client_token } = body;
-
-    if (!action || !zapi_instance_id || !zapi_instance_token) {
-      throw new Error('Missing required fields');
-    }
-
-    const baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
-
-    let endpoint = '';
-    let method = 'GET';
-
-    switch (action) {
-      case 'status':
-        endpoint = `${baseUrl}/status`;
-        break;
-      case 'disconnect':
-        endpoint = `${baseUrl}/disconnect`;
-        method = 'POST';
-        break;
-      case 'qr-code':
-        endpoint = `${baseUrl}/qr-code/image`;
-        break;
-    }
-
-    // Headers - só adiciona Client-Token se fornecido
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (zapi_client_token && zapi_client_token.trim() !== '') {
-      headers['Client-Token'] = zapi_client_token;
-    }
-
-    const zapiResponse = await fetch(endpoint, {
-      method: method,
-      headers: headers,
-    });
-
-    const zapiData = await zapiResponse.json();
-    
-    return new Response(JSON.stringify({
-      success: zapiResponse.ok,
-      data: zapiData,
-      action: action
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    // ... error handling ...
-  }
-});
+```text
+Prioridade de credenciais:
+┌────────────────────────────────────────────────────────────────┐
+│ 1. Credenciais do Agente (zapi_instance_id + zapi_instance_token)
+│    └─ Se fornecidas → usar diretamente
+│
+│ 2. Fallback: Variáveis de Ambiente (secrets globais)
+│    └─ Z_API_URL → base da URL
+│    └─ Z_API_TOKEN → Client-Token header
+└────────────────────────────────────────────────────────────────┘
 ```
 
-## Resumo
+### Código da Correção
 
-O problema é que o código sempre envia o Instance Token como `Client-Token`, mas a Z-API só aceita:
-- Nenhum header (se Security Token desativado)
-- O Account Security Token correto (se ativado)
+A edge function verificará se as credenciais foram fornecidas. Se não, usará os secrets globais:
 
-A correção é simples: só enviar o header `Client-Token` quando o campo `zapi_client_token` for preenchido explicitamente pelo usuário.
+```typescript
+// Prioridade 1: Credenciais específicas do agente
+if (zapi_instance_id && zapi_instance_token) {
+  baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
+  if (zapi_client_token) {
+    clientToken = zapi_client_token;
+  }
+} 
+// Prioridade 2: Variáveis de ambiente (fallback)
+else {
+  const envUrl = Deno.env.get('Z_API_URL');
+  const envToken = Deno.env.get('Z_API_TOKEN');
+  
+  if (envUrl && envToken) {
+    baseUrl = envUrl.replace(/\/send-text\/?$/, '').replace(/\/$/, '');
+    clientToken = envToken;
+  } else {
+    throw new Error('Missing Z-API credentials');
+  }
+}
+```
+
+## Benefícios
+
+1. **Retrocompatibilidade**: O sistema continua funcionando com as credenciais globais existentes
+2. **Flexibilidade**: Agentes podem ter suas próprias credenciais quando configurados
+3. **Sem migração de dados**: Não precisa alterar dados no banco
+
+## Próximos Passos Após Implementação
+
+1. O QR Code vai funcionar imediatamente usando os secrets globais
+2. Quando você configurar credenciais específicas para um agente, elas terão prioridade
+3. Se quiser, pode depois remover as variáveis de ambiente globais quando todos os agentes tiverem suas próprias credenciais
 
