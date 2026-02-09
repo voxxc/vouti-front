@@ -1,93 +1,118 @@
 
 
-# Diagnóstico: Botão "Conectar via QR Code" Desabilitado
+# Plano: Resolver Autenticação Z-API e Melhorar UX
 
-## Situação Atual
+## Problema Raiz Confirmado
 
-O botão está funcionando corretamente! Ele está **intencionalmente desabilitado** porque a validação detectou um erro de configuração:
+Os logs mostram claramente:
+```
+Z-API Response: { error: "Client-Token F5DA3871D271E4965BD44484 not allowed" }
+```
 
-| Campo | Valor Atual | Problema |
-|-------|-------------|----------|
-| `zapi_url` | `...token/F5DA3871D271E4965BD44484/send-text` | OK |
-| `zapi_token` | `F5DA3871D271E4965BD44484` | Token DUPLICADO (é o mesmo da URL) |
+### Dados Salvos no Banco (INCORRETOS)
 
-A função `isTokenFromUrl()` detecta que o token salvo é igual ao token da URL e desabilita o botão para evitar o erro "Client-Token not allowed".
+| Campo | Valor | Status |
+|-------|-------|--------|
+| `zapi_url` | `https://api.z-api.io/instances/3E8A768.../token/F5DA387.../send-text` | OK |
+| `zapi_token` | `F5DA3871D271E4965BD44484` | **ERRADO** (igual ao token da URL) |
 
-## Problema Real
+### O Que a Z-API Espera
 
-O **Client-Token** salvo no banco é INCORRETO. O usuário precisa:
+Segundo a [documentação oficial](https://developer.z-api.io/en/security/client-token):
 
-1. Acessar o painel Z-API
-2. Ir em Configurações → Security → Client-Token
-3. Copiar o token CORRETO (diferente do que aparece na URL)
-4. Atualizar no drawer de configurações
+| Token | Onde Obter | Como Usar |
+|-------|------------|-----------|
+| **Instance Token** | Faz parte da URL | URL do endpoint |
+| **Client-Token** | Painel Z-API → Security | Header HTTP `Client-Token` |
 
-## Solução Proposta
+O **Client-Token** é diferente do token que aparece na URL!
 
-Para melhorar a experiência do usuário:
+---
 
-1. **Tornar o Alert mais visível** - Adicionar um estado de destaque visual
-2. **Mostrar feedback no botão** - Exibir tooltip explicando por que está desabilitado
-3. **Adicionar link para documentação Z-API** - Facilitar acesso às instruções
+## Solução em Duas Partes
 
-### Alterações no Código
+### Parte 1: Você Precisa Obter o Token Correto
 
-**Arquivo**: `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx`
+1. Acesse o painel Z-API
+2. Vá em **Configurações** ou **Security**
+3. Procure por **"Client-Token"** ou **"Security Token"**
+4. Copie esse token (será diferente do que está na URL)
+5. Cole no campo "Client Token" do drawer
 
-1. Adicionar import do Tooltip:
+### Parte 2: Melhorar o Feedback na Interface
+
+Para evitar esse erro no futuro, vou implementar:
+
+1. **Validação visual** que detecta se o token inserido é igual ao token da URL
+2. **Instruções mais claras** com exemplo visual
+3. **Debug info** para facilitar diagnóstico
+
+---
+
+## Alterações Técnicas
+
+### Arquivo: `SuperAdminAgentConfigDrawer.tsx`
+
+**Adicionar função de validação:**
 ```typescript
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+const getTokenFromUrl = (url: string): string | null => {
+  const match = url.match(/\/token\/([A-F0-9]+)/i);
+  return match ? match[1] : null;
+};
+
+const isTokenInvalid = config.zapi_url && config.zapi_token && 
+  getTokenFromUrl(config.zapi_url)?.toUpperCase() === config.zapi_token.toUpperCase();
 ```
 
-2. Envolver o botão desabilitado com Tooltip explicativo:
+**Adicionar alerta visual quando token estiver errado:**
 ```tsx
-<TooltipProvider>
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <div className="flex-1">
-        <Button 
-          variant="outline" 
-          className="w-full gap-2" 
-          onClick={handleConnect}
-          disabled={!config.zapi_url || !config.zapi_token || isTokenFromUrl(config.zapi_url, config.zapi_token)}
-        >
-          <QrCode className="h-4 w-4" />
-          Conectar via QR Code
-        </Button>
-      </div>
-    </TooltipTrigger>
-    {isTokenFromUrl(config.zapi_url, config.zapi_token) && (
-      <TooltipContent>
-        <p>Token inválido - use o Client-Token do painel Z-API</p>
-      </TooltipContent>
-    )}
-  </Tooltip>
-</TooltipProvider>
-```
-
-3. Melhorar o Alert com ícone piscante para chamar mais atenção:
-```tsx
-{isTokenFromUrl(config.zapi_url, config.zapi_token) && (
-  <Alert variant="destructive" className="animate-pulse">
-    <AlertCircle className="h-4 w-4" />
-    <AlertDescription>
-      <strong>Token Incorreto!</strong> O Client Token não pode ser igual ao token da URL. 
-      Acesse o painel Z-API → Security → Client-Token para obter o token correto.
-    </AlertDescription>
-  </Alert>
+{isTokenInvalid && (
+  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+    <p className="font-medium text-destructive">⚠️ Token Incorreto Detectado</p>
+    <p className="text-muted-foreground mt-1">
+      O Client-Token não pode ser igual ao token da URL.
+      Obtenha o token correto em: <strong>Painel Z-API → Security → Client-Token</strong>
+    </p>
+  </div>
 )}
 ```
+
+**Desabilitar botão quando inválido:**
+```tsx
+<Button 
+  disabled={!config.zapi_url || !config.zapi_token || isTokenInvalid}
+>
+  Conectar via QR Code
+</Button>
+```
+
+**Melhorar descrição do campo Client Token:**
+```tsx
+<Label>Client Token (Security Token)</Label>
+<p className="text-xs text-muted-foreground">
+  ⚠️ <strong>NÃO</strong> use o token da URL!<br/>
+  Encontre em: Painel Z-API → Security → Client-Token
+</p>
+```
+
+---
+
+## Ação Imediata Necessária
+
+Você precisa acessar o painel Z-API e obter o **Client-Token** correto. O token atual (`F5DA387...`) é o Instance Token da URL, não o Security Token.
+
+**Onde encontrar:**
+```text
+Painel Z-API → Sua Instância → Configurações → Security → Client-Token
+```
+
+Depois de obter o token correto, atualize no drawer e o QR Code será gerado.
+
+---
 
 ## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Adicionar Tooltip e melhorar Alert |
-
-## Resultado Esperado
-
-1. Quando o token está incorreto, o usuário verá:
-   - Alert vermelho piscante chamando atenção
-   - Tooltip explicativo ao passar mouse sobre o botão desabilitado
-2. Instruções claras sobre onde encontrar o Client-Token correto
+| `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` | Adicionar validação e feedback visual |
 
