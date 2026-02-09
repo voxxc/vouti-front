@@ -70,7 +70,7 @@ serve(async (req) => {
         break;
       case 'disconnect':
         endpoint = `${baseUrl}/disconnect`;
-        method = 'POST';
+        method = 'DELETE';
         break;
       case 'qr-code':
         endpoint = `${baseUrl}/qr-code/image`;
