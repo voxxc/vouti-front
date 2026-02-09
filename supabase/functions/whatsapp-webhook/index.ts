@@ -161,10 +161,11 @@ async function handleIncomingMessage(data: any) {
   console.log('✅ Mensagem salva:', { phone, text: text?.message });
 
   // 🤖 PRIMEIRO: Verificar se IA está habilitada para este tenant
+  // Usa effectiveTenantId para suportar config IA do Super Admin (tenant_id = NULL)
   const aiHandled = await handleAIResponse(
     phone, 
     text?.message || '', 
-    instance.tenant_id, 
+    effectiveTenantId, 
     instance.zapi_url, 
     instance.zapi_token
   );
