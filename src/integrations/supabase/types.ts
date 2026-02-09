@@ -6946,7 +6946,11 @@ export type Database = {
           last_update: string | null
           qr_code: string | null
           tenant_id: string | null
+          updated_at: string | null
           user_id: string
+          zapi_client_token: string | null
+          zapi_instance_id: string | null
+          zapi_instance_token: string | null
           zapi_token: string | null
           zapi_url: string | null
         }
@@ -6959,7 +6963,11 @@ export type Database = {
           last_update?: string | null
           qr_code?: string | null
           tenant_id?: string | null
+          updated_at?: string | null
           user_id?: string
+          zapi_client_token?: string | null
+          zapi_instance_id?: string | null
+          zapi_instance_token?: string | null
           zapi_token?: string | null
           zapi_url?: string | null
         }
@@ -6972,7 +6980,11 @@ export type Database = {
           last_update?: string | null
           qr_code?: string | null
           tenant_id?: string | null
+          updated_at?: string | null
           user_id?: string
+          zapi_client_token?: string | null
+          zapi_instance_id?: string | null
+          zapi_instance_token?: string | null
           zapi_token?: string | null
           zapi_url?: string | null
         }
