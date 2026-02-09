@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Sparkles, MessageSquare, Thermometer, History, Save } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Bot, Sparkles, MessageSquare, Thermometer, History, Save, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -39,14 +40,16 @@ const AVAILABLE_MODELS = [
 
 interface WhatsAppAISettingsProps {
   isSuperAdmin?: boolean;
+  agentId?: string;
 }
 
-export const WhatsAppAISettings = ({ isSuperAdmin = false }: WhatsAppAISettingsProps) => {
+export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAISettingsProps) => {
   const { toast } = useToast();
   const { tenantId } = useTenantId();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLandingAgent, setIsLandingAgent] = useState(false);
   const [config, setConfig] = useState<AIConfig>({
     is_enabled: false,
     agent_name: "Assistente",
@@ -58,7 +61,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false }: WhatsAppAISettingsP
 
   useEffect(() => {
     loadConfig();
-  }, [tenantId, isSuperAdmin]);
+  }, [tenantId, isSuperAdmin, agentId]);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -94,10 +97,61 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false }: WhatsAppAISettingsP
           max_history: data.max_history || 10,
         });
       }
+
+      // Carregar status de is_landing_agent do agente (Super Admin)
+      if (isSuperAdmin && agentId) {
+        const { data: agentData } = await supabase
+          .from('whatsapp_agents')
+          .select('is_landing_agent')
+          .eq('id', agentId)
+          .single();
+        
+        if (agentData) {
+          setIsLandingAgent(agentData.is_landing_agent || false);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar configuração:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLandingAgentChange = async (checked: boolean) => {
+    if (!agentId) return;
+
+    try {
+      if (checked) {
+        // Desmarcar qualquer outro agente que esteja marcado como landing
+        await supabase
+          .from('whatsapp_agents')
+          .update({ is_landing_agent: false })
+          .is('tenant_id', null)
+          .eq('is_landing_agent', true);
+      }
+
+      // Atualizar este agente
+      const { error } = await supabase
+        .from('whatsapp_agents')
+        .update({ is_landing_agent: checked })
+        .eq('id', agentId);
+
+      if (error) throw error;
+
+      setIsLandingAgent(checked);
+      toast({
+        title: checked ? "Agente da Homepage ativado" : "Agente da Homepage desativado",
+        description: checked 
+          ? "Este agente agora responderá os leads da homepage"
+          : "Este agente não responderá mais os leads da homepage",
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar landing agent:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a configuração",
+        variant: "destructive",
+      });
     }
   };
 
@@ -175,33 +229,64 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false }: WhatsAppAISettingsP
           <Bot className="h-6 w-6" />
           Agente IA
         </h2>
-        <p className="text-muted-foreground">
-          Configure o comportamento da IA que responde automaticamente aos leads
-        </p>
-      </div>
+      <p className="text-muted-foreground">
+        Configure o comportamento da IA que responde automaticamente aos leads
+      </p>
+    </div>
 
-      {/* Toggle Principal */}
-      <Card>
+    {/* Checkbox Agente da Homepage (apenas Super Admin) */}
+    {isSuperAdmin && agentId && (
+      <Card className="border-primary/50 bg-primary/5">
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${config.is_enabled ? 'bg-green-100 dark:bg-green-900' : 'bg-muted'}`}>
-                <Sparkles className={`h-5 w-5 ${config.is_enabled ? 'text-green-600' : 'text-muted-foreground'}`} />
-              </div>
-              <div>
-                <Label className="text-base font-semibold">Habilitar Agente IA</Label>
-                <p className="text-sm text-muted-foreground">
-                  Quando ativado, a IA responde automaticamente às mensagens
-                </p>
-              </div>
-            </div>
-            <Switch
-              checked={config.is_enabled}
-              onCheckedChange={(checked) => setConfig(prev => ({ ...prev, is_enabled: checked }))}
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="landing-agent"
+              checked={isLandingAgent}
+              onCheckedChange={(checked) => handleLandingAgentChange(checked as boolean)}
             />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="landing-agent"
+                className="text-base font-semibold cursor-pointer flex items-center gap-2"
+              >
+                <Globe className="h-4 w-4 text-primary" />
+                Agente da Homepage
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Quando marcado, este agente será responsável por atender automaticamente 
+                os leads que chegam da homepage vouti.co/
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                ⚠️ Apenas um agente pode ter esta opção ativada por vez
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
+    )}
+
+    {/* Toggle Principal */}
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-full ${config.is_enabled ? 'bg-green-100 dark:bg-green-900' : 'bg-muted'}`}>
+              <Sparkles className={`h-5 w-5 ${config.is_enabled ? 'text-green-600' : 'text-muted-foreground'}`} />
+            </div>
+            <div>
+              <Label className="text-base font-semibold">Habilitar Agente IA</Label>
+              <p className="text-sm text-muted-foreground">
+                Quando ativado, a IA responde automaticamente às mensagens
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={config.is_enabled}
+            onCheckedChange={(checked) => setConfig(prev => ({ ...prev, is_enabled: checked }))}
+          />
+        </div>
+      </CardContent>
+    </Card>
 
       {/* Nome do Agente */}
       <Card>

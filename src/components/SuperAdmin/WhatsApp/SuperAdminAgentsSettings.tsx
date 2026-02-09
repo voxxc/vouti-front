@@ -734,7 +734,7 @@ export const SuperAdminAgentsSettings = () => {
 
                         {/* Aba Comportamento da IA */}
                         <TabsContent value="ai" className="mt-0">
-                          <WhatsAppAISettings isSuperAdmin={true} />
+                          <WhatsAppAISettings isSuperAdmin={true} agentId={agent.id} />
                         </TabsContent>
                       </CardContent>
                     </Tabs>
