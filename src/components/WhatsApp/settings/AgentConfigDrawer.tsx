@@ -406,36 +406,63 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
           <div className="space-y-4">
             <h3 className="font-medium text-sm">Credenciais Z-API</h3>
             
+            {/* Campo para colar URL completa */}
             <div className="space-y-2">
-              <Label htmlFor="zapi_instance_id">Instance ID</Label>
+              <Label htmlFor="zapi_full_url">API da Instância (URL Completa)</Label>
               <Input
-                id="zapi_instance_id"
-                value={config.zapi_instance_id}
-                onChange={(e) => setConfig(prev => ({ 
-                  ...prev, 
-                  zapi_instance_id: extractInstanceId(e.target.value) 
-                }))}
-                placeholder="Ex: 3E8A768C5D9F4A7B8C2E1D3F"
+                id="zapi_full_url"
+                placeholder="Cole a URL completa: https://api.z-api.io/instances/.../token/..."
+                onChange={(e) => {
+                  const url = e.target.value;
+                  const instanceId = extractInstanceId(url);
+                  const instanceToken = extractInstanceToken(url);
+                  if (instanceId || instanceToken) {
+                    setConfig(prev => ({
+                      ...prev,
+                      zapi_instance_id: instanceId || prev.zapi_instance_id,
+                      zapi_instance_token: instanceToken || prev.zapi_instance_token,
+                    }));
+                    e.target.value = ""; // Limpa após extrair
+                  }
+                }}
+                className="font-mono text-xs"
               />
               <p className="text-xs text-muted-foreground">
-                Cole a URL ou apenas o ID - extração automática
+                Cole a URL completa do painel Z-API para preencher automaticamente
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="zapi_instance_token">Instance Token</Label>
-              <Input
-                id="zapi_instance_token"
-                value={config.zapi_instance_token}
-                onChange={(e) => setConfig(prev => ({ 
-                  ...prev, 
-                  zapi_instance_token: extractInstanceToken(e.target.value) 
-                }))}
-                placeholder="Token da instância (obrigatório)"
-              />
-              <p className="text-xs text-muted-foreground">
-                Cole a URL ou apenas o Token - extração automática
-              </p>
+            <Separator className="my-2" />
+
+            {/* Campos individuais */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="zapi_instance_id">ID da Instância</Label>
+                <Input
+                  id="zapi_instance_id"
+                  value={config.zapi_instance_id}
+                  onChange={(e) => setConfig(prev => ({ 
+                    ...prev, 
+                    zapi_instance_id: extractInstanceId(e.target.value) 
+                  }))}
+                  placeholder="3E8A7687..."
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="zapi_instance_token">Token da Instância</Label>
+                <Input
+                  id="zapi_instance_token"
+                  value={config.zapi_instance_token}
+                  onChange={(e) => setConfig(prev => ({ 
+                    ...prev, 
+                    zapi_instance_token: extractInstanceToken(e.target.value) 
+                  }))}
+                  placeholder="F5DA3871..."
+                  className="font-mono text-xs"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
