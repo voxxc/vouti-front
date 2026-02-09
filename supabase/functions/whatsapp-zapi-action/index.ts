@@ -18,8 +18,10 @@ serve(async (req) => {
       throw new Error('Missing required fields: action, zapi_url, or zapi_token');
     }
 
-    // Normalizar URL removendo /send-text se existir no final
-    const baseUrl = zapi_url.replace(/\/send-text\/?$/, '');
+    // Normalizar URL: remover trailing slash e /send-text se existir
+    const baseUrl = zapi_url
+      .replace(/\/send-text\/?$/, '')
+      .replace(/\/$/, '');
 
     let endpoint = '';
     let method = 'GET';
