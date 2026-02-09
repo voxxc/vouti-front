@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
+import { usePlanoLimites } from "@/hooks/usePlanoLimites";
 
 interface UserManagementDrawerProps {
   open: boolean;
@@ -53,6 +54,7 @@ export function UserManagementDrawer({
 }: UserManagementDrawerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [editUserTenantId, setEditUserTenantId] = useState<string | null>(null);
@@ -63,9 +65,17 @@ export function UserManagementDrawer({
     role: 'advogado' as User['role'],
     additionalPermissions: [] as string[]
   });
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'advogado' as User['role'],
+    additionalPermissions: [] as string[]
+  });
   
   const { toast } = useToast();
   const { tenantId } = useTenantId();
+  const { podeAdicionarUsuario } = usePlanoLimites();
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
@@ -224,14 +234,56 @@ export function UserManagementDrawer({
     }
   };
 
-  const handlePermissionToggle = (permissionRole: string) => {
-    setEditFormData(prev => ({
+  const handlePermissionToggle = (permissionRole: string, formType: 'edit' | 'create' = 'edit') => {
+    const setter = formType === 'create' ? setCreateFormData : setEditFormData;
+    setter(prev => ({
       ...prev,
       additionalPermissions: prev.additionalPermissions.includes(permissionRole)
         ? prev.additionalPermissions.filter(p => p !== permissionRole)
         : [...prev.additionalPermissions, permissionRole]
     }));
   };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantId) return;
+
+    if (!podeAdicionarUsuario()) {
+      toast({ title: "Limite atingido", description: "O limite de usuários do plano foi atingido.", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: createFormData.email,
+          password: createFormData.password,
+          full_name: createFormData.name,
+          role: createFormData.role,
+          additional_roles: createFormData.additionalPermissions,
+          tenant_id: tenantId
+        }
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: "Sucesso", description: "Usuário criado com sucesso" });
+      setIsCreateOpen(false);
+      setCreateFormData({ name: '', email: '', password: '', role: 'advogado', additionalPermissions: [] });
+      onAddUser(); // refresh list
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast({ title: "Erro", description: error.message || "Erro ao criar usuário", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createAvailablePermissions = ADDITIONAL_PERMISSIONS.filter(
+    p => p.role !== createFormData.role
+  );
 
   const getRoleBadgeVariant = (role: string) => {
     return role === 'admin' ? 'default' : 'secondary';
@@ -281,7 +333,17 @@ export function UserManagementDrawer({
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-4">
               {/* Botão novo usuario */}
-              <Button size="sm" className="gap-2" onClick={onAddUser}>
+              <Button 
+                size="sm" 
+                className="gap-2" 
+                onClick={() => {
+                  if (!podeAdicionarUsuario()) {
+                    toast({ title: "Limite atingido", description: "O limite de usuários do plano foi atingido.", variant: "destructive" });
+                    return;
+                  }
+                  setIsCreateOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4" />
                 Novo Usuário
               </Button>
@@ -436,7 +498,7 @@ export function UserManagementDrawer({
                     <Checkbox
                       id={`perm-${permission.id}`}
                       checked={editFormData.additionalPermissions.includes(permission.role)}
-                      onCheckedChange={() => handlePermissionToggle(permission.role)}
+                      onCheckedChange={() => handlePermissionToggle(permission.role, 'edit')}
                     />
                     <Label 
                       htmlFor={`perm-${permission.id}`} 
@@ -459,6 +521,107 @@ export function UserManagementDrawer({
             {/* Botão Salvar */}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Criação */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Nome</Label>
+              <Input
+                id="create-name"
+                value={createFormData.name}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome completo"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Email</Label>
+              <Input
+                id="create-email"
+                type="email"
+                value={createFormData.email}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="email@exemplo.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-password">Senha</Label>
+              <Input
+                id="create-password"
+                type="password"
+                value={createFormData.password}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="••••••••"
+                minLength={6}
+                required
+              />
+              <p className="text-xs text-muted-foreground">Mínimo 6 caracteres.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Perfil</Label>
+              <Select
+                value={createFormData.role}
+                onValueChange={(value) => setCreateFormData(prev => ({
+                  ...prev,
+                  role: value as User['role'],
+                  additionalPermissions: prev.additionalPermissions.filter(p => p !== value)
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o perfil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Label>Permissões Adicionais</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Áreas extras que este usuário terá acesso.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {createAvailablePermissions.map((permission) => (
+                  <div key={permission.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`create-perm-${permission.id}`}
+                      checked={createFormData.additionalPermissions.includes(permission.role)}
+                      onCheckedChange={() => handlePermissionToggle(permission.role, 'create')}
+                    />
+                    <Label
+                      htmlFor={`create-perm-${permission.id}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {permission.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Criando..." : "Criar Usuário"}
             </Button>
           </form>
         </DialogContent>
