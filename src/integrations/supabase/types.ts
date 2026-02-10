@@ -6525,6 +6525,48 @@ export type Database = {
           },
         ]
       }
+      totp_wallet_viewers: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          tenant_id: string | null
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          tenant_id?: string | null
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "totp_wallet_viewers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "totp_wallet_viewers_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "totp_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       totp_wallets: {
         Row: {
           created_at: string | null

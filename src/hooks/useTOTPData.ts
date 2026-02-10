@@ -27,19 +27,57 @@ export function useTOTPData(tenantId: string | null) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // Check if user is admin/controller
+  const { data: isAdminOrController = false } = useQuery({
+    queryKey: ['user-is-admin-controller', user?.id, tenantId],
+    queryFn: async () => {
+      if (!user?.id || !tenantId) return false;
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
+        .in('role', ['admin', 'controller']);
+      return !!data && data.length > 0;
+    },
+    enabled: !!user?.id && !!tenantId
+  });
+
   // Query para buscar carteiras
   const { data: wallets = [], isLoading: walletsLoading } = useQuery({
-    queryKey: ['totp-wallets', tenantId],
+    queryKey: ['totp-wallets', tenantId, isAdminOrController, user?.id],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('totp_wallets')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: true });
       
-      if (error) throw error;
-      return (data || []) as TOTPWalletDB[];
+      if (isAdminOrController) {
+        // Admins/controllers veem tudo
+        const { data, error } = await supabase
+          .from('totp_wallets')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        return (data || []) as TOTPWalletDB[];
+      } else {
+        // Usuários comuns: apenas carteiras onde têm permissão
+        const { data: viewerRecords, error: viewerError } = await supabase
+          .from('totp_wallet_viewers')
+          .select('wallet_id')
+          .eq('user_id', user?.id || '');
+        
+        if (viewerError) throw viewerError;
+        const walletIds = (viewerRecords || []).map(v => v.wallet_id);
+        if (walletIds.length === 0) return [];
+
+        const { data, error } = await supabase
+          .from('totp_wallets')
+          .select('*')
+          .in('id', walletIds)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        return (data || []) as TOTPWalletDB[];
+      }
     },
     enabled: !!tenantId
   });
