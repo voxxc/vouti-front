@@ -1,42 +1,77 @@
 
+## Sistema de Permissoes de Visualizacao para Carteiras TOTP
 
-## Correcao: Resolucao de LID falhando - mensagens do celular descartadas
+### O que muda
 
-### Problema Identificado
+Hoje, todas as carteiras TOTP sao visiveis para todos os usuarios com role `admin` ou `controller`. Com essa mudanca, o administrador podera controlar **quem pode ver cada carteira individualmente**, adicionando ou removendo usuarios autorizados.
 
-Os logs confirmam que o LID e detectado corretamente, mas todas as 3 estrategias de resolucao falham:
+### Como vai funcionar
 
-1. **`data.chatId`**: O payload da Z-API usa `chatLid`, nao `chatId`. O codigo atual verifica `data.chatId` que nunca existe.
-2. **`data.to`**: Nao existe no payload da Z-API para mensagens `fromMe`.
-3. **Busca no banco**: O codigo remove `@lid` do valor antes de buscar (`"54146770170054"`), mas no banco o campo `raw_data->>'chatLid'` esta salvo com o sufixo completo (`"54146770170054@lid"`). A query nunca encontra match.
+- Cada carteira tera um botao de "Permissoes" (icone de usuarios) ao lado do botao de excluir
+- Ao clicar, abre um dialog simples e limpo com:
+  - Lista dos usuarios que ja tem acesso (com botao X para remover)
+  - Campo de busca para adicionar novos usuarios
+- Admins e Controllers continuam vendo todas as carteiras por padrao
+- Usuarios comuns so verao carteiras onde foram explicitamente autorizados
+- O botao do relogio (2FA) passara a aparecer para todos os usuarios, mas so mostrara as carteiras que o usuario tem permissao
 
-### Solucao
+### Detalhes tecnicos
 
-**Arquivo: `supabase/functions/whatsapp-webhook/index.ts` - funcao `resolvePhoneFromLid`**
-
-Tres correcoes:
-
-1. Verificar `data.chatLid` alem de `data.chatId` - extrair o numero se estiver no formato `phone@c.us`
-2. Na busca no banco, usar o valor original COM `@lid` para comparar com `raw_data->>'chatLid'`
-3. Adicionar busca alternativa: procurar mensagens recebidas (direction='received') na mesma instancia que tenham o mesmo `chatLid` no raw_data, pois essas mensagens recebidas do mesmo contato CONTEM o telefone real no campo `phone`/`from_number`
-
-A logica corrigida:
+**1. Nova tabela no banco: `totp_wallet_viewers`**
 
 ```text
-resolvePhoneFromLid(data, originalPhone):
-  1. Tentar data.chatId (formato 55xxxx@c.us) - manter existente
-  2. NOVO: Tentar data.chatLid - se formato phone@c.us, extrair
-  3. Tentar data.to - manter existente
-  4. CORRIGIDO: Buscar no banco usando originalPhone COM @lid:
-     SELECT from_number FROM whatsapp_messages
-     WHERE direction = 'received'
-       AND raw_data->>'chatLid' = '54146770170054@lid'  (valor original)
-     ORDER BY timestamp DESC LIMIT 1
+totp_wallet_viewers
+  - id (uuid, PK)
+  - wallet_id (uuid, FK -> totp_wallets.id, ON DELETE CASCADE)
+  - user_id (uuid, FK -> auth.users.id, ON DELETE CASCADE)
+  - tenant_id (uuid, FK -> tenants.id)
+  - granted_by (uuid, FK -> auth.users.id) -- quem deu a permissao
+  - granted_at (timestamptz, default now())
+  - UNIQUE(wallet_id, user_id)
 ```
 
-A chave e que mensagens RECEBIDAS do mesmo contato tem `chatLid: "54146770170054@lid"` E `from_number: "5545999906046"`. Entao buscando por `chatLid` com o valor completo, encontramos o telefone real.
+RLS: admins/controllers podem gerenciar; usuarios comuns so podem SELECT onde sao o `user_id`.
 
-### Arquivo modificado
+**2. Novo componente: `src/components/Dashboard/TOTP/WalletViewersDialog.tsx`**
 
-1. `supabase/functions/whatsapp-webhook/index.ts` - Funcao `resolvePhoneFromLid`
+Dialog simplificado (inspirado no ProjectParticipants mas mais enxuto):
+- Titulo: "Quem pode ver esta carteira"
+- Lista de usuarios com acesso (avatar + nome + botao X)
+- Campo de busca para adicionar usuarios do tenant
+- Sem roles/badges complexos -- apenas adicionar/remover
 
+**3. Alteracao: `src/components/Dashboard/TOTP/WalletCard.tsx`**
+
+- Adicionar botao de "Permissoes" (icone `Users`) ao lado do botao de lixeira
+- Prop `onManageViewers` para abrir o dialog
+- Usar o padrao `onSelect` com `e.preventDefault()` + `setTimeout` para evitar conflito de foco
+
+**4. Alteracao: `src/hooks/useTOTPData.ts`**
+
+- Adicionar query para buscar `totp_wallet_viewers`
+- Adicionar mutations para `addViewer` e `removeViewer`
+- Modificar a query de wallets: se o usuario NAO e admin/controller, filtrar apenas wallets onde existe um registro em `totp_wallet_viewers` com seu `user_id`
+
+**5. Alteracao: `src/components/Dashboard/TOTPSheet.tsx`**
+
+- Passar `onManageViewers` para cada `WalletCard`
+- Gerenciar estado do `WalletViewersDialog`
+
+**6. Alteracao: `src/components/Dashboard/DashboardLayout.tsx`**
+
+- Remover restricao `canSeeTOTP` baseada em role
+- Mostrar o botao 2FA para todos os usuarios
+- A filtragem de carteiras visiveis acontece no hook `useTOTPData`
+
+**7. Atualizar tipos em `src/integrations/supabase/types.ts`**
+
+- Sera atualizado automaticamente ao criar a tabela via SQL
+
+### Resumo dos arquivos
+
+1. SQL: Criar tabela `totp_wallet_viewers` com RLS
+2. `src/components/Dashboard/TOTP/WalletViewersDialog.tsx` (novo)
+3. `src/components/Dashboard/TOTP/WalletCard.tsx` (botao permissoes)
+4. `src/hooks/useTOTPData.ts` (queries/mutations de viewers + filtro)
+5. `src/components/Dashboard/TOTPSheet.tsx` (integrar dialog)
+6. `src/components/Dashboard/DashboardLayout.tsx` (liberar botao para todos)
