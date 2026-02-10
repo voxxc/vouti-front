@@ -25,7 +25,7 @@ import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 
-export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | null;
+export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'extras' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -158,7 +158,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   };
 
   // IDs que abrem drawers
-  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp'];
+  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'extras'];
 
   return (
     <>
