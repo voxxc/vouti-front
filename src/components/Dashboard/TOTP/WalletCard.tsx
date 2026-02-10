@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight, Trash2, Wallet, Pencil } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, Wallet, Pencil, Users } from "lucide-react";
 import { TOTPWallet, TOTPToken } from "@/types/totp";
 import { TokenRow } from "./TokenRow";
 
@@ -15,6 +15,8 @@ interface WalletCardProps {
   onDeleteToken: (token: TOTPToken) => void;
   onEditToken?: (token: TOTPToken, newName: string) => void;
   onEditWallet?: (newName: string) => void;
+  onManageViewers?: () => void;
+  isAdmin?: boolean;
 }
 
 export function WalletCard({ 
@@ -25,7 +27,9 @@ export function WalletCard({
   onDeleteWallet, 
   onDeleteToken,
   onEditToken,
-  onEditWallet
+  onEditWallet,
+  onManageViewers,
+  isAdmin
 }: WalletCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -115,6 +119,20 @@ export function WalletCard({
                 <span className="text-xs text-muted-foreground">
                   {tokenCount} {tokenCount === 1 ? 'token' : 'tokens'}
                 </span>
+              )}
+              {isAdmin && onManageViewers && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onManageViewers();
+                  }}
+                  title="Gerenciar permissões"
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
               )}
               <Button
                 variant="ghost"

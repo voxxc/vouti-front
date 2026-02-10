@@ -253,17 +253,15 @@ const DashboardLayout = ({
             
             {/* Right Side - Tools */}
             <div className="flex items-center gap-3 ml-auto">
-              {canSeeTOTP && (
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => setTotpSheetOpen(true)}
-                  title="Autenticador 2FA"
-                  className="h-9 w-9"
-                >
-                  <Clock className="h-5 w-5" />
-                </Button>
-              )}
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setTotpSheetOpen(true)}
+                title="Autenticador 2FA"
+                className="h-9 w-9"
+              >
+                <Clock className="h-5 w-5" />
+              </Button>
               <GlobalSearch projects={projects} />
               {currentUser && (
                 <InternalMessaging currentUser={currentUser} users={users} />
@@ -319,9 +317,7 @@ const DashboardLayout = ({
       </div>
       
       {/* TOTP Sheet */}
-      {canSeeTOTP && (
-        <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} />
-      )}
+      <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} isAdmin={canSeeTOTP} />
       
       {/* Project Drawer (busca rápida) */}
       <ProjectDrawer

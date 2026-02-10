@@ -9,12 +9,14 @@ import { TOTPWallet, TOTPToken, LegacyTOTPStorage, LegacyTOTPToken } from "@/typ
 import { WalletCard } from "./TOTP/WalletCard";
 import { AddWalletDialog } from "./TOTP/AddWalletDialog";
 import { AddTokenDialog } from "./TOTP/AddTokenDialog";
+import { WalletViewersDialog } from "./TOTP/WalletViewersDialog";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTOTPData, TOTPWalletDB, TOTPTokenDB } from "@/hooks/useTOTPData";
 
 interface TOTPSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isAdmin?: boolean;
 }
 
 const LOCAL_STORAGE_KEY = 'vouti_totp_tokens';
@@ -78,7 +80,7 @@ function getLocalStorageData(): LegacyTOTPStorage | null {
   }
 }
 
-export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
+export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
   const { tenantId } = useTenantId();
   const { 
     wallets: dbWallets, 
@@ -111,7 +113,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
   const [deleteTokenOpen, setDeleteTokenOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<TOTPWallet | null>(null);
   const [tokenToDelete, setTokenToDelete] = useState<TOTPToken | null>(null);
-
+  const [viewersWallet, setViewersWallet] = useState<TOTPWallet | null>(null);
   // Verificar dados locais para migração
   useEffect(() => {
     if (open) {
@@ -283,6 +285,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
                     tokens={getTokensForWallet(wallet.id)}
                     codes={codes}
                     secondsRemaining={secondsRemaining}
+                    isAdmin={isAdmin}
                     onDeleteWallet={() => {
                       setWalletToDelete(wallet);
                       setDeleteWalletOpen(true);
@@ -293,6 +296,7 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
                     }}
                     onEditToken={handleEditToken}
                     onEditWallet={(newName) => handleEditWallet(wallet, newName)}
+                    onManageViewers={() => setViewersWallet(wallet)}
                   />
                 ))}
               </div>
@@ -359,6 +363,16 @@ export function TOTPSheet({ open, onOpenChange }: TOTPSheetProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Wallet Viewers Dialog */}
+      {viewersWallet && (
+        <WalletViewersDialog
+          open={!!viewersWallet}
+          onOpenChange={(open) => { if (!open) setViewersWallet(null); }}
+          walletId={viewersWallet.id}
+          walletName={viewersWallet.name}
+        />
+      )}
     </>
   );
 }
