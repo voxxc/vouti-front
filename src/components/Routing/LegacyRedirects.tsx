@@ -25,3 +25,9 @@ export const LegacyControladoriaProcessoEditarRedirect = () => {
   const { id } = useParams();
   return <Navigate to={`/solvenza/controladoria/processo/${id}/editar`} replace />;
 };
+
+// Redirect /:tenant/bot → /:tenant/crm
+export const LegacyBotRedirect = () => {
+  const { tenant } = useParams();
+  return <Navigate to={`/${tenant}/crm`} replace />;
+};

@@ -68,7 +68,8 @@ import {
   LegacyProjectAcordosRedirect, 
   LegacyProjectSectorRedirect,
   LegacyControladoriaProcessoRedirect,
-  LegacyControladoriaProcessoEditarRedirect
+  LegacyControladoriaProcessoEditarRedirect,
+  LegacyBotRedirect
 } from "@/components/Routing/LegacyRedirects";
 import "./App.css";
 
@@ -383,32 +384,35 @@ function App() {
               </TenantRouteWrapper>
             } />
             
-            {/* CRM - Tenant Dynamic */}
-            <Route path="/:tenant/crm" element={
+            {/* Clientes (antigo CRM) - Tenant Dynamic */}
+            <Route path="/:tenant/clientes" element={
               <TenantRouteWrapper>
                 <CRM />
               </TenantRouteWrapper>
             } />
             
-            {/* Vouti.CRM - Tenant Dynamic (nova página dedicada) */}
-            <Route path="/:tenant/bot" element={
+            {/* Vouti.CRM (antigo Bot) - Tenant Dynamic */}
+            <Route path="/:tenant/crm" element={
               <TenantRouteWrapper>
                 <WhatsApp />
               </TenantRouteWrapper>
             } />
             
-            {/* CRM Cliente - Tenant Dynamic */}
-            <Route path="/:tenant/crm/cliente/novo" element={
+            {/* Cliente Cadastro - Tenant Dynamic */}
+            <Route path="/:tenant/clientes/cliente/novo" element={
               <TenantRouteWrapper>
                 <ClienteCadastro />
               </TenantRouteWrapper>
             } />
             
-            <Route path="/:tenant/crm/cliente/:id" element={
+            <Route path="/:tenant/clientes/cliente/:id" element={
               <TenantRouteWrapper>
                 <ClienteCadastro />
               </TenantRouteWrapper>
             } />
+            
+            {/* Legacy redirect: /:tenant/bot → /:tenant/crm */}
+            <Route path="/:tenant/bot" element={<LegacyBotRedirect />} />
             
             {/* Financial - Tenant Dynamic */}
             <Route path="/:tenant/financial" element={
@@ -507,7 +511,8 @@ function App() {
             <Route path="/project/:id/acordos" element={<LegacyProjectAcordosRedirect />} />
             <Route path="/project/:id/sector/:sectorId" element={<LegacyProjectSectorRedirect />} />
             <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
-            <Route path="/crm" element={<Navigate to="/solvenza/crm" replace />} />
+            <Route path="/crm" element={<Navigate to="/solvenza/clientes" replace />} />
+            <Route path="/bot" element={<Navigate to="/solvenza/crm" replace />} />
             <Route path="/financial" element={<Navigate to="/solvenza/financial" replace />} />
             <Route path="/controladoria" element={<Navigate to="/solvenza/controladoria" replace />} />
             <Route path="/controladoria/novo" element={<Navigate to="/solvenza/controladoria/novo" replace />} />
