@@ -313,13 +313,13 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
     if (!result.destination) return;
     const { draggableId, destination } = result;
 
+    const newColumnId = destination.droppableId === "no-column" ? null : destination.droppableId;
+    const movedCard = cards.find(c => c.id === draggableId);
+    if (!movedCard) return;
+
     setCards(prev => prev.map(card => {
-      if (card.phone === draggableId) {
-        return {
-          ...card,
-          column_id: destination.droppableId === "no-column" ? null : destination.droppableId,
-          card_order: destination.index,
-        };
+      if (card.id === draggableId) {
+        return { ...card, column_id: newColumnId, card_order: destination.index };
       }
       return card;
     }));
@@ -327,15 +327,8 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
     try {
       const { error } = await supabase
         .from("whatsapp_conversation_kanban")
-        .upsert({
-          tenant_id: tenantId || null,
-          agent_id: agentId,
-          phone: draggableId,
-          column_id: destination.droppableId === "no-column" ? null : destination.droppableId,
-          card_order: destination.index,
-        }, {
-          onConflict: tenantId ? 'tenant_id,agent_id,phone' : 'agent_id,phone'
-        });
+        .update({ column_id: newColumnId, card_order: destination.index })
+        .eq("id", movedCard.id);
       if (error) throw error;
     } catch (error) {
       console.error("Erro ao atualizar posição:", error);
@@ -410,7 +403,7 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
                       <ScrollArea className="flex-1">
                         <div className="space-y-2 pr-1">
                           {getCardsInColumn(column.id).map((card, index) => (
-                            <Draggable key={card.phone} draggableId={card.phone} index={index}>
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
                               {(provided, snapshot) => (
                                 <Card
                                   ref={provided.innerRef}

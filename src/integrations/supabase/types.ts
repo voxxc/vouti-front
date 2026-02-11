@@ -7144,9 +7144,49 @@ export type Database = {
           },
         ]
       }
+      whatsapp_contact_notes: {
+        Row: {
+          author_id: string
+          author_name: string | null
+          contact_phone: string
+          content: string
+          created_at: string | null
+          id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          author_id: string
+          author_name?: string | null
+          contact_phone: string
+          content: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          author_id?: string
+          author_name?: string | null
+          contact_phone?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contact_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_contacts: {
         Row: {
           avatar_url: string | null
+          city: string | null
+          country: string | null
           created_at: string | null
           created_by: string | null
           email: string | null
@@ -7154,11 +7194,14 @@ export type Database = {
           name: string
           notes: string | null
           phone: string
+          state: string | null
           tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
           created_by?: string | null
           email?: string | null
@@ -7166,11 +7209,14 @@ export type Database = {
           name: string
           notes?: string | null
           phone: string
+          state?: string | null
           tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
           created_by?: string | null
           email?: string | null
@@ -7178,6 +7224,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string
+          state?: string | null
           tenant_id?: string | null
           updated_at?: string | null
         }

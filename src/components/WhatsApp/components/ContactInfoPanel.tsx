@@ -13,7 +13,8 @@ import {
   Sparkles,
   Info,
   Settings2,
-  Pencil
+  Pencil,
+  StickyNote
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -21,14 +22,33 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { cn } from "@/lib/utils";
 import { AIControlSection } from "./AIControlSection";
 import { SaveContactDialog } from "./SaveContactDialog";
 import { AddLabelDropdown } from "./AddLabelDropdown";
 import { TransferConversationDialog } from "./TransferConversationDialog";
+import { ContactNotesPanel } from "./ContactNotesPanel";
 import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ContactInfoPanelProps {
   conversation: WhatsAppConversation;
@@ -39,11 +59,10 @@ interface ContactInfoPanelProps {
   onTransferComplete?: () => void;
 }
 
-interface AccordionItem {
+interface KanbanColumnOption {
   id: string;
-  title: string;
-  icon: React.ElementType;
-  content: React.ReactNode;
+  name: string;
+  color: string;
 }
 
 export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, onTransferComplete }: ContactInfoPanelProps) => {
@@ -52,6 +71,13 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   const [contactId, setContactId] = useState<string | null>(null);
   const { tenantId: hookTenantId } = useTenantId();
   const resolvedTenantId = propTenantId || hookTenantId;
+
+  // Kanban column state
+  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumnOption[]>([]);
+  const [currentColumnId, setCurrentColumnId] = useState<string | null>(null);
+  const [selectedNewColumn, setSelectedNewColumn] = useState<string | null>(null);
+  const [showColumnConfirm, setShowColumnConfirm] = useState(false);
+  const [kanbanCardId, setKanbanCardId] = useState<string | null>(null);
 
   // Load contact ID if exists
   useEffect(() => {
@@ -73,13 +99,72 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
     loadContactId();
   }, [conversation.contactNumber, resolvedTenantId]);
 
+  // Load kanban columns and current column for this contact
+  useEffect(() => {
+    const loadKanbanData = async () => {
+      if (!currentAgentId) return;
+
+      const [colsRes, cardRes] = await Promise.all([
+        supabase
+          .from("whatsapp_kanban_columns")
+          .select("id, name, color")
+          .eq("agent_id", currentAgentId)
+          .order("column_order"),
+        supabase
+          .from("whatsapp_conversation_kanban")
+          .select("id, column_id")
+          .eq("agent_id", currentAgentId)
+          .eq("phone", conversation.contactNumber)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      setKanbanColumns(colsRes.data || []);
+      setCurrentColumnId(cardRes.data?.column_id || null);
+      setKanbanCardId(cardRes.data?.id || null);
+    };
+    loadKanbanData();
+  }, [currentAgentId, conversation.contactNumber]);
+
+  const handleColumnChange = (newColumnId: string) => {
+    if (newColumnId === currentColumnId) return;
+    setSelectedNewColumn(newColumnId);
+    setShowColumnConfirm(true);
+  };
+
+  const confirmColumnChange = async () => {
+    if (!selectedNewColumn || !kanbanCardId) {
+      setShowColumnConfirm(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("whatsapp_conversation_kanban")
+        .update({ column_id: selectedNewColumn })
+        .eq("id", kanbanCardId);
+
+      if (error) throw error;
+      setCurrentColumnId(selectedNewColumn);
+      toast.success("Coluna atualizada!");
+    } catch (error) {
+      console.error("Erro ao mudar coluna:", error);
+      toast.error("Erro ao mudar coluna");
+    } finally {
+      setShowColumnConfirm(false);
+      setSelectedNewColumn(null);
+    }
+  };
+
   const toggleSection = (id: string) => {
     setOpenSections((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
   };
 
-  const accordionItems: AccordionItem[] = [
+  const selectedColumnName = kanbanColumns.find(c => c.id === selectedNewColumn)?.name || "";
+
+  const accordionItems = [
     {
       id: "actions",
       title: "Ações da Conversa",
@@ -110,6 +195,44 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       ),
     },
     {
+      id: "kanban",
+      title: "Kanban CRM",
+      icon: Columns3,
+      content: (
+        <div className="py-2 space-y-2">
+          {kanbanCardId ? (
+            <Select value={currentColumnId || ""} onValueChange={handleColumnChange}>
+              <SelectTrigger className="w-full text-xs h-8">
+                <SelectValue placeholder="Selecione a coluna" />
+              </SelectTrigger>
+              <SelectContent>
+                {kanbanColumns.map((col) => (
+                  <SelectItem key={col.id} value={col.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                      {col.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-xs text-muted-foreground">Lead não está no Kanban deste agente.</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "notes",
+      title: "Notas",
+      icon: StickyNote,
+      content: (
+        <div className="py-2">
+          <ContactNotesPanel contactPhone={conversation.contactNumber} compact />
+        </div>
+      ),
+    },
+    {
       id: "typebot",
       title: "Typebot Bot",
       icon: Bot,
@@ -126,18 +249,6 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       content: (
         <div className="py-2 text-sm text-muted-foreground">
           Nenhuma mensagem agendada
-        </div>
-      ),
-    },
-    {
-      id: "kanban",
-      title: "Kanban CRM",
-      icon: Columns3,
-      content: (
-        <div className="py-2">
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-            Novo Lead
-          </Badge>
         </div>
       ),
     },
@@ -202,7 +313,6 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
               {conversation.contactName.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          {/* Save Contact Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -226,7 +336,6 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
         </p>
       </div>
 
-      {/* Save Contact Dialog */}
       <SaveContactDialog
         open={showSaveDialog}
         onOpenChange={setShowSaveDialog}
@@ -234,6 +343,22 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
         initialName={conversation.contactName}
         onContactSaved={onContactSaved}
       />
+
+      {/* Column change confirmation */}
+      <AlertDialog open={showColumnConfirm} onOpenChange={setShowColumnConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mover para "{selectedColumnName}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O lead será movido para a coluna "{selectedColumnName}" no Kanban.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmColumnChange}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AI Control Section */}
       <AIControlSection 
