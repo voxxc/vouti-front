@@ -28,6 +28,7 @@ import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { DocumentosDrawer } from "@/components/Documentos/DocumentosDrawer";
 import { WhatsAppDrawer } from "@/components/WhatsApp/WhatsAppDrawer";
 import { ExtrasDrawer } from "@/components/Extras/ExtrasDrawer";
+import { PublicacoesDrawer } from "@/components/Publicacoes/PublicacoesDrawer";
 
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
@@ -362,6 +363,10 @@ const DashboardLayout = ({
       />
       <ExtrasDrawer 
         open={activeDrawer === 'extras'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+      />
+      <PublicacoesDrawer 
+        open={activeDrawer === 'publicacoes'} 
         onOpenChange={(open) => !open && setActiveDrawer(null)} 
       />
     </>

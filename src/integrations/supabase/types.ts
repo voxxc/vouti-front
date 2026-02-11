@@ -5172,6 +5172,149 @@ export type Database = {
           },
         ]
       }
+      publicacoes: {
+        Row: {
+          comarca: string | null
+          conteudo_completo: string | null
+          created_at: string
+          data_disponibilizacao: string | null
+          data_publicacao: string | null
+          diario_nome: string | null
+          diario_sigla: string | null
+          id: string
+          link_acesso: string | null
+          monitoramento_id: string | null
+          nome_pesquisado: string | null
+          numero_processo: string | null
+          orgao: string | null
+          partes: string | null
+          responsavel: string | null
+          status: string
+          tenant_id: string | null
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          comarca?: string | null
+          conteudo_completo?: string | null
+          created_at?: string
+          data_disponibilizacao?: string | null
+          data_publicacao?: string | null
+          diario_nome?: string | null
+          diario_sigla?: string | null
+          id?: string
+          link_acesso?: string | null
+          monitoramento_id?: string | null
+          nome_pesquisado?: string | null
+          numero_processo?: string | null
+          orgao?: string | null
+          partes?: string | null
+          responsavel?: string | null
+          status?: string
+          tenant_id?: string | null
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comarca?: string | null
+          conteudo_completo?: string | null
+          created_at?: string
+          data_disponibilizacao?: string | null
+          data_publicacao?: string | null
+          diario_nome?: string | null
+          diario_sigla?: string | null
+          id?: string
+          link_acesso?: string | null
+          monitoramento_id?: string | null
+          nome_pesquisado?: string | null
+          numero_processo?: string | null
+          orgao?: string | null
+          partes?: string | null
+          responsavel?: string | null
+          status?: string
+          tenant_id?: string | null
+          tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publicacoes_monitoramento_id_fkey"
+            columns: ["monitoramento_id"]
+            isOneToOne: false
+            referencedRelation: "publicacoes_monitoramentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publicacoes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      publicacoes_monitoramentos: {
+        Row: {
+          abrangencia: string
+          cpf: string | null
+          created_at: string
+          data_inicio_monitoramento: string
+          estados_selecionados: Json | null
+          id: string
+          nome: string
+          oab_numero: string | null
+          oab_uf: string | null
+          quem_recebe_user_id: string | null
+          status: string
+          tenant_id: string | null
+          tipo: string
+          tribunais_monitorados: Json | null
+          updated_at: string
+        }
+        Insert: {
+          abrangencia?: string
+          cpf?: string | null
+          created_at?: string
+          data_inicio_monitoramento?: string
+          estados_selecionados?: Json | null
+          id?: string
+          nome: string
+          oab_numero?: string | null
+          oab_uf?: string | null
+          quem_recebe_user_id?: string | null
+          status?: string
+          tenant_id?: string | null
+          tipo?: string
+          tribunais_monitorados?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          abrangencia?: string
+          cpf?: string | null
+          created_at?: string
+          data_inicio_monitoramento?: string
+          estados_selecionados?: Json | null
+          id?: string
+          nome?: string
+          oab_numero?: string | null
+          oab_uf?: string | null
+          quem_recebe_user_id?: string | null
+          status?: string
+          tenant_id?: string | null
+          tipo?: string
+          tribunais_monitorados?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publicacoes_monitoramentos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_docs_cadastrados: {
         Row: {
           created_at: string | null

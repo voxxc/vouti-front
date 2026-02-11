@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.whatsapp-ai-debounce]
 verify_jwt = false
+
+[functions.buscar-publicacoes-pje]
+verify_jwt = false
