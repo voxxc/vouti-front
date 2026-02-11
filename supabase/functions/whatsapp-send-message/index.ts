@@ -16,7 +16,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { phone, message, messageType = 'text', mediaUrl, mode, agentName } = await req.json();
+    const { phone, message, messageType = 'text', mediaUrl, mode, agentName, agentId } = await req.json();
 
     // Prefixar com nome do atendente (se presente)
     const finalMessage = agentName ? `*${agentName}*: ${message}` : message;
@@ -124,6 +124,7 @@ serve(async (req) => {
       timestamp: new Date().toISOString(),
       is_read: true,
       user_id: instance?.user_id || null,
+      agent_id: agentId || null,
     };
 
     if (mode !== 'superadmin' && tenantId) {
