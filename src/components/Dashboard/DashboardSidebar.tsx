@@ -134,7 +134,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
     { id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
-    { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.Bot', route: '/bot' },
+    { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.CRM', route: '/bot' },
     { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
 

@@ -174,7 +174,7 @@ export const WhatsAppSidebar = ({
           </Button>
           <div className="flex items-center gap-2">
             <CloudIcon className="w-8 h-8" />
-            <span className="font-semibold text-foreground">Vouti.Bot</span>
+            <span className="font-semibold text-foreground">Vouti.CRM</span>
           </div>
         </div>
       </div>

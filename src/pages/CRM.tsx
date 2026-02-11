@@ -48,7 +48,7 @@ const CRM = () => {
   const valorTotalContratos = clientes.reduce((acc, c) => acc + (c.valor_contrato || 0), 0);
 
   const handleOpenWhatsApp = () => {
-    window.open(tenantPath('/bot'), '_blank');
+    window.open(tenantPath('/bot'), '_blank');  // Route kept for WhatsApp page
   };
 
   return (

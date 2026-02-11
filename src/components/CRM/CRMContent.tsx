@@ -66,7 +66,7 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
   const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
 
   const handleOpenWhatsApp = () => {
-    window.open(tenantPath('/bot'), '_blank');
+    window.open(tenantPath('/bot'), '_blank');  // Route kept for WhatsApp page
   };
 
   const landingPages = [

@@ -136,7 +136,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         side="inset"
         className="p-0 flex flex-col"
       >
-        <SheetTitle className="sr-only">Vouti.Bot</SheetTitle>
+        <SheetTitle className="sr-only">Vouti.CRM</SheetTitle>
         
         <div className="flex h-full">
           <WhatsAppSidebar 

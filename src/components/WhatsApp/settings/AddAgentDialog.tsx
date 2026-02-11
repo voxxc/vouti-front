@@ -120,7 +120,7 @@ export const AddAgentDialog = ({ open, onOpenChange, onAgentAdded }: AddAgentDia
         <DialogHeader>
           <DialogTitle>Adicionar Agente</DialogTitle>
           <DialogDescription>
-            Crie um novo agente com acesso ao Vouti.Bot
+            Crie um novo agente com acesso ao Vouti.CRM
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

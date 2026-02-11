@@ -26,12 +26,17 @@ import { cn } from "@/lib/utils";
 import { AIControlSection } from "./AIControlSection";
 import { SaveContactDialog } from "./SaveContactDialog";
 import { AddLabelDropdown } from "./AddLabelDropdown";
+import { TransferConversationDialog } from "./TransferConversationDialog";
 import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ContactInfoPanelProps {
   conversation: WhatsAppConversation;
   onContactSaved?: () => void;
+  currentAgentId?: string | null;
+  currentAgentName?: string | null;
+  tenantId?: string | null;
+  onTransferComplete?: () => void;
 }
 
 interface AccordionItem {
@@ -41,11 +46,12 @@ interface AccordionItem {
   content: React.ReactNode;
 }
 
-export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPanelProps) => {
+export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, onTransferComplete }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
-  const { tenantId } = useTenantId();
+  const { tenantId: hookTenantId } = useTenantId();
+  const resolvedTenantId = propTenantId || hookTenantId;
 
   // Load contact ID if exists
   useEffect(() => {
@@ -55,8 +61,8 @@ export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPa
         .select("id")
         .eq("phone", conversation.contactNumber);
 
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
+      if (resolvedTenantId) {
+        query = query.eq("tenant_id", resolvedTenantId);
       } else {
         query = query.is("tenant_id", null);
       }
@@ -65,7 +71,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPa
       setContactId(data?.id || null);
     };
     loadContactId();
-  }, [conversation.contactNumber, tenantId]);
+  }, [conversation.contactNumber, resolvedTenantId]);
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) =>
@@ -93,6 +99,13 @@ export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPa
             <Calendar className="h-4 w-4 mr-2" />
             Agendar follow-up
           </Button>
+          <TransferConversationDialog
+            conversation={conversation}
+            currentAgentId={currentAgentId}
+            currentAgentName={currentAgentName}
+            tenantId={resolvedTenantId}
+            onTransferComplete={onTransferComplete}
+          />
         </div>
       ),
     },
@@ -225,7 +238,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved }: ContactInfoPa
       {/* AI Control Section */}
       <AIControlSection 
         phoneNumber={conversation.contactNumber} 
-        tenantId={tenantId}
+        tenantId={resolvedTenantId}
       />
 
       {/* Accordion Sections */}
