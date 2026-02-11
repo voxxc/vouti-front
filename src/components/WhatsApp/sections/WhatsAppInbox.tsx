@@ -331,7 +331,8 @@ export const WhatsAppInbox = () => {
           phone: selectedConversation.contactNumber,
           message: text,
           messageType: "text",
-          agentName: myAgentName || undefined
+          agentName: myAgentName || undefined,
+          agentId: myAgentId || undefined
         }
       });
 

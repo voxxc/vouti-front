@@ -235,7 +235,8 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
           phone: selectedConversation.contactNumber,
           message: text,
           messageType: "text",
-          agentName: agentName || undefined
+          agentName: agentName || undefined,
+          agentId: agentId || undefined
         }
       });
       setChatMessages(prev => [...prev, {
