@@ -6,9 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Columns3, Loader2, User, Phone } from "lucide-react";
+import { Columns3, Loader2, User, Phone, Clock, MessageSquare, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ChatPanel } from "../components/ChatPanel";
+import { ContactInfoPanel } from "../components/ContactInfoPanel";
+import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 
 interface WhatsAppKanbanProps {
   agentId: string;
@@ -29,7 +34,49 @@ interface KanbanCard {
   card_order: number;
   contactName?: string;
   lastMessage?: string;
+  lastMessageTime?: string;
+  agentName?: string;
 }
+
+// Calcula tempo relativo compacto
+const getRelativeTime = (dateString?: string): string => {
+  if (!dateString) return "";
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffDay > 0) {
+    const remainHr = diffHr % 24;
+    return `${diffDay}D${remainHr}HR`;
+  }
+  if (diffHr > 0) {
+    const remainMin = diffMin % 60;
+    return `${diffHr}HR${remainMin}MIN`;
+  }
+  return `${diffMin}MIN`;
+};
+
+// Normaliza telefone
+const normalizePhone = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    return `55${ddd}9${number}`;
+  }
+  return cleaned;
+};
+
+const getPhoneVariant = (phone: string): string | null => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 13 && cleaned.startsWith('55')) {
+    return cleaned.substring(0, 4) + cleaned.substring(5);
+  }
+  return null;
+};
 
 export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
   const { tenantId } = useTenantId();
@@ -37,21 +84,10 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // Check if super admin
-  useEffect(() => {
-    const checkSuperAdmin = async () => {
-      if (!user?.id) return;
-      const { data } = await supabase
-        .from("super_admins")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setIsSuperAdmin(!!data);
-    };
-    checkSuperAdmin();
-  }, [user?.id]);
+  // Chat inline state
+  const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
+  const [chatMessages, setChatMessages] = useState<WhatsAppMessage[]>([]);
 
   // Load kanban data
   const loadKanbanData = useCallback(async () => {
@@ -59,65 +95,69 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
 
     setIsLoading(true);
     try {
-      // Load columns for this agent
-      let columnsQuery = supabase
-        .from("whatsapp_kanban_columns")
-        .select("*")
-        .eq("agent_id", agentId)
-        .order("column_order");
+      const [columnsRes, cardsRes, messagesRes, contactsRes] = await Promise.all([
+        supabase
+          .from("whatsapp_kanban_columns")
+          .select("*")
+          .eq("agent_id", agentId)
+          .order("column_order"),
+        supabase
+          .from("whatsapp_conversation_kanban")
+          .select("*")
+          .eq("agent_id", agentId),
+        supabase
+          .from("whatsapp_messages")
+          .select("from_number, message_text, created_at")
+          .eq("agent_id", agentId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("whatsapp_contacts")
+          .select("phone, name")
+      ]);
 
-      const { data: columnsData, error: columnsError } = await columnsQuery;
-      if (columnsError) throw columnsError;
+      if (columnsRes.error) throw columnsRes.error;
 
-      // If no columns exist, they will be created by the trigger
-      if (!columnsData || columnsData.length === 0) {
-        // Wait a bit and retry - trigger should have created them
+      let columnsData = columnsRes.data || [];
+      if (columnsData.length === 0) {
         await new Promise(resolve => setTimeout(resolve, 500));
         const { data: retryData } = await supabase
           .from("whatsapp_kanban_columns")
           .select("*")
           .eq("agent_id", agentId)
           .order("column_order");
-        setColumns(retryData || []);
-      } else {
-        setColumns(columnsData);
+        columnsData = retryData || [];
       }
+      setColumns(columnsData);
 
-      // Load conversation positions
-      let cardsQuery = supabase
-        .from("whatsapp_conversation_kanban")
-        .select("*")
-        .eq("agent_id", agentId);
+      // Build contact name map
+      const contactNameMap = new Map<string, string>();
+      contactsRes.data?.forEach(c => {
+        contactNameMap.set(normalizePhone(c.phone), c.name);
+        contactNameMap.set(c.phone, c.name);
+      });
 
-      const { data: cardsData, error: cardsError } = await cardsQuery;
-      if (cardsError) throw cardsError;
-
-      // Also load conversations from messages to get contact info
-      let messagesQuery = supabase
-        .from("whatsapp_messages")
-        .select("from_number, message_text")
-        .eq("agent_id", agentId)
-        .order("created_at", { ascending: false });
-
-      const { data: messagesData } = await messagesQuery;
-
-      // Build contact info map
-      const contactMap = new Map<string, { name: string; lastMessage: string }>();
-      messagesData?.forEach((msg: any) => {
-        if (!contactMap.has(msg.from_number)) {
-          contactMap.set(msg.from_number, {
-            name: msg.from_number,
-            lastMessage: msg.message_text || "",
+      // Build last message map
+      const messageMap = new Map<string, { text: string; time: string }>();
+      messagesRes.data?.forEach((msg: any) => {
+        const normalized = normalizePhone(msg.from_number);
+        if (!messageMap.has(normalized)) {
+          messageMap.set(normalized, {
+            text: msg.message_text || "",
+            time: msg.created_at,
           });
         }
       });
 
-      // Merge card data with contact info
-      const enrichedCards = (cardsData || []).map((card: any) => ({
-        ...card,
-        contactName: contactMap.get(card.phone)?.name || card.phone,
-        lastMessage: contactMap.get(card.phone)?.lastMessage || "",
-      }));
+      const enrichedCards: KanbanCard[] = (cardsRes.data || []).map((card: any) => {
+        const normalized = normalizePhone(card.phone);
+        return {
+          ...card,
+          contactName: contactNameMap.get(normalized) || contactNameMap.get(card.phone) || card.phone,
+          lastMessage: messageMap.get(normalized)?.text || "",
+          lastMessageTime: messageMap.get(normalized)?.time || "",
+          agentName,
+        };
+      });
 
       setCards(enrichedCards);
     } catch (error) {
@@ -126,34 +166,104 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, agentName]);
 
   useEffect(() => {
     loadKanbanData();
   }, [loadKanbanData]);
 
-  // Handle drag end
+  // Load messages for chat panel
+  const loadChatMessages = useCallback(async (contactNumber: string) => {
+    if (!tenantId) return;
+    const normalized = normalizePhone(contactNumber);
+    const variant = getPhoneVariant(normalized);
+
+    let query = supabase
+      .from("whatsapp_messages")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("agent_id", agentId);
+
+    if (variant) {
+      query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
+    } else {
+      query = query.eq("from_number", normalized);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: true });
+    if (error) {
+      console.error("Erro ao carregar mensagens:", error);
+      return;
+    }
+
+    setChatMessages((data || []).map((msg) => ({
+      id: msg.id,
+      messageText: msg.message_text || "",
+      direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
+      timestamp: msg.created_at,
+      isFromMe: msg.direction === "outgoing",
+    })));
+  }, [tenantId, agentId]);
+
+  // Poll messages for open chat
+  useEffect(() => {
+    if (!selectedConversation) return;
+    loadChatMessages(selectedConversation.contactNumber);
+    const interval = setInterval(() => {
+      loadChatMessages(selectedConversation.contactNumber);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [selectedConversation, loadChatMessages]);
+
+  // Handle card click -> open chat
+  const handleCardClick = (card: KanbanCard) => {
+    setSelectedConversation({
+      id: card.id,
+      contactName: card.contactName || card.phone,
+      contactNumber: card.phone,
+      lastMessage: card.lastMessage || "",
+      lastMessageTime: card.lastMessageTime || "",
+      unreadCount: 0,
+    });
+  };
+
+  const handleSendMessage = async (text: string) => {
+    if (!selectedConversation || !tenantId) return;
+    try {
+      await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
+          phone: selectedConversation.contactNumber,
+          message: text,
+          messageType: "text"
+        }
+      });
+      setChatMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        messageText: text,
+        direction: "outgoing" as const,
+        timestamp: new Date().toISOString(),
+        isFromMe: true,
+      }]);
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+    }
+  };
+
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
+    const { draggableId, destination } = result;
 
-    const { draggableId, source, destination } = result;
+    setCards(prev => prev.map(card => {
+      if (card.phone === draggableId) {
+        return {
+          ...card,
+          column_id: destination.droppableId === "no-column" ? null : destination.droppableId,
+          card_order: destination.index,
+        };
+      }
+      return card;
+    }));
 
-    // Optimistic update
-    setCards(prev => {
-      const updated = prev.map(card => {
-        if (card.phone === draggableId) {
-          return {
-            ...card,
-            column_id: destination.droppableId === "no-column" ? null : destination.droppableId,
-            card_order: destination.index,
-          };
-        }
-        return card;
-      });
-      return updated;
-    });
-
-    // Persist to database
     try {
       const { error } = await supabase
         .from("whatsapp_conversation_kanban")
@@ -163,20 +273,17 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
           phone: draggableId,
           column_id: destination.droppableId === "no-column" ? null : destination.droppableId,
           card_order: destination.index,
-        }, { 
+        }, {
           onConflict: tenantId ? 'tenant_id,agent_id,phone' : 'agent_id,phone'
         });
-
       if (error) throw error;
     } catch (error) {
       console.error("Erro ao atualizar posição:", error);
       toast.error("Erro ao mover card");
-      // Reload on error
       loadKanbanData();
     }
   };
 
-  // Get cards for a specific column
   const getCardsInColumn = (columnId: string | null) => {
     return cards
       .filter(card => card.column_id === columnId)
@@ -192,99 +299,153 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
   }
 
   return (
-    <div className="h-full flex flex-col p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Columns3 className="h-5 w-5" />
-            Kanban CRM
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Pipeline do agente: <span className="font-medium text-foreground">{agentName}</span>
-          </p>
-        </div>
-      </div>
-
-      {/* Board */}
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex-1 overflow-x-auto">
-          <div className="flex gap-4 pb-4 min-h-full">
-            {columns.map((column) => (
-              <Droppable key={column.id} droppableId={column.id}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={cn(
-                      "w-72 min-w-72 bg-muted/50 rounded-lg p-4 flex flex-col max-h-[calc(100vh-200px)]",
-                      snapshot.isDraggingOver && "bg-primary/5 ring-2 ring-primary/20"
-                    )}
-                  >
-                    {/* Column Header */}
-                    <div className="flex items-center gap-2 mb-4 shrink-0">
-                      <div
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: column.color }}
-                      />
-                      <h3 className="font-semibold text-sm truncate">{column.name}</h3>
-                      <Badge variant="secondary" className="ml-auto shrink-0">
-                        {getCardsInColumn(column.id).length}
-                      </Badge>
-                    </div>
-
-                    {/* Cards */}
-                    <ScrollArea className="flex-1">
-                      <div className="space-y-2 pr-2">
-                        {getCardsInColumn(column.id).map((card, index) => (
-                          <Draggable key={card.phone} draggableId={card.phone} index={index}>
-                            {(provided, snapshot) => (
-                              <Card
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={cn(
-                                  "p-3 cursor-grab active:cursor-grabbing",
-                                  snapshot.isDragging && "shadow-lg ring-2 ring-primary/30"
-                                )}
-                              >
-                                <div className="flex items-start gap-2">
-                                  <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">
-                                      {card.contactName}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                                      <Phone className="h-3 w-3" />
-                                      {card.phone}
-                                    </p>
-                                    {card.lastMessage && (
-                                      <p className="text-xs text-muted-foreground truncate mt-1">
-                                        {card.lastMessage}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </Card>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
-              </Droppable>
-            ))}
+    <div className="h-full flex">
+      {/* Kanban Board */}
+      <div className={cn("flex flex-col flex-1 p-6 overflow-hidden", selectedConversation && "max-w-[55%]")}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 shrink-0">
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Columns3 className="h-5 w-5" />
+              Kanban CRM
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Pipeline: <span className="font-medium text-foreground">{agentName}</span>
+            </p>
           </div>
         </div>
-      </DragDropContext>
 
-      {columns.length === 0 && (
-        <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
-          <Columns3 className="h-12 w-12 mb-4 opacity-50" />
-          <p>Nenhuma coluna encontrada para este agente.</p>
-          <p className="text-sm">As colunas padrão serão criadas automaticamente.</p>
+        {/* Board */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex-1 overflow-x-auto">
+            <div className="flex gap-3 pb-4 min-h-full">
+              {columns.map((column) => (
+                <Droppable key={column.id} droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={cn(
+                        "w-64 min-w-64 bg-muted/50 rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)]",
+                        snapshot.isDraggingOver && "bg-primary/5 ring-2 ring-primary/20"
+                      )}
+                    >
+                      {/* Column Header */}
+                      <div className="flex items-center gap-2 mb-3 shrink-0">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: column.color }}
+                        />
+                        <h3 className="font-semibold text-xs truncate uppercase tracking-wide">{column.name}</h3>
+                        <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] h-5">
+                          {getCardsInColumn(column.id).length}
+                        </Badge>
+                      </div>
+
+                      {/* Cards */}
+                      <ScrollArea className="flex-1">
+                        <div className="space-y-2 pr-1">
+                          {getCardsInColumn(column.id).map((card, index) => (
+                            <Draggable key={card.phone} draggableId={card.phone} index={index}>
+                              {(provided, snapshot) => (
+                                <Card
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={cn(
+                                    "p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow",
+                                    snapshot.isDragging && "shadow-lg ring-2 ring-primary/30",
+                                    selectedConversation?.contactNumber === card.phone && "ring-2 ring-primary"
+                                  )}
+                                  onClick={() => handleCardClick(card)}
+                                >
+                                  {/* Card Header - Title */}
+                                  <p className="font-semibold text-sm truncate mb-1">
+                                    {card.contactName || "Sem Título"}
+                                  </p>
+
+                                  {/* Agent + Status */}
+                                  <div className="flex items-center gap-1.5 mb-2">
+                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary">
+                                      {card.agentName}
+                                    </Badge>
+                                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                                      Aberto
+                                    </Badge>
+                                  </div>
+
+                                  {/* Last message */}
+                                  {card.lastMessage && (
+                                    <p className="text-xs text-muted-foreground truncate mb-2">
+                                      {card.lastMessage}
+                                    </p>
+                                  )}
+
+                                  {/* Footer: avatar + name + time */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      <Avatar className="h-5 w-5">
+                                        <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                                          {(card.contactName || card.phone).charAt(0).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="text-xs font-medium truncate max-w-[80px]">
+                                        {card.contactName || card.phone}
+                                      </span>
+                                    </div>
+                                    {card.lastMessageTime && (
+                                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                        <Clock className="h-2.5 w-2.5" />
+                                        {getRelativeTime(card.lastMessageTime)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </Card>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </Droppable>
+              ))}
+            </div>
+          </div>
+        </DragDropContext>
+
+        {columns.length === 0 && (
+          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
+            <Columns3 className="h-12 w-12 mb-4 opacity-50" />
+            <p>Nenhuma coluna encontrada para este agente.</p>
+            <p className="text-sm">As colunas padrão serão criadas automaticamente.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Chat Panel inline */}
+      {selectedConversation && (
+        <div className="flex border-l border-border">
+          <div className="relative flex-1 flex flex-col min-w-[400px]">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 z-10 h-7 w-7"
+              onClick={() => setSelectedConversation(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <ChatPanel
+              conversation={selectedConversation}
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+            />
+          </div>
+          <ContactInfoPanel
+            conversation={selectedConversation}
+            onContactSaved={() => loadKanbanData()}
+          />
         </div>
       )}
     </div>
