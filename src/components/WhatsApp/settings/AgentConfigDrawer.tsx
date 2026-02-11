@@ -402,9 +402,9 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
 
           <Separator />
 
-          {/* Credenciais Z-API */}
+          {/* Credenciais Vouti.API */}
           <div className="space-y-4">
-            <h3 className="font-medium text-sm">Credenciais Z-API</h3>
+            <h3 className="font-medium text-sm">Credenciais Vouti.API</h3>
             
             {/* Campo para colar URL completa */}
             <div className="space-y-2">
@@ -428,7 +428,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                 className="font-mono text-xs"
               />
               <p className="text-xs text-muted-foreground">
-                Cole a URL completa do painel Z-API para preencher automaticamente
+                Cole a URL completa do painel Vouti.API para preencher automaticamente
               </p>
             </div>
 
@@ -475,7 +475,7 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
                 placeholder="Só preencha se ativou Security Token"
               />
               <p className="text-xs text-muted-foreground">
-                Somente se você ativou o Security Token em: Painel Z-API → Security
+                Somente se você ativou o Security Token em: Painel Vouti.API → Security
               </p>
             </div>
 

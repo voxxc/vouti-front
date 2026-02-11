@@ -65,7 +65,7 @@ const WhatsAppBot: React.FC = () => {
   );
   const [isSavingLeadSource, setIsSavingLeadSource] = useState(false);
   
-  // Configurações Z-API
+  // Configurações Vouti.API
   const [zapiConfig, setZapiConfig] = useState({
     url: '',
     instanceId: '',
@@ -120,7 +120,7 @@ const WhatsAppBot: React.FC = () => {
       if (statusData?.success) {
         toast({
           title: "Verificando instância",
-          description: "Conectando com Z-API...",
+          description: "Conectando com Vouti.API...",
         });
 
         // Obter QR Code
@@ -193,7 +193,7 @@ const WhatsAppBot: React.FC = () => {
       console.error('Erro ao conectar:', error);
       toast({
         title: "Erro na conexão",
-        description: "Falha ao conectar com Z-API. Verifique suas credenciais.",
+        description: "Falha ao conectar com Vouti.API. Verifique suas credenciais.",
         variant: "destructive",
       });
       setConnectionStatus('disconnected');
@@ -547,7 +547,7 @@ const WhatsAppBot: React.FC = () => {
       console.error('Erro ao salvar configuração:', error);
       toast({
         title: "Erro",
-        description: "Falha ao salvar configuração Z-API",
+        description: "Falha ao salvar configuração Vouti.API",
         variant: "destructive",
       });
     } finally {
@@ -703,7 +703,7 @@ const WhatsAppBot: React.FC = () => {
                   });
                   toast({
                     title: "Instância reiniciada",
-                    description: "A instância Z-API foi reiniciada",
+                    description: "A instância Vouti.API foi reiniciada",
                   });
                 } catch (error) {
                   console.error('Erro ao reiniciar:', error);
@@ -720,7 +720,7 @@ const WhatsAppBot: React.FC = () => {
           ) : (
             <Button variant="default" size="sm" className="gap-2" onClick={handleConnect} disabled={isConnecting}>
               <QrCode size={16} />
-              {isConnecting ? 'Conectando...' : 'Conectar Z-API'}
+              {isConnecting ? 'Conectando...' : 'Conectar Vouti.API'}
             </Button>
           )}
         </div>
@@ -792,15 +792,15 @@ const WhatsAppBot: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Configuração Z-API
+                Configuração Vouti.API
               </CardTitle>
               <CardDescription>
-                Configure suas credenciais Z-API para conectar o WhatsApp Business
+                Configure suas credenciais Vouti.API para conectar o WhatsApp Business
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="zapi-url">URL da Z-API</Label>
+                <Label htmlFor="zapi-url">URL da Vouti.API</Label>
                 <Input
                   id="zapi-url"
                   placeholder="https://api.z-api.io"
@@ -808,7 +808,7 @@ const WhatsAppBot: React.FC = () => {
                   onChange={(e) => setZapiConfig(prev => ({ ...prev, url: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  URL base da sua instância Z-API
+                  URL base da sua instância Vouti.API
                 </p>
               </div>
 
@@ -821,7 +821,7 @@ const WhatsAppBot: React.FC = () => {
                   onChange={(e) => setZapiConfig(prev => ({ ...prev, instanceId: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  ID da sua instância WhatsApp no Z-API
+                  ID da sua instância WhatsApp no Vouti.API
                 </p>
               </div>
 
@@ -835,16 +835,16 @@ const WhatsAppBot: React.FC = () => {
                   onChange={(e) => setZapiConfig(prev => ({ ...prev, token: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Token de autenticação da sua instância Z-API
+                  Token de autenticação da sua instância Vouti.API
                 </p>
               </div>
 
               <Alert>
                 <QrCode className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Como obter suas credenciais Z-API:</strong>
+                  <strong>Como obter suas credenciais Vouti.API:</strong>
                   <br />
-                  1. Acesse o painel Z-API em <a href="https://developer.z-api.io" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">developer.z-api.io</a>
+                  1. Acesse o painel Vouti.API em <a href="https://developer.z-api.io" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">developer.z-api.io</a>
                   <br />
                   2. Crie uma nova instância ou acesse uma existente
                   <br />

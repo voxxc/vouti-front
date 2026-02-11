@@ -85,7 +85,7 @@ const edgeFunctions = [
   },
   {
     name: "save-zapi-config",
-    description: "Salva configuração Z-API",
+    description: "Salva configuração Vouti.API",
     secrets: []
   },
   {
@@ -105,7 +105,7 @@ const edgeFunctions = [
   },
   {
     name: "whatsapp-connect",
-    description: "Conecta com WhatsApp via Z-API",
+    description: "Conecta com WhatsApp via Vouti.API",
     secrets: ["Z_API_URL", "Z_API_INSTANCE_ID", "Z_API_TOKEN"]
   },
   {
