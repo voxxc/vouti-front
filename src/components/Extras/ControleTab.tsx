@@ -25,7 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, CalendarIcon, Trash2 } from "lucide-react";
+import { Search, Plus, CalendarIcon, Trash2, ArrowUpDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -174,6 +175,7 @@ export function ControleTab() {
   const [data, setData] = useState<ControleCliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("oldest");
   const [confirmRowId, setConfirmRowId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<"single" | "bulk" | null>(null);
@@ -195,15 +197,39 @@ export function ControleTab() {
   }, [tenantId]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return data;
-    const q = search.toLowerCase();
-    return data.filter(
-      (r) =>
-        r.cliente?.toLowerCase().includes(q) ||
-        r.placa?.toLowerCase().includes(q) ||
-        r.cpf_cnpj?.toLowerCase().includes(q)
-    );
-  }, [data, search]);
+    let result = data;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.cliente?.toLowerCase().includes(q) ||
+          r.placa?.toLowerCase().includes(q) ||
+          r.cpf_cnpj?.toLowerCase().includes(q)
+      );
+    }
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "oldest": {
+          if (!a.ultima_consulta && !b.ultima_consulta) return 0;
+          if (!a.ultima_consulta) return -1;
+          if (!b.ultima_consulta) return 1;
+          return new Date(a.ultima_consulta).getTime() - new Date(b.ultima_consulta).getTime();
+        }
+        case "newest": {
+          if (!a.ultima_consulta && !b.ultima_consulta) return 0;
+          if (!a.ultima_consulta) return 1;
+          if (!b.ultima_consulta) return -1;
+          return new Date(b.ultima_consulta).getTime() - new Date(a.ultima_consulta).getTime();
+        }
+        case "az":
+          return (a.cliente || "").localeCompare(b.cliente || "", "pt-BR");
+        case "za":
+          return (b.cliente || "").localeCompare(a.cliente || "", "pt-BR");
+        default:
+          return 0;
+      }
+    });
+  }, [data, search, sortBy]);
 
   const updateField = async (id: string, field: string, val: string | null) => {
     const { error } = await supabase
@@ -310,6 +336,18 @@ export function ControleTab() {
             className="pl-9"
           />
         </div>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[200px]">
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="oldest">Mais antigos primeiro</SelectItem>
+            <SelectItem value="newest">Mais recentes primeiro</SelectItem>
+            <SelectItem value="az">Cliente A-Z</SelectItem>
+            <SelectItem value="za">Cliente Z-A</SelectItem>
+          </SelectContent>
+        </Select>
         <Button size="icon" variant="outline" onClick={addNewRow} title="Novo registro">
           <Plus className="h-4 w-4" />
         </Button>
