@@ -1,43 +1,56 @@
 
 
-## Testar scraping real do comunica.pje.jus.br via Firecrawl
+## Substituir Firecrawl pela API Publica do DataJud (CNJ) para buscar publicacoes reais
 
-### Objetivo
+### Contexto
 
-Implementar e executar um teste diagnostico para verificar se o Firecrawl consegue extrair dados reais do portal PJE antes de inserir qualquer informacao.
+O Firecrawl nao consegue renderizar o site comunica.pje.jus.br (SPA Angular). A API de comunicacoes processuais do CNJ requer credenciais de tribunal. Porem, existe a **API Publica do DataJud**, que retorna metadados reais de processos judiciais via Elasticsearch, incluindo movimentacoes que contem intimacoes e publicacoes.
 
-### Passo 1 - Adicionar modo `scrape_test` na Edge Function
+### Como funciona a API DataJud
 
-**Arquivo**: `supabase/functions/buscar-publicacoes-pje/index.ts`
+- **Endpoint**: `https://api-publica.datajud.cnj.jus.br/api_publica_{tribunal}/_search`
+- **Autenticacao**: Header `Authorization: APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==` (chave publica oficial do CNJ)
+- **Metodo**: POST com body Elasticsearch
+- **Dados retornados**: numero CNJ, classe processual, assuntos, orgao julgador, movimentacoes (andamentos), data de ajuizamento, grau, tribunal
 
-Adicionar handler para `mode === 'scrape_test'`:
-- Recebe `url` no body
-- Chama Firecrawl com `waitFor: 15000` e `formats: ['markdown']`
-- Retorna o markdown bruto sem processar
-- Timeout curto, sem inserir nada no banco
+### O que muda
 
-### Passo 2 - Deploy e teste
+A Edge Function `buscar-publicacoes-pje` sera reescrita para:
 
-Deployar a funcao e chamar com a URL exata:
-```
-https://comunica.pje.jus.br/consulta?siglaTribunal=TJPR&dataDisponibilizacaoInicio=2025-03-01&dataDisponibilizacaoFim=2026-02-11&numeroOab=111056&ufOab=pr
-```
+1. **Buscar via API DataJud** em vez de Firecrawl
+2. Para cada monitoramento ativo, construir query Elasticsearch filtrando por movimentacoes recentes do tribunal
+3. Extrair dados reais: numero do processo, orgao julgador, tipo de movimentacao, conteudo do andamento, data
+4. Inserir na tabela `publicacoes` com dados verdadeiros
 
-### Passo 3 - Analisar resultado
+### Fluxo de consulta por monitoramento
 
-- **Se retornar conteudo real**: extrair dados do processo `0004010-95.2026.8.16.0021` e inserir com dados verdadeiros
-- **Se retornar pagina em branco**: informar que o Firecrawl nao consegue renderizar esse SPA e buscar alternativa
+Para cada `publicacoes_monitoramentos` ativo:
+1. Identificar os tribunais monitorados (ex: TJPR -> `tjpr`)
+2. Montar query Elasticsearch buscando processos por numero de OAB (se suportado) ou por numero CNJ
+3. Filtrar movimentacoes com data >= `data_inicio_monitoramento`
+4. Mapear movimentacoes para registros na tabela `publicacoes`
 
-### Passo 4 - Inserir dados reais (se scraping funcionar)
+### Teste imediato
 
-Usar modo `seed` para inserir o registro com conteudo **real** captado do site.
+Apos deploy, chamar a funcao com `mode: "api_test"` passando o numero do processo `0004010-95.2026.8.16.0021` no tribunal TJPR para verificar se a API retorna dados reais. Se retornar, inserir automaticamente no monitoramento do `/demorais`.
 
-### Arquivo alterado
+### Limitacao importante
+
+A API DataJud retorna **metadados de processos** (movimentacoes, partes, orgao julgador), nao exatamente o texto integral do Diario de Justica. Os dados sao reais mas o campo `conteudo_completo` tera as movimentacoes em vez do texto do diario oficial. Isso ainda e util para monitoramento de andamentos processuais.
+
+### Resumo tecnico das alteracoes
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/buscar-publicacoes-pje/index.ts` | Adicionar handler `scrape_test` (poucas linhas) |
+| `supabase/functions/buscar-publicacoes-pje/index.ts` | Reescrever para usar API DataJud em vez de Firecrawl. Adicionar modo `api_test` para diagnostico. Manter modos `seed` e `scrape_test` existentes. |
 
-### Compromisso
+### Passo a passo da implementacao
 
-Nenhum dado sera inventado. Se o scraping nao retornar conteudo real, informarei imediatamente.
+1. Adicionar constante da API key publica do DataJud
+2. Criar funcao `buscarViaDataJud(tribunal, numeroProcesso)` que faz POST ao endpoint Elasticsearch
+3. Criar funcao `buscarMovimentacoesPorOab(tribunal, oabNumero)` - tentar busca por OAB (pode nao ser suportada, nesse caso fallback para CNJ)
+4. Adicionar modo `api_test` que retorna o JSON bruto da API para diagnostico
+5. Substituir o fluxo principal (modo manual/cron) para usar DataJud em vez de Firecrawl
+6. Deployar e testar com o processo `0004010-95.2026.8.16.0021` no TJPR
+7. Se funcionar, inserir no monitoramento do `/demorais` com dados reais
+
