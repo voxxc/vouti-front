@@ -61,6 +61,8 @@ import NotFound from "@/pages/NotFound";
 import Documentos from "@/pages/Documentos";
 import DocumentoEditar from "@/pages/DocumentoEditar";
 import Logo from "@/components/Logo";
+import CrmLogin from "@/pages/CrmLogin";
+import CrmApp from "@/pages/CrmApp";
 import { 
   LegacyProjectRedirect, 
   LegacyProjectAcordosRedirect, 
@@ -293,6 +295,25 @@ const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.Re
 };
 
 function App() {
+  const isCrmDomain = window.location.hostname === 'crm.vouti.co';
+
+  if (isCrmDomain) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<CrmLogin />} />
+              <Route path="/app" element={<CrmApp />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <Toaster />
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
