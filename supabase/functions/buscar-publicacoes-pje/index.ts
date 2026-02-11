@@ -22,6 +22,45 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const mode = body.mode || 'manual';
 
+    // Scrape test mode: return raw markdown from Firecrawl
+    if (mode === 'scrape_test' && body.url) {
+      if (!FIRECRAWL_API_KEY) {
+        return new Response(JSON.stringify({ success: false, error: 'FIRECRAWL_API_KEY not configured' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log('Scrape test URL:', body.url);
+      const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: body.url,
+          formats: ['markdown'],
+          waitFor: 15000,
+          onlyMainContent: true,
+        }),
+      });
+
+      const scrapeData = await scrapeRes.json();
+      const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || '';
+      console.log('Scrape test result length:', markdown.length);
+      console.log('Scrape test first 500 chars:', markdown.substring(0, 500));
+
+      return new Response(JSON.stringify({
+        success: true,
+        markdown_length: markdown.length,
+        markdown: markdown,
+        raw_response_keys: Object.keys(scrapeData),
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Seed mode: insert a record directly
     if (mode === 'seed' && body.record) {
       const { data, error } = await supabaseAdmin
