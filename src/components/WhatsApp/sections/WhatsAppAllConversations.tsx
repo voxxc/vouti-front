@@ -20,10 +20,11 @@ export const WhatsAppAllConversations = () => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [myAgentName, setMyAgentName] = useState<string | null>(null);
 
-  // Check if user is super admin
+  // Check if user is super admin + fetch agent name
   useEffect(() => {
-    const checkSuperAdmin = async () => {
+    const init = async () => {
       if (!user?.id) return;
       const { data } = await supabase
         .from("super_admins")
@@ -31,9 +32,22 @@ export const WhatsAppAllConversations = () => {
         .eq("user_id", user.id)
         .maybeSingle();
       setIsSuperAdmin(!!data);
+
+      // Fetch agent name for current user
+      const email = user.email?.toLowerCase();
+      if (email && tenantId) {
+        const { data: agent } = await supabase
+          .from("whatsapp_agents")
+          .select("name")
+          .eq("email", email)
+          .eq("tenant_id", tenantId)
+          .eq("is_active", true)
+          .maybeSingle();
+        setMyAgentName(agent?.name || null);
+      }
     };
-    checkSuperAdmin();
-  }, [user?.id]);
+    init();
+  }, [user?.id, tenantId]);
 
   // Load all conversations with agent info
   const loadConversations = useCallback(async (showLoading = true) => {
@@ -190,7 +204,8 @@ export const WhatsAppAllConversations = () => {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
-          messageType: "text"
+          messageType: "text",
+          agentName: myAgentName || undefined
         }
       });
 
