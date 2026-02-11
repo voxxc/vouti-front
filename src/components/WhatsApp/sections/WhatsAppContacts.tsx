@@ -23,7 +23,9 @@ import {
   MessageSquare,
   MoreVertical,
   Trash2,
-  Edit
+  Edit,
+  UserPlus,
+  Send
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -50,7 +52,11 @@ interface WhatsAppLabel {
   color: string;
 }
 
-export const WhatsAppContacts = () => {
+interface WhatsAppContactsProps {
+  onStartConversation?: (phone: string, contactName: string) => void;
+}
+
+export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps = {}) => {
   const { tenantId } = useTenantId();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
@@ -61,6 +67,7 @@ export const WhatsAppContacts = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [editingContact, setEditingContact] = useState<WhatsAppContact | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showNewContactDialog, setShowNewContactDialog] = useState(false);
 
   // Buscar usuário diretamente do Supabase (compatível com/sem AuthProvider)
   useEffect(() => {
@@ -214,7 +221,13 @@ export const WhatsAppContacts = () => {
           <Users className="h-5 w-5" />
           Contatos
         </h2>
-        <Badge variant="secondary">{filteredContacts.length} contatos</Badge>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setShowNewContactDialog(true)}>
+            <UserPlus className="h-4 w-4 mr-1" />
+            Novo Contato
+          </Button>
+          <Badge variant="secondary">{filteredContacts.length} contatos</Badge>
+        </div>
       </div>
 
       {/* Filters */}
@@ -320,6 +333,12 @@ export const WhatsAppContacts = () => {
                         <Edit className="h-4 w-4 mr-2" />
                         Editar
                       </DropdownMenuItem>
+                      {onStartConversation && (
+                        <DropdownMenuItem onClick={() => onStartConversation(contact.phone, contact.name)}>
+                          <Send className="h-4 w-4 mr-2" />
+                          Enviar Mensagem
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDeleteContact(contact.id)}
                         className="text-destructive"
@@ -357,6 +376,18 @@ export const WhatsAppContacts = () => {
           initialName={editingContact.name}
         />
       )}
+
+      {/* New Contact Dialog */}
+      <SaveContactDialog
+        open={showNewContactDialog}
+        onOpenChange={setShowNewContactDialog}
+        phone=""
+        allowPhoneEdit
+        onContactSaved={() => {
+          loadContacts();
+          setShowNewContactDialog(false);
+        }}
+      />
     </div>
   );
 };

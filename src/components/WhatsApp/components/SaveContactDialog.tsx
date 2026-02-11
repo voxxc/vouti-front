@@ -22,6 +22,7 @@ interface SaveContactDialogProps {
   phone: string;
   initialName?: string;
   onContactSaved?: () => void;
+  allowPhoneEdit?: boolean;
 }
 
 export const SaveContactDialog = ({
@@ -30,9 +31,11 @@ export const SaveContactDialog = ({
   phone,
   initialName,
   onContactSaved,
+  allowPhoneEdit = false,
 }: SaveContactDialogProps) => {
   const { tenantId } = useTenantId();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [phoneValue, setPhoneValue] = useState(phone || "");
   const [name, setName] = useState(initialName || "");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
@@ -46,15 +49,20 @@ export const SaveContactDialog = ({
     });
   }, []);
 
+  // Sync phoneValue when phone prop changes
+  useEffect(() => {
+    if (open) setPhoneValue(phone || "");
+  }, [open, phone]);
+
   // Check if contact already exists
   useEffect(() => {
     const checkExisting = async () => {
-      if (!open || !phone) return;
+      if (!open || !phoneValue) return;
 
       const { data } = await supabase
         .from("whatsapp_contacts")
         .select("*")
-        .eq("phone", phone)
+        .eq("phone", phoneValue)
         .maybeSingle();
 
       if (data) {
@@ -71,7 +79,7 @@ export const SaveContactDialog = ({
     };
 
     checkExisting();
-  }, [open, phone, initialName]);
+  }, [open, phoneValue, initialName]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -83,7 +91,7 @@ export const SaveContactDialog = ({
     try {
       const contactData = {
         tenant_id: tenantId || null,
-        phone,
+        phone: phoneValue.trim(),
         name: name.trim(),
         email: email.trim() || null,
         notes: notes.trim() || null,
@@ -143,9 +151,11 @@ export const SaveContactDialog = ({
             <Label htmlFor="phone">Telefone</Label>
             <Input
               id="phone"
-              value={phone}
-              disabled
-              className="bg-muted"
+              value={phoneValue}
+              onChange={(e) => allowPhoneEdit && setPhoneValue(e.target.value)}
+              disabled={!allowPhoneEdit}
+              className={!allowPhoneEdit ? "bg-muted" : ""}
+              placeholder="5511999999999"
             />
           </div>
 

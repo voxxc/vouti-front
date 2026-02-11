@@ -6,13 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Columns3, Loader2, User, Phone, Clock, MessageSquare, X } from "lucide-react";
+import { Columns3, Loader2, User, Phone, Clock, MessageSquare, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
+import { AddKanbanCardDialog } from "../components/AddKanbanCardDialog";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 
 interface WhatsAppKanbanProps {
@@ -88,6 +89,7 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
   // Chat inline state
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [chatMessages, setChatMessages] = useState<WhatsAppMessage[]>([]);
+  const [showAddCardDialog, setShowAddCardDialog] = useState(false);
 
   // Load kanban data
   const loadKanbanData = useCallback(async () => {
@@ -315,6 +317,10 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
               Pipeline: <span className="font-medium text-foreground">{agentName}</span>
             </p>
           </div>
+          <Button size="sm" variant="outline" onClick={() => setShowAddCardDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Adicionar Card
+          </Button>
         </div>
 
         {/* Board */}
@@ -457,6 +463,14 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
           />
         </div>
       )}
+      {/* Add Card Dialog */}
+      <AddKanbanCardDialog
+        open={showAddCardDialog}
+        onOpenChange={setShowAddCardDialog}
+        agentId={agentId}
+        tenantId={tenantId}
+        onCardAdded={loadKanbanData}
+      />
     </div>
   );
 };
