@@ -1,0 +1,1 @@
+DELETE FROM publicacoes WHERE id = '10f657b2-f95e-45eb-b8b8-1e78a85d384d';
