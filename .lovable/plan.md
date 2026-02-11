@@ -1,42 +1,76 @@
 
 
-## Converter Extras para o padrao Drawer
+## Vouti CRM: Login dedicado em crm.vouti.co
 
-### O que muda
+### O que sera feito
 
-Hoje, o botao "Extras" na sidebar faz uma navegacao de pagina (`/extras`). Com essa mudanca, ele passara a abrir um drawer lateral (Sheet inset), seguindo o mesmo padrao dos outros modulos (Projetos, Agenda, CRM, etc.).
+Criar uma tela de login dedicada para `crm.vouti.co` que leva direto ao Vouti.Bot (agora chamado "Vouti CRM"), independente do sistema de tenants existente. Nada do que ja existe sera alterado.
 
-### Alteracoes
-
-**1. Novo componente: `src/components/Extras/ExtrasDrawer.tsx`**
-
-Criar o drawer seguindo o padrao dos outros (ex: `ReunioesDrawer`, `AgendaDrawer`):
-- Sheet com `side="inset"` e `modal={false}`
-- Header com icone Star + titulo "Extras"
-- ScrollArea com o conteudo existente (tabs de Perfil, Aniversarios, Google Agenda, Timezone)
-- Reutiliza os componentes `PerfilTab`, `AniversariosTab`, `GoogleAgendaTab` e `TimezoneTab` ja existentes
-
-**2. Alteracao: `src/components/Dashboard/DashboardSidebar.tsx`**
-
-- Adicionar `'extras'` ao tipo `ActiveDrawer`
-- Adicionar `'extras'` ao array `drawerItems` (para que o clique abra o drawer em vez de navegar)
-- Remover a navegacao para `/extras` do item Extras
-
-**3. Alteracao: `src/components/Dashboard/DashboardLayout.tsx`**
-
-- Importar `ExtrasDrawer`
-- Adicionar `<ExtrasDrawer>` junto aos outros drawers, controlado por `activeDrawer === 'extras'`
-
-**4. Remocao: `src/pages/Extras.tsx`**
-
-- A pagina nao sera mais necessaria pois o conteudo estara no drawer
-- Remover a rota correspondente no router (se existir)
+---
 
 ### Arquivos
 
-1. `src/components/Extras/ExtrasDrawer.tsx` (novo)
-2. `src/components/Dashboard/DashboardSidebar.tsx` (adicionar 'extras' ao drawerItems e ActiveDrawer)
-3. `src/components/Dashboard/DashboardLayout.tsx` (renderizar ExtrasDrawer)
-4. `src/pages/Extras.tsx` (remover ou manter como fallback)
-5. Arquivo de rotas (remover rota `/extras` se aplicavel)
+**1. Novo: `src/pages/CrmLogin.tsx`**
+
+Copia do `Auth.tsx` atual com ajustes minimos:
+- Branding: "VOUTI CRM" no lugar de "VOUTI."
+- Slogan ajustado para CRM
+- Apenas login (email + senha) e recuperacao de senha -- sem cadastro
+- Usa `supabase.auth.signInWithPassword` diretamente (sem depender de AuthProvider/TenantProvider)
+- Apos login, redireciona para `/app`
+- Mesmo visual: split-screen, floating elements, imagem de fundo, toggle de tema
+
+**2. Novo: `src/pages/CrmApp.tsx`**
+
+Wrapper simples:
+- Verifica autenticacao via `supabase.auth.getUser()`
+- Se nao autenticado, redireciona para `/` (login)
+- Busca `tenant_id` automaticamente do perfil do usuario via `useTenantId()`
+- Renderiza `WhatsAppAccessGate` + `WhatsAppLayout` em tela cheia (mesmo conteudo do `/bot` dos tenants)
+- Nao usa `useTenantFeatures` (o check de feature so se aplica aos tenants)
+
+**3. Alteracao: `src/App.tsx`**
+
+Adicionar deteccao de hostname logo no inicio da funcao `App()`:
+
+```text
+const isCrmDomain = window.location.hostname === 'crm.vouti.co';
+
+if (isCrmDomain) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<CrmLogin />} />
+            <Route path="/app" element={<CrmApp />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <Toaster />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+Isso faz return antes de qualquer rota existente, isolamento total.
+
+---
+
+### O que NAO muda
+
+- Nenhuma rota de tenant (`/:tenant/bot`, `/:tenant/crm`, etc.)
+- WhatsAppLayout, WhatsAppAccessGate, WhatsAppSidebar -- tudo inalterado
+- Super Admin inalterado
+- Nenhum componente existente e modificado
+
+### Fluxo do usuario
+
+1. Acessa `crm.vouti.co` -- ve tela de login "Vouti CRM"
+2. Faz login com email/senha
+3. Redirecionado para `crm.vouti.co/app`
+4. Sistema busca tenant_id do perfil automaticamente
+5. WhatsAppAccessGate verifica permissao
+6. Ve o Vouti CRM (antigo Vouti.Bot) em tela cheia
 
