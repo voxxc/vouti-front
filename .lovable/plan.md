@@ -1,57 +1,58 @@
 
 
-## Nova aba "Controle" no Extras com dados da planilha
+## Melhorias na aba Controle: cores, checkbox, edicao e nova linha
 
 ### Resumo
 
-Adicionar uma nova aba chamada **Controle** dentro do modulo Extras (tanto no drawer quanto na pagina). Essa aba exibira uma tabela replicando a planilha CONTROLE2025, com todos os dados ja inseridos para o tenant `/demorais`.
+Adicionar logica de cores no "Tempo sem consultar", checkbox de confirmacao rapida, campo editavel de "Ultima Consulta" e botao "+" para criar novos registros.
 
 ---
 
-### 1. Banco de dados
+### 1. Cores na coluna "Tempo sem consultar"
 
-**Nova tabela: `controle_clientes`**
+Regras de cor baseadas nos dias desde a ultima consulta:
+- **0 a 14 dias**: sem cor (fundo normal), contador funcionando
+- **15 a 20 dias**: fundo amarelo (`bg-yellow-100 text-yellow-800`)
+- **21 a 26 dias**: fundo laranja (`bg-orange-100 text-orange-800`)
+- **27+ dias**: fundo vermelho (`bg-red-100 text-red-800`)
 
-Colunas mapeadas da planilha:
-- `id` (uuid, PK)
-- `tenant_id` (uuid, FK tenants, NOT NULL)
-- `cliente` (text) -- nome do cliente
-- `placa` (text)
-- `renavam` (text)
-- `cnh` (text)
-- `cpf_cnpj` (text)
-- `validade_cnh` (date)
-- `proximo_prazo` (text) -- texto livre pois tem valores variados
-- `obs` (text)
-- `ultima_consulta` (date)
-- `created_at`, `updated_at` (timestamps)
-
-**RLS**: Isolamento por tenant (`tenant_id = get_user_tenant_id()`) para SELECT, INSERT, UPDATE, DELETE.
-
-**Dados**: Inserir os ~80 registros validos da planilha para o tenant `d395b3a1-1ea1-4710-bcc1-ff5f6a279750` (demorais).
+Implementar funcao `getTempoColor(dias)` que retorna as classes CSS adequadas.
 
 ---
 
-### 2. Novo componente: `src/components/Extras/ControleTab.tsx`
+### 2. Checkbox de confirmacao ao lado de "Tempo sem consultar"
 
-- Busca dados de `controle_clientes` filtrado por `tenant_id` (via `useTenantId`)
-- Exibe tabela usando componentes `Table` do shadcn/ui
-- Colunas: Cliente, Placa, Renavam, CNH, CPF/CNPJ, Validade CNH, Proximo Prazo, OBS, Ultima Consulta
-- Campo de busca para filtrar por nome do cliente
-- Coluna "tempo sem consultar" calculada dinamicamente (diferenca entre hoje e ultima_consulta)
-- Scroll horizontal para caber todas as colunas
+- Adicionar um `Checkbox` (shadcn/ui) ao lado do contador de dias
+- Ao clicar, exibir um `AlertDialog` de confirmacao: "Confirmar consulta realizada hoje?"
+- Se confirmado:
+  - Atualizar `ultima_consulta` no banco para a data de hoje (`new Date().toISOString().split('T')[0]`)
+  - Atualizar o estado local para refletir a mudanca sem recarregar tudo
+  - O checkbox volta a ficar desmarcado (ele serve apenas como acao rapida)
 
 ---
 
-### 3. Alteracoes em arquivos existentes
+### 3. Campo "Ultima Consulta" editavel
 
-**`src/components/Extras/ExtrasDrawer.tsx`**
-- Adicionar `'controle'` ao tipo `TabType`
-- Adicionar botao de tab "Controle" (visivel apenas para admin)
-- Renderizar `<ControleTab />` quando ativo
+- Ao clicar na celula de "Ultima Consulta", abrir um `Popover` com um `Calendar` (date picker)
+- Ao selecionar a data, atualizar no banco via `supabase.from('controle_clientes').update()`
+- Atualizar o estado local imediatamente
 
-**`src/pages/Extras.tsx`**
-- Mesmas alteracoes: novo tab type, botao, renderizacao
+---
+
+### 4. Botao "+" para nova linha
+
+- Adicionar um botao `+` ao lado do campo de pesquisa
+- Ao clicar, inserir uma nova linha vazia na tabela `controle_clientes` com o `tenant_id` do usuario
+- A nova linha aparece na tabela imediatamente para edicao
+
+---
+
+### 5. Campos editaveis inline (todos os campos de texto)
+
+Para manter a experiencia de planilha, os campos Cliente, Placa, Renavam, CNH, CPF/CNPJ, Proximo Prazo e OBS serao editaveis inline:
+- Clique na celula transforma em `Input`
+- Ao sair do foco (blur) ou pressionar Enter, salva no banco
+- Validade CNH usa o mesmo date picker do campo Ultima Consulta
 
 ---
 
@@ -59,8 +60,6 @@ Colunas mapeadas da planilha:
 
 | Arquivo | Acao |
 |---|---|
-| Migracao SQL | Criar tabela + RLS + insert dados |
-| `src/components/Extras/ControleTab.tsx` | Novo |
-| `src/components/Extras/ExtrasDrawer.tsx` | Modificar (add tab) |
-| `src/pages/Extras.tsx` | Modificar (add tab) |
+| `src/components/Extras/ControleTab.tsx` | Reescrever com todas as novas funcionalidades |
 
+Nenhuma alteracao de banco necessaria -- a tabela ja suporta todos os campos.
