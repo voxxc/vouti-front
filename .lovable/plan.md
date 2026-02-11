@@ -1,58 +1,38 @@
 
 
-## Melhorias na aba Controle: cores, checkbox, edicao e nova linha
+## Controle para o tenant /cordeiro + exclusao de linhas
 
 ### Resumo
 
-Adicionar logica de cores no "Tempo sem consultar", checkbox de confirmacao rapida, campo editavel de "Ultima Consulta" e botao "+" para criar novos registros.
+1. Duplicar os 78 registros de `controle_clientes` do tenant `/demorais` para o tenant `/cordeiro` (ID `272d9707-53b8-498d-bcc1-ea074b6c8c71`), gerando novos UUIDs. Cada tenant tera seus dados completamente independentes.
+2. Adicionar funcionalidade de exclusao individual e em massa no componente `ControleTab.tsx`.
 
 ---
 
-### 1. Cores na coluna "Tempo sem consultar"
+### 1. Dados para o tenant /cordeiro
 
-Regras de cor baseadas nos dias desde a ultima consulta:
-- **0 a 14 dias**: sem cor (fundo normal), contador funcionando
-- **15 a 20 dias**: fundo amarelo (`bg-yellow-100 text-yellow-800`)
-- **21 a 26 dias**: fundo laranja (`bg-orange-100 text-orange-800`)
-- **27+ dias**: fundo vermelho (`bg-red-100 text-red-800`)
+Executar um INSERT via SQL que copia todos os registros do demorais para o cordeiro com novos IDs:
 
-Implementar funcao `getTempoColor(dias)` que retorna as classes CSS adequadas.
+```sql
+INSERT INTO controle_clientes (tenant_id, cliente, placa, renavam, cnh, cpf_cnpj, validade_cnh, proximo_prazo, obs, ultima_consulta)
+SELECT '272d9707-53b8-498d-bcc1-ea074b6c8c71', cliente, placa, renavam, cnh, cpf_cnpj, validade_cnh, proximo_prazo, obs, ultima_consulta
+FROM controle_clientes
+WHERE tenant_id = 'd395b3a1-1ea1-4710-bcc1-ff5f6a279750';
+```
 
----
-
-### 2. Checkbox de confirmacao ao lado de "Tempo sem consultar"
-
-- Adicionar um `Checkbox` (shadcn/ui) ao lado do contador de dias
-- Ao clicar, exibir um `AlertDialog` de confirmacao: "Confirmar consulta realizada hoje?"
-- Se confirmado:
-  - Atualizar `ultima_consulta` no banco para a data de hoje (`new Date().toISOString().split('T')[0]`)
-  - Atualizar o estado local para refletir a mudanca sem recarregar tudo
-  - O checkbox volta a ficar desmarcado (ele serve apenas como acao rapida)
+O RLS ja garante o isolamento -- cada tenant so ve seus proprios registros.
 
 ---
 
-### 3. Campo "Ultima Consulta" editavel
+### 2. Exclusao individual e em massa no ControleTab.tsx
 
-- Ao clicar na celula de "Ultima Consulta", abrir um `Popover` com um `Calendar` (date picker)
-- Ao selecionar a data, atualizar no banco via `supabase.from('controle_clientes').update()`
-- Atualizar o estado local imediatamente
+Alteracoes no componente:
 
----
-
-### 4. Botao "+" para nova linha
-
-- Adicionar um botao `+` ao lado do campo de pesquisa
-- Ao clicar, inserir uma nova linha vazia na tabela `controle_clientes` com o `tenant_id` do usuario
-- A nova linha aparece na tabela imediatamente para edicao
-
----
-
-### 5. Campos editaveis inline (todos os campos de texto)
-
-Para manter a experiencia de planilha, os campos Cliente, Placa, Renavam, CNH, CPF/CNPJ, Proximo Prazo e OBS serao editaveis inline:
-- Clique na celula transforma em `Input`
-- Ao sair do foco (blur) ou pressionar Enter, salva no banco
-- Validade CNH usa o mesmo date picker do campo Ultima Consulta
+- **Coluna de selecao**: Adicionar uma coluna de checkbox na primeira posicao de cada linha para selecao.
+- **Checkbox "selecionar todos"** no header da tabela para marcar/desmarcar todos os registros filtrados.
+- **Botao "Excluir selecionados"** (icone lixeira) ao lado do botao "+" -- aparece apenas quando ha itens selecionados. Mostra um `AlertDialog` de confirmacao antes de excluir.
+- **Exclusao individual**: Botao de lixeira pequeno na ultima coluna de cada linha, tambem com confirmacao via `AlertDialog`.
+- Estado `selectedIds: Set<string>` para rastrear as linhas marcadas.
 
 ---
 
@@ -60,6 +40,6 @@ Para manter a experiencia de planilha, os campos Cliente, Placa, Renavam, CNH, C
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/Extras/ControleTab.tsx` | Reescrever com todas as novas funcionalidades |
+| Dados SQL (insert tool) | Copiar 78 registros para tenant cordeiro |
+| `src/components/Extras/ControleTab.tsx` | Adicionar checkboxes de selecao, exclusao individual e em massa |
 
-Nenhuma alteracao de banco necessaria -- a tabela ja suporta todos os campos.
