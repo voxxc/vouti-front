@@ -1,120 +1,191 @@
 
 
-## Correcoes e Novas Funcionalidades do Kanban CRM
+## Publicacoes - Monitoramento de Diarios Oficiais
 
-Este plano aborda 5 areas: correcao do drag-and-drop, botao de mudanca de coluna, sistema de notas, integracao com contatos, e campos adicionais no cadastro.
+### Visao Geral
 
----
-
-### 1. Correcao do Drag-and-Drop entre colunas
-
-**Problema raiz**: O `upsert` com `onConflict` nao funciona com indices parciais condicionais (WHERE tenant_id IS NOT NULL / IS NULL). O Supabase nao consegue resolver qual constraint usar, e o upsert falha silenciosamente.
-
-**Solucao**: Substituir o `upsert` por uma logica de `select` + `update`. Ao soltar o card, primeiro buscar o registro existente pelo `id` do card, depois fazer `update` no `column_id` e `card_order`.
-
-**Arquivo**: `src/components/WhatsApp/sections/WhatsAppKanban.tsx`
-
-- No `handleDragEnd`, usar o `id` do card (ja disponivel no estado `cards`) em vez do `phone` como `draggableId`
-- Trocar `upsert` por `update ... where id = card.id`
-- Usar `card.id` como `draggableId` no `<Draggable>` em vez de `card.phone`
-
-```typescript
-// Antes (problematico):
-upsert({ phone: draggableId, ... }, { onConflict: '...' })
-
-// Depois (confiavel):
-const card = cards.find(c => c.id === draggableId);
-await supabase
-  .from("whatsapp_conversation_kanban")
-  .update({ column_id: newColumnId, card_order: destination.index })
-  .eq("id", card.id);
-```
+Novo modulo "Publicacoes" com 3 frentes:
+1. **Sidebar**: Novo botao "Publicacoes" no DashboardSidebar que abre um drawer com a lista de publicacoes encontradas
+2. **Extras > Publicacoes**: Aba de configuracao para cadastrar nomes/OABs a monitorar, com visualizacao dos diarios monitorados
+3. **Edge Function + Cron**: Busca automatica diaria as 8h no portal `comunica.pje.jus.br` via scraping com Firecrawl
 
 ---
 
-### 2. Botao "Kanban CRM" no painel lateral da conversa
+### 1. Database - Novas Tabelas
 
-Ativar o botao existente na secao "Kanban CRM" do `ContactInfoPanel` para permitir mudanca de coluna via dropdown com confirmacao.
+**`publicacoes_monitoramentos`** - Cadastro de nomes para monitoramento (configuracao em Extras)
 
-**Arquivo**: `src/components/WhatsApp/components/ContactInfoPanel.tsx`
+| Coluna | Tipo | Descricao |
+|---|---|---|
+| id | UUID PK | - |
+| tenant_id | UUID FK | Isolamento multi-tenant |
+| tipo | TEXT | 'PF' ou 'PJ' |
+| nome | TEXT | Nome completo para busca |
+| oab_numero | TEXT | Numero da OAB |
+| oab_uf | TEXT | UF da OAB |
+| cpf | TEXT | CPF (opcional) |
+| abrangencia | TEXT | 'todos', 'um_estado', 'diferentes_estados' |
+| estados_selecionados | JSONB | Lista de estados se nao for 'todos' |
+| quem_recebe_user_id | UUID FK | Usuario que recebe as publicacoes |
+| status | TEXT | 'ativo' / 'inativo' |
+| tribunais_monitorados | JSONB | Lista completa de siglas por estado |
+| data_inicio_monitoramento | DATE | A partir de quando monitorar |
+| created_at | TIMESTAMPTZ | - |
+| updated_at | TIMESTAMPTZ | - |
 
-- Buscar a coluna atual do card (via `whatsapp_conversation_kanban` pelo phone)
-- Listar todas as colunas disponiveis (via `whatsapp_kanban_columns` pelo agent_id)
-- Exibir um `Select` dropdown com as colunas
-- Ao selecionar, exibir um `AlertDialog` de confirmacao
-- Ao confirmar, fazer `update` no `column_id`
+**`publicacoes`** - Publicacoes encontradas
 
-O componente precisa receber o `agentId` como prop (ja disponivel no contexto do Kanban).
+| Coluna | Tipo | Descricao |
+|---|---|---|
+| id | UUID PK | - |
+| tenant_id | UUID FK | - |
+| monitoramento_id | UUID FK | Ref ao monitoramento que gerou |
+| data_disponibilizacao | DATE | Data da publicacao |
+| data_publicacao | DATE | Quando foi publicada |
+| tipo | TEXT | Tipo de comunicacao |
+| numero_processo | TEXT | Numero do processo |
+| diario_sigla | TEXT | Ex: TJPRDJN |
+| diario_nome | TEXT | Ex: 18a Camara Civel |
+| comarca | TEXT | Curitiba, etc |
+| nome_pesquisado | TEXT | Nome que gerou o match |
+| conteudo_completo | TEXT | Texto integral da publicacao |
+| link_acesso | TEXT | URL para acessar publicacao |
+| status | TEXT | 'nao_tratada', 'tratada', 'descartada' |
+| orgao | TEXT | Orgao/vara |
+| responsavel | TEXT | Advogado responsavel |
+| partes | TEXT | Partes do processo |
+| created_at | TIMESTAMPTZ | - |
+| updated_at | TIMESTAMPTZ | - |
+
+RLS com `tenant_id = get_user_tenant_id()` para ambas as tabelas.
 
 ---
 
-### 3. Sistema de Notas (Comentarios) sobre Leads
+### 2. Sidebar - Botao Publicacoes
 
-Criar uma tabela `whatsapp_contact_notes` e um componente de comentarios.
+**Arquivo**: `src/components/Dashboard/DashboardSidebar.tsx`
 
-**Migracao SQL**: Nova tabela
+- Adicionar `'publicacoes'` ao tipo `ActiveDrawer`
+- Novo item no `menuItems`: `{ id: 'publicacoes', icon: Newspaper, label: 'Publicacoes', route: '/publicacoes' }`
+- Acesso: admin + controller
+- Adicionar ao `drawerItems`
+
+**Arquivo**: `src/components/Dashboard/DashboardLayout.tsx`
+
+- Importar e renderizar `PublicacoesDrawer`
+
+---
+
+### 3. Drawer de Publicacoes (Sidebar)
+
+**Novo arquivo**: `src/components/Publicacoes/PublicacoesDrawer.tsx`
+
+Drawer no padrao inset com:
+- Header "Publicacoes"
+- Contadores no topo: "X Nao tratadas hoje", "X Tratadas hoje", "X Descartadas hoje", "X Nao tratadas (total)"
+- Filtros: busca por texto, estado, status
+- Lista de publicacoes em cards compactos mostrando:
+  - Data disponibilizacao
+  - Tipo
+  - Numero do processo (clicavel)
+  - Diario + Orgao/Comarca
+  - Nome pesquisado
+  - Status (badge colorido)
+  - Botoes: marcar tratada, descartar, acessar publicacao
+
+**Novo arquivo**: `src/components/Publicacoes/PublicacaoDetalhe.tsx`
+
+Tela de detalhe ao clicar na publicacao (navegacao interna no drawer):
+- Lado esquerdo: conteudo completo da publicacao (texto do diario)
+- Lado direito: dados do processo (numero, partes, responsavel, historico)
+- Botoes: Voltar, Tratamentos, Descartar, Concluir
+- Status badge no topo
+
+---
+
+### 4. Extras > Aba Publicacoes (Configuracao)
+
+**Novo arquivo**: `src/components/Extras/PublicacoesTab.tsx`
+
+Aba dentro do ExtrasDrawer com:
+- Tabela de monitoramentos cadastrados (Tipo, Nome, Diario de Justica, Quem recebe, Status, link "Visualizar diarios monitorados")
+- Botao "Adicionar Monitoramento" que abre dialog com formulario:
+  - Radio: Pessoa Fisica / Pessoa Juridica
+  - Nome para pesquisar
+  - OAB (numero + UF)
+  - CPF (opcional)
+  - Abrangencia: Todos os diarios / Um estado / Diferentes estados
+  - Quem recebe (select de usuarios do tenant)
+- Dialog "Diarios Monitorados" expandivel por estado mostrando todas as siglas
+- Acoes: editar, excluir, ativar/desativar monitoramento
+
+**Arquivo**: `src/components/Extras/ExtrasDrawer.tsx`
+
+- Adicionar tab "Publicacoes" (somente admin)
+
+---
+
+### 5. Edge Function - Busca de Publicacoes
+
+**Novo arquivo**: `supabase/functions/buscar-publicacoes-pje/index.ts`
+
+A funcao:
+1. Recebe `monitoramento_id` (ou processa todos os ativos)
+2. Para cada monitoramento, monta as URLs do `comunica.pje.jus.br/consulta` com os parametros:
+   - `siglaTribunal`: cada sigla dos diarios monitorados
+   - `dataDisponibilizacaoInicio` / `dataDisponibilizacaoFim`: data de hoje (ou range)
+   - `numeroOab` + `ufOab`: dados do monitoramento
+3. Usa **Firecrawl** para scraping da pagina (que e uma SPA com JS)
+4. Extrai as publicacoes do HTML/markdown retornado
+5. Insere novas publicacoes na tabela `publicacoes` (evita duplicatas por numero_processo + data + diario)
+6. Retorna resumo
+
+Nota: Como o site `comunica.pje.jus.br` e uma SPA e nao foi possivel scrape-lo diretamente, sera necessario usar Firecrawl com `waitFor` para aguardar o carregamento do JS. A Edge Function processara os tribunais em lotes para evitar timeout.
+
+---
+
+### 6. Cron - Polling Diario as 8h
+
+Usando `pg_cron` + `pg_net`, agendar chamada diaria a edge function:
 
 ```sql
-CREATE TABLE public.whatsapp_contact_notes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-  contact_phone TEXT NOT NULL,
-  author_id UUID REFERENCES auth.users(id),
-  author_name TEXT,
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
+SELECT cron.schedule(
+  'buscar-publicacoes-diario',
+  '0 11 * * *',  -- 8h BRT = 11h UTC
+  $$
+  SELECT net.http_post(
+    url := 'https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/buscar-publicacoes-pje',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer ANON_KEY"}'::jsonb,
+    body := '{"mode":"cron"}'::jsonb
+  ) as request_id;
+  $$
 );
--- RLS + policies
 ```
 
-**Novo componente**: `src/components/WhatsApp/components/ContactNotesPanel.tsx`
+---
 
-- Lista de notas com autor, data e conteudo
-- Campo de texto + botao "Adicionar Nota"
-- Scroll com as notas mais recentes primeiro
-- Usa o `CommentText` existente para renderizar mencoes
+### 7. Dados Estaticos - Tribunais por Estado
 
-**Integracao no ContactInfoPanel**: Adicionar uma nova secao "Notas" (usando icone `MessageSquare`) no accordion, que renderiza o `ContactNotesPanel`.
+Sera criado um arquivo `src/data/tribunaisPorEstado.ts` com o mapeamento completo de todas as siglas de tribunais por estado (conforme fornecido pelo usuario). Este dado sera usado tanto no formulario de cadastro quanto na edge function para determinar quais URLs consultar.
 
 ---
 
-### 4. Botao "Detalhes" na secao Contatos
+### Resumo de Arquivos
 
-**Arquivo**: `src/components/WhatsApp/sections/WhatsAppContacts.tsx`
+| Arquivo | Tipo | Descricao |
+|---|---|---|
+| Migracao SQL | DB | Tabelas `publicacoes_monitoramentos` e `publicacoes` + RLS |
+| `src/data/tribunaisPorEstado.ts` | Novo | Mapeamento de tribunais por estado |
+| `src/components/Dashboard/DashboardSidebar.tsx` | Editar | Novo item "Publicacoes" |
+| `src/components/Dashboard/DashboardLayout.tsx` | Editar | Renderizar PublicacoesDrawer |
+| `src/components/Publicacoes/PublicacoesDrawer.tsx` | Novo | Drawer principal com lista de publicacoes |
+| `src/components/Publicacoes/PublicacaoDetalhe.tsx` | Novo | Tela de detalhe da publicacao |
+| `src/components/Extras/PublicacoesTab.tsx` | Novo | Aba de configuracao de monitoramentos |
+| `src/components/Extras/ExtrasDrawer.tsx` | Editar | Adicionar aba Publicacoes |
+| `supabase/functions/buscar-publicacoes-pje/index.ts` | Novo | Edge function de scraping |
+| SQL (pg_cron) | Inserir | Agendamento diario as 8h |
 
-- Adicionar item "Detalhes" no `DropdownMenu` de cada contato
-- Ao clicar, abrir um `Dialog` que exibe o `ContactNotesPanel` do contato
-- Permite ver e adicionar notas diretamente da lista de contatos
+### Dependencia
 
----
-
-### 5. Campos adicionais no cadastro de contatos
-
-**Migracao SQL**: Adicionar colunas a `whatsapp_contacts`
-
-```sql
-ALTER TABLE whatsapp_contacts 
-  ADD COLUMN IF NOT EXISTS city TEXT,
-  ADD COLUMN IF NOT EXISTS state TEXT,
-  ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'Brasil';
-```
-
-**Arquivo**: `src/components/WhatsApp/components/SaveContactDialog.tsx`
-
-- Adicionar campos: Cidade, Estado, Pais
-- Incluir no `handleSave` (insert e update)
-- Carregar valores existentes no `useEffect` de contato existente
-
----
-
-### Resumo de arquivos
-
-| Arquivo | Mudanca |
-|---|---|
-| **Migracao SQL** | Tabela `whatsapp_contact_notes` + colunas `city`, `state`, `country` em `whatsapp_contacts` |
-| `WhatsAppKanban.tsx` | Fix drag: usar `card.id` como draggableId, substituir upsert por update |
-| `ContactInfoPanel.tsx` | Ativar botao Kanban CRM com dropdown de colunas + confirmacao; adicionar secao Notas |
-| `ContactNotesPanel.tsx` (novo) | Componente de comentarios/notas por lead |
-| `WhatsAppContacts.tsx` | Adicionar "Detalhes" no menu 3 pontos com dialog de notas |
-| `SaveContactDialog.tsx` | Campos: cidade, estado, pais |
+Sera necessario ter o conector **Firecrawl** ativo para o scraping funcionar, pois o site `comunica.pje.jus.br` e uma SPA que requer renderizacao de JavaScript.
 
