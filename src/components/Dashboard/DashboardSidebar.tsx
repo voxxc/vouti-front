@@ -123,9 +123,9 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
       return isWhatsAppEnabled && userRoles.includes('admin');
     }
 
-    // Publicações - admin + controller
+    // Publicações - apenas /demorais por enquanto + admin/controller
     if (itemId === 'publicacoes') {
-      return userRoles.includes('admin') || userRoles.includes('controller');
+      return tenantSlug === 'demorais' && (userRoles.includes('admin') || userRoles.includes('controller'));
     }
     
     return hasAccess(itemId);
