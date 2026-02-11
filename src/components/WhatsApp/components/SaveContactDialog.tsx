@@ -38,18 +38,19 @@ export const SaveContactDialog = ({
   const [phoneValue, setPhoneValue] = useState(phone || "");
   const [name, setName] = useState(initialName || "");
   const [email, setEmail] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [country, setCountry] = useState("Brasil");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [existingContact, setExistingContact] = useState<any>(null);
 
-  // Buscar usuário diretamente do Supabase (compatível com/sem AuthProvider)
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id || null);
     });
   }, []);
 
-  // Sync phoneValue when phone prop changes
   useEffect(() => {
     if (open) setPhoneValue(phone || "");
   }, [open, phone]);
@@ -69,11 +70,17 @@ export const SaveContactDialog = ({
         setExistingContact(data);
         setName(data.name || initialName || "");
         setEmail(data.email || "");
+        setCity((data as any).city || "");
+        setState((data as any).state || "");
+        setCountry((data as any).country || "Brasil");
         setNotes(data.notes || "");
       } else {
         setExistingContact(null);
         setName(initialName || "");
         setEmail("");
+        setCity("");
+        setState("");
+        setCountry("Brasil");
         setNotes("");
       }
     };
@@ -89,30 +96,34 @@ export const SaveContactDialog = ({
 
     setIsSaving(true);
     try {
-      const contactData = {
+      const contactData: any = {
         tenant_id: tenantId || null,
         phone: phoneValue.trim(),
         name: name.trim(),
         email: email.trim() || null,
         notes: notes.trim() || null,
+        city: city.trim() || null,
+        state: state.trim() || null,
+        country: country.trim() || null,
         created_by: currentUserId,
       };
 
       if (existingContact) {
-        // Update existing
         const { error } = await supabase
           .from("whatsapp_contacts")
           .update({
             name: contactData.name,
             email: contactData.email,
             notes: contactData.notes,
+            city: contactData.city,
+            state: contactData.state,
+            country: contactData.country,
           })
           .eq("id", existingContact.id);
 
         if (error) throw error;
         toast.success("Contato atualizado!");
       } else {
-        // Create new
         const { error } = await supabase
           .from("whatsapp_contacts")
           .insert(contactData);
@@ -177,6 +188,37 @@ export const SaveContactDialog = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@exemplo.com"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="city">Cidade</Label>
+              <Input
+                id="city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="São Paulo"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state">Estado</Label>
+              <Input
+                id="state"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                placeholder="SP"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="country">País</Label>
+            <Input
+              id="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="Brasil"
             />
           </div>
 

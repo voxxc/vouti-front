@@ -14,18 +14,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Users, 
   Search, 
   Phone, 
   Mail, 
   Loader2,
-  MessageSquare,
   MoreVertical,
   Trash2,
   Edit,
   UserPlus,
-  Send
+  Send,
+  FileText
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { SaveContactDialog } from "../components/SaveContactDialog";
+import { ContactNotesPanel } from "../components/ContactNotesPanel";
 
 interface WhatsAppContact {
   id: string;
@@ -68,15 +75,15 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
   const [editingContact, setEditingContact] = useState<WhatsAppContact | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showNewContactDialog, setShowNewContactDialog] = useState(false);
+  const [detailsContact, setDetailsContact] = useState<WhatsAppContact | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
-  // Buscar usuário diretamente do Supabase (compatível com/sem AuthProvider)
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id || null);
     });
   }, []);
 
-  // Check if super admin
   useEffect(() => {
     const checkSuperAdmin = async () => {
       if (!currentUserId) return;
@@ -90,7 +97,6 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
     checkSuperAdmin();
   }, [currentUserId]);
 
-  // Load contacts
   const loadContacts = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -134,7 +140,6 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
     }
   }, [tenantId, isSuperAdmin]);
 
-  // Load labels
   const loadLabels = useCallback(async () => {
     try {
       let query = supabase
@@ -150,7 +155,6 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
 
       const { data, error } = await query;
       if (error) throw error;
-
       setLabels(data || []);
     } catch (error) {
       console.error("Erro ao carregar etiquetas:", error);
@@ -164,33 +168,21 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
     }
   }, [loadContacts, loadLabels, tenantId, isSuperAdmin]);
 
-  // Filter contacts
   const filteredContacts = contacts.filter((contact) => {
     const matchesSearch =
       contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contact.phone.includes(searchQuery) ||
       (contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
-    if (selectedLabel === "all") {
-      return matchesSearch;
-    }
-
-    const hasLabel = contact.labels.some((label) => label.id === selectedLabel);
-    return matchesSearch && hasLabel;
+    if (selectedLabel === "all") return matchesSearch;
+    return matchesSearch && contact.labels.some((label) => label.id === selectedLabel);
   });
 
-  // Delete contact
   const handleDeleteContact = async (contactId: string) => {
     if (!confirm("Tem certeza que deseja excluir este contato?")) return;
-
     try {
-      const { error } = await supabase
-        .from("whatsapp_contacts")
-        .delete()
-        .eq("id", contactId);
-
+      const { error } = await supabase.from("whatsapp_contacts").delete().eq("id", contactId);
       if (error) throw error;
-
       toast.success("Contato excluído");
       loadContacts();
     } catch (error) {
@@ -199,10 +191,14 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
     }
   };
 
-  // Edit contact
   const handleEditContact = (contact: WhatsAppContact) => {
     setEditingContact(contact);
     setShowEditDialog(true);
+  };
+
+  const handleDetailsContact = (contact: WhatsAppContact) => {
+    setDetailsContact(contact);
+    setShowDetailsDialog(true);
   };
 
   if (isLoading) {
@@ -250,10 +246,7 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
             {labels.map((label) => (
               <SelectItem key={label.id} value={label.id}>
                 <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: label.color }}
-                  />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
                   {label.name}
                 </div>
               </SelectItem>
@@ -268,13 +261,9 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <Users className="h-12 w-12 mb-4 opacity-50" />
             <p className="text-sm">
-              {searchQuery || selectedLabel !== "all"
-                ? "Nenhum contato encontrado"
-                : "Nenhum contato salvo ainda"}
+              {searchQuery || selectedLabel !== "all" ? "Nenhum contato encontrado" : "Nenhum contato salvo ainda"}
             </p>
-            <p className="text-xs mt-1">
-              Salve contatos através do painel de conversa
-            </p>
+            <p className="text-xs mt-1">Salve contatos através do painel de conversa</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -303,25 +292,17 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
                     </div>
                   </div>
 
-                  {/* Labels */}
                   <div className="flex gap-1 shrink-0">
                     {contact.labels.slice(0, 3).map((label) => (
-                      <Badge
-                        key={label.id}
-                        style={{ backgroundColor: label.color }}
-                        className="text-white text-xs"
-                      >
+                      <Badge key={label.id} style={{ backgroundColor: label.color }} className="text-white text-xs">
                         {label.name}
                       </Badge>
                     ))}
                     {contact.labels.length > 3 && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{contact.labels.length - 3}
-                      </Badge>
+                      <Badge variant="secondary" className="text-xs">+{contact.labels.length - 3}</Badge>
                     )}
                   </div>
 
-                  {/* Actions */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -329,6 +310,15 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          setTimeout(() => handleDetailsContact(contact), 100);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Detalhes
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEditContact(contact)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Editar
@@ -339,10 +329,7 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
                           Enviar Mensagem
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteContact(contact.id)}
-                        className="text-destructive"
-                      >
+                      <DropdownMenuItem onClick={() => handleDeleteContact(contact.id)} className="text-destructive">
                         <Trash2 className="h-4 w-4 mr-2" />
                         Excluir
                       </DropdownMenuItem>
@@ -351,9 +338,7 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
                 </div>
 
                 {contact.notes && (
-                  <p className="text-sm text-muted-foreground mt-2 pl-14">
-                    {contact.notes}
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-2 pl-14">{contact.notes}</p>
                 )}
               </Card>
             ))}
@@ -361,16 +346,37 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
         )}
       </ScrollArea>
 
+      {/* Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Detalhes - {detailsContact?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {detailsContact && (
+            <div className="space-y-4">
+              <div className="text-sm space-y-1">
+                <p><span className="text-muted-foreground">Telefone:</span> {detailsContact.phone}</p>
+                {detailsContact.email && <p><span className="text-muted-foreground">Email:</span> {detailsContact.email}</p>}
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Notas</h4>
+                <ContactNotesPanel contactPhone={detailsContact.phone} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Dialog */}
       {editingContact && (
         <SaveContactDialog
           open={showEditDialog}
           onOpenChange={(open) => {
             setShowEditDialog(open);
-            if (!open) {
-              setEditingContact(null);
-              loadContacts();
-            }
+            if (!open) { setEditingContact(null); loadContacts(); }
           }}
           phone={editingContact.phone}
           initialName={editingContact.name}
@@ -383,10 +389,7 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
         onOpenChange={setShowNewContactDialog}
         phone=""
         allowPhoneEdit
-        onContactSaved={() => {
-          loadContacts();
-          setShowNewContactDialog(false);
-        }}
+        onContactSaved={() => { loadContacts(); setShowNewContactDialog(false); }}
       />
     </div>
   );
