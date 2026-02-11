@@ -6,8 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Users2, Loader2, Wifi, WifiOff, QrCode, 
-  Unplug, RotateCcw, Save, CheckCircle2, XCircle, RefreshCw, User
+  Unplug, RotateCcw, Save, CheckCircle2, XCircle, RefreshCw, User, Trash2
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { AgentCard, Agent } from "./AgentCard";
@@ -52,9 +56,11 @@ export const WhatsAppAgentsSettings = () => {
   const [isResetting, setIsResetting] = useState(false);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const [hasOwnAgent, setHasOwnAgent] = useState(true); // assume true until checked
+  const [hasOwnAgent, setHasOwnAgent] = useState(true);
   const [isCreatingMyAgent, setIsCreatingMyAgent] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [deleteAgentId, setDeleteAgentId] = useState<string | null>(null);
+  const [isDeletingAgent, setIsDeletingAgent] = useState(false);
 
   // Get current user email
   useEffect(() => {
@@ -564,6 +570,69 @@ export const WhatsAppAgentsSettings = () => {
     }
   };
 
+  const handleDeleteAgent = async () => {
+    if (!deleteAgentId || !tenantId) return;
+    
+    setIsDeletingAgent(true);
+    try {
+      // Delete associated instance first
+      await supabase
+        .from("whatsapp_instances")
+        .delete()
+        .eq("agent_id", deleteAgentId)
+        .eq("tenant_id", tenantId);
+
+      // Delete kanban data
+      const { data: columns } = await supabase
+        .from("whatsapp_kanban_columns")
+        .select("id")
+        .eq("agent_id", deleteAgentId);
+
+      if (columns && columns.length > 0) {
+        const columnIds = columns.map(c => c.id);
+        await supabase
+          .from("whatsapp_conversation_kanban")
+          .delete()
+          .in("column_id", columnIds);
+        await supabase
+          .from("whatsapp_kanban_columns")
+          .delete()
+          .eq("agent_id", deleteAgentId);
+      }
+
+      // Delete the agent
+      const { error } = await supabase
+        .from("whatsapp_agents")
+        .delete()
+        .eq("id", deleteAgentId)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw error;
+
+      // Close expanded if it was the deleted one
+      if (expandedAgentId === deleteAgentId) {
+        setExpandedAgentId(null);
+      }
+
+      toast({
+        title: "Agente apagado",
+        description: "O agente e suas configurações foram removidos",
+      });
+
+      await loadAgents();
+    } catch (error: any) {
+      console.error("Erro ao apagar agente:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível apagar o agente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAgent(false);
+      setDeleteAgentId(null);
+    }
+  };
+
   const getStatusDisplay = () => {
     if (isCheckingStatus) {
       return { icon: RefreshCw, text: "Verificando...", className: "text-muted-foreground animate-spin" };
@@ -642,7 +711,8 @@ export const WhatsAppAgentsSettings = () => {
                   <Card className="mt-4 border-primary/50 shadow-lg">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                       <CardHeader className="pb-0">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <div className="flex items-center justify-between">
+                          <TabsList className="grid w-full grid-cols-2 flex-1">
                           <TabsTrigger value="zapi" className="gap-2">
                             <Wifi className="h-4 w-4" />
                             Conexão Z-API
@@ -650,7 +720,17 @@ export const WhatsAppAgentsSettings = () => {
                           <TabsTrigger value="ai" className="gap-2">
                             Comportamento da IA
                           </TabsTrigger>
-                        </TabsList>
+                          </TabsList>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => { e.stopPropagation(); setDeleteAgentId(agent.id); }}
+                            title="Apagar agente"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </CardHeader>
 
                       <CardContent className="pt-6">
@@ -852,6 +932,32 @@ export const WhatsAppAgentsSettings = () => {
           onOpenChange={setIsAddDialogOpen}
           onAgentAdded={loadAgents}
         />
+
+        {/* Dialog de confirmação para apagar */}
+        <AlertDialog open={!!deleteAgentId} onOpenChange={(open) => !open && setDeleteAgentId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apagar agente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Essa ação é irreversível. O agente, suas credenciais Z-API, colunas do Kanban e conversas vinculadas serão removidos permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingAgent}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteAgent}
+                disabled={isDeletingAgent}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingAgent ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Apagando...</>
+                ) : (
+                  "Apagar"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
