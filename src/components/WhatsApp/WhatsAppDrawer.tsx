@@ -85,7 +85,9 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
           </div>
         );
       case "contacts":
-        return <WhatsAppContacts />;
+        return <WhatsAppContacts onStartConversation={(phone, name) => {
+          setActiveSection("inbox");
+        }} />;
       case "reports":
         return <WhatsAppReports />;
       case "campaigns":
