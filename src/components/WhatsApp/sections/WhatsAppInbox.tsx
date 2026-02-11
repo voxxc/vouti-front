@@ -4,6 +4,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { ConversationList } from "../components/ConversationList";
 import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
+import { Inbox, UserPlus } from "lucide-react";
 
 export interface WhatsAppConversation {
   id: string;
@@ -48,14 +49,42 @@ export const WhatsAppInbox = () => {
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [myAgentId, setMyAgentId] = useState<string | null | undefined>(undefined); // undefined = loading
+
+  // Buscar agent_id do usuário logado
+  useEffect(() => {
+    const findMyAgent = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user?.email) {
+        setMyAgentId(null);
+        return;
+      }
+
+      let query = supabase
+        .from("whatsapp_agents")
+        .select("id")
+        .eq("email", userData.user.email.toLowerCase())
+        .eq("is_active", true);
+
+      if (tenantId) {
+        query = query.eq("tenant_id", tenantId);
+      } else {
+        query = query.is("tenant_id", null);
+      }
+
+      const { data } = await query.maybeSingle();
+      setMyAgentId(data?.id || null);
+    };
+
+    findMyAgent();
+  }, [tenantId]);
 
   // Effect para carregar conversas e subscription real-time
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || myAgentId === undefined) return;
 
     loadConversations();
 
-    // Subscription real-time para atualizar lista de conversas
     const conversationsChannel = supabase
       .channel('whatsapp-conversations')
       .on(
@@ -67,7 +96,6 @@ export const WhatsAppInbox = () => {
           filter: `tenant_id=eq.${tenantId}`
         },
         () => {
-          // Recarregar lista de conversas quando nova mensagem chegar
           loadConversations();
         }
       )
@@ -76,16 +104,14 @@ export const WhatsAppInbox = () => {
     return () => {
       supabase.removeChannel(conversationsChannel);
     };
-  }, [tenantId]);
+  }, [tenantId, myAgentId]);
 
   // Effect para carregar mensagens e subscription real-time da conversa selecionada
   useEffect(() => {
     if (!selectedConversation || !tenantId) return;
 
-    // Carregar mensagens iniciais
     loadMessages(selectedConversation.contactNumber);
 
-    // Subscription real-time para novas mensagens
     const messagesChannel = supabase
       .channel(`whatsapp-messages-${selectedConversation.contactNumber}`)
       .on(
@@ -99,7 +125,6 @@ export const WhatsAppInbox = () => {
         (payload) => {
           const newMsg = payload.new as any;
           
-          // Verificar se é da conversa atual
           if (newMsg.from_number === selectedConversation.contactNumber) {
             const formattedMsg: WhatsAppMessage = {
               id: newMsg.id,
@@ -109,7 +134,6 @@ export const WhatsAppInbox = () => {
               isFromMe: newMsg.direction === "outgoing",
             };
             
-            // Adicionar mensagem evitando duplicação
             setMessages(prev => {
               if (prev.some(m => m.id === formattedMsg.id)) {
                 return prev;
@@ -121,25 +145,32 @@ export const WhatsAppInbox = () => {
       )
       .subscribe();
 
-    // Cleanup ao desmontar ou trocar conversa
     return () => {
       supabase.removeChannel(messagesChannel);
     };
   }, [selectedConversation, tenantId]);
 
-  // Função estabilizada para carregar conversas
   const loadConversations = useCallback(async (showLoading = true) => {
-    if (!tenantId) return;
+    if (!tenantId || myAgentId === undefined) return;
     
     if (showLoading) setIsLoading(true);
     try {
-      // Buscar mensagens e contatos em paralelo
+      // Se não tem agente, não carrega nada
+      if (!myAgentId) {
+        setConversations([]);
+        if (showLoading) setIsLoading(false);
+        return;
+      }
+
+      let messagesQuery = supabase
+        .from("whatsapp_messages")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("agent_id", myAgentId)
+        .order("created_at", { ascending: false });
+
       const [messagesResult, contactsResult] = await Promise.all([
-        supabase
-          .from("whatsapp_messages")
-          .select("*")
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: false }),
+        messagesQuery,
         supabase
           .from("whatsapp_contacts")
           .select("phone, name")
@@ -148,14 +179,12 @@ export const WhatsAppInbox = () => {
 
       if (messagesResult.error) throw messagesResult.error;
 
-      // Criar mapa de nomes de contatos (normalizado)
       const contactNameMap = new Map<string, string>();
       contactsResult.data?.forEach(c => {
         contactNameMap.set(normalizePhone(c.phone), c.name);
         contactNameMap.set(c.phone, c.name);
       });
 
-      // Agrupar mensagens por número de telefone (normalizado)
       const conversationMap = new Map<string, WhatsAppConversation>();
       
       messagesResult.data?.forEach((msg) => {
@@ -172,15 +201,63 @@ export const WhatsAppInbox = () => {
         }
       });
 
-      setConversations(Array.from(conversationMap.values()));
+      const convList = Array.from(conversationMap.values());
+      setConversations(convList);
+
+      // Auto-inserir novos contatos no Kanban "Topo de Funil"
+      if (myAgentId && convList.length > 0) {
+        autoInsertToKanban(convList, myAgentId);
+      }
     } catch (error) {
       console.error("Erro ao carregar conversas:", error);
     } finally {
       if (showLoading) setIsLoading(false);
     }
+  }, [tenantId, myAgentId]);
+
+  // Auto-inserir conversas no Topo de Funil do Kanban
+  const autoInsertToKanban = useCallback(async (convList: WhatsAppConversation[], agentId: string) => {
+    try {
+      // Buscar primeira coluna (Topo de Funil)
+      const { data: columns } = await supabase
+        .from("whatsapp_kanban_columns")
+        .select("id")
+        .eq("agent_id", agentId)
+        .order("column_order", { ascending: true })
+        .limit(1);
+
+      if (!columns || columns.length === 0) return;
+      const firstColumnId = columns[0].id;
+
+      // Buscar cards existentes
+      const { data: existingCards } = await supabase
+        .from("whatsapp_conversation_kanban")
+        .select("phone")
+        .eq("agent_id", agentId);
+
+      const existingPhones = new Set(existingCards?.map(c => c.phone) || []);
+
+      // Inserir contatos novos
+      const newCards = convList
+        .filter(c => !existingPhones.has(c.contactNumber))
+        .map((c, idx) => ({
+          tenant_id: tenantId,
+          agent_id: agentId,
+          phone: c.contactNumber,
+          column_id: firstColumnId,
+          card_order: existingPhones.size + idx,
+        }));
+
+      if (newCards.length > 0) {
+        await supabase
+          .from("whatsapp_conversation_kanban")
+          .insert(newCards);
+      }
+    } catch (error) {
+      console.error("Erro ao auto-inserir no kanban:", error);
+    }
   }, [tenantId]);
 
-  // Função estabilizada para carregar mensagens
   const loadMessages = useCallback(async (contactNumber: string) => {
     if (!tenantId) return;
 
@@ -192,6 +269,10 @@ export const WhatsAppInbox = () => {
         .from("whatsapp_messages")
         .select("*")
         .eq("tenant_id", tenantId);
+
+      if (myAgentId) {
+        query = query.eq("agent_id", myAgentId);
+      }
       
       if (variant) {
         query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
@@ -215,22 +296,20 @@ export const WhatsAppInbox = () => {
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }
-  }, [tenantId]);
+  }, [tenantId, myAgentId]);
 
-  // Polling automático para atualizar conversas a cada 2 segundos
+  // Polling automático para conversas
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || myAgentId === undefined) return;
 
     const intervalId = setInterval(() => {
       loadConversations(false);
     }, 2000);
 
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [tenantId, loadConversations]);
+    return () => clearInterval(intervalId);
+  }, [tenantId, loadConversations, myAgentId]);
 
-  // Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
+  // Polling automático para mensagens
   useEffect(() => {
     if (!selectedConversation || !tenantId) return;
 
@@ -238,17 +317,13 @@ export const WhatsAppInbox = () => {
       loadMessages(selectedConversation.contactNumber);
     }, 2000);
 
-    return () => {
-      clearInterval(intervalId);
-    };
+    return () => clearInterval(intervalId);
   }, [selectedConversation, tenantId, loadMessages]);
-
 
   const handleSendMessage = async (text: string) => {
     if (!selectedConversation || !tenantId) return;
 
     try {
-      // Enviar via Z-API
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           phone: selectedConversation.contactNumber,
@@ -259,7 +334,6 @@ export const WhatsAppInbox = () => {
 
       if (error) throw error;
 
-      // Update otimista: adicionar mensagem localmente
       const optimisticMsg: WhatsAppMessage = {
         id: crypto.randomUUID(),
         messageText: text,
@@ -273,16 +347,41 @@ export const WhatsAppInbox = () => {
     }
   };
 
-  // Callback para refresh após salvar contato
   const handleContactSaved = useCallback(() => {
     setTimeout(() => {
       loadConversations(false);
     }, 2000);
   }, [loadConversations]);
 
+  // Estado: ainda carregando agent_id
+  if (myAgentId === undefined) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  // Estado: usuário não tem agente
+  if (myAgentId === null) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center max-w-md space-y-4">
+          <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
+            <UserPlus className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground">Caixa de Entrada Vazia</h3>
+          <p className="text-muted-foreground">
+            Para receber mensagens aqui, crie um Agente para si em{" "}
+            <span className="font-medium text-foreground">Configurações → Agentes → "Criar Meu Agente"</span>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full">
-      {/* Lista de Conversas */}
       <ConversationList
         conversations={conversations}
         selectedConversation={selectedConversation}
@@ -290,14 +389,12 @@ export const WhatsAppInbox = () => {
         isLoading={isLoading}
       />
 
-      {/* Painel de Chat */}
       <ChatPanel
         conversation={selectedConversation}
         messages={messages}
         onSendMessage={handleSendMessage}
       />
 
-      {/* Painel de Info do Contato */}
       {selectedConversation && (
         <ContactInfoPanel 
           conversation={selectedConversation} 

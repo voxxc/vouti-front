@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Users2, Loader2, Wifi, WifiOff, QrCode, 
-  Unplug, RotateCcw, Save, CheckCircle2, XCircle, RefreshCw 
+  Unplug, RotateCcw, Save, CheckCircle2, XCircle, RefreshCw, User
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -52,6 +52,18 @@ export const WhatsAppAgentsSettings = () => {
   const [isResetting, setIsResetting] = useState(false);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasOwnAgent, setHasOwnAgent] = useState(true); // assume true until checked
+  const [isCreatingMyAgent, setIsCreatingMyAgent] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
+  // Get current user email
+  useEffect(() => {
+    const getEmail = async () => {
+      const { data } = await supabase.auth.getUser();
+      setCurrentUserEmail(data.user?.email || null);
+    };
+    getEmail();
+  }, []);
 
   useEffect(() => {
     if (tenantId) {
@@ -95,10 +107,63 @@ export const WhatsAppAgentsSettings = () => {
       }));
 
       setAgents(formattedAgents);
+
+      // Check if current user already has an agent
+      if (currentUserEmail) {
+        const hasAgent = (agentsData || []).some(
+          a => a.email?.toLowerCase() === currentUserEmail.toLowerCase()
+        );
+        setHasOwnAgent(hasAgent);
+      }
     } catch (error) {
       console.error("Erro ao carregar agentes:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Create agent for current admin
+  const handleCreateMyAgent = async () => {
+    if (!tenantId || !currentUserEmail) return;
+    
+    setIsCreatingMyAgent(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+        .maybeSingle();
+
+      const name = profile?.full_name || currentUserEmail.split("@")[0];
+
+      const { error } = await supabase
+        .from("whatsapp_agents")
+        .insert({
+          tenant_id: tenantId,
+          name,
+          email: currentUserEmail.toLowerCase(),
+          role: "admin",
+          is_active: true,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Agente criado!",
+        description: "Seu agente foi criado. Agora você terá Caixa de Entrada e Kanban próprios.",
+      });
+
+      setHasOwnAgent(true);
+      await loadAgents();
+    } catch (error: any) {
+      console.error("Erro ao criar agente:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível criar o agente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingMyAgent(false);
     }
   };
 
@@ -532,10 +597,23 @@ export const WhatsAppAgentsSettings = () => {
               Gerencie os agentes e suas configurações Z-API individuais
             </p>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Adicionar Agente
-          </Button>
+          <div className="flex items-center gap-2">
+            {!hasOwnAgent && (
+              <Button 
+                onClick={handleCreateMyAgent} 
+                disabled={isCreatingMyAgent}
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10"
+              >
+                <User className="h-4 w-4" />
+                {isCreatingMyAgent ? "Criando..." : "Criar Meu Agente"}
+              </Button>
+            )}
+            <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Adicionar Agente
+            </Button>
+          </div>
         </div>
 
         {/* Grid de Agentes com expansão inline */}
