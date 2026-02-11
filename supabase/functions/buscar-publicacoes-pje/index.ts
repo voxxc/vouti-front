@@ -7,9 +7,123 @@ const corsHeaders = {
 
 const SUPABASE_URL = 'https://ietjmyrelhijxyozcequ.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+const DATAJUD_API_KEY = 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==';
 
-const BATCH_SIZE = 5; // Process 5 tribunais at a time
+const BATCH_SIZE = 5;
+
+// Map tribunal siglas to DataJud endpoint codes
+const TRIBUNAL_MAP: Record<string, string> = {
+  'TJPR': 'tjpr', 'TJSP': 'tjsp', 'TJRJ': 'tjrj', 'TJMG': 'tjmg',
+  'TJRS': 'tjrs', 'TJSC': 'tjsc', 'TJGO': 'tjgo', 'TJCE': 'tjce',
+  'TJPE': 'tjpe', 'TJBA': 'tjba', 'TJDF': 'tjdft', 'TJMT': 'tjmt',
+  'TJMS': 'tjms', 'TJPA': 'tjpa', 'TJAM': 'tjam', 'TJMA': 'tjma',
+  'TJAL': 'tjal', 'TJSE': 'tjse', 'TJRN': 'tjrn', 'TJPB': 'tjpb',
+  'TJPI': 'tjpi', 'TJES': 'tjes', 'TJRO': 'tjro', 'TJAC': 'tjac',
+  'TJAP': 'tjap', 'TJRR': 'tjrr', 'TJTO': 'tjto',
+  'TRT1': 'trt1', 'TRT2': 'trt2', 'TRT3': 'trt3', 'TRT4': 'trt4',
+  'TRT5': 'trt5', 'TRT9': 'trt9', 'TRT12': 'trt12', 'TRT15': 'trt15',
+  'TRF1': 'trf1', 'TRF2': 'trf2', 'TRF3': 'trf3', 'TRF4': 'trf4', 'TRF5': 'trf5',
+};
+
+async function buscarViaDataJud(tribunal: string, numeroProcesso: string): Promise<any> {
+  const tribunalCode = TRIBUNAL_MAP[tribunal.toUpperCase()] || tribunal.toLowerCase();
+  const apiUrl = `https://api-publica.datajud.cnj.jus.br/api_publica_${tribunalCode}/_search`;
+  const numeroFormatado = numeroProcesso.replace(/[.-]/g, '');
+
+  console.log(`DataJud request: ${apiUrl} | processo: ${numeroFormatado}`);
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `APIKey ${DATAJUD_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: { match: { numeroProcesso: numeroFormatado } },
+      size: 10,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`DataJud API ${response.status}: ${text.substring(0, 300)}`);
+  }
+
+  return await response.json();
+}
+
+function mapMovimentacoesToPublicacoes(
+  hits: any[],
+  sigla: string,
+  mon: any,
+  dataInicio: string
+): any[] {
+  const pubs: any[] = [];
+  const dataInicioDate = new Date(dataInicio);
+
+  for (const hit of hits) {
+    const source = hit._source;
+    if (!source) continue;
+
+    const numeroProcesso = source.numeroProcesso || '';
+    // Format CNJ number: NNNNNNN-DD.AAAA.J.TR.OOOO
+    const cnj = numeroProcesso.length === 20
+      ? `${numeroProcesso.slice(0,7)}-${numeroProcesso.slice(7,9)}.${numeroProcesso.slice(9,13)}.${numeroProcesso.slice(13,14)}.${numeroProcesso.slice(14,16)}.${numeroProcesso.slice(16,20)}`
+      : source.numero_cnj || numeroProcesso;
+
+    const orgaoJulgador = source.orgaoJulgador?.nomeOrgao || null;
+    const classeProcessual = source.classe?.nome || '';
+    const assuntos = (source.assuntos || []).map((a: any) => a.nome).join(', ');
+    const movimentacoes = source.movimentos || source.movimentacoes || [];
+
+    for (const mov of movimentacoes) {
+      const dataHora = mov.dataHora ? new Date(mov.dataHora) : null;
+      if (!dataHora || dataHora < dataInicioDate) continue;
+
+      const dataDisp = dataHora.toISOString().split('T')[0];
+      const descricao = mov.complementoNacional?.nome || mov.nome || 'Movimentação';
+      const complemento = mov.complementoNacional?.descricao || '';
+      const tipo = descricao.toLowerCase().includes('intimação') ? 'Intimação'
+        : descricao.toLowerCase().includes('citação') ? 'Citação'
+        : descricao.toLowerCase().includes('sentença') ? 'Sentença'
+        : descricao.toLowerCase().includes('despacho') ? 'Despacho'
+        : descricao.toLowerCase().includes('decisão') ? 'Decisão'
+        : 'Comunicação';
+
+      const conteudo = [
+        `Processo: ${cnj}`,
+        `Classe: ${classeProcessual}`,
+        assuntos ? `Assuntos: ${assuntos}` : '',
+        `Órgão Julgador: ${orgaoJulgador || 'N/A'}`,
+        `Movimentação: ${descricao}`,
+        complemento ? `Complemento: ${complemento}` : '',
+        `Data: ${dataDisp}`,
+        `Código: ${mov.codigo || 'N/A'}`,
+      ].filter(Boolean).join('\n');
+
+      pubs.push({
+        tenant_id: mon.tenant_id,
+        monitoramento_id: mon.id,
+        data_disponibilizacao: dataDisp,
+        data_publicacao: dataDisp,
+        tipo,
+        numero_processo: cnj,
+        diario_sigla: sigla,
+        diario_nome: `DataJud - ${sigla}`,
+        comarca: null,
+        nome_pesquisado: mon.nome,
+        conteudo_completo: conteudo.substring(0, 5000),
+        link_acesso: `https://api-publica.datajud.cnj.jus.br`,
+        status: 'nao_tratada',
+        orgao: orgaoJulgador,
+        responsavel: null,
+        partes: null,
+      });
+    }
+  }
+
+  return pubs;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,67 +132,71 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
     const body = await req.json().catch(() => ({}));
     const mode = body.mode || 'manual';
 
-    // Scrape test mode: return raw markdown from Firecrawl
-    if (mode === 'scrape_test' && body.url) {
-      if (!FIRECRAWL_API_KEY) {
-        return new Response(JSON.stringify({ success: false, error: 'FIRECRAWL_API_KEY not configured' }), {
-          status: 500,
+    // === API TEST MODE: raw DataJud response ===
+    if (mode === 'api_test') {
+      const tribunal = body.tribunal || 'TJPR';
+      const numeroProcesso = body.numero_processo || '';
+
+      if (!numeroProcesso) {
+        return new Response(JSON.stringify({ success: false, error: 'numero_processo required' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      console.log('Scrape test URL:', body.url);
-      const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: body.url,
-          formats: ['markdown'],
-          waitFor: 15000,
-          onlyMainContent: true,
-        }),
-      });
-
-      const scrapeData = await scrapeRes.json();
-      const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || '';
-      console.log('Scrape test result length:', markdown.length);
-      console.log('Scrape test first 500 chars:', markdown.substring(0, 500));
+      const data = await buscarViaDataJud(tribunal, numeroProcesso);
+      const hits = data.hits?.hits || [];
 
       return new Response(JSON.stringify({
         success: true,
-        markdown_length: markdown.length,
-        markdown: markdown,
-        raw_response_keys: Object.keys(scrapeData),
+        total_hits: data.hits?.total?.value || hits.length,
+        hits_count: hits.length,
+        raw_first_hit: hits[0]?._source || null,
+        movimentacoes_count: hits[0]?._source?.movimentos?.length || 0,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Seed mode: insert a record directly
+    // === SCRAPE TEST MODE (legacy) ===
+    if (mode === 'scrape_test' && body.url) {
+      const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+      if (!FIRECRAWL_API_KEY) {
+        return new Response(JSON.stringify({ success: false, error: 'FIRECRAWL_API_KEY not configured' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: body.url, formats: ['markdown'], waitFor: 15000, onlyMainContent: true }),
+      });
+      const scrapeData = await scrapeRes.json();
+      const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || '';
+      return new Response(JSON.stringify({ success: true, markdown_length: markdown.length, markdown }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // === SEED MODE ===
     if (mode === 'seed' && body.record) {
       const { data, error } = await supabaseAdmin
         .from('publicacoes')
         .insert(body.record)
         .select()
         .single();
-
       if (error) throw new Error(`Seed insert error: ${error.message}`);
-
       return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    // === MAIN MODE: buscar publicações via DataJud ===
     const monitoramentoId = body.monitoramento_id;
 
-    // Fetch active monitoramentos
     let query = supabaseAdmin
       .from('publicacoes_monitoramentos')
       .select('*')
@@ -96,7 +214,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`Processing ${monitoramentos.length} monitoramentos`);
+    console.log(`Processing ${monitoramentos.length} monitoramentos via DataJud`);
 
     let totalInserted = 0;
     let totalErrors = 0;
@@ -109,55 +227,58 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().split('T')[0];
       const dataInicio = mon.data_inicio_monitoramento || today;
 
-      // Process in batches
+      // We need process numbers to search DataJud - use existing publicacoes or processos_oab
+      // For now, search by OAB number indirectly: get processos_oab linked to this tenant
+      const { data: processos } = await supabaseAdmin
+        .from('processos_oab')
+        .select('numero_cnj, tribunal')
+        .eq('tenant_id', mon.tenant_id)
+        .not('numero_cnj', 'is', null);
+
+      const processosToSearch = processos || [];
+
       for (let i = 0; i < allSiglas.length; i += BATCH_SIZE) {
         const batch = allSiglas.slice(i, i + BATCH_SIZE);
 
         const results = await Promise.allSettled(
           batch.map(async (sigla) => {
             try {
-              const url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${sigla}&dataDisponibilizacaoInicio=${dataInicio}&dataDisponibilizacaoFim=${today}&numeroOab=${mon.oab_numero}&ufOab=${mon.oab_uf?.toLowerCase()}`;
+              // Filter processos for this tribunal
+              const tribunalProcessos = processosToSearch.filter(
+                (p: any) => p.tribunal?.toUpperCase() === sigla.toUpperCase()
+              );
 
-              if (!FIRECRAWL_API_KEY) {
-                console.warn('FIRECRAWL_API_KEY not configured, skipping scrape');
+              if (tribunalProcessos.length === 0) {
+                console.log(`No processos found for tribunal ${sigla}, skipping`);
                 return 0;
               }
 
-              const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  url,
-                  formats: ['markdown'],
-                  waitFor: 5000,
-                  onlyMainContent: true,
-                }),
-              });
+              let allPubs: any[] = [];
 
-              const scrapeData = await scrapeRes.json();
-              const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || '';
-
-              if (!markdown || markdown.includes('Nenhuma comunicação encontrada')) {
-                return 0;
+              for (const proc of tribunalProcessos) {
+                try {
+                  const data = await buscarViaDataJud(sigla, proc.numero_cnj);
+                  const hits = data.hits?.hits || [];
+                  const pubs = mapMovimentacoesToPublicacoes(hits, sigla, mon, dataInicio);
+                  allPubs = allPubs.concat(pubs);
+                } catch (err) {
+                  console.error(`Error fetching ${proc.numero_cnj} from ${sigla}:`, err);
+                }
               }
 
-              // Parse publications from markdown
-              const pubs = parsePublicacoes(markdown, sigla, mon, today);
+              if (allPubs.length === 0) return 0;
 
-              if (pubs.length === 0) return 0;
-
-              // Insert (ignore duplicates via ON CONFLICT)
-              const { data: inserted, error: insertErr } = await supabaseAdmin
+              const { data: inserted } = await supabaseAdmin
                 .from('publicacoes')
-                .upsert(pubs, { onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla', ignoreDuplicates: true })
+                .upsert(allPubs, {
+                  onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla',
+                  ignoreDuplicates: true,
+                })
                 .select('id');
 
               return inserted?.length || 0;
             } catch (err) {
-              console.error(`Error scraping ${sigla}:`, err);
+              console.error(`Error processing ${sigla}:`, err);
               return 0;
             }
           })
@@ -168,9 +289,8 @@ Deno.serve(async (req) => {
           else totalErrors++;
         }
 
-        // Small delay between batches
         if (i + BATCH_SIZE < allSiglas.length) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 500));
         }
       }
     }
@@ -182,68 +302,19 @@ Deno.serve(async (req) => {
       inserted: totalInserted,
       errors: totalErrors,
       monitoramentos_processed: monitoramentos.length,
+      source: 'datajud_api',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }), {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
-
-function parsePublicacoes(markdown: string, sigla: string, mon: any, today: string): any[] {
-  const pubs: any[] = [];
-
-  // Split by sections that look like publication entries
-  // The PJE portal typically shows entries with process numbers, dates, types
-  const sections = markdown.split(/(?=\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
-
-  for (const section of sections) {
-    if (section.trim().length < 20) continue;
-
-    // Try to extract process number (CNJ format)
-    const processoMatch = section.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
-    if (!processoMatch) continue;
-
-    const numeroProcesso = processoMatch[1];
-
-    // Extract date
-    const dateMatch = section.match(/(\d{2}\/\d{2}\/\d{4})/);
-    let dataDisp = today;
-    if (dateMatch) {
-      const parts = dateMatch[1].split('/');
-      dataDisp = `${parts[2]}-${parts[1]}-${parts[0]}`;
-    }
-
-    // Extract type (Intimação, Citação, etc.)
-    const tipoMatch = section.match(/(Intimação|Citação|Edital|Decisão|Despacho|Sentença)/i);
-
-    // Extract comarca/orgao
-    const orgaoMatch = section.match(/(?:Vara|Câmara|Turma|Seção)[^\n]*/i);
-
-    pubs.push({
-      tenant_id: mon.tenant_id,
-      monitoramento_id: mon.id,
-      data_disponibilizacao: dataDisp,
-      data_publicacao: dataDisp,
-      tipo: tipoMatch ? tipoMatch[1] : 'Comunicação',
-      numero_processo: numeroProcesso,
-      diario_sigla: sigla,
-      diario_nome: null,
-      comarca: null,
-      nome_pesquisado: mon.nome,
-      conteudo_completo: section.trim().substring(0, 5000),
-      link_acesso: `https://comunica.pje.jus.br/consulta?siglaTribunal=${sigla}&dataDisponibilizacaoInicio=${dataDisp}&dataDisponibilizacaoFim=${dataDisp}&numeroOab=${mon.oab_numero}&ufOab=${mon.oab_uf?.toLowerCase()}`,
-      status: 'nao_tratada',
-      orgao: orgaoMatch ? orgaoMatch[0].trim() : null,
-      responsavel: null,
-      partes: null,
-    });
-  }
-
-  return pubs;
-}
