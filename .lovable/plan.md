@@ -1,76 +1,66 @@
 
 
-## Vouti CRM: Login dedicado em crm.vouti.co
+## Nova aba "Controle" no Extras com dados da planilha
 
-### O que sera feito
+### Resumo
 
-Criar uma tela de login dedicada para `crm.vouti.co` que leva direto ao Vouti.Bot (agora chamado "Vouti CRM"), independente do sistema de tenants existente. Nada do que ja existe sera alterado.
-
----
-
-### Arquivos
-
-**1. Novo: `src/pages/CrmLogin.tsx`**
-
-Copia do `Auth.tsx` atual com ajustes minimos:
-- Branding: "VOUTI CRM" no lugar de "VOUTI."
-- Slogan ajustado para CRM
-- Apenas login (email + senha) e recuperacao de senha -- sem cadastro
-- Usa `supabase.auth.signInWithPassword` diretamente (sem depender de AuthProvider/TenantProvider)
-- Apos login, redireciona para `/app`
-- Mesmo visual: split-screen, floating elements, imagem de fundo, toggle de tema
-
-**2. Novo: `src/pages/CrmApp.tsx`**
-
-Wrapper simples:
-- Verifica autenticacao via `supabase.auth.getUser()`
-- Se nao autenticado, redireciona para `/` (login)
-- Busca `tenant_id` automaticamente do perfil do usuario via `useTenantId()`
-- Renderiza `WhatsAppAccessGate` + `WhatsAppLayout` em tela cheia (mesmo conteudo do `/bot` dos tenants)
-- Nao usa `useTenantFeatures` (o check de feature so se aplica aos tenants)
-
-**3. Alteracao: `src/App.tsx`**
-
-Adicionar deteccao de hostname logo no inicio da funcao `App()`:
-
-```text
-const isCrmDomain = window.location.hostname === 'crm.vouti.co';
-
-if (isCrmDomain) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<CrmLogin />} />
-            <Route path="/app" element={<CrmApp />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <Toaster />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
-}
-```
-
-Isso faz return antes de qualquer rota existente, isolamento total.
+Adicionar uma nova aba chamada **Controle** dentro do modulo Extras (tanto no drawer quanto na pagina). Essa aba exibira uma tabela replicando a planilha CONTROLE2025, com todos os dados ja inseridos para o tenant `/demorais`.
 
 ---
 
-### O que NAO muda
+### 1. Banco de dados
 
-- Nenhuma rota de tenant (`/:tenant/bot`, `/:tenant/crm`, etc.)
-- WhatsAppLayout, WhatsAppAccessGate, WhatsAppSidebar -- tudo inalterado
-- Super Admin inalterado
-- Nenhum componente existente e modificado
+**Nova tabela: `controle_clientes`**
 
-### Fluxo do usuario
+Colunas mapeadas da planilha:
+- `id` (uuid, PK)
+- `tenant_id` (uuid, FK tenants, NOT NULL)
+- `cliente` (text) -- nome do cliente
+- `placa` (text)
+- `renavam` (text)
+- `cnh` (text)
+- `cpf_cnpj` (text)
+- `validade_cnh` (date)
+- `proximo_prazo` (text) -- texto livre pois tem valores variados
+- `obs` (text)
+- `ultima_consulta` (date)
+- `created_at`, `updated_at` (timestamps)
 
-1. Acessa `crm.vouti.co` -- ve tela de login "Vouti CRM"
-2. Faz login com email/senha
-3. Redirecionado para `crm.vouti.co/app`
-4. Sistema busca tenant_id do perfil automaticamente
-5. WhatsAppAccessGate verifica permissao
-6. Ve o Vouti CRM (antigo Vouti.Bot) em tela cheia
+**RLS**: Isolamento por tenant (`tenant_id = get_user_tenant_id()`) para SELECT, INSERT, UPDATE, DELETE.
+
+**Dados**: Inserir os ~80 registros validos da planilha para o tenant `d395b3a1-1ea1-4710-bcc1-ff5f6a279750` (demorais).
+
+---
+
+### 2. Novo componente: `src/components/Extras/ControleTab.tsx`
+
+- Busca dados de `controle_clientes` filtrado por `tenant_id` (via `useTenantId`)
+- Exibe tabela usando componentes `Table` do shadcn/ui
+- Colunas: Cliente, Placa, Renavam, CNH, CPF/CNPJ, Validade CNH, Proximo Prazo, OBS, Ultima Consulta
+- Campo de busca para filtrar por nome do cliente
+- Coluna "tempo sem consultar" calculada dinamicamente (diferenca entre hoje e ultima_consulta)
+- Scroll horizontal para caber todas as colunas
+
+---
+
+### 3. Alteracoes em arquivos existentes
+
+**`src/components/Extras/ExtrasDrawer.tsx`**
+- Adicionar `'controle'` ao tipo `TabType`
+- Adicionar botao de tab "Controle" (visivel apenas para admin)
+- Renderizar `<ControleTab />` quando ativo
+
+**`src/pages/Extras.tsx`**
+- Mesmas alteracoes: novo tab type, botao, renderizacao
+
+---
+
+### Arquivos afetados
+
+| Arquivo | Acao |
+|---|---|
+| Migracao SQL | Criar tabela + RLS + insert dados |
+| `src/components/Extras/ControleTab.tsx` | Novo |
+| `src/components/Extras/ExtrasDrawer.tsx` | Modificar (add tab) |
+| `src/pages/Extras.tsx` | Modificar (add tab) |
 
