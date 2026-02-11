@@ -50,7 +50,7 @@ const ClienteCadastro = () => {
   };
   
   const handleClose = () => {
-    navigate(tenantPath('/crm'));
+    navigate(tenantPath('/clientes'));
   };
   
   const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {

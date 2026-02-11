@@ -66,7 +66,7 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
   const [isLandingPagesDialogOpen, setIsLandingPagesDialogOpen] = useState(false);
 
   const handleOpenWhatsApp = () => {
-    window.open(tenantPath('/bot'), '_blank');  // Route kept for WhatsApp page
+    window.open(tenantPath('/crm'), '_blank');
   };
 
   const landingPages = [
@@ -92,7 +92,7 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
     if (onNewCliente) {
       onNewCliente();
     } else {
-      navigate(tenantPath('/crm/cliente/novo'));
+      navigate(tenantPath('/clientes/cliente/novo'));
     }
   };
 
@@ -100,7 +100,7 @@ export function CRMContent({ onViewCliente, onNewCliente, clientes: externalClie
     if (onViewCliente) {
       onViewCliente(clienteId);
     } else {
-      navigate(tenantPath(`/crm/cliente/${clienteId}`));
+      navigate(tenantPath(`/clientes/cliente/${clienteId}`));
     }
   };
 

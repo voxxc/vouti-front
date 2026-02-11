@@ -414,7 +414,7 @@ const Financial = () => {
                     <Button 
                       variant="outline" 
                       className="mt-4"
-                      onClick={() => navigate('/crm')}
+                      onClick={() => navigate('/clientes')}
                     >
                       Ir para CRM
                     </Button>

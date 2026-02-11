@@ -63,11 +63,11 @@ export const ClientesLista = ({ clientes, onClienteDeleted }: ClientesListaProps
   });
   
   const handleNavigateToCliente = (clienteId: string) => {
-    navigate(tenantPath(`/crm/cliente/${clienteId}`));
+    navigate(tenantPath(`/clientes/cliente/${clienteId}`));
   };
   
   const handleNavigateToNewCliente = () => {
-    navigate(tenantPath('/crm/cliente/novo'));
+    navigate(tenantPath('/clientes/cliente/novo'));
   };
   
   const handleDeleteCliente = async (clienteId: string, nomeCliente: string) => {

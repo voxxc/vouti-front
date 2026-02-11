@@ -129,12 +129,12 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', route: '/dashboard' },
     { id: 'projetos', icon: FolderOpen, label: 'Projetos', route: '/projects' },
     { id: 'agenda', icon: Calendar, label: 'Agenda', route: '/agenda' },
-    { id: 'clientes', icon: Users, label: 'Clientes', route: '/crm' },
+    { id: 'clientes', icon: Users, label: 'Clientes', route: '/clientes' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
     { id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
-    { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.CRM', route: '/bot' },
+    { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.CRM', route: '/crm' },
     { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
 
