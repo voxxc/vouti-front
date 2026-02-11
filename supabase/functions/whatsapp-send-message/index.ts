@@ -16,9 +16,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { phone, message, messageType = 'text', mediaUrl, mode } = await req.json();
+    const { phone, message, messageType = 'text', mediaUrl, mode, agentName } = await req.json();
 
-    if (!phone || !message) {
+    // Prefixar com nome do atendente (se presente)
+    const finalMessage = agentName ? `*${agentName}*: ${message}` : message;
+
+    if (!phone || !finalMessage) {
       throw new Error('Phone and message are required');
     }
 
@@ -81,10 +84,10 @@ serve(async (req) => {
 
     if (messageType === 'text') {
       apiEndpoint = `${baseUrl}/send-text`;
-      messagePayload = { phone, message };
+      messagePayload = { phone, message: finalMessage };
     } else if (messageType === 'media' && mediaUrl) {
       apiEndpoint = `${baseUrl}/send-file-url`;
-      messagePayload = { phone, message, url: mediaUrl };
+      messagePayload = { phone, message: finalMessage, url: mediaUrl };
     } else {
       throw new Error('Invalid message type or missing media URL');
     }
@@ -113,7 +116,7 @@ serve(async (req) => {
     // Save message to database
     const messageRecord: Record<string, unknown> = {
       from_number: phone,
-      message_text: message,
+      message_text: finalMessage,
       direction: 'outgoing',
       instance_name: instance?.instance_name || zapiInstanceId,
       message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

@@ -50,6 +50,7 @@ export const WhatsAppInbox = () => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [myAgentId, setMyAgentId] = useState<string | null | undefined>(undefined); // undefined = loading
+  const [myAgentName, setMyAgentName] = useState<string | null>(null);
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
@@ -62,7 +63,7 @@ export const WhatsAppInbox = () => {
 
       let query = supabase
         .from("whatsapp_agents")
-        .select("id")
+        .select("id, name")
         .eq("email", userData.user.email.toLowerCase())
         .eq("is_active", true);
 
@@ -74,6 +75,7 @@ export const WhatsAppInbox = () => {
 
       const { data } = await query.maybeSingle();
       setMyAgentId(data?.id || null);
+      setMyAgentName(data?.name || null);
     };
 
     findMyAgent();
@@ -328,7 +330,8 @@ export const WhatsAppInbox = () => {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
-          messageType: "text"
+          messageType: "text",
+          agentName: myAgentName || undefined
         }
       });
 
