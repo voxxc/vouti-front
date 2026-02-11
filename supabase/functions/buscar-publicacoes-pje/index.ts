@@ -21,6 +21,22 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const mode = body.mode || 'manual';
+
+    // Seed mode: insert a record directly
+    if (mode === 'seed' && body.record) {
+      const { data, error } = await supabaseAdmin
+        .from('publicacoes')
+        .insert(body.record)
+        .select()
+        .single();
+
+      if (error) throw new Error(`Seed insert error: ${error.message}`);
+
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const monitoramentoId = body.monitoramento_id;
 
     // Fetch active monitoramentos
