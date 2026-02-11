@@ -31,7 +31,7 @@ export const WhatsAppAccessGranted = ({
             Acesso Autorizado
           </h1>
           <p className="text-muted-foreground">
-            Você está conectado ao Vouti.Bot
+            Você está conectado ao Vouti.CRM
           </p>
         </div>
 
@@ -53,7 +53,7 @@ export const WhatsAppAccessGranted = ({
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Você possui acesso liberado ao Vouti.Bot
+            Você possui acesso liberado ao Vouti.CRM
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export const WhatsAppAccessGranted = ({
           className="gap-2 w-full"
           size="lg"
         >
-          Acessar Vouti.Bot
+          Acessar Vouti.CRM
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>

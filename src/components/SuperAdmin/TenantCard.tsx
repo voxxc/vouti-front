@@ -93,14 +93,14 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
 
       toast.success(
         isWhatsAppEnabled 
-          ? 'Vouti.Bot desativado para este cliente' 
-          : 'Vouti.Bot ativado para este cliente'
+          ? 'Vouti.CRM desativado para este cliente' 
+          : 'Vouti.CRM ativado para este cliente'
       );
 
       // Notificar componente pai sobre a mudança
       onSettingsChange?.(tenant.id, newSettings);
     } catch (error) {
-      console.error('Erro ao alterar status do Vouti.Bot:', error);
+      console.error('Erro ao alterar status do Vouti.CRM:', error);
       toast.error('Erro ao alterar configuração');
     } finally {
       setWhatsAppLoading(false);
@@ -302,7 +302,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
               )}
               onClick={handleToggleWhatsApp}
               disabled={whatsAppLoading}
-              title={isWhatsAppEnabled ? "Vouti.Bot: Ativado" : "Vouti.Bot: Desativado"}
+              title={isWhatsAppEnabled ? "Vouti.CRM: Ativado" : "Vouti.CRM: Desativado"}
             >
               {whatsAppLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

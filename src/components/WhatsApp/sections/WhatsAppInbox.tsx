@@ -403,6 +403,13 @@ export const WhatsAppInbox = () => {
         <ContactInfoPanel 
           conversation={selectedConversation} 
           onContactSaved={handleContactSaved}
+          currentAgentId={myAgentId}
+          currentAgentName={myAgentName}
+          tenantId={tenantId}
+          onTransferComplete={() => {
+            setSelectedConversation(null);
+            loadConversations();
+          }}
         />
       )}
     </div>

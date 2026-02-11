@@ -25,14 +25,14 @@ export const WhatsAppAccessDenied = ({ userEmail }: WhatsAppAccessDeniedProps) =
             Acesso Restrito
           </h1>
           <p className="text-muted-foreground">
-            Você não possui permissão para acessar o Vouti.Bot
+            Você não possui permissão para acessar o Vouti.CRM
           </p>
         </div>
 
         <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
           <p>
             Para obter acesso, solicite ao administrador do seu escritório que cadastre 
-            seu email como agente autorizado nas configurações do Vouti.Bot.
+            seu email como agente autorizado nas configurações do Vouti.CRM.
           </p>
         </div>
 

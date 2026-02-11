@@ -235,7 +235,16 @@ export const WhatsAppAllConversations = () => {
       />
 
       {selectedConversation && (
-        <ContactInfoPanel conversation={selectedConversation} />
+        <ContactInfoPanel
+          conversation={selectedConversation}
+          currentAgentId={myAgentId}
+          currentAgentName={myAgentName}
+          tenantId={tenantId}
+          onTransferComplete={() => {
+            setSelectedConversation(null);
+            loadConversations();
+          }}
+        />
       )}
     </div>
   );

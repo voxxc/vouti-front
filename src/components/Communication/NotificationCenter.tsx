@@ -67,6 +67,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       case 'deadline_assigned':
       case 'deadline_tagged':
         return <Calendar className="h-5 w-5 text-orange-500" />;
+      case 'conversation_transferred':
+        return <span className="text-lg">🔄</span>;
       default:
         return <span className="text-lg">📢</span>;
     }

@@ -447,6 +447,13 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
           <ContactInfoPanel
             conversation={selectedConversation}
             onContactSaved={() => loadKanbanData()}
+            currentAgentId={agentId}
+            currentAgentName={agentName}
+            tenantId={tenantId}
+            onTransferComplete={() => {
+              setSelectedConversation(null);
+              loadKanbanData();
+            }}
           />
         </div>
       )}

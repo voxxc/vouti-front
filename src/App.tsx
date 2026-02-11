@@ -390,7 +390,7 @@ function App() {
               </TenantRouteWrapper>
             } />
             
-            {/* WhatsApp - Tenant Dynamic (nova página dedicada) */}
+            {/* Vouti.CRM - Tenant Dynamic (nova página dedicada) */}
             <Route path="/:tenant/bot" element={
               <TenantRouteWrapper>
                 <WhatsApp />
@@ -617,7 +617,9 @@ function App() {
             
             {/* Super Admin Panel */}
             <Route path="/super-admin" element={<SuperAdmin />} />
-            <Route path="/super-admin/bot" element={<SuperAdminWhatsApp />} />
+            <Route path="/super-admin/crm" element={<SuperAdminWhatsApp />} />
+            {/* Legacy redirect */}
+            <Route path="/super-admin/bot" element={<Navigate to="/super-admin/crm" replace />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
