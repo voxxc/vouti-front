@@ -17,7 +17,8 @@ import {
   Headphones,
   Star,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Newspaper
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
@@ -25,7 +26,7 @@ import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 
-export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'extras' | null;
+export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -121,6 +122,11 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
     if (itemId === 'whatsapp') {
       return isWhatsAppEnabled && userRoles.includes('admin');
     }
+
+    // Publicações - admin + controller
+    if (itemId === 'publicacoes') {
+      return userRoles.includes('admin') || userRoles.includes('controller');
+    }
     
     return hasAccess(itemId);
   };
@@ -135,6 +141,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
     { id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
     { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.CRM', route: '/crm' },
+    { id: 'publicacoes', icon: Newspaper, label: 'Publicações', route: '/publicacoes' },
     { id: 'extras', icon: Star, label: 'Extras', route: '/extras' },
   ];
 
@@ -158,7 +165,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   };
 
   // IDs que abrem drawers
-  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'extras'];
+  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
 
   return (
     <>

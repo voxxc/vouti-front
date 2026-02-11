@@ -7,10 +7,11 @@ import { AniversariosTab } from "./AniversariosTab";
 import { GoogleAgendaTab } from "./GoogleAgendaTab";
 import { TimezoneTab } from "./TimezoneTab";
 import { ControleTab } from "./ControleTab";
+import { PublicacoesTab } from "./PublicacoesTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
-type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle';
+type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle' | 'publicacoes';
 
 interface ExtrasDrawerProps {
   open: boolean;
@@ -102,6 +103,14 @@ export function ExtrasDrawer({ open, onOpenChange }: ExtrasDrawerProps) {
                   Controle
                 </TabButton>
               )}
+              {isAdmin && (
+                <TabButton 
+                  active={activeTab === 'publicacoes'} 
+                  onClick={() => setActiveTab('publicacoes')}
+                >
+                  Publicações
+                </TabButton>
+              )}
             </div>
 
             {/* Conteúdo da tab */}
@@ -111,6 +120,7 @@ export function ExtrasDrawer({ open, onOpenChange }: ExtrasDrawerProps) {
               {activeTab === 'google-agenda' && <GoogleAgendaTab />}
               {activeTab === 'timezone' && isAdmin && <TimezoneTab />}
               {activeTab === 'controle' && isAdmin && <ControleTab />}
+              {activeTab === 'publicacoes' && isAdmin && <PublicacoesTab />}
             </div>
           </div>
         </ScrollArea>
