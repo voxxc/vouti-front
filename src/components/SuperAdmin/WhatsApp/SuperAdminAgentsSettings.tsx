@@ -234,7 +234,7 @@ export const SuperAdminAgentsSettings = () => {
 
       toast({
         title: "Credenciais salvas",
-        description: "As credenciais Z-API foram salvas com sucesso",
+        description: "As credenciais Vouti.API foram salvas com sucesso",
       });
     } catch (error) {
       console.error("Erro ao salvar:", error);
@@ -521,7 +521,7 @@ export const SuperAdminAgentsSettings = () => {
               Agentes
             </h1>
             <p className="text-muted-foreground">
-              Gerencie os agentes e suas configurações Z-API individuais
+              Gerencie os agentes e suas configurações Vouti.API individuais
             </p>
           </div>
           <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
@@ -559,7 +559,7 @@ export const SuperAdminAgentsSettings = () => {
                         <TabsList className="grid w-full grid-cols-2">
                           <TabsTrigger value="zapi" className="gap-2">
                             <Wifi className="h-4 w-4" />
-                            Conexão Z-API
+                            Conexão Vouti.API
                           </TabsTrigger>
                           <TabsTrigger value="ai" className="gap-2">
                             Comportamento da IA
@@ -568,7 +568,7 @@ export const SuperAdminAgentsSettings = () => {
                       </CardHeader>
 
                       <CardContent className="pt-6">
-                        {/* Aba Conexão Z-API */}
+                        {/* Aba Conexão Vouti.API */}
                         <TabsContent value="zapi" className="mt-0 space-y-6">
                           {/* Status */}
                           <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
@@ -594,14 +594,14 @@ export const SuperAdminAgentsSettings = () => {
 
                           {/* Credenciais */}
                           <div className="space-y-4">
-                            <h3 className="font-semibold">Credenciais Z-API</h3>
+                            <h3 className="font-semibold">Credenciais Vouti.API</h3>
                             
                             {/* Campo para colar URL completa */}
                             <div className="space-y-2">
                               <Label htmlFor="zapi_full_url">API da Instância (URL Completa)</Label>
                               <Input
                                 id="zapi_full_url"
-                                placeholder="Cole a URL completa da Z-API aqui..."
+                                placeholder="Cole a URL completa da Vouti.API aqui..."
                                 className="font-mono text-xs"
                                 onChange={(e) => {
                                   const url = e.target.value;
@@ -666,7 +666,7 @@ export const SuperAdminAgentsSettings = () => {
                                 className="font-mono"
                               />
                               <p className="text-xs text-muted-foreground">
-                                Se sua instância Z-API exigir token de segurança adicional
+                                Se sua instância Vouti.API exigir token de segurança adicional
                               </p>
                             </div>
 

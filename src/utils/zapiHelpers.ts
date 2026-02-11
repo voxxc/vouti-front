@@ -1,10 +1,10 @@
 /**
- * Utilitários para extrair valores corretos de URLs Z-API
+ * Utilitários para extrair valores corretos de URLs Vouti.API
  * Evita erros quando o usuário cola a URL completa ao invés de apenas o ID/Token
  */
 
 /**
- * Extrai o Instance ID de uma URL Z-API ou retorna o valor limpo
+ * Extrai o Instance ID de uma URL Vouti.API ou retorna o valor limpo
  * @example extractInstanceId("https://api.z-api.io/instances/ABC123/token/XYZ/") => "ABC123"
  * @example extractInstanceId("ABC123") => "ABC123"
  */
@@ -22,7 +22,7 @@ export const extractInstanceId = (value: string): string => {
 };
 
 /**
- * Extrai o Instance Token de uma URL Z-API ou retorna o valor limpo
+ * Extrai o Instance Token de uma URL Vouti.API ou retorna o valor limpo
  * @example extractInstanceToken("https://api.z-api.io/instances/ABC/token/F5DA387/send-text") => "F5DA387"
  * @example extractInstanceToken("F5DA387") => "F5DA387"
  */

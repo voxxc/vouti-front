@@ -30,19 +30,19 @@ const secrets = [
   },
   {
     name: "Z_API_URL",
-    usage: "URL da instância Z-API para WhatsApp",
+    usage: "URL da instância Vouti.API para WhatsApp",
     required: false,
     example: "https://api.z-api.io"
   },
   {
     name: "Z_API_INSTANCE_ID",
-    usage: "ID da instância Z-API",
+    usage: "ID da instância Vouti.API",
     required: false,
     example: "instance-12345"
   },
   {
     name: "Z_API_TOKEN",
-    usage: "Token de autenticação Z-API",
+    usage: "Token de autenticação Vouti.API",
     required: false,
     example: "abc123def456"
   },
@@ -95,7 +95,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 # Judit.io API (obrigatório para Controladoria)
 JUDIT_API_KEY=your_judit_api_key_here
 
-# Z-API WhatsApp (opcional)
+# Vouti.API WhatsApp (opcional)
 Z_API_URL=https://api.z-api.io
 Z_API_INSTANCE_ID=your_instance_id
 Z_API_TOKEN=your_token_here
