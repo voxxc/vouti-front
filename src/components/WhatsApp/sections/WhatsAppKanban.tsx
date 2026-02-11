@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -90,6 +90,7 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [chatMessages, setChatMessages] = useState<WhatsAppMessage[]>([]);
   const [showAddCardDialog, setShowAddCardDialog] = useState(false);
+  const isDraggingRef = useRef(false);
 
   // Load kanban data
   const loadKanbanData = useCallback(async () => {
@@ -174,6 +175,56 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
     loadKanbanData();
   }, [loadKanbanData]);
 
+  // Silent refresh (no spinner, no toast)
+  const silentRefresh = useCallback(async () => {
+    if (!agentId || isDraggingRef.current) return;
+    try {
+      const [columnsRes, cardsRes, messagesRes, contactsRes] = await Promise.all([
+        supabase.from("whatsapp_kanban_columns").select("*").eq("agent_id", agentId).order("column_order"),
+        supabase.from("whatsapp_conversation_kanban").select("*").eq("agent_id", agentId),
+        supabase.from("whatsapp_messages").select("from_number, message_text, created_at").eq("agent_id", agentId).order("created_at", { ascending: false }),
+        supabase.from("whatsapp_contacts").select("phone, name"),
+      ]);
+      if (columnsRes.error || cardsRes.error) return;
+
+      setColumns(columnsRes.data || []);
+
+      const contactNameMap = new Map<string, string>();
+      contactsRes.data?.forEach(c => {
+        contactNameMap.set(normalizePhone(c.phone), c.name);
+        contactNameMap.set(c.phone, c.name);
+      });
+
+      const messageMap = new Map<string, { text: string; time: string }>();
+      messagesRes.data?.forEach((msg: any) => {
+        const normalized = normalizePhone(msg.from_number);
+        if (!messageMap.has(normalized)) {
+          messageMap.set(normalized, { text: msg.message_text || "", time: msg.created_at });
+        }
+      });
+
+      const enrichedCards: KanbanCard[] = (cardsRes.data || []).map((card: any) => {
+        const normalized = normalizePhone(card.phone);
+        return {
+          ...card,
+          contactName: contactNameMap.get(normalized) || contactNameMap.get(card.phone) || card.phone,
+          lastMessage: messageMap.get(normalized)?.text || "",
+          lastMessageTime: messageMap.get(normalized)?.time || "",
+          agentName,
+        };
+      });
+      setCards(enrichedCards);
+    } catch {
+      // silent
+    }
+  }, [agentId, agentName]);
+
+  // Polling every 2 seconds
+  useEffect(() => {
+    const interval = setInterval(silentRefresh, 2000);
+    return () => clearInterval(interval);
+  }, [silentRefresh]);
+
   // Load messages for chat panel
   const loadChatMessages = useCallback(async (contactNumber: string) => {
     if (!tenantId) return;
@@ -253,7 +304,12 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
     }
   };
 
+  const handleDragStart = () => {
+    isDraggingRef.current = true;
+  };
+
   const handleDragEnd = async (result: DropResult) => {
+    isDraggingRef.current = false;
     if (!result.destination) return;
     const { draggableId, destination } = result;
 
@@ -324,7 +380,7 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
         </div>
 
         {/* Board */}
-        <DragDropContext onDragEnd={handleDragEnd}>
+        <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex-1 overflow-x-auto">
             <div className="flex gap-3 pb-4 min-h-full">
               {columns.map((column) => (

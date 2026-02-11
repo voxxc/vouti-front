@@ -77,13 +77,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
       case "conversations":
         return <WhatsAppConversations />;
       case "kanban":
-        return selectedKanbanAgent ? (
-          <WhatsAppKanban agentId={selectedKanbanAgent.id} agentName={selectedKanbanAgent.name} />
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>Selecione um agente no menu para ver o Kanban</p>
-          </div>
-        );
+        return null;
       case "contacts":
         return <WhatsAppContacts onStartConversation={(phone, name) => {
           setActiveSection("inbox");
@@ -148,8 +142,14 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
             onKanbanAgentSelect={handleKanbanAgentSelect}
             selectedKanbanAgentId={selectedKanbanAgent?.id}
           />
-          <main className="flex-1 overflow-hidden">
-            {renderSection()}
+          <main className="flex-1 overflow-hidden relative">
+            {/* Kanban always mounted for background polling */}
+            {selectedKanbanAgent && (
+              <div className={activeSection === "kanban" ? "h-full" : "hidden"}>
+                <WhatsAppKanban agentId={selectedKanbanAgent.id} agentName={selectedKanbanAgent.name} />
+              </div>
+            )}
+            {activeSection !== "kanban" && renderSection()}
           </main>
         </div>
       </SheetContent>
