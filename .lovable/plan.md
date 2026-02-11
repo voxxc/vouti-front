@@ -1,42 +1,43 @@
 
 
-## Inserir publicacao de teste no tenant /demorais
+## Testar scraping real do comunica.pje.jus.br via Firecrawl
 
-Como o banco de dados so aceita escrita via Edge Functions ou frontend autenticado, vou modificar a Edge Function `buscar-publicacoes-pje` para aceitar um modo `seed` que insere registros de teste diretamente.
+### Objetivo
 
-### Abordagem
+Implementar e executar um teste diagnostico para verificar se o Firecrawl consegue extrair dados reais do portal PJE antes de inserir qualquer informacao.
+
+### Passo 1 - Adicionar modo `scrape_test` na Edge Function
 
 **Arquivo**: `supabase/functions/buscar-publicacoes-pje/index.ts`
 
-Adicionar um handler para `mode: "seed"` que:
-1. Recebe um objeto `record` no body com os dados da publicacao
-2. Insere diretamente na tabela `publicacoes` usando service role
-3. Retorna o registro inserido
+Adicionar handler para `mode === 'scrape_test'`:
+- Recebe `url` no body
+- Chama Firecrawl com `waitFor: 15000` e `formats: ['markdown']`
+- Retorna o markdown bruto sem processar
+- Timeout curto, sem inserir nada no banco
 
-Depois de deploy, chamar a funcao com os dados do processo `0004010-95.2026.8.16.0021` do TJPR para o tenant `demorais` (monitoramento do Alan Claudio Maran, OAB/PR 111.056).
+### Passo 2 - Deploy e teste
 
-### Dados a inserir
+Deployar a funcao e chamar com a URL exata:
+```
+https://comunica.pje.jus.br/consulta?siglaTribunal=TJPR&dataDisponibilizacaoInicio=2025-03-01&dataDisponibilizacaoFim=2026-02-11&numeroOab=111056&ufOab=pr
+```
 
-| Campo | Valor |
-|---|---|
-| tenant_id | d395b3a1-1ea1-4710-bcc1-ff5f6a279750 |
-| monitoramento_id | 5dfc8d9a-d9ea-4b1b-966c-6da941ae191b |
-| data_disponibilizacao | 2026-02-10 |
-| data_publicacao | 2026-02-11 |
-| tipo | Intimacao |
-| numero_processo | 0004010-95.2026.8.16.0021 |
-| diario_sigla | TJPR |
-| diario_nome | Diario da Justica do Estado do Parana |
-| comarca | Curitiba |
-| nome_pesquisado | Alan Claudio Maran |
-| status | nao_tratada |
-| orgao | 18a Camara Civel - Foro Central de Curitiba |
-| conteudo_completo | Texto completo simulado da decisao judicial |
+### Passo 3 - Analisar resultado
 
-### Arquivos alterados
+- **Se retornar conteudo real**: extrair dados do processo `0004010-95.2026.8.16.0021` e inserir com dados verdadeiros
+- **Se retornar pagina em branco**: informar que o Firecrawl nao consegue renderizar esse SPA e buscar alternativa
+
+### Passo 4 - Inserir dados reais (se scraping funcionar)
+
+Usar modo `seed` para inserir o registro com conteudo **real** captado do site.
+
+### Arquivo alterado
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/buscar-publicacoes-pje/index.ts` | Adicionar handler `mode: "seed"` |
+| `supabase/functions/buscar-publicacoes-pje/index.ts` | Adicionar handler `scrape_test` (poucas linhas) |
 
-Apos deploy, chamarei a funcao para inserir o registro e voce podera visualizar no drawer Publicacoes do /demorais.
+### Compromisso
+
+Nenhum dado sera inventado. Se o scraping nao retornar conteudo real, informarei imediatamente.
