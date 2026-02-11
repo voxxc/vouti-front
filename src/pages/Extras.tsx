@@ -4,10 +4,11 @@ import { PerfilTab } from "@/components/Extras/PerfilTab";
 import { AniversariosTab } from "@/components/Extras/AniversariosTab";
 import { GoogleAgendaTab } from "@/components/Extras/GoogleAgendaTab";
 import { TimezoneTab } from "@/components/Extras/TimezoneTab";
+import { ControleTab } from "@/components/Extras/ControleTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
-type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone';
+type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle';
 
 const TabButton = ({ 
   active, 
@@ -79,6 +80,14 @@ const Extras = () => {
               Timezone
             </TabButton>
           )}
+          {isAdmin && (
+            <TabButton 
+              active={activeTab === 'controle'} 
+              onClick={() => setActiveTab('controle')}
+            >
+              Controle
+            </TabButton>
+          )}
         </div>
 
         {/* Conteúdo */}
@@ -87,6 +96,7 @@ const Extras = () => {
           {activeTab === 'aniversarios' && isAdmin && <AniversariosTab />}
           {activeTab === 'google-agenda' && <GoogleAgendaTab />}
           {activeTab === 'timezone' && isAdmin && <TimezoneTab />}
+          {activeTab === 'controle' && isAdmin && <ControleTab />}
         </div>
       </div>
     </DashboardLayout>

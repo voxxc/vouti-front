@@ -1277,6 +1277,62 @@ export type Database = {
           },
         ]
       }
+      controle_clientes: {
+        Row: {
+          cliente: string | null
+          cnh: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          id: string
+          obs: string | null
+          placa: string | null
+          proximo_prazo: string | null
+          renavam: string | null
+          tenant_id: string
+          ultima_consulta: string | null
+          updated_at: string
+          validade_cnh: string | null
+        }
+        Insert: {
+          cliente?: string | null
+          cnh?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          obs?: string | null
+          placa?: string | null
+          proximo_prazo?: string | null
+          renavam?: string | null
+          tenant_id: string
+          ultima_consulta?: string | null
+          updated_at?: string
+          validade_cnh?: string | null
+        }
+        Update: {
+          cliente?: string | null
+          cnh?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          obs?: string | null
+          placa?: string | null
+          proximo_prazo?: string | null
+          renavam?: string | null
+          tenant_id?: string
+          ultima_consulta?: string | null
+          updated_at?: string
+          validade_cnh?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "controle_clientes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credenciais_cliente: {
         Row: {
           cpf: string
