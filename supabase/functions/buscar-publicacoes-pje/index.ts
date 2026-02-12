@@ -161,22 +161,146 @@ Deno.serve(async (req) => {
       });
     }
 
-    // === SCRAPE TEST MODE (legacy) ===
-    if (mode === 'scrape_test' && body.url) {
-      const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-      if (!FIRECRAWL_API_KEY) {
-        return new Response(JSON.stringify({ success: false, error: 'FIRECRAWL_API_KEY not configured' }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // === N8N TEST MODE: raw webhook response ===
+    if (mode === 'n8n_test') {
+      const tribunal = body.tribunal || 'TJPR';
+      const oabNumero = body.oab_numero;
+      const oabUf = body.oab_uf;
+      if (!oabNumero || !oabUf) {
+        return new Response(JSON.stringify({ success: false, error: 'oab_numero and oab_uf are required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      const today = new Date().toISOString().split('T')[0];
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+      const webhookPayload = {
+        siglaTribunal: tribunal,
+        numeroOab: oabNumero,
+        ufOab: oabUf.toLowerCase(),
+        dataInicio: body.data_inicio || ninetyDaysAgo,
+        dataFim: body.data_fim || today,
+      };
+      console.log('n8n_test: calling webhook with', JSON.stringify(webhookPayload));
+      const webhookRes = await fetch('https://voutibot.app.n8n.cloud/webhook/tjpr-scraper', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: body.url, formats: ['markdown'], waitFor: 15000, onlyMainContent: true }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookPayload),
       });
-      const scrapeData = await scrapeRes.json();
-      const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || '';
-      return new Response(JSON.stringify({ success: true, markdown_length: markdown.length, markdown }), {
+      const webhookData = await webhookRes.json();
+      return new Response(JSON.stringify({
+        success: true,
+        webhook_status: webhookRes.status,
+        webhook_response: webhookData,
+        total_results: webhookData?.totalResults || webhookData?.data?.length || 0,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // === N8N SCRAPER MODE: fetch from n8n webhook and insert into publicacoes ===
+    if (mode === 'n8n_scraper') {
+      const tribunal = body.tribunal || 'TJPR';
+      const oabNumero = body.oab_numero;
+      const oabUf = body.oab_uf;
+      const tenantId = body.tenant_id;
+      const monitoramentoId = body.monitoramento_id || null;
+
+      if (!oabNumero || !oabUf || !tenantId) {
+        return new Response(JSON.stringify({ success: false, error: 'oab_numero, oab_uf, and tenant_id are required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+      const webhookPayload = {
+        siglaTribunal: tribunal,
+        numeroOab: oabNumero,
+        ufOab: oabUf.toLowerCase(),
+        dataInicio: body.data_inicio || ninetyDaysAgo,
+        dataFim: body.data_fim || today,
+      };
+
+      console.log('n8n_scraper: calling webhook with', JSON.stringify(webhookPayload));
+      const webhookRes = await fetch('https://voutibot.app.n8n.cloud/webhook/tjpr-scraper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      if (!webhookRes.ok) {
+        const errText = await webhookRes.text();
+        throw new Error(`n8n webhook error ${webhookRes.status}: ${errText.substring(0, 300)}`);
+      }
+
+      const webhookData = await webhookRes.json();
+      const items = webhookData?.data || [];
+
+      if (items.length === 0) {
+        return new Response(JSON.stringify({ success: true, inserted: 0, message: 'No publications found from n8n webhook' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get monitoramento name if available
+      let nomePesquisado = `OAB ${oabNumero}/${oabUf}`;
+      if (monitoramentoId) {
+        const { data: mon } = await supabaseAdmin
+          .from('publicacoes_monitoramentos')
+          .select('nome')
+          .eq('id', monitoramentoId)
+          .single();
+        if (mon?.nome) nomePesquisado = mon.nome;
+      }
+
+      // Map n8n items to publicacoes format
+      const pubs = items.map((item: any) => {
+        const descricao = item.descricao || '';
+        const tipo = descricao.toLowerCase().includes('intimação') || descricao.toLowerCase().includes('intimacao') ? 'Intimação'
+          : descricao.toLowerCase().includes('citação') || descricao.toLowerCase().includes('citacao') ? 'Citação'
+          : descricao.toLowerCase().includes('sentença') || descricao.toLowerCase().includes('sentenca') ? 'Sentença'
+          : descricao.toLowerCase().includes('despacho') ? 'Despacho'
+          : descricao.toLowerCase().includes('decisão') || descricao.toLowerCase().includes('decisao') ? 'Decisão'
+          : 'Comunicação';
+
+        return {
+          tenant_id: tenantId,
+          monitoramento_id: monitoramentoId,
+          data_disponibilizacao: item.dataPublicacao || today,
+          data_publicacao: item.dataPublicacao || today,
+          tipo,
+          numero_processo: item.numeroProcesso || null,
+          diario_sigla: item.tribunal || tribunal,
+          diario_nome: `PJe Comunicações - ${item.tribunal || tribunal}`,
+          comarca: null,
+          nome_pesquisado: nomePesquisado,
+          conteudo_completo: descricao.substring(0, 5000),
+          link_acesso: 'https://comunica.pje.jus.br',
+          status: 'nao_tratada',
+          orgao: null,
+          responsavel: null,
+          partes: null,
+        };
+      });
+
+      const { data: inserted, error: insertError } = await supabaseAdmin
+        .from('publicacoes')
+        .upsert(pubs, {
+          onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla',
+          ignoreDuplicates: true,
+        })
+        .select('id');
+
+      if (insertError) throw new Error(`Insert error: ${insertError.message}`);
+
+      console.log(`n8n_scraper: inserted ${inserted?.length || 0} publicações from ${items.length} items`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        inserted: inserted?.length || 0,
+        total_from_webhook: items.length,
+        source: 'n8n_scraper',
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
