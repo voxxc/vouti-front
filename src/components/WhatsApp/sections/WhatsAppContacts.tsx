@@ -31,7 +31,8 @@ import {
   Edit,
   UserPlus,
   Send,
-  FileText
+  FileText,
+  MapPin
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,6 +50,8 @@ interface WhatsAppContact {
   name: string;
   email?: string;
   notes?: string;
+  city?: string;
+  state?: string;
   created_at: string;
   labels: { id: string; name: string; color: string }[];
 }
@@ -125,6 +128,8 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
         name: contact.name,
         email: contact.email,
         notes: contact.notes,
+        city: contact.city,
+        state: contact.state,
         created_at: contact.created_at,
         labels: (contact.whatsapp_contact_labels || [])
           .map((cl: any) => cl.whatsapp_labels)
@@ -287,6 +292,12 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
                         <span className="flex items-center gap-1">
                           <Mail className="h-3 w-3" />
                           {contact.email}
+                        </span>
+                      )}
+                      {(contact.city || contact.state) && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {[contact.city, contact.state].filter(Boolean).join(", ")}
                         </span>
                       )}
                     </div>
