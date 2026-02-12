@@ -1,68 +1,64 @@
 
 
-## Vincular mensagens ao agent_id no webhook do WhatsApp
+## Propagar agent_id na IA (debounce) e corrigir respostas da Juliana
 
-### Problema identificado
+### Problema
 
-A instancia da Juliana esta **conectada** (status: connected, credenciais Z-API configuradas), porem todas as mensagens do tenant /demorais tem `agent_id = NULL`. Isso acontece porque o webhook (`whatsapp-webhook/index.ts`) nunca resolve o `agent_id` a partir da instancia que recebeu a mensagem.
+O webhook ja resolve o `agent_id` da instancia, mas quando dispara o debounce da IA, nao envia o `agent_id` no payload. A funcao debounce tambem nao o recebe nem propaga para o insert. Resultado: respostas da IA ficam com `agent_id = NULL` e nao aparecem na Caixa de Entrada.
 
-Como a Caixa de Entrada filtra mensagens por `agent_id = meuAgentId`, a inbox da Juliana aparece vazia.
-
-### Causa raiz
-
-O webhook ja faz o lookup da instancia pelo `zapi_instance_id`, mas a query nao inclui o campo `agent_id`:
-
-```text
-SELECT user_id, tenant_id, zapi_url, zapi_token, ...
-FROM whatsapp_instances
-WHERE zapi_instance_id = '{instanceId}'
-```
-
-O campo `agent_id` existe na tabela `whatsapp_instances` mas nao e extraido, nem propagado para o INSERT das mensagens.
-
-### O que sera feito
+### Alteracoes
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/whatsapp-webhook/index.ts` | Incluir `agent_id` na query de instancia e propagar para todos os inserts de mensagens |
+| `supabase/functions/whatsapp-webhook/index.ts` | Adicionar `agent_id` no body do fire-and-forget para o debounce (linha 510-518) |
+| `supabase/functions/whatsapp-ai-debounce/index.ts` | Receber `agent_id`, adicionar parametro na `saveOutgoingMessage`, propagar no insert |
 
 ### Detalhes tecnicos
 
-**1. Query da instancia** (linha ~217)
-- Adicionar `agent_id` ao SELECT da query de `whatsapp_instances`
-
-**2. Insert de mensagem recebida** (linha ~264)
-- Adicionar `agent_id: instance.agent_id || null` no objeto de insert
-
-**3. Insert de mensagem fromMe (celular)** (linha ~239)
-- Adicionar `agent_id: instance.agent_id || null` no objeto de insert
-
-**4. Funcao `saveOutgoingMessage`** (linha ~107)
-- Adicionar parametro `agent_id` opcional
-- Propagar para o insert
-
-**5. Todas as chamadas a `saveOutgoingMessage`**
-- Passar `instance.agent_id` nas chamadas do webhook (automacoes, IA, etc)
-
-**6. Correcao retroativa dos dados existentes**
-- Executar um UPDATE SQL para vincular as mensagens existentes do tenant /demorais a Juliana, baseado na instancia que as recebeu
-
-### Correcao retroativa (SQL)
-
-Atualizar mensagens existentes que ja tem o `instance_name` correspondente ao `zapi_instance_id` da Juliana:
+**1. whatsapp-webhook (linha 510-518)** - Adicionar `agent_id` ao body:
 
 ```text
-UPDATE whatsapp_messages
-SET agent_id = 'acef3363-ddf4-4e4e-b882-eb3f2a1a77fb'
-WHERE tenant_id = 'd395b3a1-1ea1-4710-bcc1-ff5f6a279750'
-  AND agent_id IS NULL
-  AND instance_name = '3EEA42BEEE25822E2DC0923B12608CB0';
+body: JSON.stringify({
+  phone,
+  tenant_id,
+  instance_id: instanceId,
+  scheduled_at: scheduledAt,
+  user_id,
+  delay_seconds: delaySeconds,
+  instance_credentials: instanceCredentials,
+  agent_id,   // NOVO
+}),
 ```
 
-### Resultado esperado
+**2. whatsapp-ai-debounce** - Tres mudancas:
 
-- Novas mensagens recebidas pela instancia da Juliana terao `agent_id` preenchido automaticamente
-- Mensagens existentes serao retroativamente vinculadas
-- A Caixa de Entrada da Juliana mostrara todas as conversas dela
-- O Kanban CRM da Juliana sera populado automaticamente com os contatos
+a) Linha 49 - Extrair `agent_id` do payload:
+```text
+const { phone, tenant_id, instance_id, scheduled_at, user_id, delay_seconds, instance_credentials, agent_id } = await req.json();
+```
+
+b) Linhas 14-20 - Adicionar parametro `agent_id` na funcao `saveOutgoingMessage`:
+```text
+async function saveOutgoingMessage(
+  phone, message, tenant_id, instance_name, user_id?, agent_id?
+) {
+  // ...insert com agent_id: agent_id || null
+}
+```
+
+c) Linha 31 - Incluir `agent_id` no insert:
+```text
+agent_id: agent_id || null,
+```
+
+d) Linha 156 - Passar `agent_id` na chamada:
+```text
+await saveOutgoingMessage(phone, aiData.response, tenant_id, instance_id, user_id, agent_id);
+```
+
+### Resultado
+
+- Respostas da IA (com debounce) terao `agent_id` da Juliana
+- Mensagens recebidas dos leads ja estao com `agent_id` (corrigido no diff anterior)
+- Toda a conversa (ida e volta) aparecera na Caixa de Entrada da Juliana
 
