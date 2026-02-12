@@ -155,8 +155,14 @@ serve(async (req) => {
 
     console.log('✅ Resposta IA (debounce):', aiData.response.substring(0, 100));
 
+    // Prefixar com nome do agente IA (se configurado)
+    const aiAgentName = aiData.agent_name;
+    const prefixedResponse = aiAgentName 
+      ? `*${aiAgentName}*\n\n${aiData.response}` 
+      : aiData.response;
+
     // Salvar mensagem da IA no banco IMEDIATAMENTE
-    await saveOutgoingMessage(phone, aiData.response, tenant_id, instance_id, user_id, agent_id);
+    await saveOutgoingMessage(phone, prefixedResponse, tenant_id, instance_id, user_id, agent_id);
 
     // Enviar via Z-API
     let baseUrl: string | undefined;
@@ -179,7 +185,7 @@ serve(async (req) => {
       const sendResponse = await fetch(`${baseUrl}/send-text`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ phone, message: aiData.response }),
+        body: JSON.stringify({ phone, message: prefixedResponse }),
       });
 
       const responseText = await sendResponse.text();
