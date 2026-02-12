@@ -1,78 +1,40 @@
 
 
-## Corrigir salvamento de configuracoes do Agente IA
+## Corrigir salvamento de configuracoes do Agente IA (problema real identificado)
 
 ### Problema raiz
 
-O `useEffect` do componente `WhatsAppAISettings` tem `tenantId` como dependencia. Quando o hook `useTenantId()` carrega assincronamente (de `null` para o UUID real), o `loadConfig` roda novamente e **sobrescreve todas as alteracoes feitas pelo usuario** com os valores padrao, pois nao existe config no banco para aquele `agent_id` ainda.
+Existe um indice unico antigo `whatsapp_ai_config_tenant_id_key` na coluna `tenant_id` sozinha. Isso impede que um mesmo tenant tenha mais de uma linha na tabela — mesmo com `agent_id` diferentes.
 
-Alem disso, se o usuario clicar em "Salvar" apos o overwrite, os dados padrao (nao os editados) sao salvos. Se clicar novamente, o INSERT falha com violacao de indice unico porque a primeira tentativa ja criou a linha, mas o `config.id` foi limpo pelo `loadConfig` re-disparado.
+Quando o admin do tenant tenta salvar config para um agente especifico (ex: `tenant_id = X, agent_id = A`), a insercao falha porque ja existe uma linha com `tenant_id = X, agent_id = NULL` (config fallback do tenant).
 
-### Correcoes
+Para o Super Admin, o mesmo problema ocorre: ja existe uma linha com `tenant_id = NULL, agent_id = NULL` (config global). Porem, PostgreSQL permite multiplos NULLs em unique constraints, entao o problema eh exclusivamente para tenants.
 
-| Mudanca | Descricao |
-|---|---|
-| Guard no `useEffect` | Evitar re-executar `loadConfig` se ja carregou com sucesso para o mesmo `agentId` |
-| Usar `loading` do `useTenantId` | Aguardar `tenantId` estar pronto antes de chamar `loadConfig` |
-| Tratar INSERT duplicado | Usar `upsert` no lugar de `insert` para evitar erro de conflito de indice unico |
+### Solucao
 
-### Detalhes tecnicos
-
-**1. Aguardar tenantId carregar antes de loadConfig**
-
-Extrair `loading` do hook `useTenantId` e adicionar guard no `useEffect`:
+**1. Migracao SQL**: Remover o indice unico antigo `whatsapp_ai_config_tenant_id_key` que bloqueia multiplas configs por tenant.
 
 ```text
-const { tenantId, loading: tenantLoading } = useTenantId();
-
-useEffect(() => {
-  if (tenantLoading && !isSuperAdmin) return;
-  loadConfig();
-}, [tenantId, isSuperAdmin, agentId, tenantLoading]);
+DROP INDEX IF EXISTS whatsapp_ai_config_tenant_id_key;
 ```
 
-Isso garante que `loadConfig` so roda quando o `tenantId` esta resolvido, eliminando a re-execucao que sobrescreve as edicoes do usuario.
+Os novos indices parciais ja criados (`idx_whatsapp_ai_config_agent_id` e `idx_whatsapp_ai_config_tenant_fallback`) garantem unicidade corretamente:
+- Um unico config por `agent_id` (quando agent_id NOT NULL)
+- Um unico config fallback por `tenant_id` (quando agent_id IS NULL e tenant_id NOT NULL)
 
-**2. Usar `upsert` em vez de `insert` para novos configs**
-
-No `handleSave`, trocar o INSERT por UPSERT com conflito no `agent_id`:
-
-```text
-// Em vez de insert simples:
-const result = await supabase
-  .from('whatsapp_ai_config')
-  .upsert(payload, { onConflict: 'agent_id' })
-  .select()
-  .single();
-```
-
-Isso elimina o erro de violacao de indice unico caso o usuario salve varias vezes rapidamente.
-
-**3. Adicionar ref para evitar overwrite**
-
-Adicionar uma flag `hasLoadedRef` para impedir que o `loadConfig` rode novamente para o mesmo agente apos ja ter carregado:
-
-```text
-const hasLoadedRef = useRef<string | null>(null);
-
-useEffect(() => {
-  if (tenantLoading && !isSuperAdmin) return;
-  if (hasLoadedRef.current === (agentId || 'global')) return;
-  loadConfig();
-}, [tenantId, isSuperAdmin, agentId, tenantLoading]);
-
-// Dentro de loadConfig, apos carregar:
-hasLoadedRef.current = agentId || 'global';
-```
+**2. Corrigir handleSave para Super Admin**: Quando `isSuperAdmin` salva config de um agente, o `tenant_id` no payload deve ser `null`, mas o `onConflict: 'agent_id'` so funciona se `agent_id` nao for NULL. Se por algum motivo `agentId` for undefined, o upsert falha. Adicionar validacao.
 
 ### Arquivo afetado
 
-`src/components/WhatsApp/settings/WhatsAppAISettings.tsx`
+| Arquivo | Mudanca |
+|---|---|
+| Migracao SQL | Remover indice `whatsapp_ai_config_tenant_id_key` |
+| `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` | Nenhuma mudanca necessaria (codigo ja esta correto apos fix anterior) |
 
 ### Resultado esperado
 
-- O usuario abre a aba "Comportamento da IA" de qualquer agente
-- Edita os campos normalmente sem que os valores sejam sobrescritos
-- Clica "Salvar" e a configuracao e gravada corretamente
-- Ao reabrir a aba, os valores salvos aparecem carregados
+- Admin do tenant pode salvar config individual para cada agente
+- Super Admin pode salvar config individual para cada agente
+- Configs fallback (sem agent_id) continuam funcionando
+- Nenhum erro de constraint violation ao salvar
 
