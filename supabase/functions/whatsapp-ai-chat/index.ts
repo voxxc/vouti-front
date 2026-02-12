@@ -23,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, tenant_id, instance_name } = await req.json();
+    const { phone, message, tenant_id, instance_name, agent_id } = await req.json();
 
     if (!phone || !message) {
       return new Response(
@@ -32,20 +32,40 @@ serve(async (req) => {
       );
     }
 
-    console.log('📥 AI Chat request:', { phone, message: message.substring(0, 50), tenant_id });
+    console.log('📥 AI Chat request:', { phone, message: message.substring(0, 50), tenant_id, agent_id });
 
-    // Buscar configuração de IA para o tenant
-    let query = supabase
-      .from('whatsapp_ai_config')
-      .select('*');
+    // Buscar configuração de IA - prioridade: agent_id > tenant_id > global
+    let aiConfig: any = null;
+    let configError: any = null;
 
-    if (tenant_id) {
-      query = query.eq('tenant_id', tenant_id);
-    } else {
-      query = query.is('tenant_id', null);
+    // 1) Config específica do agente
+    if (agent_id) {
+      const { data, error } = await supabase
+        .from('whatsapp_ai_config')
+        .select('*')
+        .eq('agent_id', agent_id)
+        .maybeSingle();
+      aiConfig = data;
+      configError = error;
     }
 
-    const { data: aiConfig, error: configError } = await query.maybeSingle();
+    // 2) Fallback: config do tenant (sem agent_id)
+    if (!aiConfig && !configError) {
+      let fallbackQuery = supabase
+        .from('whatsapp_ai_config')
+        .select('*')
+        .is('agent_id', null);
+
+      if (tenant_id) {
+        fallbackQuery = fallbackQuery.eq('tenant_id', tenant_id);
+      } else {
+        fallbackQuery = fallbackQuery.is('tenant_id', null);
+      }
+
+      const { data, error } = await fallbackQuery.maybeSingle();
+      aiConfig = data;
+      configError = error;
+    }
 
     if (configError) {
       console.error('❌ Erro ao buscar config:', configError);

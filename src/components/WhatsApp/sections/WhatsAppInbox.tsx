@@ -43,7 +43,12 @@ const getPhoneVariant = (phone: string): string | null => {
   return null;
 };
 
-export const WhatsAppInbox = () => {
+interface WhatsAppInboxProps {
+  initialConversationPhone?: string | null;
+  onConversationOpened?: () => void;
+}
+
+export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }: WhatsAppInboxProps = {}) => {
   const { tenantId } = useTenantId();
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
@@ -80,6 +85,28 @@ export const WhatsAppInbox = () => {
 
     findMyAgent();
   }, [tenantId]);
+
+  // Auto-select conversation from Kanban navigation
+  useEffect(() => {
+    if (initialConversationPhone && conversations.length > 0) {
+      const normalized = normalizePhone(initialConversationPhone);
+      const match = conversations.find(c => normalizePhone(c.contactNumber) === normalized);
+      if (match) {
+        setSelectedConversation(match);
+      } else {
+        // Create temporary conversation entry
+        setSelectedConversation({
+          id: 'temp-' + normalized,
+          contactName: normalized,
+          contactNumber: normalized,
+          lastMessage: '',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        });
+      }
+      onConversationOpened?.();
+    }
+  }, [initialConversationPhone, conversations]);
 
   // Effect para carregar conversas e subscription real-time
   useEffect(() => {

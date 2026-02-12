@@ -135,6 +135,7 @@ serve(async (req) => {
         phone,
         message: messageText,
         tenant_id,
+        agent_id,
       }),
     });
 

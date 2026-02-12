@@ -7088,6 +7088,7 @@ export type Database = {
       }
       whatsapp_ai_config: {
         Row: {
+          agent_id: string | null
           agent_name: string | null
           created_at: string | null
           id: string
@@ -7102,6 +7103,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          agent_id?: string | null
           agent_name?: string | null
           created_at?: string | null
           id?: string
@@ -7116,6 +7118,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          agent_id?: string | null
           agent_name?: string | null
           created_at?: string | null
           id?: string
@@ -7130,6 +7133,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_config_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_ai_config_tenant_id_fkey"
             columns: ["tenant_id"]
