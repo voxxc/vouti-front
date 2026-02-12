@@ -435,18 +435,35 @@ async function handleAIResponse(
       return false;
     }
 
-    // Verificar se IA está habilitada para este tenant
-    let query = supabase
-      .from('whatsapp_ai_config')
-      .select('*');
+    // Verificar se IA está habilitada - prioridade: agent_id > tenant_id > global
+    let aiConfig: any = null;
 
-    if (tenant_id) {
-      query = query.eq('tenant_id', tenant_id);
-    } else {
-      query = query.is('tenant_id', null);
+    // 1) Buscar config específica do agente
+    if (agent_id) {
+      const { data } = await supabase
+        .from('whatsapp_ai_config')
+        .select('*')
+        .eq('agent_id', agent_id)
+        .maybeSingle();
+      aiConfig = data;
     }
 
-    const { data: aiConfig } = await query.maybeSingle();
+    // 2) Fallback: config do tenant (sem agent_id)
+    if (!aiConfig) {
+      let fallbackQuery = supabase
+        .from('whatsapp_ai_config')
+        .select('*')
+        .is('agent_id', null);
+
+      if (tenant_id) {
+        fallbackQuery = fallbackQuery.eq('tenant_id', tenant_id);
+      } else {
+        fallbackQuery = fallbackQuery.is('tenant_id', null);
+      }
+
+      const { data } = await fallbackQuery.maybeSingle();
+      aiConfig = data;
+    }
 
     if (!aiConfig || !aiConfig.is_enabled) {
       console.log('⏭️ IA não habilitada para este tenant');
@@ -535,6 +552,7 @@ async function handleAIResponse(
         phone,
         message,
         tenant_id,
+        agent_id,
       }),
     });
 

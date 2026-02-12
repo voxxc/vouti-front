@@ -2,23 +2,20 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
-import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Columns3, Loader2, User, Phone, Clock, MessageSquare, X, Plus } from "lucide-react";
+import { Columns3, Loader2, Clock, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ChatPanel } from "../components/ChatPanel";
-import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { AddKanbanCardDialog } from "../components/AddKanbanCardDialog";
-import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 
 interface WhatsAppKanbanProps {
   agentId: string;
   agentName: string;
+  onOpenConversation?: (phone: string) => void;
 }
 
 interface KanbanColumn {
@@ -79,16 +76,13 @@ const getPhoneVariant = (phone: string): string | null => {
   return null;
 };
 
-export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
+export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: WhatsAppKanbanProps) => {
   const { tenantId } = useTenantId();
-  const { user } = useAuth();
+  
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Chat inline state
-  const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
-  const [chatMessages, setChatMessages] = useState<WhatsAppMessage[]>([]);
   const [showAddCardDialog, setShowAddCardDialog] = useState(false);
   const isDraggingRef = useRef(false);
 
@@ -225,91 +219,19 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
     return () => clearInterval(interval);
   }, [silentRefresh]);
 
-  // Load messages for chat panel
-  const loadChatMessages = useCallback(async (contactNumber: string) => {
-    if (!tenantId) return;
-    const normalized = normalizePhone(contactNumber);
-    const variant = getPhoneVariant(normalized);
-
-    let query = supabase
-      .from("whatsapp_messages")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("agent_id", agentId);
-
-    if (variant) {
-      query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
-    } else {
-      query = query.eq("from_number", normalized);
-    }
-
-    const { data, error } = await query.order("created_at", { ascending: true });
-    if (error) {
-      console.error("Erro ao carregar mensagens:", error);
-      return;
-    }
-
-    setChatMessages((data || []).map((msg) => ({
-      id: msg.id,
-      messageText: msg.message_text || "",
-      direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
-      timestamp: msg.created_at,
-      isFromMe: msg.direction === "outgoing",
-    })));
-  }, [tenantId, agentId]);
-
-  // Poll messages for open chat
-  useEffect(() => {
-    if (!selectedConversation) return;
-    loadChatMessages(selectedConversation.contactNumber);
-    const interval = setInterval(() => {
-      loadChatMessages(selectedConversation.contactNumber);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [selectedConversation, loadChatMessages]);
-
-  // Handle card click -> open chat
+  // Handle card click -> navigate to inbox
   const handleCardClick = (card: KanbanCard) => {
-    setSelectedConversation({
-      id: card.id,
-      contactName: card.contactName || card.phone,
-      contactNumber: card.phone,
-      lastMessage: card.lastMessage || "",
-      lastMessageTime: card.lastMessageTime || "",
-      unreadCount: 0,
-    });
-  };
-
-  const handleSendMessage = async (text: string) => {
-    if (!selectedConversation || !tenantId) return;
-    try {
-      await supabase.functions.invoke("whatsapp-send-message", {
-        body: {
-          phone: selectedConversation.contactNumber,
-          message: text,
-          messageType: "text",
-          agentName: agentName || undefined,
-          agentId: agentId || undefined
-        }
-      });
-      setChatMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        messageText: text,
-        direction: "outgoing" as const,
-        timestamp: new Date().toISOString(),
-        isFromMe: true,
-      }]);
-    } catch (error) {
-      console.error("Erro ao enviar mensagem:", error);
+    if (onOpenConversation) {
+      onOpenConversation(card.phone);
     }
   };
-
   const handleDragStart = () => {
     isDraggingRef.current = true;
   };
 
   const handleDragEnd = async (result: DropResult) => {
-    isDraggingRef.current = false;
+    // Keep dragging flag for 3s cooldown to prevent polling from overwriting
+    setTimeout(() => { isDraggingRef.current = false; }, 3000);
     if (!result.destination) return;
     const { draggableId, destination } = result;
 
@@ -354,7 +276,7 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
   return (
     <div className="h-full flex">
       {/* Kanban Board */}
-      <div className={cn("flex flex-col flex-1 p-6 overflow-hidden", selectedConversation && "max-w-[55%]")}>
+      <div className="flex flex-col flex-1 p-6 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 shrink-0">
           <div>
@@ -412,7 +334,6 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
                                   className={cn(
                                     "p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow",
                                     snapshot.isDragging && "shadow-lg ring-2 ring-primary/30",
-                                    selectedConversation?.contactNumber === card.phone && "ring-2 ring-primary"
                                   )}
                                   onClick={() => handleCardClick(card)}
                                 >
@@ -481,37 +402,8 @@ export const WhatsAppKanban = ({ agentId, agentName }: WhatsAppKanbanProps) => {
         )}
       </div>
 
-      {/* Chat Panel inline */}
-      {selectedConversation && (
-        <div className="flex border-l border-border">
-          <div className="relative flex-1 flex flex-col min-w-[400px]">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 z-10 h-7 w-7"
-              onClick={() => setSelectedConversation(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <ChatPanel
-              conversation={selectedConversation}
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-            />
-          </div>
-          <ContactInfoPanel
-            conversation={selectedConversation}
-            onContactSaved={() => loadKanbanData()}
-            currentAgentId={agentId}
-            currentAgentName={agentName}
-            tenantId={tenantId}
-            onTransferComplete={() => {
-              setSelectedConversation(null);
-              loadKanbanData();
-            }}
-          />
-        </div>
-      )}
+
+
       {/* Add Card Dialog */}
       <AddKanbanCardDialog
         open={showAddCardDialog}

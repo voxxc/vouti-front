@@ -28,11 +28,37 @@ const getPhoneVariant = (phone: string): string | null => {
   return null;
 };
 
-export const SuperAdminWhatsAppInbox = () => {
+interface SuperAdminWhatsAppInboxProps {
+  initialConversationPhone?: string | null;
+  onConversationOpened?: () => void;
+}
+
+export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversationOpened }: SuperAdminWhatsAppInboxProps = {}) => {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Auto-select conversation from Kanban navigation
+  useEffect(() => {
+    if (initialConversationPhone && conversations.length > 0) {
+      const normalized = normalizePhone(initialConversationPhone);
+      const match = conversations.find(c => normalizePhone(c.contactNumber) === normalized);
+      if (match) {
+        setSelectedConversation(match);
+      } else {
+        setSelectedConversation({
+          id: 'temp-' + normalized,
+          contactName: normalized,
+          contactNumber: normalized,
+          lastMessage: '',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        });
+      }
+      onConversationOpened?.();
+    }
+  }, [initialConversationPhone, conversations]);
 
   // Effect para carregar conversas e subscription real-time
   useEffect(() => {

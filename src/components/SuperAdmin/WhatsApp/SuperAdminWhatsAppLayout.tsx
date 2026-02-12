@@ -57,16 +57,22 @@ export type SuperAdminWhatsAppSection =
 export const SuperAdminWhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<SuperAdminWhatsAppSection>("inbox");
   const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
+  const [initialConversationPhone, setInitialConversationPhone] = useState<string | null>(null);
+
+  const handleOpenConversation = (phone: string) => {
+    setInitialConversationPhone(phone);
+    setActiveSection("inbox");
+  };
 
   const renderSection = () => {
     switch (activeSection) {
       case "inbox":
-        return <SuperAdminWhatsAppInbox />;
+        return <SuperAdminWhatsAppInbox initialConversationPhone={initialConversationPhone} onConversationOpened={() => setInitialConversationPhone(null)} />;
       case "conversations":
         return <WhatsAppConversations />;
       case "kanban":
         return selectedKanbanAgent ? (
-          <WhatsAppKanban agentId={selectedKanbanAgent.id} agentName={selectedKanbanAgent.name} />
+          <WhatsAppKanban agentId={selectedKanbanAgent.id} agentName={selectedKanbanAgent.name} onOpenConversation={handleOpenConversation} />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <p>Selecione um agente no menu para ver o Kanban</p>

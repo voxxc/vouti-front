@@ -81,10 +81,13 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         .from('whatsapp_ai_config')
         .select('*');
 
-      if (isSuperAdmin) {
-        query = query.is('tenant_id', null);
+      // Prioridade: buscar config do agente específico
+      if (agentId) {
+        query = query.eq('agent_id', agentId);
+      } else if (isSuperAdmin) {
+        query = query.is('tenant_id', null).is('agent_id', null);
       } else if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
+        query = query.eq('tenant_id', tenantId).is('agent_id', null);
       } else {
         setIsLoading(false);
         return;
@@ -283,8 +286,9 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         tenant_id: isSuperAdmin ? null : tenantId,
+        agent_id: agentId || null,
         is_enabled: config.is_enabled,
         agent_name: config.agent_name,
         system_prompt: config.system_prompt,
