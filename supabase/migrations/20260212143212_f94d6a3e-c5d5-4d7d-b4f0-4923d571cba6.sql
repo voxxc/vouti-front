@@ -1,0 +1,1 @@
+ALTER TABLE whatsapp_ai_config DROP CONSTRAINT IF EXISTS whatsapp_ai_config_tenant_id_key;
