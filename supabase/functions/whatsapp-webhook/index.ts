@@ -515,6 +515,7 @@ async function handleAIResponse(
             user_id,
             delay_seconds: delaySeconds,
             instance_credentials: instanceCredentials,
+            agent_id,
           }),
         }).catch(err => console.error('❌ Erro ao disparar debounce:', err));
 
