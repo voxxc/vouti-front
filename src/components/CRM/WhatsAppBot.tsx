@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantFeatures } from '@/hooks/useTenantFeatures';
 import { useTenantId } from '@/hooks/useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface WhatsAppContact {
   id: string;
@@ -44,6 +45,7 @@ interface WhatsAppAutomation {
 const WhatsAppBot: React.FC = () => {
   const { toast } = useToast();
   const { tenantId } = useTenantId();
+  const { user } = useAuth();
   const { whatsappLeadSource, updateFeature } = useTenantFeatures();
   
   const [activeTab, setActiveTab] = useState('conexao');
@@ -64,6 +66,8 @@ const WhatsAppBot: React.FC = () => {
     whatsappLeadSource || 'leads_captacao'
   );
   const [isSavingLeadSource, setIsSavingLeadSource] = useState(false);
+  const [myAgentId, setMyAgentId] = useState<string | null>(null);
+  const [myAgentName, setMyAgentName] = useState<string | null>(null);
   
   // Configurações Vouti.API
   const [zapiConfig, setZapiConfig] = useState({
@@ -79,6 +83,24 @@ const WhatsAppBot: React.FC = () => {
       setLeadSource(whatsappLeadSource);
     }
   }, [whatsappLeadSource]);
+
+  // Resolver agentId do usuário logado
+  useEffect(() => {
+    const resolveAgent = async () => {
+      const email = user?.email?.toLowerCase();
+      if (!email || !tenantId) return;
+      const { data: agent } = await supabase
+        .from("whatsapp_agents")
+        .select("id, name")
+        .eq("email", email)
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .maybeSingle();
+      setMyAgentId(agent?.id || null);
+      setMyAgentName(agent?.name || null);
+    };
+    resolveAgent();
+  }, [user?.email, tenantId]);
 
   const handleLeadSourceChange = async (value: 'landing_leads' | 'leads_captacao') => {
     setLeadSource(value);
@@ -235,11 +257,24 @@ const WhatsAppBot: React.FC = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
+      // Buscar nome fresco do agente
+      let freshAgentName = myAgentName;
+      if (myAgentId) {
+        const { data: agentData } = await supabase
+          .from("whatsapp_agents")
+          .select("name")
+          .eq("id", myAgentId)
+          .single();
+        if (agentData) freshAgentName = agentData.name;
+      }
+
       const { data } = await supabase.functions.invoke('whatsapp-send-message', {
         body: {
           phone: selectedContact.number,
           message: newMessage,
-          messageType: 'text'
+          messageType: 'text',
+          agentName: freshAgentName || undefined,
+          agentId: myAgentId || undefined
         }
       });
 
