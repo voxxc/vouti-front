@@ -1,39 +1,54 @@
 
 
-## Alterar formatacao do nome do agente nas mensagens
+## Corrigir: nome do agente nao atualiza em tempo real ao enviar mensagens
 
-### O que muda
+### Problema
 
-Na Edge Function `whatsapp-send-message`, a linha que monta a mensagem com o nome do agente sera alterada de:
+Quando o usuario altera o nome do agente nas configuracoes, os componentes `WhatsAppInbox` e `WhatsAppAllConversations` continuam usando o nome antigo armazenado no estado React (`myAgentName`). O nome so e buscado do banco uma vez, na montagem do componente.
+
+### Solucao
+
+Buscar o nome do agente diretamente do banco de dados no momento do envio da mensagem, em vez de usar o valor em cache do estado React.
+
+### Mudancas tecnicas
+
+**Arquivo 1**: `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+
+Na funcao `handleSendMessage`, antes de chamar a Edge Function, buscar o nome atualizado do agente:
 
 ```text
-*AgentName*: mensagem aqui
+const handleSendMessage = async (text: string) => {
+  // Buscar nome atualizado do agente no momento do envio
+  let freshAgentName = myAgentName;
+  if (myAgentId) {
+    const { data: agentData } = await supabase
+      .from("whatsapp_agents")
+      .select("name")
+      .eq("id", myAgentId)
+      .single();
+    if (agentData) freshAgentName = agentData.name;
+  }
+  
+  // Usar freshAgentName em vez de myAgentName no body
+  ...
+  agentName: freshAgentName || undefined,
+  ...
+};
 ```
 
-Para:
+**Arquivo 2**: `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx`
 
-```text
-*AgentName*
-mensagem aqui
-```
+Mesma mudanca na funcao `handleSendMessage` deste componente.
 
-### Mudanca tecnica
+### Arquivos afetados
 
-**Arquivo**: `supabase/functions/whatsapp-send-message/index.ts` (linha 22)
+| Arquivo | Mudanca |
+|---|---|
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Buscar nome fresco do agente antes de enviar |
+| `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx` | Buscar nome fresco do agente antes de enviar |
 
-Trocar:
-```text
-const finalMessage = agentName ? `*${agentName}*: ${message}` : message;
-```
+### Resultado esperado
 
-Por:
-```text
-const finalMessage = agentName ? `*${agentName}*\n${message}` : message;
-```
-
-### Resultado
-
-- O nome do agente aparece em negrito na primeira linha
-- A mensagem aparece na linha de baixo, separada visualmente
-- Mensagens do Super Admin continuam sem prefixo (sem mudanca)
+- Ao alterar o nome do agente nas configuracoes, a proxima mensagem enviada ja usa o nome novo
+- Sem necessidade de recarregar a pagina
 
