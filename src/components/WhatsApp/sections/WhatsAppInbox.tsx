@@ -353,12 +353,22 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     if (!selectedConversation || !tenantId) return;
 
     try {
+      let freshAgentName = myAgentName;
+      if (myAgentId) {
+        const { data: agentData } = await supabase
+          .from("whatsapp_agents")
+          .select("name")
+          .eq("id", myAgentId)
+          .single();
+        if (agentData) freshAgentName = agentData.name;
+      }
+
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
           messageType: "text",
-          agentName: myAgentName || undefined,
+          agentName: freshAgentName || undefined,
           agentId: myAgentId || undefined
         }
       });
