@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,8 @@ interface WhatsAppAISettingsProps {
 
 export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAISettingsProps) => {
   const { toast } = useToast();
-  const { tenantId } = useTenantId();
+  const { tenantId, loading: tenantLoading } = useTenantId();
+  const hasLoadedRef = useRef<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,8 +72,11 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
   });
 
   useEffect(() => {
+    if (tenantLoading && !isSuperAdmin) return;
+    const key = agentId || 'global';
+    if (hasLoadedRef.current === key) return;
     loadConfig();
-  }, [tenantId, isSuperAdmin, agentId]);
+  }, [tenantId, isSuperAdmin, agentId, tenantLoading]);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -154,6 +158,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
       console.error('Erro ao carregar configuração:', error);
     } finally {
       setIsLoading(false);
+      hasLoadedRef.current = agentId || 'global';
     }
   };
 
@@ -309,10 +314,10 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           .eq('id', config.id);
         error = result.error;
       } else {
-        // Insert new
+        // Upsert to avoid unique constraint violations
         const result = await supabase
           .from('whatsapp_ai_config')
-          .insert(payload)
+          .upsert(payload, { onConflict: 'agent_id' })
           .select()
           .single();
         
