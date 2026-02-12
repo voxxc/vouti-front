@@ -7143,7 +7143,7 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_ai_config_tenant_id_fkey"
             columns: ["tenant_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
