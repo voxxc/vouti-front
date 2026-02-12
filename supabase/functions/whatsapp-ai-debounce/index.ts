@@ -16,7 +16,8 @@ async function saveOutgoingMessage(
   message: string,
   tenant_id: string | null,
   instance_name: string,
-  user_id?: string
+  user_id?: string,
+  agent_id?: string
 ) {
   const { error } = await supabase
     .from('whatsapp_messages')
@@ -29,6 +30,7 @@ async function saveOutgoingMessage(
       message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       message_type: 'text',
       user_id: user_id || null,
+      agent_id: agent_id || null,
       timestamp: new Date().toISOString(),
       is_read: true,
     });
@@ -46,7 +48,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, tenant_id, instance_id, scheduled_at, user_id, delay_seconds, instance_credentials } = await req.json();
+    const { phone, tenant_id, instance_id, scheduled_at, user_id, delay_seconds, instance_credentials, agent_id } = await req.json();
 
     if (!phone || !instance_id || !scheduled_at) {
       return new Response(
@@ -153,7 +155,7 @@ serve(async (req) => {
     console.log('✅ Resposta IA (debounce):', aiData.response.substring(0, 100));
 
     // Salvar mensagem da IA no banco IMEDIATAMENTE
-    await saveOutgoingMessage(phone, aiData.response, tenant_id, instance_id, user_id);
+    await saveOutgoingMessage(phone, aiData.response, tenant_id, instance_id, user_id, agent_id);
 
     // Enviar via Z-API
     let baseUrl: string | undefined;
