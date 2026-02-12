@@ -1,40 +1,58 @@
 
 
-## Corrigir salvamento de configuracoes do Agente IA (problema real identificado)
+## Corrigir erro "ON CONFLICT" no salvamento do Agente IA
 
-### Problema raiz
+### Problema
 
-Existe um indice unico antigo `whatsapp_ai_config_tenant_id_key` na coluna `tenant_id` sozinha. Isso impede que um mesmo tenant tenha mais de uma linha na tabela — mesmo com `agent_id` diferentes.
-
-Quando o admin do tenant tenta salvar config para um agente especifico (ex: `tenant_id = X, agent_id = A`), a insercao falha porque ja existe uma linha com `tenant_id = X, agent_id = NULL` (config fallback do tenant).
-
-Para o Super Admin, o mesmo problema ocorre: ja existe uma linha com `tenant_id = NULL, agent_id = NULL` (config global). Porem, PostgreSQL permite multiplos NULLs em unique constraints, entao o problema eh exclusivamente para tenants.
+O codigo usa `.upsert(payload, { onConflict: 'agent_id' })`, mas o indice unico na coluna `agent_id` eh parcial (`WHERE agent_id IS NOT NULL`). O PostgreSQL nao aceita `ON CONFLICT` referenciando indices parciais — por isso o erro `42P10`.
 
 ### Solucao
 
-**1. Migracao SQL**: Remover o indice unico antigo `whatsapp_ai_config_tenant_id_key` que bloqueia multiplas configs por tenant.
+Trocar o `upsert` por logica manual de verificacao no `handleSave`:
+
+1. Primeiro, buscar se ja existe config para o `agent_id`
+2. Se existir, fazer `UPDATE`
+3. Se nao existir, fazer `INSERT`
+
+### Mudanca no codigo
+
+**Arquivo**: `src/components/WhatsApp/settings/WhatsAppAISettings.tsx`
+
+No `handleSave`, substituir o bloco do `else` (quando `config.id` nao existe) por:
 
 ```text
-DROP INDEX IF EXISTS whatsapp_ai_config_tenant_id_key;
+// Em vez de upsert com onConflict (que falha com indice parcial):
+// 1. Buscar config existente pelo agent_id
+const { data: existing } = await supabase
+  .from('whatsapp_ai_config')
+  .select('id')
+  .eq('agent_id', agentId)
+  .maybeSingle();
+
+if (existing) {
+  // Update
+  const result = await supabase
+    .from('whatsapp_ai_config')
+    .update(payload)
+    .eq('id', existing.id);
+  error = result.error;
+  setConfig(prev => ({ ...prev, id: existing.id }));
+} else {
+  // Insert
+  const result = await supabase
+    .from('whatsapp_ai_config')
+    .insert(payload)
+    .select()
+    .single();
+  error = result.error;
+  if (result.data) {
+    setConfig(prev => ({ ...prev, id: result.data.id }));
+  }
+}
 ```
-
-Os novos indices parciais ja criados (`idx_whatsapp_ai_config_agent_id` e `idx_whatsapp_ai_config_tenant_fallback`) garantem unicidade corretamente:
-- Um unico config por `agent_id` (quando agent_id NOT NULL)
-- Um unico config fallback por `tenant_id` (quando agent_id IS NULL e tenant_id NOT NULL)
-
-**2. Corrigir handleSave para Super Admin**: Quando `isSuperAdmin` salva config de um agente, o `tenant_id` no payload deve ser `null`, mas o `onConflict: 'agent_id'` so funciona se `agent_id` nao for NULL. Se por algum motivo `agentId` for undefined, o upsert falha. Adicionar validacao.
-
-### Arquivo afetado
-
-| Arquivo | Mudanca |
-|---|---|
-| Migracao SQL | Remover indice `whatsapp_ai_config_tenant_id_key` |
-| `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` | Nenhuma mudanca necessaria (codigo ja esta correto apos fix anterior) |
 
 ### Resultado esperado
 
-- Admin do tenant pode salvar config individual para cada agente
-- Super Admin pode salvar config individual para cada agente
-- Configs fallback (sem agent_id) continuam funcionando
-- Nenhum erro de constraint violation ao salvar
-
+- Salvar config do agente IA funciona sem erro
+- Primeira vez: INSERT cria o registro
+- Vezes seguintes: UPDATE atualiza o registro existente (via `config.id` ja carregado)
