@@ -1,73 +1,78 @@
 
-## Revisao completa: IA por agente, Kanban drag-and-drop e navegacao
 
-### 1. IA individual por agente (nao por tenant)
+## Corrigir salvamento de configuracoes do Agente IA
 
-**Problema atual**: A tabela `whatsapp_ai_config` tem apenas `tenant_id` como chave. Todos os agentes de um mesmo tenant compartilham a MESMA configuracao de IA (mesmo nome, mesmo prompt, mesmo modelo). O usuario quer que cada agente tenha sua propria IA.
+### Problema raiz
 
-**Solucao**:
-- Adicionar coluna `agent_id` (UUID, FK para `whatsapp_agents`) na tabela `whatsapp_ai_config`
-- Criar indice unico parcial: `(agent_id)` quando `agent_id IS NOT NULL`, e `(tenant_id)` quando `agent_id IS NULL` (fallback)
-- Atualizar o webhook para buscar config IA pelo `agent_id` da instancia (com fallback para tenant se nao encontrar)
-- Atualizar o `whatsapp-ai-chat` para receber `agent_id` e buscar config especifica
-- Atualizar o `whatsapp-ai-debounce` para propagar `agent_id` na chamada ao `whatsapp-ai-chat`
-- Atualizar a UI `WhatsAppAISettings.tsx` para salvar com `agent_id` quando editando dentro de um agente
+O `useEffect` do componente `WhatsAppAISettings` tem `tenantId` como dependencia. Quando o hook `useTenantId()` carrega assincronamente (de `null` para o UUID real), o `loadConfig` roda novamente e **sobrescreve todas as alteracoes feitas pelo usuario** com os valores padrao, pois nao existe config no banco para aquele `agent_id` ainda.
 
-**Arquivos**:
+Alem disso, se o usuario clicar em "Salvar" apos o overwrite, os dados padrao (nao os editados) sao salvos. Se clicar novamente, o INSERT falha com violacao de indice unico porque a primeira tentativa ja criou a linha, mas o `config.id` foi limpo pelo `loadConfig` re-disparado.
 
-| Arquivo | Mudanca |
+### Correcoes
+
+| Mudanca | Descricao |
 |---|---|
-| Migracao SQL | Adicionar coluna `agent_id`, indices, vincular configs existentes |
-| `supabase/functions/whatsapp-webhook/index.ts` | Buscar `whatsapp_ai_config` por `agent_id` primeiro, fallback para `tenant_id` |
-| `supabase/functions/whatsapp-ai-chat/index.ts` | Receber `agent_id`, buscar config por agente |
-| `supabase/functions/whatsapp-ai-debounce/index.ts` | Passar `agent_id` na chamada ao `whatsapp-ai-chat` |
-| `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` | Salvar e carregar config por `agent_id` |
+| Guard no `useEffect` | Evitar re-executar `loadConfig` se ja carregou com sucesso para o mesmo `agentId` |
+| Usar `loading` do `useTenantId` | Aguardar `tenantId` estar pronto antes de chamar `loadConfig` |
+| Tratar INSERT duplicado | Usar `upsert` no lugar de `insert` para evitar erro de conflito de indice unico |
 
-### 2. Kanban drag-and-drop com movimentacao errada
+### Detalhes tecnicos
 
-**Problema**: Ao arrastar um card para uma coluna, ele vai para outra coluna antes de ir para a correta. Isso acontece porque o polling de 2 segundos sobrescreve o estado local durante/apos o drag. Embora `isDraggingRef` exista, o problema e que o `handleDragEnd` faz update otimista mas o polling pode rodar entre o update otimista e a conclusao do update no banco.
+**1. Aguardar tenantId carregar antes de loadConfig**
 
-**Solucao**:
-- Adicionar um "cooldown" apos o drag-end: manter `isDraggingRef.current = true` por 3 segundos apos o drop para impedir o polling de sobrescrever
-- Garantir que o update otimista local seja estavel durante esse periodo
+Extrair `loading` do hook `useTenantId` e adicionar guard no `useEffect`:
 
-**Arquivo**: `src/components/WhatsApp/sections/WhatsAppKanban.tsx`
+```text
+const { tenantId, loading: tenantLoading } = useTenantId();
 
-### 3. Clicar no card do Kanban abre a conversa na Caixa de Entrada
+useEffect(() => {
+  if (tenantLoading && !isSuperAdmin) return;
+  loadConfig();
+}, [tenantId, isSuperAdmin, agentId, tenantLoading]);
+```
 
-**Problema**: Atualmente, clicar no card abre um chat inline no Kanban. O usuario quer que ao clicar, saia do Kanban e abra a Caixa de Entrada com a conversa selecionada.
+Isso garante que `loadConfig` so roda quando o `tenantId` esta resolvido, eliminando a re-execucao que sobrescreve as edicoes do usuario.
 
-**Solucao**:
-- Adicionar callback `onOpenConversation` no `WhatsAppKanban` que passa o telefone/conversa para o layout
-- No `WhatsAppLayout`, receber esse callback, trocar para a secao "inbox" e passar o telefone para pre-selecionar
-- No `WhatsAppInbox`, aceitar uma prop `initialConversationPhone` para auto-selecionar a conversa ao montar
-- Remover o chat inline do Kanban (ChatPanel + ContactInfoPanel integrados)
+**2. Usar `upsert` em vez de `insert` para novos configs**
 
-**Arquivos**:
+No `handleSave`, trocar o INSERT por UPSERT com conflito no `agent_id`:
 
-| Arquivo | Mudanca |
-|---|---|
-| `src/components/WhatsApp/sections/WhatsAppKanban.tsx` | Remover chat inline, adicionar callback `onOpenConversation` |
-| `src/components/WhatsApp/WhatsAppLayout.tsx` | Passar callback e estado de conversa selecionada |
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Aceitar `initialConversationPhone` prop |
+```text
+// Em vez de insert simples:
+const result = await supabase
+  .from('whatsapp_ai_config')
+  .upsert(payload, { onConflict: 'agent_id' })
+  .select()
+  .single();
+```
 
-### 4. Revisao geral do fluxo de mensagens
+Isso elimina o erro de violacao de indice unico caso o usuario salve varias vezes rapidamente.
 
-**Verificacoes e correcoes**:
+**3. Adicionar ref para evitar overwrite**
 
-a) **Mensagem enviada pelo agente** - Ja funciona: `whatsapp-send-message` salva com `agent_id`, aparece no chat via polling 2s.
+Adicionar uma flag `hasLoadedRef` para impedir que o `loadConfig` rode novamente para o mesmo agente apos ja ter carregado:
 
-b) **Lead responde** - Ja funciona: webhook resolve `agent_id` da instancia e salva no insert. Aparece no chat via polling.
+```text
+const hasLoadedRef = useRef<string | null>(null);
 
-c) **IA responde** - Sera corrigido no item 1: buscar config por `agent_id`, manter `agent_id` no fluxo inteiro (webhook -> debounce -> ai-chat -> saveOutgoingMessage).
+useEffect(() => {
+  if (tenantLoading && !isSuperAdmin) return;
+  if (hasLoadedRef.current === (agentId || 'global')) return;
+  loadConfig();
+}, [tenantId, isSuperAdmin, agentId, tenantLoading]);
 
-d) **Human takeover** - Ja funciona: `whatsapp_ai_disabled_contacts` desativa IA para contato especifico. Botao existente na UI.
+// Dentro de loadConfig, apos carregar:
+hasLoadedRef.current = agentId || 'global';
+```
 
-### Sequencia de implementacao
+### Arquivo afetado
 
-1. Migracao SQL (adicionar `agent_id` em `whatsapp_ai_config`, vincular dados existentes)
-2. Edge Functions (webhook, ai-chat, ai-debounce) - buscar config por agente
-3. UI do AI Settings - salvar por agente
-4. Kanban - fix drag-and-drop cooldown
-5. Kanban -> Inbox navegacao
-6. Deploy e teste
+`src/components/WhatsApp/settings/WhatsAppAISettings.tsx`
+
+### Resultado esperado
+
+- O usuario abre a aba "Comportamento da IA" de qualquer agente
+- Edita os campos normalmente sem que os valores sejam sobrescritos
+- Clica "Salvar" e a configuracao e gravada corretamente
+- Ao reabrir a aba, os valores salvos aparecem carregados
+
