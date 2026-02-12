@@ -19,7 +19,7 @@ serve(async (req) => {
     const { phone, message, messageType = 'text', mediaUrl, mode, agentName, agentId } = await req.json();
 
     // Prefixar com nome do atendente (se presente)
-    const finalMessage = agentName ? `*${agentName}*: ${message}` : message;
+    const finalMessage = agentName ? `*${agentName}*\n${message}` : message;
 
     if (!phone || !finalMessage) {
       throw new Error('Phone and message are required');
