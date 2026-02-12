@@ -343,8 +343,6 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                 <Droppable key={column.id} droppableId={column.id}>
                   {(provided, snapshot) => (
                     <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
                       className={cn(
                         "w-64 min-w-64 bg-muted/50 rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)]",
                         snapshot.isDraggingOver && "bg-primary/5 ring-2 ring-primary/20"
@@ -362,8 +360,12 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                         </Badge>
                       </div>
 
-                      {/* Cards */}
-                      <ScrollArea className="flex-1">
+                      {/* Cards - ref inside to ensure full droppable area */}
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className="flex-1 overflow-y-auto min-h-[100px]"
+                      >
                         <div className="space-y-2 pr-1">
                           {getCardsInColumn(column.id).map((card, index) => (
                             <Draggable key={card.id} draggableId={card.id} index={index}>
@@ -425,7 +427,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                           ))}
                           {provided.placeholder}
                         </div>
-                      </ScrollArea>
+                      </div>
                     </div>
                   )}
                 </Droppable>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { UserRoundPlus, Loader2 } from "lucide-react";
+import { UserRoundPlus, ArrowRightLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -35,6 +35,8 @@ interface Agent {
   email: string;
 }
 
+type TransferType = "assign" | "transfer";
+
 export const TransferConversationDialog = ({
   conversation,
   currentAgentId,
@@ -47,6 +49,7 @@ export const TransferConversationDialog = ({
   const [showConfirm, setShowConfirm] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
   const [showSelect, setShowSelect] = useState(false);
+  const [transferType, setTransferType] = useState<TransferType>("assign");
 
   // Load agents (excluding current)
   useEffect(() => {
@@ -71,85 +74,137 @@ export const TransferConversationDialog = ({
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
-  const handleTransfer = async () => {
+  const transferMessage = (agentName: string) =>
+    `_*Você está sendo transferido para ${agentName}*_`;
+
+  const handleReassignAndNotify = async (newAgentId: string) => {
+    // Reassign messages to new agent
+    await supabase
+      .from("whatsapp_messages")
+      .update({ agent_id: newAgentId } as any)
+      .eq("from_number", conversation.contactNumber)
+      .eq("agent_id", currentAgentId);
+
+    // Move Kanban card - delete from old agent
+    await supabase
+      .from("whatsapp_conversation_kanban")
+      .delete()
+      .eq("phone", conversation.contactNumber)
+      .eq("agent_id", currentAgentId);
+
+    // Get first column of new agent
+    const { data: cols } = await supabase
+      .from("whatsapp_kanban_columns")
+      .select("id")
+      .eq("agent_id", newAgentId)
+      .order("column_order", { ascending: true })
+      .limit(1);
+
+    if (cols && cols.length > 0) {
+      await supabase.from("whatsapp_conversation_kanban").insert({
+        tenant_id: tenantId,
+        agent_id: newAgentId,
+        phone: conversation.contactNumber,
+        column_id: cols[0].id,
+        card_order: 0,
+      } as any);
+    }
+
+    // Find target user_id for notification
+    const { data: targetAgentData } = await supabase
+      .from("whatsapp_agents")
+      .select("email")
+      .eq("id", newAgentId)
+      .single();
+
+    if (targetAgentData?.email && tenantId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("email", targetAgentData.email)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+      if (profile?.user_id) {
+        const { data: currentUser } = await supabase.auth.getUser();
+
+        await supabase.from("notifications").insert({
+          user_id: profile.user_id,
+          tenant_id: tenantId,
+          type: "conversation_transferred",
+          title: "Nova conversa transferida",
+          content: `${currentAgentName || "Um agente"} transferiu a conversa com ${conversation.contactName} para você.`,
+          triggered_by_user_id: currentUser?.user?.id || profile.user_id,
+        } as any);
+      }
+    }
+  };
+
+  // Atribuir: same instance (current), just reassign in CRM
+  const handleAssign = async () => {
     if (!selectedAgent || !currentAgentId) return;
 
     setIsTransferring(true);
     try {
-      // 1. Send transfer message via WhatsApp
+      // Send message via CURRENT agent's instance (no agentName/agentId prefix)
       await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           phone: conversation.contactNumber,
-          message: `Você está sendo transferido para o Atendente ${selectedAgent.name}`,
+          message: transferMessage(selectedAgent.name),
           messageType: "text",
-          agentName: currentAgentName || undefined,
-          agentId: currentAgentId,
         },
       });
 
-      // 2. Reassign messages to new agent
-      await supabase
-        .from("whatsapp_messages")
-        .update({ agent_id: selectedAgent.id } as any)
-        .eq("from_number", conversation.contactNumber)
-        .eq("agent_id", currentAgentId);
+      await handleReassignAndNotify(selectedAgent.id);
 
-      // 3. Move Kanban card - delete from old agent
-      await supabase
-        .from("whatsapp_conversation_kanban")
-        .delete()
-        .eq("phone", conversation.contactNumber)
-        .eq("agent_id", currentAgentId);
+      toast.success(`Conversa atribuída para ${selectedAgent.name}`);
+      setShowConfirm(false);
+      setShowSelect(false);
+      setSelectedAgentId("");
+      onTransferComplete?.();
+    } catch (error) {
+      console.error("Erro ao atribuir conversa:", error);
+      toast.error("Erro ao atribuir conversa");
+    } finally {
+      setIsTransferring(false);
+    }
+  };
 
-      // Get first column of new agent
-      const { data: cols } = await supabase
-        .from("whatsapp_kanban_columns")
-        .select("id")
+  // Transferir: new agent's instance (lead sees new number)
+  const handleTransferNewInstance = async () => {
+    if (!selectedAgent || !currentAgentId) return;
+
+    setIsTransferring(true);
+    try {
+      // Get new agent's instance credentials
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("zapi_instance_id, zapi_token, zapi_client_token")
         .eq("agent_id", selectedAgent.id)
-        .order("column_order", { ascending: true })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (cols && cols.length > 0) {
-        await supabase.from("whatsapp_conversation_kanban").insert({
-          tenant_id: tenantId,
-          agent_id: selectedAgent.id,
+      if (!instance) {
+        toast.error("O agente destino não possui instância WhatsApp configurada.");
+        setIsTransferring(false);
+        return;
+      }
+
+      // Send message via NEW agent's instance
+      await supabase.functions.invoke("whatsapp-send-message", {
+        body: {
           phone: conversation.contactNumber,
-          column_id: cols[0].id,
-          card_order: 0,
-        } as any);
-      }
+          message: transferMessage(selectedAgent.name),
+          messageType: "text",
+          instanceId: instance.zapi_instance_id,
+          instanceToken: instance.zapi_token,
+          clientToken: instance.zapi_client_token || undefined,
+        },
+      });
 
-      // 4. Find target user_id for notification
-      const { data: targetAgentData } = await supabase
-        .from("whatsapp_agents")
-        .select("email")
-        .eq("id", selectedAgent.id)
-        .single();
+      await handleReassignAndNotify(selectedAgent.id);
 
-      if (targetAgentData?.email && tenantId) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("user_id")
-          .eq("email", targetAgentData.email)
-          .eq("tenant_id", tenantId)
-          .maybeSingle();
-
-        if (profile?.user_id) {
-          // Get current user id
-          const { data: currentUser } = await supabase.auth.getUser();
-
-          await supabase.from("notifications").insert({
-            user_id: profile.user_id,
-            tenant_id: tenantId,
-            type: "conversation_transferred",
-            title: "Nova conversa transferida",
-            content: `${currentAgentName || "Um agente"} transferiu a conversa com ${conversation.contactName} para você.`,
-            triggered_by_user_id: currentUser?.user?.id || profile.user_id,
-          } as any);
-        }
-      }
-
-      toast.success(`Conversa transferida para ${selectedAgent.name}`);
+      toast.success(`Conversa transferida para ${selectedAgent.name} (nova instância)`);
       setShowConfirm(false);
       setShowSelect(false);
       setSelectedAgentId("");
@@ -162,20 +217,35 @@ export const TransferConversationDialog = ({
     }
   };
 
+  const handleConfirm = () => {
+    if (transferType === "assign") {
+      handleAssign();
+    } else {
+      handleTransferNewInstance();
+    }
+  };
+
+  const openConfirm = (type: TransferType) => {
+    setTransferType(type);
+    setShowConfirm(true);
+  };
+
   if (!currentAgentId || agents.length === 0) return null;
 
   return (
     <>
       {!showSelect ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => setShowSelect(true)}
-        >
-          <UserRoundPlus className="h-4 w-4 mr-2" />
-          Atribuir a outro Agente
-        </Button>
+        <div className="space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start"
+            onClick={() => setShowSelect(true)}
+          >
+            <UserRoundPlus className="h-4 w-4 mr-2" />
+            Atribuir a outro Agente
+          </Button>
+        </div>
       ) : (
         <div className="space-y-2">
           <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
@@ -202,42 +272,74 @@ export const TransferConversationDialog = ({
             >
               Cancelar
             </Button>
-            <Button
-              size="sm"
-              className="flex-1"
-              disabled={!selectedAgentId}
-              onClick={() => setShowConfirm(true)}
-            >
-              Transferir
-            </Button>
           </div>
+          {selectedAgentId && (
+            <div className="space-y-2 pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => openConfirm("assign")}
+              >
+                <UserRoundPlus className="h-4 w-4 mr-2" />
+                Atribuir (mesma instância)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => openConfirm("transfer")}
+              >
+                <ArrowRightLeft className="h-4 w-4 mr-2" />
+                Transferir (outra instância)
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Transferência</AlertDialogTitle>
+            <AlertDialogTitle>
+              {transferType === "assign"
+                ? "Confirmar Atribuição"
+                : "Confirmar Transferência"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               A conversa com <strong>{conversation.contactName}</strong> será
-              transferida para <strong>{selectedAgent?.name}</strong>.
+              {transferType === "assign"
+                ? " atribuída"
+                : " transferida"}{" "}
+              para <strong>{selectedAgent?.name}</strong>.
               <br /><br />
-              Uma mensagem automática será enviada ao contato informando sobre a
-              transferência, e o novo agente receberá uma notificação.
+              {transferType === "assign" ? (
+                <>
+                  A mensagem de transferência será enviada pela <strong>instância atual</strong>.
+                  O contato continuará na mesma conversa WhatsApp.
+                </>
+              ) : (
+                <>
+                  A mensagem será enviada pela <strong>instância do novo agente</strong>.
+                  O contato receberá a mensagem de outro número.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isTransferring}>
               Cancelar
             </AlertDialogCancel>
-            <Button onClick={handleTransfer} disabled={isTransferring}>
+            <Button onClick={handleConfirm} disabled={isTransferring}>
               {isTransferring ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Transferindo...
+                  {transferType === "assign" ? "Atribuindo..." : "Transferindo..."}
                 </>
               ) : (
-                "Confirmar Transferência"
+                transferType === "assign"
+                  ? "Confirmar Atribuição"
+                  : "Confirmar Transferência"
               )}
             </Button>
           </AlertDialogFooter>
