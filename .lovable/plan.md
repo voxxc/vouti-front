@@ -1,119 +1,73 @@
 
 
-## Corrigir Drag-and-Drop do Kanban CRM
+## Correcoes: Kanban Drag, Transferencia de Agente e Contatos
 
-### Problemas identificados
+### 1. Kanban - Drag para "1 Contato" e "2 Contato" nao funciona
 
-O `handleDragEnd` atual tem dois bugs criticos:
+**Causa provavel**: O componente `ScrollArea` (Radix) envolve o conteudo droppable dentro da coluna, mas o `provided.placeholder` do `@hello-pangea/dnd` fica dentro do ScrollArea. Quando uma coluna esta vazia ou com poucos cards, a area droppable pode ser muito pequena para registrar o drop. Alem disso, o `provided.innerRef` esta no div externo, mas a area efetiva de drop nao cobre o ScrollArea inteiro.
 
-1. **Nao reordena os outros cards** - Quando um card e movido para a posicao 2 de uma coluna, apenas o card movido recebe `card_order = 2`. Os outros cards da coluna destino nao sao reordenados, causando conflitos de `card_order`. Na proxima atualizacao do polling (2 segundos), o card pode "pular" para uma posicao errada ou coluna errada porque os dados do banco estao inconsistentes.
-
-2. **Nao atualiza os cards restantes da coluna de origem** - Quando um card sai de uma coluna, os cards que ficam nao tem seus `card_order` ajustados, gerando buracos na ordenacao.
-
-### Solucao
-
-Reescrever o `handleDragEnd` para:
-
-1. Remover o card da lista da coluna de origem
-2. Inserir o card na posicao exata na coluna de destino
-3. Recalcular `card_order` sequencial (0, 1, 2, 3...) para **todos** os cards das colunas afetadas
-4. Atualizar **todos** os cards afetados no banco de dados (nao apenas o card movido)
-5. Aplicar a atualizacao otimista com os valores corretos antes de salvar no banco
-
-### Mudancas tecnicas
+**Solucao**: Mover o `ref` e `droppableProps` para um div interno que envolve os cards diretamente (dentro do ScrollArea), garantindo que a area droppable ocupe todo o espaco disponivel com `min-height`.
 
 **Arquivo**: `src/components/WhatsApp/sections/WhatsAppKanban.tsx`
 
-**Funcao `handleDragEnd`** (linhas 232-260) - Reescrita completa:
+- Reestruturar o Droppable para que o `provided.innerRef` fique dentro do ScrollArea
+- Adicionar `min-height: 100px` ao container droppable para colunas vazias
+- Manter o layout visual inalterado
 
-```text
-const handleDragEnd = async (result: DropResult) => {
-  setTimeout(() => { isDraggingRef.current = false; }, 3000);
-  
-  if (!result.destination) return;
-  const { source, destination, draggableId } = result;
-  
-  // Se nao mudou de lugar, ignorar
-  if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+### 2. Transferencia de Agente - Dois botoes separados
 
-  const sourceColId = source.droppableId === "no-column" ? null : source.droppableId;
-  const destColId = destination.droppableId === "no-column" ? null : destination.droppableId;
+**Requisito**: Separar em dois botoes com comportamentos distintos:
 
-  // Criar copia dos cards agrupados por coluna
-  const sourceCards = cards
-    .filter(c => c.column_id === sourceColId)
-    .sort((a, b) => a.card_order - b.card_order);
+| Botao | Comportamento | Instancia usada |
+|---|---|---|
+| **Atribuir a outro Agente** | Reatribui no sistema. Mensagem de transferencia enviada pela instancia ATUAL. Lead continua na mesma conversa WhatsApp. | Instancia do agente atual |
+| **Transferir para outro Agente** | Transfere de fato. Mensagem enviada pela instancia do NOVO agente. Lead recebe de outro numero. | Instancia do novo agente |
 
-  const movedCard = sourceCards.find(c => c.id === draggableId);
-  if (!movedCard) return;
-
-  // Remover da coluna origem
-  sourceCards.splice(source.index, 1);
-
-  // Se mesma coluna, inserir na nova posicao
-  // Se coluna diferente, pegar cards da coluna destino
-  let destCards: KanbanCard[];
-  if (sourceColId === destColId) {
-    destCards = sourceCards;
-  } else {
-    destCards = cards
-      .filter(c => c.column_id === destColId)
-      .sort((a, b) => a.card_order - b.card_order);
-  }
-
-  // Inserir card na posicao exata do destino
-  const updatedCard = { ...movedCard, column_id: destColId };
-  destCards.splice(destination.index, 0, updatedCard);
-
-  // Recalcular card_order sequencial para ambas as colunas
-  const updates: { id: string; column_id: string | null; card_order: number }[] = [];
-
-  // Cards da coluna destino (inclui o card movido)
-  destCards.forEach((card, idx) => {
-    updates.push({ id: card.id, column_id: destColId, card_order: idx });
-  });
-
-  // Cards da coluna origem (se diferente da destino)
-  if (sourceColId !== destColId) {
-    sourceCards.forEach((card, idx) => {
-      updates.push({ id: card.id, column_id: sourceColId, card_order: idx });
-    });
-  }
-
-  // Aplicar atualizacao otimista
-  setCards(prev => {
-    const updated = [...prev];
-    updates.forEach(upd => {
-      const idx = updated.findIndex(c => c.id === upd.id);
-      if (idx !== -1) {
-        updated[idx] = { ...updated[idx], column_id: upd.column_id, card_order: upd.card_order };
-      }
-    });
-    return updated;
-  });
-
-  // Salvar TODOS os cards afetados no banco
-  try {
-    await Promise.all(
-      updates.map(upd =>
-        supabase
-          .from("whatsapp_conversation_kanban")
-          .update({ column_id: upd.column_id, card_order: upd.card_order })
-          .eq("id", upd.id)
-      )
-    );
-  } catch (error) {
-    console.error("Erro ao atualizar posicoes:", error);
-    toast.error("Erro ao mover card");
-    loadKanbanData();
-  }
-};
+**Mensagem de transferencia**: Sem nome de agente no prefixo. Formato:
+```
+_*Voce esta sendo transferido para NOMEDOAGENTE*_
 ```
 
-### Resultado esperado
+**Arquivo**: `src/components/WhatsApp/components/TransferConversationDialog.tsx`
 
-- Card arrastado para coluna X permanece na coluna X (sem pular para coluna aleatoria)
-- Card solto entre outros cards permanece na posicao exata onde foi solto
-- Todos os cards das colunas afetadas tem `card_order` sequencial no banco
-- Polling nao sobrescreve a posicao porque o banco ja esta correto
+Mudancas:
+- Adicionar segundo botao "Transferir para outro Agente" com icone diferente (ex: `ArrowRightLeft`)
+- Na funcao `handleTransfer` (Atribuir):
+  - Remover `agentName` e `agentId` do body do invoke para que a mensagem va SEM prefixo de nome
+  - Mudar mensagem para `_*Voce esta sendo transferido para ${selectedAgent.name}*_`
+  - Continuar usando a instancia do agente atual (comportamento atual)
+- Criar funcao `handleTransferNewInstance`:
+  - Mesma mensagem de transferencia em italico+negrito
+  - Buscar a instancia do novo agente (`whatsapp_instances` com `agent_id = selectedAgent.id`)
+  - Enviar a mensagem pela instancia do novo agente (passando credenciais especificas)
+  - Reatribuir historico e kanban normalmente
+  - Enviar notificacao ao novo agente
+- Dialog de confirmacao deve indicar qual tipo de transferencia esta sendo feita
+- Adicionar estado `transferType: 'assign' | 'transfer'` para controlar qual acao foi selecionada
+
+### 3. Contatos - Exibir Cidade e Estado no card
+
+**Arquivo**: `src/components/WhatsApp/sections/WhatsAppContacts.tsx`
+
+Mudancas:
+- Adicionar `city` e `state` a interface `WhatsAppContact`
+- Incluir `city` e `state` no mapeamento de `formattedContacts` (ja vem no `SELECT *`)
+- No card do contato (linha ~280), adicionar cidade/estado abaixo do telefone/email:
+  ```
+  {(contact.city || contact.state) && (
+    <span className="flex items-center gap-1">
+      <MapPin className="h-3 w-3" />
+      {[contact.city, contact.state].filter(Boolean).join(", ")}
+    </span>
+  )}
+  ```
+- Importar `MapPin` do lucide-react
+
+### Arquivos afetados
+
+| Arquivo | Mudanca |
+|---|---|
+| `src/components/WhatsApp/sections/WhatsAppKanban.tsx` | Reestruturar Droppable dentro do ScrollArea |
+| `src/components/WhatsApp/components/TransferConversationDialog.tsx` | Dois botoes, mensagem sem prefixo, transferencia com instancia do novo agente |
+| `src/components/WhatsApp/sections/WhatsAppContacts.tsx` | Exibir cidade/estado no card |
 
