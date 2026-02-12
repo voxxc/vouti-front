@@ -230,30 +230,71 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
   };
 
   const handleDragEnd = async (result: DropResult) => {
-    // Keep dragging flag for 3s cooldown to prevent polling from overwriting
     setTimeout(() => { isDraggingRef.current = false; }, 3000);
-    if (!result.destination) return;
-    const { draggableId, destination } = result;
 
-    const newColumnId = destination.droppableId === "no-column" ? null : destination.droppableId;
-    const movedCard = cards.find(c => c.id === draggableId);
+    if (!result.destination) return;
+    const { source, destination, draggableId } = result;
+
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    const sourceColId = source.droppableId === "no-column" ? null : source.droppableId;
+    const destColId = destination.droppableId === "no-column" ? null : destination.droppableId;
+
+    const sourceCards = cards
+      .filter(c => c.column_id === sourceColId)
+      .sort((a, b) => a.card_order - b.card_order);
+
+    const movedCard = sourceCards.find(c => c.id === draggableId);
     if (!movedCard) return;
 
-    setCards(prev => prev.map(card => {
-      if (card.id === draggableId) {
-        return { ...card, column_id: newColumnId, card_order: destination.index };
-      }
-      return card;
-    }));
+    sourceCards.splice(source.index, 1);
+
+    let destCards: KanbanCard[];
+    if (sourceColId === destColId) {
+      destCards = sourceCards;
+    } else {
+      destCards = cards
+        .filter(c => c.column_id === destColId)
+        .sort((a, b) => a.card_order - b.card_order);
+    }
+
+    const updatedCard = { ...movedCard, column_id: destColId };
+    destCards.splice(destination.index, 0, updatedCard);
+
+    const updates: { id: string; column_id: string | null; card_order: number }[] = [];
+
+    destCards.forEach((card, idx) => {
+      updates.push({ id: card.id, column_id: destColId, card_order: idx });
+    });
+
+    if (sourceColId !== destColId) {
+      sourceCards.forEach((card, idx) => {
+        updates.push({ id: card.id, column_id: sourceColId, card_order: idx });
+      });
+    }
+
+    setCards(prev => {
+      const updated = [...prev];
+      updates.forEach(upd => {
+        const idx = updated.findIndex(c => c.id === upd.id);
+        if (idx !== -1) {
+          updated[idx] = { ...updated[idx], column_id: upd.column_id, card_order: upd.card_order };
+        }
+      });
+      return updated;
+    });
 
     try {
-      const { error } = await supabase
-        .from("whatsapp_conversation_kanban")
-        .update({ column_id: newColumnId, card_order: destination.index })
-        .eq("id", movedCard.id);
-      if (error) throw error;
+      await Promise.all(
+        updates.map(upd =>
+          supabase
+            .from("whatsapp_conversation_kanban")
+            .update({ column_id: upd.column_id, card_order: upd.card_order })
+            .eq("id", upd.id)
+        )
+      );
     } catch (error) {
-      console.error("Erro ao atualizar posição:", error);
+      console.error("Erro ao atualizar posições:", error);
       toast.error("Erro ao mover card");
       loadKanbanData();
     }
