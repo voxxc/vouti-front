@@ -1,54 +1,39 @@
 
 
-## Corrigir: nome do agente nao atualiza em tempo real ao enviar mensagens
+## Adicionar linha extra entre nome do agente e mensagem
 
-### Problema
+### Mudanca
 
-Quando o usuario altera o nome do agente nas configuracoes, os componentes `WhatsAppInbox` e `WhatsAppAllConversations` continuam usando o nome antigo armazenado no estado React (`myAgentName`). O nome so e buscado do banco uma vez, na montagem do componente.
+**Arquivo**: `supabase/functions/whatsapp-send-message/index.ts`
 
-### Solucao
-
-Buscar o nome do agente diretamente do banco de dados no momento do envio da mensagem, em vez de usar o valor em cache do estado React.
-
-### Mudancas tecnicas
-
-**Arquivo 1**: `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
-
-Na funcao `handleSendMessage`, antes de chamar a Edge Function, buscar o nome atualizado do agente:
+Alterar a construcao do `finalMessage` de:
 
 ```text
-const handleSendMessage = async (text: string) => {
-  // Buscar nome atualizado do agente no momento do envio
-  let freshAgentName = myAgentName;
-  if (myAgentId) {
-    const { data: agentData } = await supabase
-      .from("whatsapp_agents")
-      .select("name")
-      .eq("id", myAgentId)
-      .single();
-    if (agentData) freshAgentName = agentData.name;
-  }
-  
-  // Usar freshAgentName em vez de myAgentName no body
-  ...
-  agentName: freshAgentName || undefined,
-  ...
-};
+*AgentName*\nmensagem
 ```
 
-**Arquivo 2**: `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx`
+Para:
 
-Mesma mudanca na funcao `handleSendMessage` deste componente.
+```text
+*AgentName*\n\nmensagem
+```
 
-### Arquivos afetados
+Ou seja, trocar `\n` por `\n\n` para criar uma linha em branco entre o nome em negrito e o texto da mensagem.
 
-| Arquivo | Mudanca |
-|---|---|
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Buscar nome fresco do agente antes de enviar |
-| `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx` | Buscar nome fresco do agente antes de enviar |
+### Resultado
 
-### Resultado esperado
+O destinatario vera:
 
-- Ao alterar o nome do agente nas configuracoes, a proxima mensagem enviada ja usa o nome novo
-- Sem necessidade de recarregar a pagina
+```text
+*AgentName*
+
+mensagem aqui
+```
+
+Em vez de:
+
+```text
+*AgentName*
+mensagem aqui
+```
 
