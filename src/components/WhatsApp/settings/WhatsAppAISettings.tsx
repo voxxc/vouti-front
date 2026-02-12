@@ -314,16 +314,34 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           .eq('id', config.id);
         error = result.error;
       } else {
-        // Upsert to avoid unique constraint violations
-        const result = await supabase
-          .from('whatsapp_ai_config')
-          .upsert(payload, { onConflict: 'agent_id' })
-          .select()
-          .single();
-        
-        error = result.error;
-        if (result.data) {
-          setConfig(prev => ({ ...prev, id: result.data.id }));
+        // Manual check-then-act to avoid ON CONFLICT issues with partial indexes
+        const lookupQuery = supabase.from('whatsapp_ai_config').select('id');
+        if (agentId) {
+          lookupQuery.eq('agent_id', agentId);
+        } else if (isSuperAdmin) {
+          lookupQuery.is('tenant_id', null).is('agent_id', null);
+        } else if (tenantId) {
+          lookupQuery.eq('tenant_id', tenantId).is('agent_id', null);
+        }
+        const { data: existing } = await lookupQuery.maybeSingle();
+
+        if (existing) {
+          const result = await supabase
+            .from('whatsapp_ai_config')
+            .update(payload)
+            .eq('id', existing.id);
+          error = result.error;
+          setConfig(prev => ({ ...prev, id: existing.id }));
+        } else {
+          const result = await supabase
+            .from('whatsapp_ai_config')
+            .insert(payload)
+            .select()
+            .single();
+          error = result.error;
+          if (result.data) {
+            setConfig(prev => ({ ...prev, id: result.data.id }));
+          }
         }
       }
 
