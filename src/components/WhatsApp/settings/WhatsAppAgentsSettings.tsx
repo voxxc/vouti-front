@@ -61,6 +61,8 @@ export const WhatsAppAgentsSettings = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [deleteAgentId, setDeleteAgentId] = useState<string | null>(null);
   const [isDeletingAgent, setIsDeletingAgent] = useState(false);
+  const [editingAgentName, setEditingAgentName] = useState<string>("");
+  const [isSavingName, setIsSavingName] = useState(false);
 
   // Get current user email
   useEffect(() => {
@@ -273,6 +275,7 @@ export const WhatsAppAgentsSettings = () => {
       setExpandedAgentId(agent.id);
       setActiveTab("zapi");
       setQrCode(null);
+      setEditingAgentName(agent.name);
       await loadInstanceConfig(agent.id);
     }
   };
@@ -709,6 +712,48 @@ export const WhatsAppAgentsSettings = () => {
                 {/* Expansão Inline com Tabs */}
                 {expandedAgentId === agent.id && (
                   <Card className="mt-4 border-primary/50 shadow-lg">
+                    {/* Editable Agent Name */}
+                    <div className="px-6 pt-6 pb-2">
+                      <Label htmlFor="agent-name-edit" className="text-sm font-medium">Nome do Agente (usado nas mensagens)</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          id="agent-name-edit"
+                          value={editingAgentName}
+                          onChange={(e) => setEditingAgentName(e.target.value)}
+                          placeholder="Nome que aparecerá nas mensagens"
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={isSavingName || editingAgentName.trim() === agent.name}
+                          onClick={async () => {
+                            if (!editingAgentName.trim()) return;
+                            setIsSavingName(true);
+                            try {
+                              const { error } = await supabase
+                                .from("whatsapp_agents")
+                                .update({ name: editingAgentName.trim() })
+                                .eq("id", agent.id);
+                              if (error) throw error;
+                              setAgents(prev => prev.map(a => 
+                                a.id === agent.id ? { ...a, name: editingAgentName.trim() } : a
+                              ));
+                              toast({ title: "Nome atualizado", description: "O nome do agente foi salvo com sucesso" });
+                            } catch (error: any) {
+                              toast({ title: "Erro", description: error.message || "Não foi possível salvar", variant: "destructive" });
+                            } finally {
+                              setIsSavingName(false);
+                            }
+                          }}
+                        >
+                          {isSavingName ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Este nome será usado como prefixo <strong>*Nome*</strong> nas mensagens enviadas pelo CRM
+                      </p>
+                    </div>
+
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                       <CardHeader className="pb-0">
                         <div className="flex items-center justify-between">
