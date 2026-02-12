@@ -109,12 +109,13 @@ async function saveOutgoingMessage(
   message: string,
   tenant_id: string | null,
   instance_name: string,
-  user_id?: string
+  user_id?: string,
+  agent_id?: string
 ) {
   const { error } = await supabase
     .from('whatsapp_messages')
     .insert({
-      from_number: phone,  // Lead's phone to group in the same conversation
+      from_number: phone,
       message_text: message,
       direction: 'outgoing',
       tenant_id: tenant_id,
@@ -122,8 +123,9 @@ async function saveOutgoingMessage(
       message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       message_type: 'text',
       user_id: user_id || null,
+      agent_id: agent_id || null,
       timestamp: new Date().toISOString(),
-      is_read: true,  // Outgoing messages are already "read"
+      is_read: true,
     });
 
   if (error) {
@@ -214,7 +216,7 @@ async function handleIncomingMessage(data: any) {
   // ✅ Busca pelo zapi_instance_id (ID real da Z-API que chega no webhook)
   const { data: instance, error: instanceError } = await supabase
     .from('whatsapp_instances')
-    .select('user_id, tenant_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
+    .select('user_id, tenant_id, agent_id, zapi_url, zapi_token, zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name')
     .eq('zapi_instance_id', instanceId)
     .limit(1)
     .maybeSingle();
@@ -239,17 +241,18 @@ async function handleIncomingMessage(data: any) {
     const { error: outErr } = await supabase
       .from('whatsapp_messages')
       .insert({
-        instance_name: instanceId,
-        message_id: messageId || `msg_${Date.now()}`,
-        from_number: phone,
-        message_text: text?.message || '',
-        message_type: 'text',
-        direction: 'outgoing',
-        raw_data: data,
-        user_id: instance.user_id,
-        tenant_id: effectiveTenantId,
-        timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
-        is_read: true,
+      instance_name: instanceId,
+      message_id: messageId || `msg_${Date.now()}`,
+      from_number: phone,
+      message_text: text?.message || '',
+      message_type: 'text',
+      direction: 'outgoing',
+      raw_data: data,
+      user_id: instance.user_id,
+      agent_id: instance.agent_id || null,
+      tenant_id: effectiveTenantId,
+      timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
+      is_read: true,
       });
     
     if (outErr) {
@@ -272,6 +275,7 @@ async function handleIncomingMessage(data: any) {
       direction: 'received',
       raw_data: data,
       user_id: instance.user_id,
+      agent_id: instance.agent_id || null,
       tenant_id: effectiveTenantId,
       timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
       is_read: false
@@ -296,7 +300,8 @@ async function handleIncomingMessage(data: any) {
       zapi_instance_id: instance.zapi_instance_id,
       zapi_instance_token: instance.zapi_instance_token,
       zapi_client_token: instance.zapi_client_token,
-    }
+    },
+    instance.agent_id
   );
 
   if (aiHandled) {
@@ -381,7 +386,8 @@ async function handleIncomingMessage(data: any) {
             automation.response_message,
             instance.tenant_id,
             instanceId,
-            instance.user_id
+            instance.user_id,
+            instance.agent_id
           );
         } else {
           console.error(`❌ Erro Z-API [${response.status}]:`, responseData);
@@ -406,7 +412,8 @@ async function handleAIResponse(
     zapi_instance_id?: string;
     zapi_instance_token?: string;
     zapi_client_token?: string;
-  }
+  },
+  agent_id?: string
 ): Promise<boolean> {
   try {
     // 🔒 PRIMEIRO: Verificar se IA está desabilitada para este contato específico
@@ -545,7 +552,8 @@ async function handleAIResponse(
       aiData.response,
       tenant_id,
       instanceId,
-      user_id
+      user_id,
+      agent_id
     );
     console.log('💾 Mensagem IA salva no histórico');
 
