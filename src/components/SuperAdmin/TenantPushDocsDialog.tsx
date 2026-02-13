@@ -14,7 +14,9 @@ import {
   Eye,
   User,
   Building2,
-  Scale
+  Scale,
+  Copy,
+  Check
 } from 'lucide-react';
 import {
   Dialog,
@@ -354,6 +356,14 @@ interface PushDocCardProps {
 }
 
 function PushDocCard({ doc, formatDocumento, getStatusBadge, onPause, onResume, onDelete }: PushDocCardProps) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = (value: string, field: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between">
@@ -376,6 +386,48 @@ function PushDocCard({ doc, formatDocumento, getStatusBadge, onPause, onResume, 
               </span>
             )}
           </div>
+
+          {/* IDs técnicos */}
+          {(doc.tracking_id || doc.ultimo_request_id) && (
+            <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-border/50">
+              {doc.tracking_id && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium min-w-[60px]">Tracking:</span>
+                  <span className="font-mono truncate max-w-[200px]">{doc.tracking_id}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => handleCopy(doc.tracking_id!, 'tracking')}
+                  >
+                    {copiedField === 'tracking' ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              )}
+              {doc.ultimo_request_id && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium min-w-[60px]">Request:</span>
+                  <span className="font-mono truncate max-w-[200px]">{doc.ultimo_request_id}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => handleCopy(doc.ultimo_request_id!, 'request')}
+                  >
+                    {copiedField === 'request' ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-1">

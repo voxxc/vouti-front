@@ -30,7 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { CNPJTab } from './CNPJTab';
 
 export const CNPJManager = () => {
-  const { cnpjs, loading, cadastrarCNPJ, sincronizarCNPJ, ativarMonitoramentoCNPJ, removerCNPJ, consultarRequest, salvarRequestId } = useCNPJs();
+  const { cnpjs, loading, cadastrarCNPJ, sincronizarCNPJ, syncViaTracking, ativarMonitoramentoCNPJ, removerCNPJ, consultarRequest, salvarRequestId } = useCNPJs();
   const { userRole } = useAuth();
   const isAdmin = userRole === 'admin';
 
@@ -40,6 +40,7 @@ export const CNPJManager = () => {
   const [novoNomeFantasia, setNovoNomeFantasia] = useState('');
   const [cnpjParaExcluir, setCnpjParaExcluir] = useState<string | null>(null);
   const [sincronizando, setSincronizando] = useState<string | null>(null);
+  const [syncTracking, setSyncTracking] = useState<string | null>(null);
 
   // Request ID management
   const [requestIdDialogOpen, setRequestIdDialogOpen] = useState(false);
@@ -83,6 +84,15 @@ export const CNPJManager = () => {
       await sincronizarCNPJ(cnpjId, cnpj);
     } finally {
       setSincronizando(null);
+    }
+  };
+
+  const handleSyncViaTracking = async (cnpjId: string) => {
+    setSyncTracking(cnpjId);
+    try {
+      await syncViaTracking(cnpjId);
+    } finally {
+      setSyncTracking(null);
     }
   };
 
@@ -317,6 +327,20 @@ export const CNPJManager = () => {
               )}
 
               <div className="flex-1" />
+
+              {/* Botão Sincronizar (GET grátis) - visível para todos se monitoramento ativo */}
+              {cnpj.monitoramentoAtivo && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSyncViaTracking(cnpj.id)}
+                  disabled={syncTracking === cnpj.id}
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${syncTracking === cnpj.id ? 'animate-spin' : ''}`} />
+                  Sincronizar
+                </Button>
+              )}
 
               {isAdmin && (
                 <Button
