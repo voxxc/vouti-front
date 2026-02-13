@@ -252,12 +252,38 @@ export const useCNPJs = () => {
     }
   };
 
+  const syncViaTracking = async (cnpjId: string) => {
+    try {
+      toast.info('Sincronizando via monitoramento...');
+
+      const { data, error } = await supabase.functions.invoke('judit-sync-cnpj-tracking', {
+        body: { cnpjId },
+      });
+
+      if (error) throw error;
+
+      if (data.processosEncontrados > 0) {
+        toast.success(`Encontrados ${data.processosEncontrados} processos (${data.processosNovos} novos)`);
+      } else {
+        toast.info('Nenhum processo encontrado nesta sincronização');
+      }
+
+      await fetchCNPJs();
+      return data;
+    } catch (error: any) {
+      console.error('Erro ao sincronizar via tracking:', error);
+      toast.error(error.message || 'Erro ao sincronizar via tracking');
+      throw error;
+    }
+  };
+
   return {
     cnpjs,
     loading,
     fetchCNPJs,
     cadastrarCNPJ,
     sincronizarCNPJ,
+    syncViaTracking,
     ativarMonitoramentoCNPJ,
     removerCNPJ,
     consultarRequest,
