@@ -45,10 +45,10 @@ serve(async (req) => {
       }
     }
 
-    // Resolve instance credentials from DB
+    // Resolve instance credentials from DB (include provider + meta fields)
     let instanceQuery = supabase
       .from('whatsapp_instances')
-      .select('zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name, user_id');
+      .select('zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name, user_id, provider, meta_phone_number_id, meta_access_token');
 
     if (mode === 'superadmin') {
       instanceQuery = instanceQuery.is('tenant_id', null);
@@ -58,59 +58,133 @@ serve(async (req) => {
 
     const { data: instance } = await instanceQuery.limit(1).single();
 
-    let zapiInstanceId: string | undefined;
-    let zapiInstanceToken: string | undefined;
-    let zapiClientToken: string | undefined;
+    const provider = instance?.provider || 'zapi';
+    let apiResponseData: any;
 
-    if (instance) {
-      zapiInstanceId = instance.zapi_instance_id;
-      zapiInstanceToken = instance.zapi_instance_token;
-      zapiClientToken = instance.zapi_client_token;
-    }
+    if (provider === 'meta') {
+      // ========== META WHATSAPP CLOUD API ==========
+      const metaPhoneId = instance?.meta_phone_number_id;
+      const metaToken = instance?.meta_access_token;
 
-    // Fallback to env vars if DB credentials missing
-    if (!zapiInstanceId) zapiInstanceId = Deno.env.get('Z_API_INSTANCE_ID');
-    if (!zapiInstanceToken) zapiInstanceToken = Deno.env.get('Z_API_TOKEN');
+      if (!metaPhoneId || !metaToken) {
+        throw new Error('Meta WhatsApp credentials not configured');
+      }
 
-    if (!zapiInstanceId || !zapiInstanceToken) {
-      throw new Error('Z-API credentials not configured (no instance found)');
-    }
+      const metaUrl = `https://graph.facebook.com/v21.0/${metaPhoneId}/messages`;
+      
+      let metaPayload: Record<string, unknown>;
+      
+      if (messageType === 'text') {
+        metaPayload = {
+          messaging_product: 'whatsapp',
+          to: phone,
+          type: 'text',
+          text: { body: finalMessage },
+        };
+      } else if (messageType === 'media' && mediaUrl) {
+        // Detect media type from URL
+        const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(mediaUrl);
+        const isVideo = /\.(mp4|3gp)(\?|$)/i.test(mediaUrl);
+        const isAudio = /\.(mp3|ogg|opus|aac)(\?|$)/i.test(mediaUrl);
+        
+        if (isImage) {
+          metaPayload = {
+            messaging_product: 'whatsapp',
+            to: phone,
+            type: 'image',
+            image: { link: mediaUrl, caption: finalMessage },
+          };
+        } else if (isVideo) {
+          metaPayload = {
+            messaging_product: 'whatsapp',
+            to: phone,
+            type: 'video',
+            video: { link: mediaUrl, caption: finalMessage },
+          };
+        } else if (isAudio) {
+          metaPayload = {
+            messaging_product: 'whatsapp',
+            to: phone,
+            type: 'audio',
+            audio: { link: mediaUrl },
+          };
+        } else {
+          metaPayload = {
+            messaging_product: 'whatsapp',
+            to: phone,
+            type: 'document',
+            document: { link: mediaUrl, caption: finalMessage },
+          };
+        }
+      } else {
+        throw new Error('Invalid message type or missing media URL');
+      }
 
-    // Build Z-API URL
-    const baseUrl = `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiInstanceToken}`;
+      console.log(`Sending ${messageType} via Meta to ${phone}`);
 
-    let apiEndpoint = '';
-    let messagePayload: Record<string, unknown> = {};
+      const metaResponse = await fetch(metaUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${metaToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(metaPayload),
+      });
 
-    if (messageType === 'text') {
-      apiEndpoint = `${baseUrl}/send-text`;
-      messagePayload = { phone, message: finalMessage };
-    } else if (messageType === 'media' && mediaUrl) {
-      apiEndpoint = `${baseUrl}/send-file-url`;
-      messagePayload = { phone, message: finalMessage, url: mediaUrl };
+      apiResponseData = await metaResponse.json();
+      console.log('Meta API Response:', apiResponseData);
+
+      if (!metaResponse.ok) {
+        throw new Error(`Meta API Error: ${apiResponseData?.error?.message || 'Failed to send message'}`);
+      }
     } else {
-      throw new Error('Invalid message type or missing media URL');
-    }
+      // ========== Z-API (existing logic) ==========
+      let zapiInstanceId = instance?.zapi_instance_id;
+      let zapiInstanceToken = instance?.zapi_instance_token;
+      let zapiClientToken = instance?.zapi_client_token;
 
-    console.log(`Sending ${messageType} message to ${phone} (mode: ${mode || 'tenant'})`);
+      // Fallback to env vars if DB credentials missing
+      if (!zapiInstanceId) zapiInstanceId = Deno.env.get('Z_API_INSTANCE_ID');
+      if (!zapiInstanceToken) zapiInstanceToken = Deno.env.get('Z_API_TOKEN');
 
-    // Build headers - only include Client-Token if explicitly set
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (zapiClientToken) {
-      headers['Client-Token'] = zapiClientToken;
-    }
+      if (!zapiInstanceId || !zapiInstanceToken) {
+        throw new Error('Z-API credentials not configured (no instance found)');
+      }
 
-    const zapiResponse = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(messagePayload),
-    });
+      const baseUrl = `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiInstanceToken}`;
 
-    const zapiData = await zapiResponse.json();
-    console.log('Z-API Response:', zapiData);
+      let apiEndpoint = '';
+      let messagePayload: Record<string, unknown> = {};
 
-    if (!zapiResponse.ok) {
-      throw new Error(`Z-API Error: ${zapiData.message || zapiData.error || 'Failed to send message'}`);
+      if (messageType === 'text') {
+        apiEndpoint = `${baseUrl}/send-text`;
+        messagePayload = { phone, message: finalMessage };
+      } else if (messageType === 'media' && mediaUrl) {
+        apiEndpoint = `${baseUrl}/send-file-url`;
+        messagePayload = { phone, message: finalMessage, url: mediaUrl };
+      } else {
+        throw new Error('Invalid message type or missing media URL');
+      }
+
+      console.log(`Sending ${messageType} message to ${phone} via Z-API`);
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (zapiClientToken) {
+        headers['Client-Token'] = zapiClientToken;
+      }
+
+      const zapiResponse = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(messagePayload),
+      });
+
+      apiResponseData = await zapiResponse.json();
+      console.log('Z-API Response:', apiResponseData);
+
+      if (!zapiResponse.ok) {
+        throw new Error(`Z-API Error: ${apiResponseData.message || apiResponseData.error || 'Failed to send message'}`);
+      }
     }
 
     // Save message to database
@@ -141,8 +215,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      data: zapiData,
+      data: apiResponseData,
       messageType,
+      provider: instance?.provider || 'zapi',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
