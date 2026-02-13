@@ -1,77 +1,89 @@
 
 
-## Sincronizar CNPJ via GET + Request-IDs nos Push-Docs (SuperAdmin)
+## Corrigir Bugs de Area, Assunto e Separacao de Partes nos Processos CNPJ
 
-### Parte 1: Botao "Sincronizar" via GET no CNPJManager
+### Bugs Identificados
 
-Adicionar um botao que usa o `tracking_id` do CNPJ com monitoramento ativo para fazer apenas GETs gratuitos, seguindo o padrao de 3 etapas.
+**1. Area mostrando `[object Object]`**
+O campo `classifications` da Judit e um array de objetos `[{code, name}]`, nao de strings. O codigo atual faz `.join(", ")` que gera `[object Object]`. Alem disso, existe um campo `area` direto na resposta (ex: `"area": "DIREITO CIVIL"`) que nao esta sendo usado.
 
-**Nova Edge Function: `judit-sync-cnpj-tracking`**
+**2. Assunto mostrando `[object Object]`**
+Mesmo problema: `subjects` e um array de objetos `[{code, name}]`, nao strings.
 
-Recebe `{ cnpjId }` e:
-1. Busca o CNPJ no banco, pega o `tracking_id`
-2. GET `/tracking/{tracking_id}` para obter o `request_id` mais recente
-3. GET `/responses?request_id={request_id}` para obter os processos
-4. Salva/atualiza processos na tabela `processos_cnpj`
-5. Atualiza `ultima_sincronizacao`, `ultimo_request_id` e `total_processos`
-6. Custo: R$ 0,00
+**3. Partes nao separando advogados**
+No `ProcessoCNPJDetalhes.tsx`, o filtro usa `person_type === 'ATIVO'` e `person_type === 'PASSIVO'`, mas a Judit retorna `person_type: "Autor"` e `person_type: "Réu"`. Alem disso, o campo `side` ("Active"/"Passive") nao esta sendo considerado na classificacao do drawer de detalhes. Os advogados (quando existem no array `lawyers` de cada parte) ja estao sendo renderizados, mas a filtragem principal esta incorreta.
 
-**Hook `useCNPJs.ts`**: Adicionar funcao `syncViaTracking(cnpjId)`
-
-**UI `CNPJManager.tsx`**: Para CNPJs com `monitoramentoAtivo === true`, adicionar botao "Sincronizar" (icone RefreshCw) que chama `syncViaTracking`. Visivel para todos (admin e nao-admin). Fica ao lado dos botoes existentes.
-
-Resultado:
-- **Sincronizar** (GET gratis) - para CNPJs com monitoramento ativo
-- **Nova Busca** (POST pago) - busca completa
-- **Consultar** (GET gratis) - via request_id manual
+**4. Andamentos**
+Para responder a pergunta: **nao**, a sincronizacao via tracking nao traz andamentos. O array `steps` vem vazio. Apenas o `last_step` (ultimo andamento) e retornado e ja esta sendo salvo. Isso e esperado pois o Push-Docs monitora novas distribuicoes, nao historico completo.
 
 ---
 
-### Parte 2: Exibir Request-ID e Tracking-ID nos Push-Docs do SuperAdmin
+### Correcoes
 
-No `PushDocCard` dentro de `TenantPushDocsDialog.tsx`, adicionar a exibicao dos IDs que ja existem no objeto `PushDoc`:
+#### Arquivo 1: `supabase/functions/judit-sync-cnpj-tracking/index.ts`
 
-- `tracking_id` - com botao de copiar
-- `ultimo_request_id` - com botao de copiar
+Corrigir o parse de `classifications` e `subjects` para extrair o `.name` de cada objeto:
 
-Ficam na area de metadados do card, abaixo da recorrencia e processos.
+```text
+// ANTES (bugado):
+area_direito: Array.isArray(responseData.classifications)
+  ? responseData.classifications.join(", ")
+  : null,
+assunto: Array.isArray(responseData.subjects)
+  ? responseData.subjects.join(", ")
+  : null,
+
+// DEPOIS (corrigido):
+area_direito: responseData.area
+  || (Array.isArray(responseData.classifications)
+    ? responseData.classifications.map(c => c.name || c).filter(Boolean).join(", ")
+    : null),
+assunto: Array.isArray(responseData.subjects)
+  ? responseData.subjects.map(s => s.name || s).filter(Boolean).join(", ")
+  : null,
+```
+
+#### Arquivo 2: `src/components/Controladoria/ProcessoCNPJDetalhes.tsx`
+
+Corrigir a logica de classificacao das partes para usar `side` (Active/Passive) e os valores reais de `person_type` (Autor, Reu, etc.):
+
+```text
+// ANTES (bugado):
+if (parte.person_type === 'ATIVO' || parte.role?.includes('AUTOR'))
+if (parte.person_type === 'PASSIVO' || parte.role?.includes('REU'))
+
+// DEPOIS (corrigido):
+// Usar side + person_type com multiplos formatos
+const side = (parte.side || '').toLowerCase();
+const tipo = (parte.person_type || '').toLowerCase();
+
+if (side === 'active' || tipo.includes('autor') || tipo.includes('ativo') || tipo.includes('requerente'))
+  → partesAtivas (excluindo advogados)
+
+if (side === 'passive' || tipo.includes('réu') || tipo.includes('reu') || tipo.includes('passivo') || tipo.includes('requerido'))
+  → partesPassivas (excluindo advogados)
+
+// Advogados separados em sua propria secao
+```
+
+Tambem melhorar o `renderParteCard` para mostrar:
+- Tipo/papel da parte (ex: "Autor", "Reu")
+- Documentos (CPF/CNPJ) quando disponiveis via `main_document`
+- OAB dos advogados extraida do array `documents`
+
+#### Arquivo 3: Corrigir dados existentes no banco
+
+Apos deploy da edge function corrigida, rodar o botao "Sincronizar" novamente para re-processar os dados e corrigir os campos `area_direito` e `assunto` que estao salvos como `[object Object]`.
 
 ---
 
-### Detalhes Tecnicos
-
-**Arquivos afetados:**
+### Arquivos afetados
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/judit-sync-cnpj-tracking/index.ts` | NOVO - GET via tracking_id |
-| `supabase/config.toml` | Registrar nova edge function |
-| `src/hooks/useCNPJs.ts` | Adicionar `syncViaTracking` |
-| `src/components/Controladoria/CNPJManager.tsx` | Botao "Sincronizar" para CNPJs com monitoramento |
-| `src/components/SuperAdmin/TenantPushDocsDialog.tsx` | Exibir tracking_id e ultimo_request_id com copy |
+| `supabase/functions/judit-sync-cnpj-tracking/index.ts` | Fix parse de classifications e subjects |
+| `src/components/Controladoria/ProcessoCNPJDetalhes.tsx` | Fix classificacao de partes com side/person_type, separar advogados |
 
-**Edge Function `judit-sync-cnpj-tracking`:**
+### Sobre Andamentos
 
-```text
-1. Recebe { cnpjId } via POST
-2. SELECT tracking_id FROM cnpjs_cadastrados WHERE id = cnpjId
-3. Se tracking_id NULL → erro "Ative o monitoramento primeiro"
-4. GET https://requests.prod.judit.io/tracking/{tracking_id}
-   Headers: { api-key: JUDIT_API_KEY }
-5. Extrai request_id da resposta
-6. GET https://requests.prod.judit.io/responses?request_id={request_id}
-7. Parse dos processos (mesma logica do judit-consultar-request-cnpj)
-8. UPSERT em processos_cnpj
-9. UPDATE cnpjs_cadastrados SET ultima_sincronizacao, ultimo_request_id, total_processos
-10. Registra em judit_api_logs (custo = 0)
-```
-
-**PushDocCard - IDs adicionados:**
-
-```text
-Tracking: abc123-def456... [copiar]
-Request: xyz789-abc012... [copiar]
-```
-
-Aparecem apenas quando o valor existe (nao NULL). Formato truncado com botao de copiar o valor completo.
-
+A sincronizacao via tracking (Push-Docs) **nao traz andamentos** - o array `steps` vem vazio. Apenas o `last_step` e retornado. Isso e normal pois o monitoramento Push-Docs detecta **novas distribuicoes**, nao acompanha o historico de movimentacoes. Para carregar andamentos completos, seria necessaria uma chamada separada (paga) via `/requests`.
