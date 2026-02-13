@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.buscar-publicacoes-pje]
 verify_jwt = false
+
+[functions.whatsapp-meta-webhook]
+verify_jwt = false

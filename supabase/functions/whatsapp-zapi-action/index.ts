@@ -10,24 +10,71 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, zapi_instance_id, zapi_instance_token, zapi_client_token, zapi_url, zapi_token } = body;
+    const { action, zapi_instance_id, zapi_instance_token, zapi_client_token, zapi_url, zapi_token, provider, meta_phone_number_id, meta_access_token } = body;
 
     if (!action) {
       throw new Error('Missing required field: action');
     }
 
+    // ========== META PROVIDER ==========
+    if (provider === 'meta') {
+      if (action === 'status') {
+        if (!meta_phone_number_id || !meta_access_token) {
+          throw new Error('Meta credentials required for status check');
+        }
+
+        const metaUrl = `https://graph.facebook.com/v21.0/${meta_phone_number_id}`;
+        const metaResponse = await fetch(metaUrl, {
+          headers: { 'Authorization': `Bearer ${meta_access_token}` },
+        });
+
+        const metaData = await metaResponse.json();
+        console.log('Meta status response:', metaData);
+
+        // If we get a valid response with id, the token works = connected
+        const isConnected = !!metaData.id && !metaData.error;
+
+        return new Response(JSON.stringify({
+          success: metaResponse.ok,
+          data: {
+            connected: isConnected,
+            phone_number: metaData.display_phone_number,
+            quality_rating: metaData.quality_rating,
+            verified_name: metaData.verified_name,
+            raw: metaData,
+          },
+          action: action
+        }), {
+          status: metaResponse.ok ? 200 : 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Meta does not support disconnect or qr-code
+      if (action === 'disconnect' || action === 'qr-code') {
+        return new Response(JSON.stringify({
+          success: true,
+          data: { message: 'Action not applicable for Meta provider' },
+          action: action
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      throw new Error(`Unsupported action for Meta provider: ${action}`);
+    }
+
+    // ========== Z-API PROVIDER (existing logic) ==========
     let baseUrl: string;
     let clientToken: string | null = null;
 
     // PRIORIDADE 1: Credenciais específicas do agente (novo formato)
     if (zapi_instance_id && zapi_instance_token) {
       baseUrl = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_instance_token}`;
-      // Client-Token: APENAS se foi fornecido explicitamente pelo usuário
-      // NÃO usar fallback para Z_API_TOKEN aqui - pode ser de outra instância
       if (zapi_client_token && zapi_client_token.trim() !== '') {
         clientToken = zapi_client_token.trim();
       }
-      // Se não forneceu Client-Token, não envia o header (instância sem Security Token)
       console.log('Using agent-specific credentials');
     }
     // PRIORIDADE 2: Formato antigo com URL completa (retrocompatibilidade)

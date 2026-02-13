@@ -7454,6 +7454,12 @@ export type Database = {
           id: string
           instance_name: string
           last_update: string | null
+          meta_access_token: string | null
+          meta_business_id: string | null
+          meta_phone_number_id: string | null
+          meta_verify_token: string | null
+          meta_waba_id: string | null
+          provider: string
           qr_code: string | null
           tenant_id: string | null
           updated_at: string | null
@@ -7471,6 +7477,12 @@ export type Database = {
           id?: string
           instance_name: string
           last_update?: string | null
+          meta_access_token?: string | null
+          meta_business_id?: string | null
+          meta_phone_number_id?: string | null
+          meta_verify_token?: string | null
+          meta_waba_id?: string | null
+          provider?: string
           qr_code?: string | null
           tenant_id?: string | null
           updated_at?: string | null
@@ -7488,6 +7500,12 @@ export type Database = {
           id?: string
           instance_name?: string
           last_update?: string | null
+          meta_access_token?: string | null
+          meta_business_id?: string | null
+          meta_phone_number_id?: string | null
+          meta_verify_token?: string | null
+          meta_waba_id?: string | null
+          provider?: string
           qr_code?: string | null
           tenant_id?: string | null
           updated_at?: string | null
