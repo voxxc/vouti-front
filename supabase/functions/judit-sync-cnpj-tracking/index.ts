@@ -52,32 +52,54 @@ serve(async (req) => {
 
     // 2. GET /tracking/{tracking_id} para obter request_id
     const trackingResponse = await fetch(
-      `https://requests.prod.judit.io/tracking/${trackingId}`,
+      `https://tracking.prod.judit.io/tracking/${trackingId}`,
       {
         method: "GET",
-        headers: { "api-key": juditApiKey.trim() },
+        headers: {
+          "api-key": juditApiKey.trim(),
+          "Content-Type": "application/json",
+        },
       }
     );
 
     if (!trackingResponse.ok) {
-      const errorText = await trackingResponse.text();
+      const errorBody = await trackingResponse.text();
       console.error(
         "[Sync CNPJ Tracking] Erro ao buscar tracking:",
         trackingResponse.status,
-        errorText
+        errorBody
       );
+      
+      if (trackingResponse.status === 404) {
+        throw new Error(
+          "Tracking não encontrado na Judit. O monitoramento pode ter sido removido externamente. Desative e reative o monitoramento."
+        );
+      }
+      
       throw new Error(
         `Erro ao consultar tracking: ${trackingResponse.status}`
       );
     }
 
     const trackingData = await trackingResponse.json();
-    const requestId = trackingData.last_request_id || trackingData.request_id;
+    
+    console.log("[Sync CNPJ Tracking] Tracking data keys:", Object.keys(trackingData));
+
+    // Extrair request_id - múltiplos formatos possíveis
+    let requestId: string | null = null;
+    
+    if (trackingData.page_data && trackingData.page_data.length > 0) {
+      requestId = trackingData.page_data[0].request_id;
+    } else if (trackingData.request_id) {
+      requestId = trackingData.request_id;
+    } else if (trackingData.last_request_id) {
+      requestId = trackingData.last_request_id;
+    }
 
     if (!requestId) {
       console.log(
-        "[Sync CNPJ Tracking] Tracking sem request_id ainda. Dados:",
-        JSON.stringify(trackingData)
+        "[Sync CNPJ Tracking] Tracking sem request_id. Dados:",
+        JSON.stringify(trackingData).substring(0, 500)
       );
       throw new Error(
         "O monitoramento ainda não gerou resultados. Aguarde a próxima execução."
