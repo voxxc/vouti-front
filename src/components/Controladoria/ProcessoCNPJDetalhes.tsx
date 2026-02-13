@@ -74,16 +74,27 @@ export const ProcessoCNPJDetalhes = ({
     return `${instance}a Instancia`;
   };
 
-  // Extrair partes
+  // Extrair partes com lógica robusta usando side + person_type
   const partesAtivas: any[] = [];
   const partesPassivas: any[] = [];
+  const advogadosList: any[] = [];
   const outrasPartes: any[] = [];
 
   if (capa.parties && Array.isArray(capa.parties)) {
     capa.parties.forEach((parte: any) => {
-      if (parte.person_type === 'ATIVO' || parte.role?.includes('AUTOR')) {
+      const side = (parte.side || '').toLowerCase();
+      const tipo = (parte.person_type || '').toLowerCase();
+      const papel = (parte.role || '').toLowerCase();
+
+      // Advogados separados
+      if (tipo.includes('advogado') || papel.includes('advogado')) {
+        advogadosList.push(parte);
+        return;
+      }
+
+      if (side === 'active' || tipo.includes('autor') || tipo.includes('ativo') || tipo.includes('requerente') || tipo.includes('exequente') || tipo.includes('reclamante')) {
         partesAtivas.push(parte);
-      } else if (parte.person_type === 'PASSIVO' || parte.role?.includes('REU')) {
+      } else if (side === 'passive' || tipo.includes('réu') || tipo.includes('reu') || tipo.includes('passivo') || tipo.includes('requerido') || tipo.includes('executado') || tipo.includes('reclamado')) {
         partesPassivas.push(parte);
       } else {
         outrasPartes.push(parte);
@@ -91,35 +102,77 @@ export const ProcessoCNPJDetalhes = ({
     });
   }
 
-  const renderParteCard = (parte: any, index: number) => (
-    <div key={index} className="p-3 bg-muted/50 rounded-lg">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="font-medium">{parte.name}</p>
-          {parte.role && (
-            <Badge variant="outline" className="text-xs mt-1">
-              {parte.role}
-            </Badge>
-          )}
-        </div>
-      </div>
-      {parte.lawyers && parte.lawyers.length > 0 && (
-        <div className="mt-2 pl-3 border-l-2 border-primary/30">
-          <p className="text-xs text-muted-foreground mb-1">Advogados:</p>
-          {parte.lawyers.map((adv: any, idx: number) => (
-            <p key={idx} className="text-sm">
-              {adv.name}
-              {adv.oab && (
-                <span className="text-muted-foreground ml-1">
-                  OAB {adv.oab}
+  const renderParteCard = (parte: any, index: number) => {
+    const mainDoc = parte.main_document || parte.documents?.find((d: any) => 
+      ['cpf', 'cnpj'].includes((d.document_type || '').toLowerCase())
+    );
+    const docValue = mainDoc?.document || mainDoc?.value || null;
+
+    return (
+      <div key={index} className="p-3 bg-muted/50 rounded-lg">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-medium">{parte.name}</p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {parte.person_type && (
+                <Badge variant="outline" className="text-xs">
+                  {parte.person_type}
+                </Badge>
+              )}
+              {parte.role && parte.role !== parte.person_type && (
+                <Badge variant="secondary" className="text-xs">
+                  {parte.role}
+                </Badge>
+              )}
+              {docValue && (
+                <span className="text-xs text-muted-foreground">
+                  {docValue}
                 </span>
               )}
-            </p>
-          ))}
+            </div>
+          </div>
         </div>
-      )}
-    </div>
-  );
+        {parte.lawyers && parte.lawyers.length > 0 && (
+          <div className="mt-2 pl-3 border-l-2 border-primary/30">
+            <p className="text-xs text-muted-foreground mb-1">Advogados:</p>
+            {parte.lawyers.map((adv: any, idx: number) => {
+              const oabDoc = adv.documents?.find((d: any) => 
+                (d.document_type || '').toLowerCase() === 'oab'
+              );
+              const oabNum = oabDoc?.document || adv.oab || null;
+              return (
+                <p key={idx} className="text-sm">
+                  {adv.name}
+                  {oabNum && (
+                    <span className="text-muted-foreground ml-1">
+                      OAB {oabNum}
+                    </span>
+                  )}
+                </p>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAdvogadoCard = (adv: any, index: number) => {
+    const oabDoc = adv.documents?.find((d: any) => 
+      (d.document_type || '').toLowerCase() === 'oab'
+    );
+    const oabNum = oabDoc?.document || adv.oab || null;
+    return (
+      <div key={index} className="p-3 bg-muted/50 rounded-lg">
+        <p className="font-medium">{adv.name}</p>
+        {oabNum && (
+          <Badge variant="outline" className="text-xs mt-1">
+            OAB {oabNum}
+          </Badge>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -292,7 +345,7 @@ export const ProcessoCNPJDetalhes = ({
               {partesAtivas.length > 0 && (
                 <div>
                   <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <div className="w-2 h-2 rounded-full bg-primary" />
                     Polo Ativo ({partesAtivas.length})
                   </h4>
                   <div className="space-y-2">
@@ -304,7 +357,7 @@ export const ProcessoCNPJDetalhes = ({
               {partesPassivas.length > 0 && (
                 <div>
                   <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-gray-500" />
+                    <div className="w-2 h-2 rounded-full bg-muted-foreground" />
                     Polo Passivo ({partesPassivas.length})
                   </h4>
                   <div className="space-y-2">
@@ -313,10 +366,22 @@ export const ProcessoCNPJDetalhes = ({
                 </div>
               )}
 
+              {advogadosList.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-accent-foreground" />
+                    Advogados ({advogadosList.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {advogadosList.map(renderAdvogadoCard)}
+                  </div>
+                </div>
+              )}
+
               {outrasPartes.length > 0 && (
                 <div>
                   <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                    <div className="w-2 h-2 rounded-full bg-secondary" />
                     Outros ({outrasPartes.length})
                   </h4>
                   <div className="space-y-2">
@@ -327,6 +392,7 @@ export const ProcessoCNPJDetalhes = ({
 
               {partesAtivas.length === 0 &&
                 partesPassivas.length === 0 &&
+                advogadosList.length === 0 &&
                 outrasPartes.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />

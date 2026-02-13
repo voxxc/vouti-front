@@ -333,11 +333,12 @@ serve(async (req) => {
         data_distribuicao: responseData.distribution_date
           ? responseData.distribution_date.split("T")[0]
           : null,
-        area_direito: Array.isArray(responseData.classifications)
-          ? responseData.classifications.join(", ")
-          : null,
+        area_direito: responseData.area
+          || (Array.isArray(responseData.classifications)
+            ? responseData.classifications.map((c: any) => c.name || c).filter(Boolean).join(", ")
+            : null),
         assunto: Array.isArray(responseData.subjects)
-          ? responseData.subjects.join(", ")
+          ? responseData.subjects.map((s: any) => s.name || s).filter(Boolean).join(", ")
           : null,
         link_tribunal:
           responseData.tribunal_url !== "NAO INFORMADO"
