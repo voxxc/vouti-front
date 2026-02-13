@@ -7,6 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Project, Task, ProjectSector } from "@/types/project";
 import { User } from "@/types/user";
 import ProjectView from "@/pages/ProjectView";
+import AcordosView from "@/pages/AcordosView";
+import SectorView from "@/pages/SectorView";
 
 interface ProjectDrawerContentProps {
   projectId: string;
@@ -20,6 +22,8 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
   // State
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [drawerView, setDrawerView] = useState<'main' | 'acordos' | 'sector'>('main');
+  const [activeSectorId, setActiveSectorId] = useState<string | null>(null);
 
   // Current user object
   const currentUser: User | undefined = user ? {
@@ -31,11 +35,33 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
     updatedAt: new Date()
   } : undefined;
 
+  // Navigation handlers
+  const handleNavigateToAcordos = () => setDrawerView('acordos');
+
+  const handleProjectNavigation = (path: string) => {
+    if (path.includes('/sector/')) {
+      const sectorId = path.split('/sector/')[1];
+      setActiveSectorId(sectorId);
+      setDrawerView('sector');
+    }
+  };
+
+  const handleBackToMain = () => {
+    setDrawerView('main');
+    setActiveSectorId(null);
+  };
+
   // Load project data
   useEffect(() => {
     if (!projectId || !user) return;
     loadProject();
   }, [projectId, user]);
+
+  // Reset view when project changes
+  useEffect(() => {
+    setDrawerView('main');
+    setActiveSectorId(null);
+  }, [projectId]);
 
   const loadProject = async () => {
     setLoading(true);
@@ -62,6 +88,13 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
         .eq('project_id', projectId)
         .order('sector_order');
 
+      // Fetch acordo tasks
+      const { data: acordoTasksData } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('task_type', 'acordo');
+
       // Transform data
       const transformedProject: Project = {
         id: projectData.id,
@@ -84,7 +117,22 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
           createdAt: new Date(task.created_at),
           updatedAt: new Date(task.updated_at)
         })),
-        acordoTasks: [],
+        acordoTasks: (acordoTasksData || []).map((task): Task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description || '',
+          status: task.status as Task['status'],
+          columnId: task.column_id || undefined,
+          sectorId: task.sector_id || undefined,
+          comments: [],
+          files: [],
+          history: [],
+          type: 'acordo' as const,
+          acordoDetails: (task.acordo_details && typeof task.acordo_details === 'object') ? task.acordo_details as any : {},
+          cardColor: (task.card_color as Task['cardColor']) || 'default',
+          createdAt: new Date(task.created_at),
+          updatedAt: new Date(task.updated_at)
+        })),
         sectors: (sectorsData || []).map((sector): ProjectSector => ({
           id: sector.id,
           projectId: sector.project_id,
@@ -167,6 +215,45 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
     );
   }
 
+  // Acordos view
+  if (drawerView === 'acordos') {
+    return (
+      <div className="flex-1 h-full overflow-auto">
+        <div className="container max-w-7xl mx-auto px-6 py-8">
+          <AcordosView
+            project={project}
+            onUpdateProject={handleUpdateProject}
+            onBack={handleBackToMain}
+            onLogout={() => {}}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Sector view
+  if (drawerView === 'sector' && activeSectorId) {
+    const sector = project.sectors?.find(s => s.id === activeSectorId);
+    if (!sector) {
+      handleBackToMain();
+      return null;
+    }
+    return (
+      <div className="flex-1 h-full overflow-auto">
+        <div className="container max-w-7xl mx-auto px-6 py-8">
+          <SectorView
+            onBack={handleBackToMain}
+            project={project}
+            sector={sector}
+            onUpdateProject={handleUpdateProject}
+            currentUser={currentUser}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Main project view
   return (
     <div className="flex-1 h-full overflow-auto">
       <div className="container max-w-7xl mx-auto px-6 py-8">
@@ -175,6 +262,8 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
           onBack={onClose}
           project={project}
           onUpdateProject={handleUpdateProject}
+          onNavigateToAcordos={handleNavigateToAcordos}
+          onProjectNavigation={handleProjectNavigation}
           currentUser={currentUser}
           users={[]}
           embedded={true}
