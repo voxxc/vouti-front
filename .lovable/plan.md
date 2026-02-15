@@ -1,24 +1,32 @@
 
 
-## Melhorar Visibilidade das 3 Imagens Empilhadas
+## Imagens em Lista Vertical com Fundo Neutro
 
-### Problema
+### O que sera feito
 
-As 3 imagens estao quase sobrepostas no mesmo ponto, com offsets muito pequenos (left: 4/12/20 e top: 8/4/16). Isso faz com que apenas a imagem da frente (WhatsApp) seja visivel, escondendo as outras duas quase completamente.
-
-### Solucao
-
-Aumentar significativamente o offset entre as imagens e reduzir o tamanho de cada uma para que as 3 fiquem visiveis em formato "leque" / "fan spread", como na imagem de referencia. Tambem ajustar a altura do container para comportar o spread maior.
+Trocar o layout de imagens sobrepostas (stack) por uma lista vertical onde cada screenshot aparece completamente visivel, uma abaixo da outra. Adicionar um elemento de fundo quadrado/retangular neutro (cinza claro, arredondado) atras das imagens, como na 4a imagem de referencia.
 
 ### Mudancas no arquivo `src/pages/HomePage.tsx` (linhas 440-463)
 
-Ajustar posicionamento e tamanho das 3 imagens:
+Substituir o container com posicionamento absoluto por um layout flex vertical com gap:
 
-- **Imagem de tras (Processos)**: `top-0 left-0`, `w-[75%]`, `rotate(-6deg)` - mais para esquerda e cima
-- **Imagem do meio (Kanban)**: `top-12 left-[15%]`, `w-[75%]`, `rotate(0deg)` - centralizada
-- **Imagem da frente (WhatsApp)**: `top-24 left-[30%]`, `w-[75%]`, `rotate(5deg)` - mais para direita e baixo
+- **Fundo neutro**: Um `div` com `bg-gray-100 rounded-3xl` posicionado atras das imagens via `absolute`, cobrindo a area toda como moldura
+- **Imagens em lista**: `flex flex-col gap-6` com cada imagem em tamanho `w-full`, bordas arredondadas e sombra suave
+- Remover rotacoes e posicionamento absoluto das imagens
+- Cada imagem tera leve sombra (`shadow-lg`) e borda (`border border-gray-200`) para separacao visual
+- Container com `relative` para o fundo neutro ficar atras e `overflow-hidden` no fundo com `rounded-3xl`
 
-Isso cria um spread tipo "leque" onde cada imagem fica deslocada o suficiente para ser claramente visivel, mostrando bordas e parte do conteudo das imagens de tras.
+### Estrutura final
 
-Tambem aumentar a altura do container de `550px` para `600px` para acomodar o spread vertical maior.
+```text
+[div relative] (coluna direita)
+  [div absolute bg-gray-100 rounded-3xl inset-0] (fundo neutro)
+  [div relative z-10 flex flex-col gap-6 p-6]
+    [img - Processos]
+    [img - Kanban]
+    [img - WhatsApp]
+```
+
+### Arquivo editado
+- `src/pages/HomePage.tsx` - linhas 440-463
 
