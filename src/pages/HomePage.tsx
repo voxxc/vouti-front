@@ -437,29 +437,26 @@ const HomePage = () => {
               </div>
             </div>
 
-            {/* Right - Stacked Screenshots */}
-            <div className="relative h-[600px] hidden lg:block">
-              {/* Back image */}
-              <img
-                src={showcaseProcessosList}
-                alt="Lista de Processos"
-                className="absolute top-0 left-0 w-[75%] rounded-xl shadow-md border border-gray-200 z-10"
-                style={{ transform: 'rotate(-6deg)' }}
-              />
-              {/* Middle image */}
-              <img
-                src={showcaseKanban}
-                alt="Kanban de Projetos"
-                className="absolute top-12 left-[15%] w-[75%] rounded-xl shadow-lg border border-gray-200 z-20"
-                style={{ transform: 'rotate(0deg)' }}
-              />
-              {/* Front image */}
-              <img
-                src={showcaseWhatsapp}
-                alt="CRM WhatsApp"
-                className="absolute top-24 left-[30%] w-[75%] rounded-xl shadow-xl border border-gray-200 z-30"
-                style={{ transform: 'rotate(5deg)' }}
-              />
+            {/* Right - Vertical Screenshots List */}
+            <div className="relative hidden lg:block">
+              <div className="absolute inset-0 bg-muted/50 rounded-3xl -m-4" />
+              <div className="relative z-10 flex flex-col gap-6 p-6">
+                <img
+                  src={showcaseProcessosList}
+                  alt="Lista de Processos"
+                  className="w-full rounded-xl shadow-lg border border-border"
+                />
+                <img
+                  src={showcaseKanban}
+                  alt="Kanban de Projetos"
+                  className="w-full rounded-xl shadow-lg border border-border"
+                />
+                <img
+                  src={showcaseWhatsapp}
+                  alt="CRM WhatsApp"
+                  className="w-full rounded-xl shadow-lg border border-border"
+                />
+              </div>
             </div>
           </div>
         </div>
