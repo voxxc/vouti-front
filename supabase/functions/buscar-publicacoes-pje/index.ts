@@ -162,6 +162,110 @@ function parsePublicacoesPje(html: string, numeroProcesso: string, tribunal: str
   return publicacoes;
 }
 
+// ===== PJe OAB parser (for OAB-based searches) =====
+function parsePublicacoesPjeOab(html: string, tribunal: string, mon: any): any[] {
+  const publicacoes: any[] = [];
+  const nomePesquisado = mon.nome || `OAB ${mon.oab_numero || ''}/${mon.oab_uf || ''}`;
+
+  // Pattern: each intimação block
+  const intimacaoRegex = /<strong>(\d+)\s*-\s*(?:Intimação|Citação|Comunicação)<\/strong>([\s\S]*?)(?=<strong>\d+\s*-|$)/gi;
+
+  let match;
+  while ((match = intimacaoRegex.exec(html)) !== null) {
+    const blocoIntimacao = match[2];
+
+    // Extract date
+    const dataMatch = blocoIntimacao.match(/Data:\s*(\d{2}\/\d{2}\/\d{4})/i)
+      || blocoIntimacao.match(/Data de disponibilização:\s*<\/strong>\s*(\d{2}\/\d{2}\/\d{4})/i)
+      || blocoIntimacao.match(/disponibilização:\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (!dataMatch) continue;
+
+    const [dia, mes, ano] = dataMatch[1].split('/');
+    const dataDisp = `${ano}-${mes}-${dia}`;
+
+    // Extract processo number
+    const procMatch = blocoIntimacao.match(/Processo:\s*<\/strong>\s*([^<\n]+)/i)
+      || blocoIntimacao.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+    const numeroProcesso = procMatch ? procMatch[1].trim() : 'sem_numero';
+
+    // Extract órgão
+    const orgaoMatch = blocoIntimacao.match(/Órgão:\s*<\/strong>\s*([^<\n]+)/i);
+    const orgao = orgaoMatch ? orgaoMatch[1].trim() : null;
+
+    // Extract tipo
+    const tipoMatch = blocoIntimacao.match(/Tipo de comunicação:\s*<\/strong>\s*([^<\n]+)/i);
+    const tipoCom = tipoMatch ? tipoMatch[1].trim() : 'Intimação';
+    const tipo = tipoCom.toLowerCase().includes('citação') || tipoCom.toLowerCase().includes('citacao')
+      ? 'Citação' : 'Intimação';
+
+    // Extract partes
+    const partesMatch = blocoIntimacao.match(/Parte\(s\):\s*<\/strong>([\s\S]*?)(?=<strong>|Advogado\(s\):)/i);
+    let partes: string | null = null;
+    if (partesMatch) {
+      partes = partesMatch[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 2000);
+    }
+
+    // Extract texto
+    const textoMatch = blocoIntimacao.match(/Texto da intimação:\s*<\/strong>\s*<div[^>]*>([\s\S]*?)<\/div>/i);
+    let conteudo = '';
+    if (textoMatch) {
+      conteudo = textoMatch[1].replace(/<br\s*\/?>/gi, '\n').replace(/<p[^>]*>/gi, '\n').replace(/<\/p>/gi, '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    if (!conteudo) {
+      conteudo = blocoIntimacao.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    publicacoes.push({
+      tenant_id: mon.tenant_id,
+      monitoramento_id: mon.id,
+      data_disponibilizacao: dataDisp,
+      data_publicacao: dataDisp,
+      tipo,
+      numero_processo: numeroProcesso,
+      diario_sigla: tribunal,
+      diario_nome: `PJe Comunicações - ${tribunal}`,
+      comarca: null,
+      nome_pesquisado: nomePesquisado,
+      conteudo_completo: conteudo.substring(0, 5000),
+      link_acesso: 'https://comunica.pje.jus.br',
+      status: 'nao_tratada',
+      orgao,
+      responsavel: null,
+      partes,
+    });
+  }
+
+  // Fallback generic pattern
+  if (publicacoes.length === 0) {
+    const fallbackRegex = /Intimação referente ao movimento \(seq\. (\d+)\) ([^(]+)\((\d{2}\/\d{2}\/\d{4})\)/gi;
+    let fMatch;
+    while ((fMatch = fallbackRegex.exec(html)) !== null) {
+      const [dia, mes, ano] = fMatch[3].split('/');
+      const dataDisp = `${ano}-${mes}-${dia}`;
+      publicacoes.push({
+        tenant_id: mon.tenant_id,
+        monitoramento_id: mon.id,
+        data_disponibilizacao: dataDisp,
+        data_publicacao: dataDisp,
+        tipo: 'Intimação',
+        numero_processo: 'sem_numero',
+        diario_sigla: tribunal,
+        diario_nome: `PJe Comunicações - ${tribunal}`,
+        comarca: null,
+        nome_pesquisado: nomePesquisado,
+        conteudo_completo: fMatch[2].trim().substring(0, 5000),
+        link_acesso: 'https://comunica.pje.jus.br',
+        status: 'nao_tratada',
+        orgao: null,
+        responsavel: null,
+        partes: null,
+      });
+    }
+  }
+
+  return publicacoes;
+}
+
 // ===== DataJud helpers (existing) =====
 async function buscarViaDataJud(tribunal: string, numeroProcesso: string): Promise<any> {
   const tribunalCode = TRIBUNAL_MAP[tribunal.toUpperCase()] || tribunal.toLowerCase();
@@ -411,6 +515,164 @@ Deno.serve(async (req) => {
         inserted: totalInserted,
         errors: totalErrors,
         source: 'pje_comunicacoes',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ============================================================
+    // === PJE_SCRAPER_OAB MODE: busca por OAB nos monitoramentos ===
+    // ============================================================
+    if (mode === 'pje_scraper_oab') {
+      const tenantId = body.tenant_id;
+
+      // Auth: either Bearer token or service_role_key (for cron)
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader && !authHeader.includes(SUPABASE_SERVICE_ROLE_KEY)) {
+        const token = authHeader.replace('Bearer ', '');
+        const supabaseAuth = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!);
+        const { error: authError } = await supabaseAuth.auth.getUser(token);
+        if (authError) {
+          return new Response(JSON.stringify({ success: false, error: 'Invalid token' }), {
+            status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // Fetch active monitoramentos (optionally filtered by tenant)
+      let monQuery = supabaseAdmin
+        .from('publicacoes_monitoramentos')
+        .select('*')
+        .eq('status', 'ativo');
+      if (tenantId) monQuery = monQuery.eq('tenant_id', tenantId);
+
+      const { data: monitoramentos, error: monError } = await monQuery;
+      if (monError) throw new Error(`Error fetching monitoramentos: ${monError.message}`);
+      if (!monitoramentos || monitoramentos.length === 0) {
+        return new Response(JSON.stringify({
+          success: true, inserted: 0, message: 'Nenhum monitoramento ativo encontrado',
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      console.log(`pje_scraper_oab: ${monitoramentos.length} monitoramentos ativos`);
+
+      // Date range: last 5 days
+      const dataFim = new Date();
+      const dataInicio = new Date();
+      dataInicio.setDate(dataInicio.getDate() - 5);
+      const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+      let totalInserted = 0;
+      let totalFound = 0;
+      let totalErrors = 0;
+
+      for (const mon of monitoramentos) {
+        const nome = mon.nome || '';
+        const oabNumero = mon.oab_numero || '';
+        const oabUf = mon.oab_uf || '';
+        const tribunais = mon.tribunais_monitorados as Record<string, string[]> | null;
+
+        if (!nome && !oabNumero) {
+          console.log(`pje_scraper_oab: skipping monitoramento ${mon.id} - no nome/oab`);
+          continue;
+        }
+
+        // Collect all tribunal siglas from the monitoramento
+        let allSiglas: string[] = [];
+        if (tribunais) {
+          allSiglas = Object.values(tribunais).flat();
+        }
+
+        if (allSiglas.length === 0) {
+          console.log(`pje_scraper_oab: no tribunais for monitoramento ${mon.id}`);
+          continue;
+        }
+
+        console.log(`pje_scraper_oab: monitoramento ${mon.id} (${nome}) - ${allSiglas.length} tribunais`);
+
+        // Process tribunais in batches of 3
+        for (let i = 0; i < allSiglas.length; i += 3) {
+          const batch = allSiglas.slice(i, i + 3);
+
+          const results = await Promise.allSettled(
+            batch.map(async (sigla) => {
+              // Build URL with name and/or OAB params
+              let url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${sigla}`
+                + `&dataDisponibilizacaoInicio=${formatDate(dataInicio)}`
+                + `&dataDisponibilizacaoFim=${formatDate(dataFim)}`;
+
+              if (nome) url += `&nomeAdvogado=${encodeURIComponent(nome)}`;
+              if (oabNumero) url += `&oab=${oabNumero}`;
+              if (oabUf) url += `&ufOab=${oabUf}`;
+
+              console.log(`pje_scraper_oab: fetching ${url}`);
+
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+              try {
+                const response = await fetch(url, {
+                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                  signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                  console.error(`pje_scraper_oab: HTTP ${response.status} for ${sigla}`);
+                  return { found: 0, inserted: 0 };
+                }
+
+                const html = await response.text();
+                // Reuse existing parser but adapt for OAB search (no specific process number)
+                const pubs = parsePublicacoesPjeOab(html, sigla, mon);
+
+                if (pubs.length === 0) return { found: 0, inserted: 0 };
+
+                const { data: inserted, error: insertErr } = await supabaseAdmin
+                  .from('publicacoes')
+                  .upsert(pubs, {
+                    onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla',
+                    ignoreDuplicates: true,
+                  })
+                  .select('id');
+
+                if (insertErr) {
+                  console.error(`pje_scraper_oab: insert error for ${sigla}:`, insertErr.message);
+                  return { found: pubs.length, inserted: 0 };
+                }
+
+                return { found: pubs.length, inserted: inserted?.length || 0 };
+              } catch (err) {
+                clearTimeout(timeoutId);
+                console.error(`pje_scraper_oab: error for ${sigla}:`, err.message);
+                return { found: 0, inserted: 0 };
+              }
+            })
+          );
+
+          for (const r of results) {
+            if (r.status === 'fulfilled') {
+              totalFound += r.value.found;
+              totalInserted += r.value.inserted;
+            } else {
+              totalErrors++;
+            }
+          }
+
+          // Delay between batches
+          if (i + 3 < allSiglas.length) {
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+      }
+
+      console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        monitoramentos_processed: monitoramentos.length,
+        total_found: totalFound,
+        inserted: totalInserted,
+        errors: totalErrors,
+        source: 'pje_scraper_oab',
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

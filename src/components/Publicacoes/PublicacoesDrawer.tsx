@@ -63,14 +63,14 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
       if (!session) { toast.error('Sessão expirada'); return; }
 
       const res = await supabase.functions.invoke('buscar-publicacoes-pje', {
-        body: { mode: 'pje_scraper', tenant_id: tenantId },
+        body: { mode: 'pje_scraper_oab', tenant_id: tenantId },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (res.error) throw res.error;
       const d = res.data;
       if (d?.success) {
-        toast.success(`DJEN: ${d.inserted} nova(s) publicação(ões) de ${d.total_processos} processos`);
+        toast.success(`DJEN (OAB): ${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)`);
         fetchPublicacoes();
       } else {
         toast.error(d?.error || 'Erro na busca DJEN');
