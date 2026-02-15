@@ -655,8 +655,8 @@ const HomePage = () => {
       {/* Footer */}
       <footer className="py-8 border-t border-gray-200 bg-white">
         <div className="container mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-xl font-black tracking-tight">
-            Vou<span className="text-[#E11D48]">ti</span><span className="text-[#E11D48]">.</span>
+          <span className="text-xl font-black tracking-tight lowercase">
+            vouti<span className="text-[#E11D48]">.</span>
           </span>
           <a href="mailto:contato@vouti.co" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#0a0a0a] transition-colors">
             <Mail className="w-4 h-4" />
