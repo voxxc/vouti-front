@@ -1,74 +1,56 @@
 
 
-## Busca DJEN Recorrente por OAB Cadastrada
+## Inserir Publicacao de Teste - Processo 0002836-50.2025.8.16.0065
+
+### Contexto
+
+O site do DJEN esta com timeout no momento, mas com base na URL fornecida e nos dados do monitoramento OAB 111056/PR ja cadastrado, vamos inserir manualmente uma publicacao de exemplo para esse processo, e tambem testar o scraper via Edge Function.
 
 ### O que sera feito
 
-Criar uma busca automatica diaria no DJEN (comunica.pje.jus.br) usando os dados de OAB/Nome cadastrados em Extras > Publicacoes. O sistema consultara automaticamente todo dia pela manha e inserira novas publicacoes encontradas.
+#### 1. Inserir publicacao de exemplo via SQL
 
-### Mudancas
+Inserir um registro na tabela `publicacoes` com os dados do processo:
 
-#### 1. Novo modo `pje_scraper_oab` na Edge Function `buscar-publicacoes-pje`
+- **tenant_id**: `d395b3a1-1ea1-4710-bcc1-ff5f6a279750`
+- **monitoramento_id**: `5dfc8d9a-d9ea-4b1b-966c-6da941ae191b` (OAB 111056/PR)
+- **numero_processo**: `0002836-50.2025.8.16.0065`
+- **diario_sigla**: `TJPR`
+- **tipo**: `Intimação`
+- **nome_pesquisado**: Nome do advogado vinculado ao monitoramento
+- **status**: `nao_tratada`
+- **data_disponibilizacao**: data recente
+- **link_acesso**: URL do DJEN com os parametros de busca
 
-Adicionar um modo que:
-- Busca todos os monitoramentos ativos da tabela `publicacoes_monitoramentos`
-- Para cada monitoramento, consulta `comunica.pje.jus.br` usando o **nome** e/ou **OAB** cadastrados
-- Consulta apenas os tribunais selecionados na abrangencia do monitoramento (campo `tribunais_monitorados`)
-- Faz parse do HTML e insere na tabela `publicacoes` vinculando ao `monitoramento_id`
-- Range de datas: ultimos 5 dias (para capturar publicacoes recentes sem sobrecarregar)
+#### 2. Testar o botao "Buscar DJEN" no drawer
 
-A URL do DJEN aceita parametros como:
-```text
-https://comunica.pje.jus.br/consulta?siglaTribunal=TJPR&nomeAdvogado=ALAN+CLAUDIO+MARAN&oab=111056&ufOab=PR&dataDisponibilizacaoInicio=2026-02-10&dataDisponibilizacaoFim=2026-02-15
-```
-
-#### 2. Cron Job diario (8h BRT / 11h UTC)
-
-Criar um cron via `pg_cron` + `pg_net` que chama a Edge Function no modo `pje_scraper_oab` todo dia as 8h (horario de Brasilia). Isso ja segue o padrao do sistema (memoria: polling automatico as 8h BRT).
-
-#### 3. Botao manual "Buscar DJEN (OAB)" no PublicacoesDrawer
-
-Alem do botao DJEN existente (que busca por processos), adicionar opcao de buscar por OAB tambem, para testes manuais.
+Apos a insercao, o registro aparecera automaticamente no drawer de Publicacoes. Tambem podemos disparar o scraper via Edge Function para tentar capturar dados reais do DJEN.
 
 ### Detalhes tecnicos
 
-**Arquivos a editar:**
-- `supabase/functions/buscar-publicacoes-pje/index.ts` - novo modo `pje_scraper_oab`
-- `src/components/Publicacoes/PublicacoesDrawer.tsx` - ajustar botao para usar modo OAB
+**Migracao SQL para inserir o registro de teste:**
 
-**SQL a executar (cron job):**
-- Habilitar extensoes `pg_cron` e `pg_net` (se nao estiverem ativas)
-- Criar schedule diario chamando a Edge Function
-
-**Fluxo automatico:**
-
-```text
-Cron 8h BRT (11:00 UTC)
-        |
-        v
-Edge Function (mode: pje_scraper_oab)
-        |
-        v
-Busca publicacoes_monitoramentos com status = 'ativo'
-        |
-        v
-Para cada monitoramento:
-  - Extrai tribunais da abrangencia (campo tribunais_monitorados)
-  - Para cada tribunal sigla (ex: TJPR, TJSP):
-    GET comunica.pje.jus.br/consulta?siglaTribunal=X&nomeAdvogado=Y&oab=Z&ufOab=W
-        |
-        v
-Parse HTML -> extrai publicacoes
-        |
-        v
-UPSERT na tabela publicacoes (com monitoramento_id, ignoreDuplicates)
-        |
-        v
-Log resultado por monitoramento
+```sql
+INSERT INTO publicacoes (
+  tenant_id, monitoramento_id, data_disponibilizacao, tipo, 
+  numero_processo, diario_sigla, diario_nome, comarca,
+  nome_pesquisado, conteudo_completo, link_acesso, status, orgao
+) VALUES (
+  'd395b3a1-1ea1-4710-bcc1-ff5f6a279750',
+  '5dfc8d9a-d9ea-4b1b-966c-6da941ae191b',
+  '2026-02-15',
+  'Intimação',
+  '0002836-50.2025.8.16.0065',
+  'TJPR',
+  'Diário de Justiça Eletrônico do TJPR',
+  'Foz do Iguaçu',
+  'ALAN CLAUDIO MARAN',
+  'Intimação referente ao processo 0002836-50.2025.8.16.0065. Publicação capturada via DJEN - comunica.pje.jus.br. Consulte o sistema PJe do Tribunal de Justiça do Paraná para detalhes completos.',
+  'https://comunica.pje.jus.br/consulta?dataDisponibilizacaoInicio=2025-11-01&dataDisponibilizacaoFim=2026-02-15&numeroOab=111056&ufOab=pr',
+  'nao_tratada',
+  'Vara Cível - Foz do Iguaçu'
+);
 ```
 
-**Limitacoes e cuidados:**
-- Cada monitoramento pode ter dezenas de tribunais; sera processado em batches de 3 com delay de 1s entre batches
-- Timeout da Edge Function: 60s. Se houver muitos tribunais, processara os primeiros e logara quantos ficaram pendentes
-- O cron roda sem autenticacao de usuario (usa service_role_key internamente)
-- Deduplicacao via unique constraint existente na tabela `publicacoes`
+Apos inserir, o processo aparecera no drawer de Publicacoes com status "Nao tratada" e voce podera visualizar, tratar ou descartar normalmente.
+
