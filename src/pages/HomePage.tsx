@@ -305,14 +305,14 @@ const HomePage = () => {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
                   onClick={scrollToDemo}
-                  className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-base px-8 py-6 rounded-lg"
+                  className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-sm px-5 py-3 sm:text-base sm:px-8 sm:py-6 rounded-lg"
                 >
                   Solicitar Demonstração
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
                 <Button 
                   variant="outline"
-                  className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-base px-8 py-6 rounded-lg"
+                  className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-sm px-5 py-3 sm:text-base sm:px-8 sm:py-6 rounded-lg"
                   onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   Ver Módulos
@@ -321,61 +321,61 @@ const HomePage = () => {
             </div>
 
             {/* Computer Image + Floating Badges */}
-            <div className="relative lg:-mr-12">
+            <div className="relative lg:-mr-12 overflow-hidden">
               {/* Floating badges */}
-              <div className="absolute -top-4 -left-4 z-20 animate-hero-float hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <Clock className="w-5 h-5 text-[#E11D48]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">Prazos</span>
+              <div className="absolute -top-1 left-0 sm:-top-4 sm:-left-4 z-20 animate-hero-float flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <Clock className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#E11D48]" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">Prazos</span>
                 </div>
               </div>
 
-              <div className="absolute top-1/2 -left-10 -translate-y-1/2 z-20 animate-hero-float-delayed hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <Users className="w-5 h-5 text-[#0a0a0a]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">Clientes</span>
+              <div className="absolute top-1/2 left-0 sm:-left-10 -translate-y-1/2 z-20 animate-hero-float-delayed flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <Users className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#0a0a0a]" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">Clientes</span>
                 </div>
               </div>
 
-              <div className="absolute bottom-8 -left-2 z-20 animate-hero-float-slow hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <FileText className="w-5 h-5 text-[#E11D48]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">Processos</span>
+              <div className="absolute bottom-10 left-1 sm:bottom-8 sm:-left-2 z-20 animate-hero-float-slow flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <FileText className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#E11D48]" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">Processos</span>
                 </div>
               </div>
 
-              <div className="absolute -top-2 right-8 z-20 animate-hero-float-slow hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <MessageCircle className="w-5 h-5 text-green-500" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">WhatsApp</span>
+              <div className="absolute top-0 right-2 sm:-top-2 sm:right-8 z-20 animate-hero-float-slow flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <MessageCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-green-500" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">WhatsApp</span>
                 </div>
               </div>
 
-              <div className="absolute bottom-4 right-4 z-20 animate-hero-float-delayed hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <DollarSign className="w-5 h-5 text-[#E11D48]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">Financeiro</span>
+              <div className="absolute bottom-6 right-1 sm:bottom-4 sm:right-4 z-20 animate-hero-float-delayed flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <DollarSign className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#E11D48]" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">Financeiro</span>
                 </div>
               </div>
 
-              <div className="absolute top-1/3 -right-6 z-20 animate-hero-float hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <UserCheck className="w-5 h-5 text-[#E11D48]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">CRM</span>
+              <div className="absolute top-1/3 right-0 sm:-right-6 z-20 animate-hero-float flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <UserCheck className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#E11D48]" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">CRM</span>
                 </div>
               </div>
 
-              <div className="absolute -top-8 left-1/3 z-20 animate-hero-float-delayed hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">IA</span>
+              <div className="absolute top-0 left-1/3 sm:-top-8 z-20 animate-hero-float-delayed flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <Sparkles className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-amber-500" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">IA</span>
                 </div>
               </div>
 
-              <div className="absolute bottom-0 left-1/3 z-20 animate-hero-float-slow hidden lg:flex">
-                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <LayoutDashboard className="w-5 h-5 text-[#E11D48]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">Dashboard</span>
+              <div className="absolute bottom-2 left-1/3 sm:bottom-0 z-20 animate-hero-float-slow flex">
+                <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
+                  <LayoutDashboard className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#E11D48]" />
+                  <span className="text-xs sm:text-sm font-bold text-[#0a0a0a]">Dashboard</span>
                 </div>
               </div>
 
