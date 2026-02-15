@@ -11,6 +11,7 @@ import showcaseProcessos from '@/assets/showcase-processos.png';
 import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
 import showcasePrazos from '@/assets/showcase-prazos.png';
+import heroComputer from '@/assets/hero-computer.png';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -279,32 +280,44 @@ const HomePage = () => {
         <div className="container mx-auto px-6">
           <div 
             ref={heroAnim.ref}
-            className={`max-w-4xl transition-all duration-700 ease-out ${heroAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center transition-all duration-700 ease-out ${heroAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.95] tracking-tight mb-8">
-              O seu<br />
-              escritório<br />
-              <span className="text-[#E11D48]">360.</span>
-            </h1>
-            <p className="text-lg sm:text-xl text-gray-500 max-w-xl mb-10 leading-relaxed">
-              Gestão jurídica completa em uma única plataforma. 
-              Prazos, financeiro, clientes e equipe — tudo sob controle.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                onClick={scrollToDemo}
-                className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-base px-8 py-6 rounded-lg"
-              >
-                Solicitar Demonstração
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button 
-                variant="outline"
-                className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-base px-8 py-6 rounded-lg"
-                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                Ver Módulos
-              </Button>
+            {/* Text */}
+            <div>
+              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.95] tracking-tight mb-8">
+                O seu<br />
+                escritório<br />
+                <span className="text-[#E11D48]">360.</span>
+              </h1>
+              <p className="text-lg sm:text-xl text-gray-500 max-w-xl mb-10 leading-relaxed">
+                Gestão jurídica completa em uma única plataforma. 
+                Prazos, financeiro, clientes e equipe — tudo sob controle.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button 
+                  onClick={scrollToDemo}
+                  className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-base px-8 py-6 rounded-lg"
+                >
+                  Solicitar Demonstração
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-base px-8 py-6 rounded-lg"
+                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  Ver Módulos
+                </Button>
+              </div>
+            </div>
+
+            {/* Computer Image */}
+            <div className="lg:-mr-12">
+              <img 
+                src={heroComputer} 
+                alt="Dashboard Vouti no computador"
+                className="w-full max-w-2xl h-auto object-contain"
+              />
             </div>
           </div>
         </div>
