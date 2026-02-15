@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Newspaper, Search, ExternalLink, Check, X, ArrowLeft } from "lucide-react";
+import { Newspaper, Search, ExternalLink, Check, X, ArrowLeft, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
@@ -53,6 +53,34 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [selectedPub, setSelectedPub] = useState<Publicacao | null>(null);
+  const [buscandoDjen, setBuscandoDjen] = useState(false);
+
+  const buscarViaDjen = async () => {
+    if (!tenantId) return;
+    setBuscandoDjen(true);
+    try {
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (!session) { toast.error('Sessão expirada'); return; }
+
+      const res = await supabase.functions.invoke('buscar-publicacoes-pje', {
+        body: { mode: 'pje_scraper', tenant_id: tenantId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (res.error) throw res.error;
+      const d = res.data;
+      if (d?.success) {
+        toast.success(`DJEN: ${d.inserted} nova(s) publicação(ões) de ${d.total_processos} processos`);
+        fetchPublicacoes();
+      } else {
+        toast.error(d?.error || 'Erro na busca DJEN');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao buscar DJEN');
+    } finally {
+      setBuscandoDjen(false);
+    }
+  };
 
   useEffect(() => {
     if (open && tenantId) fetchPublicacoes();
@@ -140,6 +168,16 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
         <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
           <Newspaper className="h-5 w-5 text-primary" />
           <span className="font-semibold text-lg">Publicações</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto h-8 text-xs"
+            onClick={buscarViaDjen}
+            disabled={buscandoDjen}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${buscandoDjen ? 'animate-spin' : ''}`} />
+            {buscandoDjen ? 'Buscando...' : 'Buscar DJEN'}
+          </Button>
         </div>
 
         <ScrollArea className="flex-1">
