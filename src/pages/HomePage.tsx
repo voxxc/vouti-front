@@ -347,11 +347,12 @@ const HomePage = () => {
               >
                 {/* Image */}
                 <div className={`lg:col-span-4 ${section.imageLeft ? 'lg:order-1' : 'lg:order-2'}`}>
-                <div>
+                <div className="overflow-hidden">
                     <img 
                       src={section.image} 
                       alt={section.title}
                       className={`w-full h-auto object-contain ${section.extraScale ? 'scale-[1.2] origin-center' : ''}`}
+                      style={isEven ? { backgroundColor: '#f9fafb' } : { backgroundColor: '#ffffff' }}
                       loading="lazy"
                     />
                   </div>
