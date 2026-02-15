@@ -172,10 +172,10 @@ const HomePage = () => {
   const plans = [
     { 
       name: 'Solo', 
-      price: 99, 
-      processes: 30, 
+      price: 0, 
+      processes: 5, 
       usersLabel: '1 usuário',
-      oabLabel: 'Até 1 OAB cadastrada',
+      oabLabel: '1 OAB cadastrada',
       popular: false,
       unlimitedProcesses: false,
       hasCRM: false
@@ -524,10 +524,16 @@ const HomePage = () => {
                     <h3 className="text-lg font-bold mb-3">{plan.name}</h3>
                     
                     <div className="mb-4">
-                      <span className="text-3xl font-black text-[#0a0a0a]">
-                        R$ {plan.price.toLocaleString('pt-BR')}
-                      </span>
-                      <span className="text-sm text-gray-500">/mês</span>
+                      {plan.price === 0 ? (
+                        <span className="text-3xl font-black text-[#E11D48]">FREE</span>
+                      ) : (
+                        <>
+                          <span className="text-3xl font-black text-[#0a0a0a]">
+                            R$ {plan.price.toLocaleString('pt-BR')}
+                          </span>
+                          <span className="text-sm text-gray-500">/mês</span>
+                        </>
+                      )}
                     </div>
 
                     <div className="inline-block px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium mb-5">
