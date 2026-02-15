@@ -340,10 +340,10 @@ const HomePage = () => {
             <div className="container mx-auto px-6">
               <div 
                 ref={anim.ref}
-                className={`grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16 items-center transition-all duration-700 ease-out ${anim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                className={`grid grid-cols-1 lg:grid-cols-7 gap-10 lg:gap-12 items-center transition-all duration-700 ease-out ${anim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
               >
                 {/* Image */}
-                <div className={`lg:col-span-3 ${section.imageLeft ? 'lg:order-1' : 'lg:order-2'}`}>
+                <div className={`lg:col-span-4 ${section.imageLeft ? 'lg:order-1' : 'lg:order-2'}`}>
                 <div>
                     <img 
                       src={section.image} 
@@ -355,7 +355,7 @@ const HomePage = () => {
                 </div>
 
                 {/* Text */}
-                <div className={`lg:col-span-2 ${section.imageLeft ? 'lg:order-2' : 'lg:order-1'}`}>
+                <div className={`lg:col-span-3 ${section.imageLeft ? 'lg:order-2' : 'lg:order-1'}`}>
                   <h3 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight mb-5 leading-tight">
                     {section.title}
                   </h3>
