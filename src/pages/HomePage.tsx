@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail } from 'lucide-react';
-import showcaseProcessos from '@/assets/showcase-processos.jpg';
+import showcaseProcessos from '@/assets/showcase-processos.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.jpg';
 import showcasePrazos from '@/assets/showcase-prazos.jpg';
 
