@@ -408,22 +408,6 @@ const HomePage = () => {
           >
             {/* Left - Text */}
             <div>
-              <div className="flex gap-3 mb-6">
-                <Button 
-                  variant="outline"
-                  className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-sm rounded-lg"
-                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  Ver Módulos
-                </Button>
-                <Button 
-                  onClick={scrollToDemo}
-                  className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-sm rounded-lg"
-                >
-                  Ver Módulos
-                  <ArrowRight className="ml-1 w-4 h-4" />
-                </Button>
-              </div>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black italic tracking-tight mb-10">
                 Tudo que seu escritório precisa.
               </h2>
@@ -444,17 +428,20 @@ const HomePage = () => {
                 <img
                   src={showcaseProcessosList}
                   alt="Lista de Processos"
-                  className="relative z-10 w-full rounded-xl shadow-lg border border-border"
+                  className="relative z-10 w-full rounded-xl shadow-2xl border border-border animate-showcase-float-1"
+                  style={{ transform: 'rotate(-1.5deg)' }}
                 />
                 <img
                   src={showcaseKanban}
                   alt="Kanban de Projetos"
-                  className="relative z-20 w-full rounded-xl shadow-lg border border-border -mt-10"
+                  className="relative z-20 w-full rounded-xl shadow-2xl border border-border -mt-10 animate-showcase-float-2"
+                  style={{ transform: 'rotate(1deg)' }}
                 />
                 <img
                   src={showcaseWhatsapp}
                   alt="CRM WhatsApp"
-                  className="relative z-30 w-full rounded-xl shadow-lg border border-border -mt-10"
+                  className="relative z-30 w-full rounded-xl shadow-2xl border border-border -mt-10 animate-showcase-float-3"
+                  style={{ transform: 'rotate(-0.5deg)' }}
                 />
               </div>
             </div>
