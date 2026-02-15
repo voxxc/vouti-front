@@ -1,42 +1,37 @@
 
+## Fundo com simbolos juridicos + novos badges flutuantes
 
-## Botoes flutuantes + fundo minimalista na hero section
+### 1. Fundo com padrao de simbolos juridicos
 
-### 1. Botoes flutuantes ao redor do computador
+Substituir o padrao SVG atual (grid simples com pontos) por um novo padrao SVG repetitivo com simbolos juridicos desenhados em linhas finas:
+- Balanca da justica
+- Martelo de juiz
+- Livro de leis aberto
+- Pena de escrever
+- Coluna grega
 
-Adicionar badges/botoes flutuantes posicionados ao redor da imagem do computador com icones relevantes e animacao sutil de flutuacao (float). Cada badge tera:
+Caracteristicas:
+- Tons neutros (cinza claro ~#d4d0c8 / bege ~#e8e4dd) sobre fundo off-white
+- Opacidade entre 10-20% para efeito watermark
+- Pattern maior (~120x120px) para os simbolos ficarem espacados
+- Manter o gradiente radial que suaviza as bordas
 
-- Icone + texto curto
-- Fundo branco com sombra suave
-- Bordas arredondadas
-- Animacao CSS de "float" (sobe e desce levemente, cada um com delay diferente)
+### 2. Alterar badges existentes
 
-**Badges planejados:**
-- **Prazos** (icone Clock) - posicionado superior esquerdo do PC
-- **Justica** (icone Scale) - posicionado inferior esquerdo
-- **WhatsApp** (icone MessageCircle) - posicionado superior direito
-- **Financeiro** (icone DollarSign) - posicionado inferior direito
-- **Clientes** (icone Users) - posicionado centro esquerdo
+- **"Justica"** vira **"Processos"** (manter icone Scale ou trocar para FileText)
 
-### 2. Fundo minimalista com padrao de linhas e simbolos
+### 3. Adicionar 3 novos badges flutuantes
 
-Adicionar um fundo sutil na hero section com um padrao SVG repetido contendo:
-- Grid de linhas finas em tom cinza claro
-- Pequenos simbolos espaçados (circulos, cruzes, pontos) em opacidade baixa
-- Efeito de gradiente radial no centro para suavizar
+- **CRM** (icone UserCheck ou Contact) - posicionado no meio-direito
+- **IA** (icone Sparkles ou Brain) - posicionado superior-centro
+- **Dashboard** (icone LayoutDashboard) - posicionado inferior-centro
 
-Implementacao via CSS `background-image` com SVG inline no estilo, ou um `::before` pseudo-element com pattern.
+Cada badge segue o mesmo estilo visual (branco/blur, sombra, borda, icone colorido) e usa uma das animacoes de float existentes.
 
 ### Detalhes tecnicos
 
-**Arquivo editado:** `src/pages/HomePage.tsx`
-
-- Importar icones adicionais do lucide-react: `Clock, Scale, MessageCircle, DollarSign, Users`
-- Envolver a imagem do computador em um `div relative` e posicionar os badges com `absolute`
-- Adicionar keyframes de animacao `float` no `src/index.css`
-- Adicionar fundo com padrao SVG na section hero usando `style={{ backgroundImage: ... }}` com um SVG pattern minimalista de linhas e simbolos juridicos espaçados
-- O padrao tera opacidade muito baixa (~5-8%) para manter o visual limpo
-
-**Arquivo editado:** `src/index.css`
-- Adicionar `@keyframes float` com variantes de delay para cada badge
-
+**Arquivo:** `src/pages/HomePage.tsx`
+- Importar novos icones: `FileText, Sparkles, LayoutDashboard, UserCheck`
+- Linha 341-343: trocar "Justica" por "Processos" e icone Scale por FileText
+- Adicionar 3 novos blocos de badge (CRM, IA, Dashboard) dentro do container `relative`
+- Linhas 281-283: substituir o SVG pattern por um novo com simbolos juridicos detalhados em opacidade 10-15%
