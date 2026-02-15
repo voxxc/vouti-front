@@ -11,7 +11,6 @@ const DATAJUD_API_KEY = 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGR
 
 const BATCH_SIZE = 5;
 
-// Map tribunal siglas to DataJud endpoint codes
 const TRIBUNAL_MAP: Record<string, string> = {
   'TJPR': 'tjpr', 'TJSP': 'tjsp', 'TJRJ': 'tjrj', 'TJMG': 'tjmg',
   'TJRS': 'tjrs', 'TJSC': 'tjsc', 'TJGO': 'tjgo', 'TJCE': 'tjce',
@@ -25,12 +24,149 @@ const TRIBUNAL_MAP: Record<string, string> = {
   'TRF1': 'trf1', 'TRF2': 'trf2', 'TRF3': 'trf3', 'TRF4': 'trf4', 'TRF5': 'trf5',
 };
 
+// ===== PJe Comunicações HTML Parser =====
+function parsePublicacoesPje(html: string, numeroProcesso: string, tribunal: string, tenantId: string): any[] {
+  const publicacoes: any[] = [];
+
+  // Pattern to capture intimações from comunica.pje.jus.br HTML
+  const intimacaoRegex = /<strong>(\d+)\s*-\s*Intimação<\/strong>([\s\S]*?)(?=<strong>\d+\s*-|$)/gi;
+
+  let match;
+  while ((match = intimacaoRegex.exec(html)) !== null) {
+    const sequencia = parseInt(match[1], 10);
+    const blocoIntimacao = match[2];
+
+    // Extract date
+    const dataMatch = blocoIntimacao.match(/Data:\s*(\d{2}\/\d{2}\/\d{4})/i)
+      || blocoIntimacao.match(/Data de disponibilização:\s*<\/strong>\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (!dataMatch) continue;
+
+    const [dia, mes, ano] = dataMatch[1].split('/');
+    const dataDisp = `${ano}-${mes}-${dia}`;
+
+    // Extract órgão
+    const orgaoMatch = blocoIntimacao.match(/Órgão:\s*<\/strong>\s*([^<\n]+)/i);
+    const orgao = orgaoMatch ? orgaoMatch[1].trim() : null;
+
+    // Extract tipo de comunicação
+    const tipoMatch = blocoIntimacao.match(/Tipo de comunicação:\s*<\/strong>\s*([^<\n]+)/i);
+    const tipoCom = tipoMatch ? tipoMatch[1].trim() : 'Intimação';
+
+    // Extract partes
+    const partesMatch = blocoIntimacao.match(/Parte\(s\):\s*<\/strong>([\s\S]*?)(?=<strong>|Advogado\(s\):)/i);
+    let partes: string | null = null;
+    if (partesMatch) {
+      partes = partesMatch[1]
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 2000);
+    }
+
+    // Extract texto da intimação
+    const textoMatch = blocoIntimacao.match(/Texto da intimação:\s*<\/strong>\s*<div[^>]*>([\s\S]*?)<\/div>/i);
+    let textoIntimacao = '';
+    if (textoMatch) {
+      textoIntimacao = textoMatch[1]
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<p[^>]*>/gi, '\n')
+        .replace(/<\/p>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/\n\s+/g, '\n')
+        .trim();
+    }
+
+    // Build full content
+    const fullTextStripped = blocoIntimacao
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const conteudo = textoIntimacao || fullTextStripped;
+
+    // Determine tipo
+    const tipo = tipoCom.toLowerCase().includes('citação') || tipoCom.toLowerCase().includes('citacao')
+      ? 'Citação'
+      : tipoCom.toLowerCase().includes('intimação') || tipoCom.toLowerCase().includes('intimacao')
+        ? 'Intimação'
+        : tipoCom;
+
+    // Format CNJ number
+    const numeroLimpo = numeroProcesso.replace(/\D/g, '');
+    const cnj = numeroLimpo.length === 20
+      ? `${numeroLimpo.slice(0,7)}-${numeroLimpo.slice(7,9)}.${numeroLimpo.slice(9,13)}.${numeroLimpo.slice(13,14)}.${numeroLimpo.slice(14,16)}.${numeroLimpo.slice(16,20)}`
+      : numeroProcesso;
+
+    publicacoes.push({
+      tenant_id: tenantId,
+      monitoramento_id: null,
+      data_disponibilizacao: dataDisp,
+      data_publicacao: dataDisp,
+      tipo,
+      numero_processo: cnj,
+      diario_sigla: tribunal,
+      diario_nome: `PJe Comunicações - ${tribunal}`,
+      comarca: null,
+      nome_pesquisado: null,
+      conteudo_completo: conteudo.substring(0, 5000),
+      link_acesso: `https://comunica.pje.jus.br`,
+      status: 'nao_tratada',
+      orgao,
+      responsavel: null,
+      partes,
+    });
+  }
+
+  // Fallback: generic pattern if structured parsing found nothing
+  if (publicacoes.length === 0) {
+    const fallbackRegex = /Intimação referente ao movimento \(seq\. (\d+)\) ([^(]+)\((\d{2}\/\d{2}\/\d{4})\)/gi;
+    let fMatch;
+    while ((fMatch = fallbackRegex.exec(html)) !== null) {
+      const descricao = fMatch[2].trim();
+      const [dia, mes, ano] = fMatch[3].split('/');
+      const dataDisp = `${ano}-${mes}-${dia}`;
+
+      const numeroLimpo = numeroProcesso.replace(/\D/g, '');
+      const cnj = numeroLimpo.length === 20
+        ? `${numeroLimpo.slice(0,7)}-${numeroLimpo.slice(7,9)}.${numeroLimpo.slice(9,13)}.${numeroLimpo.slice(13,14)}.${numeroLimpo.slice(14,16)}.${numeroLimpo.slice(16,20)}`
+        : numeroProcesso;
+
+      publicacoes.push({
+        tenant_id: tenantId,
+        monitoramento_id: null,
+        data_disponibilizacao: dataDisp,
+        data_publicacao: dataDisp,
+        tipo: 'Intimação',
+        numero_processo: cnj,
+        diario_sigla: tribunal,
+        diario_nome: `PJe Comunicações - ${tribunal}`,
+        comarca: null,
+        nome_pesquisado: null,
+        conteudo_completo: descricao.substring(0, 5000),
+        link_acesso: `https://comunica.pje.jus.br`,
+        status: 'nao_tratada',
+        orgao: null,
+        responsavel: null,
+        partes: null,
+      });
+    }
+  }
+
+  return publicacoes;
+}
+
+// ===== DataJud helpers (existing) =====
 async function buscarViaDataJud(tribunal: string, numeroProcesso: string): Promise<any> {
   const tribunalCode = TRIBUNAL_MAP[tribunal.toUpperCase()] || tribunal.toLowerCase();
   const apiUrl = `https://api-publica.datajud.cnj.jus.br/api_publica_${tribunalCode}/_search`;
   const numeroFormatado = numeroProcesso.replace(/[.-]/g, '');
-
-  console.log(`DataJud request: ${apiUrl} | processo: ${numeroFormatado}`);
 
   const response = await fetch(apiUrl, {
     method: 'POST',
@@ -52,12 +188,7 @@ async function buscarViaDataJud(tribunal: string, numeroProcesso: string): Promi
   return await response.json();
 }
 
-function mapMovimentacoesToPublicacoes(
-  hits: any[],
-  sigla: string,
-  mon: any,
-  dataInicio: string
-): any[] {
+function mapMovimentacoesToPublicacoes(hits: any[], sigla: string, mon: any, dataInicio: string): any[] {
   const pubs: any[] = [];
   const dataInicioDate = new Date(dataInicio);
 
@@ -66,7 +197,6 @@ function mapMovimentacoesToPublicacoes(
     if (!source) continue;
 
     const numeroProcesso = source.numeroProcesso || '';
-    // Format CNJ number: NNNNNNN-DD.AAAA.J.TR.OOOO
     const cnj = numeroProcesso.length === 20
       ? `${numeroProcesso.slice(0,7)}-${numeroProcesso.slice(7,9)}.${numeroProcesso.slice(9,13)}.${numeroProcesso.slice(13,14)}.${numeroProcesso.slice(14,16)}.${numeroProcesso.slice(16,20)}`
       : source.numero_cnj || numeroProcesso;
@@ -135,33 +265,174 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const mode = body.mode || 'manual';
 
-    // === API TEST MODE: raw DataJud response ===
-    if (mode === 'api_test') {
-      const tribunal = body.tribunal || 'TJPR';
-      const numeroProcesso = body.numero_processo || '';
-
-      if (!numeroProcesso) {
-        return new Response(JSON.stringify({ success: false, error: 'numero_processo required' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // ============================================================
+    // === PJE_SCRAPER MODE: busca direta no comunica.pje.jus.br ===
+    // ============================================================
+    if (mode === 'pje_scraper') {
+      const tenantId = body.tenant_id;
+      if (!tenantId) {
+        return new Response(JSON.stringify({ success: false, error: 'tenant_id is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      const data = await buscarViaDataJud(tribunal, numeroProcesso);
-      const hits = data.hits?.hits || [];
+      // Verify auth
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const supabaseAuth = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!);
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ success: false, error: 'Invalid token' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Fetch processos_oab for this tenant
+      const { data: processos, error: procError } = await supabaseAdmin
+        .from('processos_oab')
+        .select('numero_cnj, tribunal')
+        .eq('tenant_id', tenantId)
+        .not('numero_cnj', 'is', null)
+        .not('tribunal', 'is', null);
+
+      if (procError) throw new Error(`Error fetching processos: ${procError.message}`);
+
+      if (!processos || processos.length === 0) {
+        return new Response(JSON.stringify({
+          success: true, inserted: 0, total_processos: 0,
+          message: 'Nenhum processo encontrado para busca DJEN',
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      console.log(`pje_scraper: ${processos.length} processos para tenant ${tenantId}`);
+
+      // Date range: last 30 days
+      const dataFim = new Date();
+      const dataInicio = new Date();
+      dataInicio.setDate(dataInicio.getDate() - 30);
+      const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+      let totalInserted = 0;
+      let totalFound = 0;
+      let totalErrors = 0;
+
+      // Process in batches of 3 to avoid overwhelming the server
+      for (let i = 0; i < processos.length; i += 3) {
+        const batch = processos.slice(i, i + 3);
+
+        const results = await Promise.allSettled(
+          batch.map(async (proc: any) => {
+            const tribunal = proc.tribunal?.toUpperCase() || '';
+            const numeroCnj = proc.numero_cnj || '';
+            const numeroLimpo = numeroCnj.replace(/\D/g, '');
+
+            if (!numeroLimpo || !tribunal) return { found: 0, inserted: 0 };
+
+            // Build URL for comunica.pje.jus.br
+            const url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${tribunal}`
+              + `&dataDisponibilizacaoInicio=${formatDate(dataInicio)}`
+              + `&dataDisponibilizacaoFim=${formatDate(dataFim)}`
+              + `&numeroProcesso=${numeroLimpo}`;
+
+            console.log(`pje_scraper: fetching ${url}`);
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            try {
+              const response = await fetch(url, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                },
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+
+              if (!response.ok) {
+                console.error(`pje_scraper: HTTP ${response.status} for ${numeroCnj}`);
+                return { found: 0, inserted: 0 };
+              }
+
+              const html = await response.text();
+              const pubs = parsePublicacoesPje(html, numeroCnj, tribunal, tenantId);
+
+              if (pubs.length === 0) return { found: 0, inserted: 0 };
+
+              // Upsert to avoid duplicates
+              const { data: inserted, error: insertErr } = await supabaseAdmin
+                .from('publicacoes')
+                .upsert(pubs, {
+                  onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla',
+                  ignoreDuplicates: true,
+                })
+                .select('id');
+
+              if (insertErr) {
+                console.error(`pje_scraper: insert error for ${numeroCnj}:`, insertErr.message);
+                return { found: pubs.length, inserted: 0 };
+              }
+
+              return { found: pubs.length, inserted: inserted?.length || 0 };
+            } catch (err) {
+              clearTimeout(timeoutId);
+              console.error(`pje_scraper: error for ${numeroCnj}:`, err.message);
+              return { found: 0, inserted: 0 };
+            }
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            totalFound += r.value.found;
+            totalInserted += r.value.inserted;
+          } else {
+            totalErrors++;
+          }
+        }
+
+        // Small delay between batches
+        if (i + 3 < processos.length) {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+
+      console.log(`pje_scraper done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}`);
 
       return new Response(JSON.stringify({
         success: true,
-        total_hits: data.hits?.total?.value || hits.length,
-        hits_count: hits.length,
-        raw_first_hit: hits[0]?._source || null,
-        movimentacoes_count: hits[0]?._source?.movimentos?.length || 0,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+        total_processos: processos.length,
+        total_found: totalFound,
+        inserted: totalInserted,
+        errors: totalErrors,
+        source: 'pje_comunicacoes',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // === N8N TEST MODE: raw webhook response ===
+    // === API TEST MODE ===
+    if (mode === 'api_test') {
+      const tribunal = body.tribunal || 'TJPR';
+      const numeroProcesso = body.numero_processo || '';
+      if (!numeroProcesso) {
+        return new Response(JSON.stringify({ success: false, error: 'numero_processo required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const data = await buscarViaDataJud(tribunal, numeroProcesso);
+      const hits = data.hits?.hits || [];
+      return new Response(JSON.stringify({
+        success: true, total_hits: data.hits?.total?.value || hits.length,
+        hits_count: hits.length, raw_first_hit: hits[0]?._source || null,
+        movimentacoes_count: hits[0]?._source?.movimentos?.length || 0,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // === N8N TEST MODE ===
     if (mode === 'n8n_test') {
       const tribunal = body.tribunal || 'TJPR';
       const oabNumero = body.oab_numero;
@@ -174,30 +445,21 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().split('T')[0];
       const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
       const webhookPayload = {
-        siglaTribunal: tribunal,
-        numeroOab: oabNumero,
-        ufOab: oabUf.toLowerCase(),
-        dataInicio: body.data_inicio || ninetyDaysAgo,
-        dataFim: body.data_fim || today,
+        siglaTribunal: tribunal, numeroOab: oabNumero, ufOab: oabUf.toLowerCase(),
+        dataInicio: body.data_inicio || ninetyDaysAgo, dataFim: body.data_fim || today,
       };
-      console.log('n8n_test: calling webhook with', JSON.stringify(webhookPayload));
       const webhookRes = await fetch('https://voutibot.app.n8n.cloud/webhook/tjpr-scraper', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(webhookPayload),
       });
       const webhookData = await webhookRes.json();
       return new Response(JSON.stringify({
-        success: true,
-        webhook_status: webhookRes.status,
-        webhook_response: webhookData,
+        success: true, webhook_status: webhookRes.status, webhook_response: webhookData,
         total_results: webhookData?.totalResults || webhookData?.data?.length || 0,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // === N8N SCRAPER MODE: fetch from n8n webhook and insert into publicacoes ===
+    // === N8N SCRAPER MODE ===
     if (mode === 'n8n_scraper') {
       const tribunal = body.tribunal || 'TJPR';
       const oabNumero = body.oab_numero;
@@ -214,17 +476,12 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().split('T')[0];
       const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
       const webhookPayload = {
-        siglaTribunal: tribunal,
-        numeroOab: oabNumero,
-        ufOab: oabUf.toLowerCase(),
-        dataInicio: body.data_inicio || ninetyDaysAgo,
-        dataFim: body.data_fim || today,
+        siglaTribunal: tribunal, numeroOab: oabNumero, ufOab: oabUf.toLowerCase(),
+        dataInicio: body.data_inicio || ninetyDaysAgo, dataFim: body.data_fim || today,
       };
 
-      console.log('n8n_scraper: calling webhook with', JSON.stringify(webhookPayload));
       const webhookRes = await fetch('https://voutibot.app.n8n.cloud/webhook/tjpr-scraper', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(webhookPayload),
       });
 
@@ -242,18 +499,13 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get monitoramento name if available
       let nomePesquisado = `OAB ${oabNumero}/${oabUf}`;
       if (monitoramentoId) {
         const { data: mon } = await supabaseAdmin
-          .from('publicacoes_monitoramentos')
-          .select('nome')
-          .eq('id', monitoramentoId)
-          .single();
+          .from('publicacoes_monitoramentos').select('nome').eq('id', monitoramentoId).single();
         if (mon?.nome) nomePesquisado = mon.nome;
       }
 
-      // Map n8n items to publicacoes format
       const pubs = items.map((item: any) => {
         const descricao = item.descricao || '';
         const tipo = descricao.toLowerCase().includes('intimação') || descricao.toLowerCase().includes('intimacao') ? 'Intimação'
@@ -262,56 +514,35 @@ Deno.serve(async (req) => {
           : descricao.toLowerCase().includes('despacho') ? 'Despacho'
           : descricao.toLowerCase().includes('decisão') || descricao.toLowerCase().includes('decisao') ? 'Decisão'
           : 'Comunicação';
-
         return {
-          tenant_id: tenantId,
-          monitoramento_id: monitoramentoId,
-          data_disponibilizacao: item.dataPublicacao || today,
-          data_publicacao: item.dataPublicacao || today,
-          tipo,
-          numero_processo: item.numeroProcesso || null,
-          diario_sigla: item.tribunal || tribunal,
-          diario_nome: `PJe Comunicações - ${item.tribunal || tribunal}`,
-          comarca: null,
-          nome_pesquisado: nomePesquisado,
+          tenant_id: tenantId, monitoramento_id: monitoramentoId,
+          data_disponibilizacao: item.dataPublicacao || today, data_publicacao: item.dataPublicacao || today,
+          tipo, numero_processo: item.numeroProcesso || null,
+          diario_sigla: item.tribunal || tribunal, diario_nome: `PJe Comunicações - ${item.tribunal || tribunal}`,
+          comarca: null, nome_pesquisado: nomePesquisado,
           conteudo_completo: descricao.substring(0, 5000),
-          link_acesso: 'https://comunica.pje.jus.br',
-          status: 'nao_tratada',
-          orgao: null,
-          responsavel: null,
-          partes: null,
+          link_acesso: 'https://comunica.pje.jus.br', status: 'nao_tratada',
+          orgao: null, responsavel: null, partes: null,
         };
       });
 
       const { data: inserted, error: insertError } = await supabaseAdmin
-        .from('publicacoes')
-        .upsert(pubs, {
+        .from('publicacoes').upsert(pubs, {
           onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla',
           ignoreDuplicates: true,
-        })
-        .select('id');
+        }).select('id');
 
       if (insertError) throw new Error(`Insert error: ${insertError.message}`);
 
-      console.log(`n8n_scraper: inserted ${inserted?.length || 0} publicações from ${items.length} items`);
-
       return new Response(JSON.stringify({
-        success: true,
-        inserted: inserted?.length || 0,
-        total_from_webhook: items.length,
-        source: 'n8n_scraper',
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+        success: true, inserted: inserted?.length || 0,
+        total_from_webhook: items.length, source: 'n8n_scraper',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // === SEED MODE ===
     if (mode === 'seed' && body.record) {
-      const { data, error } = await supabaseAdmin
-        .from('publicacoes')
-        .insert(body.record)
-        .select()
-        .single();
+      const { data, error } = await supabaseAdmin.from('publicacoes').insert(body.record).select().single();
       if (error) throw new Error(`Seed insert error: ${error.message}`);
       return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -322,13 +553,8 @@ Deno.serve(async (req) => {
     const monitoramentoId = body.monitoramento_id;
 
     let query = supabaseAdmin
-      .from('publicacoes_monitoramentos')
-      .select('*')
-      .eq('status', 'ativo');
-
-    if (monitoramentoId) {
-      query = query.eq('id', monitoramentoId);
-    }
+      .from('publicacoes_monitoramentos').select('*').eq('status', 'ativo');
+    if (monitoramentoId) query = query.eq('id', monitoramentoId);
 
     const { data: monitoramentos, error: mError } = await query;
     if (mError) throw new Error(`Error fetching monitoramentos: ${mError.message}`);
@@ -351,13 +577,9 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().split('T')[0];
       const dataInicio = mon.data_inicio_monitoramento || today;
 
-      // We need process numbers to search DataJud - use existing publicacoes or processos_oab
-      // For now, search by OAB number indirectly: get processos_oab linked to this tenant
       const { data: processos } = await supabaseAdmin
-        .from('processos_oab')
-        .select('numero_cnj, tribunal')
-        .eq('tenant_id', mon.tenant_id)
-        .not('numero_cnj', 'is', null);
+        .from('processos_oab').select('numero_cnj, tribunal')
+        .eq('tenant_id', mon.tenant_id).not('numero_cnj', 'is', null);
 
       const processosToSearch = processos || [];
 
@@ -367,24 +589,17 @@ Deno.serve(async (req) => {
         const results = await Promise.allSettled(
           batch.map(async (sigla) => {
             try {
-              // Filter processos for this tribunal
               const tribunalProcessos = processosToSearch.filter(
                 (p: any) => p.tribunal?.toUpperCase() === sigla.toUpperCase()
               );
-
-              if (tribunalProcessos.length === 0) {
-                console.log(`No processos found for tribunal ${sigla}, skipping`);
-                return 0;
-              }
+              if (tribunalProcessos.length === 0) return 0;
 
               let allPubs: any[] = [];
-
               for (const proc of tribunalProcessos) {
                 try {
                   const data = await buscarViaDataJud(sigla, proc.numero_cnj);
                   const hits = data.hits?.hits || [];
-                  const pubs = mapMovimentacoesToPublicacoes(hits, sigla, mon, dataInicio);
-                  allPubs = allPubs.concat(pubs);
+                  allPubs = allPubs.concat(mapMovimentacoesToPublicacoes(hits, sigla, mon, dataInicio));
                 } catch (err) {
                   console.error(`Error fetching ${proc.numero_cnj} from ${sigla}:`, err);
                 }
@@ -393,12 +608,10 @@ Deno.serve(async (req) => {
               if (allPubs.length === 0) return 0;
 
               const { data: inserted } = await supabaseAdmin
-                .from('publicacoes')
-                .upsert(allPubs, {
+                .from('publicacoes').upsert(allPubs, {
                   onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla',
                   ignoreDuplicates: true,
-                })
-                .select('id');
+                }).select('id');
 
               return inserted?.length || 0;
             } catch (err) {
@@ -419,26 +632,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Done: ${totalInserted} inserted, ${totalErrors} errors`);
-
     return new Response(JSON.stringify({
-      success: true,
-      inserted: totalInserted,
-      errors: totalErrors,
-      monitoramentos_processed: monitoramentos.length,
-      source: 'datajud_api',
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      success: true, inserted: totalInserted, errors: totalErrors,
+      monitoramentos_processed: monitoramentos.length, source: 'datajud_api',
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('Error:', error);
     return new Response(JSON.stringify({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      success: false, error: error instanceof Error ? error.message : 'Unknown error',
+    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
