@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail, Clock, MessageCircle, DollarSign, Users, FileText, Sparkles, LayoutDashboard, UserCheck } from 'lucide-react';
+import TestimonialsSection from '@/components/TestimonialsSection';
 import showcaseProcessos from '@/assets/showcase-processos.png';
 import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
@@ -473,20 +474,8 @@ const HomePage = () => {
         );
       })}
 
-      {/* Statement */}
-      <section className="py-20 sm:py-28 border-t border-gray-200">
-        <div className="container mx-auto px-6">
-          <div 
-            ref={statementAnim.ref}
-            className={`transition-all duration-700 ease-out ${statementAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95]">
-              Transforme<br />
-              seu escritório.
-            </h2>
-          </div>
-        </div>
-      </section>
+      {/* Statement + Testimonials */}
+      <TestimonialsSection statementAnim={statementAnim} />
 
       {/* Plans */}
       <section id="plans" className="py-20 sm:py-28 border-t border-gray-200">
