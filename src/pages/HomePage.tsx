@@ -296,7 +296,7 @@ const HomePage = () => {
               <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.95] tracking-tight mb-8">
                 O seu<br />
                 escritório<br />
-                <span className="text-[#E11D48]">360.</span>
+                <span className="text-[#E11D48]">360°.</span>
               </h1>
               <p className="text-lg sm:text-xl text-gray-500 max-w-xl mb-10 leading-relaxed">
                 Gestão jurídica completa em uma única plataforma. 
