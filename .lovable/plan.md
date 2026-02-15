@@ -1,37 +1,42 @@
 
-## Ajuste do Plano Solo para FREE
 
-### Alteracoes
+## Carrossel de Feedbacks ao lado de "Transforme seu escritório"
 
-No arquivo `src/pages/HomePage.tsx`, atualizar o objeto do plano Solo (linhas 173-181):
+### O que muda
 
-- **price**: de `99` para `0`
-- **processes**: de `30` para `5`
-- **usersLabel**: manter `'1 usuário'`
-- **oabLabel**: manter `'Até 1 OAB cadastrada'` (ja esta correto, so ajustar para `'1 OAB cadastrada'`)
+A seção "Transforme seu escritório" (linhas 476-489) será expandida de um bloco de texto simples para um layout em duas colunas:
 
-Na renderizacao do preco (linhas 526-531), adicionar logica condicional:
-- Se `plan.price === 0`, exibir **"FREE"** em vez de `"R$ 0"`
-- Remover o sufixo `/mes` para o plano gratuito
+- **Coluna esquerda**: O título "Transforme seu escritório." (já existente)
+- **Coluna direita**: Um carrossel automático e vertical de cards de feedback/depoimentos de escritórios, com visual minimalista
 
-Na descricao da lista (linha 540), o texto ja usa `plan.processes` dinamicamente, entao ao mudar para `5` o texto ficara automaticamente "Monitoramento de ate 5 processos".
+### Cards de feedback
 
-### Detalhes tecnicos
+Cada card terá:
+- Nome do advogado/escritório (fictício)
+- Cidade/estado
+- Texto curto de depoimento (1-2 frases)
+- Aspas decorativas sutis
+
+Estilo minimalista: fundo branco, borda cinza fina, tipografia limpa, sem cores fortes. Cards empilhados com leve sobreposição/offset para efeito de "flutuação".
+
+### Carrossel
+
+- Rotação automática a cada 4 segundos com transição suave (fade + slide vertical)
+- Mostra 2-3 cards visíveis ao mesmo tempo com opacidade decrescente
+- Sem botões de navegação (auto-play contínuo, loop infinito)
+- Animação CSS pura (translateY + opacity) para manter o padrão minimalista
+
+### Detalhes técnicos
 
 **Arquivo:** `src/pages/HomePage.tsx`
 
-1. **Linha 175**: `price: 99` -> `price: 0`
-2. **Linha 176**: `processes: 30` -> `processes: 5`
-3. **Linhas 527-530**: Condicional para exibir "FREE" quando price === 0:
-```tsx
-{plan.price === 0 ? (
-  <span className="text-3xl font-black text-[#E11D48]">FREE</span>
-) : (
-  <>
-    <span className="text-3xl font-black text-[#0a0a0a]">
-      R$ {plan.price.toLocaleString('pt-BR')}
-    </span>
-    <span className="text-sm text-gray-500">/mês</span>
-  </>
-)}
-```
+1. **Linha 477-488**: Reestruturar a seção para grid de 2 colunas (`lg:grid-cols-2`)
+2. Coluna esquerda: manter o h2 existente, adicionar subtítulo "Veja o que nossos clientes dizem"
+3. Coluna direita: novo componente de carrossel inline com `useState` + `useEffect`/`setInterval` para rotação automática
+4. Array de ~5 depoimentos fictícios com nome, escritório, cidade e texto
+5. Renderizar 3 cards empilhados com classes de opacidade (`opacity-100`, `opacity-60`, `opacity-30`) e `translate-y` escalonado
+6. Transição via `transition-all duration-700 ease-out`
+7. Usar `useScrollAnimation` existente para fade-in ao scroll
+
+**Nenhum arquivo novo** - tudo inline na seção existente para manter simplicidade.
+
