@@ -1,75 +1,76 @@
 
 
-## Repaginar Homepage - Design Minimalista Premium
+## Repaginar Homepage - Dinamica + Imagens Geradas
 
-### Conceito
+### Mudancas Solicitadas
 
-Inspirado nas referencias enviadas: fundo branco/claro, tipografia bold, espacamento generoso, sem firulas visuais (sem particulas, gradientes neon, video de fundo). Identidade visual: preto + vermelho (marca Vouti), clean e direto.
+**1. Header - Adicionar ponto vermelho**
+Linha 182: Mudar de `Vou<span>ti</span>` para `Vou<span>ti</span><span className="text-[#E11D48]">.</span>`
 
-### Estrutura da Nova Homepage
+**2. Statement - Remover "Vouti"**
+Linhas 281-283: Remover o `<span>` com o logo Vouti, manter apenas o texto "Transforme seu escritorio."
 
-A pagina atual tem 850 linhas com visual escuro, gradientes azul/cyan, video background, particulas animadas - tudo sera substituido por um design minimalista premium.
+**3. Secoes Dinamicas com Imagens Geradas por IA**
+Adicionar 3 novas secoes de showcase entre o Features Grid e o Statement, inspiradas nos prints de referencia. Cada secao tera:
+- Layout alternado: imagem esquerda + texto direita, depois texto esquerda + imagem direita
+- Titulo bold, paragrafo descritivo, 3 bullet points com icone check
+- Link CTA discreto "Saiba mais >"
 
-**Secoes da nova pagina (em ordem):**
+**Secoes planejadas:**
 
-1. **Header fixo** - Fundo branco, logo Vouti (preto + "ti" vermelho), nav minimalista, botao CTA discreto. Easter egg mantido.
+| Secao | Titulo | Conteudo |
+|---|---|---|
+| 1 | "Acompanhe seus processos e publicacoes em tempo real" | Monitoramento automatico por OAB/CNPJ, receba intimacoes, reduza erros. Imagem: mockup de tela de publicacoes/processos |
+| 2 | "Gestao financeira integrada e profissional" | Controle de honorarios, fluxo de caixa, lembretes de pagamento. Imagem: mockup de tela financeira |
+| 3 | "Organize prazos e tarefas em um so lugar" | Alertas automaticos, agenda centralizada, produtividade da equipe. Imagem: mockup de tela de agenda/prazos |
 
-2. **Hero** - Fundo branco limpo. Headline grande e bold: "O seu escritorio 360." (como na referencia). Subtitulo curto. Sem video, sem particulas, sem gradientes.
+**4. Geracao de Imagens via IA**
+Criar uma edge function `generate-landing-images` que:
+- Usa a API `ai.gateway.lovable.dev` com modelo `google/gemini-2.5-flash-image`
+- Gera 3 imagens de mockups de interface (estilo clean, fundo claro, mostrando telas do software juridico)
+- Faz upload para Supabase Storage (bucket `landing-images`)
+- As URLs sao usadas nas secoes da homepage
 
-3. **Features Grid** - Duas colunas com bullets vermelhos (como na imagem 2):
-   - Controle de Prazos / Kanban de Projetos
-   - Gestao de Clientes / Controle Financeiro
-   - Andamentos Processuais / Gestao de Trabalhos de Equipes
-   - CRM c/ WhatsApp + IA / Agendamento de Reunioes
-   - Gestao de Equipes / Gestao de Tokens 2FA
-   - Modulos Exclusivos / **Documentos Inteligentes**
+Para o primeiro deploy, gerar as imagens e salvar as URLs. O componente HomePage busca as imagens do storage.
 
-4. **Statement** - Frase de impacto: "Transforme seu escritorio." com logo Vouti no canto (como na referencia 2).
+**5. Animacoes para dinamismo**
+- Adicionar animacoes de entrada (fade-in + slide-up) nas secoes usando CSS animations com `IntersectionObserver`
+- Criar um hook `useScrollAnimation` para detectar quando secoes entram na viewport
+- Aplicar transicoes suaves nos cards de planos (hover scale sutil)
 
-5. **Planos** - Mesmos planos atuais, mas com visual branco/preto, cards com borda fina, destaque minimalista no plano popular.
-
-6. **Formulario CTA** - "Solicitar Demo" com campos simples, fundo cinza claro sutil.
-
-7. **Footer** - Minimalista, uma linha com copyright e contato.
-
-### Paleta de Cores
-
-| Elemento | Cor |
-|---|---|
-| Fundo principal | Branco (#FFFFFF) |
-| Texto principal | Preto (#0a0a0a) |
-| Acento / bullets | Vermelho (#E11D48 ou similar ao logo) |
-| Texto secundario | Cinza (#6b7280) |
-| Bordas / divisores | Cinza claro (#e5e7eb) |
-| CTA botao | Preto com texto branco |
+---
 
 ### Detalhes Tecnicos
 
-**Arquivo editado:** `src/pages/HomePage.tsx` (reescrita completa do JSX e dados)
+**Arquivos afetados:**
 
-**O que muda:**
-- Remove: video background, particulas animadas, gradientes azul/cyan, fundo escuro (#0a0f1a), icones Lucide nos modulos, secao "About" com 3 cards, secao "Para quem e", secao depoimentos
-- Mantem: logica do formulario (handleSubmitForm), easter egg (handleEasterEggSubmit), dados dos planos, imports do Supabase/toast/navigate
-- Simplifica: modulos passam de cards com icones para lista com bullets vermelhos (estilo referencia)
-- Tipografia: font-size grande, weight bold, spacing generoso
-- Responsivo: mantido com abordagem mobile-first
+| Arquivo | Mudanca |
+|---|---|
+| `src/pages/HomePage.tsx` | Header (ponto vermelho), Statement (remover Vouti), novas secoes de showcase, animacoes de scroll |
+| `src/hooks/useScrollAnimation.ts` | NOVO - Hook para animacao de entrada ao scroll |
+| `supabase/functions/generate-landing-images/index.ts` | NOVO - Edge function para gerar e armazenar imagens via IA |
 
-**Secoes removidas** (simplificacao):
-- "About" (3 cards Centralizacao/Automacao/Inteligencia) - redundante
-- "Beneficios" (6 cards) - incorporado no hero/features
-- "Para quem e" (4 personas) - removido para manter minimalismo
-- "Depoimentos" (3 cards) - removido (eram fictícios)
-- "Descricao" (bloco de texto longo) - substituido pela frase de impacto
+**Hook useScrollAnimation:**
+- Usa `IntersectionObserver` para detectar elementos entrando na viewport
+- Retorna ref e classe CSS (`opacity-0 translate-y-8` -> `opacity-100 translate-y-0`)
+- Threshold de 0.1 para ativar cedo
 
-**Secoes mantidas/adaptadas:**
-- Header (redesenhado branco)
-- Hero (redesenhado minimalista)
-- Features (grid com bullets vermelhos)
-- Planos (redesenhado branco)
-- CTA/Formulario (redesenhado claro)
-- Footer (simplificado)
+**Edge function generate-landing-images:**
+- Endpoint POST que gera 3 imagens com prompts especificos
+- Cada prompt descreve um mockup de interface juridica (publicacoes, financeiro, agenda)
+- Upload automatico para bucket `landing-images` no Supabase Storage
+- Retorna array de URLs publicas
+- Usa `LOVABLE_API_KEY` (ja configurado)
 
-### Resultado Esperado
+**Secoes de showcase - Layout:**
+- Grid de 2 colunas (lg:grid-cols-2)
+- Alternancia: secao 1 e 3 = imagem esquerda, secao 2 = imagem direita
+- Fundo alternado: branco e cinza claro (bg-gray-50)
+- Bullet points com CheckCircle2 em vermelho (#E11D48)
+- Texto e imagens com animacao de fade-in ao scroll
 
-Uma pagina que transmite premium e confianca, sem cara de template generico. Inspiracao direta nas imagens: tipografia bold, espacamento limpo, bullets vermelhos, marca Vouti com destaque, fundo branco.
+**Fluxo de imagens:**
+1. Edge function gera imagens e salva no storage
+2. Homepage busca as imagens do bucket `landing-images`
+3. Fallback: se imagens nao existirem, mostra placeholder com gradiente sutil e texto
 
