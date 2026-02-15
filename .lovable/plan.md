@@ -1,15 +1,24 @@
 
 
-## Adicionar logo no header do site
+## Adicionar imagem do computador na hero section
 
-A imagem enviada sera salva como asset do projeto e usada no header da HomePage, substituindo o texto atual "Vouti." pelo logo em imagem.
+A imagem do computador com o dashboard sera colocada ao lado direito do texto principal da hero section, exatamente onde o X vermelho indica na segunda imagem.
 
-### Mudancas
+### O que muda
 
-**1. Copiar a imagem** para `src/assets/logo-vouti-header.png`
+**1. Salvar a imagem** do computador como `src/assets/hero-computer.png`
 
-**2. Editar `src/pages/HomePage.tsx`**
-- Importar a imagem: `import logoVoutiHeader from '@/assets/logo-vouti-header.png'`
-- Substituir o `<span>` com texto "Vouti." (linhas 236-238) por uma tag `<img>` usando o asset importado
-- A imagem tera altura fixa (~36px) para caber bem no header, com `h-9` e largura automatica
+**2. Reestruturar a hero section** em `src/pages/HomePage.tsx`
+- Transformar o layout atual (texto ocupando toda a largura) em um grid de duas colunas no desktop
+- Coluna esquerda: texto, subtitulo e botoes (conteudo atual)
+- Coluna direita: imagem do computador, grande e bem posicionada
+- No mobile, a imagem aparecera abaixo do texto
+
+### Detalhes tecnicos
+
+- Layout: `grid grid-cols-1 lg:grid-cols-2` com alinhamento vertical centralizado
+- Imagem: tamanho generoso, com classes como `w-full max-w-2xl` para ficar grande e impactante
+- A imagem tera um leve deslocamento para a direita (`lg:-mr-12`) para dar mais presenca visual, saindo levemente do container
+- O `max-w-4xl` atual do texto sera removido/ajustado para caber na coluna esquerda
+- Responsividade: no mobile a imagem aparece abaixo do texto em tamanho adequado
 
