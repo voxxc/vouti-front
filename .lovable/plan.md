@@ -1,76 +1,74 @@
 
 
-## Captura de Publicacoes via PJe Comunicacoes (DJEN)
-
-### Contexto
-
-O sistema ja possui a infraestrutura para acessar o portal `comunica.pje.jus.br` (DJEN) - isso esta implementado nas Edge Functions `buscar-andamentos-pje` e `buscar-processos-lote`. A ideia e reutilizar essa logica para alimentar a tabela `publicacoes` no formato padrao do modulo Publicacoes.
+## Busca DJEN Recorrente por OAB Cadastrada
 
 ### O que sera feito
 
-#### 1. Novo modo `pje_scraper` na Edge Function `buscar-publicacoes-pje`
+Criar uma busca automatica diaria no DJEN (comunica.pje.jus.br) usando os dados de OAB/Nome cadastrados em Extras > Publicacoes. O sistema consultara automaticamente todo dia pela manha e inserira novas publicacoes encontradas.
 
-Adicionar um novo modo na Edge Function existente que:
-- Recebe `tenant_id` e opcionalmente `monitoramento_id`
-- Busca os processos do tenant na tabela `processos_oab` (que ja tem `numero_cnj` e `tribunal`)
-- Para cada processo, consulta `comunica.pje.jus.br/consulta` com os parametros de tribunal, numero do processo e range de datas
-- Faz parse do HTML retornado (reutilizando a logica do `buscar-processos-lote` que ja funciona)
-- Mapeia as intimacoes encontradas para o formato da tabela `publicacoes` (data_disponibilizacao, tipo, numero_processo, diario_sigla, conteudo_completo, etc.)
-- Insere via upsert para evitar duplicatas
+### Mudancas
 
-#### 2. Botao "Buscar via DJEN" no drawer de Publicacoes
+#### 1. Novo modo `pje_scraper_oab` na Edge Function `buscar-publicacoes-pje`
 
-No componente `PublicacoesDrawer.tsx`, adicionar um botao que dispara a busca manual via PJe Comunicacoes:
-- Botao com icone de refresh ao lado dos filtros
-- Ao clicar, chama a Edge Function no modo `pje_scraper`
-- Mostra toast com resultado (X publicacoes encontradas/inseridas)
-- Recarrega a lista automaticamente
+Adicionar um modo que:
+- Busca todos os monitoramentos ativos da tabela `publicacoes_monitoramentos`
+- Para cada monitoramento, consulta `comunica.pje.jus.br` usando o **nome** e/ou **OAB** cadastrados
+- Consulta apenas os tribunais selecionados na abrangencia do monitoramento (campo `tribunais_monitorados`)
+- Faz parse do HTML e insere na tabela `publicacoes` vinculando ao `monitoramento_id`
+- Range de datas: ultimos 5 dias (para capturar publicacoes recentes sem sobrecarregar)
 
-#### 3. Parsing do HTML do PJe Comunicacoes
+A URL do DJEN aceita parametros como:
+```text
+https://comunica.pje.jus.br/consulta?siglaTribunal=TJPR&nomeAdvogado=ALAN+CLAUDIO+MARAN&oab=111056&ufOab=PR&dataDisponibilizacaoInicio=2026-02-10&dataDisponibilizacaoFim=2026-02-15
+```
 
-Reutilizar e adaptar o parser de `buscar-processos-lote` (funcao `parseMovimentacoesPje`) que ja extrai:
-- Sequencia e tipo (Intimacao, Citacao, etc.)
-- Orgao julgador
-- Data de disponibilizacao
-- Texto/conteudo da intimacao
-- Partes envolvidas
-- Prazo processual
+#### 2. Cron Job diario (8h BRT / 11h UTC)
+
+Criar um cron via `pg_cron` + `pg_net` que chama a Edge Function no modo `pje_scraper_oab` todo dia as 8h (horario de Brasilia). Isso ja segue o padrao do sistema (memoria: polling automatico as 8h BRT).
+
+#### 3. Botao manual "Buscar DJEN (OAB)" no PublicacoesDrawer
+
+Alem do botao DJEN existente (que busca por processos), adicionar opcao de buscar por OAB tambem, para testes manuais.
 
 ### Detalhes tecnicos
 
 **Arquivos a editar:**
-- `supabase/functions/buscar-publicacoes-pje/index.ts` - adicionar modo `pje_scraper` com parser HTML do comunica.pje.jus.br
-- `src/components/Publicacoes/PublicacoesDrawer.tsx` - adicionar botao de busca manual
+- `supabase/functions/buscar-publicacoes-pje/index.ts` - novo modo `pje_scraper_oab`
+- `src/components/Publicacoes/PublicacoesDrawer.tsx` - ajustar botao para usar modo OAB
 
-**Fluxo:**
+**SQL a executar (cron job):**
+- Habilitar extensoes `pg_cron` e `pg_net` (se nao estiverem ativas)
+- Criar schedule diario chamando a Edge Function
+
+**Fluxo automatico:**
 
 ```text
-Usuario clica "Buscar DJEN"
+Cron 8h BRT (11:00 UTC)
         |
         v
-Edge Function (mode: pje_scraper)
+Edge Function (mode: pje_scraper_oab)
         |
         v
-Busca processos_oab do tenant (numero_cnj + tribunal)
+Busca publicacoes_monitoramentos com status = 'ativo'
         |
         v
-Para cada processo: GET comunica.pje.jus.br/consulta?siglaTribunal=X&numeroProcesso=Y&datas
+Para cada monitoramento:
+  - Extrai tribunais da abrangencia (campo tribunais_monitorados)
+  - Para cada tribunal sigla (ex: TJPR, TJSP):
+    GET comunica.pje.jus.br/consulta?siglaTribunal=X&nomeAdvogado=Y&oab=Z&ufOab=W
         |
         v
-Parse HTML -> extrai intimacoes
+Parse HTML -> extrai publicacoes
         |
         v
-Mapeia para formato publicacoes (tipo, conteudo, orgao, etc.)
+UPSERT na tabela publicacoes (com monitoramento_id, ignoreDuplicates)
         |
         v
-UPSERT na tabela publicacoes (evita duplicatas)
-        |
-        v
-Retorna contagem -> Toast no frontend
+Log resultado por monitoramento
 ```
 
-**Tribunais suportados:** Todos os mapeados no TRIBUNAL_MAP ja existente (TJPR, TJSP, TJRJ, TJMG, etc.)
-
-**Range de datas:** Ultimos 30 dias por padrao (configuravel)
-
-**Deduplicacao:** Usa o unique constraint existente `(tenant_id, monitoramento_id, numero_processo, data_disponibilizacao, diario_sigla)` com `ignoreDuplicates: true`
+**Limitacoes e cuidados:**
+- Cada monitoramento pode ter dezenas de tribunais; sera processado em batches de 3 com delay de 1s entre batches
+- Timeout da Edge Function: 60s. Se houver muitos tribunais, processara os primeiros e logara quantos ficaram pendentes
+- O cron roda sem autenticacao de usuario (usa service_role_key internamente)
+- Deduplicacao via unique constraint existente na tabela `publicacoes`
