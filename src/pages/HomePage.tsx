@@ -424,7 +424,7 @@ const HomePage = () => {
         return (
           <section 
             key={i} 
-            className={`py-20 sm:py-28 ${isEven ? 'bg-gray-50' : 'bg-white'} border-t border-gray-200`}
+            className="py-20 sm:py-28 bg-white border-t border-gray-200"
           >
             <div className="container mx-auto px-6">
               <div 
@@ -438,7 +438,7 @@ const HomePage = () => {
                       src={section.image} 
                       alt={section.title}
                       className={`w-full h-auto object-contain ${section.extraScale ? 'scale-[1.2] origin-center' : ''}`}
-                      style={isEven ? { backgroundColor: '#f9fafb' } : { backgroundColor: '#ffffff' }}
+                      style={{ backgroundColor: 'transparent' }}
                       loading="lazy"
                     />
                   </div>
