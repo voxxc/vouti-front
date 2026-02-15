@@ -1,41 +1,13 @@
 
-## Aplicar melhorias de indicadores no Drawer do Financeiro
 
-As melhorias (graficos de linha, barras, pizza, proximos vencimentos e KPIs expandidos) foram aplicadas apenas no componente do Dashboard (`FinanceiroMetrics.tsx`). O componente usado no drawer do Financeiro (`FinancialMetrics.tsx`) permaneceu com a versao antiga.
+## Aumentar as imagens do showcase sem cortar
 
-### Solucao
+O problema atual e que as imagens ocupam apenas metade do grid (1 coluna de 2). Para aumenta-las sem cortar, a solucao e permitir que a coluna da imagem ocupe mais espaco no grid.
 
-Atualizar o `src/components/Financial/FinancialMetrics.tsx` para incluir os mesmos graficos e KPIs novos, reutilizando os subcomponentes ja criados.
+### Mudanca
 
-### Detalhes Tecnicos
+**Arquivo**: `src/pages/HomePage.tsx`
 
-**Arquivo a modificar**: `src/components/Financial/FinancialMetrics.tsx`
+- Alterar o grid de `grid-cols-2` (50/50) para um layout assimetrico onde a imagem ocupa mais espaco, usando `lg:grid-cols-5` com a imagem ocupando 3 colunas (`lg:col-span-3`) e o texto 2 colunas (`lg:col-span-2`).
+- Isso faz a imagem ficar ~60% maior em relacao ao texto, sem corte e sem distorcao.
 
-**Mudancas**:
-1. Expandir a consulta de dados (`loadMetrics`) para buscar tambem:
-   - `custos` e `custo_categorias` (para grafico de pizza de custos por categoria)
-   - `colaborador_pagamentos` (para KPI de folha de pagamento)
-   - Dados historicos dos ultimos 6 meses (para grafico de linha receita vs custos)
-
-2. Adicionar novos KPI cards:
-   - Receita do Mes
-   - A Receber (Pendente)
-   - Custos do Mes
-   - Folha de Pagamento
-   - Inadimplencia
-
-3. Adicionar os graficos ja criados como subcomponentes:
-   - `FinanceiroReceitaCustosChart` (grafico de linha - receita vs custos 6 meses)
-   - `FinanceiroParcelasStatusChart` (grafico de barras - parcelas por status)
-   - `FinanceiroCustosCategoriaChart` (grafico de pizza - custos por categoria)
-   - `FinanceiroProximosVencimentos` (lista de proximos vencimentos 7 dias)
-
-4. Os subcomponentes em `src/components/Dashboard/Metrics/Financeiro/` ja existem e serao importados diretamente - nenhum componente novo precisa ser criado.
-
-**Estrutura final do componente**:
-- Botao Exportar (ja existe)
-- Grid de KPI cards (expandidos com novos indicadores)
-- Grafico de Linha: Receita vs Custos (6 meses)
-- Grid 2 colunas: Barras (parcelas por status) + Pizza (custos por categoria)
-- Proximos Vencimentos (7 dias)
-- Graficos existentes (pizza status clientes + barras receita) permanecem
