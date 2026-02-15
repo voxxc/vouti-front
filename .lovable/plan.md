@@ -1,63 +1,41 @@
 
-## Enriquecer Indicadores do Financeiro
+## Aplicar melhorias de indicadores no Drawer do Financeiro
 
-O painel financeiro atual tem apenas 4 cards simples (Projetos Ativos, Prazos Vencidos, Total de Prazos, Taxa de Adimplencia) e uma lista de vencidos. Falta muita informacao financeira relevante que ja existe no banco de dados.
+As melhorias (graficos de linha, barras, pizza, proximos vencimentos e KPIs expandidos) foram aplicadas apenas no componente do Dashboard (`FinanceiroMetrics.tsx`). O componente usado no drawer do Financeiro (`FinancialMetrics.tsx`) permaneceu com a versao antiga.
 
-### O que sera adicionado
+### Solucao
 
-**1. Novos KPIs (Cards de metricas)**
-- **Receita do Mes**: soma dos valores pagos (`cliente_parcelas` com `data_pagamento` no mes atual)
-- **A Receber (Pendente)**: soma de parcelas com status `pendente` ou `parcial`
-- **Custos do Mes**: soma dos custos (`custos`) no mes atual
-- **Folha de Pagamento**: soma dos pagamentos de colaboradores do mes (`colaborador_pagamentos`)
-- **Inadimplencia**: quantidade de parcelas vencidas e nao pagas
-
-**2. Grafico de Linha - Receitas vs Custos (ultimos 6 meses)**
-- Linha verde: receitas recebidas por mes
-- Linha vermelha: custos pagos por mes
-- Eixo X: meses, Eixo Y: valores em R$
-- Usa `recharts` (ja instalado) com `LineChart`
-
-**3. Grafico de Barras - Parcelas por Status**
-- Barras agrupadas mostrando pendentes, pagas, parciais e vencidas
-- Visao rapida da saude financeira
-
-**4. Grafico de Pizza - Custos por Categoria**
-- Distribuicao dos custos por categoria (`custo_categorias`)
-- Mostra onde o dinheiro esta sendo gasto
-
-**5. Lista de Proximos Vencimentos**
-- Parcelas que vencem nos proximos 7 dias
-- Complementa a lista de vencidos que ja existe
-
----
+Atualizar o `src/components/Financial/FinancialMetrics.tsx` para incluir os mesmos graficos e KPIs novos, reutilizando os subcomponentes ja criados.
 
 ### Detalhes Tecnicos
 
-**Arquivo principal**: `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx`
+**Arquivo a modificar**: `src/components/Financial/FinancialMetrics.tsx`
 
-**Dados consultados no useQuery existente (expandir a queryFn)**:
-- `cliente_parcelas` - receitas, vencimentos, inadimplencia
-- `custos` - despesas por mes e categoria
-- `custo_categorias` - nomes das categorias
-- `colaborador_pagamentos` - folha de pagamento
+**Mudancas**:
+1. Expandir a consulta de dados (`loadMetrics`) para buscar tambem:
+   - `custos` e `custo_categorias` (para grafico de pizza de custos por categoria)
+   - `colaborador_pagamentos` (para KPI de folha de pagamento)
+   - Dados historicos dos ultimos 6 meses (para grafico de linha receita vs custos)
 
-**Componentes de graficos (do recharts, ja instalado)**:
-- `LineChart` + `Line` + `XAxis` + `YAxis` + `CartesianGrid` + `Tooltip` + `Legend` + `ResponsiveContainer`
-- `BarChart` + `Bar`
-- `PieChart` + `Pie` + `Cell`
+2. Adicionar novos KPI cards:
+   - Receita do Mes
+   - A Receber (Pendente)
+   - Custos do Mes
+   - Folha de Pagamento
+   - Inadimplencia
 
-**Estrutura do componente expandido**:
-1. Saudacao (ja existe)
-2. Grid de 5 KPI cards (expandir dos 4 atuais)
-3. Card com grafico de linha (Receita vs Custos - 6 meses)
-4. Grid 2 colunas: Grafico de barras (parcelas por status) + Pizza (custos por categoria)
-5. Card com proximos vencimentos (novo) + lista de vencidos (ja existe)
+3. Adicionar os graficos ja criados como subcomponentes:
+   - `FinanceiroReceitaCustosChart` (grafico de linha - receita vs custos 6 meses)
+   - `FinanceiroParcelasStatusChart` (grafico de barras - parcelas por status)
+   - `FinanceiroCustosCategoriaChart` (grafico de pizza - custos por categoria)
+   - `FinanceiroProximosVencimentos` (lista de proximos vencimentos 7 dias)
 
-**Organizacao**: Para manter o arquivo organizado, os graficos serao extraidos em subcomponentes dentro de `src/components/Dashboard/Metrics/Financeiro/`:
-- `FinanceiroReceitaCustosChart.tsx` (grafico de linha)
-- `FinanceiroParcelasStatusChart.tsx` (grafico de barras)
-- `FinanceiroCustosCategoriaChart.tsx` (grafico de pizza)
-- `FinanceiroProximosVencimentos.tsx` (lista)
+4. Os subcomponentes em `src/components/Dashboard/Metrics/Financeiro/` ja existem e serao importados diretamente - nenhum componente novo precisa ser criado.
 
-O hook de dados permanece centralizado no `FinanceiroMetrics.tsx` e passa props para os subcomponentes.
+**Estrutura final do componente**:
+- Botao Exportar (ja existe)
+- Grid de KPI cards (expandidos com novos indicadores)
+- Grafico de Linha: Receita vs Custos (6 meses)
+- Grid 2 colunas: Barras (parcelas por status) + Pizza (custos por categoria)
+- Proximos Vencimentos (7 dias)
+- Graficos existentes (pizza status clientes + barras receita) permanecem
