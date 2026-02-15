@@ -139,6 +139,7 @@ const HomePage = () => {
       ],
       image: showcaseProcessos,
       imageLeft: true,
+      extraScale: false,
     },
     {
       title: 'Gestão financeira integrada e profissional',
@@ -150,6 +151,7 @@ const HomePage = () => {
       ],
       image: showcaseFinanceiro,
       imageLeft: false,
+      extraScale: false,
     },
     {
       title: 'Organize prazos e tarefas em um só lugar',
@@ -161,6 +163,7 @@ const HomePage = () => {
       ],
       image: showcasePrazos,
       imageLeft: true,
+      extraScale: true,
     },
   ];
 
@@ -348,7 +351,7 @@ const HomePage = () => {
                     <img 
                       src={section.image} 
                       alt={section.title}
-                      className="w-full h-auto object-contain"
+                      className={`w-full h-auto object-contain ${section.extraScale ? 'scale-[1.2] origin-center' : ''}`}
                       loading="lazy"
                     />
                   </div>
