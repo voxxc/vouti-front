@@ -321,7 +321,7 @@ const HomePage = () => {
             </div>
 
             {/* Computer Image + Floating Badges */}
-            <div className="relative lg:-mr-12 overflow-hidden">
+            <div className="relative lg:-mr-12 overflow-hidden lg:overflow-visible">
               {/* Floating badges */}
               <div className="absolute -top-1 left-0 sm:-top-4 sm:-left-4 z-20 animate-hero-float flex">
                 <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-1.5 sm:gap-2.5">
