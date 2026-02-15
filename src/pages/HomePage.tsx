@@ -438,27 +438,27 @@ const HomePage = () => {
             </div>
 
             {/* Right - Stacked Screenshots */}
-            <div className="relative h-[400px] sm:h-[500px] lg:h-[550px] hidden lg:block">
+            <div className="relative h-[600px] hidden lg:block">
               {/* Back image */}
               <img
                 src={showcaseProcessosList}
                 alt="Lista de Processos"
-                className="absolute top-8 left-4 w-[85%] rounded-xl shadow-md border border-gray-200 z-10"
-                style={{ transform: 'rotate(-4deg)' }}
+                className="absolute top-0 left-0 w-[75%] rounded-xl shadow-md border border-gray-200 z-10"
+                style={{ transform: 'rotate(-6deg)' }}
               />
               {/* Middle image */}
               <img
                 src={showcaseKanban}
                 alt="Kanban de Projetos"
-                className="absolute top-4 left-12 w-[85%] rounded-xl shadow-lg border border-gray-200 z-20"
+                className="absolute top-12 left-[15%] w-[75%] rounded-xl shadow-lg border border-gray-200 z-20"
                 style={{ transform: 'rotate(0deg)' }}
               />
               {/* Front image */}
               <img
                 src={showcaseWhatsapp}
                 alt="CRM WhatsApp"
-                className="absolute top-16 left-20 w-[85%] rounded-xl shadow-xl border border-gray-200 z-30"
-                style={{ transform: 'rotate(3deg)' }}
+                className="absolute top-24 left-[30%] w-[75%] rounded-xl shadow-xl border border-gray-200 z-30"
+                style={{ transform: 'rotate(5deg)' }}
               />
             </div>
           </div>
