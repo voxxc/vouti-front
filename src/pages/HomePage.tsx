@@ -10,7 +10,6 @@ import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail } from 'lucide-re
 import showcaseProcessos from '@/assets/showcase-processos.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
 import showcasePrazos from '@/assets/showcase-prazos.png';
-import heroComputer from '@/assets/hero-computer.png';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -275,58 +274,40 @@ const HomePage = () => {
       </header>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 relative">
+      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28">
         <div className="container mx-auto px-6">
           <div 
             ref={heroAnim.ref}
-            className={`grid grid-cols-1 lg:grid-cols-2 gap-10 items-center transition-all duration-700 ease-out ${heroAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`max-w-4xl transition-all duration-700 ease-out ${heroAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
-            {/* Text */}
-            <div>
-              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.95] tracking-tight mb-8">
-                O seu<br />
-                escritório<br />
-                <span className="text-[#E11D48]">360.</span>
-              </h1>
-              <p className="text-lg sm:text-xl text-gray-500 max-w-xl mb-10 leading-relaxed">
-                Gestão jurídica completa em uma única plataforma. 
-                Prazos, financeiro, clientes e equipe — tudo sob controle.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  onClick={scrollToDemo}
-                  className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-base px-8 py-6 rounded-lg"
-                >
-                  Solicitar Demonstração
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-base px-8 py-6 rounded-lg"
-                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  Ver Módulos
-                </Button>
-              </div>
-            </div>
-
-            {/* Computer Image - overlaps the divider line */}
-            <div className="relative z-10 mb-[-120px] lg:mb-[-160px]">
-              <img 
-                src={heroComputer} 
-                alt="Vouti Dashboard" 
-                className="w-full h-auto object-contain drop-shadow-2xl"
-              />
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.95] tracking-tight mb-8">
+              O seu<br />
+              escritório<br />
+              <span className="text-[#E11D48]">360.</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-gray-500 max-w-xl mb-10 leading-relaxed">
+              Gestão jurídica completa em uma única plataforma. 
+              Prazos, financeiro, clientes e equipe — tudo sob controle.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                onClick={scrollToDemo}
+                className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-base px-8 py-6 rounded-lg"
+              >
+                Solicitar Demonstração
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              <Button 
+                variant="outline"
+                className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-base px-8 py-6 rounded-lg"
+                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Ver Módulos
+              </Button>
             </div>
           </div>
         </div>
-
-        {/* Divider line - sits behind the computer */}
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gray-200 z-0" />
       </section>
-
-      {/* Spacer to account for overlapping computer */}
-      <div className="h-[120px] lg:h-[160px] bg-white" />
 
       {/* Features Grid */}
       <section id="features" className="py-20 sm:py-28">

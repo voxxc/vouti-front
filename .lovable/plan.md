@@ -1,27 +1,13 @@
 
 
-## Corrigir o hero: gerar nova imagem e ajustar a linha divisoria
+## Aumentar as imagens do showcase sem cortar
 
-### Problema atual
-1. A imagem do computador tem fundo transparente com padrao quadriculado (checkered) visivel, que destoa completamente do design clean da pagina.
-2. A linha divisoria esta muito colada nos botoes - precisa de mais espaco.
+O problema atual e que as imagens ocupam apenas metade do grid (1 coluna de 2). Para aumenta-las sem cortar, a solucao e permitir que a coluna da imagem ocupe mais espaco no grid.
 
-### Solucao
+### Mudanca
 
-#### 1. Gerar nova imagem via AI
-Usar a edge function com o modelo de geracao de imagem para criar um mockup de computador/monitor moderno exibindo um dashboard juridico, com fundo branco solido (sem transparencia), que combine com a estetica minimalista da pagina.
+**Arquivo**: `src/pages/HomePage.tsx`
 
-- **Prompt**: Um monitor/iMac moderno e elegante exibindo um dashboard de gestao juridica com graficos, tabelas e metricas. Fundo branco solido, estilo flat/minimal, sombra suave. Cores predominantes: branco, cinza claro, com detalhes em vermelho (#E11D48).
-- A imagem gerada sera salva em `src/assets/hero-computer.png` substituindo a atual.
-
-#### 2. Ajustar posicionamento da linha divisoria
-- Adicionar mais padding inferior (`pb-20 sm:pb-28`) na secao hero para que a linha fique bem mais abaixo dos botoes.
-- Ajustar o overlap negativo do computador (`mb-[-120px] lg:mb-[-160px]`) para manter o efeito 3D sobre a linha.
-- Aumentar o spacer correspondente (`h-[120px] lg:h-[160px]`).
-
-### Detalhes tecnicos
-
-**Arquivos modificados:**
-- `src/assets/hero-computer.png` - substituido pela imagem gerada
-- `src/pages/HomePage.tsx` - ajuste de padding e margens na secao hero
+- Alterar o grid de `grid-cols-2` (50/50) para um layout assimetrico onde a imagem ocupa mais espaco, usando `lg:grid-cols-5` com a imagem ocupando 3 colunas (`lg:col-span-3`) e o texto 2 colunas (`lg:col-span-2`).
+- Isso faz a imagem ficar ~60% maior em relacao ao texto, sem corte e sem distorcao.
 
