@@ -275,7 +275,7 @@ const HomePage = () => {
       </header>
 
       {/* Hero */}
-      <section className="pt-32 pb-0 sm:pt-40 sm:pb-0 relative">
+      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 relative">
         <div className="container mx-auto px-6">
           <div 
             ref={heroAnim.ref}
@@ -311,7 +311,7 @@ const HomePage = () => {
             </div>
 
             {/* Computer Image - overlaps the divider line */}
-            <div className="relative z-10 mb-[-80px] lg:mb-[-100px]">
+            <div className="relative z-10 mb-[-120px] lg:mb-[-160px]">
               <img 
                 src={heroComputer} 
                 alt="Vouti Dashboard" 
@@ -326,7 +326,7 @@ const HomePage = () => {
       </section>
 
       {/* Spacer to account for overlapping computer */}
-      <div className="h-[80px] lg:h-[100px] bg-white" />
+      <div className="h-[120px] lg:h-[160px] bg-white" />
 
       {/* Features Grid */}
       <section id="features" className="py-20 sm:py-28">
