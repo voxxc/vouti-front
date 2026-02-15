@@ -1,56 +1,66 @@
 
 
-## Inserir Publicacao de Teste - Processo 0002836-50.2025.8.16.0065
-
-### Contexto
-
-O site do DJEN esta com timeout no momento, mas com base na URL fornecida e nos dados do monitoramento OAB 111056/PR ja cadastrado, vamos inserir manualmente uma publicacao de exemplo para esse processo, e tambem testar o scraper via Edge Function.
+## Replicar Visual da Homepage com Screenshots Reais
 
 ### O que sera feito
 
-#### 1. Inserir publicacao de exemplo via SQL
+Atualizar a secao "Tudo que seu escritorio precisa." da homepage para replicar o layout da imagem de referencia (4a imagem): lista de features na esquerda com screenshots empilhados/sobrepostos na direita, criando um visual de profundidade com as telas do sistema real.
 
-Inserir um registro na tabela `publicacoes` com os dados do processo:
+### Mudancas
 
-- **tenant_id**: `d395b3a1-1ea1-4710-bcc1-ff5f6a279750`
-- **monitoramento_id**: `5dfc8d9a-d9ea-4b1b-966c-6da941ae191b` (OAB 111056/PR)
-- **numero_processo**: `0002836-50.2025.8.16.0065`
-- **diario_sigla**: `TJPR`
-- **tipo**: `Intimação`
-- **nome_pesquisado**: Nome do advogado vinculado ao monitoramento
-- **status**: `nao_tratada`
-- **data_disponibilizacao**: data recente
-- **link_acesso**: URL do DJEN com os parametros de busca
+#### 1. Copiar as 3 screenshots para o projeto
 
-#### 2. Testar o botao "Buscar DJEN" no drawer
+As 3 imagens enviadas (WhatsApp CRM, Kanban de Projetos, Processos) serao copiadas para `src/assets/` como:
+- `showcase-whatsapp-crm.png` (imagem 1 - tela do CRM WhatsApp)
+- `showcase-kanban.png` (imagem 2 - Kanban de projetos com colunas)
+- `showcase-processos-list.png` (imagem 3 - lista de processos)
 
-Apos a insercao, o registro aparecera automaticamente no drawer de Publicacoes. Tambem podemos disparar o scraper via Edge Function para tentar capturar dados reais do DJEN.
+#### 2. Atualizar a secao "Tudo que seu escritorio precisa."
+
+Transformar o layout atual (lista full-width) em um grid de 2 colunas:
+- **Esquerda**: dois botoes "Ver Modulos" no topo, titulo "Tudo que seu escritorio precisa." em italico bold, e a lista de features em duas colunas com bullets vermelhos (como ja esta)
+- **Direita**: stack de 3 screenshots sobrepostos com leve rotacao/perspectiva e sombra, empilhados como na referencia (imagem atras parcialmente visivel, imagem do meio, imagem da frente em destaque)
+
+O visual da referencia mostra:
+- Screenshots com bordas arredondadas e sombra suave
+- Empilhamento com offset (cada tela ligeiramente deslocada)
+- Fundo limpo branco mantido
+
+#### 3. Detalhes do layout
+
+O grid sera `lg:grid-cols-2` com:
+- Coluna esquerda: botoes + titulo + features grid 2 colunas
+- Coluna direita: container relativo com 3 imagens posicionadas absolutamente, com transforms de rotacao e escala para criar o efeito de stack 3D
+
+CSS para o stack:
+- Imagem de tras: `rotate(-3deg) translate(-10px, 10px)` com opacity menor
+- Imagem do meio: `rotate(0deg)` posicionada centralizada  
+- Imagem da frente: `rotate(2deg) translate(10px, -10px)` em destaque
 
 ### Detalhes tecnicos
 
-**Migracao SQL para inserir o registro de teste:**
+**Arquivos a criar/copiar:**
+- `src/assets/showcase-whatsapp-crm.png` (copia de image-116.png)
+- `src/assets/showcase-kanban.png` (copia de image-117.png)
+- `src/assets/showcase-processos-list.png` (copia de image-118.png)
 
-```sql
-INSERT INTO publicacoes (
-  tenant_id, monitoramento_id, data_disponibilizacao, tipo, 
-  numero_processo, diario_sigla, diario_nome, comarca,
-  nome_pesquisado, conteudo_completo, link_acesso, status, orgao
-) VALUES (
-  'd395b3a1-1ea1-4710-bcc1-ff5f6a279750',
-  '5dfc8d9a-d9ea-4b1b-966c-6da941ae191b',
-  '2026-02-15',
-  'Intimação',
-  '0002836-50.2025.8.16.0065',
-  'TJPR',
-  'Diário de Justiça Eletrônico do TJPR',
-  'Foz do Iguaçu',
-  'ALAN CLAUDIO MARAN',
-  'Intimação referente ao processo 0002836-50.2025.8.16.0065. Publicação capturada via DJEN - comunica.pje.jus.br. Consulte o sistema PJe do Tribunal de Justiça do Paraná para detalhes completos.',
-  'https://comunica.pje.jus.br/consulta?dataDisponibilizacaoInicio=2025-11-01&dataDisponibilizacaoFim=2026-02-15&numeroOab=111056&ufOab=pr',
-  'nao_tratada',
-  'Vara Cível - Foz do Iguaçu'
-);
+**Arquivo a editar:**
+- `src/pages/HomePage.tsx` - secao "Features Grid" (linhas ~399-419) sera reescrita para incluir o grid com imagens empilhadas na direita, replicando o visual da referencia
+
+**Imports a adicionar:**
+```typescript
+import showcaseWhatsapp from '@/assets/showcase-whatsapp-crm.png';
+import showcaseKanban from '@/assets/showcase-kanban.png';
+import showcaseProcessosList from '@/assets/showcase-processos-list.png';
 ```
 
-Apos inserir, o processo aparecera no drawer de Publicacoes com status "Nao tratada" e voce podera visualizar, tratar ou descartar normalmente.
+**Estrutura do stack de imagens:**
+```text
+[Container relativo com aspect-ratio]
+  - img 1 (fundo): absolute, rotate(-4deg), shadow-md, z-10
+  - img 2 (meio): absolute, rotate(0deg), shadow-lg, z-20, offset esquerda
+  - img 3 (frente): absolute, rotate(3deg), shadow-xl, z-30, offset direita
+```
+
+A secao mantera os mesmos botoes "Ver Modulos" e a lista de features existente, apenas adicionando a coluna de imagens ao lado.
 
