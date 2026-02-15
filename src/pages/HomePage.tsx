@@ -312,7 +312,7 @@ const HomePage = () => {
             </div>
 
             {/* Computer Image */}
-            <div className="lg:-mr-12 lg:scale-[2] origin-center">
+            <div className="lg:-mr-12 lg:scale-[1.2] origin-center">
               <img 
                 src={heroComputer} 
                 alt="Dashboard Vouti no computador"
