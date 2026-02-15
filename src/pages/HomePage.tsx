@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
-import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail, Clock, Scale, MessageCircle, DollarSign, Users } from 'lucide-react';
+import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail, Clock, MessageCircle, DollarSign, Users, FileText, Sparkles, LayoutDashboard, UserCheck } from 'lucide-react';
 import showcaseProcessos from '@/assets/showcase-processos.png';
 import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
@@ -279,7 +279,7 @@ const HomePage = () => {
       <section 
         className="pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden relative"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='%23e5e7eb' stroke-width='0.5' opacity='0.5'/%3E%3Ccircle cx='30' cy='30' r='1' fill='%23d1d5db' opacity='0.3'/%3E%3Cpath d='M 15 15 L 17 15 M 16 14 L 16 16' stroke='%23d1d5db' stroke-width='0.5' opacity='0.25'/%3E%3Ccircle cx='45' cy='45' r='0.5' fill='%23d1d5db' opacity='0.2'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)'/%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='140' height='140' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='legal' width='140' height='140' patternUnits='userSpaceOnUse'%3E%3C!-- Balanca da justica --%3E%3Cg transform='translate(10,15)' opacity='0.08' stroke='%23a09890' fill='none' stroke-width='1'%3E%3Cline x1='10' y1='0' x2='10' y2='18'/%3E%3Ccircle cx='10' cy='0' r='1.5'/%3E%3Cline x1='2' y1='4' x2='18' y2='4'/%3E%3Cpath d='M2,4 L0,12 Q5,14 10,12' /%3E%3Cpath d='M18,4 L20,12 Q15,14 10,12' /%3E%3C/g%3E%3C!-- Martelo de juiz --%3E%3Cg transform='translate(80,10)' opacity='0.07' stroke='%23a09890' fill='none' stroke-width='1'%3E%3Crect x='0' y='0' width='16' height='8' rx='2'/%3E%3Cline x1='8' y1='8' x2='8' y2='20'/%3E%3Cellipse cx='8' cy='21' rx='6' ry='2'/%3E%3C/g%3E%3C!-- Livro aberto --%3E%3Cg transform='translate(45,75)' opacity='0.07' stroke='%23a09890' fill='none' stroke-width='1'%3E%3Cpath d='M12,2 Q6,0 0,2 L0,18 Q6,16 12,18'/%3E%3Cpath d='M12,2 Q18,0 24,2 L24,18 Q18,16 12,18'/%3E%3Cline x1='12' y1='2' x2='12' y2='18'/%3E%3C/g%3E%3C!-- Pena de escrever --%3E%3Cg transform='translate(105,70)' opacity='0.06' stroke='%23a09890' fill='none' stroke-width='1'%3E%3Cpath d='M0,22 L8,0 L10,2 L2,24 Z'/%3E%3Cline x1='0' y1='24' x2='6' y2='24'/%3E%3C/g%3E%3C!-- Coluna grega --%3E%3Cg transform='translate(10,85)' opacity='0.06' stroke='%23a09890' fill='none' stroke-width='1'%3E%3Crect x='0' y='0' width='18' height='3' rx='1'/%3E%3Crect x='2' y='3' width='2' height='18'/%3E%3Crect x='8' y='3' width='2' height='18'/%3E%3Crect x='14' y='3' width='2' height='18'/%3E%3Crect x='0' y='21' width='18' height='3' rx='1'/%3E%3C/g%3E%3C!-- Escudo juridico --%3E%3Cg transform='translate(95,110)' opacity='0.06' stroke='%23a09890' fill='none' stroke-width='1'%3E%3Cpath d='M10,0 L20,4 L20,14 Q20,22 10,26 Q0,22 0,14 L0,4 Z'/%3E%3Cline x1='10' y1='8' x2='10' y2='20'/%3E%3Cline x1='5' y1='14' x2='15' y2='14'/%3E%3C/g%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23legal)'/%3E%3C/svg%3E")`,
         }}
       >
         {/* Radial fade overlay */}
@@ -338,8 +338,8 @@ const HomePage = () => {
 
               <div className="absolute bottom-8 -left-2 z-20 animate-hero-float-slow hidden lg:flex">
                 <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
-                  <Scale className="w-5 h-5 text-[#E11D48]" />
-                  <span className="text-sm font-bold text-[#0a0a0a]">Justiça</span>
+                  <FileText className="w-5 h-5 text-[#E11D48]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">Processos</span>
                 </div>
               </div>
 
@@ -354,6 +354,27 @@ const HomePage = () => {
                 <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
                   <DollarSign className="w-5 h-5 text-[#E11D48]" />
                   <span className="text-sm font-bold text-[#0a0a0a]">Financeiro</span>
+                </div>
+              </div>
+
+              <div className="absolute top-1/3 -right-6 z-20 animate-hero-float hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <UserCheck className="w-5 h-5 text-[#E11D48]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">CRM</span>
+                </div>
+              </div>
+
+              <div className="absolute -top-8 left-1/3 z-20 animate-hero-float-delayed hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">IA</span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-0 left-1/3 z-20 animate-hero-float-slow hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <LayoutDashboard className="w-5 h-5 text-[#E11D48]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">Dashboard</span>
                 </div>
               </div>
 
