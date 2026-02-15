@@ -1,13 +1,15 @@
 
 
-## Aumentar as imagens do showcase sem cortar
+## Adicionar logo no header do site
 
-O problema atual e que as imagens ocupam apenas metade do grid (1 coluna de 2). Para aumenta-las sem cortar, a solucao e permitir que a coluna da imagem ocupe mais espaco no grid.
+A imagem enviada sera salva como asset do projeto e usada no header da HomePage, substituindo o texto atual "Vouti." pelo logo em imagem.
 
-### Mudanca
+### Mudancas
 
-**Arquivo**: `src/pages/HomePage.tsx`
+**1. Copiar a imagem** para `src/assets/logo-vouti-header.png`
 
-- Alterar o grid de `grid-cols-2` (50/50) para um layout assimetrico onde a imagem ocupa mais espaco, usando `lg:grid-cols-5` com a imagem ocupando 3 colunas (`lg:col-span-3`) e o texto 2 colunas (`lg:col-span-2`).
-- Isso faz a imagem ficar ~60% maior em relacao ao texto, sem corte e sem distorcao.
+**2. Editar `src/pages/HomePage.tsx`**
+- Importar a imagem: `import logoVoutiHeader from '@/assets/logo-vouti-header.png'`
+- Substituir o `<span>` com texto "Vouti." (linhas 236-238) por uma tag `<img>` usando o asset importado
+- A imagem tera altura fixa (~36px) para caber bem no header, com `h-9` e largura automatica
 
