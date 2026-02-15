@@ -169,3 +169,26 @@ All colors MUST be HSL.
 .animate-hero-float-slow {
   animation: hero-float-slow 4s ease-in-out infinite 1s;
 }
+
+/* Showcase floating screenshots */
+@keyframes showcase-float-1 {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-8px) rotate(-1.5deg); }
+}
+@keyframes showcase-float-2 {
+  0%, 100% { transform: translateY(0) rotate(1deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+@keyframes showcase-float-3 {
+  0%, 100% { transform: translateY(0) rotate(-0.5deg); }
+  50% { transform: translateY(-10px) rotate(-0.5deg); }
+}
+.animate-showcase-float-1 {
+  animation: showcase-float-1 3.5s ease-in-out infinite;
+}
+.animate-showcase-float-2 {
+  animation: showcase-float-2 4s ease-in-out infinite 0.4s;
+}
+.animate-showcase-float-3 {
+  animation: showcase-float-3 3.8s ease-in-out infinite 0.8s;
+}
