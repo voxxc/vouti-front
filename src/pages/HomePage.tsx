@@ -13,6 +13,9 @@ import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
 import showcasePrazos from '@/assets/showcase-prazos.png';
 import heroComputer from '@/assets/hero-computer.png';
+import showcaseWhatsapp from '@/assets/showcase-whatsapp-crm.png';
+import showcaseKanban from '@/assets/showcase-kanban.png';
+import showcaseProcessosList from '@/assets/showcase-processos-list.png';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -401,18 +404,62 @@ const HomePage = () => {
         <div className="container mx-auto px-6">
           <div 
             ref={featuresAnim.ref}
-            className={`max-w-4xl transition-all duration-700 ease-out delay-100 ${featuresAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center transition-all duration-700 ease-out delay-100 ${featuresAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-12">
-              Tudo que seu escritório precisa.
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-5">
-              {features.map((feature, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="text-[#E11D48] text-2xl leading-none">•</span>
-                  <span className="text-lg sm:text-xl font-semibold text-[#0a0a0a]">{feature}</span>
-                </div>
-              ))}
+            {/* Left - Text */}
+            <div>
+              <div className="flex gap-3 mb-6">
+                <Button 
+                  variant="outline"
+                  className="border-gray-300 text-[#0a0a0a] hover:bg-gray-50 text-sm rounded-lg"
+                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  Ver Módulos
+                </Button>
+                <Button 
+                  onClick={scrollToDemo}
+                  className="bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 text-sm rounded-lg"
+                >
+                  Ver Módulos
+                  <ArrowRight className="ml-1 w-4 h-4" />
+                </Button>
+              </div>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black italic tracking-tight mb-10">
+                Tudo que seu escritório precisa.
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-5">
+                {features.map((feature, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <span className="text-[#E11D48] text-2xl leading-none">•</span>
+                    <span className="text-lg sm:text-xl font-semibold text-[#0a0a0a]">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right - Stacked Screenshots */}
+            <div className="relative h-[400px] sm:h-[500px] lg:h-[550px] hidden lg:block">
+              {/* Back image */}
+              <img
+                src={showcaseProcessosList}
+                alt="Lista de Processos"
+                className="absolute top-8 left-4 w-[85%] rounded-xl shadow-md border border-gray-200 z-10"
+                style={{ transform: 'rotate(-4deg)' }}
+              />
+              {/* Middle image */}
+              <img
+                src={showcaseKanban}
+                alt="Kanban de Projetos"
+                className="absolute top-4 left-12 w-[85%] rounded-xl shadow-lg border border-gray-200 z-20"
+                style={{ transform: 'rotate(0deg)' }}
+              />
+              {/* Front image */}
+              <img
+                src={showcaseWhatsapp}
+                alt="CRM WhatsApp"
+                className="absolute top-16 left-20 w-[85%] rounded-xl shadow-xl border border-gray-200 z-30"
+                style={{ transform: 'rotate(3deg)' }}
+              />
             </div>
           </div>
         </div>
