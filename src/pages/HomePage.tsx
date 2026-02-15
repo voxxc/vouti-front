@@ -344,7 +344,7 @@ const HomePage = () => {
               >
                 {/* Image */}
                 <div className={`${section.imageLeft ? 'lg:order-1' : 'lg:order-2'}`}>
-                  <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-200">
+                  <div className="overflow-hidden">
                     <img 
                       src={section.image} 
                       alt={section.title}
