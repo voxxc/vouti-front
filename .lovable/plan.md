@@ -1,21 +1,42 @@
 
 
-## Alteracoes na HomePage
+## Botoes flutuantes + fundo minimalista na hero section
 
-### 1. Aumentar o tamanho do computador em 100%
+### 1. Botoes flutuantes ao redor do computador
 
-Remover o `max-w-2xl` da imagem do computador e adicionar `scale-150` ou `lg:scale-[2]` com `origin-right` para dobrar o tamanho, mantendo o overflow controlado. Alternativa mais simples: trocar `max-w-2xl` por `max-w-none` e adicionar `lg:scale-[1.5]` ou similar com ajuste de margens.
+Adicionar badges/botoes flutuantes posicionados ao redor da imagem do computador com icones relevantes e animacao sutil de flutuacao (float). Cada badge tera:
 
-Abordagem escolhida: remover `max-w-2xl`, usar `max-w-none` e aplicar `lg:scale-150` com `origin-center` no container, alem de `overflow-hidden` na section para evitar scroll horizontal.
+- Icone + texto curto
+- Fundo branco com sombra suave
+- Bordas arredondadas
+- Animacao CSS de "float" (sobe e desce levemente, cada um com delay diferente)
 
-### 2. Adicionar linha divisoria antes da secao "Tudo que seu escritorio precisa"
+**Badges planejados:**
+- **Prazos** (icone Clock) - posicionado superior esquerdo do PC
+- **Justica** (icone Scale) - posicionado inferior esquerdo
+- **WhatsApp** (icone MessageCircle) - posicionado superior direito
+- **Financeiro** (icone DollarSign) - posicionado inferior direito
+- **Clientes** (icone Users) - posicionado centro esquerdo
 
-Inserir um `<hr />` ou `<div>` com borda entre o final da hero section e o inicio da secao de features, usando classes como `border-t border-gray-200` dentro do container.
+### 2. Fundo minimalista com padrao de linhas e simbolos
 
-### Arquivos editados
+Adicionar um fundo sutil na hero section com um padrao SVG repetido contendo:
+- Grid de linhas finas em tom cinza claro
+- Pequenos simbolos espaçados (circulos, cruzes, pontos) em opacidade baixa
+- Efeito de gradiente radial no centro para suavizar
 
-- `src/pages/HomePage.tsx`
-  - Linha 319: trocar `max-w-2xl` por `max-w-none lg:scale-150`
-  - Linha 315: ajustar container com `overflow-hidden`
-  - Linha 327: adicionar `<hr>` ou divisor antes/no inicio da secao features
+Implementacao via CSS `background-image` com SVG inline no estilo, ou um `::before` pseudo-element com pattern.
+
+### Detalhes tecnicos
+
+**Arquivo editado:** `src/pages/HomePage.tsx`
+
+- Importar icones adicionais do lucide-react: `Clock, Scale, MessageCircle, DollarSign, Users`
+- Envolver a imagem do computador em um `div relative` e posicionar os badges com `absolute`
+- Adicionar keyframes de animacao `float` no `src/index.css`
+- Adicionar fundo com padrao SVG na section hero usando `style={{ backgroundImage: ... }}` com um SVG pattern minimalista de linhas e simbolos juridicos espaçados
+- O padrao tera opacidade muito baixa (~5-8%) para manter o visual limpo
+
+**Arquivo editado:** `src/index.css`
+- Adicionar `@keyframes float` com variantes de delay para cada badge
 
