@@ -344,11 +344,11 @@ const HomePage = () => {
               >
                 {/* Image */}
                 <div className={`${section.imageLeft ? 'lg:order-1' : 'lg:order-2'}`}>
-                  <div className="overflow-hidden">
+                <div>
                     <img 
                       src={section.image} 
                       alt={section.title}
-                      className="w-full h-auto object-cover scale-150"
+                      className="w-full h-auto object-contain"
                       loading="lazy"
                     />
                   </div>
