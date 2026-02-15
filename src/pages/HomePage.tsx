@@ -8,6 +8,7 @@ import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import showcaseProcessos from '@/assets/showcase-processos.png';
+import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
 import showcasePrazos from '@/assets/showcase-prazos.png';
 
@@ -233,9 +234,7 @@ const HomePage = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-3xl sm:text-4xl font-black tracking-tight">
-              Vou<span className="text-[#E11D48]">ti</span><span className="text-[#E11D48]">.</span>
-            </span>
+            <img src={logoVoutiHeader} alt="Vouti" className="h-9 w-auto" />
             
             <button 
               onClick={() => setShowEasterEgg(!showEasterEgg)}
