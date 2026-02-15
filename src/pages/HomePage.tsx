@@ -437,24 +437,24 @@ const HomePage = () => {
               </div>
             </div>
 
-            {/* Right - Vertical Screenshots List */}
+            {/* Right - Cascading Screenshots */}
             <div className="relative hidden lg:block">
               <div className="absolute inset-0 bg-muted/50 rounded-3xl -m-4" />
-              <div className="relative z-10 flex flex-col gap-6 p-6">
+              <div className="relative z-10 flex flex-col p-8">
                 <img
                   src={showcaseProcessosList}
                   alt="Lista de Processos"
-                  className="w-full rounded-xl shadow-lg border border-border"
+                  className="relative z-10 w-full rounded-xl shadow-lg border border-border"
                 />
                 <img
                   src={showcaseKanban}
                   alt="Kanban de Projetos"
-                  className="w-full rounded-xl shadow-lg border border-border"
+                  className="relative z-20 w-full rounded-xl shadow-lg border border-border -mt-10"
                 />
                 <img
                   src={showcaseWhatsapp}
                   alt="CRM WhatsApp"
-                  className="w-full rounded-xl shadow-lg border border-border"
+                  className="relative z-30 w-full rounded-xl shadow-lg border border-border -mt-10"
                 />
               </div>
             </div>
