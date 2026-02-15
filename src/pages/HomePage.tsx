@@ -276,7 +276,7 @@ const HomePage = () => {
       </header>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28">
+      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden">
         <div className="container mx-auto px-6">
           <div 
             ref={heroAnim.ref}
@@ -312,16 +312,21 @@ const HomePage = () => {
             </div>
 
             {/* Computer Image */}
-            <div className="lg:-mr-12">
+            <div className="lg:-mr-12 lg:scale-[2] origin-center">
               <img 
                 src={heroComputer} 
                 alt="Dashboard Vouti no computador"
-                className="w-full max-w-2xl h-auto object-contain"
+                className="w-full max-w-none h-auto object-contain"
               />
             </div>
           </div>
         </div>
       </section>
+
+      {/* Divider */}
+      <div className="container mx-auto px-6">
+        <hr className="border-t border-gray-200" />
+      </div>
 
       {/* Features Grid */}
       <section id="features" className="py-20 sm:py-28">
