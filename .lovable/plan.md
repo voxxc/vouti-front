@@ -1,34 +1,33 @@
 
 
-## Imagens em Cascata com Sobreposicao Parcial e Fundo Neutro
+## Prints Flutuantes e Remocao dos Botoes Extras
 
 ### O que sera feito
 
-Trocar o layout de lista vertical (gap entre imagens) por um layout em cascata onde cada imagem sobrepoe parcialmente a anterior, como indicado na referencia. A 2a imagem comeca na margem inferior da 1a (sobreposicao leve), e a 3a sobrepoe um pouco a 2a. Adicionar um fundo neutro cinza arredondado atras de tudo.
+1. **Remover os dois botoes "Ver Modulos"** (linhas 411-426) que aparecem acima do titulo "Tudo que seu escritorio precisa."
 
-### Mudancas no arquivo `src/pages/HomePage.tsx` (linhas 440-460)
+2. **Tornar os prints "flutuantes"** adicionando efeito visual de flutuacao nas 3 imagens da secao:
+   - Sombra mais pronunciada e difusa (`shadow-2xl`) para dar sensacao de elevacao
+   - Leve rotacao alternada nas imagens (ex: -2deg, 1deg, -1deg) para quebrar a rigidez
+   - Animacao CSS sutil de "float" (subir e descer levemente) com keyframes, cada imagem com delay diferente para parecerem independentes
+   - Manter a sobreposicao parcial (`-mt-10`) e z-index crescente
 
-Substituir o `flex flex-col gap-6` por um container com posicionamento relativo e margens negativas para criar sobreposicao:
+### Mudancas
 
-- **Fundo neutro**: Manter o `div` com `bg-gray-100 rounded-3xl` absoluto atras das imagens (como na 4a imagem de referencia)
-- **Imagem 1 (Processos)**: Posicao normal, `relative z-10`
-- **Imagem 2 (Kanban)**: `relative z-20` com `margin-top: -40px` (sobe e sobrepoe levemente a 1a)
-- **Imagem 3 (WhatsApp)**: `relative z-30` com `margin-top: -40px` (sobe e sobrepoe levemente a 2a)
-- Cada imagem com `shadow-lg`, `rounded-xl`, `border border-gray-200`
+**Arquivo: `src/pages/HomePage.tsx`**
 
-### Estrutura final
+- **Linhas 411-426**: Remover o `div` com os dois botoes "Ver Modulos"
+- **Linhas 440-460**: Atualizar as classes das imagens:
+  - Adicionar `shadow-2xl` no lugar de `shadow-lg`
+  - Adicionar leve rotacao via `style={{ transform: 'rotate(Xdeg)' }}`
+  - Adicionar classes de animacao flutuante (`animate-float-1`, `animate-float-2`, `animate-float-3`)
 
-```text
-[div relative] (coluna direita)
-  [div absolute inset-0 bg-gray-100 rounded-3xl -m-4] (fundo neutro)
-  [div relative z-10 flex flex-col p-8]
-    [img Processos - relative z-10]
-    [img Kanban - relative z-20, mt-[-40px]]
-    [img WhatsApp - relative z-30, mt-[-40px]]
-```
+**Arquivo: `src/index.css`**
 
-A sobreposicao de ~40px faz com que cada imagem cubra apenas a parte inferior da anterior, deixando a maior parte do conteudo visivel. O z-index crescente garante que a imagem de baixo fica por cima da anterior.
+- Adicionar keyframes `float` com variacao sutil de translateY (~6px)
+- Criar 3 classes de animacao com delays diferentes para efeito organico
 
-### Arquivo editado
-- `src/pages/HomePage.tsx` - linhas 440-460
+### Resultado
+
+As imagens parecerao "soltas" flutuando sobre o fundo neutro cinza, com movimento sutil e continuo, cada uma em ritmo ligeiramente diferente.
 
