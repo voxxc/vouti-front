@@ -348,7 +348,7 @@ const HomePage = () => {
                     <img 
                       src={section.image} 
                       alt={section.title}
-                      className="w-full h-auto object-cover scale-110"
+                      className="w-full h-auto object-cover scale-125"
                       loading="lazy"
                     />
                   </div>
