@@ -1,89 +1,75 @@
 
 
-## Corrigir Bugs de Area, Assunto e Separacao de Partes nos Processos CNPJ
+## Repaginar Homepage - Design Minimalista Premium
 
-### Bugs Identificados
+### Conceito
 
-**1. Area mostrando `[object Object]`**
-O campo `classifications` da Judit e um array de objetos `[{code, name}]`, nao de strings. O codigo atual faz `.join(", ")` que gera `[object Object]`. Alem disso, existe um campo `area` direto na resposta (ex: `"area": "DIREITO CIVIL"`) que nao esta sendo usado.
+Inspirado nas referencias enviadas: fundo branco/claro, tipografia bold, espacamento generoso, sem firulas visuais (sem particulas, gradientes neon, video de fundo). Identidade visual: preto + vermelho (marca Vouti), clean e direto.
 
-**2. Assunto mostrando `[object Object]`**
-Mesmo problema: `subjects` e um array de objetos `[{code, name}]`, nao strings.
+### Estrutura da Nova Homepage
 
-**3. Partes nao separando advogados**
-No `ProcessoCNPJDetalhes.tsx`, o filtro usa `person_type === 'ATIVO'` e `person_type === 'PASSIVO'`, mas a Judit retorna `person_type: "Autor"` e `person_type: "Réu"`. Alem disso, o campo `side` ("Active"/"Passive") nao esta sendo considerado na classificacao do drawer de detalhes. Os advogados (quando existem no array `lawyers` de cada parte) ja estao sendo renderizados, mas a filtragem principal esta incorreta.
+A pagina atual tem 850 linhas com visual escuro, gradientes azul/cyan, video background, particulas animadas - tudo sera substituido por um design minimalista premium.
 
-**4. Andamentos**
-Para responder a pergunta: **nao**, a sincronizacao via tracking nao traz andamentos. O array `steps` vem vazio. Apenas o `last_step` (ultimo andamento) e retornado e ja esta sendo salvo. Isso e esperado pois o Push-Docs monitora novas distribuicoes, nao historico completo.
+**Secoes da nova pagina (em ordem):**
 
----
+1. **Header fixo** - Fundo branco, logo Vouti (preto + "ti" vermelho), nav minimalista, botao CTA discreto. Easter egg mantido.
 
-### Correcoes
+2. **Hero** - Fundo branco limpo. Headline grande e bold: "O seu escritorio 360." (como na referencia). Subtitulo curto. Sem video, sem particulas, sem gradientes.
 
-#### Arquivo 1: `supabase/functions/judit-sync-cnpj-tracking/index.ts`
+3. **Features Grid** - Duas colunas com bullets vermelhos (como na imagem 2):
+   - Controle de Prazos / Kanban de Projetos
+   - Gestao de Clientes / Controle Financeiro
+   - Andamentos Processuais / Gestao de Trabalhos de Equipes
+   - CRM c/ WhatsApp + IA / Agendamento de Reunioes
+   - Gestao de Equipes / Gestao de Tokens 2FA
+   - Modulos Exclusivos / **Documentos Inteligentes**
 
-Corrigir o parse de `classifications` e `subjects` para extrair o `.name` de cada objeto:
+4. **Statement** - Frase de impacto: "Transforme seu escritorio." com logo Vouti no canto (como na referencia 2).
 
-```text
-// ANTES (bugado):
-area_direito: Array.isArray(responseData.classifications)
-  ? responseData.classifications.join(", ")
-  : null,
-assunto: Array.isArray(responseData.subjects)
-  ? responseData.subjects.join(", ")
-  : null,
+5. **Planos** - Mesmos planos atuais, mas com visual branco/preto, cards com borda fina, destaque minimalista no plano popular.
 
-// DEPOIS (corrigido):
-area_direito: responseData.area
-  || (Array.isArray(responseData.classifications)
-    ? responseData.classifications.map(c => c.name || c).filter(Boolean).join(", ")
-    : null),
-assunto: Array.isArray(responseData.subjects)
-  ? responseData.subjects.map(s => s.name || s).filter(Boolean).join(", ")
-  : null,
-```
+6. **Formulario CTA** - "Solicitar Demo" com campos simples, fundo cinza claro sutil.
 
-#### Arquivo 2: `src/components/Controladoria/ProcessoCNPJDetalhes.tsx`
+7. **Footer** - Minimalista, uma linha com copyright e contato.
 
-Corrigir a logica de classificacao das partes para usar `side` (Active/Passive) e os valores reais de `person_type` (Autor, Reu, etc.):
+### Paleta de Cores
 
-```text
-// ANTES (bugado):
-if (parte.person_type === 'ATIVO' || parte.role?.includes('AUTOR'))
-if (parte.person_type === 'PASSIVO' || parte.role?.includes('REU'))
-
-// DEPOIS (corrigido):
-// Usar side + person_type com multiplos formatos
-const side = (parte.side || '').toLowerCase();
-const tipo = (parte.person_type || '').toLowerCase();
-
-if (side === 'active' || tipo.includes('autor') || tipo.includes('ativo') || tipo.includes('requerente'))
-  → partesAtivas (excluindo advogados)
-
-if (side === 'passive' || tipo.includes('réu') || tipo.includes('reu') || tipo.includes('passivo') || tipo.includes('requerido'))
-  → partesPassivas (excluindo advogados)
-
-// Advogados separados em sua propria secao
-```
-
-Tambem melhorar o `renderParteCard` para mostrar:
-- Tipo/papel da parte (ex: "Autor", "Reu")
-- Documentos (CPF/CNPJ) quando disponiveis via `main_document`
-- OAB dos advogados extraida do array `documents`
-
-#### Arquivo 3: Corrigir dados existentes no banco
-
-Apos deploy da edge function corrigida, rodar o botao "Sincronizar" novamente para re-processar os dados e corrigir os campos `area_direito` e `assunto` que estao salvos como `[object Object]`.
-
----
-
-### Arquivos afetados
-
-| Arquivo | Mudanca |
+| Elemento | Cor |
 |---|---|
-| `supabase/functions/judit-sync-cnpj-tracking/index.ts` | Fix parse de classifications e subjects |
-| `src/components/Controladoria/ProcessoCNPJDetalhes.tsx` | Fix classificacao de partes com side/person_type, separar advogados |
+| Fundo principal | Branco (#FFFFFF) |
+| Texto principal | Preto (#0a0a0a) |
+| Acento / bullets | Vermelho (#E11D48 ou similar ao logo) |
+| Texto secundario | Cinza (#6b7280) |
+| Bordas / divisores | Cinza claro (#e5e7eb) |
+| CTA botao | Preto com texto branco |
 
-### Sobre Andamentos
+### Detalhes Tecnicos
 
-A sincronizacao via tracking (Push-Docs) **nao traz andamentos** - o array `steps` vem vazio. Apenas o `last_step` e retornado. Isso e normal pois o monitoramento Push-Docs detecta **novas distribuicoes**, nao acompanha o historico de movimentacoes. Para carregar andamentos completos, seria necessaria uma chamada separada (paga) via `/requests`.
+**Arquivo editado:** `src/pages/HomePage.tsx` (reescrita completa do JSX e dados)
+
+**O que muda:**
+- Remove: video background, particulas animadas, gradientes azul/cyan, fundo escuro (#0a0f1a), icones Lucide nos modulos, secao "About" com 3 cards, secao "Para quem e", secao depoimentos
+- Mantem: logica do formulario (handleSubmitForm), easter egg (handleEasterEggSubmit), dados dos planos, imports do Supabase/toast/navigate
+- Simplifica: modulos passam de cards com icones para lista com bullets vermelhos (estilo referencia)
+- Tipografia: font-size grande, weight bold, spacing generoso
+- Responsivo: mantido com abordagem mobile-first
+
+**Secoes removidas** (simplificacao):
+- "About" (3 cards Centralizacao/Automacao/Inteligencia) - redundante
+- "Beneficios" (6 cards) - incorporado no hero/features
+- "Para quem e" (4 personas) - removido para manter minimalismo
+- "Depoimentos" (3 cards) - removido (eram fictícios)
+- "Descricao" (bloco de texto longo) - substituido pela frase de impacto
+
+**Secoes mantidas/adaptadas:**
+- Header (redesenhado branco)
+- Hero (redesenhado minimalista)
+- Features (grid com bullets vermelhos)
+- Planos (redesenhado branco)
+- CTA/Formulario (redesenhado claro)
+- Footer (simplificado)
+
+### Resultado Esperado
+
+Uma pagina que transmite premium e confianca, sem cara de template generico. Inspiracao direta nas imagens: tipografia bold, espacamento limpo, bullets vermelhos, marca Vouti com destaque, fundo branco.
+
