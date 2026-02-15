@@ -1,24 +1,21 @@
 
 
-## Adicionar imagem do computador na hero section
+## Alteracoes na HomePage
 
-A imagem do computador com o dashboard sera colocada ao lado direito do texto principal da hero section, exatamente onde o X vermelho indica na segunda imagem.
+### 1. Aumentar o tamanho do computador em 100%
 
-### O que muda
+Remover o `max-w-2xl` da imagem do computador e adicionar `scale-150` ou `lg:scale-[2]` com `origin-right` para dobrar o tamanho, mantendo o overflow controlado. Alternativa mais simples: trocar `max-w-2xl` por `max-w-none` e adicionar `lg:scale-[1.5]` ou similar com ajuste de margens.
 
-**1. Salvar a imagem** do computador como `src/assets/hero-computer.png`
+Abordagem escolhida: remover `max-w-2xl`, usar `max-w-none` e aplicar `lg:scale-150` com `origin-center` no container, alem de `overflow-hidden` na section para evitar scroll horizontal.
 
-**2. Reestruturar a hero section** em `src/pages/HomePage.tsx`
-- Transformar o layout atual (texto ocupando toda a largura) em um grid de duas colunas no desktop
-- Coluna esquerda: texto, subtitulo e botoes (conteudo atual)
-- Coluna direita: imagem do computador, grande e bem posicionada
-- No mobile, a imagem aparecera abaixo do texto
+### 2. Adicionar linha divisoria antes da secao "Tudo que seu escritorio precisa"
 
-### Detalhes tecnicos
+Inserir um `<hr />` ou `<div>` com borda entre o final da hero section e o inicio da secao de features, usando classes como `border-t border-gray-200` dentro do container.
 
-- Layout: `grid grid-cols-1 lg:grid-cols-2` com alinhamento vertical centralizado
-- Imagem: tamanho generoso, com classes como `w-full max-w-2xl` para ficar grande e impactante
-- A imagem tera um leve deslocamento para a direita (`lg:-mr-12`) para dar mais presenca visual, saindo levemente do container
-- O `max-w-4xl` atual do texto sera removido/ajustado para caber na coluna esquerda
-- Responsividade: no mobile a imagem aparece abaixo do texto em tamanho adequado
+### Arquivos editados
+
+- `src/pages/HomePage.tsx`
+  - Linha 319: trocar `max-w-2xl` por `max-w-none lg:scale-150`
+  - Linha 315: ajustar container com `overflow-hidden`
+  - Linha 327: adicionar `<hr>` ou divisor antes/no inicio da secao features
 
