@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
-import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail } from 'lucide-react';
+import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail, Clock, Scale, MessageCircle, DollarSign, Users } from 'lucide-react';
 import showcaseProcessos from '@/assets/showcase-processos.png';
 import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
@@ -276,8 +276,16 @@ const HomePage = () => {
       </header>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden">
-        <div className="container mx-auto px-6">
+      <section 
+        className="pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden relative"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='%23e5e7eb' stroke-width='0.5' opacity='0.5'/%3E%3Ccircle cx='30' cy='30' r='1' fill='%23d1d5db' opacity='0.3'/%3E%3Cpath d='M 15 15 L 17 15 M 16 14 L 16 16' stroke='%23d1d5db' stroke-width='0.5' opacity='0.25'/%3E%3Ccircle cx='45' cy='45' r='0.5' fill='%23d1d5db' opacity='0.2'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)'/%3E%3C/svg%3E")`,
+        }}
+      >
+        {/* Radial fade overlay */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, transparent 40%, white 80%)' }} />
+
+        <div className="container mx-auto px-6 relative z-10">
           <div 
             ref={heroAnim.ref}
             className={`grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center transition-all duration-700 ease-out ${heroAnim.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
@@ -311,13 +319,51 @@ const HomePage = () => {
               </div>
             </div>
 
-            {/* Computer Image */}
-            <div className="lg:-mr-12 lg:scale-[1.2] origin-center">
-              <img 
-                src={heroComputer} 
-                alt="Dashboard Vouti no computador"
-                className="w-full max-w-none h-auto object-contain"
-              />
+            {/* Computer Image + Floating Badges */}
+            <div className="relative lg:-mr-12">
+              {/* Floating badges */}
+              <div className="absolute -top-4 -left-4 z-20 animate-hero-float hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <Clock className="w-5 h-5 text-[#E11D48]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">Prazos</span>
+                </div>
+              </div>
+
+              <div className="absolute top-1/2 -left-10 -translate-y-1/2 z-20 animate-hero-float-delayed hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <Users className="w-5 h-5 text-[#0a0a0a]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">Clientes</span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-8 -left-2 z-20 animate-hero-float-slow hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <Scale className="w-5 h-5 text-[#E11D48]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">Justiça</span>
+                </div>
+              </div>
+
+              <div className="absolute -top-2 right-8 z-20 animate-hero-float-slow hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <MessageCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">WhatsApp</span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-4 right-4 z-20 animate-hero-float-delayed hidden lg:flex">
+                <div className="bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-2.5">
+                  <DollarSign className="w-5 h-5 text-[#E11D48]" />
+                  <span className="text-sm font-bold text-[#0a0a0a]">Financeiro</span>
+                </div>
+              </div>
+
+              <div className="lg:scale-[1.2] origin-center">
+                <img 
+                  src={heroComputer} 
+                  alt="Dashboard Vouti no computador"
+                  className="w-full max-w-none h-auto object-contain"
+                />
+              </div>
             </div>
           </div>
         </div>
