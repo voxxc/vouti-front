@@ -8,8 +8,8 @@ import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import showcaseProcessos from '@/assets/showcase-processos.png';
-import showcaseFinanceiro from '@/assets/showcase-financeiro.jpg';
-import showcasePrazos from '@/assets/showcase-prazos.jpg';
+import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
+import showcasePrazos from '@/assets/showcase-prazos.png';
 
 const HomePage = () => {
   const navigate = useNavigate();
