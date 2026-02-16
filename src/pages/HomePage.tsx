@@ -422,7 +422,7 @@ const HomePage = () => {
             </div>
 
             {/* Right - Cascading Screenshots */}
-            <div className="relative">
+            <div className="relative overflow-hidden">
               <div className="absolute inset-0 bg-muted/50 rounded-3xl -m-4" />
               <div className="relative z-10 flex flex-col p-4 lg:p-8">
                 <img
