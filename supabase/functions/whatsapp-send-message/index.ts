@@ -18,12 +18,29 @@ serve(async (req) => {
 
     const { phone, message, messageType = 'text', mediaUrl, mode, agentName, agentId } = await req.json();
 
-    // Prefixar com nome do atendente (se presente)
-    const finalMessage = agentName ? `*${agentName}*\n\n${message}` : message;
-
-    if (!phone || !finalMessage) {
-      throw new Error('Phone and message are required');
+    // Input validation
+    if (!phone || typeof phone !== 'string' || phone.length > 20) {
+      throw new Error('Invalid phone number');
     }
+
+    if (!message || typeof message !== 'string' || message.length > 10000) {
+      throw new Error('Invalid message');
+    }
+
+    if (messageType && !['text', 'media'].includes(messageType)) {
+      throw new Error('Invalid message type');
+    }
+
+    if (mediaUrl && (typeof mediaUrl !== 'string' || mediaUrl.length > 2000)) {
+      throw new Error('Invalid media URL');
+    }
+
+    if (agentName && (typeof agentName !== 'string' || agentName.length > 100)) {
+      throw new Error('Invalid agent name');
+    }
+
+    // Prefix with agent name if present
+    const finalMessage = agentName ? `*${agentName}*\n\n${message}` : message;
 
     // Resolve tenant_id from JWT if available
     let tenantId: string | null = null;
@@ -41,11 +58,11 @@ serve(async (req) => {
           tenantId = profile?.tenant_id || null;
         }
       } catch (e) {
-        console.log('Could not extract tenant_id from token:', e);
+        // Could not extract tenant_id from token
       }
     }
 
-    // Resolve instance credentials from DB (include provider + meta fields)
+    // Resolve instance credentials from DB
     let instanceQuery = supabase
       .from('whatsapp_instances')
       .select('zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name, user_id, provider, meta_phone_number_id, meta_access_token');
@@ -60,9 +77,9 @@ serve(async (req) => {
 
     const provider = instance?.provider || 'zapi';
     let apiResponseData: any;
+    let zapiInstanceId: string | undefined;
 
     if (provider === 'meta') {
-      // ========== META WHATSAPP CLOUD API ==========
       const metaPhoneId = instance?.meta_phone_number_id;
       const metaToken = instance?.meta_access_token;
 
@@ -82,45 +99,22 @@ serve(async (req) => {
           text: { body: finalMessage },
         };
       } else if (messageType === 'media' && mediaUrl) {
-        // Detect media type from URL
         const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(mediaUrl);
         const isVideo = /\.(mp4|3gp)(\?|$)/i.test(mediaUrl);
         const isAudio = /\.(mp3|ogg|opus|aac)(\?|$)/i.test(mediaUrl);
         
         if (isImage) {
-          metaPayload = {
-            messaging_product: 'whatsapp',
-            to: phone,
-            type: 'image',
-            image: { link: mediaUrl, caption: finalMessage },
-          };
+          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'image', image: { link: mediaUrl, caption: finalMessage } };
         } else if (isVideo) {
-          metaPayload = {
-            messaging_product: 'whatsapp',
-            to: phone,
-            type: 'video',
-            video: { link: mediaUrl, caption: finalMessage },
-          };
+          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'video', video: { link: mediaUrl, caption: finalMessage } };
         } else if (isAudio) {
-          metaPayload = {
-            messaging_product: 'whatsapp',
-            to: phone,
-            type: 'audio',
-            audio: { link: mediaUrl },
-          };
+          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'audio', audio: { link: mediaUrl } };
         } else {
-          metaPayload = {
-            messaging_product: 'whatsapp',
-            to: phone,
-            type: 'document',
-            document: { link: mediaUrl, caption: finalMessage },
-          };
+          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'document', document: { link: mediaUrl, caption: finalMessage } };
         }
       } else {
         throw new Error('Invalid message type or missing media URL');
       }
-
-      console.log(`Sending ${messageType} via Meta to ${phone}`);
 
       const metaResponse = await fetch(metaUrl, {
         method: 'POST',
@@ -132,23 +126,20 @@ serve(async (req) => {
       });
 
       apiResponseData = await metaResponse.json();
-      console.log('Meta API Response:', apiResponseData);
 
       if (!metaResponse.ok) {
-        throw new Error(`Meta API Error: ${apiResponseData?.error?.message || 'Failed to send message'}`);
+        throw new Error('Failed to send message via Meta API');
       }
     } else {
-      // ========== Z-API (existing logic) ==========
-      let zapiInstanceId = instance?.zapi_instance_id;
+      zapiInstanceId = instance?.zapi_instance_id;
       let zapiInstanceToken = instance?.zapi_instance_token;
       let zapiClientToken = instance?.zapi_client_token;
 
-      // Fallback to env vars if DB credentials missing
       if (!zapiInstanceId) zapiInstanceId = Deno.env.get('Z_API_INSTANCE_ID');
       if (!zapiInstanceToken) zapiInstanceToken = Deno.env.get('Z_API_TOKEN');
 
       if (!zapiInstanceId || !zapiInstanceToken) {
-        throw new Error('Z-API credentials not configured (no instance found)');
+        throw new Error('Z-API credentials not configured');
       }
 
       const baseUrl = `https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiInstanceToken}`;
@@ -166,8 +157,6 @@ serve(async (req) => {
         throw new Error('Invalid message type or missing media URL');
       }
 
-      console.log(`Sending ${messageType} message to ${phone} via Z-API`);
-
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (zapiClientToken) {
         headers['Client-Token'] = zapiClientToken;
@@ -180,10 +169,9 @@ serve(async (req) => {
       });
 
       apiResponseData = await zapiResponse.json();
-      console.log('Z-API Response:', apiResponseData);
 
       if (!zapiResponse.ok) {
-        throw new Error(`Z-API Error: ${apiResponseData.message || apiResponseData.error || 'Failed to send message'}`);
+        throw new Error('Failed to send message via Z-API');
       }
     }
 
@@ -210,7 +198,7 @@ serve(async (req) => {
       .insert(messageRecord);
 
     if (insertError) {
-      console.log('Error saving message to DB:', insertError);
+      console.error('Error saving message to DB');
     }
 
     return new Response(JSON.stringify({
@@ -223,7 +211,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in whatsapp-send-message function:', error);
+    console.error('Error in whatsapp-send-message');
     return new Response(JSON.stringify({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error',

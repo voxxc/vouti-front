@@ -12,8 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🚀 Iniciando criação de usuário...')
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -25,51 +23,49 @@ serve(async (req) => {
       }
     )
 
-    // Verify the user making the request is an admin
     const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
 
     if (userError || !user) {
-      console.error('❌ Erro de autenticação:', userError)
       throw new Error('Não autenticado')
     }
 
-    console.log('✅ Usuário autenticado:', user.id)
-
-    // Check if user is admin using the security definer function
     const { data: isAdmin, error: roleCheckError } = await supabaseClient
       .rpc('has_metal_role', { _user_id: user.id, _role: 'admin' })
 
     if (roleCheckError) {
-      console.error('❌ Erro ao verificar role:', roleCheckError)
       throw new Error('Erro ao verificar permissões')
     }
 
     if (!isAdmin) {
-      console.error('❌ Usuário não é admin:', user.id)
       throw new Error('Apenas administradores podem criar usuários')
     }
 
-    console.log('✅ Usuário é administrador')
-
     const { login, password, full_name, setor, is_admin } = await req.json()
 
-    console.log('📝 Dados recebidos:', { login, full_name, setor, is_admin })
-
-    // Validações
+    // Input validation
     if (!login || !password || !full_name) {
       throw new Error('Login, senha e nome completo são obrigatórios')
     }
 
-    if (password.length < 6) {
-      throw new Error('A senha deve ter no mínimo 6 caracteres')
+    if (typeof login !== 'string' || login.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(login)) {
+      throw new Error('Login inválido (max 50 caracteres, apenas letras, números, ponto, traço e underscore)')
     }
 
-    // Create a fictional email based on login
-    const email = `${login}@metalsystem.local`
+    if (typeof password !== 'string' || password.length < 8 || password.length > 100) {
+      throw new Error('A senha deve ter entre 8 e 100 caracteres')
+    }
 
-    console.log('📧 Email gerado:', email)
+    if (typeof full_name !== 'string' || full_name.length > 200) {
+      throw new Error('Nome completo deve ter no máximo 200 caracteres')
+    }
+
+    if (setor && (typeof setor !== 'string' || setor.length > 100)) {
+      throw new Error('Setor deve ter no máximo 100 caracteres')
+    }
+
+    const email = `${login}@metalsystem.local`
 
     // Check if user already exists
     const { data: existingProfile } = await supabaseClient
@@ -82,49 +78,34 @@ serve(async (req) => {
       throw new Error('Já existe um usuário com este login')
     }
 
-    console.log('✅ Login disponível')
-
-    // Create the user using admin API
-    console.log('👤 Criando usuário no Auth...')
     const { data: newUser, error: createError } = await supabaseClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // Skip email verification
+      email_confirm: true,
       user_metadata: {
         full_name,
       }
     })
 
     if (createError) {
-      console.error('❌ Erro ao criar usuário no Auth:', createError)
       throw createError
     }
 
-    console.log('✅ Usuário criado no Auth:', newUser.user.id)
-
-    // Create profile with login stored
-    console.log('👤 Criando perfil...')
     const { error: profileError } = await supabaseClient
       .from('metal_profiles')
       .insert({
         user_id: newUser.user.id,
-        email: login, // Store login instead of email
+        email: login,
         full_name,
         setor: setor || null,
       })
 
     if (profileError) {
-      console.error('❌ Erro ao criar perfil:', profileError)
-      // Tentar deletar o usuário criado
       await supabaseClient.auth.admin.deleteUser(newUser.user.id)
-      throw new Error(`Erro ao criar perfil: ${profileError.message}`)
+      throw new Error('Erro ao criar perfil')
     }
 
-    console.log('✅ Perfil criado com sucesso')
-
-    // Add role (admin or operador)
     const roleToAdd = is_admin ? 'admin' : 'operador'
-    console.log(`🔐 Adicionando role: ${roleToAdd}`)
 
     const { error: roleError } = await supabaseClient
       .from('metal_user_roles')
@@ -134,14 +115,10 @@ serve(async (req) => {
       })
 
     if (roleError) {
-      console.error('❌ Erro ao adicionar role:', roleError)
-      // Tentar deletar perfil e usuário
       await supabaseClient.from('metal_profiles').delete().eq('user_id', newUser.user.id)
       await supabaseClient.auth.admin.deleteUser(newUser.user.id)
-      throw new Error(`Erro ao adicionar role: ${roleError.message}`)
+      throw new Error('Erro ao adicionar role')
     }
-
-    console.log('✅ Role adicionada com sucesso')
 
     return new Response(
       JSON.stringify({ 
@@ -159,7 +136,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('❌ Erro geral:', error)
+    console.error('Error in create-metal-user')
     return new Response(
       JSON.stringify({ error: error.message }),
       {
