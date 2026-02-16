@@ -13,7 +13,6 @@ interface SendResetRequest {
   tenant_slug: string;
 }
 
-// Gera código numérico de 6 dígitos
 function generateCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -26,9 +25,24 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, tenant_slug }: SendResetRequest = await req.json();
 
+    // Input validation
     if (!email || !tenant_slug) {
       return new Response(
         JSON.stringify({ error: "Email e tenant são obrigatórios" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (typeof email !== 'string' || email.length > 255 || !email.includes('@')) {
+      return new Response(
+        JSON.stringify({ error: "Formato de email inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (typeof tenant_slug !== 'string' || tenant_slug.length > 50 || !/^[a-z0-9-]+$/.test(tenant_slug)) {
+      return new Response(
+        JSON.stringify({ error: "Tenant inválido" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -39,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verificar se email existe no tenant
+    // Verify email exists in tenant
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("user_id, tenant_id, tenants!inner(slug)")
@@ -48,15 +62,14 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (profileError || !profile) {
-      console.log("[send-password-reset] Email não encontrado no tenant:", email, tenant_slug);
-      // Retorna sucesso para não revelar se email existe
+      // Return success to not reveal if email exists
       return new Response(
         JSON.stringify({ success: true, message: "Se o email existir, você receberá o código" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Rate limiting: máximo 3 códigos por hora
+    // Rate limiting: max 3 codes per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count } = await supabase
       .from("password_reset_codes")
@@ -71,18 +84,16 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Invalidar códigos anteriores (marcar como usados)
+    // Invalidate previous codes
     await supabase
       .from("password_reset_codes")
       .update({ used_at: new Date().toISOString() })
       .eq("email", email.toLowerCase())
       .is("used_at", null);
 
-    // Gerar novo código
     const code = generateCode();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    // Salvar código
     const { error: insertError } = await supabase
       .from("password_reset_codes")
       .insert({
@@ -94,11 +105,11 @@ const handler = async (req: Request): Promise<Response> => {
       });
 
     if (insertError) {
-      console.error("[send-password-reset] Erro ao salvar código:", insertError);
+      console.error("Error saving reset code");
       throw new Error("Erro ao gerar código");
     }
 
-    // Enviar email via Resend
+    // Send email via Resend
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
       const resetUrl = `https://vouti.lovable.app/${tenant_slug}/reset-password/${code}`;
@@ -119,8 +130,6 @@ const handler = async (req: Request): Promise<Response> => {
               <tr>
                 <td align="center">
                   <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                    
-                    <!-- Header -->
                     <tr>
                       <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 32px 24px; text-align: center;">
                         <h1 style="margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 2px;">
@@ -131,19 +140,14 @@ const handler = async (req: Request): Promise<Response> => {
                         </p>
                       </td>
                     </tr>
-                    
-                    <!-- Content -->
                     <tr>
                       <td style="padding: 32px 24px;">
                         <h2 style="margin: 0 0 16px 0; color: #1e3a5f; font-size: 20px; font-weight: 600;">
                           Recuperação de Senha
                         </h2>
-                        
                         <p style="margin: 0 0 24px 0; color: #666666; font-size: 15px; line-height: 1.6;">
                           Você solicitou a recuperação de senha para sua conta. Use o código abaixo para redefinir sua senha:
                         </p>
-                        
-                        <!-- Code Box -->
                         <div style="background-color: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
                           <p style="margin: 0 0 8px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">
                             Seu código de verificação
@@ -152,8 +156,6 @@ const handler = async (req: Request): Promise<Response> => {
                             ${code}
                           </p>
                         </div>
-                        
-                        <!-- Button -->
                         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
                           <tr>
                             <td align="center">
@@ -163,8 +165,6 @@ const handler = async (req: Request): Promise<Response> => {
                             </td>
                           </tr>
                         </table>
-                        
-                        <!-- Warning -->
                         <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0;">
                           <p style="margin: 0; color: #92400e; font-size: 13px;">
                             <strong>⏱️ Este código expira em 15 minutos.</strong><br>
@@ -173,8 +173,6 @@ const handler = async (req: Request): Promise<Response> => {
                         </div>
                       </td>
                     </tr>
-                    
-                    <!-- Footer -->
                     <tr>
                       <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
                         <p style="margin: 0; color: #94a3b8; font-size: 12px;">
@@ -182,7 +180,6 @@ const handler = async (req: Request): Promise<Response> => {
                         </p>
                       </td>
                     </tr>
-                    
                   </table>
                 </td>
               </tr>
@@ -191,10 +188,8 @@ const handler = async (req: Request): Promise<Response> => {
           </html>
         `,
       });
-
-      console.log("[send-password-reset] Email enviado para:", email);
     } else {
-      console.warn("[send-password-reset] RESEND_API_KEY não configurada, email não enviado");
+      console.warn("RESEND_API_KEY not configured");
     }
 
     return new Response(
@@ -203,9 +198,9 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
   } catch (error: any) {
-    console.error("[send-password-reset] Erro:", error);
+    console.error("Error in send-password-reset");
     return new Response(
-      JSON.stringify({ error: error.message || "Erro interno" }),
+      JSON.stringify({ error: "Erro interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

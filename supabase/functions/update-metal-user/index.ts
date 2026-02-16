@@ -23,7 +23,6 @@ serve(async (req) => {
       }
     )
 
-    // Verify the user making the request is an admin
     const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
@@ -32,7 +31,6 @@ serve(async (req) => {
       throw new Error('Não autenticado')
     }
 
-    // Check if user is admin
     const { data: adminRole } = await supabaseClient
       .from('metal_user_roles')
       .select('role')
@@ -46,7 +44,26 @@ serve(async (req) => {
 
     const { user_id, email, password, full_name, setor } = await req.json()
 
-    console.log('Update user request:', { user_id, email, full_name, setor: setor ?? 'null' })
+    // Input validation
+    if (!user_id || typeof user_id !== 'string' || user_id.length > 100) {
+      throw new Error('user_id inválido')
+    }
+
+    if (email !== undefined && (typeof email !== 'string' || email.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(email))) {
+      throw new Error('Login inválido')
+    }
+
+    if (password !== undefined && (typeof password !== 'string' || password.length < 8 || password.length > 100)) {
+      throw new Error('Senha deve ter entre 8 e 100 caracteres')
+    }
+
+    if (full_name !== undefined && (typeof full_name !== 'string' || full_name.length > 200)) {
+      throw new Error('Nome deve ter no máximo 200 caracteres')
+    }
+
+    if (setor !== undefined && setor !== null && (typeof setor !== 'string' || setor.length > 100)) {
+      throw new Error('Setor deve ter no máximo 100 caracteres')
+    }
 
     // Update user email/password if provided
     const updateData: any = {}
@@ -61,12 +78,11 @@ serve(async (req) => {
       )
 
       if (updateError) {
-        console.error('Auth update error:', updateError)
         throw updateError
       }
     }
 
-    // Update profile - permitir null explicitamente para setor
+    // Update profile
     const profileUpdate: any = {}
     if (email !== undefined) profileUpdate.email = email
     if (full_name !== undefined) profileUpdate.full_name = full_name
@@ -78,11 +94,8 @@ serve(async (req) => {
       .eq('user_id', user_id)
 
     if (profileError) {
-      console.error('Profile update error:', profileError)
       throw profileError
     }
-
-    console.log('User updated successfully:', user_id)
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -92,6 +105,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Error in update-metal-user')
     return new Response(
       JSON.stringify({ error: error.message }),
       {

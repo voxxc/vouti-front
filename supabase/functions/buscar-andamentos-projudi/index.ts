@@ -14,8 +14,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🚀 Iniciando busca autenticada no Projudi...');
-
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -34,19 +32,22 @@ serve(async (req) => {
 
     const { processoId, numeroProcesso, dataInicio, dataFim } = await req.json();
 
+    // Input validation
     if (!processoId || !numeroProcesso) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'processoId e numeroProcesso são obrigatórios' 
-        }),
+        JSON.stringify({ success: false, error: 'processoId e numeroProcesso são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`📋 Buscando processo ${numeroProcesso} para usuário ${user.id}`);
+    if (typeof numeroProcesso !== 'string' || numeroProcesso.length > 30) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Número de processo inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Buscar credenciais criptografadas
+    // Fetch encrypted credentials
     const { data: credentials, error: credError } = await supabase
       .from('projudi_credentials')
       .select('login_encrypted, password_encrypted, totp_secret_encrypted')
@@ -64,9 +65,6 @@ serve(async (req) => {
       throw new Error('PROJUDI_ENCRYPTION_KEY não configurada');
     }
 
-    console.log('🔓 Descriptografando credenciais...');
-
-    // Função para descriptografar
     const decryptField = async (encrypted: string): Promise<string> => {
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
@@ -97,12 +95,8 @@ serve(async (req) => {
     const password = await decryptField(credentials.password_encrypted);
     const totpSecret = await decryptField(credentials.totp_secret_encrypted);
 
-    // Gerar código TOTP atual
     const totp = new TOTP(totpSecret);
     const totpCode = totp.generate();
-    console.log(`🔐 Código TOTP gerado: ${totpCode.substring(0, 3)}***`);
-
-    console.log('🌐 Iniciando browser Puppeteer...');
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -118,66 +112,45 @@ serve(async (req) => {
     await page.setViewport({ width: 1280, height: 720 });
 
     try {
-      console.log('📍 Navegando para Projudi TJPR...');
       await page.goto('https://projudi.tjpr.jus.br/projudi/', { 
         waitUntil: 'networkidle2',
         timeout: 30000 
       });
 
-      // Clicar no botão de login de advogados
-      console.log('🔘 Clicando em login de advogados...');
       await page.waitForSelector('a[href*="advogado"]', { timeout: 10000 });
       await page.click('a[href*="advogado"]');
       await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
 
-      // Preencher login
-      console.log('✍️ Preenchendo credenciais...');
       await page.waitForSelector('input[name="login"], input#login', { timeout: 10000 });
       await page.type('input[name="login"], input#login', login);
       await page.type('input[name="senha"], input#senha, input[type="password"]', password);
 
-      // Submeter formulário
-      console.log('📤 Submetendo formulário de login...');
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
         page.click('button[type="submit"], input[type="submit"]')
       ]);
 
-      // Aguardar campo de TOTP e preencher
-      console.log('🔢 Preenchendo código 2FA...');
       await page.waitForSelector('input[name="codigoAutenticacao"], input#codigoAutenticacao', { timeout: 10000 });
       await page.type('input[name="codigoAutenticacao"], input#codigoAutenticacao', totpCode);
 
-      // Submeter 2FA
-      console.log('📤 Submetendo código 2FA...');
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
         page.click('button[type="submit"], input[type="submit"]')
       ]);
 
-      console.log('✅ Login realizado com sucesso!');
-
-      // Navegar para consulta de processos
-      console.log('🔍 Navegando para consulta de processos...');
       await page.goto('https://projudi.tjpr.jus.br/projudi/processo/consulta', {
         waitUntil: 'networkidle2',
         timeout: 30000
       });
 
-      // Preencher número do processo
-      console.log(`📝 Buscando processo ${numeroProcesso}...`);
       await page.waitForSelector('input[name="numeroProcesso"], input#numeroProcesso', { timeout: 10000 });
       await page.type('input[name="numeroProcesso"], input#numeroProcesso', numeroProcesso);
 
-      // Submeter busca
       await Promise.all([
         page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
         page.click('button[type="submit"], input[type="submit"], button:has-text("Consultar")')
       ]);
 
-      console.log('📊 Extraindo movimentações...');
-
-      // Extrair movimentações (ajustar seletores conforme o Projudi real)
       const movimentacoes = await page.evaluate(() => {
         const movs: any[] = [];
         const linhas = document.querySelectorAll('table.movimentacoes tr, .movimentacao-item');
@@ -190,7 +163,6 @@ serve(async (req) => {
             const dataTexto = dataEl.textContent?.trim() || '';
             const descricao = descEl.textContent?.trim() || '';
             
-            // Parse data formato DD/MM/YYYY
             const [dia, mes, ano] = dataTexto.split('/');
             const data = ano && mes && dia ? `${ano}-${mes}-${dia}` : new Date().toISOString().split('T')[0];
             
@@ -207,11 +179,8 @@ serve(async (req) => {
         return movs;
       });
 
-      console.log(`✅ ${movimentacoes.length} movimentações extraídas`);
-
       await browser.close();
 
-      // Aplicar filtro de data se fornecido
       let movimentacoesFiltradas = movimentacoes;
       if (dataInicio && dataFim) {
         const inicio = new Date(dataInicio);
@@ -220,7 +189,6 @@ serve(async (req) => {
           const dataMov = new Date(mov.data);
           return dataMov >= inicio && dataMov <= fim;
         });
-        console.log(`🔍 Filtro aplicado: ${movimentacoesFiltradas.length}/${movimentacoes.length} no período`);
       }
 
       return new Response(
@@ -237,22 +205,13 @@ serve(async (req) => {
       );
 
     } catch (pageError) {
-      console.error('❌ Erro durante automação:', pageError);
-      
-      // Capturar screenshot para debug
-      try {
-        const screenshot = await page.screenshot({ encoding: 'base64' });
-        console.log('📸 Screenshot capturado (base64)');
-      } catch (ssError) {
-        console.log('⚠️ Não foi possível capturar screenshot');
-      }
-      
+      console.error('Error during Projudi automation');
       await browser.close();
-      throw new Error(`Erro ao acessar Projudi: ${pageError.message}`);
+      throw new Error('Erro ao acessar Projudi');
     }
 
   } catch (error) {
-    console.error('💥 Erro completo:', error);
+    console.error('Error in buscar-andamentos-projudi');
     return new Response(
       JSON.stringify({ 
         success: false, 

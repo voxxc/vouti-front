@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -15,7 +14,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Create admin client with service role key
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -23,7 +21,6 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Verify the requesting user is a super admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -36,14 +33,12 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
-      console.error('Auth error:', authError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check if user is super admin
     const { data: superAdmin, error: superAdminError } = await supabaseAdmin
       .from('super_admins')
       .select('id')
@@ -51,14 +46,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (superAdminError || !superAdmin) {
-      console.error('Super admin check error:', superAdminError);
       return new Response(
         JSON.stringify({ error: 'Only super admins can create tenants' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse request body
+    const body = await req.json();
     const {
       name,
       slug,
@@ -69,11 +63,9 @@ Deno.serve(async (req) => {
       admin_name,
       plano,
       limite_oabs_personalizado,
-    } = await req.json();
+    } = body;
 
-    console.log('Creating tenant with admin:', { name, slug, email_domain, system_type_id, admin_email, admin_name, plano, limite_oabs_personalizado });
-
-    // Validate required fields
+    // Input validation
     if (!name || !slug || !system_type_id || !admin_email || !admin_password || !admin_name) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: name, slug, system_type_id, admin_email, admin_password, admin_name' }),
@@ -81,10 +73,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate password length
-    if (admin_password.length < 6) {
+    // Validate field lengths and formats
+    if (typeof name !== 'string' || name.length > 200) {
       return new Response(
-        JSON.stringify({ error: 'Password must be at least 6 characters' }),
+        JSON.stringify({ error: 'Name must be a string with max 200 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof slug !== 'string' || slug.length > 50 || !/^[a-z0-9-]+$/.test(slug)) {
+      return new Response(
+        JSON.stringify({ error: 'Slug must contain only lowercase letters, numbers, and hyphens (max 50 chars)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof admin_email !== 'string' || admin_email.length > 255 || !admin_email.includes('@')) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid email format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof admin_password !== 'string' || admin_password.length < 8 || admin_password.length > 100) {
+      return new Response(
+        JSON.stringify({ error: 'Password must be between 8 and 100 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof admin_name !== 'string' || admin_name.length > 200) {
+      return new Response(
+        JSON.stringify({ error: 'Admin name must be max 200 characters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -103,28 +123,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Buscar todos os super admins
     const { data: superAdminUserIds } = await supabaseAdmin
       .from('super_admins')
       .select('user_id');
 
     const superAdminIds = superAdminUserIds?.map(sa => sa.user_id) || [];
 
-    // Verificar se email existe em auth.users
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === admin_email.toLowerCase());
 
-    // Verificar se o email pertence a um super admin
     const isSuperAdminEmail = existingAuthUser && superAdminIds.includes(existingAuthUser.id);
 
-    // Check if admin email already exists (excluindo super admins)
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('user_id')
       .eq('email', admin_email)
       .maybeSingle();
 
-    // Bloqueia APENAS se existir, não for super admin E o auth user existir
     if (existingProfile && !superAdminIds.includes(existingProfile.user_id)) {
       return new Response(
         JSON.stringify({ error: 'A user with this email already exists' }),
@@ -132,8 +147,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Create tenant with plan
-    console.log('Step 1: Creating tenant...');
+    // Step 1: Create tenant
     const tenantPlano = plano || 'solo';
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
@@ -150,26 +164,19 @@ Deno.serve(async (req) => {
       .single();
 
     if (tenantError) {
-      console.error('Error creating tenant:', tenantError);
+      console.error('Error creating tenant');
       return new Response(
-        JSON.stringify({ error: `Error creating tenant: ${tenantError.message}` }),
+        JSON.stringify({ error: 'Error creating tenant' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Tenant created:', tenant.id);
 
     let adminUserId: string;
 
     // Step 2: Create admin user OR reuse super admin's auth user
     if (isSuperAdminEmail && existingAuthUser) {
-      // Reutilizar o auth user existente do super admin
-      console.log('Step 2: Reusing super admin auth user for tenant admin...');
       adminUserId = existingAuthUser.id;
-      console.log('Reusing existing super admin user:', adminUserId);
     } else {
-      // Criar novo usuário
-      console.log('Step 2: Creating new admin user...');
       const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
         email: admin_email,
         password: admin_password,
@@ -180,30 +187,20 @@ Deno.serve(async (req) => {
       });
 
       if (userError || !newUser.user) {
-        console.error('Error creating user:', userError);
-        // Rollback: delete tenant
         await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
         return new Response(
-          JSON.stringify({ error: `Error creating admin user: ${userError?.message || 'Unknown error'}` }),
+          JSON.stringify({ error: 'Error creating admin user' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       adminUserId = newUser.user.id;
-      console.log('Admin user created:', adminUserId);
     }
 
-    // Step 3: Create NEW profile for this tenant (não faz upsert para super admin)
-    console.log('Step 3: Creating profile for tenant...');
-    
+    // Step 3: Create profile
     if (isSuperAdminEmail) {
-      // Para super admin, verificar se já existe profile para este tenant
-      // O super admin mantém seu profile original (tenant_id = null)
-      // Mas criamos um novo profile entry se necessário - na verdade, não podemos ter 2 profiles
-      // Então vamos apenas criar o admin role e deixar o super admin acessar via super admin panel
-      console.log('Super admin detected - skipping profile update to preserve super admin access');
+      // Super admin - skip profile update to preserve super admin access
     } else {
-      // Usuário novo - criar profile normalmente
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .upsert({
@@ -216,20 +213,16 @@ Deno.serve(async (req) => {
         });
 
       if (profileError) {
-        console.error('Error updating profile:', profileError);
-        // Rollback: delete user and tenant
         await supabaseAdmin.auth.admin.deleteUser(adminUserId);
         await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
         return new Response(
-          JSON.stringify({ error: `Error updating profile: ${profileError.message}` }),
+          JSON.stringify({ error: 'Error updating profile' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.log('Profile created with tenant_id');
     }
 
-    // Step 4: Create admin role for the tenant
-    console.log('Step 4: Creating admin role...');
+    // Step 4: Create admin role
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -239,27 +232,21 @@ Deno.serve(async (req) => {
       });
 
     if (roleError) {
-      console.error('Error creating role:', roleError);
-      // Rollback
       if (!isSuperAdminEmail) {
         await supabaseAdmin.from('profiles').delete().eq('user_id', adminUserId);
         await supabaseAdmin.auth.admin.deleteUser(adminUserId);
       }
       await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
       return new Response(
-        JSON.stringify({ error: `Error creating admin role: ${roleError.message}` }),
+        JSON.stringify({ error: 'Error creating admin role' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Admin role created successfully');
-
-    // Build response message
     const responseMessage = isSuperAdminEmail
-      ? `Tenant "${name}" created. Super admin "${admin_name}" (${admin_email}) now has admin access to this tenant via super admin panel.`
-      : `Tenant "${name}" created successfully with admin "${admin_name}" (${admin_email})`;
+      ? `Tenant "${name}" created. Super admin now has admin access.`
+      : `Tenant "${name}" created successfully with admin "${admin_name}"`;
 
-    // Success!
     return new Response(
       JSON.stringify({
         success: true,
@@ -281,9 +268,9 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Unexpected error in create-tenant-with-admin');
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'An unexpected error occurred' }),
+      JSON.stringify({ error: 'An unexpected error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

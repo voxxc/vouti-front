@@ -13,24 +13,19 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    
-    console.log('[Judit Webhook] Recebido:', JSON.stringify(payload, null, 2));
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Extrair tracking_id do payload
     const trackingId = payload.reference_id;
     
     if (!trackingId) {
-      console.log('[Judit Webhook] Sem tracking_id no payload');
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Buscar monitoramento pelo tracking_id
     const { data: monitoramento, error: fetchError } = await supabase
       .from('processo_monitoramento_judit')
       .select('id, processo_id')
@@ -38,19 +33,14 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !monitoramento) {
-      console.log('[Judit Webhook] Monitoramento não encontrado para tracking:', trackingId);
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('[Judit Webhook] Processo encontrado:', monitoramento.processo_id);
-
-    // Extrair dados da resposta
     const responseData = payload.payload?.response_data;
     
     if (!responseData || !responseData.steps) {
-      console.log('[Judit Webhook] Sem dados de movimentações');
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -58,7 +48,6 @@ serve(async (req) => {
 
     const steps = responseData.steps;
 
-    // Buscar andamentos existentes para comparar
     const { data: existingAndamentos } = await supabase
       .from('processo_andamentos_judit')
       .select('dados_completos')
@@ -71,7 +60,6 @@ serve(async (req) => {
       }).filter(Boolean)
     );
 
-    // Inserir apenas novas movimentações
     let newCount = 0;
 
     for (const step of steps) {
@@ -93,13 +81,12 @@ serve(async (req) => {
         if (!insertError) {
           newCount++;
         } else {
-          console.error('[Judit Webhook] Erro ao inserir andamento:', insertError);
+          console.error('Error inserting andamento');
         }
       }
     }
 
     if (newCount > 0) {
-      // Atualizar contador e data da última atualização
       const { data: currentMon } = await supabase
         .from('processo_monitoramento_judit')
         .select('total_movimentacoes')
@@ -116,10 +103,6 @@ serve(async (req) => {
           judit_data: responseData,
         })
         .eq('id', monitoramento.id);
-
-      console.log('[Judit Webhook] Inseridas', newCount, 'novas movimentações');
-    } else {
-      console.log('[Judit Webhook] Nenhuma movimentação nova encontrada');
     }
 
     return new Response(
@@ -128,10 +111,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[Judit Webhook] Erro:', error);
-    // Retornar 200 mesmo com erro para não reenviar webhook
+    console.error('Error in judit-webhook');
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: 'Internal error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
