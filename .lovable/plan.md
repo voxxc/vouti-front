@@ -1,26 +1,30 @@
 
+## Atualizar Logo do Sistema para o Estilo da Homepage
 
-## Ativar Flutuacao dos Prints no Mobile
+### O que sera feito
 
-### Problema atual
+Substituir o logo antigo (V dourado com "VOUTI GESTAO JURIDICA") pelo estilo minimalista da homepage: **vouti.** (texto preto em negrito, ponto vermelho), em dois locais:
 
-As animacoes de flutuacao (`animate-showcase-float`) estao desativadas no mobile porque estao dentro de `@media (min-width: 1024px)`. Isso foi feito para evitar overflow horizontal causado pelas rotacoes.
-
-### Solucao
-
-Reativar as animacoes em todos os tamanhos de tela, mas prevenir o overflow adicionando `overflow-hidden` no container das imagens no mobile.
+1. **Tela de transicao (loading)** - `LoadingTransition.tsx` usa `<Logo size="lg" />`
+2. **Sidebar do dashboard** - `DashboardSidebar.tsx` usa `<Logo size="sm" />`
 
 ### Mudancas
 
-**Arquivo: `src/index.css`**
+**Arquivo: `src/components/LogoVouti.tsx`**
 
-- Remover o `@media (min-width: 1024px)` que envolve as classes `.animate-showcase-float-1/2/3`, tornando-as ativas em qualquer viewport
+Reescrever o componente para renderizar o texto "vouti." no estilo da homepage:
+- Texto em lowercase, font-black, tracking-tight
+- Ponto final em vermelho (#E11D48)
+- Tamanhos responsivos: sm (text-xl), md (text-3xl), lg (text-6xl)
+- Remover o "V" grande dourado e o subtitulo "GESTAO JURIDICA"
+- Adaptar cores para funcionar tanto em fundo claro (homepage) quanto escuro (dashboard): usar `text-foreground` do Tailwind para o texto principal
 
-**Arquivo: `src/pages/HomePage.tsx`**
+**Arquivo: `src/components/Dashboard/DashboardSidebar.tsx`**
 
-- Adicionar `overflow-hidden` no container pai das imagens para evitar scroll horizontal causado pelas rotacoes no mobile
+- Quando a sidebar esta colapsada, o icone "V" em caixa colorida continua como esta (ja funciona bem para espaco reduzido)
 
 ### Resultado
 
-Os 3 prints flutuarao suavemente tanto no mobile quanto no desktop, sem causar overflow horizontal.
-
+- Na tela de loading apos login: aparece "vouti." grande e centralizado
+- Na sidebar do dashboard: aparece "vouti." pequeno no topo
+- O estilo sera identico ao da homepage (minimalista, ponto vermelho)
