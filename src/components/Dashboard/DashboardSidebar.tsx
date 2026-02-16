@@ -204,7 +204,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
           to={dashboardPath}
           onMouseEnter={() => handleMouseEnter('dashboard')}
           onClick={handleDashboardClick}
-          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-10"
+          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-6"
         >
             {isCollapsed ? (
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
