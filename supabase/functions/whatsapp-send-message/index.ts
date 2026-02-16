@@ -62,18 +62,36 @@ serve(async (req) => {
       }
     }
 
-    // Resolve instance credentials from DB
-    let instanceQuery = supabase
-      .from('whatsapp_instances')
-      .select('zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name, user_id, provider, meta_phone_number_id, meta_access_token');
+    // Resolve instance credentials from DB - prioritize agent-specific instance
+    const instanceSelect = 'zapi_instance_id, zapi_instance_token, zapi_client_token, instance_name, user_id, provider, meta_phone_number_id, meta_access_token';
+    let instance: any = null;
 
-    if (mode === 'superadmin') {
-      instanceQuery = instanceQuery.is('tenant_id', null);
-    } else if (tenantId) {
-      instanceQuery = instanceQuery.eq('tenant_id', tenantId);
+    // Priority 1: If agentId provided, find the instance linked to this agent
+    if (agentId) {
+      const { data } = await supabase
+        .from('whatsapp_instances')
+        .select(instanceSelect)
+        .eq('agent_id', agentId)
+        .limit(1)
+        .maybeSingle();
+      instance = data;
     }
 
-    const { data: instance } = await instanceQuery.limit(1).single();
+    // Priority 2: Fallback to tenant-level instance (backward compatibility)
+    if (!instance) {
+      let fallbackQuery = supabase
+        .from('whatsapp_instances')
+        .select(instanceSelect);
+
+      if (mode === 'superadmin') {
+        fallbackQuery = fallbackQuery.is('tenant_id', null);
+      } else if (tenantId) {
+        fallbackQuery = fallbackQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data } = await fallbackQuery.limit(1).maybeSingle();
+      instance = data;
+    }
 
     const provider = instance?.provider || 'zapi';
     let apiResponseData: any;
