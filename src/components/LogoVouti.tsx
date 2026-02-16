@@ -7,8 +7,8 @@ interface LogoVoutiProps {
 
 const LogoVouti = ({ className = "", size = "md" }: LogoVoutiProps) => {
   const sizeClasses = {
-    sm: "text-3xl",
-    md: "text-3xl",
+    sm: "text-5xl",
+    md: "text-5xl",
     lg: "text-6xl",
   };
 
