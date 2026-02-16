@@ -1,28 +1,26 @@
 
 
-## Tornar os 3 Prints Visiveis no Mobile
+## Ativar Flutuacao dos Prints no Mobile
 
-### Problema
+### Problema atual
 
-O container das imagens tem a classe `hidden lg:block`, ou seja, fica completamente oculto em telas menores que 1024px.
+As animacoes de flutuacao (`animate-showcase-float`) estao desativadas no mobile porque estao dentro de `@media (min-width: 1024px)`. Isso foi feito para evitar overflow horizontal causado pelas rotacoes.
 
-### O que sera feito
+### Solucao
 
-Remover o `hidden lg:block` e adaptar o layout para funcionar bem em mobile e desktop:
+Reativar as animacoes em todos os tamanhos de tela, mas prevenir o overflow adicionando `overflow-hidden` no container das imagens no mobile.
 
-**Arquivo: `src/pages/HomePage.tsx`**
-
-- **Linha 405**: Mudar o grid para empilhar no mobile -- texto em cima, imagens embaixo. Ja funciona assim com `grid-cols-1 lg:grid-cols-2`, entao basta tornar as imagens visiveis.
-- **Linha 425**: Trocar `hidden lg:block` por apenas `relative`, removendo o ocultamento. As imagens passarao a aparecer abaixo do texto em mobile.
-- Reduzir o padding interno do container de imagens no mobile: `p-4 lg:p-8`
-- Reduzir a sobreposicao no mobile: `-mt-6 lg:-mt-10`
-- Desativar as animacoes de flutuacao no mobile para evitar problemas de performance e overflow, aplicando as classes de animacao apenas em `lg:` ou via media query
+### Mudancas
 
 **Arquivo: `src/index.css`**
 
-- Envolver as animacoes showcase-float em `@media (min-width: 1024px)` para que no mobile as imagens fiquem estaticas (sem flutuacao), evitando overflow horizontal causado pelas rotacoes
+- Remover o `@media (min-width: 1024px)` que envolve as classes `.animate-showcase-float-1/2/3`, tornando-as ativas em qualquer viewport
+
+**Arquivo: `src/pages/HomePage.tsx`**
+
+- Adicionar `overflow-hidden` no container pai das imagens para evitar scroll horizontal causado pelas rotacoes no mobile
 
 ### Resultado
 
-No mobile, os 3 prints aparecerao empilhados abaixo da lista de features, com sobreposicao leve e sem animacao. No desktop, tudo continua como esta hoje com flutuacao e rotacao.
+Os 3 prints flutuarao suavemente tanto no mobile quanto no desktop, sem causar overflow horizontal.
 
