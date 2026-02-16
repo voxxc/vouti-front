@@ -201,6 +201,13 @@ async function handleIncomingMessage(data: any) {
     return;
   }
 
+  // Auto-update connection_status to 'connected' when messages arrive
+  await supabase
+    .from('whatsapp_instances')
+    .update({ connection_status: 'connected', updated_at: new Date().toISOString() })
+    .eq('zapi_instance_id', instanceId)
+    .eq('connection_status', 'disconnected');
+
   const effectiveTenantId = instance.tenant_id || null;
 
   if (fromMe) {
