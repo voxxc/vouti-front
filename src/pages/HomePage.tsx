@@ -422,26 +422,23 @@ const HomePage = () => {
             </div>
 
             {/* Right - Cascading Screenshots */}
-            <div className="relative hidden lg:block">
+            <div className="relative">
               <div className="absolute inset-0 bg-muted/50 rounded-3xl -m-4" />
-              <div className="relative z-10 flex flex-col p-8">
+              <div className="relative z-10 flex flex-col p-4 lg:p-8">
                 <img
                   src={showcaseProcessosList}
                   alt="Lista de Processos"
                   className="relative z-10 w-full rounded-xl shadow-2xl border border-border animate-showcase-float-1"
-                  style={{ transform: 'rotate(-1.5deg)' }}
                 />
                 <img
                   src={showcaseKanban}
                   alt="Kanban de Projetos"
-                  className="relative z-20 w-full rounded-xl shadow-2xl border border-border -mt-10 animate-showcase-float-2"
-                  style={{ transform: 'rotate(1deg)' }}
+                  className="relative z-20 w-full rounded-xl shadow-2xl border border-border -mt-6 lg:-mt-10 animate-showcase-float-2"
                 />
                 <img
                   src={showcaseWhatsapp}
                   alt="CRM WhatsApp"
-                  className="relative z-30 w-full rounded-xl shadow-2xl border border-border -mt-10 animate-showcase-float-3"
-                  style={{ transform: 'rotate(-0.5deg)' }}
+                  className="relative z-30 w-full rounded-xl shadow-2xl border border-border -mt-6 lg:-mt-10 animate-showcase-float-3"
                 />
               </div>
             </div>
