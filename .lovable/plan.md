@@ -1,76 +1,43 @@
 
-## Implementar Sistema de Projetos no Vouti.CRM
 
-### O que sera feito
+## Drawer de Projetos com Largura Similar ao Vouti
 
-Adicionar um botao "Projetos" na sidebar do CRM (WhatsAppSidebar) que, ao ser clicado, abre uma nova secao `"projects"` no painel principal. Essa secao exibe a lista de projetos (reutilizando a logica do `ProjectsDrawer`) e, ao clicar em um projeto, carrega o conteudo completo do projeto (reutilizando o `ProjectDrawerContent`) -- tudo dentro do drawer do CRM, sem abrir drawers extras.
+### Problema atual
+Ao clicar em "Projetos" no CRM, o conteudo e renderizado ocupando toda a area principal do drawer (que e `inset`, tela inteira). O usuario quer que abra um drawer separado com largura semelhante ao do Vouti dashboard, que usa `side="left-offset"` com `w-96` (384px).
 
-O fluxo segue o padrao interno de navegacao ja usado no CRM (estados locais para alternar entre views).
+### Solucao
 
-### Fluxo do usuario
+Transformar a secao "Projetos" do CRM em um **sub-drawer (Sheet)** que abre por cima do conteudo, com largura fixa similar ao Vouti. Ao clicar em um projeto, o drawer expande para mostrar o `ProjectDrawerContent` com largura maior (para acomodar Kanban, setores, etc).
 
-```text
-Sidebar CRM                    Painel Principal
-+-------------------+          +----------------------------------+
-| Caixa de Entrada  |          |                                  |
-| Conversas         |          |  [Lista de Projetos]             |
-| Kanban CRM        |          |  - Buscar projetos...            |
-| Contatos          |          |  - Projeto A  >                  |
-| Relatorios        |          |  - Projeto B  >                  |
-| Campanhas         |          |  - Projeto C  >                  |
-| >> Projetos <<    | -------> |                                  |
-| Central de Ajuda  |          +----------------------------------+
-| Configuracoes     |
-+-------------------+
+### Comportamento
 
-Ao clicar em "Projeto A":
-
-+-------------------+          +----------------------------------+
-|                   |          | [<- Voltar]                      |
-| >> Projetos <<    |          | ProjectView completo do          |
-|                   |          | projeto selecionado              |
-|                   |          | (Kanban, setores, tarefas, etc)  |
-+-------------------+          +----------------------------------+
-```
+1. Clicar em "Projetos" na sidebar do CRM abre um **Sheet separado** (nao substitui o conteudo principal)
+2. O Sheet aparece com largura `w-96` mostrando a lista de projetos (identico ao Vouti)
+3. Ao selecionar um projeto, o drawer expande para largura maior (`w-[900px]` ou similar) para exibir o `ProjectDrawerContent` completo
+4. A Inbox continua ativa em segundo plano (comportamento atual preservado)
 
 ### Detalhes tecnicos
 
-**1. Adicionar secao "projects" ao tipo `WhatsAppSection`**
+**Arquivo: `WhatsAppProjects.tsx`**
+- Envolver todo o conteudo em um componente `Sheet` proprio com `side="left-offset"`
+- Receber props `open` e `onOpenChange` para controlar abertura/fechamento
+- Quando um projeto e selecionado, trocar a classe de largura do `SheetContent` de `w-96` para `w-[900px]` (transicao suave)
+- Manter a mesma logica interna de lista vs detalhes
 
-No `WhatsAppDrawer.tsx`, adicionar `"projects"` ao union type `WhatsAppSection`.
+**Arquivo: `WhatsAppDrawer.tsx` e `WhatsAppLayout.tsx`**
+- Ao inves de renderizar `WhatsAppProjects` como secao inline, abrir como drawer sobreposto
+- Controlar estado `projectsDrawerOpen` separadamente
+- A secao ativa NAO muda para "projects" (a inbox ou secao atual continua visivel por baixo)
 
-**2. Adicionar botao "Projetos" na sidebar**
-
-No `WhatsAppSidebar.tsx`, adicionar um botao com icone `FolderOpen` entre "Campanhas" e "Central de Ajuda", que ativa a secao `"projects"`.
-
-**3. Criar componente `WhatsAppProjects.tsx`**
-
-Novo arquivo em `src/components/WhatsApp/sections/WhatsAppProjects.tsx` que:
-- Carrega a lista de projetos do tenant (reutilizando `useProjectsOptimized`)
-- Exibe campo de busca + lista de projetos (similar ao `ProjectsDrawer`)
-- Permite criar novo projeto inline
-- Ao clicar em um projeto, alterna para a view de detalhes usando `ProjectDrawerContent` (que ja possui toda a logica de ProjectView, AcordosView e SectorView internamente)
-- Botao "Voltar" para retornar a lista
-
-**4. Registrar a secao nos drawers**
-
-No `WhatsAppDrawer.tsx` e `WhatsAppLayout.tsx`, adicionar o case `"projects"` no `renderSection` / `renderOtherSection` para renderizar `WhatsAppProjects`.
+**Arquivo: `WhatsAppSidebar.tsx`**
+- O botao "Projetos" em vez de mudar `activeSection`, dispara a abertura do drawer de projetos via callback `onOpenProjects`
 
 ### Resumo dos arquivos
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/WhatsApp/WhatsAppDrawer.tsx` | Adicionar `"projects"` ao tipo; renderizar `WhatsAppProjects` |
-| `src/components/WhatsApp/WhatsAppLayout.tsx` | Adicionar case `"projects"` no render |
-| `src/components/WhatsApp/WhatsAppSidebar.tsx` | Adicionar botao "Projetos" com icone `FolderOpen` |
-| `src/components/WhatsApp/sections/WhatsAppProjects.tsx` | **Novo** -- lista de projetos + view de detalhes do projeto |
+| `WhatsAppProjects.tsx` | Reescrever como Sheet autonomo com largura `left-offset`, expansivel ao selecionar projeto |
+| `WhatsAppDrawer.tsx` | Adicionar estado `projectsDrawerOpen`, renderizar `WhatsAppProjects` como Sheet separado |
+| `WhatsAppLayout.tsx` | Mesmo ajuste para a versao fullscreen |
+| `WhatsAppSidebar.tsx` | Botao "Projetos" dispara `onOpenProjects` ao inves de `onSectionChange("projects")` |
 
-### Componentes reutilizados
-
-- `useProjectsOptimized` -- hook de carregamento progressivo de projetos
-- `ProjectDrawerContent` -- conteudo completo do projeto (ProjectView, AcordosView, SectorView)
-- Nao inclui "Casos" pois o `ProjectDrawerContent` ja trata isso internamente sem dependencias externas
-
-### Sem CASOS
-
-Conforme solicitado, a secao de Casos nao sera incluida. O `ProjectView` ja funciona sem ela pois e uma aba opcional dentro do projeto.
