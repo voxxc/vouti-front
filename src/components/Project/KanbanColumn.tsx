@@ -1,9 +1,8 @@
 import { ReactNode } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import EditableColumnName from "./EditableColumnName";
 import {
   AlertDialog,
@@ -16,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 interface KanbanColumnProps {
   id: string;
@@ -46,102 +46,98 @@ const KanbanColumn = ({
   isColumnsLocked = false,
   fullWidth = false
 }: KanbanColumnProps) => {
-  const borderColor = color;
-  const bgColor = `${color}20`;
-
   return (
-    <Card 
-      className={`shadow-card border-0 h-[calc(100vh-200px)] flex-shrink-0 transition-opacity ${
-        fullWidth ? 'w-full min-w-[280px]' : 'w-[250px]'
-      } ${isDraggingColumn ? 'opacity-50' : ''}`}
-      style={{
-        borderLeft: `4px solid ${borderColor}`,
-        backgroundColor: bgColor
-      }}
+    <div 
+      className={cn(
+        "bg-muted/50 rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)] flex-shrink-0 transition-opacity",
+        fullWidth ? 'w-full min-w-[280px]' : 'w-64 min-w-64',
+        isDraggingColumn && 'opacity-50 shadow-lg ring-2 ring-primary/30'
+      )}
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className={isColumnsLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
-              <GripVertical className={`h-4 w-4 ${isColumnsLocked ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
-            </div>
-            {onUpdateName ? (
-              <EditableColumnName
-                columnName={title}
-                onUpdateName={onUpdateName}
-                isDefault={isDefault}
-              />
-            ) : (
-              <span className="text-sm font-semibold">{title}</span>
-            )}
-            <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs shrink-0">
-              {taskCount}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onAddTask}
-              className="h-6 w-6"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            {!isDefault && onDeleteColumn && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir coluna?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. A coluna será excluída permanentemente.
-                      {taskCount > 0 && (
-                        <span className="block mt-2 text-destructive font-medium">
-                          Atenção: Esta coluna possui {taskCount} tarefa(s).
-                        </span>
-                      )}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDeleteColumn}>
-                      Excluir
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
+      {/* Column Header */}
+      <div className="flex items-center gap-2 mb-3 shrink-0">
+        <div className={isColumnsLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
+          <GripVertical className={cn("h-3.5 w-3.5", isColumnsLocked ? 'text-muted-foreground/30' : 'text-muted-foreground')} />
         </div>
-      </CardHeader>
+        <div
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ backgroundColor: color }}
+        />
+        {onUpdateName ? (
+          <EditableColumnName
+            columnName={title}
+            onUpdateName={onUpdateName}
+            isDefault={isDefault}
+          />
+        ) : (
+          <h3 className="font-semibold text-xs truncate uppercase tracking-wide">{title}</h3>
+        )}
+        <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] h-5">
+          {taskCount}
+        </Badge>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onAddTask}
+            className="h-6 w-6"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          {!isDefault && onDeleteColumn && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir coluna?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. A coluna será excluída permanentemente.
+                    {taskCount > 0 && (
+                      <span className="block mt-2 text-destructive font-medium">
+                        Atenção: Esta coluna possui {taskCount} tarefa(s).
+                      </span>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDeleteColumn}>
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </div>
       
-      <CardContent className="pt-0 pb-0 h-[calc(100vh-280px)]">
-        <ScrollArea className="h-full pr-2">
-          <Droppable droppableId={id}>
-            {(provided, snapshot) => (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className={`space-y-3 min-h-[400px] p-2 rounded-md transition-colors ${
-                  snapshot.isDraggingOver ? 'bg-muted/50' : ''
-                }`}
-              >
-                {children}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+      {/* Cards Droppable */}
+      <div className="flex-1 overflow-y-auto">
+        <Droppable droppableId={id}>
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={cn(
+                "space-y-2 min-h-[100px] pr-1",
+                snapshot.isDraggingOver && 'bg-primary/5 rounded'
+              )}
+            >
+              {children}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </div>
+    </div>
   );
 };
 
