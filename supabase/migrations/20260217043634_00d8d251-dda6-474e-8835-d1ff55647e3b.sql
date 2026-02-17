@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN module TEXT NOT NULL DEFAULT 'legal';

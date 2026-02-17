@@ -1,13 +1,23 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { FolderOpen, Plus, Search, X, ChevronRight, ArrowLeft } from "lucide-react";
-import { useProjectsOptimized, ProjectBasic } from "@/hooks/useProjectsOptimized";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenantId } from "@/hooks/useTenantId";
+import { useToast } from "@/hooks/use-toast";
 import { ProjectDrawerContent } from "@/components/Project/ProjectDrawerContent";
 import { cn } from "@/lib/utils";
+
+interface CrmProject {
+  id: string;
+  name: string;
+  client: string;
+  description: string;
+}
 
 interface WhatsAppProjectsProps {
   open: boolean;
@@ -20,26 +30,74 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", client: "", description: "" });
   const [isCreating, setIsCreating] = useState(false);
+  const [projects, setProjects] = useState<CrmProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { projects, isBasicLoaded, createProject } = useProjectsOptimized();
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
+  const { toast } = useToast();
+
+  const fetchProjects = useCallback(async () => {
+    if (!user || !tenantId) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name, client, description")
+        .eq("tenant_id", tenantId)
+        .eq("module", "crm")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setProjects(
+        (data || []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          client: p.client,
+          description: p.description || "",
+        }))
+      );
+    } catch (error) {
+      console.error("[WhatsAppProjects] Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, tenantId]);
+
+  useEffect(() => {
+    if (open && user && tenantId) {
+      fetchProjects();
+    }
+  }, [open, user, tenantId, fetchProjects]);
 
   const filteredProjects = useMemo(() => {
     if (!searchTerm.trim()) return projects;
     const term = searchTerm.toLowerCase();
     return projects.filter(
-      p => p.name.toLowerCase().includes(term) || p.client.toLowerCase().includes(term)
+      (p) => p.name.toLowerCase().includes(term) || p.client.toLowerCase().includes(term)
     );
   }, [projects, searchTerm]);
 
   const handleCreateProject = async () => {
-    if (!formData.name.trim() || !formData.client.trim()) return;
+    if (!formData.name.trim() || !formData.client.trim() || !user || !tenantId) return;
     setIsCreating(true);
     try {
-      const result = await createProject(formData);
-      if (result) {
-        setFormData({ name: "", client: "", description: "" });
-        setShowCreateForm(false);
-      }
+      const { error } = await supabase.from("projects").insert({
+        name: formData.name,
+        client: formData.client,
+        description: formData.description,
+        created_by: user.id,
+        tenant_id: tenantId,
+        module: "crm",
+      });
+      if (error) throw error;
+      toast({ title: "Sucesso", description: "Projeto criado com sucesso!" });
+      setFormData({ name: "", client: "", description: "" });
+      setShowCreateForm(false);
+      fetchProjects();
+    } catch (error) {
+      console.error("[WhatsAppProjects] Create error:", error);
+      toast({ title: "Erro", description: "Erro ao criar projeto.", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }
@@ -121,7 +179,7 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
                 </div>
 
                 <div className="space-y-1">
-                  {!isBasicLoaded ? (
+                  {isLoading ? (
                     Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="p-3 rounded-lg">
                         <Skeleton className="h-5 w-3/4 mb-2" />

@@ -5079,6 +5079,7 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          module: string
           name: string
           tenant_id: string | null
           updated_at: string
@@ -5090,6 +5091,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          module?: string
           name: string
           tenant_id?: string | null
           updated_at?: string
@@ -5101,6 +5103,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          module?: string
           name?: string
           tenant_id?: string | null
           updated_at?: string
