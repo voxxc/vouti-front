@@ -1,102 +1,104 @@
 
 
-## Integrar DeepSeek AI como provedor alternativo no sistema WhatsApp
+## Corrigir: Contatos salvos nao sendo reconhecidos nas conversas
 
-### Visao geral
+### Problema encontrado
 
-Adicionar a DeepSeek como opcao de modelo de IA para os agentes WhatsApp. O sistema detectara automaticamente qual provedor usar com base no modelo selecionado, roteando para a API correta (Lovable AI Gateway ou DeepSeek API diretamente).
+O contato "Solvenza Chip 1" foi salvo com o telefone `45 98808-3583`, mas as mensagens chegam com o numero `5545988083583`. O sistema faz busca por **match exato** (`.eq("phone", ...)`), entao nao reconhece que sao o mesmo contato.
 
-### Como funciona
+Isso afeta **todos os tenants** e acontece porque:
+1. O `SaveContactDialog` salva o telefone no formato que o usuario digita (com espacos, tracos, sem codigo do pais)
+2. As conversas usam o numero normalizado (so digitos, com 55)
+3. A busca de contatos e por igualdade exata -- falha quando os formatos divergem
 
-O campo `model_name` ja armazena valores como `google/gemini-3-flash-preview`. Modelos DeepSeek seguirao o mesmo padrao (`deepseek/deepseek-chat`). A edge function detecta o prefixo e roteia para a API correta:
-
-- Prefixo `deepseek/` --> API DeepSeek (`https://api.deepseek.com/v1/chat/completions`)
-- Qualquer outro --> Lovable AI Gateway (comportamento atual)
-
-### Mudancas
-
-**1. Configurar secret da API DeepSeek**
-
-Adicionar `DEEPSEEK_API_KEY` como secret do Supabase para armazenar a chave de API de forma segura.
-
-**2. Frontend - `WhatsAppAISettings.tsx`**
-
-Adicionar modelos DeepSeek na lista de modelos disponiveis:
+### Dados reais do problema
 
 ```text
-const AVAILABLE_MODELS = [
-  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Rapido)" },
-  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Balanceado)" },
-  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Avancado)" },
-  { value: "deepseek/deepseek-chat", label: "DeepSeek Chat (Economico)" },
-  { value: "deepseek/deepseek-reasoner", label: "DeepSeek Reasoner (Raciocinio)" },
-];
+Contato salvo:     "45 98808-3583"
+Conversa mostra:   "5545988083583"
+Match exato:       FALHA
 ```
 
-**3. Backend - `whatsapp-ai-chat/index.ts`**
+### Solucao: Normalizar em 3 pontos
 
-Alterar a chamada da IA para detectar o provedor pelo prefixo do modelo:
+**1. Normalizar ao salvar o contato (`SaveContactDialog.tsx`)**
+
+Antes de gravar no banco, limpar o telefone para formato padrao (so digitos, com 55):
 
 ```text
-// Determinar provedor e endpoint
-const modelName = aiConfig.model_name || 'google/gemini-3-flash-preview';
-const isDeepSeek = modelName.startsWith('deepseek/');
+// Antes de salvar:
+const normalizedPhone = normalizePhoneForStorage(phoneValue.trim());
 
-let apiUrl: string;
-let apiKey: string;
-let actualModel: string;
-
-if (isDeepSeek) {
-  const deepseekKey = Deno.env.get('DEEPSEEK_API_KEY');
-  if (!deepseekKey) throw new Error('DEEPSEEK_API_KEY not configured');
-  apiUrl = 'https://api.deepseek.com/v1/chat/completions';
-  apiKey = deepseekKey;
-  actualModel = modelName.replace('deepseek/', ''); // "deepseek-chat"
-} else {
-  apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-  apiKey = lovableApiKey;
-  actualModel = modelName;
+function normalizePhoneForStorage(phone: string): string {
+  let cleaned = phone.replace(/\D/g, '');
+  // Adicionar 55 se for numero brasileiro sem codigo do pais
+  if (cleaned.length === 10 || cleaned.length === 11) {
+    cleaned = '55' + cleaned;
+  }
+  // Adicionar nono digito se 12 digitos (55 + DDD + 8 digitos)
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    cleaned = cleaned.substring(0, 4) + '9' + cleaned.substring(4);
+  }
+  return cleaned;
 }
-
-const aiResponse = await fetch(apiUrl, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    model: actualModel,
-    messages,
-    temperature: aiConfig.temperature || 0.7,
-    max_tokens: 500,
-  }),
-});
 ```
 
-**4. Backend - `whatsapp-webhook/index.ts`**
+**2. Normalizar ao buscar o contato (`ContactInfoPanel.tsx`)**
 
-Aplicar a mesma logica de roteamento na funcao `handleAIResponse` que chama a IA pelo webhook (mesma alteracao do passo 3).
+Na busca de contato, comparar usando ambas variantes (com e sem nono digito):
+
+```text
+// Gerar variantes do numero para busca
+const normalized = normalizePhone(conversation.contactNumber);
+const variant = getPhoneVariant(normalized);
+
+// Buscar por qualquer variante
+let query = supabase
+  .from("whatsapp_contacts")
+  .select("id");
+
+if (variant) {
+  query = query.or(`phone.eq.${normalized},phone.eq.${variant}`);
+} else {
+  query = query.eq("phone", normalized);
+}
+```
+
+**3. Normalizar ao montar o mapa de nomes (`WhatsAppInbox.tsx`, `SuperAdminWhatsAppInbox.tsx`, `WhatsAppKanban.tsx`)**
+
+Ja fazem `normalizePhone(c.phone)` -- mas dependem de o phone estar em formato limpavel. Apos a correcao no salvamento, todos passam a funcionar corretamente.
+
+**4. Migracao SQL: corrigir dados existentes**
+
+Limpar os telefones ja salvos no banco para o formato padrao:
+
+```sql
+UPDATE whatsapp_contacts
+SET phone = regexp_replace(phone, '[^0-9]', '', 'g');
+
+-- Adicionar 55 para numeros sem codigo do pais (10-11 digitos)
+UPDATE whatsapp_contacts
+SET phone = '55' || phone
+WHERE length(phone) IN (10, 11)
+  AND phone NOT LIKE '55%';
+
+-- Adicionar nono digito onde falta (12 digitos comecando com 55)
+UPDATE whatsapp_contacts
+SET phone = substring(phone, 1, 4) || '9' || substring(phone, 5)
+WHERE length(phone) = 12
+  AND phone LIKE '55%';
+```
 
 ### Arquivos a editar
 
-1. Secret: adicionar `DEEPSEEK_API_KEY`
-2. `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` - adicionar modelos DeepSeek na lista
-3. `supabase/functions/whatsapp-ai-chat/index.ts` - roteamento por provedor
-4. `supabase/functions/whatsapp-webhook/index.ts` - mesmo roteamento
-
-### Sem mudanca no banco de dados
-
-O campo `model_name` (text) ja suporta qualquer valor. Nao e necessario alterar o schema.
-
-### Custo DeepSeek
-
-- **deepseek-chat**: modelo conversacional, ~$0.14/M tokens input, $0.28/M output
-- **deepseek-reasoner**: modelo com raciocinio avancado (chain-of-thought), mais caro
+1. **SQL Migration** - normalizar telefones existentes no banco
+2. **`src/components/WhatsApp/components/SaveContactDialog.tsx`** - normalizar antes de salvar
+3. **`src/components/WhatsApp/components/ContactInfoPanel.tsx`** - buscar com variantes normalizadas
+4. Extrair funcao `normalizePhone` para arquivo utilitario compartilhado (`src/utils/phoneUtils.ts`) para evitar duplicacao entre 4+ arquivos
 
 ### Resultado
 
-- Ao configurar IA de um agente, o usuario vera opcoes Gemini e DeepSeek
-- O sistema roteia automaticamente para a API correta
-- Cada provedor usa sua propria chave de API
-- Nenhuma mudanca no banco de dados necessaria
-
+- Contatos salvos em qualquer formato serao normalizados automaticamente
+- Busca de contatos compara por variantes (com/sem nono digito)
+- Dados existentes corrigidos pela migracao
+- Funciona para todos os tenants e Super Admin
