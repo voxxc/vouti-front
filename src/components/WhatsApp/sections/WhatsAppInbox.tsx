@@ -178,6 +178,15 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         return;
       }
 
+      // Check shared access phones for this agent
+      const { data: sharedAccess } = await supabase
+        .from("whatsapp_conversation_access" as any)
+        .select("phone")
+        .eq("agent_id", myAgentId);
+
+      const sharedPhones = new Set<string>((sharedAccess || []).map((a: any) => a.phone));
+
+      // Load own messages
       let messagesQuery = supabase
         .from("whatsapp_messages")
         .select("*")
@@ -193,6 +202,20 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           .eq("tenant_id", tenantId)
       ]);
 
+      // If there are shared access phones, also load messages from those phones (all agents)
+      let sharedMessages: any[] = [];
+      if (sharedPhones.size > 0) {
+        const phoneArray = Array.from(sharedPhones);
+        const orFilter = phoneArray.map(p => `from_number.eq.${p}`).join(",");
+        const { data: sharedData } = await supabase
+          .from("whatsapp_messages")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .or(orFilter)
+          .order("created_at", { ascending: false });
+        sharedMessages = sharedData || [];
+      }
+
       if (messagesResult.error) throw messagesResult.error;
 
       const contactNameMap = new Map<string, string>();
@@ -201,11 +224,23 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         contactNameMap.set(c.phone, c.name);
       });
 
+      // Merge own messages + shared messages (deduplicate by id)
+      const allMessages = [...(messagesResult.data || [])];
+      const seenIds = new Set(allMessages.map(m => m.id));
+      sharedMessages.forEach(m => {
+        if (!seenIds.has(m.id)) {
+          allMessages.push(m);
+          seenIds.add(m.id);
+        }
+      });
+      // Sort descending by created_at
+      allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
       const conversationMap = new Map<string, WhatsAppConversation>();
       
       const unreadMap = new Map<string, number>();
       
-      messagesResult.data?.forEach((msg) => {
+      allMessages.forEach((msg) => {
         const normalizedNumber = normalizePhone(msg.from_number);
         
         // Count unread incoming messages
@@ -294,13 +329,26 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     try {
       const normalized = normalizePhone(contactNumber);
       const variant = getPhoneVariant(normalized);
+
+      // Check if agent has shared access to this phone
+      let hasSharedAccess = false;
+      if (myAgentId) {
+        const { data: access } = await supabase
+          .from("whatsapp_conversation_access" as any)
+          .select("id")
+          .eq("agent_id", myAgentId)
+          .eq("phone", normalized)
+          .maybeSingle();
+        hasSharedAccess = !!access;
+      }
       
       let query = supabase
         .from("whatsapp_messages")
         .select("*")
         .eq("tenant_id", tenantId);
 
-      if (myAgentId) {
+      // If shared access, load ALL messages for this phone (no agent_id filter)
+      if (!hasSharedAccess && myAgentId) {
         query = query.eq("agent_id", myAgentId);
       }
       

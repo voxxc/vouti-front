@@ -85,6 +85,22 @@ export const TransferConversationDialog = ({
       .eq("from_number", conversation.contactNumber)
       .eq("agent_id", currentAgentId);
 
+    // Grant shared access to the new agent (full history visibility)
+    await supabase.from("whatsapp_conversation_kanban").upsert({
+      tenant_id: tenantId,
+      agent_id: newAgentId,
+      phone: conversation.contactNumber,
+      granted_by_agent_id: currentAgentId,
+    } as any, { onConflict: "agent_id,phone" }).then(() => {});
+
+    // Also upsert into whatsapp_conversation_access
+    await supabase.from("whatsapp_conversation_access" as any).upsert({
+      tenant_id: tenantId,
+      agent_id: newAgentId,
+      phone: conversation.contactNumber,
+      granted_by_agent_id: currentAgentId,
+    } as any, { onConflict: "agent_id,phone" });
+
     // Move Kanban card - delete from old agent
     await supabase
       .from("whatsapp_conversation_kanban")
