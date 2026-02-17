@@ -1,39 +1,65 @@
 
 
-## Corrigir: Webhook da Z-API nao esta sendo configurado (endpoint errado)
+## Corrigir: IA respondendo por agentes que nao tem IA habilitada
 
 ### Problema
 
-O `set-webhook` implementado anteriormente **falhou** com erro `NOT_FOUND` porque usa o endpoint e formato errados da Z-API:
+O sistema tem uma logica de fallback: se nao encontra uma configuracao de IA especifica para o agente, busca uma configuracao no nivel do tenant (onde `agent_id` e nulo). Como o Daniel tem uma config de IA habilitada no tenant, **todos os agentes sem config propria** (como a Laura) acabam usando essa config e respondendo com IA.
 
-- Endpoint errado: `POST /update-webhook`
-- Formato errado: `{ "webhookUrl": "...", "sendAckCallback": false }`
+### Causa raiz
 
-O correto segundo a documentacao oficial da Z-API:
+No webhook e no chat da IA, o codigo faz:
 
-- Endpoint correto: `PUT /update-webhook-received`
-- Formato correto: `{ "value": "https://..." }`
+1. Busca config por `agent_id` -- Laura nao tem, retorna vazio
+2. Fallback: busca config onde `agent_id IS NULL` e `tenant_id` bate -- encontra a config do Daniel
+3. Config encontrada com `is_enabled: true` -- IA responde pela Laura
 
 ### Solucao
 
-Corrigir a action `set-webhook` no edge function `whatsapp-zapi-action/index.ts`:
+Quando a mensagem vem de um agente especifico (tem `agent_id`), **nao usar fallback para config do tenant**. O fallback so deve ser usado quando nao ha agente associado (mensagens sem `agent_id`).
+
+### Mudancas
+
+**1. `supabase/functions/whatsapp-webhook/index.ts` (funcao `handleAIResponse`)**
+
+Alterar a logica nas linhas 394-408: so executar o fallback se `agent_id` for nulo/undefined.
 
 ```text
-Antes (errado):
-  endpoint = baseUrl + "/update-webhook"
-  method = "POST"
-  body = { webhookUrl: "...", sendAckCallback: false }
+Antes:
+  if (!aiConfig) {
+    // busca fallback tenant (sempre)
+  }
 
-Depois (correto):
-  endpoint = baseUrl + "/update-webhook-received"
-  method = "PUT"
-  body = { value: "https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-webhook" }
+Depois:
+  if (!aiConfig && !agent_id) {
+    // busca fallback tenant (apenas se nao tem agente)
+  }
 ```
 
-### Arquivo a editar
+**2. `supabase/functions/whatsapp-ai-chat/index.ts` (linhas 57-68)**
 
-1. `supabase/functions/whatsapp-zapi-action/index.ts` - corrigir endpoint, metodo e body da action `set-webhook`
+Mesma logica: so fazer fallback para config do tenant se `agent_id` nao foi informado.
 
-### Nota
+```text
+Antes:
+  if (!aiConfig && !configError) {
+    // busca fallback tenant (sempre)
+  }
 
-Apos o deploy, a Laura precisara **reconectar** (desconectar e escanear QR Code novamente) para que o webhook seja configurado automaticamente. Ou pode-se disparar a action `set-webhook` manualmente para a instancia dela.
+Depois:
+  if (!aiConfig && !configError && !agent_id) {
+    // busca fallback tenant (apenas se nao tem agente)
+  }
+```
+
+### Arquivos a editar
+
+1. `supabase/functions/whatsapp-webhook/index.ts` - condicionar fallback a ausencia de `agent_id`
+2. `supabase/functions/whatsapp-ai-chat/index.ts` - mesma correcao
+
+### Resultado
+
+- Agentes **com** config de IA propria: usam sua config normalmente
+- Agentes **sem** config de IA: IA **nao responde** (comportamento esperado)
+- Mensagens **sem agente** vinculado: continuam usando fallback do tenant (se existir)
+
