@@ -1,43 +1,35 @@
 
+## Projetos Independentes no CRM + Correção da Detecção de Agente
 
-## Drawer de Projetos com Largura Similar ao Vouti
+### Problema 1: Projetos compartilhados entre CRM e Vouti
+Atualmente, o drawer de Projetos no CRM usa o mesmo hook `useProjectsOptimized`, que consulta a tabela `projects` sem distinção. Isso faz com que os projetos do sistema jurídico apareçam no CRM e vice-versa.
 
-### Problema atual
-Ao clicar em "Projetos" no CRM, o conteudo e renderizado ocupando toda a area principal do drawer (que e `inset`, tela inteira). O usuario quer que abra um drawer separado com largura semelhante ao do Vouti dashboard, que usa `side="left-offset"` com `w-96` (384px).
+### Solução: Coluna `module` na tabela `projects`
+Adicionar uma coluna `module` (tipo texto, default `'legal'`) na tabela `projects` para diferenciar projetos do sistema jurídico dos projetos do CRM.
 
-### Solucao
+**Migração SQL:**
+- `ALTER TABLE projects ADD COLUMN module TEXT NOT NULL DEFAULT 'legal';`
+- Todos os projetos existentes ficam como `'legal'` automaticamente
 
-Transformar a secao "Projetos" do CRM em um **sub-drawer (Sheet)** que abre por cima do conteudo, com largura fixa similar ao Vouti. Ao clicar em um projeto, o drawer expande para mostrar o `ProjectDrawerContent` com largura maior (para acomodar Kanban, setores, etc).
+**Código:**
+- `WhatsAppProjects.tsx`: Não usar mais o `useProjectsOptimized` (que é do sistema jurídico). Criar lógica própria de consulta filtrando `module = 'crm'` e inserindo com `module: 'crm'`
+- `useProjectsOptimized.ts`: Adicionar filtro `.eq('module', 'legal')` para garantir que o sistema jurídico não veja projetos do CRM
 
-### Comportamento
+---
 
-1. Clicar em "Projetos" na sidebar do CRM abre um **Sheet separado** (nao substitui o conteudo principal)
-2. O Sheet aparece com largura `w-96` mostrando a lista de projetos (identico ao Vouti)
-3. Ao selecionar um projeto, o drawer expande para largura maior (`w-[900px]` ou similar) para exibir o `ProjectDrawerContent` completo
-4. A Inbox continua ativa em segundo plano (comportamento atual preservado)
+### Problema 2: Admin Daniel não consegue ver a Caixa de Entrada
 
-### Detalhes tecnicos
+**Causa raiz identificada:** Race condition no `WhatsAppInbox`. O hook `useTenantId()` inicia com `tenantId = null` enquanto carrega. Nesse momento, o `findMyAgent` executa com `tenant_id IS NULL`, não encontra o agente (que tem tenant_id real), e define `myAgentId = null`. A UI imediatamente mostra "Caixa de Entrada Vazia - crie um agente". Quando o tenantId finalmente carrega, o efeito deveria re-executar, mas dependendo do timing, o estado `null` já foi definido e o componente exibe a tela errada.
 
-**Arquivo: `WhatsAppProjects.tsx`**
-- Envolver todo o conteudo em um componente `Sheet` proprio com `side="left-offset"`
-- Receber props `open` e `onOpenChange` para controlar abertura/fechamento
-- Quando um projeto e selecionado, trocar a classe de largura do `SheetContent` de `w-96` para `w-[900px]` (transicao suave)
-- Manter a mesma logica interna de lista vs detalhes
+**Correção:** No `findMyAgent`, não executar a busca enquanto `tenantId` ainda não carregou. Manter `myAgentId` como `undefined` (estado de carregamento) até ter o tenantId real. Isso garante que a UI mostra "Carregando..." ao invés de "Crie um agente".
 
-**Arquivo: `WhatsAppDrawer.tsx` e `WhatsAppLayout.tsx`**
-- Ao inves de renderizar `WhatsAppProjects` como secao inline, abrir como drawer sobreposto
-- Controlar estado `projectsDrawerOpen` separadamente
-- A secao ativa NAO muda para "projects" (a inbox ou secao atual continua visivel por baixo)
-
-**Arquivo: `WhatsAppSidebar.tsx`**
-- O botao "Projetos" em vez de mudar `activeSection`, dispara a abertura do drawer de projetos via callback `onOpenProjects`
+---
 
 ### Resumo dos arquivos
 
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---|---|
-| `WhatsAppProjects.tsx` | Reescrever como Sheet autonomo com largura `left-offset`, expansivel ao selecionar projeto |
-| `WhatsAppDrawer.tsx` | Adicionar estado `projectsDrawerOpen`, renderizar `WhatsAppProjects` como Sheet separado |
-| `WhatsAppLayout.tsx` | Mesmo ajuste para a versao fullscreen |
-| `WhatsAppSidebar.tsx` | Botao "Projetos" dispara `onOpenProjects` ao inves de `onSectionChange("projects")` |
-
+| Migração SQL | Adicionar coluna `module` na tabela `projects` |
+| `src/components/WhatsApp/sections/WhatsAppProjects.tsx` | Substituir `useProjectsOptimized` por consultas diretas com `module = 'crm'` |
+| `src/hooks/useProjectsOptimized.ts` | Adicionar filtro `.eq('module', 'legal')` |
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Corrigir race condition: não buscar agente enquanto tenantId é null |
