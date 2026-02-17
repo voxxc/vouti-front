@@ -1,13 +1,20 @@
 import { useState } from "react";
-import { Search, MessageSquare, Users } from "lucide-react";
+import { Search, MessageSquare, Users, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+export interface WhatsAppGroup {
+  id: string;
+  name: string;
+}
 
 interface ConversationWithAgent extends WhatsAppConversation {
   agentId?: string;
@@ -20,6 +27,9 @@ interface ConversationListProps {
   onSelectConversation: (conversation: ConversationWithAgent) => void;
   isLoading: boolean;
   showAgentBadge?: boolean;
+  groups?: WhatsAppGroup[];
+  onFetchGroups?: () => void;
+  isLoadingGroups?: boolean;
 }
 
 export const ConversationList = ({
@@ -28,6 +38,9 @@ export const ConversationList = ({
   onSelectConversation,
   isLoading,
   showAgentBadge = false,
+  groups = [],
+  onFetchGroups,
+  isLoadingGroups = false,
 }: ConversationListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -68,6 +81,63 @@ export const ConversationList = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
           />
+        </div>
+      </div>
+
+      {/* Groups Bar */}
+      <div className="px-4 py-2 border-b border-border">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full shrink-0"
+                  onClick={onFetchGroups}
+                  disabled={isLoadingGroups}
+                >
+                  {isLoadingGroups ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Buscar Grupos</TooltipContent>
+            </Tooltip>
+
+            {groups.map((group) => {
+              const isSelected = selectedConversation?.contactNumber === group.id;
+              return (
+                <Tooltip key={group.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() =>
+                        onSelectConversation({
+                          id: `group-${group.id}`,
+                          contactName: group.name,
+                          contactNumber: group.id,
+                          lastMessage: "",
+                          lastMessageTime: new Date().toISOString(),
+                          unreadCount: 0,
+                        })
+                      }
+                      className={cn(
+                        "h-9 w-9 rounded-full shrink-0 flex items-center justify-center text-xs font-medium transition-all border-2",
+                        isSelected
+                          ? "border-primary bg-primary/20 text-primary"
+                          : "border-transparent bg-muted hover:bg-muted/80 text-muted-foreground"
+                      )}
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{group.name}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
         </div>
       </div>
 
