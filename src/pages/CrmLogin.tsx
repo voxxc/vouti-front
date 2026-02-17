@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import CloudIcon from "@/components/CloudIcon";
+
 import { useToast } from "@/hooks/use-toast";
 import { useLocalTheme } from "@/hooks/useLocalTheme";
 import { AuthThemeToggle } from "@/components/Auth/AuthThemeToggle";
@@ -98,9 +98,9 @@ const CrmLogin = () => {
         <div className="absolute inset-0 bg-black/35" />
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
           <div className="mb-2 flex flex-col items-start">
-            <span className="text-5xl md:text-7xl font-bold tracking-wider">
-              <span className="bg-gradient-to-r from-white via-white to-blue-300 bg-clip-text text-transparent">VOUTI</span>
-              <span className="text-red-500"> CRM</span>
+            <span className="text-5xl md:text-7xl font-black tracking-tight lowercase">
+              <span className="text-white">vouti</span>
+              <span className="text-[#E11D48]">.crm</span>
             </span>
           </div>
           <p className="text-sm md:text-base font-medium tracking-wide text-white/90">
@@ -114,10 +114,9 @@ const CrmLogin = () => {
         <div className="w-full max-w-md animate-slide-in-left">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-6">
-            <CloudIcon className="w-16 h-12 mx-auto mb-4 animate-float" />
-            <span className="text-3xl font-bold tracking-wider block mb-3">
-              <span className="bg-gradient-to-r from-gray-600 via-gray-800 to-blue-600 dark:from-gray-300 dark:via-white dark:to-blue-400 bg-clip-text text-transparent">VOUTI</span>
-              <span className="text-red-500"> CRM</span>
+            <span className="text-3xl font-black tracking-tight lowercase block mb-3">
+              <span className="text-foreground">vouti</span>
+              <span className="text-[#E11D48]">.crm</span>
             </span>
             <p className="text-sm font-medium tracking-wide text-muted-foreground">
               Gestão inteligente de <span className="text-primary">clientes</span>.
