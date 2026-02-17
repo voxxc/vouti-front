@@ -31,7 +31,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       if (!tenantId) return null;
 
       const [projectsRes, leadsRes, processosCountRes, protocolosRes] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal'),
         supabase.from('leads_captacao').select('id, status', { count: 'exact' }).eq('tenant_id', tenantId),
         supabase.rpc('get_dashboard_processos_count'),
         supabase.from('project_protocolos').select(`

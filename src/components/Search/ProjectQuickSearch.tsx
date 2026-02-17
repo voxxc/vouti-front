@@ -43,6 +43,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
           .from('projects')
           .select('id, name, client')
           .eq('tenant_id', tenantId)
+          .eq('module', 'legal')
           .order('updated_at', { ascending: false });
         
         if (error) {
@@ -71,6 +72,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
           .from('projects')
           .select('id, name, client')
           .eq('tenant_id', tenantId)
+          .eq('module', 'legal')
           .or(orFilter)
           .order('updated_at', { ascending: false });
         

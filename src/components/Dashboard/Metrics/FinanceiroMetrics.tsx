@@ -53,7 +53,7 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
         colaboradorPagRes,
         proximosVencRes,
       ] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal'),
         supabase.from('deadlines').select('id', { count: 'exact', head: true }).eq('completed', false).lt('date', todayStr),
         supabase.from('deadlines').select('id', { count: 'exact', head: true }),
         supabase.from('deadlines').select('id, title, date, project_id').eq('completed', false).lt('date', todayStr).order('date', { ascending: true }).limit(5),

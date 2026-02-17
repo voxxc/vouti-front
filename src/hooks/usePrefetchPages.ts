@@ -38,7 +38,7 @@ const prefetchDashboardData = async (
     queryKey: ['admin-metrics', userId],
     queryFn: async () => {
       const [projectsRes, leadsRes, processosRes, deadlinesRes] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal'),
         supabase.from('reuniao_clientes').select('id', { count: 'exact', head: true }),
         supabase.from('processos_oab').select('id', { count: 'exact', head: true }),
         supabase.from('deadlines').select('id', { count: 'exact', head: true }).eq('completed', false)
