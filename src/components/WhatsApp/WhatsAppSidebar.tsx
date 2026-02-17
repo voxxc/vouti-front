@@ -233,9 +233,12 @@ export const WhatsAppSidebar = ({
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="text-3xl font-black tracking-tight lowercase text-foreground">
+          <button 
+            onClick={() => onSectionChange("inbox")}
+            className="text-3xl font-black tracking-tight lowercase text-foreground hover:opacity-80 transition-opacity cursor-pointer"
+          >
             vouti<span className="text-[#E11D48]">.</span>crm
-          </span>
+          </button>
           <div className="ml-auto">
             <CRMNotificationsBell />
           </div>

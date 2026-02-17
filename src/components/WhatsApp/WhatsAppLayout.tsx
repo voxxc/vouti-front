@@ -46,10 +46,8 @@ export const WhatsAppLayout = () => {
     setActiveSection("inbox");
   };
 
-  const renderSection = () => {
+  const renderOtherSection = () => {
     switch (activeSection) {
-      case "inbox":
-        return <WhatsAppInbox initialConversationPhone={initialConversationPhone} onConversationOpened={() => setInitialConversationPhone(null)} />;
       case "all-conversations":
         return <WhatsAppAllConversations />;
       case "conversations":
@@ -70,7 +68,6 @@ export const WhatsAppLayout = () => {
         return <WhatsAppCampaigns />;
       case "help":
         return <WhatsAppHelp />;
-      // Settings
       case "account":
         return <WhatsAppAccountSettings />;
       case "agents":
@@ -104,7 +101,7 @@ export const WhatsAppLayout = () => {
       case "permissions":
         return <WhatsAppPermissionsSettings />;
       default:
-        return <WhatsAppInbox />;
+        return null;
     }
   };
 
@@ -117,8 +114,18 @@ export const WhatsAppLayout = () => {
         onKanbanAgentSelect={handleKanbanAgentSelect}
         selectedKanbanAgentId={selectedKanbanAgent?.id}
       />
-      <main className="flex-1 overflow-hidden">
-        {renderSection()}
+      <main className="flex-1 overflow-hidden relative">
+        {/* Inbox SEMPRE montada - polling de 2s continua ativo */}
+        <div className={activeSection === "inbox" ? "h-full" : "hidden"}>
+          <WhatsAppInbox initialConversationPhone={initialConversationPhone} onConversationOpened={() => setInitialConversationPhone(null)} />
+        </div>
+
+        {/* Outras seções como overlay */}
+        {activeSection !== "inbox" && (
+          <div className="absolute inset-0 z-10 bg-background">
+            {renderOtherSection()}
+          </div>
+        )}
       </main>
     </div>
   );
