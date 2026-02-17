@@ -59,6 +59,8 @@ interface WhatsAppSidebarProps {
   selectedLabelId?: string;
   onTeamSelect?: (teamId: string, teamName: string) => void;
   selectedTeamId?: string;
+  onOpenProjects?: () => void;
+  projectsDrawerOpen?: boolean;
 }
 
 const settingsMenuItems: { id: WhatsAppSection; label: string; icon: React.ElementType }[] = [
@@ -93,6 +95,8 @@ export const WhatsAppSidebar = ({
   selectedLabelId,
   onTeamSelect,
   selectedTeamId,
+  onOpenProjects,
+  projectsDrawerOpen,
 }: WhatsAppSidebarProps) => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -486,12 +490,12 @@ export const WhatsAppSidebar = ({
 
           {/* Projetos */}
           <Button
-            variant={activeSection === "projects" ? "secondary" : "ghost"}
+            variant={projectsDrawerOpen ? "secondary" : "ghost"}
             className={cn(
               "w-full justify-start gap-3 h-10",
-              activeSection === "projects" && "bg-primary/10 text-primary"
+              projectsDrawerOpen && "bg-primary/10 text-primary"
             )}
-            onClick={() => onSectionChange("projects")}
+            onClick={() => onOpenProjects?.()}
           >
             <FolderOpen className="h-4 w-4" />
             <span className="text-sm">Projetos</span>

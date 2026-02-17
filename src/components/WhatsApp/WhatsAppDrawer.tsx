@@ -71,6 +71,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
   const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<{ id: string; name: string } | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<{ id: string; name: string } | null>(null);
+  const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
 
   const handleKanbanAgentSelect = (agentId: string, agentName: string) => {
     setSelectedKanbanAgent({ id: agentId, name: agentName });
@@ -152,7 +153,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
       case "permissions":
         return <WhatsAppPermissionsSettings />;
       case "projects":
-        return <WhatsAppProjects />;
+        return null;
       default:
         return <WhatsAppInbox />;
     }
@@ -177,6 +178,8 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
             selectedLabelId={selectedLabel?.id}
             onTeamSelect={handleTeamSelect}
             selectedTeamId={selectedTeam?.id}
+            onOpenProjects={() => setProjectsDrawerOpen(true)}
+            projectsDrawerOpen={projectsDrawerOpen}
           />
           <main className="flex-1 overflow-hidden relative">
             {/* Kanban always mounted for background polling */}
@@ -188,6 +191,8 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
             {activeSection !== "kanban" && renderSection()}
           </main>
         </div>
+
+        <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
       </SheetContent>
     </Sheet>
   );
