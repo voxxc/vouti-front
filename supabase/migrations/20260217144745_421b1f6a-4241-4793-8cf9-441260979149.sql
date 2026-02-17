@@ -1,0 +1,1 @@
+ALTER TABLE public.clientes ADD COLUMN dados_veiculares jsonb DEFAULT NULL;

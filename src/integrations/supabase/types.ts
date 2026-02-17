@@ -590,6 +590,7 @@ export type Database = {
           cnpj: string | null
           cpf: string | null
           created_at: string | null
+          dados_veiculares: Json | null
           data_cadastro: string | null
           data_fechamento: string | null
           data_nascimento: string | null
@@ -631,6 +632,7 @@ export type Database = {
           cnpj?: string | null
           cpf?: string | null
           created_at?: string | null
+          dados_veiculares?: Json | null
           data_cadastro?: string | null
           data_fechamento?: string | null
           data_nascimento?: string | null
@@ -672,6 +674,7 @@ export type Database = {
           cnpj?: string | null
           cpf?: string | null
           created_at?: string | null
+          dados_veiculares?: Json | null
           data_cadastro?: string | null
           data_fechamento?: string | null
           data_nascimento?: string | null
