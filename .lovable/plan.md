@@ -1,22 +1,28 @@
 
 
-## Adicionar logo vouti. no header do dashboard (exceto Solvenza)
+## Atualizar logo do Vouti.CRM: remover nuvem e aplicar nova identidade
 
 ### O que sera feito
 
-Adicionar o logo "vouti." no lado esquerdo do header do dashboard, antes do campo de busca rapida. O logo aparecera em todos os tenants, **exceto** quando o tenant for "Solvenza" (que usa seu proprio logo).
+Substituir a logo antiga (nuvem + "VOUTI CRM" em uppercase) pela nova identidade visual "vouti.crm" seguindo o mesmo padrao do componente `LogoVouti` (lowercase, font-black, tracking-tight, com ponto vermelho).
 
-### Mudanca tecnica
+### Mudancas
 
-**Arquivo: `src/components/Dashboard/DashboardLayout.tsx`**
+**Arquivo: `src/pages/CrmLogin.tsx`**
 
-- Importar o componente `LogoVouti` e o hook `useTenant`
-- No header, dentro da div esquerda (`hidden md:flex items-center gap-2`), adicionar o `LogoVouti` com tamanho `sm` antes do `ProjectQuickSearch`
-- Condicionar a exibicao: so renderizar se `tenantSlug !== 'solvenza'`
-- O logo sera apenas visual (sem link), mantendo o estilo minimalista do header
+1. **Remover import do CloudIcon** (linha 7) - nao sera mais usado
+2. **Desktop (lado esquerdo, linhas 100-105)**: Substituir o bloco com "VOUTI CRM" em uppercase/gradient por um texto no estilo da nova logo:
+   - "vouti" em branco + ".crm" em vermelho (#E11D48)
+   - Fonte lowercase, font-black, tracking-tight (mesmo padrao do `LogoVouti`)
+3. **Mobile (linhas 116-125)**: Remover o `CloudIcon` e substituir o texto "VOUTI CRM" pelo mesmo estilo:
+   - "vouti" em foreground + ".crm" em vermelho
+   - Sem nuvem, limpo e minimalista
 
-### Resultado
+### Visual esperado
 
-- Todos os tenants verao o logo "vouti." no header (ex: `/demorais`, `/vouti`, etc.)
-- O tenant Solvenza (`/solvenza`) nao vera o logo
-- Consistencia visual com a identidade da marca em todo o sistema
+```text
+Antes (desktop):   VOUTI CRM        (uppercase, gradient, com nuvem no mobile)
+Depois (desktop):  vouti.crm         (lowercase, bold, ponto vermelho, sem nuvem)
+```
+
+O subtitulo "Gestao inteligente de clientes." sera mantido em ambas as versoes (desktop e mobile).
