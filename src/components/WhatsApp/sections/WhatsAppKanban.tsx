@@ -6,11 +6,12 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Columns3, Loader2, Clock, Plus } from "lucide-react";
+import { Columns3, Loader2, Clock, Plus, Lock, LockOpen, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AddKanbanCardDialog } from "../components/AddKanbanCardDialog";
 
 interface WhatsAppKanbanProps {
@@ -35,6 +36,7 @@ interface KanbanCard {
   lastMessage?: string;
   lastMessageTime?: string;
   agentName?: string;
+  transferredFromAgentName?: string;
 }
 
 // Calcula tempo relativo compacto
@@ -66,6 +68,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDragLocked, setIsDragLocked] = useState(false);
 
   const [showAddCardDialog, setShowAddCardDialog] = useState(false);
   const isDraggingRef = useRef(false);
@@ -137,6 +140,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
           lastMessage: messageMap.get(normalized)?.text || "",
           lastMessageTime: messageMap.get(normalized)?.time || "",
           agentName,
+          transferredFromAgentName: card.transferred_from_agent_name || undefined,
         };
       });
 
@@ -189,6 +193,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
           lastMessage: messageMap.get(normalized)?.text || "",
           lastMessageTime: messageMap.get(normalized)?.time || "",
           agentName,
+          transferredFromAgentName: card.transferred_from_agent_name || undefined,
         };
       });
       setCards(enrichedCards);
@@ -313,10 +318,33 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
               Pipeline: <span className="font-medium text-foreground">{agentName}</span>
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={() => setShowAddCardDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Adicionar Card
-          </Button>
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
+                    onClick={() => setIsDragLocked(prev => !prev)}
+                  >
+                    {isDragLocked ? (
+                      <Lock className="h-4 w-4 text-destructive" />
+                    ) : (
+                      <LockOpen className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isDragLocked ? "Cards travados — clique para destravar" : "Cards destravados — clique para travar"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button size="sm" variant="outline" onClick={() => setShowAddCardDialog(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar Card
+            </Button>
+          </div>
         </div>
 
         {/* Board */}
@@ -352,14 +380,15 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                       >
                         <div className="space-y-2 pr-1">
                           {getCardsInColumn(column.id).map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                            <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={isDragLocked}>
                               {(provided, snapshot) => (
                                 <Card
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                   className={cn(
-                                    "p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow",
+                                    "p-3 hover:shadow-md transition-shadow",
+                                    isDragLocked ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
                                     snapshot.isDragging && "shadow-lg ring-2 ring-primary/30",
                                   )}
                                   onClick={() => handleCardClick(card)}
@@ -369,14 +398,20 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                                     {card.contactName || "Sem Título"}
                                   </p>
 
-                                  {/* Agent + Status */}
-                                  <div className="flex items-center gap-1.5 mb-2">
+                                  {/* Agent + Status + Transferred */}
+                                  <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                                     <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary">
                                       {card.agentName}
                                     </Badge>
                                     <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
                                       Aberto
                                     </Badge>
+                                    {card.transferredFromAgentName && (
+                                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-orange-400/50 text-orange-600 dark:text-orange-400">
+                                        <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
+                                        De: {card.transferredFromAgentName}
+                                      </Badge>
+                                    )}
                                   </div>
 
                                   {/* Last message */}

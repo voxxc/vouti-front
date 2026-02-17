@@ -107,6 +107,8 @@ export const TransferConversationDialog = ({
         phone: conversation.contactNumber,
         column_id: cols[0].id,
         card_order: 0,
+        transferred_from_agent_id: currentAgentId,
+        transferred_from_agent_name: currentAgentName,
       } as any);
     }
 

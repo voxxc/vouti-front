@@ -35,10 +35,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { WhatsAppSection } from "./WhatsAppDrawer";
+import { CRMNotificationsBell } from "./components/CRMNotificationsBell";
 
 interface WhatsAppAgent {
   id: string;
   name: string;
+}
+
+interface WhatsAppLabel {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface WhatsAppSidebarProps {
@@ -47,6 +54,8 @@ interface WhatsAppSidebarProps {
   onClose?: () => void;
   onKanbanAgentSelect?: (agentId: string, agentName: string) => void;
   selectedKanbanAgentId?: string;
+  onLabelSelect?: (labelId: string, labelName: string) => void;
+  selectedLabelId?: string;
 }
 
 const settingsMenuItems: { id: WhatsAppSection; label: string; icon: React.ElementType }[] = [
@@ -76,7 +85,9 @@ export const WhatsAppSidebar = ({
   onSectionChange, 
   onClose,
   onKanbanAgentSelect,
-  selectedKanbanAgentId 
+  selectedKanbanAgentId,
+  onLabelSelect,
+  selectedLabelId,
 }: WhatsAppSidebarProps) => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -84,12 +95,14 @@ export const WhatsAppSidebar = ({
     settingsSectionIds.includes(activeSection)
   );
   const [conversationsOpen, setConversationsOpen] = useState(
-    activeSection === "all-conversations"
+    activeSection === "all-conversations" || activeSection === "label-filter"
   );
   const [kanbanOpen, setKanbanOpen] = useState(
     activeSection === "kanban"
   );
+  const [labelsOpen, setLabelsOpen] = useState(activeSection === "label-filter");
   const [agents, setAgents] = useState<WhatsAppAgent[]>([]);
+  const [crmLabels, setCrmLabels] = useState<WhatsAppLabel[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isAdminOrController, setIsAdminOrController] = useState(false);
 
@@ -137,7 +150,6 @@ export const WhatsAppSidebar = ({
       if (tenantId) {
         query = query.eq("tenant_id", tenantId);
         
-        // If not admin/controller, only show agent's own entry
         if (!isAdminOrController) {
           query = query.eq("email", user.email);
         }
@@ -154,9 +166,30 @@ export const WhatsAppSidebar = ({
     }
   }, [tenantId, isSuperAdmin, isAdminOrController, user?.email]);
 
-  // Verificar se a seção ativa é uma seção de configuração
+  // Load CRM labels
+  useEffect(() => {
+    const loadLabels = async () => {
+      let query = supabase
+        .from("whatsapp_labels")
+        .select("id, name, color")
+        .order("name");
+
+      if (tenantId) {
+        query = query.eq("tenant_id", tenantId);
+      } else if (isSuperAdmin) {
+        query = query.is("tenant_id", null);
+      }
+
+      const { data } = await query;
+      setCrmLabels(data || []);
+    };
+    if (tenantId || isSuperAdmin) {
+      loadLabels();
+    }
+  }, [tenantId, isSuperAdmin]);
+
   const isSettingsSection = settingsSectionIds.includes(activeSection);
-  const isConversationsSection = activeSection === "all-conversations";
+  const isConversationsSection = activeSection === "all-conversations" || activeSection === "label-filter";
   const isKanbanSection = activeSection === "kanban";
 
   return (
@@ -175,6 +208,9 @@ export const WhatsAppSidebar = ({
           <span className="text-3xl font-black tracking-tight lowercase text-foreground">
             vouti<span className="text-[#E11D48]">.</span>crm
           </span>
+          <div className="ml-auto">
+            <CRMNotificationsBell />
+          </div>
         </div>
       </div>
 
@@ -227,6 +263,57 @@ export const WhatsAppSidebar = ({
                 <MessageSquare className="h-3 w-3" />
                 <span className="text-xs">Todas as Conversas</span>
               </Button>
+
+              {/* Etiquetas sub-menu */}
+              <Collapsible open={labelsOpen} onOpenChange={setLabelsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant={activeSection === "label-filter" ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-between h-8 text-sm",
+                      activeSection === "label-filter" && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Tag className="h-3 w-3" />
+                      <span className="text-xs">Etiquetas</span>
+                    </span>
+                    {labelsOpen ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
+                  {crmLabels.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground px-2 py-1">
+                      Nenhuma etiqueta
+                    </p>
+                  ) : (
+                    crmLabels.map((label) => (
+                      <Button
+                        key={label.id}
+                        variant={selectedLabelId === label.id ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-2 h-7 text-xs",
+                          selectedLabelId === label.id && "bg-primary/10 text-primary"
+                        )}
+                        onClick={() => {
+                          onSectionChange("label-filter");
+                          onLabelSelect?.(label.id, label.name);
+                        }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: label.color }}
+                        />
+                        <span className="truncate">{label.name}</span>
+                      </Button>
+                    ))
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             </CollapsibleContent>
           </Collapsible>
 

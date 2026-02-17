@@ -9,6 +9,7 @@ import { WhatsAppContacts } from "./sections/WhatsAppContacts";
 import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
+import { WhatsAppLabelConversations } from "./sections/WhatsAppLabelConversations";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
@@ -32,6 +33,7 @@ export type WhatsAppSection =
   | "inbox" 
   | "conversations" 
   | "all-conversations"
+  | "label-filter"
   | "kanban" 
   | "contacts" 
   | "reports" 
@@ -63,9 +65,14 @@ interface WhatsAppDrawerProps {
 export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
   const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<{ id: string; name: string } | null>(null);
 
   const handleKanbanAgentSelect = (agentId: string, agentName: string) => {
     setSelectedKanbanAgent({ id: agentId, name: agentName });
+  };
+
+  const handleLabelSelect = (labelId: string, labelName: string) => {
+    setSelectedLabel({ id: labelId, name: labelName });
   };
 
   const renderSection = () => {
@@ -74,6 +81,10 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         return <WhatsAppInbox />;
       case "all-conversations":
         return <WhatsAppAllConversations />;
+      case "label-filter":
+        return selectedLabel ? (
+          <WhatsAppLabelConversations labelId={selectedLabel.id} labelName={selectedLabel.name} />
+        ) : null;
       case "conversations":
         return <WhatsAppConversations />;
       case "kanban":
@@ -141,6 +152,8 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
             onClose={() => onOpenChange(false)}
             onKanbanAgentSelect={handleKanbanAgentSelect}
             selectedKanbanAgentId={selectedKanbanAgent?.id}
+            onLabelSelect={handleLabelSelect}
+            selectedLabelId={selectedLabel?.id}
           />
           <main className="flex-1 overflow-hidden relative">
             {/* Kanban always mounted for background polling */}
