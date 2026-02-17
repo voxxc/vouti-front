@@ -1,62 +1,55 @@
 
-## Suporte a Grupos WhatsApp + Indicador de Mensagens Nao Lidas
 
-### 1. Indicador de mensagens nao lidas na Caixa de Entrada
+## Abas de Grupos WhatsApp na Caixa de Entrada
 
-O campo `unreadCount` ja existe na interface `WhatsAppConversation` e o badge verde ja esta renderizado no `ConversationList.tsx` (linha 119-123). O problema e que `loadConversations` sempre define `unreadCount: 0`. A coluna `is_read` ja existe na tabela `whatsapp_messages` e mensagens recebidas estao com `is_read = false`.
+### O que sera feito
+
+Adicionar uma area entre o campo de busca e a lista de conversas, contendo:
+1. Um botao "Buscar Grupos" que chama a edge function `whatsapp-list-groups`
+2. Apos buscar, exibir os grupos encontrados como botoes redondos (avatares com icone de grupo) em uma linha horizontal com scroll
+3. Ao clicar em um grupo, ele e selecionado como conversa ativa (usando o ID do grupo como `contactNumber`), permitindo enviar e receber mensagens
+4. Os grupos ficam salvos no state local para nao precisar buscar novamente a cada navegacao
+
+### Detalhes tecnicos
+
+**Arquivo: `ConversationList.tsx`**
+- Adicionar props novas: `groups` (lista de grupos), `onFetchGroups` (callback para buscar), `isLoadingGroups` (estado de carregamento)
+- Entre o campo de busca e a lista de conversas, renderizar uma secao horizontal:
+  - Se nao ha grupos carregados: exibir um botao compacto "Buscar Grupos" com icone `Users`
+  - Se ha grupos: exibir botoes redondos (avatares) em uma linha horizontal com scroll, cada um mostrando a primeira letra do nome do grupo e um tooltip com o nome completo
+  - Clicar em um grupo chama `onSelectConversation` com os dados do grupo formatados como `WhatsAppConversation`
+- O grupo selecionado tera borda destacada (estilo ativo)
 
 **Arquivo: `WhatsAppInbox.tsx`**
-- No `loadConversations`, ao agrupar mensagens por numero, contar quantas mensagens incoming tem `is_read = false` para cada contato
-- Preencher `unreadCount` com esse valor real
+- Adicionar estados: `groups` (array de `{id, name}`), `isLoadingGroups` (boolean)
+- Criar funcao `handleFetchGroups` que chama `supabase.functions.invoke("whatsapp-list-groups", { body: { agentId: myAgentId } })`
+- Ao receber resultado, salvar em `groups`
+- Passar `groups`, `onFetchGroups`, `isLoadingGroups` como props para `ConversationList`
+- Ao selecionar um grupo, tratar como conversa normal -- o `contactNumber` sera o ID do grupo (ex: `120363...@g.us`), e o sistema ja suporta envio para IDs de grupo via `whatsapp-send-message`
 
-**Arquivo: `WhatsAppInbox.tsx`**
-- Ao selecionar uma conversa (`onSelectConversation`), marcar como lidas: fazer `UPDATE whatsapp_messages SET is_read = true WHERE from_number = X AND agent_id = Y AND is_read = false`
+### Layout visual da secao de grupos
 
-**Arquivo: `SuperAdminWhatsAppInbox.tsx`**
-- Mesma logica: contar `is_read = false` e marcar ao abrir conversa
+```text
++-----------------------------------+
+| [Buscar conversa...]              |  <- campo de busca existente
++-----------------------------------+
+| [Buscar Grupos]  (O)(O)(O)(O) >>> |  <- botao + avatares redondos com scroll horizontal
++-----------------------------------+
+| Conversa 1                        |
+| Conversa 2                        |  <- lista de conversas existente
+| ...                               |
++-----------------------------------+
+```
 
-### 2. Suporte a grupos WhatsApp (Z-API)
-
-O envio para grupos usa os mesmos endpoints (`/send-text`, etc.), substituindo o telefone pelo ID do grupo. Para listar grupos, usamos `GET /chats` filtrando `isGroup: true`.
-
-**Novo arquivo: `supabase/functions/whatsapp-list-groups/index.ts`**
-- Edge function que busca `GET /chats` da Z-API (ou `GET /groups`)
-- Filtra registros onde `isGroup === true`
-- Retorna lista de grupos com `id`, `name`, `isGroup`
-- Resolve credenciais da instancia seguindo a hierarquia padrao (agentId > tenant > env vars)
-
-**Arquivo: `supabase/functions/whatsapp-send-message/index.ts`**
-- Nenhuma mudanca necessaria -- o campo `phone` ja aceita qualquer string, incluindo IDs de grupo
-
-**Arquivo: `WhatsAppInbox.tsx` e `ConversationList.tsx`**
-- No `loadConversations`, identificar conversas de grupo pelo formato do `from_number` (grupos Z-API tem formato `XXXX@g.us`)
-- Exibir icone diferente (Users) para grupos na lista de conversas
-- Tratar nome do grupo (buscar via contatos ou usar o ID)
+- Cada `(O)` e um avatar redondo com o icone `Users` e a inicial do grupo
+- Hover mostra tooltip com nome completo
+- Grupo selecionado tem borda verde/primary
+- Se ha muitos grupos, a linha tem scroll horizontal
 
 ### Resumo dos arquivos
 
 | Arquivo | Acao |
 |---|---|
-| `WhatsAppInbox.tsx` | Contar `is_read=false` para preencher `unreadCount`; marcar como lidas ao abrir conversa |
-| `SuperAdminWhatsAppInbox.tsx` | Mesma logica de unread count e marcacao |
-| `ConversationList.tsx` | Adicionar icone de grupo para conversas com `@g.us`; badge de unread ja existe |
-| `supabase/functions/whatsapp-list-groups/index.ts` | Nova edge function para listar grupos via Z-API |
+| `ConversationList.tsx` | Adicionar secao de grupos entre busca e lista; aceitar props de grupos |
+| `WhatsAppInbox.tsx` | Gerenciar estado de grupos, chamar edge function, passar props |
 
-### Detalhes tecnicos
-
-**Contagem de nao lidas** (em `loadConversations`):
-```text
-// Ao iterar mensagens agrupadas por from_number:
-// Se msg.direction === 'received' && msg.is_read === false -> incrementa unreadCount
-```
-
-**Marcar como lidas** (ao clicar na conversa):
-```text
-supabase.from('whatsapp_messages')
-  .update({ is_read: true })
-  .eq('from_number', contactNumber)
-  .eq('agent_id', myAgentId)
-  .eq('is_read', false)
-```
-
-**Deteccao de grupo**: conversas cujo `from_number` contem `@g.us` sao tratadas como grupo, exibindo icone `Users` em vez da letra inicial do nome.
