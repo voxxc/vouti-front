@@ -33,6 +33,7 @@ export const WhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
   const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
   const [initialConversationPhone, setInitialConversationPhone] = useState<string | null>(null);
+  const [projectsDrawerOpen, setProjectsDrawerOpen] = useState(false);
 
   const handleGoBack = () => {
     window.close();
@@ -102,7 +103,7 @@ export const WhatsAppLayout = () => {
       case "permissions":
         return <WhatsAppPermissionsSettings />;
       case "projects":
-        return <WhatsAppProjects />;
+        return null;
       default:
         return null;
     }
@@ -116,6 +117,8 @@ export const WhatsAppLayout = () => {
         onClose={handleGoBack}
         onKanbanAgentSelect={handleKanbanAgentSelect}
         selectedKanbanAgentId={selectedKanbanAgent?.id}
+        onOpenProjects={() => setProjectsDrawerOpen(true)}
+        projectsDrawerOpen={projectsDrawerOpen}
       />
       <main className="flex-1 overflow-hidden relative">
         {/* Inbox SEMPRE montada - polling de 2s continua ativo */}
@@ -130,6 +133,7 @@ export const WhatsAppLayout = () => {
           </div>
         )}
       </main>
+      <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
     </div>
   );
 };
