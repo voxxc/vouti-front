@@ -23,7 +23,8 @@ import {
   MessageCircle,
   AppWindow,
   Plug,
-  Shield
+  Shield,
+  FolderOpen
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -479,8 +480,21 @@ export const WhatsAppSidebar = ({
             )}
             onClick={() => onSectionChange("campaigns")}
           >
-            <Megaphone className="h-4 w-4" />
+           <Megaphone className="h-4 w-4" />
             <span className="text-sm">Campanhas</span>
+          </Button>
+
+          {/* Projetos */}
+          <Button
+            variant={activeSection === "projects" ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start gap-3 h-10",
+              activeSection === "projects" && "bg-primary/10 text-primary"
+            )}
+            onClick={() => onSectionChange("projects")}
+          >
+            <FolderOpen className="h-4 w-4" />
+            <span className="text-sm">Projetos</span>
           </Button>
 
           {/* Central de Ajuda */}

@@ -8,6 +8,7 @@ import { WhatsAppContacts } from "./sections/WhatsAppContacts";
 import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
+import { WhatsAppProjects } from "./sections/WhatsAppProjects";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
@@ -100,6 +101,8 @@ export const WhatsAppLayout = () => {
         return <WhatsAppIntegrationsSettings />;
       case "permissions":
         return <WhatsAppPermissionsSettings />;
+      case "projects":
+        return <WhatsAppProjects />;
       default:
         return null;
     }

@@ -11,6 +11,7 @@ import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppLabelConversations } from "./sections/WhatsAppLabelConversations";
+import { WhatsAppProjects } from "./sections/WhatsAppProjects";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
@@ -57,7 +58,8 @@ export type WhatsAppSection =
   | "canned"
   | "apps"
   | "integrations"
-  | "permissions";
+  | "permissions"
+  | "projects";
 
 interface WhatsAppDrawerProps {
   open: boolean;
@@ -149,6 +151,8 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         return <WhatsAppIntegrationsSettings />;
       case "permissions":
         return <WhatsAppPermissionsSettings />;
+      case "projects":
+        return <WhatsAppProjects />;
       default:
         return <WhatsAppInbox />;
     }
