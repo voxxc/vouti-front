@@ -25,7 +25,7 @@ import {
   Plug,
   Shield
 } from "lucide-react";
-import CloudIcon from "@/components/CloudIcon";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -172,10 +172,9 @@ export const WhatsAppSidebar = ({
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-2">
-            <CloudIcon className="w-8 h-8" />
-            <span className="font-semibold text-foreground">Vouti.CRM</span>
-          </div>
+          <span className="text-xl font-black tracking-tight lowercase text-foreground">
+            vouti<span>.crm</span>
+          </span>
         </div>
       </div>
 

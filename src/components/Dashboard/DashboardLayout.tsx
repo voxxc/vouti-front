@@ -8,7 +8,7 @@ import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { LogOut, Settings, Loader2, Clock } from "lucide-react";
-import LogoVouti from "@/components/LogoVouti";
+
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -247,9 +247,6 @@ const DashboardLayout = ({
           <div className="flex items-center justify-between px-6 py-3">
             {/* Left side - TOTP e Quick search */}
             <div className="hidden md:flex items-center gap-2">
-              {tenantSlug?.toLowerCase() !== 'solvenza' && (
-                <LogoVouti size="sm" className="text-2xl mr-2" />
-              )}
               <ProjectQuickSearch 
                 tenantPath={tenantPath} 
                 onSelectProject={handleQuickProjectSelect}
