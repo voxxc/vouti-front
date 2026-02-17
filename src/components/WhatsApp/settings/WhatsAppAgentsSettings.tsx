@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Users2, Loader2, Wifi, WifiOff, QrCode, 
   Unplug, RotateCcw, Save, CheckCircle2, XCircle, RefreshCw, User, Trash2,
-  Copy, ExternalLink, Globe
+  Copy, ExternalLink, Globe, ChevronRight
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
-import { AgentCard, Agent } from "./AgentCard";
+import { Agent } from "./AgentCard";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AddAgentDialog } from "./AddAgentDialog";
 import { WhatsAppAISettings } from "./WhatsAppAISettings";
 import { useToast } from "@/hooks/use-toast";
@@ -806,14 +807,41 @@ export const WhatsAppAgentsSettings = () => {
             <p className="text-sm">Clique em "Adicionar Agente" para começar</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {agents.map(agent => (
+          <div className="border border-border rounded-lg divide-y divide-border">
+            {agents.map(agent => {
+              const roleLabels: Record<string, string> = {
+                admin: "Administrador",
+                atendente: "Atendente",
+                supervisor: "Supervisor",
+              };
+
+              return (
               <div key={agent.id}>
-                {/* Card do Agente */}
-                <AgentCard 
-                  agent={agent} 
+                {/* Linha do Agente - Lista minimalista */}
+                <div 
+                  className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => handleAgentClick(agent)}
-                />
+                >
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      {agent.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{agent.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {roleLabels[agent.role] || agent.role}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "w-2 h-2 rounded-full shrink-0",
+                    agent.isConnected ? "bg-emerald-500" : "bg-muted-foreground/30"
+                  )} />
+                  <ChevronRight className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+                    expandedAgentId === agent.id && "rotate-90"
+                  )} />
+                </div>
 
                 {/* Expansão Inline com Tabs */}
                 {expandedAgentId === agent.id && (
@@ -1221,7 +1249,8 @@ export const WhatsAppAgentsSettings = () => {
                   </Card>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
