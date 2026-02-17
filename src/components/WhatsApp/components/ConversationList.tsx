@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, MessageSquare } from "lucide-react";
+import { Search, MessageSquare, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -93,7 +93,11 @@ export const ConversationList = ({
               >
                 <Avatar className="h-10 w-10 shrink-0">
                   <AvatarFallback className="bg-green-500/20 text-green-600 text-sm">
-                    {conversation.contactName.charAt(0).toUpperCase()}
+                    {conversation.contactNumber.includes('@g.us') ? (
+                      <Users className="h-4 w-4" />
+                    ) : (
+                      conversation.contactName.charAt(0).toUpperCase()
+                    )}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
