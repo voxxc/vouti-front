@@ -6,6 +6,7 @@ import { WhatsAppAllConversations } from "./sections/WhatsAppAllConversations";
 import { WhatsAppConversations } from "./sections/WhatsAppConversations";
 import { WhatsAppKanban } from "./sections/WhatsAppKanban";
 import { WhatsAppContacts } from "./sections/WhatsAppContacts";
+import { Users2 } from "lucide-react";
 import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
@@ -34,6 +35,7 @@ export type WhatsAppSection =
   | "conversations" 
   | "all-conversations"
   | "label-filter"
+  | "team-filter"
   | "kanban" 
   | "contacts" 
   | "reports" 
@@ -66,6 +68,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
   const [selectedKanbanAgent, setSelectedKanbanAgent] = useState<{ id: string; name: string } | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<{ id: string; name: string } | null>(null);
 
   const handleKanbanAgentSelect = (agentId: string, agentName: string) => {
     setSelectedKanbanAgent({ id: agentId, name: agentName });
@@ -73,6 +76,10 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
 
   const handleLabelSelect = (labelId: string, labelName: string) => {
     setSelectedLabel({ id: labelId, name: labelName });
+  };
+
+  const handleTeamSelect = (teamId: string, teamName: string) => {
+    setSelectedTeam({ id: teamId, name: teamName });
   };
 
   const renderSection = () => {
@@ -84,6 +91,16 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
       case "label-filter":
         return selectedLabel ? (
           <WhatsAppLabelConversations labelId={selectedLabel.id} labelName={selectedLabel.name} />
+        ) : null;
+      case "team-filter":
+        return selectedTeam ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground">
+            <div className="text-center space-y-2">
+              <Users2 className="h-12 w-12 mx-auto opacity-50" />
+              <p className="text-lg font-medium">Time: {selectedTeam.name}</p>
+              <p className="text-sm">Visualização por time será desenvolvida em breve</p>
+            </div>
+          </div>
         ) : null;
       case "conversations":
         return <WhatsAppConversations />;
@@ -154,6 +171,8 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
             selectedKanbanAgentId={selectedKanbanAgent?.id}
             onLabelSelect={handleLabelSelect}
             selectedLabelId={selectedLabel?.id}
+            onTeamSelect={handleTeamSelect}
+            selectedTeamId={selectedTeam?.id}
           />
           <main className="flex-1 overflow-hidden relative">
             {/* Kanban always mounted for background polling */}

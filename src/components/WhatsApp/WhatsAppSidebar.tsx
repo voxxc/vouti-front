@@ -56,6 +56,8 @@ interface WhatsAppSidebarProps {
   selectedKanbanAgentId?: string;
   onLabelSelect?: (labelId: string, labelName: string) => void;
   selectedLabelId?: string;
+  onTeamSelect?: (teamId: string, teamName: string) => void;
+  selectedTeamId?: string;
 }
 
 const settingsMenuItems: { id: WhatsAppSection; label: string; icon: React.ElementType }[] = [
@@ -88,6 +90,8 @@ export const WhatsAppSidebar = ({
   selectedKanbanAgentId,
   onLabelSelect,
   selectedLabelId,
+  onTeamSelect,
+  selectedTeamId,
 }: WhatsAppSidebarProps) => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -95,12 +99,14 @@ export const WhatsAppSidebar = ({
     settingsSectionIds.includes(activeSection)
   );
   const [conversationsOpen, setConversationsOpen] = useState(
-    activeSection === "all-conversations" || activeSection === "label-filter"
+    activeSection === "all-conversations" || activeSection === "label-filter" || activeSection === "team-filter"
   );
   const [kanbanOpen, setKanbanOpen] = useState(
     activeSection === "kanban"
   );
   const [labelsOpen, setLabelsOpen] = useState(activeSection === "label-filter");
+  const [teamsOpen, setTeamsOpen] = useState(activeSection === "team-filter");
+  const [crmTeams, setCrmTeams] = useState<{ id: string; name: string }[]>([]);
   const [agents, setAgents] = useState<WhatsAppAgent[]>([]);
   const [crmLabels, setCrmLabels] = useState<WhatsAppLabel[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -188,8 +194,30 @@ export const WhatsAppSidebar = ({
     }
   }, [tenantId, isSuperAdmin]);
 
+  // Load CRM teams
+  useEffect(() => {
+    const loadTeams = async () => {
+      let query = supabase
+        .from("whatsapp_teams")
+        .select("id, name")
+        .order("name");
+
+      if (tenantId) {
+        query = query.eq("tenant_id", tenantId);
+      } else if (isSuperAdmin) {
+        query = query.is("tenant_id", null);
+      }
+
+      const { data } = await query;
+      setCrmTeams(data || []);
+    };
+    if (tenantId || isSuperAdmin) {
+      loadTeams();
+    }
+  }, [tenantId, isSuperAdmin]);
+
   const isSettingsSection = settingsSectionIds.includes(activeSection);
-  const isConversationsSection = activeSection === "all-conversations" || activeSection === "label-filter";
+  const isConversationsSection = activeSection === "all-conversations" || activeSection === "label-filter" || activeSection === "team-filter";
   const isKanbanSection = activeSection === "kanban";
 
   return (
@@ -309,6 +337,54 @@ export const WhatsAppSidebar = ({
                           style={{ backgroundColor: label.color }}
                         />
                         <span className="truncate">{label.name}</span>
+                      </Button>
+                    ))
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Times sub-menu */}
+              <Collapsible open={teamsOpen} onOpenChange={setTeamsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant={activeSection === "team-filter" ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-between h-8 text-sm",
+                      activeSection === "team-filter" && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <UsersRound className="h-3 w-3" />
+                      <span className="text-xs">Times</span>
+                    </span>
+                    {teamsOpen ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
+                  {crmTeams.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground px-2 py-1">
+                      Nenhum time
+                    </p>
+                  ) : (
+                    crmTeams.map((team) => (
+                      <Button
+                        key={team.id}
+                        variant={selectedTeamId === team.id ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-2 h-7 text-xs",
+                          selectedTeamId === team.id && "bg-primary/10 text-primary"
+                        )}
+                        onClick={() => {
+                          onSectionChange("team-filter");
+                          onTeamSelect?.(team.id, team.name);
+                        }}
+                      >
+                        <UsersRound className="h-3 w-3" />
+                        <span className="truncate">{team.name}</span>
                       </Button>
                     ))
                   )}
