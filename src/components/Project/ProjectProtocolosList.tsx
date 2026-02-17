@@ -10,7 +10,8 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
-  ArrowUpDown
+  ArrowUpDown,
+  ArrowLeft
 } from 'lucide-react';
 import {
   Select,
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useProjectProtocolos, ProjectProtocolo } from '@/hooks/useProjectProtocolos';
 import { AddProtocoloDialog } from './AddProtocoloDialog';
-import { ProjectProtocoloDrawer } from './ProjectProtocoloDrawer';
+import { ProjectProtocoloContent } from './ProjectProtocoloContent';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProjectProtocolosListProps {
@@ -51,15 +52,13 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const [isExpanded, setIsExpanded] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedProtocoloId, setSelectedProtocoloId] = useState<string | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [view, setView] = useState<'lista' | 'detalhes'>('lista');
 
-  // Deriva o protocolo selecionado do array - sempre atualizado!
   const selectedProtocolo = selectedProtocoloId 
     ? protocolos.find(p => p.id === selectedProtocoloId) ?? null 
     : null;
 
-  // Early return: Wait for workspace to be defined before rendering
-  // Prevents flash of empty state when switching projects
+  // Early return: Wait for workspace to be defined
   if (workspaceId === undefined && defaultWorkspaceId === undefined) {
     return (
       <div className="space-y-4">
@@ -79,15 +78,13 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const filteredProtocolos = protocolos.filter(protocolo => {
     const matchesSearch = protocolo.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       protocolo.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesStatus = statusFilter === 'todos' || protocolo.status === statusFilter;
-    
     return matchesSearch && matchesStatus;
   });
 
   const handleProtocoloClick = (protocolo: ProjectProtocolo) => {
     setSelectedProtocoloId(protocolo.id);
-    setIsDrawerOpen(true);
+    setView('detalhes');
   };
 
   const handleCreateProtocolo = async (data: { nome: string; descricao?: string; responsavelId?: string; dataPrevisao?: Date; observacoes?: string }) => {
@@ -107,6 +104,35 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Inline detail view
+  if (view === 'detalhes' && selectedProtocolo) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-2 mb-4">
+          <Button variant="ghost" size="icon" onClick={() => { setView('lista'); setSelectedProtocoloId(null); }}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-semibold text-lg">{selectedProtocolo.nome}</span>
+        </div>
+        <ProjectProtocoloContent
+          protocolo={selectedProtocolo}
+          onUpdate={updateProtocolo}
+          onDelete={async (id) => {
+            await deleteProtocolo(id);
+            setView('lista');
+            setSelectedProtocoloId(null);
+          }}
+          onAddEtapa={addEtapa}
+          onUpdateEtapa={updateEtapa}
+          onDeleteEtapa={deleteEtapa}
+          projectId={projectId}
+          onRefetch={refetch}
+          onClose={() => { setView('lista'); setSelectedProtocoloId(null); }}
+        />
       </div>
     );
   }
@@ -227,25 +253,6 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onSubmit={handleCreateProtocolo}
-      />
-
-      <ProjectProtocoloDrawer
-        protocolo={selectedProtocolo}
-        open={isDrawerOpen}
-        onOpenChange={(open) => {
-          setIsDrawerOpen(open);
-          if (!open) setSelectedProtocoloId(null);
-        }}
-        onUpdate={updateProtocolo}
-        onDelete={async (id) => {
-          await deleteProtocolo(id);
-          setSelectedProtocoloId(null);
-        }}
-        onAddEtapa={addEtapa}
-        onUpdateEtapa={updateEtapa}
-        onDeleteEtapa={deleteEtapa}
-        projectId={projectId}
-        onRefetch={refetch}
       />
     </div>
   );
