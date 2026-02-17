@@ -1,76 +1,102 @@
 
 
-## Garantir unicidade e limpeza das configs de IA por agente
+## Integrar DeepSeek AI como provedor alternativo no sistema WhatsApp
 
-### Situacao atual
+### Visao geral
 
-O banco possui registros orfaos/duplicados na tabela `whatsapp_ai_config`:
-- Configs de tenant-level (`agent_id = NULL`) criadas antes do modelo per-agent
-- Exemplo: tenant `d395b3a1` tem uma config sem `agent_id` (antiga do Daniel) **e** configs especificas por agente
+Adicionar a DeepSeek como opcao de modelo de IA para os agentes WhatsApp. O sistema detectara automaticamente qual provedor usar com base no modelo selecionado, roteando para a API correta (Lovable AI Gateway ou DeepSeek API diretamente).
 
-A logica de save ja faz upsert corretamente, mas falta:
-1. Limpar registros orfaos existentes
-2. Ao salvar config de um agente especifico, remover qualquer config de tenant-level do mesmo tenant (que nao deveria mais existir)
-3. Ao desabilitar a IA de um agente (`is_enabled = false`), deletar o registro ao inves de apenas marcar como desabilitado -- evitando acumulo de registros inuteis
+### Como funciona
+
+O campo `model_name` ja armazena valores como `google/gemini-3-flash-preview`. Modelos DeepSeek seguirao o mesmo padrao (`deepseek/deepseek-chat`). A edge function detecta o prefixo e roteia para a API correta:
+
+- Prefixo `deepseek/` --> API DeepSeek (`https://api.deepseek.com/v1/chat/completions`)
+- Qualquer outro --> Lovable AI Gateway (comportamento atual)
 
 ### Mudancas
 
-**1. Limpeza dos registros orfaos (migracao SQL)**
+**1. Configurar secret da API DeepSeek**
 
-Deletar configs de tenant-level que ja possuem configs per-agent, pois nao tem mais utilidade:
+Adicionar `DEEPSEEK_API_KEY` como secret do Supabase para armazenar a chave de API de forma segura.
 
-```sql
-DELETE FROM whatsapp_ai_config
-WHERE agent_id IS NULL
-  AND tenant_id IS NOT NULL;
-```
+**2. Frontend - `WhatsAppAISettings.tsx`**
 
-Isso remove o registro orfao do tenant `d395b3a1` (e qualquer outro semelhante).
-
-**2. `WhatsAppAISettings.tsx` - Limpar fallback ao salvar config de agente**
-
-Ao salvar uma config para um agente especifico, deletar qualquer config de tenant-level (`agent_id IS NULL`) do mesmo tenant, garantindo que nao haja fallback indesejado:
+Adicionar modelos DeepSeek na lista de modelos disponiveis:
 
 ```text
-// No handleSave, apos salvar com sucesso e se agentId existir:
-if (agentId && tenantId) {
-  await supabase
-    .from('whatsapp_ai_config')
-    .delete()
-    .eq('tenant_id', tenantId)
-    .is('agent_id', null);
-}
+const AVAILABLE_MODELS = [
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Rapido)" },
+  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Balanceado)" },
+  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Avancado)" },
+  { value: "deepseek/deepseek-chat", label: "DeepSeek Chat (Economico)" },
+  { value: "deepseek/deepseek-reasoner", label: "DeepSeek Reasoner (Raciocinio)" },
+];
 ```
 
-**3. `WhatsAppAISettings.tsx` - Deletar config ao desabilitar IA**
+**3. Backend - `whatsapp-ai-chat/index.ts`**
 
-Quando o usuario desabilita a IA (`is_enabled = false`) e salva, ao inves de manter o registro com `is_enabled: false`, **deletar** o registro:
+Alterar a chamada da IA para detectar o provedor pelo prefixo do modelo:
 
 ```text
-// No handleSave, se is_enabled for false e config.id existir:
-if (!config.is_enabled && config.id) {
-  await supabase
-    .from('whatsapp_ai_config')
-    .delete()
-    .eq('id', config.id);
-  
-  setConfig(prev => ({ ...prev, id: undefined }));
-  // toast de confirmacao
-  return;
+// Determinar provedor e endpoint
+const modelName = aiConfig.model_name || 'google/gemini-3-flash-preview';
+const isDeepSeek = modelName.startsWith('deepseek/');
+
+let apiUrl: string;
+let apiKey: string;
+let actualModel: string;
+
+if (isDeepSeek) {
+  const deepseekKey = Deno.env.get('DEEPSEEK_API_KEY');
+  if (!deepseekKey) throw new Error('DEEPSEEK_API_KEY not configured');
+  apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+  apiKey = deepseekKey;
+  actualModel = modelName.replace('deepseek/', ''); // "deepseek-chat"
+} else {
+  apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+  apiKey = lovableApiKey;
+  actualModel = modelName;
 }
+
+const aiResponse = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: actualModel,
+    messages,
+    temperature: aiConfig.temperature || 0.7,
+    max_tokens: 500,
+  }),
+});
 ```
 
-Isso garante que apenas agentes **ativamente configurados** tenham registros no banco.
+**4. Backend - `whatsapp-webhook/index.ts`**
+
+Aplicar a mesma logica de roteamento na funcao `handleAIResponse` que chama a IA pelo webhook (mesma alteracao do passo 3).
 
 ### Arquivos a editar
 
-1. **Migracao SQL** - deletar configs orfas de tenant-level
-2. **`src/components/WhatsApp/settings/WhatsAppAISettings.tsx`** - adicionar limpeza no `handleSave`
+1. Secret: adicionar `DEEPSEEK_API_KEY`
+2. `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` - adicionar modelos DeepSeek na lista
+3. `supabase/functions/whatsapp-ai-chat/index.ts` - roteamento por provedor
+4. `supabase/functions/whatsapp-webhook/index.ts` - mesmo roteamento
+
+### Sem mudanca no banco de dados
+
+O campo `model_name` (text) ja suporta qualquer valor. Nao e necessario alterar o schema.
+
+### Custo DeepSeek
+
+- **deepseek-chat**: modelo conversacional, ~$0.14/M tokens input, $0.28/M output
+- **deepseek-reasoner**: modelo com raciocinio avancado (chain-of-thought), mais caro
 
 ### Resultado
 
-- Cada agente tera no maximo **uma** config de IA
-- Ao desabilitar IA, o registro e removido (nao sobra lixo)
-- Ao salvar config per-agent, o fallback de tenant e limpo automaticamente
-- Sem registros orfaos acumulando no banco
+- Ao configurar IA de um agente, o usuario vera opcoes Gemini e DeepSeek
+- O sistema roteia automaticamente para a API correta
+- Cada provedor usa sua propria chave de API
+- Nenhuma mudanca no banco de dados necessaria
 
