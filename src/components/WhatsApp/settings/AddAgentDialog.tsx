@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,11 @@ interface AddAgentDialogProps {
   onAgentAdded: () => void;
 }
 
+interface Team {
+  id: string;
+  name: string;
+}
+
 const roles = [
   { value: "admin", label: "Administrador" },
   { value: "atendente", label: "Atendente" },
@@ -37,7 +42,23 @@ export const AddAgentDialog = ({ open, onOpenChange, onAgentAdded }: AddAgentDia
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("atendente");
+  const [teamId, setTeamId] = useState<string>("");
+  const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Load teams when dialog opens
+  useEffect(() => {
+    if (open && tenantId) {
+      supabase
+        .from("whatsapp_teams")
+        .select("id, name")
+        .eq("tenant_id", tenantId)
+        .order("name")
+        .then(({ data }) => {
+          setTeams(data || []);
+        });
+    }
+  }, [open, tenantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +104,7 @@ export const AddAgentDialog = ({ open, onOpenChange, onAgentAdded }: AddAgentDia
           email: email.trim().toLowerCase(),
           role,
           is_active: true,
+          team_id: teamId || null,
         })
         .select()
         .single();
@@ -104,6 +126,7 @@ export const AddAgentDialog = ({ open, onOpenChange, onAgentAdded }: AddAgentDia
       setName("");
       setEmail("");
       setRole("atendente");
+      setTeamId("");
       onOpenChange(false);
       onAgentAdded();
     } catch (error: any) {
@@ -157,6 +180,22 @@ export const AddAgentDialog = ({ open, onOpenChange, onAgentAdded }: AddAgentDia
                 {roles.map((r) => (
                   <SelectItem key={r.value} value={r.value}>
                     {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="team">Time (opcional)</Label>
+            <Select value={teamId} onValueChange={setTeamId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Nenhum time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum time</SelectItem>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
                   </SelectItem>
                 ))}
               </SelectContent>
