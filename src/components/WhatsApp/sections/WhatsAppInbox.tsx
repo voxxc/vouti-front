@@ -36,8 +36,10 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [myAgentId, setMyAgentId] = useState<string | null | undefined>(undefined); // undefined = loading
+  const [myAgentId, setMyAgentId] = useState<string | null | undefined>(undefined);
   const [myAgentName, setMyAgentName] = useState<string | null>(null);
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
@@ -390,6 +392,24 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }, 2000);
   }, [loadConversations]);
 
+  const handleFetchGroups = useCallback(async () => {
+    if (!myAgentId) return;
+    setIsLoadingGroups(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-list-groups", {
+        body: { agentId: myAgentId },
+      });
+      if (error) throw error;
+      if (data?.groups) {
+        setGroups(data.groups);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar grupos:", error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  }, [myAgentId]);
+
   // Estado: ainda carregando agent_id
   if (myAgentId === undefined) {
     return (
@@ -443,7 +463,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
             }
             
             markQuery.then(() => {
-              // Update local state
               setConversations(prev => prev.map(c => 
                 c.contactNumber === conv.contactNumber ? { ...c, unreadCount: 0 } : c
               ));
@@ -451,6 +470,9 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           }
         }}
         isLoading={isLoading}
+        groups={groups}
+        onFetchGroups={handleFetchGroups}
+        isLoadingGroups={isLoadingGroups}
       />
 
       <ChatPanel
