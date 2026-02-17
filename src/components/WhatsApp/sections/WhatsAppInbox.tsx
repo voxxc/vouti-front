@@ -5,6 +5,7 @@ import { ConversationList } from "../components/ConversationList";
 import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { Inbox, UserPlus } from "lucide-react";
+import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 
 export interface WhatsAppConversation {
   id: string;
@@ -23,25 +24,6 @@ export interface WhatsAppMessage {
   timestamp: string;
   isFromMe: boolean;
 }
-
-// Normaliza telefone brasileiro (12 dígitos → 13 dígitos com nono dígito)
-const normalizePhone = (phone: string): string => {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 12 && cleaned.startsWith('55')) {
-    const ddd = cleaned.substring(2, 4);
-    const number = cleaned.substring(4);
-    return `55${ddd}9${number}`;
-  }
-  return cleaned;
-};
-
-const getPhoneVariant = (phone: string): string | null => {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 13 && cleaned.startsWith('55')) {
-    return cleaned.substring(0, 4) + cleaned.substring(5);
-  }
-  return null;
-};
 
 interface WhatsAppInboxProps {
   initialConversationPhone?: string | null;

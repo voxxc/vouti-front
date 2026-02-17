@@ -48,6 +48,7 @@ import { TransferConversationDialog } from "./TransferConversationDialog";
 import { ContactNotesPanel } from "./ContactNotesPanel";
 import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 import { toast } from "sonner";
 
 interface ContactInfoPanelProps {
@@ -82,10 +83,16 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   // Load contact ID if exists
   useEffect(() => {
     const loadContactId = async () => {
+      const normalized = normalizePhone(conversation.contactNumber);
+      const variant = getPhoneVariant(normalized);
+      const phoneFilter = variant 
+        ? `phone.eq.${normalized},phone.eq.${variant}` 
+        : `phone.eq.${normalized}`;
+      
       let query = supabase
         .from("whatsapp_contacts")
         .select("id")
-        .eq("phone", conversation.contactNumber);
+        .or(phoneFilter);
 
       if (resolvedTenantId) {
         query = query.eq("tenant_id", resolvedTenantId);

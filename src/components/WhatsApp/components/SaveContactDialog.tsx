@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
 import {
@@ -60,10 +61,16 @@ export const SaveContactDialog = ({
     const checkExisting = async () => {
       if (!open || !phoneValue) return;
 
+      const normalized = normalizePhone(phoneValue);
+      const variant = getPhoneVariant(normalized);
+      const phoneFilter = variant
+        ? `phone.eq.${normalized},phone.eq.${variant}`
+        : `phone.eq.${normalized}`;
+
       const { data } = await supabase
         .from("whatsapp_contacts")
         .select("*")
-        .eq("phone", phoneValue)
+        .or(phoneFilter)
         .maybeSingle();
 
       if (data) {
@@ -96,9 +103,10 @@ export const SaveContactDialog = ({
 
     setIsSaving(true);
     try {
+      const normalizedPhone = normalizePhone(phoneValue.trim());
       const contactData: any = {
         tenant_id: tenantId || null,
-        phone: phoneValue.trim(),
+        phone: normalizedPhone,
         name: name.trim(),
         email: email.trim() || null,
         notes: notes.trim() || null,
