@@ -126,13 +126,18 @@ export const WhatsAppAllConversations = () => {
 
       if (error) throw error;
 
-      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => ({
-        id: msg.id,
-        messageText: msg.message_text || "",
-        direction: msg.direction === "outgoing" ? "outgoing" : "incoming",
-        timestamp: msg.created_at,
-        isFromMe: msg.direction === "outgoing",
-      }));
+      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => {
+        const rawData = msg.raw_data as any;
+        return {
+          id: msg.id,
+          messageText: msg.message_text || "",
+          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
+          timestamp: msg.created_at,
+          isFromMe: msg.direction === "outgoing",
+          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
+          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
+        };
+      });
 
       setMessages(formattedMessages);
     } catch (error) {
@@ -198,7 +203,7 @@ export const WhatsAppAllConversations = () => {
     return () => clearInterval(intervalId);
   }, [selectedConversation, loadMessages]);
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation) return;
 
     try {
@@ -216,7 +221,8 @@ export const WhatsAppAllConversations = () => {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
-          messageType: "text",
+          messageType: messageType || "text",
+          mediaUrl: mediaUrl || undefined,
           agentName: freshAgentName || undefined,
           agentId: myAgentId || undefined
         }

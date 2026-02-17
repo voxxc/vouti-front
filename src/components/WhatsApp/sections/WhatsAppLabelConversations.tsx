@@ -143,13 +143,18 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
       }
 
       const { data } = await query;
-      setMessages((data || []).map((msg) => ({
-        id: msg.id,
-        messageText: msg.message_text || "",
-        direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
-        timestamp: msg.created_at,
-        isFromMe: msg.direction === "outgoing",
-      })));
+      setMessages((data || []).map((msg) => {
+        const rawData = msg.raw_data as any;
+        return {
+          id: msg.id,
+          messageText: msg.message_text || "",
+          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
+          timestamp: msg.created_at,
+          isFromMe: msg.direction === "outgoing",
+          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
+          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
+        };
+      }));
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }
@@ -167,14 +172,15 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
     return () => clearInterval(interval);
   }, [selectedConversation, loadMessages]);
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation) return;
     try {
       await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
-          messageType: "text",
+          messageType: messageType || "text",
+          mediaUrl: mediaUrl || undefined,
           agentName: myAgentName || undefined,
           agentId: myAgentId || undefined,
         },

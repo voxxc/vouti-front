@@ -23,6 +23,8 @@ export interface WhatsAppMessage {
   direction: "incoming" | "outgoing";
   timestamp: string;
   isFromMe: boolean;
+  messageType: "text" | "image" | "audio" | "video" | "document";
+  mediaUrl?: string;
 }
 
 interface WhatsAppInboxProps {
@@ -137,12 +139,15 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           const newMsg = payload.new as any;
           
           if (newMsg.from_number === selectedConversation.contactNumber) {
+            const rawData = newMsg.raw_data as any;
             const formattedMsg: WhatsAppMessage = {
               id: newMsg.id,
               messageText: newMsg.message_text || "",
               direction: newMsg.direction === "outgoing" ? "outgoing" : "incoming",
               timestamp: newMsg.created_at,
               isFromMe: newMsg.direction === "outgoing",
+              messageType: (newMsg.message_type as WhatsAppMessage['messageType']) || "text",
+              mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
             };
             
             setMessages(prev => {
@@ -309,13 +314,18 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
       if (error) throw error;
 
-      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => ({
-        id: msg.id,
-        messageText: msg.message_text || "",
-        direction: msg.direction === "outgoing" ? "outgoing" : "incoming",
-        timestamp: msg.created_at,
-        isFromMe: msg.direction === "outgoing",
-      }));
+      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => {
+        const rawData = msg.raw_data as any;
+        return {
+          id: msg.id,
+          messageText: msg.message_text || "",
+          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
+          timestamp: msg.created_at,
+          isFromMe: msg.direction === "outgoing",
+          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
+          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
+        };
+      });
 
       setMessages(formattedMessages);
     } catch (error) {
@@ -345,7 +355,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     return () => clearInterval(intervalId);
   }, [selectedConversation, tenantId, loadMessages]);
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation || !tenantId) return;
 
     try {
@@ -363,7 +373,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
-          messageType: "text",
+          messageType: messageType || "text",
+          mediaUrl: mediaUrl || undefined,
           agentName: freshAgentName || undefined,
           agentId: myAgentId || undefined
         }
@@ -377,6 +388,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         direction: "outgoing",
         timestamp: new Date().toISOString(),
         isFromMe: true,
+        messageType: (messageType as WhatsAppMessage['messageType']) || "text",
+        mediaUrl,
       };
       setMessages(prev => [...prev, optimisticMsg]);
     } catch (error) {
