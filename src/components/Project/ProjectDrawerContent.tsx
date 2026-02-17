@@ -13,9 +13,10 @@ import SectorView from "@/pages/SectorView";
 interface ProjectDrawerContentProps {
   projectId: string;
   onClose: () => void;
+  module?: string;
 }
 
-export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerContentProps) {
+export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDrawerContentProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -215,8 +216,8 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
     );
   }
 
-  // Acordos view
-  if (drawerView === 'acordos') {
+  // Acordos view (only for non-CRM)
+  if (drawerView === 'acordos' && module !== 'crm') {
     return (
       <div className="flex-1 h-full overflow-auto">
         <div className="container max-w-7xl mx-auto px-6 py-8">
@@ -231,8 +232,8 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
     );
   }
 
-  // Sector view
-  if (drawerView === 'sector' && activeSectorId) {
+  // Sector view (only for non-CRM)
+  if (drawerView === 'sector' && activeSectorId && module !== 'crm') {
     const sector = project.sectors?.find(s => s.id === activeSectorId);
     if (!sector) {
       handleBackToMain();
@@ -262,11 +263,12 @@ export function ProjectDrawerContent({ projectId, onClose }: ProjectDrawerConten
           onBack={onClose}
           project={project}
           onUpdateProject={handleUpdateProject}
-          onNavigateToAcordos={handleNavigateToAcordos}
-          onProjectNavigation={handleProjectNavigation}
+          onNavigateToAcordos={module !== 'crm' ? handleNavigateToAcordos : undefined}
+          onProjectNavigation={module !== 'crm' ? handleProjectNavigation : undefined}
           currentUser={currentUser}
           users={[]}
           embedded={true}
+          module={module}
         />
       </div>
     </div>

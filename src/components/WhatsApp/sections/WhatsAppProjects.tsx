@@ -134,6 +134,7 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
               <ProjectDrawerContent
                 projectId={selectedProjectId}
                 onClose={() => setSelectedProjectId(null)}
+                module="crm"
               />
             </div>
           </div>

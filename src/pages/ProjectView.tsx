@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Users, Lock, LockOpen, FileText, History } from "lucide-react";
+import { ArrowLeft, Search, Users, Lock, LockOpen, FileText, History, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
@@ -10,6 +10,7 @@ import TaskCard from "@/components/Project/TaskCard";
 import TaskModal from "@/components/Project/TaskModal";
 import ProjectParticipants from "@/components/Project/ProjectParticipants";
 import EditableProjectName from "@/components/Project/EditableProjectName";
+import EditableColumnName from "@/components/Project/EditableColumnName";
 import AddColumnButton from "@/components/Project/AddColumnButton";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Project, Task, KanbanColumn as KanbanColumnType, ProjectSector } from "@/types/project";
@@ -35,7 +36,8 @@ interface ProjectViewProps {
   currentUser?: User;
   users?: User[];
   onProjectNavigation?: (projectId: string) => void;
-  embedded?: boolean; // Quando true, não renderiza DashboardLayout (para uso em drawer)
+  embedded?: boolean;
+  module?: string;
 }
 
 const ProjectView = ({ 
@@ -47,7 +49,8 @@ const ProjectView = ({
   currentUser,
   users = [],
   onProjectNavigation,
-  embedded = false
+  embedded = false,
+  module
 }: ProjectViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -61,7 +64,7 @@ const ProjectView = ({
   const [isCreateSectorOpen, setIsCreateSectorOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'protocolos' | 'processos' | 'colunas'>('protocolos');
+  const [activeTab, setActiveTab] = useState<'protocolos' | 'processos' | 'colunas'>(module === 'crm' ? 'colunas' : 'protocolos');
   const { toast } = useToast();
   
   // Workspaces hook
@@ -1101,14 +1104,16 @@ const ProjectView = ({
               </button>
             )}
             
-            <SetoresDropdown
-              sectors={sectors}
-              projectId={project.id}
-              onNavigateToSector={handleNavigateToSector}
-              onNavigateToAcordos={onNavigateToAcordos || (() => {})}
-              onCreateSector={() => setIsCreateSectorOpen(true)}
-              onDeleteSector={handleDeleteSector}
-            />
+            {module !== 'crm' && (
+              <SetoresDropdown
+                sectors={sectors}
+                projectId={project.id}
+                onNavigateToSector={handleNavigateToSector}
+                onNavigateToAcordos={onNavigateToAcordos || (() => {})}
+                onCreateSector={() => setIsCreateSectorOpen(true)}
+                onDeleteSector={handleDeleteSector}
+              />
+            )}
             
               <Button 
                 variant={isColumnsLocked ? "default" : "outline"}
@@ -1123,63 +1128,67 @@ const ProjectView = ({
         </div>
 
         {/* Workspace Tabs */}
-        <ProjectWorkspaceTabs
-          workspaces={workspaces}
-          activeWorkspaceId={activeWorkspaceId}
-          onSelectWorkspace={setActiveWorkspaceId}
-          onCreateWorkspace={createWorkspace}
-          onUpdateWorkspace={updateWorkspace}
-          onDeleteWorkspace={deleteWorkspace}
-          loading={workspacesLoading}
-        />
+        {module !== 'crm' && (
+          <ProjectWorkspaceTabs
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            onSelectWorkspace={setActiveWorkspaceId}
+            onCreateWorkspace={createWorkspace}
+            onUpdateWorkspace={updateWorkspace}
+            onDeleteWorkspace={deleteWorkspace}
+            loading={workspacesLoading}
+          />
+        )}
 
         {/* Tabs Navigation - Horizontal */}
         <div className="space-y-4">
         {/* Tab Buttons */}
-          <div className="flex gap-6">
-            <button
-              onClick={() => setActiveTab('protocolos')}
-              className={cn(
-                "pb-2 text-sm font-medium transition-colors relative",
-                activeTab === 'protocolos'
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Processos
-              {activeTab === 'protocolos' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('processos')}
-              className={cn(
-                "pb-2 text-sm font-medium transition-colors relative",
-                activeTab === 'processos'
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Casos
-              {activeTab === 'processos' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('colunas')}
-              className={cn(
-                "pb-2 text-sm font-medium transition-colors relative",
-                activeTab === 'colunas'
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Colunas
-              {activeTab === 'colunas' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          </div>
+          {module !== 'crm' && (
+            <div className="flex gap-6">
+              <button
+                onClick={() => setActiveTab('protocolos')}
+                className={cn(
+                  "pb-2 text-sm font-medium transition-colors relative",
+                  activeTab === 'protocolos'
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Processos
+                {activeTab === 'protocolos' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('processos')}
+                className={cn(
+                  "pb-2 text-sm font-medium transition-colors relative",
+                  activeTab === 'processos'
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Casos
+                {activeTab === 'processos' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('colunas')}
+                className={cn(
+                  "pb-2 text-sm font-medium transition-colors relative",
+                  activeTab === 'colunas'
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Colunas
+                {activeTab === 'colunas' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Content Area - Full Width */}
           <div className="w-full">
@@ -1226,7 +1235,79 @@ const ProjectView = ({
                                     ref={columnProvided.innerRef}
                                     {...columnProvided.draggableProps}
                                   >
-                                    <div {...columnProvided.dragHandleProps}>
+                                    {module === 'crm' ? (
+                                      /* CRM Kanban Style */
+                                      <div
+                                        className={cn(
+                                          "bg-muted/50 rounded-lg p-3 w-64 flex-shrink-0 flex flex-col",
+                                          "h-[calc(100vh-280px)]",
+                                          columnSnapshot.isDragging && "opacity-50"
+                                        )}
+                                      >
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <div
+                                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                              style={{ backgroundColor: column.color || '#6366f1' }}
+                                            />
+                                            <EditableColumnName
+                                              columnName={column.name}
+                                              onUpdateName={(newName) => handleUpdateColumnName(column.id, newName)}
+                                              isDefault={column.isDefault}
+                                            />
+                                            <span className="bg-background text-muted-foreground px-2 py-0.5 rounded-full text-xs shrink-0">
+                                              {tasks.length}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <Button variant="ghost" size="icon" onClick={() => handleAddTask(column.id)} className="h-6 w-6">
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                            {!column.isDefault && (
+                                              <Button variant="ghost" size="icon" onClick={() => handleDeleteColumn(column.id)} className="h-6 w-6 text-destructive hover:text-destructive">
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <ScrollArea className="flex-1">
+                                          <Droppable droppableId={column.id}>
+                                            {(droppableProvided, droppableSnapshot) => (
+                                              <div
+                                                ref={droppableProvided.innerRef}
+                                                {...droppableProvided.droppableProps}
+                                                className={cn(
+                                                  "space-y-2 min-h-[100px] p-1 rounded-md transition-colors",
+                                                  droppableSnapshot.isDraggingOver && "bg-accent/30"
+                                                )}
+                                              >
+                                                {tasks.map((task, index) => (
+                                                  <Draggable key={task.id} draggableId={task.id} index={index}>
+                                                    {(provided, snapshot) => (
+                                                      <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        {...provided.dragHandleProps}
+                                                        className={snapshot.isDragging ? 'opacity-50' : ''}
+                                                      >
+                                                        <TaskCard 
+                                                          task={task} 
+                                                          onClick={(t) => handleTaskClick(t, column.name)}
+                                                          onDelete={handleDeleteTask}
+                                                          onUpdateTask={handleUpdateTask}
+                                                        />
+                                                      </div>
+                                                    )}
+                                                  </Draggable>
+                                                ))}
+                                                {droppableProvided.placeholder}
+                                              </div>
+                                            )}
+                                          </Droppable>
+                                        </ScrollArea>
+                                      </div>
+                                    ) : (
+                                      /* Legal Kanban Style */
                                       <KanbanColumn
                                         id={column.id}
                                         title={column.name}
@@ -1259,7 +1340,7 @@ const ProjectView = ({
                                           </Draggable>
                                         ))}
                                       </KanbanColumn>
-                                    </div>
+                                    )}
                                   </div>
                                 )}
                               </Draggable>
@@ -1296,11 +1377,13 @@ const ProjectView = ({
           projectName={project.name}
         />
 
-        <CreateSectorDialog
-          isOpen={isCreateSectorOpen}
-          onClose={() => setIsCreateSectorOpen(false)}
-          onCreateSector={handleCreateSector}
-        />
+        {module !== 'crm' && (
+          <CreateSectorDialog
+            isOpen={isCreateSectorOpen}
+            onClose={() => setIsCreateSectorOpen(false)}
+            onCreateSector={handleCreateSector}
+          />
+        )}
 
         <ProjectClientDataDialog
           open={isClientDataOpen}
