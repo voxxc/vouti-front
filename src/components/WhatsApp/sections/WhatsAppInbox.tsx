@@ -198,8 +198,16 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
       const conversationMap = new Map<string, WhatsAppConversation>();
       
+      const unreadMap = new Map<string, number>();
+      
       messagesResult.data?.forEach((msg) => {
         const normalizedNumber = normalizePhone(msg.from_number);
+        
+        // Count unread incoming messages
+        if (msg.direction === 'received' && msg.is_read === false) {
+          unreadMap.set(normalizedNumber, (unreadMap.get(normalizedNumber) || 0) + 1);
+        }
+        
         if (!conversationMap.has(normalizedNumber)) {
           conversationMap.set(normalizedNumber, {
             id: msg.id,
@@ -210,6 +218,12 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
             unreadCount: 0,
           });
         }
+      });
+
+      // Apply unread counts
+      unreadMap.forEach((count, phone) => {
+        const conv = conversationMap.get(phone);
+        if (conv) conv.unreadCount = count;
       });
 
       const convList = Array.from(conversationMap.values());
@@ -408,7 +422,34 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       <ConversationList
         conversations={conversations}
         selectedConversation={selectedConversation}
-        onSelectConversation={setSelectedConversation}
+        onSelectConversation={(conv) => {
+          setSelectedConversation(conv);
+          // Mark messages as read
+          if (myAgentId && conv.unreadCount > 0) {
+            const normalized = normalizePhone(conv.contactNumber);
+            const variant = getPhoneVariant(normalized);
+            let markQuery = supabase
+              .from("whatsapp_messages")
+              .update({ is_read: true })
+              .eq("tenant_id", tenantId!)
+              .eq("agent_id", myAgentId)
+              .eq("is_read", false)
+              .eq("direction", "received");
+            
+            if (variant) {
+              markQuery = markQuery.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
+            } else {
+              markQuery = markQuery.eq("from_number", normalized);
+            }
+            
+            markQuery.then(() => {
+              // Update local state
+              setConversations(prev => prev.map(c => 
+                c.contactNumber === conv.contactNumber ? { ...c, unreadCount: 0 } : c
+              ));
+            });
+          }
+        }}
         isLoading={isLoading}
       />
 

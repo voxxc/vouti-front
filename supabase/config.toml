@@ -123,5 +123,8 @@ verify_jwt = false
 [functions.whatsapp-meta-webhook]
 verify_jwt = false
 
+[functions.whatsapp-list-groups]
+verify_jwt = false
+
 [functions.generate-landing-images]
 verify_jwt = false
