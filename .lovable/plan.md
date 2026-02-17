@@ -1,83 +1,38 @@
 
-## Kanban com drag de colunas, persistencia do cadeado, criar colunas, coluna "Transferidos" e time do agente
+## Lista minimalista de Agentes, time no cadastro, e sub-botao Times na sidebar
 
-### 1. Drag-and-drop de colunas no Kanban CRM
+### 1. Substituir AgentCard por lista minimalista
 
-O cadeado atual so trava/destrava os **cards**. O pedido e que o cadeado controle a **movimentacao de colunas** (como no ProjectView). Para isso:
+Na tela Configuracoes > Agentes (`WhatsAppAgentsSettings.tsx`), remover o grid de `AgentCard` e usar uma lista limpa com bordas sutis:
 
-- Envolver as colunas em um `Droppable` horizontal (`type="COLUMN"`) e cada coluna em um `Draggable`
-- Quando destravado (cadeado aberto), as colunas podem ser arrastadas para reordenar
-- Quando travado (cadeado fechado), as colunas ficam fixas (estado padrao)
-- Os cards continuam arrastáveis normalmente (independente do cadeado)
-- Ao reordenar colunas, atualizar `column_order` no banco
-
-**Arquivo**: `src/components/WhatsApp/sections/WhatsAppKanban.tsx`
-
-### 2. Persistir estado do cadeado
-
-Salvar o estado do cadeado no `localStorage` com chave por agente (`kanban-lock-{agentId}`). Ao carregar o Kanban, ler o valor salvo. Ao clicar no cadeado, gravar o novo valor.
-
-**Arquivo**: `src/components/WhatsApp/sections/WhatsAppKanban.tsx`
-
-### 3. Configuracoes > Kanban: Criar colunas
-
-Transformar o `WhatsAppKanbanSettings.tsx` de placeholder em tela funcional:
-
-- Listar colunas existentes de todos os agentes do tenant (agrupadas por agente)
-- Formulario para criar nova coluna: nome, cor (color picker simples), e selecionar o agente
-- Opcao de excluir colunas nao-padrao (colunas `is_default = true` nao podem ser excluidas)
-- Reordenacao visual das colunas
-
-**Arquivo**: `src/components/WhatsApp/settings/WhatsAppKanbanSettings.tsx`
-
-### 4. Coluna "Transferidos" a esquerda do "Topo de Funil"
-
-A coluna "Transferidos" nao existe no banco. Precisa ser inserida com `column_order = -1` (ou reordenar as existentes) para ficar antes do "Topo de Funil".
-
-**Migracao SQL**:
-```sql
--- Inserir coluna "Transferidos" para todos os agentes que ainda nao tem
-INSERT INTO whatsapp_kanban_columns (tenant_id, agent_id, name, color, column_order, is_default)
-SELECT tenant_id, id, 'Transferidos', '#a855f7', -1, true
-FROM whatsapp_agents
-WHERE NOT EXISTS (
-  SELECT 1 FROM whatsapp_kanban_columns wkc
-  WHERE wkc.agent_id = whatsapp_agents.id AND wkc.name = 'Transferidos'
-);
-
--- Reordenar: Transferidos=0, Topo=1, 1Contato=2, etc.
-UPDATE whatsapp_kanban_columns SET column_order = column_order + 1 WHERE name != 'Transferidos';
-UPDATE whatsapp_kanban_columns SET column_order = 0 WHERE name = 'Transferidos';
+```text
+| Avatar | Nome do Agente | Funcao | Time | Status (dot) | Chevron > |
 ```
 
-Tambem atualizar a funcao `create_default_kanban_columns` para incluir "Transferidos" como primeira coluna em novos agentes.
+Cada linha sera um `div` com `border-b`, padding, e hover sutil. Ao clicar, expande inline as abas de Conexao/IA (mantendo o comportamento atual). Sem sombras, sem cards pesados.
 
-### 5. Associar agente a um time na criacao
+**Arquivo**: `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx`
+- Substituir `<AgentCard ... />` por uma linha de lista simples
+- Manter toda a logica de expansao inline existente
+- Carregar `team_name` junto com os agentes (JOIN ou query separada)
+- Exibir o time na linha do agente
 
-**Migracao SQL** - criar tabela de times e campo no agente:
-```sql
-CREATE TABLE whatsapp_teams (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid REFERENCES tenants(id),
-  name text NOT NULL,
-  created_at timestamptz DEFAULT now()
-);
+### 2. Incluir campo "Time" no cadastro do agente
 
-ALTER TABLE whatsapp_agents ADD COLUMN team_id uuid REFERENCES whatsapp_teams(id);
-```
+O `AddAgentDialog.tsx` **ja tem** o campo de time implementado. Nenhuma mudanca necessaria aqui -- ja funciona.
 
-Com RLS para isolamento por tenant.
+### 3. Adicionar sub-botao "Times" em Conversas na sidebar
 
-**AddAgentDialog.tsx**: Adicionar campo `Select` de "Time" que carrega os times do tenant. O campo e opcional (o agente pode nao pertencer a nenhum time inicialmente).
+Na sidebar (`WhatsAppSidebar.tsx`), dentro do Collapsible "Conversas", adicionar um sub-item "Times" (apos "Etiquetas"). Ao expandir, lista os times carregados do banco. Ao clicar num time, navega para uma nova section `team-filter`.
 
-**WhatsAppTeamsSettings.tsx**: Transformar de placeholder em tela funcional com CRUD de times (criar, listar, excluir).
+**Arquivos**:
+- `WhatsAppSidebar.tsx`: Adicionar sub-menu "Times" dentro de Conversas, carregar times do banco, exibir como sub-botoes
+- `WhatsAppDrawer.tsx`: Adicionar `team-filter` ao tipo `WhatsAppSection`, criar state `selectedTeam`, renderizar placeholder (visual sera desenvolvido depois conforme mencionado)
 
 ### Resumo dos arquivos
 
 | Arquivo | Acao |
 |---|---|
-| **Migracao SQL** | Criar `whatsapp_teams`, add `team_id` em `whatsapp_agents`, inserir coluna "Transferidos", atualizar funcao `create_default_kanban_columns` |
-| `WhatsAppKanban.tsx` | Drag de colunas (Droppable horizontal), persistir cadeado em localStorage |
-| `WhatsAppKanbanSettings.tsx` | CRUD de colunas Kanban (criar, listar, excluir) |
-| `AddAgentDialog.tsx` | Campo Select de time ao criar agente |
-| `WhatsAppTeamsSettings.tsx` | CRUD de times |
+| `WhatsAppAgentsSettings.tsx` | Substituir AgentCard por lista minimalista com nome, funcao, time e status |
+| `WhatsAppSidebar.tsx` | Adicionar sub-menu "Times" dentro de Conversas |
+| `WhatsAppDrawer.tsx` | Adicionar section `team-filter` e state `selectedTeam` |
