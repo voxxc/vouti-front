@@ -119,6 +119,7 @@ export const clienteSchema = z.object({
   status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),
   pessoas_adicionais: z.array(pessoaAdicionalSchema).optional(),
   grupos_parcelas: z.any().optional(),
+  dados_veiculares: z.any().optional(),
   proveito_economico: z.string().optional(),
   // Campos de juros e multa por atraso
   aplicar_juros: z.boolean().optional(),

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cliente } from '@/types/cliente';
+import { Cliente, DadosVeiculares } from '@/types/cliente';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Edit } from 'lucide-react';
@@ -131,8 +131,34 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
           {/* Documentos */}
           <InfoRow label="CPF" value={cliente.cpf} />
           <InfoRow label="CNPJ" value={cliente.cnpj} />
-          <InfoRow label="CNH" value={cliente.cnh} />
-          <InfoRow label="Validade CNH" value={formatDate(cliente.cnh_validade)} />
+
+          {/* Dados Veiculares */}
+          {cliente.dados_veiculares?.veiculos?.length ? (
+            <>
+              <Separator className="my-4" />
+              <div className="py-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Dados Veiculares
+                </span>
+              </div>
+              {(cliente.dados_veiculares as DadosVeiculares).veiculos.map((v, i) => (
+                <div key={i} className="ml-4 py-2 border-l-2 border-muted pl-4 mb-2">
+                  <p className="font-medium text-sm mb-1">Veículo {i + 1}</p>
+                  <div className="space-y-1">
+                    <InfoRow label="CNH" value={v.cnh} />
+                    <InfoRow label="Validade CNH" value={formatDate(v.cnh_validade)} />
+                    <InfoRow label="RENAVAM" value={v.renavam} />
+                    <InfoRow label="Placa" value={v.placa} />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <InfoRow label="CNH" value={cliente.cnh} />
+              <InfoRow label="Validade CNH" value={formatDate(cliente.cnh_validade)} />
+            </>
+          )}
           <InfoRow label="Proveito Econômico" value={cliente.proveito_economico ? `${cliente.proveito_economico}%` : null} />
 
           {/* Contrato */}

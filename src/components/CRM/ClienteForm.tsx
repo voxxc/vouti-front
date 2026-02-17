@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { clienteSchema, ClienteFormData } from '@/lib/validations/cliente';
-import { Cliente, PessoaAdicional, GruposParcelasConfig } from '@/types/cliente';
+import { Cliente, PessoaAdicional, GruposParcelasConfig, Veiculo } from '@/types/cliente';
 import { useClientes } from '@/hooks/useClientes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Upload, X, Plus, ChevronDown, FolderPlus } from 'lucide-react';
+import { Upload, X, Plus, ChevronDown, FolderPlus, Car } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { GruposParcelasManager } from './GruposParcelasManager';
@@ -60,6 +60,16 @@ export const ClienteForm = ({
   // Estado para seção colapsável
   const [contratoOpen, setContratoOpen] = useState(!!cliente?.valor_contrato);
   
+  // Estado para seção veicular
+  const initVeiculos = (): Veiculo[] => {
+    if (cliente?.dados_veiculares?.veiculos?.length) return cliente.dados_veiculares.veiculos;
+    if (cliente?.cnh || cliente?.cnh_validade) return [{ cnh: cliente.cnh || '', cnh_validade: cliente.cnh_validade || '', renavam: '', placa: '' }];
+    return [{ cnh: '', cnh_validade: '', renavam: '', placa: '' }];
+  };
+  const [veicularOpen, setVeicularOpen] = useState(
+    !!(cliente?.dados_veiculares?.veiculos?.length || cliente?.cnh || cliente?.cnh_validade)
+  );
+  const [veiculos, setVeiculos] = useState<Veiculo[]>(initVeiculos);
   const isEditing = !!cliente;
 
   const {
@@ -145,8 +155,8 @@ export const ClienteForm = ({
       nome_pessoa_juridica: data.nome_pessoa_juridica || undefined,
       cpf: data.cpf || undefined,
       cnpj: data.cnpj || undefined,
-      cnh: data.cnh || undefined,
-      cnh_validade: data.cnh_validade || undefined,
+      cnh: veicularOpen && veiculos[0]?.cnh ? veiculos[0].cnh : undefined,
+      cnh_validade: veicularOpen && veiculos[0]?.cnh_validade ? veiculos[0].cnh_validade : undefined,
       telefone: data.telefone || undefined,
       email: data.email || undefined,
       data_nascimento: data.data_nascimento || undefined,
@@ -172,6 +182,7 @@ export const ClienteForm = ({
         p.nome_pessoa_fisica || p.nome_pessoa_juridica
       ),
       grupos_parcelas: usarGruposParcelas ? gruposParcelas : undefined,
+      dados_veiculares: veicularOpen ? { veiculos: veiculos.filter(v => v.cnh || v.renavam || v.placa) } : undefined,
       proveito_economico: data.proveito_economico ? parseFloat(data.proveito_economico) : undefined,
       // Campos de juros e multa
       aplicar_juros: aplicarJuros,
@@ -284,29 +295,102 @@ export const ClienteForm = ({
             )}
           </div>
 
-          {/* CNH - opcional */}
-          <div className="space-y-2">
-            <Label htmlFor="cnh">
-              CNH <span className="text-xs text-muted-foreground">(opcional)</span>
-            </Label>
-            <Input 
-              id="cnh" 
-              {...register('cnh')} 
-              placeholder="00000000000"
-              maxLength={11}
-            />
-          </div>
-
-          {/* Validade CNH - opcional */}
-          <div className="space-y-2">
-            <Label htmlFor="cnh_validade">
-              Validade CNH <span className="text-xs text-muted-foreground">(opcional)</span>
-            </Label>
-            <Input 
-              id="cnh_validade" 
-              type="date"
-              {...register('cnh_validade')} 
-            />
+          {/* SEÇÃO VEICULAR */}
+          <div className="md:col-span-2 space-y-3">
+            <div className="flex items-center space-x-3">
+              <Checkbox
+                id="veicular-toggle"
+                checked={veicularOpen}
+                onCheckedChange={(checked) => setVeicularOpen(!!checked)}
+              />
+              <Label htmlFor="veicular-toggle" className="flex items-center gap-2 cursor-pointer text-base font-semibold">
+                <Car className="h-4 w-4" />
+                Veicular
+              </Label>
+            </div>
+            
+            {veicularOpen && (
+              <div className="space-y-4 pl-7">
+                {veiculos.map((veiculo, idx) => (
+                  <div key={idx} className="p-4 border rounded-lg relative bg-card">
+                    {veiculos.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => setVeiculos(veiculos.filter((_, i) => i !== idx))}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <p className="text-sm font-medium text-muted-foreground mb-3">Veículo {idx + 1}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-8">
+                      <div className="space-y-2">
+                        <Label>CNH</Label>
+                        <Input
+                          value={veiculo.cnh || ''}
+                          onChange={(e) => {
+                            const updated = [...veiculos];
+                            updated[idx] = { ...updated[idx], cnh: e.target.value };
+                            setVeiculos(updated);
+                          }}
+                          placeholder="00000000000"
+                          maxLength={11}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Validade CNH</Label>
+                        <Input
+                          type="date"
+                          value={veiculo.cnh_validade || ''}
+                          onChange={(e) => {
+                            const updated = [...veiculos];
+                            updated[idx] = { ...updated[idx], cnh_validade: e.target.value };
+                            setVeiculos(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>RENAVAM</Label>
+                        <Input
+                          value={veiculo.renavam || ''}
+                          onChange={(e) => {
+                            const updated = [...veiculos];
+                            updated[idx] = { ...updated[idx], renavam: e.target.value };
+                            setVeiculos(updated);
+                          }}
+                          placeholder="00000000000"
+                          maxLength={11}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Placa</Label>
+                        <Input
+                          value={veiculo.placa || ''}
+                          onChange={(e) => {
+                            const updated = [...veiculos];
+                            updated[idx] = { ...updated[idx], placa: e.target.value.toUpperCase() };
+                            setVeiculos(updated);
+                          }}
+                          placeholder="ABC1D23"
+                          maxLength={7}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVeiculos([...veiculos, { cnh: '', cnh_validade: '', renavam: '', placa: '' }])}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar veículo
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

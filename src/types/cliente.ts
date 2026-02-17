@@ -1,3 +1,14 @@
+export interface Veiculo {
+  cnh?: string;
+  cnh_validade?: string;
+  renavam?: string;
+  placa?: string;
+}
+
+export interface DadosVeiculares {
+  veiculos: Veiculo[];
+}
+
 export interface GrupoParcela {
   ordem: number;
   descricao?: string;
@@ -59,6 +70,7 @@ export interface Cliente {
   status_cliente?: 'ativo' | 'inativo' | 'contrato_encerrado';
   pessoas_adicionais?: PessoaAdicional[];
   grupos_parcelas?: GruposParcelasConfig;
+  dados_veiculares?: DadosVeiculares;
   proveito_economico?: number;
   // Campos de juros e multa por atraso
   aplicar_juros?: boolean;
