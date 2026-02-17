@@ -1141,7 +1141,6 @@ const ProjectView = ({
         {/* Tabs Navigation - Horizontal */}
         <div className="space-y-4">
         {/* Tab Buttons */}
-          {module !== 'crm' && (
             <div className="flex gap-6">
               <button
                 onClick={() => setActiveTab('protocolos')}
@@ -1157,20 +1156,22 @@ const ProjectView = ({
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
                 )}
               </button>
-              <button
-                onClick={() => setActiveTab('processos')}
-                className={cn(
-                  "pb-2 text-sm font-medium transition-colors relative",
-                  activeTab === 'processos'
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Casos
-                {activeTab === 'processos' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-                )}
-              </button>
+              {module !== 'crm' && (
+                <button
+                  onClick={() => setActiveTab('processos')}
+                  className={cn(
+                    "pb-2 text-sm font-medium transition-colors relative",
+                    activeTab === 'processos'
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Casos
+                  {activeTab === 'processos' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('colunas')}
                 className={cn(
@@ -1186,7 +1187,6 @@ const ProjectView = ({
                 )}
               </button>
             </div>
-          )}
 
           {/* Content Area - Full Width */}
           <div className="w-full">
