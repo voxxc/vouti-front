@@ -1,38 +1,37 @@
 
-## Lista minimalista de Agentes, time no cadastro, e sub-botao Times na sidebar
 
-### 1. Substituir AgentCard por lista minimalista
+## Corrigir RLS da tabela `whatsapp_labels` para permitir criacao de etiquetas
 
-Na tela Configuracoes > Agentes (`WhatsAppAgentsSettings.tsx`), remover o grid de `AgentCard` e usar uma lista limpa com bordas sutis:
+### Problema encontrado
 
-```text
-| Avatar | Nome do Agente | Funcao | Time | Status (dot) | Chevron > |
+O erro no console e claro:
+```
+new row violates row-level security policy for table "whatsapp_labels"
 ```
 
-Cada linha sera um `div` com `border-b`, padding, e hover sutil. Ao clicar, expande inline as abas de Conexao/IA (mantendo o comportamento atual). Sem sombras, sem cards pesados.
+A politica atual de INSERT/UPDATE/DELETE (`whatsapp_labels_admin_all`) exige que o usuario tenha role `admin` ou `controller` na tabela `user_roles`. O usuario atual tem role `advogado`, entao nao consegue criar, editar ou excluir etiquetas.
 
-**Arquivo**: `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx`
-- Substituir `<AgentCard ... />` por uma linha de lista simples
-- Manter toda a logica de expansao inline existente
-- Carregar `team_name` junto com os agentes (JOIN ou query separada)
-- Exibir o time na linha do agente
+### Solucao
 
-### 2. Incluir campo "Time" no cadastro do agente
+Adicionar uma politica RLS que permita a **qualquer membro autenticado do tenant** gerenciar etiquetas (INSERT, UPDATE, DELETE) dentro do seu proprio tenant. Etiquetas sao ferramentas de organizacao e nao precisam de restricao administrativa.
 
-O `AddAgentDialog.tsx` **ja tem** o campo de time implementado. Nenhuma mudanca necessaria aqui -- ja funciona.
+### Detalhes tecnicos
 
-### 3. Adicionar sub-botao "Times" em Conversas na sidebar
+**Migracao SQL**: Criar nova politica permissiva para membros do tenant:
 
-Na sidebar (`WhatsAppSidebar.tsx`), dentro do Collapsible "Conversas", adicionar um sub-item "Times" (apos "Etiquetas"). Ao expandir, lista os times carregados do banco. Ao clicar num time, navega para uma nova section `team-filter`.
+```sql
+CREATE POLICY "whatsapp_labels_tenant_all"
+ON whatsapp_labels
+FOR ALL
+TO authenticated
+USING (tenant_id = get_user_tenant_id())
+WITH CHECK (tenant_id = get_user_tenant_id());
+```
 
-**Arquivos**:
-- `WhatsAppSidebar.tsx`: Adicionar sub-menu "Times" dentro de Conversas, carregar times do banco, exibir como sub-botoes
-- `WhatsAppDrawer.tsx`: Adicionar `team-filter` ao tipo `WhatsAppSection`, criar state `selectedTeam`, renderizar placeholder (visual sera desenvolvido depois conforme mencionado)
-
-### Resumo dos arquivos
+Isso permite que qualquer usuario autenticado do tenant crie, edite e exclua etiquetas pertencentes ao seu tenant, sem exigir role de admin.
 
 | Arquivo | Acao |
 |---|---|
-| `WhatsAppAgentsSettings.tsx` | Substituir AgentCard por lista minimalista com nome, funcao, time e status |
-| `WhatsAppSidebar.tsx` | Adicionar sub-menu "Times" dentro de Conversas |
-| `WhatsAppDrawer.tsx` | Adicionar section `team-filter` e state `selectedTeam` |
+| Migracao SQL | Criar politica `whatsapp_labels_tenant_all` para membros do tenant |
+
+Nenhuma mudanca de codigo no frontend -- o componente `WhatsAppLabelsSettings.tsx` ja esta correto e funcional.
