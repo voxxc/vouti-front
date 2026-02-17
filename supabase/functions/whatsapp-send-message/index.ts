@@ -19,7 +19,7 @@ serve(async (req) => {
     const { phone, message, messageType = 'text', mediaUrl, mode, agentName, agentId } = await req.json();
 
     // Input validation
-    if (!phone || typeof phone !== 'string' || phone.length > 20) {
+    if (!phone || typeof phone !== 'string' || phone.length > 50) {
       throw new Error('Invalid phone number');
     }
 
