@@ -81,6 +81,7 @@ export const useProjectsOptimized = () => {
           tasks(count)
         `)
         .eq('tenant_id', tenantId)
+        .eq('module', 'legal')
         .order('name', { ascending: true });
 
       // Non-admin/controller filter - only filter if user doesn't have full access

@@ -43,6 +43,9 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
+    // Não buscar enquanto tenantId ainda está carregando
+    if (!tenantId) return;
+
     const findMyAgent = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user?.email) {
@@ -50,19 +53,14 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         return;
       }
 
-      let query = supabase
+      const { data } = await supabase
         .from("whatsapp_agents")
         .select("id, name")
         .eq("email", userData.user.email.toLowerCase())
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
 
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
-      } else {
-        query = query.is("tenant_id", null);
-      }
-
-      const { data } = await query.maybeSingle();
       setMyAgentId(data?.id || null);
       setMyAgentName(data?.name || null);
     };
