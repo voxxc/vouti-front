@@ -170,6 +170,26 @@ async function handleMetaMessage(
   const phone = normalizePhoneNumber(from);
   console.log(`📞 Meta message from ${from} -> normalized: ${phone} | type: ${type}`);
 
+  // Resolve effective agent: check if conversation was transferred to another agent
+  let effectiveAgentId = instance.agent_id || null;
+  if (instance.tenant_id) {
+    const { data: kanbanEntry } = await supabase
+      .from('whatsapp_conversation_kanban')
+      .select('agent_id')
+      .eq('phone', phone)
+      .eq('tenant_id', instance.tenant_id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (kanbanEntry?.agent_id) {
+      if (kanbanEntry.agent_id !== effectiveAgentId) {
+        console.log(`🔀 Meta: Conversation routed to kanban agent`);
+      }
+      effectiveAgentId = kanbanEntry.agent_id;
+    }
+  }
+
   // Save message to database
   const { error: insertError } = await supabase
     .from('whatsapp_messages')
@@ -182,7 +202,7 @@ async function handleMetaMessage(
       direction: 'received',
       raw_data: { message, contacts: value.contacts, metadata: value.metadata },
       user_id: instance.user_id,
-      agent_id: instance.agent_id || null,
+      agent_id: effectiveAgentId,
       tenant_id: instance.tenant_id || null,
       timestamp: timestamp ? new Date(parseInt(timestamp) * 1000).toISOString() : new Date().toISOString(),
       is_read: false,
@@ -217,7 +237,7 @@ async function handleMetaMessage(
   }
 
   // 🤖 Trigger AI response via debounce (same as Z-API flow)
-  await triggerAIDebounce(phone, messageText, instance);
+  await triggerAIDebounce(phone, messageText, { ...instance, effective_agent_id: effectiveAgentId });
 }
 
 async function triggerAIDebounce(
@@ -230,8 +250,10 @@ async function triggerAIDebounce(
     agent_id: string | null;
     instance_name: string;
     meta_access_token: string;
+    effective_agent_id?: string | null;
   }
 ) {
+  const agentIdForAI = instance.effective_agent_id ?? instance.agent_id;
   try {
     // Check if AI is disabled for this contact
     let disabledQuery = supabase
@@ -254,11 +276,11 @@ async function triggerAIDebounce(
     // Check AI config - priority: agent > tenant > global
     let aiConfig: any = null;
 
-    if (instance.agent_id) {
+    if (agentIdForAI) {
       const { data } = await supabase
         .from('whatsapp_ai_config')
         .select('*')
-        .eq('agent_id', instance.agent_id)
+        .eq('agent_id', agentIdForAI)
         .maybeSingle();
       aiConfig = data;
     }
@@ -323,7 +345,7 @@ async function triggerAIDebounce(
             last_message: message,
             scheduled_at: scheduledAt,
             status: 'pending',
-            agent_id: instance.agent_id,
+            agent_id: agentIdForAI,
           });
       }
       console.log(`⏳ Debounce: ${delaySeconds}s para ${phone}`);

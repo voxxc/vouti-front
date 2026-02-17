@@ -170,6 +170,7 @@ export const TransferConversationDialog = ({
           phone: conversation.contactNumber,
           message: transferMessage(selectedAgent.name),
           messageType: "text",
+          agentId: currentAgentId,
         },
       });
 
