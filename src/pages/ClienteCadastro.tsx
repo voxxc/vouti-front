@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, X, FolderPlus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { ClienteForm } from '@/components/CRM/ClienteForm';
 import { ClienteDetails } from '@/components/CRM/ClienteDetails';
@@ -53,37 +54,35 @@ const ClienteCadastro = () => {
     navigate(tenantPath('/clientes'));
   };
   
-  const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {
-    // Se marcou para criar projeto e tem os dados
+  const handleFormSuccess = (clienteId?: string, nomeCliente?: string) => {
+    // Criar projeto em segundo plano (fire-and-forget)
     if (criarProjeto && clienteId && (nomeProjeto || nomeCliente)) {
-      try {
-        const result = await createProject({
-          name: nomeProjeto || nomeCliente || 'Novo Projeto',
-          client: nomeCliente || nomeProjeto,
-          description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
-        });
-        
+      createProject({
+        name: nomeProjeto || nomeCliente || 'Novo Projeto',
+        client: nomeCliente || nomeProjeto,
+        description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
+      }).then(result => {
         if (result) {
-          toast({
-            title: 'Projeto criado',
-            description: `Projeto "${nomeProjeto || nomeCliente}" criado com sucesso!`,
-          });
+          supabase
+            .from('projects')
+            .update({ cliente_id: clienteId })
+            .eq('id', result.id);
         }
-      } catch (error) {
+      }).catch(error => {
         console.error('Erro ao criar projeto:', error);
         toast({
           title: 'Erro ao criar projeto',
-          description: 'O cliente foi salvo, mas ocorreu um erro ao criar o projeto.',
+          description: 'O cliente foi salvo, mas houve erro ao criar o projeto.',
           variant: 'destructive',
         });
-      }
+      });
     }
-    
+
     toast({
       title: isNewCliente ? 'Cliente cadastrado' : 'Cliente atualizado',
       description: 'Dados salvos com sucesso.',
     });
-    
+
     handleClose();
   };
   
