@@ -1,18 +1,43 @@
 
 
-## Correcao: Transferencia de conversa na mesma instancia
+## Adicionar seção "Veicular" com suporte a múltiplos veículos
 
-### Problema identificado
+### O que muda
 
-Quando Daniel transfere um lead para Laura usando "Atribuir (mesma instancia)", ha dois problemas:
+Os campos CNH e Validade CNH deixam de ficar expostos diretamente no formulário e passam a ficar dentro de uma seção colapsável "Veicular" (checkbox). Ao marcar, aparecem os campos CNH, Validade CNH, RENAVAM e Placa, com botão "Adicionar veículo" para cadastrar múltiplos veículos. Os dados aparecem também na tela de detalhes do cliente e no dialog "Dados do Cliente" dentro do projeto.
 
-1. **Mensagens enviadas**: O `handleAssign` nao passa `agentId` na chamada ao `whatsapp-send-message`, entao a mensagem de transferencia nao fica associada ao agente correto no banco.
+---
 
-2. **Mensagens recebidas (bug principal)**: O webhook (`whatsapp-webhook`) recebe a resposta do lead e atribui a mensagem ao `instance.agent_id` -- que e o Daniel (dono da instancia). Como Laura nao e dona da instancia, as respostas do lead nunca chegam na inbox dela. O webhook nao tem conhecimento de que aquela conversa foi transferida para outro agente.
+### Mudanças no banco de dados
 
-### Solucao
+Criar uma nova coluna JSONB na tabela `clientes` para armazenar os veículos:
 
-Implementar um mecanismo de "roteamento por conversa" no webhook. Quando uma mensagem chega, antes de usar o `agent_id` da instancia, o webhook deve verificar se existe um registro em `whatsapp_conversation_kanban` para aquele telefone + instancia, e usar o `agent_id` desse registro (o agente que realmente atende o lead).
+```text
+ALTER TABLE clientes ADD COLUMN dados_veiculares jsonb DEFAULT NULL;
+```
+
+Estrutura do JSON:
+
+```text
+{
+  "veiculos": [
+    {
+      "cnh": "12345678901",
+      "cnh_validade": "2025-12-31",
+      "renavam": "00000000000",
+      "placa": "ABC1D23"
+    },
+    {
+      "cnh": "98765432101",
+      "cnh_validade": "2026-06-15",
+      "renavam": "11111111111",
+      "placa": "XYZ9K87"
+    }
+  ]
+}
+```
+
+Os campos antigos `cnh` e `cnh_validade` permanecem no banco para compatibilidade, mas o formulário passa a usar a nova coluna.
 
 ---
 
@@ -20,74 +45,77 @@ Implementar um mecanismo de "roteamento por conversa" no webhook. Quando uma men
 
 | Arquivo | Acao |
 |---|---|
-| `supabase/functions/whatsapp-webhook/index.ts` | Apos identificar a instancia, consultar `whatsapp_conversation_kanban` para resolver o agente real da conversa |
-| `src/components/WhatsApp/components/TransferConversationDialog.tsx` | Passar `agentId` correto na mensagem de transferencia do tipo "assign" |
+| **Migracao SQL** | Adicionar coluna `dados_veiculares jsonb` na tabela `clientes` |
+| `src/types/cliente.ts` | Adicionar interface `Veiculo` e campo `dados_veiculares` no tipo `Cliente` |
+| `src/lib/validations/cliente.ts` | Adicionar schema de validacao para `dados_veiculares` |
+| `src/components/CRM/ClienteForm.tsx` | Remover campos CNH/Validade avulsos, adicionar checkbox "Veicular" com seção colapsável contendo lista de veículos com botão "Adicionar" |
+| `src/components/CRM/ClienteDetails.tsx` | Exibir seção "Dados Veiculares" com cada veículo listado |
+| `src/components/Project/ProjectClientDataDialog.tsx` | Dados veiculares já aparecem automaticamente via `ClienteDetails` |
 
 ---
 
-### Detalhes tecnicos
+### Detalhes técnicos
 
-**1. whatsapp-webhook/index.ts -- roteamento por conversa**
-
-Apos resolver a instancia e obter `instance.agent_id`, adicionar uma busca no kanban para verificar se a conversa pertence a outro agente:
+**1. Tipo (cliente.ts)**
 
 ```text
-// Apos obter instance.agent_id (agente dono da instancia)
-let effectiveAgentId = instance.agent_id;
-
-// Verificar se a conversa foi transferida para outro agente
-const { data: kanbanEntry } = await supabase
-  .from('whatsapp_conversation_kanban')
-  .select('agent_id')
-  .eq('phone', phone)
-  .eq('tenant_id', effectiveTenantId)
-  .order('updated_at', { ascending: false })
-  .limit(1)
-  .maybeSingle();
-
-if (kanbanEntry?.agent_id) {
-  effectiveAgentId = kanbanEntry.agent_id;
+export interface Veiculo {
+  cnh?: string;
+  cnh_validade?: string;
+  renavam?: string;
+  placa?: string;
 }
+
+export interface DadosVeiculares {
+  veiculos: Veiculo[];
+}
+
+// No Cliente:
+dados_veiculares?: DadosVeiculares;
 ```
 
-Esse `effectiveAgentId` substitui `instance.agent_id` em todos os pontos onde a mensagem e salva no banco e onde o AI config e consultado. Assim, a mensagem vai para a inbox do agente que realmente atende aquele lead.
+**2. Formulário (ClienteForm.tsx)**
 
-**2. TransferConversationDialog.tsx -- handleAssign**
+- Remover os campos CNH e Validade CNH avulsos (linhas 287-310)
+- Adicionar estado `veicularOpen` (boolean) e `veiculos` (array de Veiculo)
+- Ao carregar cliente existente, popular `veiculos` a partir de `cliente.dados_veiculares?.veiculos` OU, para retrocompatibilidade, de `cliente.cnh` / `cliente.cnh_validade` se existirem
+- Checkbox "Veicular" -- ao marcar, exibe a lista de veículos
+- Cada veículo: 4 campos (CNH, Validade CNH, RENAVAM, Placa) com botão X para remover
+- Botão "+ Adicionar veículo" no final
+- No `onSubmit`, montar `dados_veiculares: { veiculos }` e também manter `cnh` / `cnh_validade` do primeiro veículo para compatibilidade
 
-Atualmente a funcao `handleAssign` nao passa `agentId` na chamada:
+**3. Detalhes (ClienteDetails.tsx)**
+
+Após a seção de documentos (CPF/CNPJ), adicionar:
 
 ```text
-// Antes (linha 168-174):
-await supabase.functions.invoke("whatsapp-send-message", {
-  body: {
-    phone: conversation.contactNumber,
-    message: transferMessage(selectedAgent.name),
-    messageType: "text",
-  },
-});
-
-// Depois:
-await supabase.functions.invoke("whatsapp-send-message", {
-  body: {
-    phone: conversation.contactNumber,
-    message: transferMessage(selectedAgent.name),
-    messageType: "text",
-    agentId: currentAgentId,  // usa instancia do agente atual (mesma instancia)
-  },
-});
+// Se tem dados veiculares
+{cliente.dados_veiculares?.veiculos?.length > 0 && (
+  <>
+    <Separator />
+    <div className="py-2">
+      <span className="text-xs font-medium uppercase">Dados Veiculares</span>
+    </div>
+    {cliente.dados_veiculares.veiculos.map((v, i) => (
+      <div key={i} className="ml-4 py-2 border-l-2 pl-4 mb-2">
+        <InfoRow label="CNH" value={v.cnh} />
+        <InfoRow label="Validade CNH" value={formatDate(v.cnh_validade)} />
+        <InfoRow label="RENAVAM" value={v.renavam} />
+        <InfoRow label="Placa" value={v.placa} />
+      </div>
+    ))}
+  </>
+)}
 ```
 
-Isso garante que a mensagem de transferencia e enviada pela instancia correta e fica registrada no banco com o agent correto.
+Se o cliente nao tem `dados_veiculares` mas tem `cnh` (dados antigos), manter o fallback atual exibindo CNH e Validade CNH avulsos.
 
 ---
 
-### Fluxo apos a correcao
+### Resultado
 
-1. Daniel transfere lead para Laura (mesma instancia)
-2. Mensagem de transferencia e enviada pelo numero do Daniel (correto, mesma instancia)
-3. O kanban registra a conversa como pertencente a Laura
-4. Lead responde -> webhook recebe a mensagem
-5. Webhook consulta kanban -> encontra Laura como agente da conversa
-6. Mensagem e salva com `agent_id = Laura` -> aparece na inbox da Laura
-7. Laura responde pelo CRM com seu agentId -> mensagem sai pelo mesmo numero (mesma instancia)
-
+- Formulário de cliente: checkbox "Veicular" revela campos CNH, Validade, RENAVAM e Placa
+- Botão "Adicionar" permite múltiplos veículos
+- Dados salvos como JSONB na coluna `dados_veiculares`
+- Visualização do cliente e "Dados do Cliente" no projeto mostram todos os veículos cadastrados
+- Retrocompatibilidade com clientes que já tem CNH/Validade nos campos antigos
