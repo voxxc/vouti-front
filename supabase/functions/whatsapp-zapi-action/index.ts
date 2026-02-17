@@ -122,6 +122,14 @@ Deno.serve(async (req) => {
         method = 'PUT';
         requestBody = JSON.stringify({ notifySentByMe: true });
         break;
+      case 'set-webhook':
+        endpoint = `${baseUrl}/update-webhook`;
+        method = 'POST';
+        requestBody = JSON.stringify({
+          webhookUrl: "https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-webhook",
+          sendAckCallback: false,
+        });
+        break;
       default:
         throw new Error(`Invalid action: ${action}`);
     }
