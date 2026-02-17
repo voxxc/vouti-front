@@ -14,7 +14,8 @@ import {
   Info,
   Settings2,
   Pencil,
-  StickyNote
+  StickyNote,
+  ArrowRightLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -79,6 +80,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   const [selectedNewColumn, setSelectedNewColumn] = useState<string | null>(null);
   const [showColumnConfirm, setShowColumnConfirm] = useState(false);
   const [kanbanCardId, setKanbanCardId] = useState<string | null>(null);
+  const [transferredFromName, setTransferredFromName] = useState<string | null>(null);
 
   // Load contact ID if exists
   useEffect(() => {
@@ -119,7 +121,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
           .order("column_order"),
         supabase
           .from("whatsapp_conversation_kanban")
-          .select("id, column_id")
+          .select("id, column_id, transferred_from_agent_name")
           .eq("agent_id", currentAgentId)
           .eq("phone", conversation.contactNumber)
           .limit(1)
@@ -129,6 +131,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       setKanbanColumns(colsRes.data || []);
       setCurrentColumnId(cardRes.data?.column_id || null);
       setKanbanCardId(cardRes.data?.id || null);
+      setTransferredFromName((cardRes.data as any)?.transferred_from_agent_name || null);
     };
     loadKanbanData();
   }, [currentAgentId, conversation.contactNumber]);
@@ -208,21 +211,29 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       content: (
         <div className="py-2 space-y-2">
           {kanbanCardId ? (
-            <Select value={currentColumnId || ""} onValueChange={handleColumnChange}>
-              <SelectTrigger className="w-full text-xs h-8">
-                <SelectValue placeholder="Selecione a coluna" />
-              </SelectTrigger>
-              <SelectContent>
-                {kanbanColumns.map((col) => (
-                  <SelectItem key={col.id} value={col.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                      {col.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <Select value={currentColumnId || ""} onValueChange={handleColumnChange}>
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue placeholder="Selecione a coluna" />
+                </SelectTrigger>
+                <SelectContent>
+                  {kanbanColumns.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                        {col.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {transferredFromName && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  <ArrowRightLeft className="h-3 w-3 shrink-0" />
+                  <span>Transferido de: <span className="font-medium text-foreground">{transferredFromName}</span></span>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-xs text-muted-foreground">Lead não está no Kanban deste agente.</p>
           )}

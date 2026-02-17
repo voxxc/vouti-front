@@ -7267,18 +7267,21 @@ export type Database = {
           created_at: string | null
           id: string
           label_id: string
+          tenant_id: string | null
         }
         Insert: {
           contact_id: string
           created_at?: string | null
           id?: string
           label_id: string
+          tenant_id?: string | null
         }
         Update: {
           contact_id?: string
           created_at?: string | null
           id?: string
           label_id?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -7293,6 +7296,13 @@ export type Database = {
             columns: ["label_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contact_labels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -7400,6 +7410,8 @@ export type Database = {
           id: string
           phone: string
           tenant_id: string | null
+          transferred_from_agent_id: string | null
+          transferred_from_agent_name: string | null
           updated_at: string | null
         }
         Insert: {
@@ -7410,6 +7422,8 @@ export type Database = {
           id?: string
           phone: string
           tenant_id?: string | null
+          transferred_from_agent_id?: string | null
+          transferred_from_agent_name?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -7420,6 +7434,8 @@ export type Database = {
           id?: string
           phone?: string
           tenant_id?: string | null
+          transferred_from_agent_id?: string | null
+          transferred_from_agent_name?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -7442,6 +7458,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversation_kanban_transferred_from_agent_id_fkey"
+            columns: ["transferred_from_agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
             referencedColumns: ["id"]
           },
         ]
