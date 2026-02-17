@@ -1128,17 +1128,15 @@ const ProjectView = ({
         </div>
 
         {/* Workspace Tabs */}
-        {module !== 'crm' && (
-          <ProjectWorkspaceTabs
-            workspaces={workspaces}
-            activeWorkspaceId={activeWorkspaceId}
-            onSelectWorkspace={setActiveWorkspaceId}
-            onCreateWorkspace={createWorkspace}
-            onUpdateWorkspace={updateWorkspace}
-            onDeleteWorkspace={deleteWorkspace}
-            loading={workspacesLoading}
-          />
-        )}
+        <ProjectWorkspaceTabs
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onSelectWorkspace={setActiveWorkspaceId}
+          onCreateWorkspace={createWorkspace}
+          onUpdateWorkspace={updateWorkspace}
+          onDeleteWorkspace={deleteWorkspace}
+          loading={workspacesLoading}
+        />
 
         {/* Tabs Navigation - Horizontal */}
         <div className="space-y-4">
@@ -1368,6 +1366,7 @@ const ProjectView = ({
           currentUser={currentUser}
           projectId={project.id}
           columnName={selectedColumnName}
+          module={module}
         />
 
         <ProjectParticipants
