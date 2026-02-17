@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -57,24 +58,7 @@ const getRelativeTime = (dateString?: string): string => {
   return `${diffMin}MIN`;
 };
 
-// Normaliza telefone
-const normalizePhone = (phone: string): string => {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 12 && cleaned.startsWith('55')) {
-    const ddd = cleaned.substring(2, 4);
-    const number = cleaned.substring(4);
-    return `55${ddd}9${number}`;
-  }
-  return cleaned;
-};
-
-const getPhoneVariant = (phone: string): string | null => {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 13 && cleaned.startsWith('55')) {
-    return cleaned.substring(0, 4) + cleaned.substring(5);
-  }
-  return null;
-};
+// Phone utils importado do utilitário compartilhado
 
 export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: WhatsAppKanbanProps) => {
   const { tenantId } = useTenantId();

@@ -7,26 +7,7 @@ import {
   WhatsAppConversation, 
   WhatsAppMessage 
 } from "@/components/WhatsApp/sections/WhatsAppInbox";
-
-// Normaliza telefone brasileiro (12 dígitos → 13 dígitos com nono dígito)
-const normalizePhone = (phone: string): string => {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 12 && cleaned.startsWith('55')) {
-    const ddd = cleaned.substring(2, 4);
-    const number = cleaned.substring(4);
-    return `55${ddd}9${number}`;
-  }
-  return cleaned;
-};
-
-// Gera variante sem o 9 para busca retroativa
-const getPhoneVariant = (phone: string): string | null => {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 13 && cleaned.startsWith('55')) {
-    return cleaned.substring(0, 4) + cleaned.substring(5);
-  }
-  return null;
-};
+import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 
 interface SuperAdminWhatsAppInboxProps {
   initialConversationPhone?: string | null;
