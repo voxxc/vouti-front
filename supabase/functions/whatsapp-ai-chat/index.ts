@@ -50,7 +50,7 @@ serve(async (req) => {
     }
 
     // 2) Fallback: config do tenant (sem agent_id)
-    if (!aiConfig && !configError) {
+    if (!aiConfig && !configError && !agent_id) {
       let fallbackQuery = supabase
         .from('whatsapp_ai_config')
         .select('*')

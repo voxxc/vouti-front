@@ -391,7 +391,7 @@ async function handleAIResponse(
       aiConfig = data;
     }
 
-    if (!aiConfig) {
+    if (!aiConfig && !agent_id) {
       let fallbackQuery = supabase
         .from('whatsapp_ai_config')
         .select('*')
