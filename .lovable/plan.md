@@ -1,58 +1,39 @@
 
 
-## Corrigir: Mensagens recebidas nao aparecem na Caixa de Entrada dos agentes
+## Corrigir: Webhook da Z-API nao esta sendo configurado (endpoint errado)
 
 ### Problema
 
-Quando a Laura (ou qualquer agente) recebe uma mensagem no WhatsApp, ela nao aparece na Caixa de Entrada do CRM. Isso acontece porque o sistema **nao configura o webhook da Z-API** automaticamente quando uma instancia conecta.
+O `set-webhook` implementado anteriormente **falhou** com erro `NOT_FOUND` porque usa o endpoint e formato errados da Z-API:
 
-Ou seja: a Z-API nao sabe para onde enviar as mensagens recebidas. O `notifySentByMe` e ativado (mensagens enviadas pelo celular sao capturadas), mas o `receivedCallback` (webhook para mensagens recebidas) nunca e configurado.
+- Endpoint errado: `POST /update-webhook`
+- Formato errado: `{ "webhookUrl": "...", "sendAckCallback": false }`
+
+O correto segundo a documentacao oficial da Z-API:
+
+- Endpoint correto: `PUT /update-webhook-received`
+- Formato correto: `{ "value": "https://..." }`
 
 ### Solucao
 
-Adicionar a configuracao automatica do webhook da Z-API quando uma instancia conecta com sucesso.
-
-### Mudancas
-
-**1. Edge Function `whatsapp-zapi-action/index.ts`**
-
-Adicionar uma nova action `set-webhook` que chama o endpoint da Z-API `POST /update-webhook` com o payload:
+Corrigir a action `set-webhook` no edge function `whatsapp-zapi-action/index.ts`:
 
 ```text
-{
-  "webhookUrl": "https://<SUPABASE_URL>/functions/v1/whatsapp-webhook",
-  "sendAckCallback": false
-}
+Antes (errado):
+  endpoint = baseUrl + "/update-webhook"
+  method = "POST"
+  body = { webhookUrl: "...", sendAckCallback: false }
+
+Depois (correto):
+  endpoint = baseUrl + "/update-webhook-received"
+  method = "PUT"
+  body = { value: "https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-webhook" }
 ```
 
-Isso configura o `receivedCallback` na Z-API para que mensagens recebidas sejam enviadas ao nosso webhook.
+### Arquivo a editar
 
-**2. Componente Tenant `WhatsAppAgentsSettings.tsx`**
-
-Apos a conexao bem-sucedida (onde ja ativa o `notifySentByMe`), adicionar uma chamada para a nova action `set-webhook`:
-
-```text
-await supabase.functions.invoke("whatsapp-zapi-action", {
-  body: {
-    action: "set-webhook",
-    zapi_instance_id: config.zapi_instance_id,
-    zapi_instance_token: config.zapi_instance_token,
-    zapi_client_token: config.zapi_client_token || undefined,
-  },
-});
-```
-
-**3. Componente Super Admin `SuperAdminAgentsSettings.tsx`**
-
-Mesma alteracao do item 2, para garantir paridade entre Super Admin e Tenant.
-
-### Arquivos a editar
-
-1. `supabase/functions/whatsapp-zapi-action/index.ts` - adicionar action `set-webhook`
-2. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` - chamar `set-webhook` apos conexao
-3. `src/components/SuperAdmin/WhatsApp/SuperAdminAgentsSettings.tsx` - chamar `set-webhook` apos conexao
+1. `supabase/functions/whatsapp-zapi-action/index.ts` - corrigir endpoint, metodo e body da action `set-webhook`
 
 ### Nota
 
-Apos implementar, a Laura precisara **reconectar** a instancia dela (desconectar e conectar novamente via QR Code) para que o webhook seja configurado automaticamente. Alternativamente, voce pode acessar o painel Z-API dela e configurar o webhook manualmente com a URL: `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-webhook`
-
+Apos o deploy, a Laura precisara **reconectar** (desconectar e escanear QR Code novamente) para que o webhook seja configurado automaticamente. Ou pode-se disparar a action `set-webhook` manualmente para a instancia dela.
