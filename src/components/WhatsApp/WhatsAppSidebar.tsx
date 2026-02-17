@@ -172,7 +172,7 @@ export const WhatsAppSidebar = ({
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="text-xl font-black tracking-tight lowercase text-foreground">
+          <span className="text-3xl font-black tracking-tight lowercase text-foreground">
             vouti<span className="text-[#E11D48]">.</span>crm
           </span>
         </div>
