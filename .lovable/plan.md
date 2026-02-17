@@ -1,112 +1,50 @@
 
 
-## Suporte a Midias no Chat do Vouti.CRM (Audios, Fotos, Videos, Documentos)
+## Correcao: Midias enviadas visiveis no chat + Gravacao de audio pelo microfone
 
-### O que muda
+### Problema 1: Midias enviadas nao aparecem no chat
 
-Implementar envio e recebimento de midias (imagens, audios, videos e documentos) no chat do CRM, aproveitando os endpoints especificos da Z-API e os dados que o webhook ja entrega.
+Quando voce envia uma imagem, audio ou documento, a mensagem e salva no banco de dados com o `message_type` correto (ex: `image`), mas a **URL da midia nao e salva**. Ao recarregar as mensagens do banco, o sistema tenta extrair a URL do campo `raw_data` (que so existe para mensagens recebidas via webhook). Como mensagens enviadas nao tem `raw_data`, a midia desaparece.
 
----
+**Solucao**: Salvar a `mediaUrl` dentro do campo `raw_data` na edge function `whatsapp-send-message`, usando o mesmo formato que o webhook usa para mensagens recebidas. Exemplo: para uma imagem, salvar `raw_data: { image: { imageUrl: "..." } }`.
 
-### 1. Webhook: Capturar midias recebidas corretamente
-
-**Arquivo:** `supabase/functions/whatsapp-webhook/index.ts`
-
-Atualmente o webhook salva tudo como `message_type: 'text'` e pega apenas `text?.message`. Precisa detectar o tipo de midia e extrair a URL do arquivo.
-
-**Logica:**
-- Detectar tipo de mensagem via campo `type` ou presenca de `image`, `audio`, `video`, `document` no payload do webhook
-- Extrair a URL da midia (campo `image.imageUrl`, `audio.audioUrl`, `video.videoUrl`, `document.documentUrl` conforme Z-API)
-- Salvar no DB com `message_type` correto (`image`, `audio`, `video`, `document`) e a URL da midia no campo `message_text` (ou armazenar a URL no `raw_data` que ja e salvo)
-- O `message_text` pode conter o caption (legenda) quando houver
-
-Mapeamento Z-API esperado:
-
-| Campo webhook | message_type | URL |
-|---|---|---|
-| `image` | `image` | `image.imageUrl` |
-| `audio` | `audio` | `audio.audioUrl` |
-| `video` | `video` | `video.videoUrl` |
-| `document` | `document` | `document.documentUrl` |
+Assim, quando o frontend carrega as mensagens, o mapeamento `rawData?.image?.imageUrl || rawData?.audio?.audioUrl || ...` funciona tanto para mensagens recebidas quanto enviadas.
 
 ---
 
-### 2. Edge Function de envio: Endpoints especificos da Z-API
+### Problema 2: Botao do microfone nao funciona
 
-**Arquivo:** `supabase/functions/whatsapp-send-message/index.ts`
+O botao do microfone (Mic) e apenas um icone estatico sem logica. Precisa implementar gravacao de audio pelo navegador usando a API `MediaRecorder` do browser.
 
-Atualmente usa `send-file-url` generico para Z-API. Mudar para endpoints especificos:
+**Solucao**: Ao clicar no microfone, solicitar permissao do navegador para acessar o microfone, gravar o audio, e ao parar, fazer upload para o Supabase Storage e enviar como mensagem de audio.
 
-| messageType | Endpoint Z-API |
-|---|---|
-| `text` | `/send-text` |
-| `image` | `/send-image` |
-| `audio` | `/send-audio` |
-| `video` | `/send-video` |
-| `document` | `/send-document` |
-
-Cada endpoint recebe: `{ phone, image/audio/video/document: mediaUrl, caption?: message }` (formato varia por tipo).
-
-Tambem atualizar o `message_type` salvo no DB para refletir o tipo real ao inves de sempre `'text'`.
+Fluxo:
+1. Clicar no Mic -> pedir permissao do navegador (`navigator.mediaDevices.getUserMedia`)
+2. Iniciar gravacao com `MediaRecorder` (formato `audio/webm` ou `audio/ogg`)
+3. Mostrar indicador visual de gravacao (tempo + botao de parar/cancelar)
+4. Ao parar -> upload do blob para o bucket `message-attachments`
+5. Enviar via `onSendMessage("", "audio", signedUrl)`
 
 ---
 
-### 3. Interface WhatsAppMessage: Adicionar campos de midia
-
-**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
-
-Expandir a interface:
-
-```text
-export interface WhatsAppMessage {
-  id: string;
-  messageText: string;
-  direction: "incoming" | "outgoing";
-  timestamp: string;
-  isFromMe: boolean;
-  messageType: "text" | "image" | "audio" | "video" | "document";
-  mediaUrl?: string;
-}
-```
-
-Atualizar todos os locais que montam `WhatsAppMessage` (Inbox, AllConversations, LabelConversations) para extrair `message_type` e `mediaUrl` do `raw_data`.
-
----
-
-### 4. ChatPanel: Renderizar midias e permitir envio
-
-**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
-
-**Recebimento (renderizacao):**
-- `image`: Renderizar `<img>` clicavel (abre em nova aba)
-- `audio`: Renderizar `<audio controls>` nativo do navegador
-- `video`: Renderizar `<video controls>` nativo
-- `document`: Renderizar link para download com icone de arquivo
-
-**Envio:**
-- Botao de Paperclip (ja existe) abre um `<input type="file">` para selecionar arquivo
-- Detectar tipo pelo MIME type do arquivo selecionado
-- Upload do arquivo para o bucket `message-attachments` do Supabase Storage
-- Obter URL publica/signed e enviar via edge function com `messageType` correto e `mediaUrl`
-- Atualizar `onSendMessage` para aceitar tipo e URL: `onSendMessage(text, messageType?, mediaUrl?)`
-
----
-
-### 5. Bucket de Storage
-
-O bucket `message-attachments` ja existe (privado). Sera necessario criar uma policy de INSERT para usuarios autenticados e uma policy de SELECT para leitura das midias.
-
----
-
-### Resumo dos arquivos
+### Arquivos a modificar
 
 | Arquivo | Acao |
 |---|---|
-| `supabase/functions/whatsapp-webhook/index.ts` | Detectar tipo de midia, extrair URL, salvar message_type correto |
-| `supabase/functions/whatsapp-send-message/index.ts` | Usar endpoints Z-API especificos (send-image, send-audio, etc) |
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Expandir interface WhatsAppMessage, mapear campos de midia |
-| `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx` | Mapear campos de midia na formatacao |
-| `src/components/WhatsApp/sections/WhatsAppLabelConversations.tsx` | Mapear campos de midia na formatacao |
-| `src/components/WhatsApp/components/ChatPanel.tsx` | Renderizar midias + botao de envio de arquivos com upload ao Storage |
-| Migracao SQL | Policies de storage para bucket `message-attachments` |
+| `supabase/functions/whatsapp-send-message/index.ts` | Salvar `mediaUrl` dentro de `raw_data` no formato compativel com o mapeamento do frontend |
+| `src/components/WhatsApp/components/ChatPanel.tsx` | Implementar gravacao de audio com `MediaRecorder` no botao Mic; adicionar UI de gravacao (tempo, cancelar, enviar) |
 
+### Detalhes tecnicos
+
+**Edge function** - adicionar ao `messageRecord`:
+```text
+raw_data: mediaUrl ? { [messageType]: { [`${messageType}Url`]: mediaUrl } } : null
+```
+
+**ChatPanel** - novo estado e logica:
+- `isRecording` / `recordingTime` para controlar a UI
+- `MediaRecorder` API para capturar audio do microfone
+- Timer visual mostrando duracao da gravacao
+- Botao de cancelar (X vermelho) e enviar (Send verde) durante gravacao
+- Upload do blob gerado para Supabase Storage
+- Tratamento de erro caso o navegador negue permissao do microfone
