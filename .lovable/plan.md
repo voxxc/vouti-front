@@ -1,28 +1,26 @@
 
 
-## Atualizar logo do Vouti.CRM: remover nuvem e aplicar nova identidade
+## Duas correções de logo
 
-### O que sera feito
+### 1. Remover logo "vouti." do header do Dashboard
 
-Substituir a logo antiga (nuvem + "VOUTI CRM" em uppercase) pela nova identidade visual "vouti.crm" seguindo o mesmo padrao do componente `LogoVouti` (lowercase, font-black, tracking-tight, com ponto vermelho).
+O logo adicionado ao lado da barra de pesquisa rapida no header do `DashboardLayout.tsx` (linhas 197-199) sera removido. Nao foi solicitado e sera revertido.
 
-### Mudancas
+### 2. Trocar nuvem por "vouti.crm" no header do CRM (`WhatsAppSidebar.tsx`)
 
-**Arquivo: `src/pages/CrmLogin.tsx`**
+No header da sidebar do CRM (linha 175-178), substituir o `CloudIcon` + texto "Vouti.CRM" pela nova identidade:
 
-1. **Remover import do CloudIcon** (linha 7) - nao sera mais usado
-2. **Desktop (lado esquerdo, linhas 100-105)**: Substituir o bloco com "VOUTI CRM" em uppercase/gradient por um texto no estilo da nova logo:
-   - "vouti" em branco + ".crm" em vermelho (#E11D48)
-   - Fonte lowercase, font-black, tracking-tight (mesmo padrao do `LogoVouti`)
-3. **Mobile (linhas 116-125)**: Remover o `CloudIcon` e substituir o texto "VOUTI CRM" pelo mesmo estilo:
-   - "vouti" em foreground + ".crm" em vermelho
-   - Sem nuvem, limpo e minimalista
+- Remover import do `CloudIcon`
+- Substituir por texto estilizado: **vouti** (preto/foreground) + **.crm** (preto/foreground)
+- Estilo: `font-black`, `tracking-tight`, `lowercase` (mesmo padrao do `LogoVouti`)
 
-### Visual esperado
-
-```text
-Antes (desktop):   VOUTI CRM        (uppercase, gradient, com nuvem no mobile)
-Depois (desktop):  vouti.crm         (lowercase, bold, ponto vermelho, sem nuvem)
+```
+Antes:  [nuvem] Vouti.CRM
+Depois: vouti.crm  (tudo em cor preta/foreground, font-black)
 ```
 
-O subtitulo "Gestao inteligente de clientes." sera mantido em ambas as versoes (desktop e mobile).
+### Arquivos a editar
+
+1. `src/components/Dashboard/DashboardLayout.tsx` - remover `LogoVouti` do header
+2. `src/components/WhatsApp/WhatsAppSidebar.tsx` - trocar nuvem por logo texto "vouti.crm"
+
