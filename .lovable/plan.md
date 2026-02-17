@@ -1,37 +1,50 @@
 
 
-## Corrigir RLS da tabela `whatsapp_labels` para permitir criacao de etiquetas
+## Logo clicavel + Caixa de Entrada fixa em segundo plano
 
-### Problema encontrado
+### O que muda
 
-O erro no console e claro:
-```
-new row violates row-level security policy for table "whatsapp_labels"
-```
+Atualmente, ao trocar de secao, o componente `WhatsAppInbox` e desmontado (switch/case). Isso mata o polling de 2 segundos e obriga recarregar tudo ao voltar. A mudanca e:
 
-A politica atual de INSERT/UPDATE/DELETE (`whatsapp_labels_admin_all`) exige que o usuario tenha role `admin` ou `controller` na tabela `user_roles`. O usuario atual tem role `advogado`, entao nao consegue criar, editar ou excluir etiquetas.
-
-### Solucao
-
-Adicionar uma politica RLS que permita a **qualquer membro autenticado do tenant** gerenciar etiquetas (INSERT, UPDATE, DELETE) dentro do seu proprio tenant. Etiquetas sao ferramentas de organizacao e nao precisam de restricao administrativa.
+1. **Logo "vouti.crm" clicavel** -- clicar no logo volta para a Caixa de Entrada
+2. **Inbox sempre montada** -- fica renderizada em background, mantendo o polling ativo
+3. **Outras secoes como overlay** -- renderizadas por cima da Inbox com `absolute inset-0`, ocultando-a visualmente mas sem desmontar
 
 ### Detalhes tecnicos
 
-**Migracao SQL**: Criar nova politica permissiva para membros do tenant:
+**Arquivo: `WhatsAppSidebar.tsx`** (linhas 226-243)
+- Envolver o texto "vouti.crm" em um botao/div clicavel
+- Ao clicar, chamar `onSectionChange("inbox")`
 
-```sql
-CREATE POLICY "whatsapp_labels_tenant_all"
-ON whatsapp_labels
-FOR ALL
-TO authenticated
-USING (tenant_id = get_user_tenant_id())
-WITH CHECK (tenant_id = get_user_tenant_id());
+**Arquivo: `WhatsAppLayout.tsx`** (linhas 111-124)
+- Mudar o `renderSection()` para nao usar switch/case que desmonta a Inbox
+- A Inbox fica **sempre renderizada** dentro do `<main>`
+- As outras secoes renderizam **por cima** usando posicionamento absoluto, so quando `activeSection !== "inbox"`
+
+Estrutura resultante:
+
+```text
+<main className="flex-1 overflow-hidden relative">
+  {/* Inbox SEMPRE montada -- polling de 2s continua */}
+  <div className={activeSection === "inbox" ? "block" : "hidden"}>
+    <WhatsAppInbox ... />
+  </div>
+
+  {/* Outras secoes aparecem por cima */}
+  {activeSection !== "inbox" && (
+    <div className="absolute inset-0 z-10 bg-background">
+      {renderOtherSection()}
+    </div>
+  )}
+</main>
 ```
 
-Isso permite que qualquer usuario autenticado do tenant crie, edite e exclua etiquetas pertencentes ao seu tenant, sem exigir role de admin.
+Usar `hidden` (display:none) ao inves de desmontar garante que o React Query e os intervalos de polling continuam ativos no DOM sem custo visual.
+
+### Resumo dos arquivos
 
 | Arquivo | Acao |
 |---|---|
-| Migracao SQL | Criar politica `whatsapp_labels_tenant_all` para membros do tenant |
+| `WhatsAppSidebar.tsx` | Logo "vouti.crm" clicavel para voltar ao inbox |
+| `WhatsAppLayout.tsx` | Inbox sempre montada em background, outras secoes como overlay absoluto |
 
-Nenhuma mudanca de codigo no frontend -- o componente `WhatsAppLabelsSettings.tsx` ja esta correto e funcional.
