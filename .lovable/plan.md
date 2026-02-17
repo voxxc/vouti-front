@@ -1,103 +1,77 @@
 
-## Abrir Processo inline (dentro da aba) em vez de drawer de baixo para cima
 
-### O que muda
+## Isolar projetos CRM do Vouti Legal
 
-Ao clicar em um processo na lista de "Processos" (dentro do workspace), em vez de abrir um `Drawer` (vaul) de baixo para cima, o conteudo do processo sera exibido **inline** dentro da propria aba, substituindo a lista -- com um botao de voltar para retornar a lista. Isso segue o mesmo padrao de navegacao interna ja usado no CRM e no Project drawer.
+### Problema
+
+Projetos criados no Vouti CRM (com `module = 'crm'`) estao aparecendo em contagens e buscas do Vouti Legal. Isso acontece porque varias queries nao filtram pelo campo `module`.
+
+O hook `useProjectsOptimized` ja filtra corretamente com `.eq('module', 'legal')`, mas outros pontos do sistema nao fazem essa filtragem.
 
 ---
 
 ### Arquivos a modificar
 
-| Arquivo | Acao |
+| Arquivo | O que falta |
 |---|---|
-| `src/components/Project/ProjectProtocolosList.tsx` | Adicionar estado de navegacao interna (`view: 'lista' \| 'detalhes'`). Quando um processo e clicado, mostrar o conteudo do processo inline em vez de abrir o Drawer. |
-| `src/components/Project/ProjectProtocoloDrawer.tsx` | Extrair todo o conteudo (tabs Resumo, Etapas, Prazos, etc.) para um novo componente reutilizavel `ProjectProtocoloContent`. Manter o Drawer existente como wrapper opcional para outros contextos. |
-| `src/components/Project/ProjectProtocoloContent.tsx` **(novo)** | Componente que recebe o `protocolo` e todas as callbacks, renderizando o header com titulo/status/progresso e as tabs (Resumo, Etapas, Prazos, Vinculo, Historico, Relatorio). Reutiliza toda a logica ja existente no Drawer. |
+| `src/components/Search/ProjectQuickSearch.tsx` | Query de projetos nao filtra por module -- CRM aparece na busca rapida |
+| `src/components/Dashboard/Metrics/AdminMetrics.tsx` | Contagem de projetos no dashboard inclui CRM |
+| `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx` | Contagem de projetos no dashboard inclui CRM |
+| `src/hooks/usePrefetchPages.ts` | Prefetch de contagem de projetos inclui CRM |
 
 ---
 
 ### Detalhes tecnicos
 
-**1. ProjectProtocoloContent.tsx (novo)**
+Em cada arquivo, adicionar `.eq('module', 'legal')` na query de projetos:
 
-Extrair do `ProjectProtocoloDrawer.tsx` (linhas ~102-1192) toda a logica e JSX do conteudo:
-- Estados internos (editing, etapas, prazos, etc.)
-- Hooks (useProjectAdvogado, useProtocoloVinculo)
-- Tabs com Resumo, Etapas, Prazos, Vinculo, Historico, Relatorio
-- Modais de etapa, conclusao, relatorio, advogado
-
-A interface sera:
-```text
-interface ProjectProtocoloContentProps {
-  protocolo: ProjectProtocolo;
-  onUpdate: (id, data) => Promise<void>;
-  onDelete: (id) => Promise<void>;
-  onAddEtapa: ...
-  onUpdateEtapa: ...
-  onDeleteEtapa: ...
-  projectId?: string;
-  onRefetch?: () => Promise<void>;
-  onClose?: () => void;  // botao de voltar
-}
-```
-
-**2. ProjectProtocoloDrawer.tsx (simplificado)**
-
-Manter como wrapper fino que renderiza o `Drawer` (vaul) ao redor de `ProjectProtocoloContent`. Assim, se algum outro lugar ainda usar o drawer de baixo para cima, continua funcionando.
-
-**3. ProjectProtocolosList.tsx (navegacao interna)**
-
-Substituir a abertura do drawer por navegacao interna:
+**1. ProjectQuickSearch.tsx** -- nas duas queries (admin e usuario normal):
 
 ```text
-// Estado
-const [view, setView] = useState<'lista' | 'detalhes'>('lista');
+// Antes:
+supabase.from('projects').select('id, name, client').eq('tenant_id', tenantId)
 
-// Ao clicar no processo
-const handleProtocoloClick = (protocolo) => {
-  setSelectedProtocoloId(protocolo.id);
-  setView('detalhes');
-};
-
-// Render
-if (view === 'detalhes' && selectedProtocolo) {
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant="ghost" size="icon" onClick={() => setView('lista')}>
-          <ArrowLeft />
-        </Button>
-        <span className="font-semibold">{selectedProtocolo.nome}</span>
-      </div>
-      <ProjectProtocoloContent
-        protocolo={selectedProtocolo}
-        onUpdate={updateProtocolo}
-        onDelete={async (id) => {
-          await deleteProtocolo(id);
-          setView('lista');
-        }}
-        onAddEtapa={addEtapa}
-        onUpdateEtapa={updateEtapa}
-        onDeleteEtapa={deleteEtapa}
-        projectId={projectId}
-        onRefetch={refetch}
-        onClose={() => setView('lista')}
-      />
-    </div>
-  );
-}
-
-// Senao, renderiza a lista normalmente (sem o ProjectProtocoloDrawer)
+// Depois:
+supabase.from('projects').select('id, name, client').eq('tenant_id', tenantId).eq('module', 'legal')
 ```
 
-O `ProjectProtocoloDrawer` deixa de ser usado neste componente, mas permanece no codigo para compatibilidade com outros pontos que possam usa-lo.
+Isso se aplica tanto na query do admin (linha ~55) quanto na query do usuario normal (linha ~74).
+
+**2. AdminMetrics.tsx** (linha ~34):
+
+```text
+// Antes:
+supabase.from('projects').select('id', { count: 'exact', head: true })
+
+// Depois:
+supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal')
+```
+
+**3. FinanceiroMetrics.tsx** (linha ~56):
+
+```text
+// Antes:
+supabase.from('projects').select('id', { count: 'exact', head: true })
+
+// Depois:
+supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal')
+```
+
+**4. usePrefetchPages.ts** (linha ~41):
+
+```text
+// Antes:
+supabase.from('projects').select('id', { count: 'exact', head: true })
+
+// Depois:
+supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal')
+```
 
 ---
 
-### Resultado visual
+### Resultado
 
-- Clicar em um processo na lista -> a lista desaparece e o conteudo do processo aparece no mesmo espaco, com um botao de voltar (seta) no topo
-- As tabs (Resumo, Etapas, Prazos, etc.) ficam dentro da area da aba "Processos"
-- Voltar -> retorna a lista de processos
-- Sem drawer de baixo para cima
+- Projetos CRM ficam invisiveis em todo o Vouti Legal (dashboard, busca rapida, contagens)
+- Projetos legais continuam funcionando normalmente
+- O CRM continua acessando apenas seus proprios projetos (`module = 'crm'`) como ja faz hoje
+
