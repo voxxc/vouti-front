@@ -1,104 +1,74 @@
 
+## Ativar Etiquetas no CRM, Kanban com Cadeado, Coluna "Transferidos" e Notificacoes CRM
 
-## Corrigir: Contatos salvos nao sendo reconhecidos nas conversas
+Este plano cobre 5 funcionalidades solicitadas:
 
-### Problema encontrado
+### 1. Filtro por Etiquetas no menu "Conversas" da sidebar
 
-O contato "Solvenza Chip 1" foi salvo com o telefone `45 98808-3583`, mas as mensagens chegam com o numero `5545988083583`. O sistema faz busca por **match exato** (`.eq("phone", ...)`), entao nao reconhece que sao o mesmo contato.
+**Situacao atual**: O menu "Conversas" na sidebar so tem o sub-item "Todas as Conversas".
 
-Isso afeta **todos os tenants** e acontece porque:
-1. O `SaveContactDialog` salva o telefone no formato que o usuario digita (com espacos, tracos, sem codigo do pais)
-2. As conversas usam o numero normalizado (so digitos, com 55)
-3. A busca de contatos e por igualdade exata -- falha quando os formatos divergem
+**Mudanca**: Adicionar sub-item "Etiquetas" que, ao expandir, lista dinamicamente todas as etiquetas criadas (tabela `whatsapp_labels`). Ao clicar numa etiqueta, a lista de conversas exibe somente os leads/contatos que possuem aquela etiqueta vinculada.
 
-### Dados reais do problema
+- **`WhatsAppSidebar.tsx`**: Expandir o Collapsible "Conversas" com sub-botao "Etiquetas" que abre um sub-nivel com as etiquetas carregadas do banco. Ao clicar numa etiqueta, navega para uma nova section `label-filter` passando o `labelId`.
+- **`WhatsAppDrawer.tsx`**: Adicionar nova section `label-filter` ao tipo `WhatsAppSection`. Renderizar um componente `WhatsAppLabelConversations` que recebe o `labelId`.
+- **Novo componente `WhatsAppLabelConversations.tsx`**: Busca contatos vinculados aquela etiqueta via `whatsapp_contact_labels` JOIN `whatsapp_contacts`, depois busca as conversas desses telefones na `whatsapp_messages`. Reutiliza `ConversationList` e `ChatPanel`.
 
-```text
-Contato salvo:     "45 98808-3583"
-Conversa mostra:   "5545988083583"
-Match exato:       FALHA
-```
+### 2. Coluna "Transferidos" no Kanban de cada agente
 
-### Solucao: Normalizar em 3 pontos
+**Mudanca no banco**: Adicionar colunas `transferred_from_agent_id` e `transferred_from_agent_name` na tabela `whatsapp_conversation_kanban` para rastrear o agente anterior.
 
-**1. Normalizar ao salvar o contato (`SaveContactDialog.tsx`)**
-
-Antes de gravar no banco, limpar o telefone para formato padrao (so digitos, com 55):
-
-```text
-// Antes de salvar:
-const normalizedPhone = normalizePhoneForStorage(phoneValue.trim());
-
-function normalizePhoneForStorage(phone: string): string {
-  let cleaned = phone.replace(/\D/g, '');
-  // Adicionar 55 se for numero brasileiro sem codigo do pais
-  if (cleaned.length === 10 || cleaned.length === 11) {
-    cleaned = '55' + cleaned;
-  }
-  // Adicionar nono digito se 12 digitos (55 + DDD + 8 digitos)
-  if (cleaned.length === 12 && cleaned.startsWith('55')) {
-    cleaned = cleaned.substring(0, 4) + '9' + cleaned.substring(4);
-  }
-  return cleaned;
-}
-```
-
-**2. Normalizar ao buscar o contato (`ContactInfoPanel.tsx`)**
-
-Na busca de contato, comparar usando ambas variantes (com e sem nono digito):
-
-```text
-// Gerar variantes do numero para busca
-const normalized = normalizePhone(conversation.contactNumber);
-const variant = getPhoneVariant(normalized);
-
-// Buscar por qualquer variante
-let query = supabase
-  .from("whatsapp_contacts")
-  .select("id");
-
-if (variant) {
-  query = query.or(`phone.eq.${normalized},phone.eq.${variant}`);
-} else {
-  query = query.eq("phone", normalized);
-}
-```
-
-**3. Normalizar ao montar o mapa de nomes (`WhatsAppInbox.tsx`, `SuperAdminWhatsAppInbox.tsx`, `WhatsAppKanban.tsx`)**
-
-Ja fazem `normalizePhone(c.phone)` -- mas dependem de o phone estar em formato limpavel. Apos a correcao no salvamento, todos passam a funcionar corretamente.
-
-**4. Migracao SQL: corrigir dados existentes**
-
-Limpar os telefones ja salvos no banco para o formato padrao:
-
+**Migracao SQL**:
 ```sql
-UPDATE whatsapp_contacts
-SET phone = regexp_replace(phone, '[^0-9]', '', 'g');
-
--- Adicionar 55 para numeros sem codigo do pais (10-11 digitos)
-UPDATE whatsapp_contacts
-SET phone = '55' || phone
-WHERE length(phone) IN (10, 11)
-  AND phone NOT LIKE '55%';
-
--- Adicionar nono digito onde falta (12 digitos comecando com 55)
-UPDATE whatsapp_contacts
-SET phone = substring(phone, 1, 4) || '9' || substring(phone, 5)
-WHERE length(phone) = 12
-  AND phone LIKE '55%';
+ALTER TABLE whatsapp_conversation_kanban 
+  ADD COLUMN transferred_from_agent_id uuid REFERENCES whatsapp_agents(id),
+  ADD COLUMN transferred_from_agent_name text;
 ```
 
-### Arquivos a editar
+- **`TransferConversationDialog.tsx`**: Ao transferir/atribuir, gravar o `transferred_from_agent_id` e `transferred_from_agent_name` no card Kanban do agente destino.
+- **`ContactInfoPanel.tsx`**: Na secao "Kanban CRM" do painel lateral, exibir "Transferido de: [nome do agente anterior]" quando o campo `transferred_from_agent_name` estiver preenchido.
+- **Kanban visual (`WhatsAppKanban.tsx`)**: Nos cards que tem `transferred_from_agent_name`, exibir um badge "De: [nome]" para rastreio visual.
 
-1. **SQL Migration** - normalizar telefones existentes no banco
-2. **`src/components/WhatsApp/components/SaveContactDialog.tsx`** - normalizar antes de salvar
-3. **`src/components/WhatsApp/components/ContactInfoPanel.tsx`** - buscar com variantes normalizadas
-4. Extrair funcao `normalizePhone` para arquivo utilitario compartilhado (`src/utils/phoneUtils.ts`) para evitar duplicacao entre 4+ arquivos
+### 3. Cadeado para travar/destravar drag-and-drop de colunas no Kanban CRM
 
-### Resultado
+**Situacao atual**: O Kanban do CRM permite arrastar cards entre colunas, mas nao tem controle de trava como o Kanban de projetos (`ProjectView.tsx` usa `isColumnsLocked` com icone Lock/LockOpen).
 
-- Contatos salvos em qualquer formato serao normalizados automaticamente
-- Busca de contatos compara por variantes (com/sem nono digito)
-- Dados existentes corrigidos pela migracao
-- Funciona para todos os tenants e Super Admin
+**Mudanca**: Adicionar botao de cadeado no header do Kanban CRM:
+- Estado `isLocked = true` (padrao): permite arrastar **cards** entre colunas normalmente.
+- Estado `isLocked = false`: os cards ficam travados (nao arrastam). Isso protege contra movimentacoes acidentais.
+
+O padrao e o inverso do projeto (aqui trava os cards, nao colunas, ja que colunas do CRM sao fixas). Mas o visual sera o mesmo: botao circular com Lock/LockOpen.
+
+- **`WhatsAppKanban.tsx`**: Adicionar estado `isLocked`, botao no header, e `isDragDisabled={isLocked}` nos `Draggable`.
+
+### 4. Sino de notificacoes no CRM
+
+**Mudanca**: Adicionar icone de sino no header do CRM (sidebar ou area principal) que mostra notificacoes especificas do CRM. Usa a tabela `notifications` existente filtrando por `type` com valores CRM-especificos (ex: `conversation_transferred`, `crm_label_added`, `crm_new_lead`).
+
+- **Novo componente `CRMNotificationsBell.tsx`**: Icone de sino com badge de contagem de nao-lidos. Ao clicar, abre um Popover com lista das notificacoes CRM recentes. Marca como lidas ao abrir.
+- **`WhatsAppSidebar.tsx`** ou **`WhatsAppLayout.tsx`**: Posicionar o sino no header do CRM, proximo ao logo.
+- Filtra notificacoes por `type IN ('conversation_transferred', 'crm_new_lead', ...)` e `tenant_id`.
+
+### 5. Garantir que etiquetas funcionem end-to-end
+
+A tabela `whatsapp_contact_labels` **nao tem** coluna `tenant_id`, porem o `AddLabelDropdown` tenta inserir com `tenant_id`. Isso precisa ser corrigido:
+
+**Migracao SQL**:
+```sql
+ALTER TABLE whatsapp_contact_labels ADD COLUMN tenant_id uuid REFERENCES tenants(id);
+```
+
+---
+
+### Resumo dos arquivos a editar/criar
+
+| Arquivo | Acao |
+|---|---|
+| **Migracao SQL** | Adicionar `tenant_id` em `whatsapp_contact_labels`, adicionar `transferred_from_agent_id/name` em `whatsapp_conversation_kanban` |
+| `WhatsAppSidebar.tsx` | Expandir menu Conversas com sub-nivel Etiquetas |
+| `WhatsAppDrawer.tsx` | Nova section `label-filter`, state para `selectedLabelId` |
+| **Novo: `WhatsAppLabelConversations.tsx`** | Componente para listar conversas filtradas por etiqueta |
+| `WhatsAppKanban.tsx` | Botao cadeado Lock/LockOpen, `isDragDisabled` nos Draggable |
+| `TransferConversationDialog.tsx` | Gravar `transferred_from_agent_id/name` ao transferir |
+| `ContactInfoPanel.tsx` | Exibir "Transferido de" no painel lateral |
+| **Novo: `CRMNotificationsBell.tsx`** | Sino com notificacoes CRM |
+| `WhatsAppSidebar.tsx` ou header | Posicionar sino |
