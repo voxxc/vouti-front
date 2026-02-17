@@ -97,7 +97,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
 
     setIsLoading(true);
     try {
-      const [columnsRes, cardsRes, messagesRes, contactsRes] = await Promise.all([
+      const [columnsRes, cardsRes, contactsRes, sharedAccessRes] = await Promise.all([
         supabase
           .from("whatsapp_kanban_columns")
           .select("*")
@@ -108,14 +108,34 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
           .select("*")
           .eq("agent_id", agentId),
         supabase
+          .from("whatsapp_contacts")
+          .select("phone, name"),
+        supabase
+          .from("whatsapp_conversation_access" as any)
+          .select("phone")
+          .eq("agent_id", agentId),
+      ]);
+
+      const sharedPhones = new Set<string>((sharedAccessRes.data || []).map((a: any) => a.phone));
+
+      // Load agent's own messages
+      const { data: ownMessages } = await supabase
+        .from("whatsapp_messages")
+        .select("from_number, message_text, created_at")
+        .eq("agent_id", agentId)
+        .order("created_at", { ascending: false });
+
+      // Load shared access messages (all agents for those phones)
+      let sharedMsgs: any[] = [];
+      if (sharedPhones.size > 0) {
+        const orFilter = Array.from(sharedPhones).map(p => `from_number.eq.${p}`).join(",");
+        const { data } = await supabase
           .from("whatsapp_messages")
           .select("from_number, message_text, created_at")
-          .eq("agent_id", agentId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("whatsapp_contacts")
-          .select("phone, name")
-      ]);
+          .or(orFilter)
+          .order("created_at", { ascending: false });
+        sharedMsgs = data || [];
+      }
 
       if (columnsRes.error) throw columnsRes.error;
 
@@ -138,9 +158,19 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
         contactNameMap.set(c.phone, c.name);
       });
 
-      // Build last message map
+      // Merge own + shared messages, deduplicate
+      const allMsgs = [...(ownMessages || [])];
+      const seenIds = new Set(allMsgs.map((m: any) => m.from_number + m.created_at));
+      sharedMsgs.forEach((m: any) => {
+        const key = m.from_number + m.created_at;
+        if (!seenIds.has(key)) {
+          allMsgs.push(m);
+          seenIds.add(key);
+        }
+      });
+
       const messageMap = new Map<string, { text: string; time: string }>();
-      messagesRes.data?.forEach((msg: any) => {
+      allMsgs.forEach((msg: any) => {
         const normalized = normalizePhone(msg.from_number);
         if (!messageMap.has(normalized)) {
           messageMap.set(normalized, {
@@ -179,15 +209,17 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
   const silentRefresh = useCallback(async () => {
     if (!agentId || isDraggingRef.current) return;
     try {
-      const [columnsRes, cardsRes, messagesRes, contactsRes] = await Promise.all([
+      const [columnsRes, cardsRes, contactsRes, sharedAccessRes] = await Promise.all([
         supabase.from("whatsapp_kanban_columns").select("*").eq("agent_id", agentId).order("column_order"),
         supabase.from("whatsapp_conversation_kanban").select("*").eq("agent_id", agentId),
-        supabase.from("whatsapp_messages").select("from_number, message_text, created_at").eq("agent_id", agentId).order("created_at", { ascending: false }),
         supabase.from("whatsapp_contacts").select("phone, name"),
+        supabase.from("whatsapp_conversation_access" as any).select("phone").eq("agent_id", agentId),
       ]);
       if (columnsRes.error || cardsRes.error) return;
 
       setColumns(columnsRes.data || []);
+
+      const sharedPhones = new Set<string>((sharedAccessRes.data || []).map((a: any) => a.phone));
 
       const contactNameMap = new Map<string, string>();
       contactsRes.data?.forEach(c => {
@@ -195,8 +227,33 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
         contactNameMap.set(c.phone, c.name);
       });
 
+      // Load own messages
+      const { data: ownMsgs } = await supabase
+        .from("whatsapp_messages")
+        .select("from_number, message_text, created_at")
+        .eq("agent_id", agentId)
+        .order("created_at", { ascending: false });
+
+      let sharedMsgs: any[] = [];
+      if (sharedPhones.size > 0) {
+        const orFilter = Array.from(sharedPhones).map(p => `from_number.eq.${p}`).join(",");
+        const { data } = await supabase
+          .from("whatsapp_messages")
+          .select("from_number, message_text, created_at")
+          .or(orFilter)
+          .order("created_at", { ascending: false });
+        sharedMsgs = data || [];
+      }
+
+      const allMsgs = [...(ownMsgs || [])];
+      const seenKeys = new Set(allMsgs.map((m: any) => m.from_number + m.created_at));
+      sharedMsgs.forEach((m: any) => {
+        const key = m.from_number + m.created_at;
+        if (!seenKeys.has(key)) { allMsgs.push(m); seenKeys.add(key); }
+      });
+
       const messageMap = new Map<string, { text: string; time: string }>();
-      messagesRes.data?.forEach((msg: any) => {
+      allMsgs.forEach((msg: any) => {
         const normalized = normalizePhone(msg.from_number);
         if (!messageMap.has(normalized)) {
           messageMap.set(normalized, { text: msg.message_text || "", time: msg.created_at });

@@ -7414,6 +7414,41 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversation_access: {
+        Row: {
+          agent_id: string
+          created_at: string
+          granted_by_agent_id: string | null
+          id: string
+          phone: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          granted_by_agent_id?: string | null
+          id?: string
+          phone: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          granted_by_agent_id?: string | null
+          id?: string
+          phone?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_conversation_kanban: {
         Row: {
           agent_id: string | null
