@@ -1,29 +1,23 @@
 
 
-## Correcao: Midias enviadas visiveis no chat + Gravacao de audio pelo microfone
+## Simplificar Projetos do CRM: Remover elementos juridicos e usar estetica Kanban CRM
 
-### Problema 1: Midias enviadas nao aparecem no chat
+### Contexto
 
-Quando voce envia uma imagem, audio ou documento, a mensagem e salva no banco de dados com o `message_type` correto (ex: `image`), mas a **URL da midia nao e salva**. Ao recarregar as mensagens do banco, o sistema tenta extrair a URL do campo `raw_data` (que so existe para mensagens recebidas via webhook). Como mensagens enviadas nao tem `raw_data`, a midia desaparece.
+O drawer de Projetos do CRM reutiliza o `ProjectView` do sistema juridico, que inclui elementos irrelevantes para o CRM:
+- **Setores (dropdown)** - funcionalidade juridica
+- **Aba "Casos"** - vinculo de processos judiciais
+- **Aba "Processos"** - protocolos juridicos
+- **Workspace Tabs** - abas de workspace do sistema juridico
+- **Estetica Kanban Vouti** - colunas com borda colorida a esquerda (`KanbanColumn.tsx`, 250px, bordas laterais)
 
-**Solucao**: Salvar a `mediaUrl` dentro do campo `raw_data` na edge function `whatsapp-send-message`, usando o mesmo formato que o webhook usa para mensagens recebidas. Exemplo: para uma imagem, salvar `raw_data: { image: { imageUrl: "..." } }`.
-
-Assim, quando o frontend carrega as mensagens, o mapeamento `rawData?.image?.imageUrl || rawData?.audio?.audioUrl || ...` funciona tanto para mensagens recebidas quanto enviadas.
+O Kanban do CRM (`WhatsAppKanban.tsx`) usa um estilo diferente: colunas com `bg-muted/50 rounded-lg`, bolinha colorida no header, layout mais limpo e compacto.
 
 ---
 
-### Problema 2: Botao do microfone nao funciona
+### Solucao: Prop `module` no ProjectView
 
-O botao do microfone (Mic) e apenas um icone estatico sem logica. Precisa implementar gravacao de audio pelo navegador usando a API `MediaRecorder` do browser.
-
-**Solucao**: Ao clicar no microfone, solicitar permissao do navegador para acessar o microfone, gravar o audio, e ao parar, fazer upload para o Supabase Storage e enviar como mensagem de audio.
-
-Fluxo:
-1. Clicar no Mic -> pedir permissao do navegador (`navigator.mediaDevices.getUserMedia`)
-2. Iniciar gravacao com `MediaRecorder` (formato `audio/webm` ou `audio/ogg`)
-3. Mostrar indicador visual de gravacao (tempo + botao de parar/cancelar)
-4. Ao parar -> upload do blob para o bucket `message-attachments`
-5. Enviar via `onSendMessage("", "audio", signedUrl)`
+Passar `module="crm"` desde o `WhatsAppProjects` ate o `ProjectView`, e condicionar a exibicao dos elementos.
 
 ---
 
@@ -31,20 +25,39 @@ Fluxo:
 
 | Arquivo | Acao |
 |---|---|
-| `supabase/functions/whatsapp-send-message/index.ts` | Salvar `mediaUrl` dentro de `raw_data` no formato compativel com o mapeamento do frontend |
-| `src/components/WhatsApp/components/ChatPanel.tsx` | Implementar gravacao de audio com `MediaRecorder` no botao Mic; adicionar UI de gravacao (tempo, cancelar, enviar) |
+| `src/components/WhatsApp/sections/WhatsAppProjects.tsx` | Passar prop `module="crm"` para `ProjectDrawerContent` |
+| `src/components/Project/ProjectDrawerContent.tsx` | Receber e repassar prop `module` para `ProjectView` |
+| `src/pages/ProjectView.tsx` | Receber `module`, ocultar elementos juridicos quando `module === 'crm'`, e trocar estetica das colunas Kanban para o estilo CRM |
+
+---
 
 ### Detalhes tecnicos
 
-**Edge function** - adicionar ao `messageRecord`:
-```text
-raw_data: mediaUrl ? { [messageType]: { [`${messageType}Url`]: mediaUrl } } : null
-```
+**1. WhatsAppProjects.tsx**
+- Adicionar `module="crm"` na chamada do `ProjectDrawerContent`
 
-**ChatPanel** - novo estado e logica:
-- `isRecording` / `recordingTime` para controlar a UI
-- `MediaRecorder` API para capturar audio do microfone
-- Timer visual mostrando duracao da gravacao
-- Botao de cancelar (X vermelho) e enviar (Send verde) durante gravacao
-- Upload do blob gerado para Supabase Storage
-- Tratamento de erro caso o navegador negue permissao do microfone
+**2. ProjectDrawerContent.tsx**
+- Receber `module?: string` nas props
+- Repassar para `ProjectView`
+- Quando `module === 'crm'`: nao renderizar `AcordosView` nem `SectorView` (sub-views juridicas)
+
+**3. ProjectView.tsx**
+- Nova prop: `module?: string`
+- Quando `module === 'crm'`:
+  - **Esconder** `SetoresDropdown` (linha ~1104)
+  - **Esconder** `ProjectWorkspaceTabs` (linha ~1126)
+  - **Esconder** abas "Processos" e "Casos" (linhas ~1140-1167), ir direto para "Colunas" como unica aba visivel
+  - **Esconder** `CreateSectorDialog`
+  - **Trocar estetica** do Kanban: ao inves de usar `KanbanColumn` (borda colorida a esquerda, card alto), usar o estilo visual do `WhatsAppKanban` (fundo `bg-muted/50 rounded-lg`, bolinha colorida no header, sem borda lateral, mais compacto)
+  - O `activeTab` pode iniciar como `'colunas'` diretamente (sem as tabs)
+
+**Estetica das colunas CRM vs Vouti:**
+
+Vouti (atual):
+- `KanbanColumn.tsx`: Card com `borderLeft: 4px solid color`, fundo `color+20`, altura fixa `calc(100vh-200px)`, largura `250px`
+
+CRM (desejado):
+- Coluna com `bg-muted/50 rounded-lg p-3`, bolinha colorida (`w-2.5 h-2.5 rounded-full`) ao lado do nome, badge de contagem, sem borda lateral colorida, `w-64`
+
+A implementacao vai renderizar condicionalmente as colunas: se `module === 'crm'`, usar divs estilizadas como no `WhatsAppKanban`; caso contrario, manter o `KanbanColumn` existente.
+
