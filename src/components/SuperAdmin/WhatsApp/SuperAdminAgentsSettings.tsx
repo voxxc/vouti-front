@@ -365,6 +365,21 @@ export const SuperAdminAgentsSettings = () => {
             console.error("Erro ao ativar notifySentByMe:", e);
           }
 
+          // Configurar webhook para receber mensagens
+          try {
+            await supabase.functions.invoke("whatsapp-zapi-action", {
+              body: {
+                action: "set-webhook",
+                zapi_instance_id: config.zapi_instance_id,
+                zapi_instance_token: config.zapi_instance_token,
+                zapi_client_token: config.zapi_client_token || undefined,
+              },
+            });
+            console.log("Webhook configurado com sucesso");
+          } catch (e) {
+            console.error("Erro ao configurar webhook:", e);
+          }
+
           // Recarregar agentes para atualizar o card
           await loadAgents();
 
