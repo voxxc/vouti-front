@@ -227,6 +227,26 @@ async function handleIncomingMessage(data: any) {
 
   const effectiveTenantId = instance.tenant_id || null;
 
+  // Resolve effective agent: check if conversation was transferred to another agent
+  let effectiveAgentId = instance.agent_id || null;
+  if (effectiveTenantId) {
+    const { data: kanbanEntry } = await supabase
+      .from('whatsapp_conversation_kanban')
+      .select('agent_id')
+      .eq('phone', phone)
+      .eq('tenant_id', effectiveTenantId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (kanbanEntry?.agent_id) {
+      if (kanbanEntry.agent_id !== effectiveAgentId) {
+        console.log(`🔀 Conversation routed: instance agent -> kanban agent`);
+      }
+      effectiveAgentId = kanbanEntry.agent_id;
+    }
+  }
+
   const mediaInfo = detectMediaInfo(data);
 
   if (fromMe) {
@@ -245,7 +265,7 @@ async function handleIncomingMessage(data: any) {
       direction: 'outgoing',
       raw_data: data,
       user_id: instance.user_id,
-      agent_id: instance.agent_id || null,
+      agent_id: effectiveAgentId,
       tenant_id: effectiveTenantId,
       timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
       is_read: true,
@@ -268,7 +288,7 @@ async function handleIncomingMessage(data: any) {
       direction: 'received',
       raw_data: data,
       user_id: instance.user_id,
-      agent_id: instance.agent_id || null,
+      agent_id: effectiveAgentId,
       tenant_id: effectiveTenantId,
       timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
       is_read: false
@@ -290,7 +310,7 @@ async function handleIncomingMessage(data: any) {
       zapi_instance_token: instance.zapi_instance_token,
       zapi_client_token: instance.zapi_client_token,
     },
-    instance.agent_id
+    effectiveAgentId
   );
 
   if (aiHandled) {
