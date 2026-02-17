@@ -6,7 +6,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Columns3, Loader2, Clock, Plus, Lock, LockOpen, ArrowRightLeft } from "lucide-react";
+import { Columns3, Loader2, Clock, Plus, Lock, LockOpen, ArrowRightLeft, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -60,18 +60,36 @@ const getRelativeTime = (dateString?: string): string => {
   return `${diffMin}MIN`;
 };
 
-// Phone utils importado do utilitário compartilhado
-
 export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: WhatsAppKanbanProps) => {
   const { tenantId } = useTenantId();
   
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDragLocked, setIsDragLocked] = useState(false);
+
+  // Persistir estado do cadeado no localStorage por agente
+  const [isColumnsLocked, setIsColumnsLocked] = useState(() => {
+    const saved = localStorage.getItem(`kanban-lock-${agentId}`);
+    return saved !== "false"; // default: locked (true)
+  });
 
   const [showAddCardDialog, setShowAddCardDialog] = useState(false);
   const isDraggingRef = useRef(false);
+
+  // Atualizar localStorage ao mudar cadeado
+  const toggleColumnsLock = () => {
+    setIsColumnsLocked(prev => {
+      const newValue = !prev;
+      localStorage.setItem(`kanban-lock-${agentId}`, String(newValue));
+      return newValue;
+    });
+  };
+
+  // Reset lock state when agentId changes
+  useEffect(() => {
+    const saved = localStorage.getItem(`kanban-lock-${agentId}`);
+    setIsColumnsLocked(saved !== "false");
+  }, [agentId]);
 
   // Load kanban data
   const loadKanbanData = useCallback(async () => {
@@ -214,6 +232,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
       onOpenConversation(card.phone);
     }
   };
+
   const handleDragStart = () => {
     isDraggingRef.current = true;
   };
@@ -222,10 +241,37 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
     setTimeout(() => { isDraggingRef.current = false; }, 3000);
 
     if (!result.destination) return;
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
 
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
+    // ===== COLUMN DRAG =====
+    if (type === "COLUMN") {
+      const reordered = [...columns].sort((a, b) => a.column_order - b.column_order);
+      const [moved] = reordered.splice(source.index, 1);
+      reordered.splice(destination.index, 0, moved);
+
+      const updatedColumns = reordered.map((col, idx) => ({ ...col, column_order: idx }));
+      setColumns(updatedColumns);
+
+      try {
+        await Promise.all(
+          updatedColumns.map(col =>
+            supabase
+              .from("whatsapp_kanban_columns")
+              .update({ column_order: col.column_order })
+              .eq("id", col.id)
+          )
+        );
+      } catch (error) {
+        console.error("Erro ao reordenar colunas:", error);
+        toast.error("Erro ao reordenar colunas");
+        loadKanbanData();
+      }
+      return;
+    }
+
+    // ===== CARD DRAG =====
     const sourceColId = source.droppableId === "no-column" ? null : source.droppableId;
     const destColId = destination.droppableId === "no-column" ? null : destination.droppableId;
 
@@ -303,6 +349,8 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
     );
   }
 
+  const sortedColumns = [...columns].sort((a, b) => a.column_order - b.column_order);
+
   return (
     <div className="h-full flex">
       {/* Kanban Board */}
@@ -326,9 +374,9 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                     size="icon"
                     variant="outline"
                     className="h-8 w-8"
-                    onClick={() => setIsDragLocked(prev => !prev)}
+                    onClick={toggleColumnsLock}
                   >
-                    {isDragLocked ? (
+                    {isColumnsLocked ? (
                       <Lock className="h-4 w-4 text-destructive" />
                     ) : (
                       <LockOpen className="h-4 w-4 text-muted-foreground" />
@@ -336,7 +384,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {isDragLocked ? "Cards travados — clique para destravar" : "Cards destravados — clique para travar"}
+                  {isColumnsLocked ? "Colunas travadas — clique para destravar e reorganizar" : "Colunas destravadas — arraste para reorganizar"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -349,110 +397,138 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
 
         {/* Board */}
         <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex-1 overflow-x-auto">
-            <div className="flex gap-3 pb-4 min-h-full">
-              {columns.map((column) => (
-                <Droppable key={column.id} droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      className={cn(
-                        "w-64 min-w-64 bg-muted/50 rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)]",
-                        snapshot.isDraggingOver && "bg-primary/5 ring-2 ring-primary/20"
-                      )}
+          <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
+            {(boardProvided) => (
+              <div
+                ref={boardProvided.innerRef}
+                {...boardProvided.droppableProps}
+                className="flex-1 overflow-x-auto"
+              >
+                <div className="flex gap-3 pb-4 min-h-full">
+                  {sortedColumns.map((column, colIndex) => (
+                    <Draggable
+                      key={column.id}
+                      draggableId={`col-${column.id}`}
+                      index={colIndex}
+                      isDragDisabled={isColumnsLocked}
                     >
-                      {/* Column Header */}
-                      <div className="flex items-center gap-2 mb-3 shrink-0">
+                      {(colProvided, colSnapshot) => (
                         <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: column.color }}
-                        />
-                        <h3 className="font-semibold text-xs truncate uppercase tracking-wide">{column.name}</h3>
-                        <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] h-5">
-                          {getCardsInColumn(column.id).length}
-                        </Badge>
-                      </div>
+                          ref={colProvided.innerRef}
+                          {...colProvided.draggableProps}
+                          className={cn(
+                            "w-64 min-w-64 bg-muted/50 rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)]",
+                            colSnapshot.isDragging && "shadow-lg ring-2 ring-primary/30 opacity-90"
+                          )}
+                        >
+                          {/* Column Header */}
+                          <div className="flex items-center gap-2 mb-3 shrink-0">
+                            {!isColumnsLocked && (
+                              <div {...colProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
+                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                              </div>
+                            )}
+                            {isColumnsLocked && <div {...colProvided.dragHandleProps} />}
+                            <div
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: column.color }}
+                            />
+                            <h3 className="font-semibold text-xs truncate uppercase tracking-wide">{column.name}</h3>
+                            <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] h-5">
+                              {getCardsInColumn(column.id).length}
+                            </Badge>
+                          </div>
 
-                      {/* Cards - ref inside to ensure full droppable area */}
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className="flex-1 overflow-y-auto min-h-[100px]"
-                      >
-                        <div className="space-y-2 pr-1">
-                          {getCardsInColumn(column.id).map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={isDragLocked}>
-                              {(provided, snapshot) => (
-                                <Card
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={cn(
-                                    "p-3 hover:shadow-md transition-shadow",
-                                    isDragLocked ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
-                                    snapshot.isDragging && "shadow-lg ring-2 ring-primary/30",
-                                  )}
-                                  onClick={() => handleCardClick(card)}
-                                >
-                                  {/* Card Header - Title */}
-                                  <p className="font-semibold text-sm truncate mb-1">
-                                    {card.contactName || "Sem Título"}
-                                  </p>
+                          {/* Cards Droppable */}
+                          <Droppable droppableId={column.id} type="CARD">
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={cn(
+                                  "flex-1 overflow-y-auto min-h-[100px]",
+                                  snapshot.isDraggingOver && "bg-primary/5 rounded"
+                                )}
+                              >
+                                <div className="space-y-2 pr-1">
+                                  {getCardsInColumn(column.id).map((card, index) => (
+                                    <Draggable key={card.id} draggableId={card.id} index={index}>
+                                      {(provided, snapshot) => (
+                                        <Card
+                                          ref={provided.innerRef}
+                                          {...provided.draggableProps}
+                                          {...provided.dragHandleProps}
+                                          className={cn(
+                                            "p-3 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing",
+                                            snapshot.isDragging && "shadow-lg ring-2 ring-primary/30",
+                                          )}
+                                          onClick={() => handleCardClick(card)}
+                                        >
+                                          {/* Card Header - Title */}
+                                          <p className="font-semibold text-sm truncate mb-1">
+                                            {card.contactName || "Sem Título"}
+                                          </p>
 
-                                  {/* Agent + Status + Transferred */}
-                                  <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary">
-                                      {card.agentName}
-                                    </Badge>
-                                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-                                      Aberto
-                                    </Badge>
-                                    {card.transferredFromAgentName && (
-                                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-orange-400/50 text-orange-600 dark:text-orange-400">
-                                        <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
-                                        De: {card.transferredFromAgentName}
-                                      </Badge>
-                                    )}
-                                  </div>
+                                          {/* Agent + Status + Transferred */}
+                                          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary">
+                                              {card.agentName}
+                                            </Badge>
+                                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                                              Aberto
+                                            </Badge>
+                                            {card.transferredFromAgentName && (
+                                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-orange-400/50 text-orange-600 dark:text-orange-400">
+                                                <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
+                                                De: {card.transferredFromAgentName}
+                                              </Badge>
+                                            )}
+                                          </div>
 
-                                  {/* Last message */}
-                                  {card.lastMessage && (
-                                    <p className="text-xs text-muted-foreground truncate mb-2">
-                                      {card.lastMessage}
-                                    </p>
-                                  )}
+                                          {/* Last message */}
+                                          {card.lastMessage && (
+                                            <p className="text-xs text-muted-foreground truncate mb-2">
+                                              {card.lastMessage}
+                                            </p>
+                                          )}
 
-                                  {/* Footer: avatar + name + time */}
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                      <Avatar className="h-5 w-5">
-                                        <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
-                                          {(card.contactName || card.phone).charAt(0).toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="text-xs font-medium truncate max-w-[80px]">
-                                        {card.contactName || card.phone}
-                                      </span>
-                                    </div>
-                                    {card.lastMessageTime && (
-                                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                        <Clock className="h-2.5 w-2.5" />
-                                        {getRelativeTime(card.lastMessageTime)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </Card>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
+                                          {/* Footer: avatar + name + time */}
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5">
+                                              <Avatar className="h-5 w-5">
+                                                <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                                                  {(card.contactName || card.phone).charAt(0).toUpperCase()}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <span className="text-xs font-medium truncate max-w-[80px]">
+                                                {card.contactName || card.phone}
+                                              </span>
+                                            </div>
+                                            {card.lastMessageTime && (
+                                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                <Clock className="h-2.5 w-2.5" />
+                                                {getRelativeTime(card.lastMessageTime)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </Card>
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {provided.placeholder}
+                                </div>
+                              </div>
+                            )}
+                          </Droppable>
                         </div>
-                      </div>
-                    </div>
-                  )}
-                </Droppable>
-              ))}
-            </div>
-          </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {boardProvided.placeholder}
+                </div>
+              </div>
+            )}
+          </Droppable>
         </DragDropContext>
 
         {columns.length === 0 && (
@@ -463,8 +539,6 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
           </div>
         )}
       </div>
-
-
 
       {/* Add Card Dialog */}
       <AddKanbanCardDialog

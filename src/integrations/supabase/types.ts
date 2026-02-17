@@ -7046,6 +7046,7 @@ export type Database = {
           landing_page_source: string | null
           name: string
           role: string
+          team_id: string | null
           tenant_id: string | null
           updated_at: string | null
           user_id: string | null
@@ -7059,6 +7060,7 @@ export type Database = {
           landing_page_source?: string | null
           name: string
           role?: string
+          team_id?: string | null
           tenant_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -7072,11 +7074,19 @@ export type Database = {
           landing_page_source?: string | null
           name?: string
           role?: string
+          team_id?: string | null
           tenant_id?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_agents_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_agents_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -7814,6 +7824,35 @@ export type Database = {
             columns: ["trigger_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_lead_triggers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_teams: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_teams_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
