@@ -123,11 +123,10 @@ Deno.serve(async (req) => {
         requestBody = JSON.stringify({ notifySentByMe: true });
         break;
       case 'set-webhook':
-        endpoint = `${baseUrl}/update-webhook`;
-        method = 'POST';
+        endpoint = `${baseUrl}/update-webhook-received`;
+        method = 'PUT';
         requestBody = JSON.stringify({
-          webhookUrl: "https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-webhook",
-          sendAckCallback: false,
+          value: "https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-webhook",
         });
         break;
       default:
