@@ -1,121 +1,73 @@
 
 
-## Adicionar seção "Veicular" com suporte a múltiplos veículos
+## Corrigir criação de projeto em segundo plano ao cadastrar cliente
 
-### O que muda
+### Problema
 
-Os campos CNH e Validade CNH deixam de ficar expostos diretamente no formulário e passam a ficar dentro de uma seção colapsável "Veicular" (checkbox). Ao marcar, aparecem os campos CNH, Validade CNH, RENAVAM e Placa, com botão "Adicionar veículo" para cadastrar múltiplos veículos. Os dados aparecem também na tela de detalhes do cliente e no dialog "Dados do Cliente" dentro do projeto.
-
----
-
-### Mudanças no banco de dados
-
-Criar uma nova coluna JSONB na tabela `clientes` para armazenar os veículos:
-
-```text
-ALTER TABLE clientes ADD COLUMN dados_veiculares jsonb DEFAULT NULL;
-```
-
-Estrutura do JSON:
-
-```text
-{
-  "veiculos": [
-    {
-      "cnh": "12345678901",
-      "cnh_validade": "2025-12-31",
-      "renavam": "00000000000",
-      "placa": "ABC1D23"
-    },
-    {
-      "cnh": "98765432101",
-      "cnh_validade": "2026-06-15",
-      "renavam": "11111111111",
-      "placa": "XYZ9K87"
-    }
-  ]
-}
-```
-
-Os campos antigos `cnh` e `cnh_validade` permanecem no banco para compatibilidade, mas o formulário passa a usar a nova coluna.
+Ao cadastrar um cliente com a opção "Criar projeto" marcada, o fluxo trava porque `handleFormSuccess` usa `await createProject(...)` -- o usuário fica esperando a criação do projeto terminar antes de ser redirecionado. Além disso, o projeto criado não é vinculado ao cliente (campo `cliente_id` não é passado).
 
 ---
 
-### Arquivos a modificar
+### Arquivo a modificar
 
 | Arquivo | Acao |
 |---|---|
-| **Migracao SQL** | Adicionar coluna `dados_veiculares jsonb` na tabela `clientes` |
-| `src/types/cliente.ts` | Adicionar interface `Veiculo` e campo `dados_veiculares` no tipo `Cliente` |
-| `src/lib/validations/cliente.ts` | Adicionar schema de validacao para `dados_veiculares` |
-| `src/components/CRM/ClienteForm.tsx` | Remover campos CNH/Validade avulsos, adicionar checkbox "Veicular" com seção colapsável contendo lista de veículos com botão "Adicionar" |
-| `src/components/CRM/ClienteDetails.tsx` | Exibir seção "Dados Veiculares" com cada veículo listado |
-| `src/components/Project/ProjectClientDataDialog.tsx` | Dados veiculares já aparecem automaticamente via `ClienteDetails` |
+| `src/pages/ClienteCadastro.tsx` | Disparar criação de projeto em "fire-and-forget" e passar `cliente_id` |
 
 ---
 
-### Detalhes técnicos
+### Detalhes tecnicos
 
-**1. Tipo (cliente.ts)**
+**ClienteCadastro.tsx -- handleFormSuccess**
 
-```text
-export interface Veiculo {
-  cnh?: string;
-  cnh_validade?: string;
-  renavam?: string;
-  placa?: string;
-}
-
-export interface DadosVeiculares {
-  veiculos: Veiculo[];
-}
-
-// No Cliente:
-dados_veiculares?: DadosVeiculares;
-```
-
-**2. Formulário (ClienteForm.tsx)**
-
-- Remover os campos CNH e Validade CNH avulsos (linhas 287-310)
-- Adicionar estado `veicularOpen` (boolean) e `veiculos` (array de Veiculo)
-- Ao carregar cliente existente, popular `veiculos` a partir de `cliente.dados_veiculares?.veiculos` OU, para retrocompatibilidade, de `cliente.cnh` / `cliente.cnh_validade` se existirem
-- Checkbox "Veicular" -- ao marcar, exibe a lista de veículos
-- Cada veículo: 4 campos (CNH, Validade CNH, RENAVAM, Placa) com botão X para remover
-- Botão "+ Adicionar veículo" no final
-- No `onSubmit`, montar `dados_veiculares: { veiculos }` e também manter `cnh` / `cnh_validade` do primeiro veículo para compatibilidade
-
-**3. Detalhes (ClienteDetails.tsx)**
-
-Após a seção de documentos (CPF/CNPJ), adicionar:
+Trocar o `await createProject(...)` por uma chamada direta ao Supabase (sem await), fazendo a criação acontecer em segundo plano. O toast de sucesso do cliente aparece imediatamente e o usuário é redirecionado. Se o projeto falhar, um toast de erro aparece depois.
 
 ```text
-// Se tem dados veiculares
-{cliente.dados_veiculares?.veiculos?.length > 0 && (
-  <>
-    <Separator />
-    <div className="py-2">
-      <span className="text-xs font-medium uppercase">Dados Veiculares</span>
-    </div>
-    {cliente.dados_veiculares.veiculos.map((v, i) => (
-      <div key={i} className="ml-4 py-2 border-l-2 pl-4 mb-2">
-        <InfoRow label="CNH" value={v.cnh} />
-        <InfoRow label="Validade CNH" value={formatDate(v.cnh_validade)} />
-        <InfoRow label="RENAVAM" value={v.renavam} />
-        <InfoRow label="Placa" value={v.placa} />
-      </div>
-    ))}
-  </>
-)}
+const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {
+  // Criar projeto em segundo plano (fire-and-forget)
+  if (criarProjeto && clienteId && (nomeProjeto || nomeCliente)) {
+    // Dispara sem await -- nao bloqueia a navegacao
+    createProject({
+      name: nomeProjeto || nomeCliente || 'Novo Projeto',
+      client: nomeCliente || nomeProjeto,
+      description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
+    }).then(result => {
+      if (result) {
+        // Vincular cliente_id ao projeto criado
+        supabase
+          .from('projects')
+          .update({ cliente_id: clienteId })
+          .eq('id', result.id);
+      }
+    }).catch(error => {
+      console.error('Erro ao criar projeto:', error);
+      toast({
+        title: 'Erro ao criar projeto',
+        description: 'O cliente foi salvo, mas houve erro ao criar o projeto.',
+        variant: 'destructive',
+      });
+    });
+  }
+
+  toast({
+    title: isNewCliente ? 'Cliente cadastrado' : 'Cliente atualizado',
+    description: 'Dados salvos com sucesso.',
+  });
+
+  handleClose(); // Redireciona imediatamente
+};
 ```
 
-Se o cliente nao tem `dados_veiculares` mas tem `cnh` (dados antigos), manter o fallback atual exibindo CNH e Validade CNH avulsos.
+Mudancas principais:
+- Remover `await` do `createProject` -- vira `.then()` para rodar em segundo plano
+- Adicionar `update({ cliente_id })` apos o projeto ser criado para vincular ao cliente
+- Toast de sucesso do cliente e `handleClose()` executam imediatamente, sem esperar o projeto
 
 ---
 
 ### Resultado
 
-- Formulário de cliente: checkbox "Veicular" revela campos CNH, Validade, RENAVAM e Placa
-- Botão "Adicionar" permite múltiplos veículos
-- Dados salvos como JSONB na coluna `dados_veiculares`
-- Visualização do cliente e "Dados do Cliente" no projeto mostram todos os veículos cadastrados
-- Retrocompatibilidade com clientes que já tem CNH/Validade nos campos antigos
+- O usuario cadastra o cliente e e redirecionado instantaneamente para a lista
+- O projeto e criado em segundo plano (aparece na lista de projetos em 1-2 segundos via real-time)
+- O projeto fica vinculado ao cliente pelo campo `cliente_id`
+- Em caso de erro na criacao do projeto, um toast avisa o usuario sem bloquear o fluxo
