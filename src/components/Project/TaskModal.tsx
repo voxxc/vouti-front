@@ -46,9 +46,10 @@ interface TaskModalProps {
   currentUser?: User;
   projectId?: string;
   columnName?: string;
+  module?: string;
 }
 
-const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, currentUser, projectId, columnName }: TaskModalProps) => {
+const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, currentUser, projectId, columnName, module }: TaskModalProps) => {
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
@@ -725,15 +726,17 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid grid-cols-5 w-full">
+            <TabsList className={`grid ${module === 'crm' ? 'grid-cols-4' : 'grid-cols-5'} w-full`}>
               <TabsTrigger value="detalhes" className="gap-1 text-xs">
                 <Edit className="h-3 w-3" />
                 Detalhes
               </TabsTrigger>
-              <TabsTrigger value="vinculo" className="gap-1 text-xs">
-                <Link2 className="h-3 w-3" />
-                Vinculo
-              </TabsTrigger>
+              {module !== 'crm' && (
+                <TabsTrigger value="vinculo" className="gap-1 text-xs">
+                  <Link2 className="h-3 w-3" />
+                  Vinculo
+                </TabsTrigger>
+              )}
               <TabsTrigger value="tarefas" className="gap-1 text-xs">
                 <ListTodo className="h-3 w-3" />
                 Tarefas
@@ -1115,13 +1118,15 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                 </div>
               </TabsContent>
 
-              <TabsContent value="vinculo" className="mt-0">
-                <TaskVinculoTab
-                  taskId={task.id}
-                  processoOabId={processoOabId}
-                  onVinculoChange={handleVinculoChange}
-                />
-              </TabsContent>
+              {module !== 'crm' && (
+                <TabsContent value="vinculo" className="mt-0">
+                  <TaskVinculoTab
+                    taskId={task.id}
+                    processoOabId={processoOabId}
+                    onVinculoChange={handleVinculoChange}
+                  />
+                </TabsContent>
+              )}
 
               <TabsContent value="tarefas" className="mt-0">
                 <TaskTarefasTab
