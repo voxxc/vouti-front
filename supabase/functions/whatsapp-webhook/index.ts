@@ -174,6 +174,23 @@ serve(async (req) => {
   }
 });
 
+// Detect message type and media URL from Z-API webhook payload
+function detectMediaInfo(data: any): { messageType: string; mediaUrl: string | null; caption: string } {
+  if (data.image?.imageUrl) {
+    return { messageType: 'image', mediaUrl: data.image.imageUrl, caption: data.image.caption || '' };
+  }
+  if (data.audio?.audioUrl) {
+    return { messageType: 'audio', mediaUrl: data.audio.audioUrl, caption: '' };
+  }
+  if (data.video?.videoUrl) {
+    return { messageType: 'video', mediaUrl: data.video.videoUrl, caption: data.video.caption || '' };
+  }
+  if (data.document?.documentUrl) {
+    return { messageType: 'document', mediaUrl: data.document.documentUrl, caption: data.document.caption || data.document.fileName || '' };
+  }
+  return { messageType: 'text', mediaUrl: null, caption: data.text?.message || '' };
+}
+
 async function handleIncomingMessage(data: any) {
   const { instanceId, phone: rawPhone, messageId, text, chatName, momment, fromMe } = data;
   
@@ -210,6 +227,8 @@ async function handleIncomingMessage(data: any) {
 
   const effectiveTenantId = instance.tenant_id || null;
 
+  const mediaInfo = detectMediaInfo(data);
+
   if (fromMe) {
     if (data.fromApi) {
       return;
@@ -221,8 +240,8 @@ async function handleIncomingMessage(data: any) {
       instance_name: instanceId,
       message_id: messageId || `msg_${Date.now()}`,
       from_number: phone,
-      message_text: text?.message || '',
-      message_type: 'text',
+      message_text: mediaInfo.caption || text?.message || '',
+      message_type: mediaInfo.messageType,
       direction: 'outgoing',
       raw_data: data,
       user_id: instance.user_id,
@@ -244,8 +263,8 @@ async function handleIncomingMessage(data: any) {
       instance_name: instanceId,
       message_id: messageId || `msg_${Date.now()}`,
       from_number: phone,
-      message_text: text?.message || '',
-      message_type: 'text',
+      message_text: mediaInfo.caption || text?.message || '',
+      message_type: mediaInfo.messageType,
       direction: 'received',
       raw_data: data,
       user_id: instance.user_id,

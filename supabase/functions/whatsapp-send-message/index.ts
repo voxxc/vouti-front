@@ -23,15 +23,19 @@ serve(async (req) => {
       throw new Error('Invalid phone number');
     }
 
-    if (!message || typeof message !== 'string' || message.length > 10000) {
+    // Message can be empty for media-only sends
+    if (messageType === 'text' && (!message || typeof message !== 'string' || message.length > 10000)) {
+      throw new Error('Invalid message');
+    }
+    if (message && (typeof message !== 'string' || message.length > 10000)) {
       throw new Error('Invalid message');
     }
 
-    if (messageType && !['text', 'media'].includes(messageType)) {
+    if (messageType && !['text', 'image', 'audio', 'video', 'document'].includes(messageType)) {
       throw new Error('Invalid message type');
     }
 
-    if (mediaUrl && (typeof mediaUrl !== 'string' || mediaUrl.length > 2000)) {
+    if (mediaUrl && (typeof mediaUrl !== 'string' || mediaUrl.length > 5000)) {
       throw new Error('Invalid media URL');
     }
 
@@ -40,7 +44,7 @@ serve(async (req) => {
     }
 
     // Prefix with agent name if present
-    const finalMessage = agentName ? `*${agentName}*\n\n${message}` : message;
+    const finalMessage = message ? (agentName ? `*${agentName}*\n\n${message}` : message) : '';
 
     // Resolve tenant_id from JWT if available
     let tenantId: string | null = null;
@@ -116,19 +120,16 @@ serve(async (req) => {
           type: 'text',
           text: { body: finalMessage },
         };
-      } else if (messageType === 'media' && mediaUrl) {
-        const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(mediaUrl);
-        const isVideo = /\.(mp4|3gp)(\?|$)/i.test(mediaUrl);
-        const isAudio = /\.(mp3|ogg|opus|aac)(\?|$)/i.test(mediaUrl);
+      } else if (mediaUrl) {
+        const metaType = messageType === 'image' ? 'image' 
+          : messageType === 'video' ? 'video'
+          : messageType === 'audio' ? 'audio' 
+          : 'document';
         
-        if (isImage) {
-          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'image', image: { link: mediaUrl, caption: finalMessage } };
-        } else if (isVideo) {
-          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'video', video: { link: mediaUrl, caption: finalMessage } };
-        } else if (isAudio) {
+        if (metaType === 'audio') {
           metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'audio', audio: { link: mediaUrl } };
         } else {
-          metaPayload = { messaging_product: 'whatsapp', to: phone, type: 'document', document: { link: mediaUrl, caption: finalMessage } };
+          metaPayload = { messaging_product: 'whatsapp', to: phone, type: metaType, [metaType]: { link: mediaUrl, caption: finalMessage } };
         }
       } else {
         throw new Error('Invalid message type or missing media URL');
@@ -168,9 +169,27 @@ serve(async (req) => {
       if (messageType === 'text') {
         apiEndpoint = `${baseUrl}/send-text`;
         messagePayload = { phone, message: finalMessage };
-      } else if (messageType === 'media' && mediaUrl) {
-        apiEndpoint = `${baseUrl}/send-file-url`;
-        messagePayload = { phone, message: finalMessage, url: mediaUrl };
+      } else if (mediaUrl) {
+        const endpointMap: Record<string, string> = {
+          image: 'send-image',
+          audio: 'send-audio',
+          video: 'send-video',
+          document: 'send-document',
+        };
+        const endpoint = endpointMap[messageType] || 'send-document';
+        apiEndpoint = `${baseUrl}/${endpoint}`;
+        
+        const mediaKeyMap: Record<string, string> = {
+          image: 'image',
+          audio: 'audio',
+          video: 'video',
+          document: 'document',
+        };
+        const mediaKey = mediaKeyMap[messageType] || 'document';
+        messagePayload = { phone, [mediaKey]: mediaUrl };
+        if (finalMessage && messageType !== 'audio') {
+          messagePayload.caption = finalMessage;
+        }
       } else {
         throw new Error('Invalid message type or missing media URL');
       }
@@ -200,7 +219,7 @@ serve(async (req) => {
       direction: 'outgoing',
       instance_name: instance?.instance_name || zapiInstanceId,
       message_id: `out_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      message_type: 'text',
+      message_type: messageType || 'text',
       timestamp: new Date().toISOString(),
       is_read: true,
       user_id: instance?.user_id || null,
