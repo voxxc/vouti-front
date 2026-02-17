@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Smile, Mic, MoreVertical, Phone, Video, MessageSquare, FileText, X, Loader2, Image as ImageIcon } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Paperclip, Smile, Mic, MoreVertical, Phone, Video, MessageSquare, FileText, X, Loader2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -95,7 +95,6 @@ const MediaRenderer = ({ message }: { message: WhatsAppMessage }) => {
     );
   }
 
-  // Fallback: text
   return (
     <p className="text-sm whitespace-pre-wrap break-words">
       {messageText}
@@ -107,12 +106,26 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
   const [newMessage, setNewMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string; preview?: string } | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    };
+  }, []);
 
   const handleSend = () => {
     if (!newMessage.trim() && !pendingFile) return;
@@ -134,49 +147,42 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 100 * 1024 * 1024) {
       toast.error("Arquivo muito grande. Limite: 100MB");
       return;
     }
-
     const type = detectMimeType(file);
     const preview = type === "image" ? URL.createObjectURL(file) : undefined;
     setPendingFile({ file, type, preview });
-
-    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const uploadFileAndGetUrl = useCallback(async (file: File | Blob, ext: string): Promise<string> => {
+    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+    const filePath = `${conversation?.contactNumber || 'unknown'}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("message-attachments")
+      .upload(filePath, file, { contentType: file instanceof File ? file.type : `audio/${ext}` });
+
+    if (uploadError) throw uploadError;
+
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from("message-attachments")
+      .createSignedUrl(filePath, 60 * 60 * 24 * 7);
+
+    if (signedError || !signedData?.signedUrl) throw signedError || new Error("Failed to get signed URL");
+    return signedData.signedUrl;
+  }, [conversation?.contactNumber]);
 
   const handleUploadAndSend = async () => {
     if (!pendingFile) return;
     setIsUploading(true);
-
     try {
       const ext = pendingFile.file.name.split('.').pop() || 'bin';
-      const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
-      const filePath = `${conversation?.contactNumber || 'unknown'}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("message-attachments")
-        .upload(filePath, pendingFile.file, { contentType: pendingFile.file.type });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("message-attachments")
-        .getPublicUrl(filePath);
-
-      // Since bucket is private, use signed URL
-      const { data: signedData, error: signedError } = await supabase.storage
-        .from("message-attachments")
-        .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days
-
-      const mediaUrl = signedData?.signedUrl || urlData.publicUrl;
-      
+      const mediaUrl = await uploadFileAndGetUrl(pendingFile.file, ext);
       const caption = newMessage.trim() || (pendingFile.type === "document" ? pendingFile.file.name : "");
       onSendMessage(caption, pendingFile.type, mediaUrl);
-      
       setNewMessage("");
       setPendingFile(null);
     } catch (error) {
@@ -190,6 +196,90 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
   const cancelPendingFile = () => {
     if (pendingFile?.preview) URL.revokeObjectURL(pendingFile.preview);
     setPendingFile(null);
+  };
+
+  // --- Audio Recording ---
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm',
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.start(250);
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Erro ao acessar microfone:", err);
+      toast.error("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+    }
+  };
+
+  const stopRecordingAndSend = async () => {
+    if (!mediaRecorderRef.current) return;
+
+    return new Promise<void>((resolve) => {
+      mediaRecorderRef.current!.onstop = async () => {
+        // Cleanup
+        if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+        if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        audioChunksRef.current = [];
+        setIsRecording(false);
+        setRecordingTime(0);
+
+        if (blob.size < 1000) {
+          toast.error("Áudio muito curto");
+          resolve();
+          return;
+        }
+
+        setIsUploading(true);
+        try {
+          const mediaUrl = await uploadFileAndGetUrl(blob, 'webm');
+          onSendMessage("", "audio", mediaUrl);
+        } catch (error) {
+          console.error("Erro ao enviar áudio:", error);
+          toast.error("Erro ao enviar áudio");
+        } finally {
+          setIsUploading(false);
+        }
+        resolve();
+      };
+
+      mediaRecorderRef.current!.stop();
+    });
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   const formatMessageTime = (dateString: string) => {
@@ -301,39 +391,26 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
 
       {/* Input Area */}
       <div className="p-4 border-t border-border bg-card">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
-            <Smile className="h-5 w-5 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 shrink-0"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-          >
-            <Paperclip className="h-5 w-5 text-muted-foreground" />
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
-            onChange={handleFileSelect}
-          />
-          <Input
-            placeholder={pendingFile ? "Adicione uma legenda..." : "Digite uma mensagem..."}
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            className="flex-1"
-            disabled={isUploading}
-          />
-          {(newMessage.trim() || pendingFile) ? (
+        {isRecording ? (
+          /* Recording UI */
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 shrink-0 text-destructive hover:text-destructive"
+              onClick={cancelRecording}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 flex items-center gap-3">
+              <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-sm font-mono text-foreground">{formatRecordingTime(recordingTime)}</span>
+              <span className="text-xs text-muted-foreground">Gravando...</span>
+            </div>
             <Button
               size="icon"
               className="h-10 w-10 shrink-0 bg-green-500 hover:bg-green-600"
-              onClick={handleSend}
+              onClick={stopRecordingAndSend}
               disabled={isUploading}
             >
               {isUploading ? (
@@ -342,12 +419,63 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
                 <Send className="h-5 w-5" />
               )}
             </Button>
-          ) : (
+          </div>
+        ) : (
+          /* Normal input UI */
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
-              <Mic className="h-5 w-5 text-muted-foreground" />
+              <Smile className="h-5 w-5 text-muted-foreground" />
             </Button>
-          )}
-        </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              <Paperclip className="h-5 w-5 text-muted-foreground" />
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+              onChange={handleFileSelect}
+            />
+            <Input
+              placeholder={pendingFile ? "Adicione uma legenda..." : "Digite uma mensagem..."}
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="flex-1"
+              disabled={isUploading}
+            />
+            {(newMessage.trim() || pendingFile) ? (
+              <Button
+                size="icon"
+                className="h-10 w-10 shrink-0 bg-green-500 hover:bg-green-600"
+                onClick={handleSend}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                onClick={startRecording}
+                disabled={isUploading}
+              >
+                <Mic className="h-5 w-5 text-muted-foreground" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

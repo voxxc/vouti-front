@@ -212,6 +212,18 @@ serve(async (req) => {
       }
     }
 
+    // Build raw_data so frontend can extract mediaUrl the same way as incoming messages
+    let rawData: Record<string, unknown> | null = null;
+    if (mediaUrl && messageType && messageType !== 'text') {
+      const urlKeyMap: Record<string, string> = {
+        image: 'imageUrl',
+        audio: 'audioUrl',
+        video: 'videoUrl',
+        document: 'documentUrl',
+      };
+      rawData = { [messageType]: { [urlKeyMap[messageType] || 'url']: mediaUrl } };
+    }
+
     // Save message to database
     const messageRecord: Record<string, unknown> = {
       from_number: phone,
@@ -224,6 +236,7 @@ serve(async (req) => {
       is_read: true,
       user_id: instance?.user_id || null,
       agent_id: agentId || null,
+      raw_data: rawData,
     };
 
     if (mode !== 'superadmin' && tenantId) {
