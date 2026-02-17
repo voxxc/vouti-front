@@ -291,6 +291,32 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Se desabilitando IA e já tem registro, deletar ao invés de manter
+      if (!config.is_enabled && config.id) {
+        const { error } = await supabase
+          .from('whatsapp_ai_config')
+          .delete()
+          .eq('id', config.id);
+
+        if (error) throw error;
+
+        setConfig(prev => ({ ...prev, id: undefined }));
+        toast({
+          title: "IA desabilitada",
+          description: "A configuração de IA foi removida deste agente",
+        });
+        return;
+      }
+
+      // Se desabilitando mas não tem registro, nada a fazer
+      if (!config.is_enabled && !config.id) {
+        toast({
+          title: "Nenhuma alteração",
+          description: "A IA já está desabilitada para este agente",
+        });
+        return;
+      }
+
       const payload: any = {
         tenant_id: isSuperAdmin ? null : tenantId,
         agent_id: agentId || null,
@@ -349,11 +375,18 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         throw error;
       }
 
+      // Limpar configs de tenant-level órfãs ao salvar config per-agent
+      if (agentId && tenantId) {
+        await supabase
+          .from('whatsapp_ai_config')
+          .delete()
+          .eq('tenant_id', tenantId)
+          .is('agent_id', null);
+      }
+
       toast({
         title: "Configuração salva",
-        description: config.is_enabled 
-          ? "Agente IA ativado e pronto para responder!"
-          : "Configuração salva com sucesso",
+        description: "Agente IA ativado e pronto para responder!",
       });
     } catch (error) {
       console.error('Erro ao salvar:', error);
