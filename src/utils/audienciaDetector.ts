@@ -232,12 +232,18 @@
  
    const descLower = descricao.toLowerCase();
  
-   // Verificar se menciona audiência ou sessão
-   if (!descLower.includes('audiência') && !descLower.includes('audiencia') && 
-       !descLower.includes('sessão') && !descLower.includes('sessao') &&
-       !descLower.includes('pauta')) {
-     return null;
-   }
+  // Verificar se menciona audiência ou sessão
+  if (!descLower.includes('audiência') && !descLower.includes('audiencia') && 
+      !descLower.includes('sessão') && !descLower.includes('sessao') &&
+      !descLower.includes('pauta')) {
+    return null;
+  }
+
+  // Descartar confirmações de intimação que apenas referenciam audiências existentes
+  if (/confirmad[oa]\s+(a\s+)?intima[çc][ãa]o/i.test(descricao) || 
+      /referente ao evento/i.test(descricao)) {
+    return null;
+  }
  
    // Encontrar tipo de audiência
    let tipoEncontrado: PadraoAudiencia | null = null;

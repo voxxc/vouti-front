@@ -72,6 +72,13 @@ function detectarAudiencia(descricao: string): { tipo: string; label: string; da
       !descLower.includes('sessão') && !descLower.includes('sessao')) {
     return null;
   }
+
+  // Descartar confirmacoes de intimacao que apenas referenciam audiencias existentes
+  if (/confirmad[oa]\s+(a\s+)?intima[çc][ãa]o/i.test(descricao) || 
+      /referente ao evento/i.test(descricao)) {
+    console.log('[Judit Webhook OAB] Ignorando confirmacao de intimacao (nao e audiencia nova)');
+    return null;
+  }
   
   let tipo = 'audiencia';
   let label = 'Audiência';
@@ -420,6 +427,21 @@ serve(async (req) => {
         if (audiencia && audiencia.dataHora) {
           console.log('[Judit Webhook OAB] Audiencia detectada:', audiencia.label);
           
+          // Verificar duplicata antes de inserir
+          const audienciaDate = audiencia.dataHora.toISOString().split('T')[0];
+          const { data: existingAud } = await supabase
+            .from('deadlines')
+            .select('id')
+            .eq('processo_oab_id', processo.id)
+            .eq('date', audienciaDate)
+            .ilike('title', `%${audiencia.label}%`)
+            .maybeSingle();
+
+          if (existingAud) {
+            console.log('[Judit Webhook OAB] Deadline audiencia duplicado ignorado:', existingAud.id);
+            continue;
+          }
+          
           // Criar prazo para audiencia
           const { data: deadlineAud, error: deadlineAudError } = await supabase
             .from('deadlines')
@@ -479,6 +501,20 @@ serve(async (req) => {
           });
 
           const dataFim = dataFimResult || new Date(dataInicial.getTime() + tipoAto.prazo * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+          // Verificar duplicata antes de inserir intimacao
+          const { data: existingInt } = await supabase
+            .from('deadlines')
+            .select('id')
+            .eq('processo_oab_id', processo.id)
+            .eq('date', dataFim)
+            .ilike('title', `%${tipoAto.label}%`)
+            .maybeSingle();
+
+          if (existingInt) {
+            console.log('[Judit Webhook OAB] Deadline intimacao duplicado ignorado:', existingInt.id);
+            continue;
+          }
 
           // Criar prazo para intimacao
           const { data: deadline, error: deadlineError } = await supabase
