@@ -1,74 +1,81 @@
 
 
-## Rotas CRM via `vouti.co/crm/tenant-slug`
+## Corrigir automacao de prazos: falsos positivos e duplicatas
 
-### Problema atual
+### Problemas identificados
 
-- A rota `/crm` (linha 514) redireciona para `/solvenza/clientes` (legado)
-- A rota `/:tenant/crm` (linha 395) e usada para o modulo WhatsApp dentro de um tenant do sistema juridico
-- O subdominio `crm.vouti.co` nao funciona porque o dominio nao esta configurado corretamente
+**1. Falso positivo de audiencia**
+O andamento "CONFIRMADA A INTIMACAO ELETRONICA Referente ao evento (seq. 6) AUDIENCIA DE CONCILIACAO DESIGNADA (03/02/2026)" foi interpretado como uma nova audiencia. Na realidade, e apenas uma confirmacao de leitura de intimacao que referencia uma audiencia ja existente. A data 03/02/2026 e a data do despacho/evento processual, nao a data da audiencia.
+
+**2. Duplicatas**
+O webhook processou os mesmos andamentos 3 vezes, criando 6 deadlines (3 pares identicos), pois nao verifica se ja existe um deadline para o mesmo processo com a mesma data e tipo.
+
+### Impacto para o advogado
+
+- Um prazo agendado para 03/02/2026 (data passada) gera confusao e ruido na agenda
+- 3 duplicatas de cada prazo poluem a visualizacao
+- Perda de confianca no sistema automatico, levando o advogado a ignorar alertas legitimos
+
+---
 
 ### Solucao
 
-Criar rotas dedicadas no padrao `/crm/:tenant` para o produto CRM standalone, acessivel via `vouti.co/crm/tenant-slug`.
-
----
-
-### Estrutura de rotas
-
-| Rota | Funcao |
+| Arquivo | Mudanca |
 |---|---|
-| `/crm/:tenant` | Tela de login do CRM (CrmLogin) |
-| `/crm/:tenant/app` | Aplicacao CRM pos-login (CrmApp) |
+| `supabase/functions/judit-webhook-oab/index.ts` | Filtrar falsos positivos + prevenir duplicatas |
 
----
+### Mudanca 1: Filtrar confirmacoes de intimacao
 
-### Arquivos a modificar
-
-**1. `src/App.tsx`**
-
-- Remover o redirect legado da linha 514 (`/crm` -> `/solvenza/clientes`)
-- Adicionar as novas rotas antes das rotas de sistemas separados:
+Na funcao `detectarAudiencia` (linha 67), adicionar verificacao para descartar textos que sao apenas confirmacoes de intimacao e nao audiencias novas:
 
 ```text
-{/* Vouti.CRM - Standalone por tenant */}
-<Route path="/crm/:tenant" element={<CrmLogin />} />
-<Route path="/crm/:tenant/app" element={<CrmApp />} />
+// No inicio da funcao detectarAudiencia, apos verificar se contem "audiencia":
+// Descartar confirmacoes de intimacao que apenas referenciam audiencias
+if (/confirmad[oa]\s+(a\s+)?intima[çc][ãa]o/i.test(descricao) || 
+    /referente ao evento/i.test(descricao)) {
+  return null;
+}
 ```
 
-- Manter o bloco do subdominio `crm.vouti.co` (linhas 301-316) para caso o dominio funcione no futuro
+Logica: se o texto contem "CONFIRMADA A INTIMACAO" ou "Referente ao evento", nao e uma audiencia nova -- e uma notificacao sobre um evento ja registrado.
 
-**2. `src/pages/CrmLogin.tsx`**
+### Mudanca 2: Prevenir duplicatas de deadlines
 
-- Importar `useParams` para capturar o `:tenant` da URL
-- Ajustar o redirect pos-login de `/app` para `/crm/{tenant}/app`
-- Ajustar o check de usuario logado para redirecionar para `/crm/{tenant}/app`
-
-**3. `src/pages/CrmApp.tsx`**
-
-- Importar `useParams` para capturar o `:tenant` da URL
-- Ajustar o redirect de usuario nao logado de `/` para `/crm/{tenant}` (volta ao login)
-- Passar o tenant da URL para o `useTenantId` para resolver o tenant correto
-
----
-
-### Fluxo do usuario
+Antes de inserir cada deadline (linhas 424 e 484), verificar se ja existe um prazo com o mesmo `processo_oab_id`, mesma `date` e titulo similar:
 
 ```text
-1. Usuario acessa vouti.co/crm/meu-escritorio
-2. Renderiza CrmLogin com branding do CRM
-3. Usuario faz login
-4. Redireciona para vouti.co/crm/meu-escritorio/app
-5. CrmApp carrega, identifica tenant pelo perfil do usuario
-6. Renderiza WhatsAppLayout (interface do CRM)
+// Verificar duplicata antes de inserir
+const { data: existingDeadline } = await supabase
+  .from('deadlines')
+  .select('id')
+  .eq('processo_oab_id', processo.id)
+  .eq('date', audiencia.dataHora.toISOString().split('T')[0])
+  .ilike('title', `%${audiencia.label}%`)
+  .maybeSingle();
+
+if (existingDeadline) {
+  console.log('[Judit Webhook OAB] Deadline duplicado ignorado');
+  continue;
+}
 ```
+
+### Mudanca 3: Limpar dados incorretos
+
+Executar SQL para remover os 4 deadlines errados (data 03/02/2026) e os duplicatas:
+
+- Remover os 3 deadlines com data 2026-02-03 para o processo em questao (falsos positivos)
+- Remover 2 dos 3 deadlines duplicados com data 2026-05-20 (manter apenas 1)
+- Remover os logs correspondentes da tabela prazos_automaticos_log
 
 ---
 
 ### Secao tecnica
 
-- A rota `/:tenant/crm` (linha 395) NAO sera alterada -- ela continua servindo o modulo CRM dentro do sistema juridico
-- A nova rota `/crm/:tenant` nao conflita porque comeca com o segmento fixo `crm`
-- O `CrmLogin` e `CrmApp` passarao a usar `useParams` para obter o slug do tenant, permitindo que o login e a aplicacao saibam qual tenant esta sendo acessado
-- O redirect legado `/crm` sera removido (era um redirect para clientes do juridico, que ja tem a rota `/:tenant/clientes`)
+A funcao `detectarAudiencia` na edge function usa o Padrao 3 (regex generico `(\d{2})\/(\d{2})\/(\d{4})`) como fallback. Quando o texto "CONFIRMADA A INTIMACAO...AUDIENCIA DE CONCILIACAO DESIGNADA (03/02/2026)" e processado:
 
+1. O regex de tipo encontra "audiencia de conciliacao" -- match positivo (falso positivo)
+2. Padrao 1 (extenso) nao bate -- nao tem "Agendada para: X de mes de YYYY"
+3. Padrao 2 (sessao virtual) nao bate
+4. Padrao 3 (generico DD/MM/YYYY) captura 03/02/2026 -- a data do evento/despacho, nao da audiencia
+
+A solucao e impedir que confirmacoes de intimacao sejam classificadas como audiencias, alem de prevenir duplicatas na insercao.
