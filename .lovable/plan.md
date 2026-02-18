@@ -1,45 +1,47 @@
 
 
-## Corrigir: novas conversas devem entrar em "Topo de Funil", nao em "Transferidos"
+## Mover leads incorretos de "Transferidos" para "Topo de Funil"
 
 ### Problema
 
-A coluna "Transferidos" tem `column_order: 0` (primeira posicao). A funcao `autoInsertToKanban` busca a primeira coluna ordenada por `column_order` e insere novos contatos nela. Resultado: todas as novas conversas caem em "Transferidos" em vez de "Topo de Funil" (que esta em `column_order: 1`).
+O fix no codigo (`.neq("name", "Transferidos")`) ja esta correto e novas conversas futuras irao para "Topo de Funil". Porem, existem **10 leads** que foram inseridos em "Transferidos" antes do fix -- todos com `transferred_from_agent_id = NULL`, ou seja, nao foram transferidos de verdade.
 
 ### Solucao
 
-Alterar a query em `autoInsertToKanban` para pular a coluna "Transferidos" e usar a segunda coluna (Topo de Funil). A forma mais segura e filtrar pelo nome, pois a coluna "Transferidos" e fixa e padrao.
+Criar uma migracao SQL que move esses leads para a coluna "Topo de Funil" do respectivo agente.
 
 ---
 
-### Arquivo a modificar
+### Arquivo a criar
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Na funcao `autoInsertToKanban`, adicionar `.neq("name", "Transferidos")` na query de colunas para que novas conversas sejam inseridas em "Topo de Funil" |
+| **Migracao SQL** | Mover cards de "Transferidos" sem `transferred_from_agent_id` para "Topo de Funil" |
 
 ### Detalhe tecnico
 
-Linha ~287-292 de `WhatsAppInbox.tsx`:
+A migracao faz o seguinte:
+1. Para cada card em "Transferidos" onde `transferred_from_agent_id IS NULL` (nao foi transferido de verdade)
+2. Busca a coluna "Topo de Funil" do mesmo agente
+3. Move o card para essa coluna
 
 ```text
-// Antes:
-const { data: columns } = await supabase
-  .from("whatsapp_kanban_columns")
-  .select("id")
-  .eq("agent_id", agentId)
-  .order("column_order", { ascending: true })
-  .limit(1);
-
-// Depois:
-const { data: columns } = await supabase
-  .from("whatsapp_kanban_columns")
-  .select("id")
-  .eq("agent_id", agentId)
-  .neq("name", "Transferidos")
-  .order("column_order", { ascending: true })
-  .limit(1);
+UPDATE whatsapp_conversation_kanban wck
+SET column_id = topo.id
+FROM whatsapp_kanban_columns transferidos,
+     whatsapp_kanban_columns topo
+WHERE wck.column_id = transferidos.id
+  AND transferidos.name = 'Transferidos'
+  AND topo.agent_id = transferidos.agent_id
+  AND topo.name = 'Topo de Funil'
+  AND wck.transferred_from_agent_id IS NULL;
 ```
 
-Isso faz a query ignorar a coluna "Transferidos" e retornar "Topo de Funil" como primeira opcao. A coluna "Transferidos" continua sendo usada apenas para conversas que foram efetivamente transferidas entre agentes (via `TransferConversationDialog`).
+Isso corrige os 10 leads existentes e vale para todos os tenants. Leads que possuem `transferred_from_agent_id` preenchido (transferencias reais) permanecem em "Transferidos".
+
+### Resultado
+
+- Os 10 leads incorretamente em "Transferidos" serao movidos para "Topo de Funil"
+- Novas conversas continuam indo para "Topo de Funil" (fix ja aplicado no codigo)
+- Transferencias reais entre agentes continuam funcionando normalmente na coluna "Transferidos"
 
