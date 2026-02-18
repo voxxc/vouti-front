@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { WhatsAppAccessGate } from "@/components/WhatsApp/WhatsAppAccessGate";
@@ -8,18 +8,19 @@ import { Loader2 } from "lucide-react";
 
 const CrmApp = () => {
   const navigate = useNavigate();
+  const { tenant } = useParams<{ tenant: string }>();
   const [authChecked, setAuthChecked] = useState(false);
   const { tenantId, loading: tenantLoading } = useTenantId();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        navigate("/", { replace: true });
+        navigate(`/crm/${tenant}`, { replace: true });
       } else {
         setAuthChecked(true);
       }
     });
-  }, [navigate]);
+  }, [navigate, tenant]);
 
   if (!authChecked || tenantLoading) {
     return (
