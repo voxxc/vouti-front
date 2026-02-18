@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,15 +20,16 @@ const CrmLogin = () => {
   const [mode, setMode] = useState<'login' | 'recovery'>('login');
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { tenant } = useParams<{ tenant: string }>();
 
   useLocalTheme('auth-theme');
 
   // Check if already logged in
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) navigate("/app", { replace: true });
+      if (user) navigate(`/crm/${tenant}/app`, { replace: true });
     });
-  }, [navigate]);
+  }, [navigate, tenant]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +44,7 @@ const CrmLogin = () => {
         toast({ title: "Erro", description: error.message || "Erro ao fazer login.", variant: "destructive" });
       } else {
         setIsTransitioning(true);
-        setTimeout(() => navigate("/app", { replace: true }), 500);
+        setTimeout(() => navigate(`/crm/${tenant}/app`, { replace: true }), 500);
       }
     } catch {
       toast({ title: "Erro", description: "Erro inesperado ao fazer login.", variant: "destructive" });
