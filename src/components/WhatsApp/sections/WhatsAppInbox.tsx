@@ -288,6 +288,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         .from("whatsapp_kanban_columns")
         .select("id")
         .eq("agent_id", agentId)
+        .neq("name", "Transferidos")
         .order("column_order", { ascending: true })
         .limit(1);
 
