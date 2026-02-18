@@ -1,10 +1,14 @@
 
 
-## Corrigir criação de projeto em segundo plano ao cadastrar cliente
+## Corrigir: novas conversas devem entrar em "Topo de Funil", nao em "Transferidos"
 
 ### Problema
 
-Ao cadastrar um cliente com a opção "Criar projeto" marcada, o fluxo trava porque `handleFormSuccess` usa `await createProject(...)` -- o usuário fica esperando a criação do projeto terminar antes de ser redirecionado. Além disso, o projeto criado não é vinculado ao cliente (campo `cliente_id` não é passado).
+A coluna "Transferidos" tem `column_order: 0` (primeira posicao). A funcao `autoInsertToKanban` busca a primeira coluna ordenada por `column_order` e insere novos contatos nela. Resultado: todas as novas conversas caem em "Transferidos" em vez de "Topo de Funil" (que esta em `column_order: 1`).
+
+### Solucao
+
+Alterar a query em `autoInsertToKanban` para pular a coluna "Transferidos" e usar a segunda coluna (Topo de Funil). A forma mais segura e filtrar pelo nome, pois a coluna "Transferidos" e fixa e padrao.
 
 ---
 
@@ -12,62 +16,30 @@ Ao cadastrar um cliente com a opção "Criar projeto" marcada, o fluxo trava por
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/ClienteCadastro.tsx` | Disparar criação de projeto em "fire-and-forget" e passar `cliente_id` |
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Na funcao `autoInsertToKanban`, adicionar `.neq("name", "Transferidos")` na query de colunas para que novas conversas sejam inseridas em "Topo de Funil" |
 
----
+### Detalhe tecnico
 
-### Detalhes tecnicos
-
-**ClienteCadastro.tsx -- handleFormSuccess**
-
-Trocar o `await createProject(...)` por uma chamada direta ao Supabase (sem await), fazendo a criação acontecer em segundo plano. O toast de sucesso do cliente aparece imediatamente e o usuário é redirecionado. Se o projeto falhar, um toast de erro aparece depois.
+Linha ~287-292 de `WhatsAppInbox.tsx`:
 
 ```text
-const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {
-  // Criar projeto em segundo plano (fire-and-forget)
-  if (criarProjeto && clienteId && (nomeProjeto || nomeCliente)) {
-    // Dispara sem await -- nao bloqueia a navegacao
-    createProject({
-      name: nomeProjeto || nomeCliente || 'Novo Projeto',
-      client: nomeCliente || nomeProjeto,
-      description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
-    }).then(result => {
-      if (result) {
-        // Vincular cliente_id ao projeto criado
-        supabase
-          .from('projects')
-          .update({ cliente_id: clienteId })
-          .eq('id', result.id);
-      }
-    }).catch(error => {
-      console.error('Erro ao criar projeto:', error);
-      toast({
-        title: 'Erro ao criar projeto',
-        description: 'O cliente foi salvo, mas houve erro ao criar o projeto.',
-        variant: 'destructive',
-      });
-    });
-  }
+// Antes:
+const { data: columns } = await supabase
+  .from("whatsapp_kanban_columns")
+  .select("id")
+  .eq("agent_id", agentId)
+  .order("column_order", { ascending: true })
+  .limit(1);
 
-  toast({
-    title: isNewCliente ? 'Cliente cadastrado' : 'Cliente atualizado',
-    description: 'Dados salvos com sucesso.',
-  });
-
-  handleClose(); // Redireciona imediatamente
-};
+// Depois:
+const { data: columns } = await supabase
+  .from("whatsapp_kanban_columns")
+  .select("id")
+  .eq("agent_id", agentId)
+  .neq("name", "Transferidos")
+  .order("column_order", { ascending: true })
+  .limit(1);
 ```
 
-Mudancas principais:
-- Remover `await` do `createProject` -- vira `.then()` para rodar em segundo plano
-- Adicionar `update({ cliente_id })` apos o projeto ser criado para vincular ao cliente
-- Toast de sucesso do cliente e `handleClose()` executam imediatamente, sem esperar o projeto
+Isso faz a query ignorar a coluna "Transferidos" e retornar "Topo de Funil" como primeira opcao. A coluna "Transferidos" continua sendo usada apenas para conversas que foram efetivamente transferidas entre agentes (via `TransferConversationDialog`).
 
----
-
-### Resultado
-
-- O usuario cadastra o cliente e e redirecionado instantaneamente para a lista
-- O projeto e criado em segundo plano (aparece na lista de projetos em 1-2 segundos via real-time)
-- O projeto fica vinculado ao cliente pelo campo `cliente_id`
-- Em caso de erro na criacao do projeto, um toast avisa o usuario sem bloquear o fluxo
