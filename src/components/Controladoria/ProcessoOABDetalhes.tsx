@@ -73,6 +73,7 @@ import { IntimacaoCard } from './IntimacaoCard';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
+import { PrazosCasoTab } from './PrazosCasoTab';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -421,7 +422,7 @@ export const ProcessoOABDetalhes = ({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            Detalhes do Processo
+            Detalhes do Caso
           </SheetTitle>
         </SheetHeader>
 
@@ -530,7 +531,7 @@ export const ProcessoOABDetalhes = ({
 
           {/* Tabs */}
           <Tabs defaultValue="resumo" className="flex-1">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
                 Andamentos
@@ -552,6 +553,9 @@ export const ProcessoOABDetalhes = ({
                     {intimacoesNaoLidas}
                   </Badge>
                 ) : null}
+              </TabsTrigger>
+              <TabsTrigger value="prazos" className="relative">
+                Prazos
               </TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
               <TabsTrigger value="vouti-ia">
@@ -1320,6 +1324,11 @@ export const ProcessoOABDetalhes = ({
             {/* Vouti IA */}
             <TabsContent value="vouti-ia" className="mt-4 h-[calc(100vh-350px)]">
               <VoutiIATab processoOabId={processo.id} />
+            </TabsContent>
+
+            {/* Prazos */}
+            <TabsContent value="prazos" className="mt-4">
+              <PrazosCasoTab processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}
