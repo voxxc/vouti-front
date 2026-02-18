@@ -512,6 +512,7 @@ function App() {
             <Route path="/project/:id/sector/:sectorId" element={<LegacyProjectSectorRedirect />} />
             <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
             {/* Vouti.CRM - Standalone por tenant */}
+            <Route path="/crm" element={<Navigate to="/" replace />} />
             <Route path="/crm/:tenant" element={<CrmLogin />} />
             <Route path="/crm/:tenant/app" element={<CrmApp />} />
             <Route path="/bot" element={<Navigate to="/solvenza/crm" replace />} />

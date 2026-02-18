@@ -24,11 +24,32 @@ const CrmLogin = () => {
 
   useLocalTheme('auth-theme');
 
-  // Check if already logged in
+  const [tenantValid, setTenantValid] = useState<boolean | null>(null);
+
+  // Validate tenant belongs to CRM system_type and check if already logged in
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const validateTenant = async () => {
+      if (!tenant) {
+        setTenantValid(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('tenants')
+        .select('id, system_type_id, system_types!inner(code)')
+        .eq('slug', tenant)
+        .eq('system_types.code', 'crm')
+        .maybeSingle();
+
+      if (!data) {
+        setTenantValid(false);
+        return;
+      }
+      setTenantValid(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) navigate(`/crm/${tenant}/app`, { replace: true });
-    });
+    };
+    validateTenant();
   }, [navigate, tenant]);
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -77,6 +98,26 @@ const CrmLogin = () => {
       setIsLoading(false);
     }
   };
+
+  if (tenantValid === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (tenantValid === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold text-destructive">CRM não encontrado</h1>
+          <p className="text-muted-foreground">O endereço informado não corresponde a um sistema Vouti.CRM válido.</p>
+          <p className="text-sm text-muted-foreground">Verifique o endereço e tente novamente.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-gradient-subtle flex transition-opacity duration-500 relative overflow-hidden ${isTransitioning ? 'opacity-0 animate-fade-out' : 'opacity-100'}`}>

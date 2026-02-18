@@ -1,4 +1,4 @@
-import { Scale, Factory, Link, Plus, Bell, LucideIcon } from 'lucide-react';
+import { Scale, Factory, Link, Plus, Bell, MessageSquare, LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SystemType, Tenant } from '@/types/superadmin';
@@ -8,6 +8,7 @@ const iconMap: Record<string, LucideIcon> = {
   Scale,
   Factory,
   Link,
+  MessageSquare,
 };
 
 // ID do sistema "Gestão Jurídica"

@@ -5,6 +5,7 @@ import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
+import { CreateCrmTenantDialog } from '@/components/SuperAdmin/CreateCrmTenantDialog';
 import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
 import { SuperAdminThemeToggle } from '@/components/SuperAdmin/SuperAdminThemeToggle';
 import { SuperAdminLeads } from '@/components/SuperAdmin/SuperAdminLeads';
@@ -402,12 +403,21 @@ export default function SuperAdmin() {
       </main>
 
       {/* Dialogs */}
-      <CreateTenantDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        systemType={selectedSystemType}
-        onSubmit={handleSubmitCreate}
-      />
+      {selectedSystemType?.code === 'crm' ? (
+        <CreateCrmTenantDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          systemType={selectedSystemType}
+          onSubmit={handleSubmitCreate}
+        />
+      ) : (
+        <CreateTenantDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          systemType={selectedSystemType}
+          onSubmit={handleSubmitCreate}
+        />
+      )}
 
       <EditTenantDialog
         open={editDialogOpen}
