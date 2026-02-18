@@ -35,8 +35,8 @@ const CrmLogin = () => {
       }
       const { data } = await supabase
         .from('tenants')
-        .select('id, system_type_id, system_types!inner(code)')
-        .eq('slug', tenant)
+        .select('id, slug, system_type_id, system_types!inner(code)')
+        .ilike('slug', tenant)
         .eq('system_types.code', 'crm')
         .maybeSingle();
 
