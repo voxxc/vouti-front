@@ -1,77 +1,61 @@
 
-## Corrigir roteamento de mensagens quando contato existe em multiplos Kanbans
 
-### Problema
+## Corrigir 297 mensagens mal-roteadas e garantir que o fix funcione
 
-O contato `5545988282387` existe no Kanban do Daniel E da Laura. O webhook busca o kanban entry mais recente por `updated_at`, que retorna Laura (atualizado em 17/02). Resultado: TODAS as mensagens desse contato vao para Laura, mesmo quando chegam pela instancia do Daniel.
+### Problema encontrado
 
-```text
-Fluxo atual (com bug):
-  Mensagem chega na instancia do Daniel
-    -> instance.agent_id = Daniel
-    -> Busca kanban: ORDER BY updated_at DESC LIMIT 1
-    -> Retorna Laura (updated_at mais recente)
-    -> effectiveAgentId = Laura
-    -> Mensagem salva com agent_id = Laura
-    -> Daniel NAO ve a mensagem na sua Inbox
+O fix de roteamento no webhook foi deployado, mas **297 mensagens** que ja estavam salvas no banco continuam com o `agent_id` errado. Todas sao mensagens que chegaram pela instancia do Daniel mas foram salvas com o agent_id da Laura ou da Juliana.
+
+Resumo dos contatos afetados:
+
+| Contato | Msgs erradas | Agente errado | Agente correto |
+|---|---|---|---|
+| 5545999180026 | ~208 | Laura | Daniel |
+| 5545988282387 | 3 | Laura | Daniel |
+| 5592991276333 | 6 | Laura | Daniel |
+| 5545988083583 | 55 | Juliana | Daniel |
+| 5592984940166 | 7 | Juliana | Daniel |
+| 5545998147710 | 5 | Juliana | Daniel |
+| 5545999445655 | 4 | Juliana | Daniel |
+| 5545998011658 | 1 | Juliana | Daniel |
+| 5544935051259 | 5 | Juliana | Daniel |
+| Outros | ~3 | Juliana | Daniel |
+
+### Correcoes
+
+**1. UPDATE em massa das 297 mensagens** (dados, nao schema)
+
+Uma unica query que corrige todas as mensagens de uma vez, usando a tabela `whatsapp_instances` como fonte de verdade:
+
+```sql
+UPDATE whatsapp_messages m
+SET agent_id = wi.agent_id
+FROM whatsapp_instances wi
+WHERE wi.zapi_instance_id = m.instance_name
+  AND m.agent_id IS NOT NULL
+  AND wi.agent_id IS NOT NULL
+  AND m.agent_id != wi.agent_id
+  AND m.tenant_id IS NOT NULL
 ```
 
-### Correcao
+A logica e simples: o `agent_id` correto de cada mensagem e o agente dono da instancia que recebeu/enviou a mensagem.
 
-**Arquivo**: `supabase/functions/whatsapp-webhook/index.ts` (linhas 230-248)
+**2. Verificacao pos-fix**
 
-Mudar a logica de resolucao do agente efetivo: **priorizar o kanban entry do proprio agente da instancia**. So redirecionar para outro agente se o contato NAO existir no kanban do agente da instancia.
+Rodar a mesma query de deteccao para confirmar que zero mensagens estao mal-roteadas:
 
-```text
-Fluxo corrigido:
-  Mensagem chega na instancia do Daniel
-    -> instance.agent_id = Daniel
-    -> Busca kanban do DANIEL para esse telefone
-    -> Se existe: effectiveAgentId = Daniel (mantém)
-    -> Se NAO existe: busca kanban de QUALQUER agente (transferencia)
-    -> effectiveAgentId = agente encontrado
+```sql
+SELECT COUNT(*) FROM whatsapp_messages m
+JOIN whatsapp_instances wi ON wi.zapi_instance_id = m.instance_name
+WHERE m.agent_id != wi.agent_id AND m.tenant_id IS NOT NULL
 ```
 
-### Detalhes tecnicos
+O resultado esperado e 0.
 
-Substituir a query unica (linhas 233-247) por duas queries em sequencia:
+**3. O fix no webhook ja esta deployado** 
 
-1. **Primeira query**: buscar kanban entry para o `instance.agent_id` + phone
-2. **Se nao encontrar**: buscar qualquer kanban entry para phone + tenant (ORDER BY updated_at DESC) - este e o caso de transferencia
+O codigo em `whatsapp-webhook/index.ts` ja prioriza o kanban do agente da instancia. As mensagens misrouted de hoje (16:20-16:42) foram processadas por instancias "quentes" que ainda rodavam o codigo antigo antes do deploy se propagar totalmente. Novas mensagens devem ser roteadas corretamente.
 
-```typescript
-// 1. Priorizar kanban do agente da instancia
-const { data: ownKanban } = await supabase
-  .from('whatsapp_conversation_kanban')
-  .select('agent_id')
-  .eq('phone', phone)
-  .eq('tenant_id', effectiveTenantId)
-  .eq('agent_id', effectiveAgentId)
-  .limit(1)
-  .maybeSingle();
+### Nenhuma mudanca de codigo necessaria
 
-if (ownKanban) {
-  // Contato existe no kanban do agente da instancia - manter
-  effectiveAgentId = ownKanban.agent_id;
-} else {
-  // Contato NAO esta no kanban deste agente - verificar transferencia
-  const { data: otherKanban } = await supabase
-    .from('whatsapp_conversation_kanban')
-    .select('agent_id')
-    .eq('phone', phone)
-    .eq('tenant_id', effectiveTenantId)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (otherKanban?.agent_id) {
-    console.log('Conversation routed: instance agent -> kanban agent');
-    effectiveAgentId = otherKanban.agent_id;
-  }
-}
-```
-
-Isso garante que:
-- Se o contato esta no kanban do Daniel E da Laura, a mensagem que chega na instancia do Daniel vai para o Daniel
-- Se o contato foi transferido (existe APENAS no kanban da Laura mas nao do Daniel), ai sim redireciona para Laura
-- Sem impacto em outros tenants ou no Super Admin
+O fix no webhook ja esta correto e deployado. A unica acao necessaria e o UPDATE dos dados historicos.
