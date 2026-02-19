@@ -114,10 +114,7 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
     <Sheet open={open} onOpenChange={(v) => { if (!v) handleClose(); }} modal={false}>
       <SheetContent
         side="left-offset"
-        className={cn(
-          "p-0 flex flex-col transition-all duration-300",
-          isExpanded ? "!w-[900px]" : "!w-96"
-        )}
+        className="p-0 flex flex-col !right-0 !w-auto"
       >
         <SheetTitle className="sr-only">Projetos</SheetTitle>
 
