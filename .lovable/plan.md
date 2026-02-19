@@ -1,37 +1,70 @@
 
+## Correcoes para Suporte Completo a API Oficial do WhatsApp (Meta)
 
-## Drawer de Projetos ocupando largura total
+### Problemas Identificados
 
-### Problema
+O sistema atualmente so envia respostas da IA via Z-API. Quando a instancia usa a API Oficial do Meta, a IA processa a mensagem, gera a resposta, mas **nunca a envia** porque nao existe logica de envio via Meta. Alem disso, o tipo de midia e sempre salvo como "text".
 
-O drawer de projetos no CRM abre com largura fixa (384px na lista, 900px com projeto selecionado), parando no meio da tela em vez de ir ate o final.
+### Correcoes Planejadas
 
-### Solucao
+**1. `supabase/functions/whatsapp-meta-webhook/index.ts`**
 
-Alterar o `SheetContent` do `WhatsAppProjects.tsx` para incluir `right-0`, fazendo o drawer se estender da sidebar ate a borda direita da tela -- comportamento identico ao variant `inset`.
+- Salvar `message_type` correto (`image`, `audio`, `video`, `document`, `text`) em vez de sempre `'text'`
+- Buscar URLs reais de midia do Meta (endpoint `GET graph.facebook.com/v21.0/{media_id}`) e salvar no `raw_data` no formato que o frontend espera
+- Corrigir roteamento de agente: priorizar o kanban do agente dono da instancia antes de buscar em outros kanbans (padrao do Z-API)
+- Passar `provider: 'meta'` e credenciais Meta ao chamar o debounce, para que ele saiba como enviar a resposta
 
-### Mudanca tecnica
+**2. `supabase/functions/whatsapp-ai-debounce/index.ts`**
 
-**`src/components/WhatsApp/sections/WhatsAppProjects.tsx`**
+- Adicionar logica de envio via Meta API apos gerar a resposta da IA
+- Se receber `provider: 'meta'`, buscar a instancia no banco para obter `meta_phone_number_id` e `meta_access_token`
+- Enviar via `POST graph.facebook.com/v21.0/{phone_number_id}/messages` com `messaging_product: 'whatsapp'`
+- Manter envio via Z-API como fallback para instancias nao-Meta
 
-Remover a logica de largura condicional (`isExpanded ? "!w-[900px]" : "!w-96"`) e adicionar `!right-0 !w-auto` ao className para que o drawer ocupe todo o espaco disponivel:
+**3. `supabase/functions/whatsapp-webhook/index.ts`**
+
+- Na funcao `handleAIResponse` (resposta imediata sem debounce), adicionar a mesma logica de envio condicional
+- Buscar a instancia no banco para verificar se e `provider: 'meta'`
+- Se for Meta, enviar via Graph API; se nao, manter Z-API
+
+### Logica de Envio Condicional (aplicada nos 2 pontos de envio)
 
 ```text
-// Antes:
-className={cn(
-  "p-0 flex flex-col transition-all duration-300",
-  isExpanded ? "!w-[900px]" : "!w-96"
-)}
+// Apos gerar resposta da IA e salvar no banco:
+1. Buscar instancia: SELECT provider, meta_phone_number_id, meta_access_token 
+   FROM whatsapp_instances WHERE instance_name = instance_id OR agent_id = agent_id
 
-// Depois:
-className="p-0 flex flex-col !right-0 !w-auto"
+2. Se provider = 'meta':
+   POST graph.facebook.com/v21.0/{meta_phone_number_id}/messages
+   Headers: Authorization: Bearer {meta_access_token}
+   Body: { messaging_product: 'whatsapp', to: phone, type: 'text', text: { body: message } }
+
+3. Se provider != 'meta':
+   Logica Z-API existente (sem alteracao)
 ```
 
-Isso faz com que o drawer va de `left-[224px]` (definido pelo variant `left-offset`) ate `right-0`, ocupando toda a largura restante.
+### Correcao de message_type no Meta Webhook
 
-### Arquivos
+```text
+// Antes: message_type: 'text' (fixo)
+// Depois: message_type mapeado corretamente
+const metaTypeMap = {
+  'text': 'text',
+  'image': 'image', 
+  'audio': 'audio',
+  'video': 'video',
+  'document': 'document',
+  'location': 'text',
+  'contacts': 'text',
+  'sticker': 'sticker'
+};
+message_type: metaTypeMap[type] || 'text'
+```
+
+### Arquivos Modificados
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/WhatsApp/sections/WhatsAppProjects.tsx` | Alterar className do SheetContent para largura total |
-
+| `supabase/functions/whatsapp-meta-webhook/index.ts` | Corrigir message_type, raw_data com URLs de midia, roteamento de agente, dados do debounce |
+| `supabase/functions/whatsapp-ai-debounce/index.ts` | Adicionar envio via Meta API alem de Z-API |
+| `supabase/functions/whatsapp-webhook/index.ts` | Adicionar envio via Meta API na resposta imediata da IA |
