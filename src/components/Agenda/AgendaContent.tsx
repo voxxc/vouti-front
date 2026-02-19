@@ -814,8 +814,8 @@ export function AgendaContent() {
 
       {/* Two-column layout: Calendar + List */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Calendar - Compact Left */}
-        <div className="lg:w-[380px] shrink-0">
+        {/* Calendar - Left */}
+        <div className="lg:w-[480px] xl:w-[540px] shrink-0">
           <div className="border rounded-lg p-4 bg-card">
             <AgendaCalendar
               selectedDate={selectedDate}
