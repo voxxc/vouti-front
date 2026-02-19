@@ -126,14 +126,36 @@ serve(async (req) => {
           instance = data;
           instanceError = error;
         }
+      } else if (msg.lead_source === 'landing_leads' && msg.tenant_id) {
+        // Para landing_leads de tenant, buscar instância do agente com landing_page_source configurado
+        const { data, error } = await supabase
+          .from('whatsapp_instances')
+          .select(`
+            instance_name, 
+            zapi_instance_id, 
+            zapi_instance_token, 
+            zapi_client_token, 
+            user_id,
+            agent_id,
+            whatsapp_agents!inner(landing_page_source)
+          `)
+          .eq('connection_status', 'connected')
+          .eq('tenant_id', msg.tenant_id)
+          .not('whatsapp_agents.landing_page_source', 'is', null)
+          .limit(1)
+          .maybeSingle();
+        
+        instance = data;
+        instanceError = error;
       } else {
         // Para Tenants (outros tipos de lead), buscar qualquer instância conectada
         const { data, error } = await supabase
           .from('whatsapp_instances')
-          .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id')
+          .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id, agent_id')
           .eq('connection_status', 'connected')
           .eq('tenant_id', msg.tenant_id)
-          .single();
+          .limit(1)
+          .maybeSingle();
         
         instance = data;
         instanceError = error;
