@@ -234,6 +234,59 @@ serve(async (req) => {
             console.log(`[whatsapp-process-queue] 📥 Message saved to inbox for ${formattedPhone}`);
           }
 
+          // 7. Auto-insert card into Kanban (first non-Transferidos column)
+          if (instance.agent_id) {
+            try {
+              // Find the first sales column (skip "Transferidos" at order 0)
+              const { data: kanbanCol } = await supabase
+                .from('whatsapp_kanban_columns')
+                .select('id')
+                .eq('agent_id', instance.agent_id)
+                .gt('column_order', 0)
+                .order('column_order', { ascending: true })
+                .limit(1)
+                .single();
+
+              if (kanbanCol) {
+                // Get next card_order
+                const { count } = await supabase
+                  .from('whatsapp_conversation_kanban')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('column_id', kanbanCol.id);
+
+                // Check if card already exists for this phone+agent
+                const { data: existingCard } = await supabase
+                  .from('whatsapp_conversation_kanban')
+                  .select('id')
+                  .eq('agent_id', instance.agent_id)
+                  .eq('phone', formattedPhone)
+                  .maybeSingle();
+
+                if (!existingCard) {
+                  const { error: kanbanError } = await supabase
+                    .from('whatsapp_conversation_kanban')
+                    .insert({
+                      agent_id: instance.agent_id,
+                      phone: formattedPhone,
+                      column_id: kanbanCol.id,
+                      card_order: (count || 0),
+                      tenant_id: msg.tenant_id,
+                    });
+
+                  if (kanbanError) {
+                    console.error(`[whatsapp-process-queue] ⚠️ Failed to create Kanban card:`, kanbanError);
+                  } else {
+                    console.log(`[whatsapp-process-queue] 📋 Kanban card created for ${formattedPhone}`);
+                  }
+                } else {
+                  console.log(`[whatsapp-process-queue] 📋 Kanban card already exists for ${formattedPhone}`);
+                }
+              }
+            } catch (kanbanErr) {
+              console.error(`[whatsapp-process-queue] ⚠️ Kanban auto-insert error:`, kanbanErr);
+            }
+          }
+
           sent++;
           console.log(`[whatsapp-process-queue] ✅ Message sent to ${formattedPhone}`);
         } else {
