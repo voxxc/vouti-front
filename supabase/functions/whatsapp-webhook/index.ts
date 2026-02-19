@@ -229,21 +229,32 @@ async function handleIncomingMessage(data: any) {
 
   // Resolve effective agent: check if conversation was transferred to another agent
   let effectiveAgentId = instance.agent_id || null;
-  if (effectiveTenantId) {
-    const { data: kanbanEntry } = await supabase
+  if (effectiveTenantId && effectiveAgentId) {
+    // 1. Priorizar kanban do agente da instancia
+    const { data: ownKanban } = await supabase
       .from('whatsapp_conversation_kanban')
       .select('agent_id')
       .eq('phone', phone)
       .eq('tenant_id', effectiveTenantId)
-      .order('updated_at', { ascending: false })
+      .eq('agent_id', effectiveAgentId)
       .limit(1)
       .maybeSingle();
 
-    if (kanbanEntry?.agent_id) {
-      if (kanbanEntry.agent_id !== effectiveAgentId) {
-        console.log(`🔀 Conversation routed: instance agent -> kanban agent`);
+    if (!ownKanban) {
+      // 2. Contato NAO esta no kanban deste agente - verificar transferencia
+      const { data: otherKanban } = await supabase
+        .from('whatsapp_conversation_kanban')
+        .select('agent_id')
+        .eq('phone', phone)
+        .eq('tenant_id', effectiveTenantId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (otherKanban?.agent_id) {
+        console.log('🔀 Conversation routed: instance agent -> kanban agent (transfer)');
+        effectiveAgentId = otherKanban.agent_id;
       }
-      effectiveAgentId = kanbanEntry.agent_id;
     }
   }
 
