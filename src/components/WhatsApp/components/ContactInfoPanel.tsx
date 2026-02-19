@@ -58,6 +58,8 @@ interface ContactInfoPanelProps {
   currentAgentId?: string | null;
   currentAgentName?: string | null;
   tenantId?: string | null;
+  conversationAgentId?: string | null;
+  conversationAgentName?: string | null;
   onTransferComplete?: () => void;
 }
 
@@ -67,7 +69,7 @@ interface KanbanColumnOption {
   color: string;
 }
 
-export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, onTransferComplete }: ContactInfoPanelProps) => {
+export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, conversationAgentId, conversationAgentName, onTransferComplete }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
@@ -198,6 +200,8 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
             conversation={conversation}
             currentAgentId={currentAgentId}
             currentAgentName={currentAgentName}
+            conversationAgentId={conversationAgentId}
+            conversationAgentName={conversationAgentName}
             tenantId={resolvedTenantId}
             onTransferComplete={onTransferComplete}
           />

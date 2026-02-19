@@ -25,6 +25,8 @@ interface TransferConversationDialogProps {
   conversation: WhatsAppConversation;
   currentAgentId?: string | null;
   currentAgentName?: string | null;
+  conversationAgentId?: string | null;
+  conversationAgentName?: string | null;
   tenantId?: string | null;
   onTransferComplete?: () => void;
 }
@@ -41,9 +43,13 @@ export const TransferConversationDialog = ({
   conversation,
   currentAgentId,
   currentAgentName,
+  conversationAgentId,
+  conversationAgentName,
   tenantId,
   onTransferComplete,
 }: TransferConversationDialogProps) => {
+  const sourceAgentId = conversationAgentId || currentAgentId;
+  const sourceAgentName = conversationAgentName || currentAgentName;
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -62,15 +68,15 @@ export const TransferConversationDialog = ({
         .eq("is_active", true)
         .eq("tenant_id", tenantId);
 
-      if (currentAgentId) {
-        query = query.neq("id", currentAgentId);
+      if (sourceAgentId) {
+        query = query.neq("id", sourceAgentId);
       }
 
       const { data } = await query;
       setAgents(data || []);
     };
     loadAgents();
-  }, [tenantId, currentAgentId]);
+  }, [tenantId, sourceAgentId]);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
@@ -83,14 +89,14 @@ export const TransferConversationDialog = ({
       .from("whatsapp_messages")
       .update({ agent_id: newAgentId } as any)
       .eq("from_number", conversation.contactNumber)
-      .eq("agent_id", currentAgentId);
+      .eq("agent_id", sourceAgentId);
 
     // Grant shared access to the new agent (full history visibility)
     await supabase.from("whatsapp_conversation_kanban").upsert({
       tenant_id: tenantId,
       agent_id: newAgentId,
       phone: conversation.contactNumber,
-      granted_by_agent_id: currentAgentId,
+      granted_by_agent_id: sourceAgentId,
     } as any, { onConflict: "agent_id,phone" }).then(() => {});
 
     // Also upsert into whatsapp_conversation_access
@@ -98,7 +104,7 @@ export const TransferConversationDialog = ({
       tenant_id: tenantId,
       agent_id: newAgentId,
       phone: conversation.contactNumber,
-      granted_by_agent_id: currentAgentId,
+      granted_by_agent_id: sourceAgentId,
     } as any, { onConflict: "agent_id,phone" });
 
     // Move Kanban card - delete from old agent
@@ -106,7 +112,7 @@ export const TransferConversationDialog = ({
       .from("whatsapp_conversation_kanban")
       .delete()
       .eq("phone", conversation.contactNumber)
-      .eq("agent_id", currentAgentId);
+      .eq("agent_id", sourceAgentId);
 
     // Get first column of new agent
     const { data: cols } = await supabase
@@ -123,8 +129,8 @@ export const TransferConversationDialog = ({
         phone: conversation.contactNumber,
         column_id: cols[0].id,
         card_order: 0,
-        transferred_from_agent_id: currentAgentId,
-        transferred_from_agent_name: currentAgentName,
+        transferred_from_agent_id: sourceAgentId,
+        transferred_from_agent_name: sourceAgentName,
       } as any);
     }
 
@@ -160,7 +166,7 @@ export const TransferConversationDialog = ({
 
   // Atribuir: same instance (current), just reassign in CRM
   const handleAssign = async () => {
-    if (!selectedAgent || !currentAgentId) return;
+    if (!selectedAgent || !sourceAgentId) return;
 
     setIsTransferring(true);
     try {
@@ -170,7 +176,7 @@ export const TransferConversationDialog = ({
           phone: conversation.contactNumber,
           message: transferMessage(selectedAgent.name),
           messageType: "text",
-          agentId: currentAgentId,
+          agentId: sourceAgentId,
         },
       });
 
@@ -191,7 +197,7 @@ export const TransferConversationDialog = ({
 
   // Transferir: new agent's instance (lead sees new number)
   const handleTransferNewInstance = async () => {
-    if (!selectedAgent || !currentAgentId) return;
+    if (!selectedAgent || !sourceAgentId) return;
 
     setIsTransferring(true);
     try {
@@ -249,7 +255,7 @@ export const TransferConversationDialog = ({
     setShowConfirm(true);
   };
 
-  if (!currentAgentId || agents.length === 0) return null;
+  if ((!currentAgentId && !conversationAgentId) || agents.length === 0) return null;
 
   return (
     <>
