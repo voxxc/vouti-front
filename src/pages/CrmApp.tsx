@@ -15,7 +15,7 @@ const CrmApp = () => {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        navigate(`/crm/${tenant}`, { replace: true });
+        navigate(`/crm/${tenant}/auth`, { replace: true });
       } else {
         setAuthChecked(true);
       }
