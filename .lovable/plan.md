@@ -1,48 +1,40 @@
 
-## Corrigir transferencia de conversas em "Todas as Conversas"
+## Exibir nome do usuario que agendou a reuniao
 
-### Problema identificado
+### Situacao atual
 
-Quando Daniel acessa "Todas as Conversas" e tenta transferir a conversa do 92 99306-6901 (que pertence a Juliana), o sistema usa o `currentAgentId` de Daniel como origem da transferencia. Isso causa falha porque:
+A tabela `reunioes` ja possui a coluna `user_id` que identifica quem criou a reuniao, e a tabela `profiles` tem o `full_name`. Porem, o hook `useReunioes` nao faz JOIN com `profiles`, entao o nome do criador nao e carregado nem exibido.
 
-- As mensagens estao vinculadas ao agent_id da Juliana (`acef3363`)
-- O card do Kanban tambem pertence a Juliana
-- O sistema tenta atualizar/deletar registros de Daniel, que nao existem
+### Mudancas
 
-### Solucao
+**Nenhuma alteracao no banco de dados** - os dados ja existem.
 
-Modificar o `TransferConversationDialog` para aceitar e usar o **agent dono da conversa** como origem, em vez de sempre usar o agente logado.
+| Arquivo | Mudanca |
+|---|---|
+| `src/types/reuniao.ts` | Adicionar campo `criado_por_nome?: string` na interface `Reuniao` |
+| `src/hooks/useReunioes.ts` | Alterar o SELECT para incluir `profiles!reunioes_user_id_fkey(full_name)` e mapear o campo |
+| `src/components/Reunioes/ReuniaoCard.tsx` | Exibir "Agendado por: Nome" no card |
+| `src/components/Reunioes/ReunioesContent.tsx` | Exibir "Agendado por: Nome" no dialog de detalhes |
 
-### Mudancas tecnicas
+### Detalhes tecnicos
 
-**1. `WhatsAppAllConversations.tsx`** - Passar o `agentId` da conversa selecionada
-
-A interface `AllConversationsItem` ja tem `agentId` e `agentName`. Passar esses dados como novas props ao `ContactInfoPanel`:
-
-```
-conversationAgentId={selectedConversation.agentId}
-conversationAgentName={selectedConversation.agentName}
-```
-
-**2. `ContactInfoPanel.tsx`** - Receber e propagar as novas props
-
-Adicionar `conversationAgentId` e `conversationAgentName` opcionais na interface e passa-los ao `TransferConversationDialog`.
-
-**3. `TransferConversationDialog.tsx`** - Usar o agente correto como origem
-
-| Aspecto | Antes | Depois |
-|---|---|---|
-| Origem da transferencia | Sempre `currentAgentId` (usuario logado) | `conversationAgentId` se fornecido, senao `currentAgentId` |
-| Lista de agentes | Exclui o usuario logado | Exclui o dono da conversa |
-| Reassociar mensagens | `WHERE agent_id = currentAgentId` | `WHERE agent_id = sourceAgentId` |
-| Mover Kanban | Deleta card de `currentAgentId` | Deleta card de `sourceAgentId` |
-
-Internamente, criar uma variavel `sourceAgentId` e `sourceAgentName`:
-```
-const sourceAgentId = conversationAgentId || currentAgentId;
-const sourceAgentName = conversationAgentName || currentAgentName;
+**1. Tipo** (`src/types/reuniao.ts`):
+```ts
+// Adicionar na interface Reuniao
+criado_por_nome?: string;
 ```
 
-Substituir todas as referencias a `currentAgentId` na logica de transferencia por `sourceAgentId`, mantendo `currentAgentId` apenas para verificar se o botao deve ser exibido.
+**2. Hook** (`src/hooks/useReunioes.ts`):
+```ts
+// Alterar o select de '*' para incluir o join
+.select('*, creator:profiles!reunioes_user_id_fkey(full_name)')
 
-A condicao de exibicao muda de `if (!currentAgentId)` para `if (!currentAgentId && !conversationAgentId)`, permitindo que o botao apareca mesmo quando o agente logado nao e o dono da conversa.
+// No mapeamento:
+criado_por_nome: (item as any).creator?.full_name
+```
+
+**3. Card** (`src/components/Reunioes/ReuniaoCard.tsx`):
+Adicionar uma linha com icone de usuario mostrando "Agendado por: {nome}" em texto discreto (text-xs text-muted-foreground).
+
+**4. Dialog de detalhes** (`src/components/Reunioes/ReunioesContent.tsx`):
+Adicionar "Agendado por: {nome}" na secao de badges/info do dialog de detalhes.
