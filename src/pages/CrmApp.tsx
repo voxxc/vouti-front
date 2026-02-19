@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { WhatsAppAccessGate } from "@/components/WhatsApp/WhatsAppAccessGate";
 import { WhatsAppLayout } from "@/components/WhatsApp/WhatsAppLayout";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Loader2 } from "lucide-react";
 
-const CrmApp = () => {
+const CrmAppContent = () => {
   const navigate = useNavigate();
   const { tenant } = useParams<{ tenant: string }>();
   const [authChecked, setAuthChecked] = useState(false);
@@ -48,6 +50,16 @@ const CrmApp = () => {
     <WhatsAppAccessGate>
       <WhatsAppLayout />
     </WhatsAppAccessGate>
+  );
+};
+
+const CrmApp = () => {
+  return (
+    <AuthProvider>
+      <ThemeProvider>
+        <CrmAppContent />
+      </ThemeProvider>
+    </AuthProvider>
   );
 };
 
