@@ -546,42 +546,70 @@ async function handleAIResponse(
       agent_id
     );
 
-    let baseUrl: string | undefined;
-    let clientToken: string | undefined;
-    
-    if (instanceCredentials.zapi_instance_id && instanceCredentials.zapi_instance_token) {
-      baseUrl = `https://api.z-api.io/instances/${instanceCredentials.zapi_instance_id}/token/${instanceCredentials.zapi_instance_token}`;
-      clientToken = instanceCredentials.zapi_client_token || undefined;
+    // === ENVIO CONDICIONAL: Meta API vs Z-API ===
+    // Buscar instância para verificar provider
+    const { data: instanceInfo } = await supabase
+      .from('whatsapp_instances')
+      .select('provider, meta_phone_number_id, meta_access_token')
+      .eq('instance_name', instanceId)
+      .limit(1)
+      .maybeSingle();
+
+    if (instanceInfo?.provider === 'meta' && instanceInfo.meta_phone_number_id && instanceInfo.meta_access_token) {
+      // Enviar via Meta API
+      console.log('📤 Enviando resposta IA via Meta API');
+      try {
+        const metaResponse = await fetch(
+          `https://graph.facebook.com/v21.0/${instanceInfo.meta_phone_number_id}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${instanceInfo.meta_access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: phone,
+              type: 'text',
+              text: { body: aiData.response },
+            }),
+          }
+        );
+        const metaText = await metaResponse.text();
+        console.log(`📡 Meta API [${metaResponse.status}]:`, metaText.substring(0, 200));
+      } catch (e) {
+        console.error('❌ Erro ao enviar via Meta API:', e);
+      }
     } else {
-      baseUrl = Deno.env.get('Z_API_URL');
-      clientToken = Deno.env.get('Z_API_TOKEN');
-    }
-    
-    if (!baseUrl) {
-      console.error('No Z-API credentials available');
-      return true;
-    }
+      // Enviar via Z-API (lógica existente)
+      let baseUrl: string | undefined;
+      let clientToken: string | undefined;
+      
+      if (instanceCredentials.zapi_instance_id && instanceCredentials.zapi_instance_token) {
+        baseUrl = `https://api.z-api.io/instances/${instanceCredentials.zapi_instance_id}/token/${instanceCredentials.zapi_instance_token}`;
+        clientToken = instanceCredentials.zapi_client_token || undefined;
+      } else {
+        baseUrl = Deno.env.get('Z_API_URL');
+        clientToken = Deno.env.get('Z_API_TOKEN');
+      }
+      
+      if (!baseUrl) {
+        console.error('No Z-API credentials available');
+        return true;
+      }
 
-    const apiEndpoint = `${baseUrl}/send-text`;
-    
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (clientToken) {
-      headers['Client-Token'] = clientToken;
-    }
-    
-    const sendResponse = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        phone,
-        message: aiData.response,
-      }),
-    });
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (clientToken) headers['Client-Token'] = clientToken;
+      
+      const sendResponse = await fetch(`${baseUrl}/send-text`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ phone, message: aiData.response }),
+      });
 
-    if (!sendResponse.ok) {
-      console.error('Z-API AI response error:', sendResponse.status);
+      if (!sendResponse.ok) {
+        console.error('Z-API AI response error:', sendResponse.status);
+      }
     }
     
     return true;

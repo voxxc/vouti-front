@@ -42,13 +42,122 @@ async function saveOutgoingMessage(
   }
 }
 
+// Send message via Meta WhatsApp Cloud API
+async function sendViaMeta(
+  phone: string,
+  message: string,
+  metaPhoneNumberId: string,
+  metaAccessToken: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${metaPhoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${metaAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phone,
+          type: 'text',
+          text: { body: message },
+        }),
+      }
+    );
+    const responseText = await response.text();
+    console.log(`📡 Meta API [${response.status}]:`, responseText.substring(0, 200));
+    return response.ok;
+  } catch (e) {
+    console.error('❌ Erro ao enviar via Meta API:', e);
+    return false;
+  }
+}
+
+// Send message via Z-API
+async function sendViaZAPI(
+  phone: string,
+  message: string,
+  instanceCredentials?: { zapi_instance_id?: string; zapi_instance_token?: string; zapi_client_token?: string }
+): Promise<boolean> {
+  let baseUrl: string | undefined;
+  let clientToken: string | undefined;
+
+  if (instanceCredentials?.zapi_instance_id && instanceCredentials?.zapi_instance_token) {
+    baseUrl = `https://api.z-api.io/instances/${instanceCredentials.zapi_instance_id}/token/${instanceCredentials.zapi_instance_token}`;
+    clientToken = instanceCredentials.zapi_client_token || undefined;
+    console.log('🔑 Debounce: usando credenciais da instância');
+  } else {
+    baseUrl = Deno.env.get('Z_API_URL');
+    clientToken = Deno.env.get('Z_API_TOKEN');
+    console.log('🔑 Debounce: usando credenciais globais');
+  }
+
+  if (!baseUrl) {
+    console.error('❌ Debounce: nenhuma credencial Z-API disponível');
+    return false;
+  }
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (clientToken) headers['Client-Token'] = clientToken;
+
+    const sendResponse = await fetch(`${baseUrl}/send-text`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ phone, message }),
+    });
+
+    const responseText = await sendResponse.text();
+    console.log(`📡 Z-API Debounce [${sendResponse.status}]:`, responseText.substring(0, 200));
+    return sendResponse.ok;
+  } catch (e) {
+    console.error('❌ Erro ao enviar via Z-API:', e);
+    return false;
+  }
+}
+
+// Resolve instance provider and credentials from database
+async function resolveInstanceProvider(instanceId: string, agentId?: string): Promise<{
+  provider: string;
+  meta_phone_number_id?: string;
+  meta_access_token?: string;
+  zapi_instance_id?: string;
+  zapi_instance_token?: string;
+  zapi_client_token?: string;
+} | null> {
+  // Try by instance_name first
+  const { data } = await supabase
+    .from('whatsapp_instances')
+    .select('provider, meta_phone_number_id, meta_access_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
+    .eq('instance_name', instanceId)
+    .limit(1)
+    .maybeSingle();
+
+  if (data) return data;
+
+  // Fallback: try by agent_id
+  if (agentId) {
+    const { data: byAgent } = await supabase
+      .from('whatsapp_instances')
+      .select('provider, meta_phone_number_id, meta_access_token, zapi_instance_id, zapi_instance_token, zapi_client_token')
+      .eq('agent_id', agentId)
+      .limit(1)
+      .maybeSingle();
+    return byAgent || null;
+  }
+
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { phone, tenant_id, instance_id, scheduled_at, user_id, delay_seconds, instance_credentials, agent_id } = await req.json();
+    const { phone, tenant_id, instance_id, scheduled_at, user_id, delay_seconds, instance_credentials, agent_id, provider, meta_phone_number_id, meta_access_token } = await req.json();
 
     if (!phone || !instance_id || !scheduled_at) {
       return new Response(
@@ -85,8 +194,7 @@ serve(async (req) => {
       );
     }
 
-    // Comparar scheduled_at - se mudou, outra mensagem chegou e resetou o timer
-    // Usa comparação numérica com tolerância de 1s (formatos ISO vs PostgreSQL diferem como string)
+    // Comparar scheduled_at
     const pendingTime = new Date(pending.scheduled_at).getTime();
     const expectedTime = new Date(scheduled_at).getTime();
     if (Math.abs(pendingTime - expectedTime) > 1000) {
@@ -105,8 +213,7 @@ serve(async (req) => {
 
     console.log('🤖 Debounce: timer expirou, processando IA para', phone);
 
-    // Buscar a última mensagem recebida do contato para enviar à IA
-    // (a IA já usa histórico interno, então basta enviar a última mensagem como trigger)
+    // Buscar a última mensagem recebida do contato
     let lastMsgQuery = supabase
       .from('whatsapp_messages')
       .select('message_text')
@@ -164,34 +271,37 @@ serve(async (req) => {
     // Salvar mensagem da IA no banco IMEDIATAMENTE
     await saveOutgoingMessage(phone, prefixedResponse, tenant_id, instance_id, user_id, agent_id);
 
-    // Enviar via Z-API
-    let baseUrl: string | undefined;
-    let clientToken: string | undefined;
+    // === ENVIO CONDICIONAL: Meta API vs Z-API ===
+    
+    // Determinar provider: usar dados passados no request OU buscar do banco
+    let resolvedProvider = provider || null;
+    let resolvedMetaPhoneNumberId = meta_phone_number_id || null;
+    let resolvedMetaAccessToken = meta_access_token || null;
+    let resolvedZapiCredentials = instance_credentials || null;
 
-    if (instance_credentials?.zapi_instance_id && instance_credentials?.zapi_instance_token) {
-      baseUrl = `https://api.z-api.io/instances/${instance_credentials.zapi_instance_id}/token/${instance_credentials.zapi_instance_token}`;
-      clientToken = instance_credentials.zapi_client_token || undefined;
-      console.log('🔑 Debounce: usando credenciais da instância');
-    } else {
-      baseUrl = Deno.env.get('Z_API_URL');
-      clientToken = Deno.env.get('Z_API_TOKEN');
-      console.log('🔑 Debounce: usando credenciais globais');
+    // Se não veio provider no request, buscar do banco
+    if (!resolvedProvider) {
+      const instanceData = await resolveInstanceProvider(instance_id, agent_id);
+      if (instanceData) {
+        resolvedProvider = instanceData.provider;
+        resolvedMetaPhoneNumberId = instanceData.meta_phone_number_id || null;
+        resolvedMetaAccessToken = instanceData.meta_access_token || null;
+        if (!resolvedZapiCredentials && instanceData.provider !== 'meta') {
+          resolvedZapiCredentials = {
+            zapi_instance_id: instanceData.zapi_instance_id,
+            zapi_instance_token: instanceData.zapi_instance_token,
+            zapi_client_token: instanceData.zapi_client_token,
+          };
+        }
+      }
     }
 
-    if (baseUrl) {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (clientToken) headers['Client-Token'] = clientToken;
-
-      const sendResponse = await fetch(`${baseUrl}/send-text`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ phone, message: prefixedResponse }),
-      });
-
-      const responseText = await sendResponse.text();
-      console.log(`📡 Z-API Debounce [${sendResponse.status}]:`, responseText.substring(0, 200));
+    if (resolvedProvider === 'meta' && resolvedMetaPhoneNumberId && resolvedMetaAccessToken) {
+      console.log('📤 Enviando resposta via Meta API');
+      await sendViaMeta(phone, prefixedResponse, resolvedMetaPhoneNumberId, resolvedMetaAccessToken);
     } else {
-      console.error('❌ Debounce: nenhuma credencial Z-API disponível');
+      console.log('📤 Enviando resposta via Z-API');
+      await sendViaZAPI(phone, prefixedResponse, resolvedZapiCredentials);
     }
 
     // Marcar como concluído
