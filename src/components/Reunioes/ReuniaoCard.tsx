@@ -2,7 +2,7 @@ import { Reuniao } from '@/types/reuniao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, User, Phone, X, CalendarClock } from 'lucide-react';
+import { Clock, User, Phone, X, CalendarClock, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ReuniaoCardProps {
@@ -59,6 +59,13 @@ export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar }: Reuni
           <Clock className="h-3 w-3" />
           <span>{reuniao.duracao_minutos} min</span>
         </div>
+
+        {reuniao.criado_por_nome && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <UserCheck className="h-3 w-3" />
+            <span>Agendado por: {reuniao.criado_por_nome}</span>
+          </div>
+        )}
 
         {reuniao.descricao && (
           <p className="text-xs text-muted-foreground line-clamp-2 mt-2">

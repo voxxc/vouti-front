@@ -26,7 +26,7 @@ export const useReunioes = (selectedDate?: Date) => {
 
       let query = supabase
         .from('reunioes')
-        .select('*')
+        .select('*, creator:profiles!reunioes_user_id_fkey(full_name)')
         .eq('situacao_agenda', 'ativa')
         .order('horario', { ascending: true });
 
@@ -38,7 +38,12 @@ export const useReunioes = (selectedDate?: Date) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      setReunioes((data as Reuniao[]) || []);
+      const mapped = (data || []).map((item: any) => ({
+        ...item,
+        criado_por_nome: item.creator?.full_name || undefined,
+        creator: undefined,
+      })) as Reuniao[];
+      setReunioes(mapped);
     } catch (error: any) {
       console.error('Erro ao carregar reunioes:', error);
       toast.error('Erro ao carregar reunioes');

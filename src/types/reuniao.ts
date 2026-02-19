@@ -58,6 +58,7 @@ export interface Reuniao {
   updated_at: string;
   cliente?: ReuniaoCliente;
   reuniao_status?: ReuniaoStatusType;
+  criado_por_nome?: string;
 }
 
 export interface ReuniaoComentario {
