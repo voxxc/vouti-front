@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderKanban, Calendar, CheckCircle2, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
+import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getFullGreeting } from "@/utils/greetingHelper";
@@ -12,6 +14,7 @@ interface AdvogadoMetricsProps {
 }
 
 const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
+  const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
   // Optimized: Use React Query with cache for faster subsequent loads
   const { data: metrics, isLoading: loading } = useQuery({
     queryKey: ['advogado-metrics', userId],
@@ -141,7 +144,8 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
         </Card>
       </div>
 
-      <PrazosAbertosPanel userId={userId} maxItems={10} />
+      <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={() => setAgendaDrawerOpen(true)} />
+      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
     </div>
   );
 };

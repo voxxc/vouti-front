@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, FolderKanban, UserCheck, TrendingUp, Eye, ShieldAlert, FileText } from "lucide-react";
@@ -10,6 +11,7 @@ import { TasksMetrics } from "../TasksMetrics";
 import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
+import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +23,7 @@ interface AdminMetricsProps {
 }
 
 const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
+  const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
   const { tenantId } = useTenantId();
 
@@ -239,7 +242,8 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       </div>
 
       {/* Painel de Tarefas e Prazos do Usuário */}
-      <PrazosAbertosPanel userId={userId} maxItems={15} />
+      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={() => setAgendaDrawerOpen(true)} />
+      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
 
       <ClienteAnalytics />
 

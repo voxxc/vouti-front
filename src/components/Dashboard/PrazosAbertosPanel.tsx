@@ -15,6 +15,7 @@ import { ptBR } from "date-fns/locale";
 interface PrazosAbertosPanelProps {
   userId: string;
   maxItems?: number;
+  onOpenAgendaDrawer?: () => void;
 }
 
 interface PrazoAberto {
@@ -34,7 +35,7 @@ interface TarefaItem {
   subContexto?: string;
 }
 
-const PrazosAbertosPanel = ({ userId, maxItems = 10 }: PrazosAbertosPanelProps) => {
+const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: PrazosAbertosPanelProps) => {
   const [prazos, setPrazos] = useState<PrazoAberto[]>([]);
   const [tarefasAdmin, setTarefasAdmin] = useState<TarefaItem[]>([]);
   const [tarefasJuridico, setTarefasJuridico] = useState<TarefaItem[]>([]);
@@ -349,7 +350,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10 }: PrazosAbertosPanelProps) 
               <div
                 key={prazo.id}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={handleNavigateToAgenda}
+                onClick={onOpenAgendaDrawer || handleNavigateToAgenda}
               >
                 <div className="flex-shrink-0 mt-0.5">
                   {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? (
