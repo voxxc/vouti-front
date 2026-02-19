@@ -1,57 +1,46 @@
 
 
-## Controlar reordenacao de processos via cadeado do workspace
+## Corrigir scroll descendo sozinho no chat do CRM
 
-### O que muda
+### Causa
 
-O botao de cadeado que ja existe na parte superior do workspace (em `SectorView.tsx` e `ProjectView.tsx`) passara a controlar tambem o drag-and-drop dos processos na aba "Processos". Quando o cadeado estiver **travado**, os processos ficam na posicao definida e nao podem ser arrastados. Quando **destravado**, o usuario pode arrastar para reorganizar livremente.
-
-A ordem ja e salva no banco de dados (campo `ordem` na tabela `project_processos`), entao a posicao definida pelo usuario ja persiste entre sessoes.
-
-### Mudancas tecnicas
-
-**1. `src/components/Project/ProjectProcessos.tsx`**
-
-- Adicionar prop `isLocked` (boolean, default `true`)
-- Passar `isDragDisabled={isLocked}` para cada `<Draggable>` no `ProcessoCard`
-- Quando `isLocked`, o grip handle fica com visual desabilitado (opacidade reduzida, cursor `not-allowed`)
-- Quando desbloqueado, visual normal com `cursor-grab`
-
-**2. `src/pages/ProjectView.tsx`**
-
-- Passar `isLocked={isColumnsLocked}` para o componente `<ProjectProcessos>` na aba "processos"
-
-**3. `src/pages/SectorView.tsx`**
-
-- Passar `isLocked={isColumnsLocked}` para o componente `<ProjectProcessos>` na aba "processos" (se existir nessa view)
-
-### Detalhes de implementacao
-
-No `ProcessoCard`, a mudanca e minimal:
+Na linha 118-120 do `ChatPanel.tsx`, existe um `useEffect` que rola ate o final **toda vez** que o array `messages` muda:
 
 ```text
-// Antes:
-<Draggable draggableId={item.id} index={index}>
-
-// Depois:
-<Draggable draggableId={item.id} index={index} isDragDisabled={isLocked}>
+useEffect(() => {
+  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+}, [messages]);
 ```
 
-E no grip handle:
+Como as mensagens sao recarregadas via polling a cada 2 segundos (no componente pai), o `messages` recebe uma nova referencia de array a cada poll, disparando o scroll repetidamente -- mesmo sem mensagens novas.
+
+### Solucao
+
+Guardar a quantidade de mensagens anterior e so fazer scroll automatico quando:
+1. Novas mensagens chegaram (length aumentou)
+2. Ou e a carga inicial (de 0 para N)
+
+### Mudanca
+
+**`src/components/WhatsApp/components/ChatPanel.tsx`**
+
+- Adicionar um `useRef` para guardar o `messages.length` anterior
+- No `useEffect`, comparar o length atual com o anterior
+- So chamar `scrollIntoView` se `messages.length > prevLength`
+- Atualizar o ref depois da comparacao
+
+Codigo resultante (substituir linhas 118-120):
 
 ```text
-// Antes:
-<div className="cursor-grab active:cursor-grabbing ...">
+const prevMessagesLengthRef = useRef(0);
 
-// Depois:
-<div className={isLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
-  <GripVertical className={isLocked ? "text-muted-foreground/30" : "text-muted-foreground"} />
+useEffect(() => {
+  if (messages.length > prevMessagesLengthRef.current) {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+  prevMessagesLengthRef.current = messages.length;
+}, [messages]);
 ```
 
-### Arquivos modificados
+Isso garante que o scroll so desce quando ha mensagens novas de verdade, e nao a cada ciclo de polling.
 
-| Arquivo | Mudanca |
-|---|---|
-| `src/components/Project/ProjectProcessos.tsx` | Adicionar prop `isLocked`, desabilitar drag quando travado |
-| `src/pages/ProjectView.tsx` | Passar `isLocked={isColumnsLocked}` ao `ProjectProcessos` |
-| `src/pages/SectorView.tsx` | Passar `isLocked={isColumnsLocked}` ao `ProjectProcessos` (se aplicavel) |
