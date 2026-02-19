@@ -256,6 +256,8 @@ export const WhatsAppAllConversations = () => {
           currentAgentId={myAgentId}
           currentAgentName={myAgentName}
           tenantId={tenantId}
+          conversationAgentId={selectedConversation.agentId}
+          conversationAgentName={selectedConversation.agentName}
           onTransferComplete={() => {
             setSelectedConversation(null);
             loadConversations();
