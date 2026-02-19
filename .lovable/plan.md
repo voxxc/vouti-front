@@ -1,46 +1,77 @@
 
+## Corrigir roteamento de mensagens quando contato existe em multiplos Kanbans
 
-## Corrigir roteamento de instancias no whatsapp-process-queue
+### Problema
 
-### Contexto
+O contato `5545988282387` existe no Kanban do Daniel E da Laura. O webhook busca o kanban entry mais recente por `updated_at`, que retorna Laura (atualizado em 17/02). Resultado: TODAS as mensagens desse contato vao para Laura, mesmo quando chegam pela instancia do Daniel.
 
-O tenant /demorais tem 2 agentes (Daniel e Laura), cada um com sua propria instancia conectada. O bug atual e que mensagens `landing_leads` caem no branch generico que usa `.single()` e falha ao encontrar 2 instancias.
+```text
+Fluxo atual (com bug):
+  Mensagem chega na instancia do Daniel
+    -> instance.agent_id = Daniel
+    -> Busca kanban: ORDER BY updated_at DESC LIMIT 1
+    -> Retorna Laura (updated_at mais recente)
+    -> effectiveAgentId = Laura
+    -> Mensagem salva com agent_id = Laura
+    -> Daniel NAO ve a mensagem na sua Inbox
+```
 
-### Mudancas
+### Correcao
 
-**1. Atualizar agente Daniel** (dados):
-- `UPDATE whatsapp_agents SET landing_page_source = 'vouti_landing' WHERE name = 'Daniel' AND tenant_id = (tenant do demorais)`
+**Arquivo**: `supabase/functions/whatsapp-webhook/index.ts` (linhas 230-248)
 
-**2. Edge Function `whatsapp-process-queue/index.ts`**:
-- Adicionar branch para `landing_leads` com `tenant_id`: buscar instancia do agente que tem `landing_page_source` configurado
-- Branch generico (else): trocar `.single()` por `.limit(1).maybeSingle()` e incluir `agent_id` no select
+Mudar a logica de resolucao do agente efetivo: **priorizar o kanban entry do proprio agente da instancia**. So redirecionar para outro agente se o contato NAO existir no kanban do agente da instancia.
 
-**3. Reprocessar mensagens falhadas**:
-- UPDATE das 13 mensagens falhadas de volta para `status = 'pending'` e `attempts = 0`
+```text
+Fluxo corrigido:
+  Mensagem chega na instancia do Daniel
+    -> instance.agent_id = Daniel
+    -> Busca kanban do DANIEL para esse telefone
+    -> Se existe: effectiveAgentId = Daniel (mantém)
+    -> Se NAO existe: busca kanban de QUALQUER agente (transferencia)
+    -> effectiveAgentId = agente encontrado
+```
 
 ### Detalhes tecnicos
 
-Novo branch entre `leads_captacao` e o `else`:
+Substituir a query unica (linhas 233-247) por duas queries em sequencia:
 
-```text
-} else if (msg.lead_source === 'landing_leads' && msg.tenant_id) {
-  // Busca instancia do agente com landing_page_source configurado
-  .select('..., agent_id, whatsapp_agents!inner(landing_page_source)')
-  .eq('tenant_id', msg.tenant_id)
-  .not('whatsapp_agents.landing_page_source', 'is', null)
-  .limit(1).maybeSingle()
-}
-```
+1. **Primeira query**: buscar kanban entry para o `instance.agent_id` + phone
+2. **Se nao encontrar**: buscar qualquer kanban entry para phone + tenant (ORDER BY updated_at DESC) - este e o caso de transferencia
 
-Branch else corrigido:
-```text
+```typescript
+// 1. Priorizar kanban do agente da instancia
+const { data: ownKanban } = await supabase
+  .from('whatsapp_conversation_kanban')
+  .select('agent_id')
+  .eq('phone', phone)
+  .eq('tenant_id', effectiveTenantId)
+  .eq('agent_id', effectiveAgentId)
+  .limit(1)
+  .maybeSingle();
+
+if (ownKanban) {
+  // Contato existe no kanban do agente da instancia - manter
+  effectiveAgentId = ownKanban.agent_id;
 } else {
-  // Generico - inclui agent_id e usa .limit(1).maybeSingle()
-  .select('..., agent_id')
-  .eq('tenant_id', msg.tenant_id)
-  .limit(1).maybeSingle()
+  // Contato NAO esta no kanban deste agente - verificar transferencia
+  const { data: otherKanban } = await supabase
+    .from('whatsapp_conversation_kanban')
+    .select('agent_id')
+    .eq('phone', phone)
+    .eq('tenant_id', effectiveTenantId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (otherKanban?.agent_id) {
+    console.log('Conversation routed: instance agent -> kanban agent');
+    effectiveAgentId = otherKanban.agent_id;
+  }
 }
 ```
 
-Assim, cada agente resolve para SUA instancia, sem conflito entre Daniel e Laura.
-
+Isso garante que:
+- Se o contato esta no kanban do Daniel E da Laura, a mensagem que chega na instancia do Daniel vai para o Daniel
+- Se o contato foi transferido (existe APENAS no kanban da Laura mas nao do Daniel), ai sim redireciona para Laura
+- Sem impacto em outros tenants ou no Super Admin
