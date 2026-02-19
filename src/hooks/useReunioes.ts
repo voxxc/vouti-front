@@ -144,21 +144,38 @@ export const useReunioes = (selectedDate?: Date) => {
   const alterarSituacaoReuniao = async (
     id: string, 
     situacao: 'desmarcada' | 'remarcada', 
-    motivo?: string
+    motivo?: string,
+    novaData?: string,
+    novoHorario?: string
   ) => {
     try {
-      const { error } = await supabase
-        .from('reunioes')
-        .update({
-          situacao_agenda: situacao,
-          data_alteracao_situacao: new Date().toISOString(),
-          motivo_alteracao: motivo || null
-        })
-        .eq('id', id);
+      if (situacao === 'remarcada' && novaData && novoHorario) {
+        // Remarcar: atualiza data/horario e mantém ativa
+        const { error } = await supabase
+          .from('reunioes')
+          .update({
+            data: novaData,
+            horario: novoHorario,
+            motivo_alteracao: motivo || null,
+            data_alteracao_situacao: new Date().toISOString(),
+          })
+          .eq('id', id);
+        if (error) throw error;
+        toast.success('Reunião remarcada com sucesso');
+      } else {
+        // Desmarcar ou fallback
+        const { error } = await supabase
+          .from('reunioes')
+          .update({
+            situacao_agenda: situacao,
+            data_alteracao_situacao: new Date().toISOString(),
+            motivo_alteracao: motivo || null
+          })
+          .eq('id', id);
+        if (error) throw error;
+        toast.success(`Reunião ${situacao === 'desmarcada' ? 'desmarcada' : 'remarcada'} com sucesso`);
+      }
 
-      if (error) throw error;
-
-      toast.success(`Reunião ${situacao === 'desmarcada' ? 'desmarcada' : 'remarcada'} com sucesso`);
       await fetchReunioes();
     } catch (error: any) {
       console.error('Erro ao alterar situação da reunião:', error);
