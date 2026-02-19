@@ -519,7 +519,7 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
                                             "p-3 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing",
                                             snapshot.isDragging && "shadow-lg ring-2 ring-primary/30",
                                           )}
-                                          onClick={() => handleCardClick(card)}
+                                          onDoubleClick={() => handleCardClick(card)}
                                         >
                                           {/* Card Header - Title */}
                                           <p className="font-semibold text-sm truncate mb-1">

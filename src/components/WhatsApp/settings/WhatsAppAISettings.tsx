@@ -153,6 +153,20 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         if (agentData) {
           setLandingPageSource(agentData.landing_page_source || null);
         }
+
+        // Carregar mensagem de boas-vindas do trigger do tenant
+        if (tenantId) {
+          const { data: triggerData } = await supabase
+            .from('whatsapp_lead_triggers')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('lead_source', 'landing_leads')
+            .maybeSingle();
+          
+          if (triggerData?.welcome_message) {
+            setWelcomeMessage(triggerData.welcome_message);
+          }
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar configuração:', error);
@@ -224,11 +238,17 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
   const handleSaveWelcomeMessage = async () => {
     setIsSavingWelcome(true);
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('whatsapp_lead_triggers')
-        .update({ welcome_message: welcomeMessage })
-        .is('tenant_id', null)
-        .eq('lead_source', 'landing_leads');
+        .update({ welcome_message: welcomeMessage });
+      
+      if (isSuperAdmin) {
+        query = query.is('tenant_id', null);
+      } else if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { error } = await query.eq('lead_source', 'landing_leads');
 
       if (error) throw error;
 
@@ -272,10 +292,23 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
       if (error) throw error;
 
       setLandingPageSource(actualValue);
+      // Se ativando landing page, criar/atualizar trigger de boas-vindas
+      if (actualValue) {
+        await supabase
+          .from('whatsapp_lead_triggers')
+          .upsert({
+            tenant_id: tenantId,
+            lead_source: 'landing_leads',
+            welcome_message: welcomeMessage || DEFAULT_WELCOME_MESSAGE,
+            welcome_delay_minutes: 0,
+            is_active: true
+          }, { onConflict: 'tenant_id,lead_source' });
+      }
+
       toast({
         title: actualValue ? "Landing page vinculada" : "Vínculo removido",
         description: actualValue 
-          ? `Este agente responderá leads da ${actualValue === 'landing_page_1' ? 'Landing Page 1' : 'Landing Page 2'}`
+          ? `Este agente responderá leads da página selecionada`
           : "Este agente não responderá mais leads de landing pages",
       });
     } catch (error) {
@@ -505,6 +538,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Nenhuma</SelectItem>
+            <SelectItem value="vouti_landing">Homepage (Landing Page)</SelectItem>
             <SelectItem value="landing_page_1">Landing Page 1 (/landing-1)</SelectItem>
             <SelectItem value="landing_page_2">Landing Page 2 (/office)</SelectItem>
           </SelectContent>
@@ -513,6 +547,46 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           Ao selecionar, leads dessa página serão atendidos por este agente
         </p>
       </div>
+    )}
+
+    {/* Campo de Mensagem de Boas-Vindas para Tenant (aparece quando landing_page_source está definido) */}
+    {!isSuperAdmin && agentId && landingPageSource && (
+      <Card className="border-primary/50">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Mensagem de Boas-Vindas
+          </CardTitle>
+          <CardDescription>
+            Esta é a primeira mensagem enviada automaticamente ao lead que preencher o formulário.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            value={welcomeMessage}
+            onChange={(e) => setWelcomeMessage(e.target.value)}
+            placeholder="Ex: Olá {{nome}}! Bem-vindo..."
+            className="min-h-[150px]"
+          />
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{nome}}"}</span>
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{email}}"}</span>
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{telefone}}"}</span>
+            <span className="px-2 py-1 bg-muted rounded font-mono">{"{{tamanho_escritorio}}"}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use as variáveis acima para personalizar a mensagem. Elas serão substituídas pelos dados do lead automaticamente.
+          </p>
+          <Button 
+            onClick={handleSaveWelcomeMessage} 
+            size="sm"
+            disabled={isSavingWelcome}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSavingWelcome ? "Salvando..." : "Salvar Mensagem"}
+          </Button>
+        </CardContent>
+      </Card>
     )}
 
     {/* Toggle Principal */}
