@@ -171,7 +171,7 @@ export const useReunioes = (selectedDate?: Date) => {
     fetchReunioes();
     const intervalId = setInterval(() => {
       fetchReunioes(true);
-    }, 30000);
+    }, 4000);
     return () => clearInterval(intervalId);
   }, [selectedDate]);
 
