@@ -377,14 +377,20 @@
            {selectedReuniao && (
              <div className="space-y-6">
                <div className="space-y-3">
-                 <div className="flex items-center gap-2">
-                   <Badge className="text-sm">
-                     {format(new Date(selectedReuniao.data), "dd/MM/yyyy", { locale: ptBR })}
-                   </Badge>
-                   <Badge className="text-sm">{selectedReuniao.horario}</Badge>
-                   <Badge className="text-sm">{selectedReuniao.duracao_minutos} min</Badge>
-                   <Badge variant="secondary">{selectedReuniao.status}</Badge>
-                 </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="text-sm">
+                      {format(new Date(selectedReuniao.data), "dd/MM/yyyy", { locale: ptBR })}
+                    </Badge>
+                    <Badge className="text-sm">{selectedReuniao.horario}</Badge>
+                    <Badge className="text-sm">{selectedReuniao.duracao_minutos} min</Badge>
+                    <Badge variant="secondary">{selectedReuniao.status}</Badge>
+                  </div>
+
+                  {selectedReuniao.criado_por_nome && (
+                    <p className="text-xs text-muted-foreground">
+                      Agendado por: <span className="font-medium">{selectedReuniao.criado_por_nome}</span>
+                    </p>
+                  )}
  
                  {selectedReuniao.descricao && (
                    <div>
