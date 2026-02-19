@@ -123,9 +123,9 @@
      setShowSituacaoDialog(true);
    };
  
-   const handleConfirmSituacao = async (motivo?: string) => {
+   const handleConfirmSituacao = async (motivo?: string, novaData?: string, novoHorario?: string) => {
      if (!selectedReuniao) return;
-     await alterarSituacaoReuniao(selectedReuniao.id, situacaoAction, motivo);
+     await alterarSituacaoReuniao(selectedReuniao.id, situacaoAction, motivo, novaData, novoHorario);
      setShowSituacaoDialog(false);
      setShowDetailsDialog(false);
      setSelectedReuniao(null);
