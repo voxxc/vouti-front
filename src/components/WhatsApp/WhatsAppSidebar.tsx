@@ -8,7 +8,6 @@ import {
   Megaphone, 
   HelpCircle, 
   Settings,
-  ArrowLeft,
   ChevronDown,
   ChevronRight,
   User,
@@ -25,20 +24,17 @@ import {
   Plug,
   Shield,
   FolderOpen,
-  LogOut
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { WhatsAppSection } from "./WhatsAppDrawer";
-import { CRMNotificationsBell } from "./components/CRMNotificationsBell";
 
 interface WhatsAppAgent {
   id: string;
@@ -102,13 +98,7 @@ export const WhatsAppSidebar = ({
 }: WhatsAppSidebarProps) => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
-  const navigate = useNavigate();
   const { tenant } = useParams();
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate(`/crm/${tenant}/auth`, { replace: true });
-  };
   const [settingsOpen, setSettingsOpen] = useState(() => 
     settingsSectionIds.includes(activeSection)
   );
@@ -236,32 +226,22 @@ export const WhatsAppSidebar = ({
 
   return (
     <aside className="w-56 bg-card border-r border-border flex flex-col h-full flex-shrink-0">
-      {/* Header */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8"
-            onClick={onClose}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <button 
-            onClick={() => onSectionChange("inbox")}
-            className="text-3xl font-black tracking-tight lowercase text-foreground hover:opacity-80 transition-opacity cursor-pointer"
-          >
-            vouti<span className="text-[#E11D48]">.</span>crm
-          </button>
-          <div className="ml-auto">
-            <CRMNotificationsBell />
-          </div>
-        </div>
-      </div>
-
       {/* Menu Items com Scroll */}
       <ScrollArea className="flex-1">
         <nav className="p-2 space-y-1">
+          {/* Projetos */}
+          <Button
+            variant={projectsDrawerOpen ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start gap-3 h-10",
+              projectsDrawerOpen && "bg-primary/10 text-primary"
+            )}
+            onClick={() => onOpenProjects?.()}
+          >
+            <FolderOpen className="h-4 w-4" />
+            <span className="text-sm">Projetos</span>
+          </Button>
+
           {/* Caixa de Entrada */}
           <Button
             variant={activeSection === "inbox" ? "secondary" : "ghost"}
@@ -497,19 +477,6 @@ export const WhatsAppSidebar = ({
             <span className="text-sm">Campanhas</span>
           </Button>
 
-          {/* Projetos */}
-          <Button
-            variant={projectsDrawerOpen ? "secondary" : "ghost"}
-            className={cn(
-              "w-full justify-start gap-3 h-10",
-              projectsDrawerOpen && "bg-primary/10 text-primary"
-            )}
-            onClick={() => onOpenProjects?.()}
-          >
-            <FolderOpen className="h-4 w-4" />
-            <span className="text-sm">Projetos</span>
-          </Button>
-
           {/* Central de Ajuda */}
           <Button
             variant={activeSection === "help" ? "secondary" : "ghost"}
@@ -569,33 +536,6 @@ export const WhatsAppSidebar = ({
         </nav>
       </ScrollArea>
 
-      {/* User Info */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary/20 text-primary text-xs">
-              {user?.email?.charAt(0).toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
-              {user?.email?.split("@")[0] || "Usuário"}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              Online
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-            onClick={handleLogout}
-            title="Sair"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
     </aside>
   );
 };

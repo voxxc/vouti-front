@@ -28,6 +28,7 @@ import { WhatsAppAppsSettings } from "./settings/WhatsAppAppsSettings";
 import { WhatsAppIntegrationsSettings } from "./settings/WhatsAppIntegrationsSettings";
 import { WhatsAppPermissionsSettings } from "./settings/WhatsAppPermissionsSettings";
 import { WhatsAppSection } from "./WhatsAppDrawer";
+import { CRMTopbar } from "./components/CRMTopbar";
 
 export const WhatsAppLayout = () => {
   const [activeSection, setActiveSection] = useState<WhatsAppSection>("inbox");
@@ -110,29 +111,29 @@ export const WhatsAppLayout = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background">
-      <WhatsAppSidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection}
-        onClose={handleGoBack}
-        onKanbanAgentSelect={handleKanbanAgentSelect}
-        selectedKanbanAgentId={selectedKanbanAgent?.id}
-        onOpenProjects={() => setProjectsDrawerOpen(true)}
-        projectsDrawerOpen={projectsDrawerOpen}
-      />
-      <main className="flex-1 overflow-hidden relative">
-        {/* Inbox SEMPRE montada - polling de 2s continua ativo */}
-        <div className={activeSection === "inbox" ? "h-full" : "hidden"}>
-          <WhatsAppInbox initialConversationPhone={initialConversationPhone} onConversationOpened={() => setInitialConversationPhone(null)} />
-        </div>
-
-        {/* Outras seções como overlay */}
-        {activeSection !== "inbox" && (
-          <div className="absolute inset-0 z-10 bg-background">
-            {renderOtherSection()}
+    <div className="flex flex-col h-screen w-full bg-background">
+      <CRMTopbar onSectionChange={setActiveSection} />
+      <div className="flex flex-1 overflow-hidden">
+        <WhatsAppSidebar 
+          activeSection={activeSection} 
+          onSectionChange={setActiveSection}
+          onClose={handleGoBack}
+          onKanbanAgentSelect={handleKanbanAgentSelect}
+          selectedKanbanAgentId={selectedKanbanAgent?.id}
+          onOpenProjects={() => setProjectsDrawerOpen(true)}
+          projectsDrawerOpen={projectsDrawerOpen}
+        />
+        <main className="flex-1 overflow-hidden relative">
+          <div className={activeSection === "inbox" ? "h-full" : "hidden"}>
+            <WhatsAppInbox initialConversationPhone={initialConversationPhone} onConversationOpened={() => setInitialConversationPhone(null)} />
           </div>
-        )}
-      </main>
+          {activeSection !== "inbox" && (
+            <div className="absolute inset-0 z-10 bg-background">
+              {renderOtherSection()}
+            </div>
+          )}
+        </main>
+      </div>
       <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
     </div>
   );
