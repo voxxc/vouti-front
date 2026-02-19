@@ -1,67 +1,57 @@
 
-## Adicionar selecao de nova data/horario ao Remarcar Reuniao
 
-### Problema atual
+## Controlar reordenacao de processos via cadeado do workspace
 
-Ao clicar em "Remarcar", o dialog so pede um motivo e marca a reuniao como "remarcada" (removendo da agenda). O usuario precisa criar uma nova reuniao do zero, perdendo todos os dados ja cadastrados.
+### O que muda
 
-### Solucao
+O botao de cadeado que ja existe na parte superior do workspace (em `SectorView.tsx` e `ProjectView.tsx`) passara a controlar tambem o drag-and-drop dos processos na aba "Processos". Quando o cadeado estiver **travado**, os processos ficam na posicao definida e nao podem ser arrastados. Quando **destravado**, o usuario pode arrastar para reorganizar livremente.
 
-Quando a situacao for "remarcada", o dialog vai mostrar campos adicionais para escolher nova data e novo horario. Ao confirmar, em vez de apenas marcar como "remarcada", o sistema vai **atualizar a data e horario da reuniao existente**, mantendo todos os outros dados (cliente, titulo, descricao, status, observacoes).
+A ordem ja e salva no banco de dados (campo `ordem` na tabela `project_processos`), entao a posicao definida pelo usuario ja persiste entre sessoes.
 
-### Mudancas
+### Mudancas tecnicas
 
-**1. `src/components/Reunioes/AlterarSituacaoDialog.tsx`**
+**1. `src/components/Project/ProjectProcessos.tsx`**
 
-- Adicionar state para `novaData` (Date) e `novoHorario` (string)
-- Quando `situacao === 'remarcada'`, renderizar:
-  - DatePicker (Popover + Calendar) para selecionar nova data
-  - Select com os horarios disponiveis (importar `HORARIOS_DISPONIVEIS` de `@/types/reuniao`)
-- Alterar a interface `onConfirm` para aceitar tambem `novaData` e `novoHorario`
-- Pre-preencher com a data/horario atuais da reuniao
+- Adicionar prop `isLocked` (boolean, default `true`)
+- Passar `isDragDisabled={isLocked}` para cada `<Draggable>` no `ProcessoCard`
+- Quando `isLocked`, o grip handle fica com visual desabilitado (opacidade reduzida, cursor `not-allowed`)
+- Quando desbloqueado, visual normal com `cursor-grab`
 
-**2. `src/hooks/useReunioes.ts`**
+**2. `src/pages/ProjectView.tsx`**
 
-- Alterar `alterarSituacaoReuniao` para aceitar parametros opcionais `novaData` e `novoHorario`
-- Quando for "remarcada" com nova data/horario: atualizar `data` e `horario` da reuniao e manter `situacao_agenda` como `'ativa'` (a reuniao continua na agenda, so muda o dia)
-- Registrar o motivo e a data de alteracao normalmente
+- Passar `isLocked={isColumnsLocked}` para o componente `<ProjectProcessos>` na aba "processos"
 
-**3. `src/pages/Reunioes.tsx` e `src/components/Reunioes/ReunioesContent.tsx`**
+**3. `src/pages/SectorView.tsx`**
 
-- Ajustar `handleConfirmSituacao` para passar `novaData` e `novoHorario` ao hook
+- Passar `isLocked={isColumnsLocked}` para o componente `<ProjectProcessos>` na aba "processos" (se existir nessa view)
 
-### Fluxo do usuario
+### Detalhes de implementacao
 
-1. Clica em "Remarcar" no card da reuniao
-2. Dialog abre mostrando dados da reuniao + campos de nova data e horario
-3. Seleciona novo dia no calendario e novo horario no select
-4. Opcionalmente preenche o motivo
-5. Confirma -> reuniao e atualizada com nova data/horario e permanece ativa na agenda
-
-### Detalhes tecnicos
-
-A interface `onConfirm` muda de:
+No `ProcessoCard`, a mudanca e minimal:
 
 ```text
-onConfirm: (motivo?: string) => void
+// Antes:
+<Draggable draggableId={item.id} index={index}>
+
+// Depois:
+<Draggable draggableId={item.id} index={index} isDragDisabled={isLocked}>
 ```
 
-Para:
+E no grip handle:
 
 ```text
-onConfirm: (motivo?: string, novaData?: string, novoHorario?: string) => void
+// Antes:
+<div className="cursor-grab active:cursor-grabbing ...">
+
+// Depois:
+<div className={isLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}>
+  <GripVertical className={isLocked ? "text-muted-foreground/30" : "text-muted-foreground"} />
 ```
 
-No hook, quando `situacao === 'remarcada'` e `novaData`/`novoHorario` sao fornecidos:
+### Arquivos modificados
 
-```text
-update({
-  data: novaData,
-  horario: novoHorario,
-  motivo_alteracao: motivo,
-  data_alteracao_situacao: new Date().toISOString(),
-  // situacao_agenda permanece 'ativa'
-})
-```
-
-Quando nao fornecidos (fallback), comportamento atual e mantido.
+| Arquivo | Mudanca |
+|---|---|
+| `src/components/Project/ProjectProcessos.tsx` | Adicionar prop `isLocked`, desabilitar drag quando travado |
+| `src/pages/ProjectView.tsx` | Passar `isLocked={isColumnsLocked}` ao `ProjectProcessos` |
+| `src/pages/SectorView.tsx` | Passar `isLocked={isColumnsLocked}` ao `ProjectProcessos` (se aplicavel) |
