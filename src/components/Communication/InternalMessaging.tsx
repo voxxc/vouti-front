@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, User } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -97,6 +99,26 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
     return originalMessage?.content;
   };
 
+  const formatDateBadge = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 86400000);
+      const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      if (msgDate.getTime() === today.getTime()) return "Hoje";
+      if (msgDate.getTime() === yesterday.getTime()) return "Ontem";
+      return format(date, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    } catch { return ""; }
+  };
+
+  const getDateKey = (dateString: string) => {
+    try {
+      const d = new Date(dateString);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    } catch { return ""; }
+  };
+
   const otherUsers = users.filter(user => user.id !== currentUser.id);
 
   return (
@@ -192,20 +214,32 @@ const InternalMessaging: React.FC<InternalMessagingProps> = ({
 
                 {/* Messages */}
                 <ScrollArea className="flex-1">
-                  <div className="p-4 space-y-4">
-                    {selectedUserMessages.map((message) => {
+                  <div className="p-4 space-y-2">
+                    {selectedUserMessages.map((message, index) => {
                       const isFromCurrentUser = message.sender_id === currentUser.id;
+                      const currentDateKey = getDateKey(message.created_at);
+                      const prevDateKey = index > 0 ? getDateKey(selectedUserMessages[index - 1].created_at) : null;
+                      const showDateBadge = currentDateKey !== prevDateKey;
+
                       return (
-                        <MessageBubble
-                          key={message.id}
-                          messageId={message.id}
-                          content={message.content}
-                          isFromCurrentUser={isFromCurrentUser}
-                          createdAt={message.created_at}
-                          replyToContent={getReplyContent(message.reply_to_id)}
-                          onDelete={isFromCurrentUser ? () => setMessageToDelete(message.id) : undefined}
-                          onReply={() => handleReply(message)}
-                        />
+                        <React.Fragment key={message.id}>
+                          {showDateBadge && (
+                            <div className="flex justify-center my-3">
+                              <span className="text-[11px] bg-muted/80 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
+                                {formatDateBadge(message.created_at)}
+                              </span>
+                            </div>
+                          )}
+                          <MessageBubble
+                            messageId={message.id}
+                            content={message.content}
+                            isFromCurrentUser={isFromCurrentUser}
+                            createdAt={message.created_at}
+                            replyToContent={getReplyContent(message.reply_to_id)}
+                            onDelete={isFromCurrentUser ? () => setMessageToDelete(message.id) : undefined}
+                            onReply={() => handleReply(message)}
+                          />
+                        </React.Fragment>
                       );
                     })}
                     <div ref={messagesEndRef} />
