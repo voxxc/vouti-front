@@ -8,9 +8,9 @@ export const useReunioes = (selectedDate?: Date) => {
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchReunioes = async () => {
+  const fetchReunioes = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
 
@@ -169,6 +169,10 @@ export const useReunioes = (selectedDate?: Date) => {
 
   useEffect(() => {
     fetchReunioes();
+    const intervalId = setInterval(() => {
+      fetchReunioes(true);
+    }, 30000);
+    return () => clearInterval(intervalId);
   }, [selectedDate]);
 
   return {
