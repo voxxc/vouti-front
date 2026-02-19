@@ -75,18 +75,7 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
 // Validate webhook data structure
 function validateWebhookData(data: any): boolean {
   if (!data || typeof data !== 'object') return false;
-  if (!data.instanceId && !data.phone) return false;
-  if (data.instanceId && typeof data.instanceId !== 'string') return false;
-  if (data.instanceId && data.instanceId.length > 100) return false;
-  
-  if (data.phone && typeof data.phone === 'string') {
-    const cleanPhone = data.phone.replace(/\D/g, '');
-    if (cleanPhone.length < 8 || cleanPhone.length > 15) return false;
-  }
-  
-  // Validate message length
-  if (data.text?.message && (typeof data.text.message !== 'string' || data.text.message.length > 10000)) return false;
-  
+  // Accept any valid object - specific field validation happens inside handlers
   return true;
 }
 
@@ -133,20 +122,25 @@ serve(async (req) => {
   try {
     const webhookData = await req.json();
     
-    // Validate input data
+    // Validate input data (basic object check only)
     if (!validateWebhookData(webhookData)) {
-      console.error('Invalid webhook data received');
+      // Still return 200 to prevent Z-API from retrying
       return new Response(
-        JSON.stringify({ error: 'Invalid webhook data format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, ignored: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log('Webhook received:', webhookData.type, '| fromMe:', webhookData.fromMe);
-
     const { type } = webhookData;
+    console.log('Webhook received:', type || 'no-type', '| keys:', Object.keys(webhookData).join(','));
 
     if (type === 'ReceivedCallback' || type === 'message' || type === 'SentByMeCallback') {
+      if (!webhookData.phone && !webhookData.instanceId) {
+        console.log('Message callback missing phone/instanceId, ignoring');
+        return new Response(JSON.stringify({ success: true, ignored: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       await handleIncomingMessage(webhookData);
     } else if (type === 'status' || type === 'MessageStatusCallback') {
       await handleStatusUpdate(webhookData);
@@ -155,7 +149,7 @@ serve(async (req) => {
     } else if (webhookData.phone && (webhookData.text || webhookData.fromMe !== undefined)) {
       await handleIncomingMessage(webhookData);
     } else {
-      console.log('Unhandled webhook type:', type);
+      console.log('Unhandled webhook type:', type || 'unknown');
     }
 
     return new Response(JSON.stringify({ success: true }), {
