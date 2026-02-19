@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import AgendaCalendar from "./AgendaCalendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +75,9 @@ export function AgendaContent() {
   // Estados para modal de edição de prazo
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editDeadline, setEditDeadline] = useState<Deadline | null>(null);
+
+  // Collapsible section state
+  const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | null>(null);
 
   const openEditDialog = (deadline: Deadline) => {
     setEditDeadline(deadline);
@@ -822,8 +826,8 @@ export function AgendaContent() {
         </div>
 
         {/* Minimalist List - Right */}
-        <div className="flex-1 space-y-6">
-          {/* Overdue Section */}
+        <div className="flex-1 space-y-4">
+          {/* Overdue Section - always visible */}
           {(() => {
             const overdue = getOverdueDeadlines();
             return overdue.length > 0 ? (
@@ -832,16 +836,18 @@ export function AgendaContent() {
                   <AlertCircle className="h-4 w-4" />
                   Vencidos ({overdue.length})
                 </h4>
-                <div className="space-y-2">
-                  {overdue.map((deadline) => (
-                    <DeadlineRow key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
+                <ScrollArea className="max-h-[312px]">
+                  <div className="space-y-2 pr-2">
+                    {overdue.map((deadline) => (
+                      <DeadlineRow key={deadline.id} deadline={deadline} />
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             ) : null;
           })()}
 
-          {/* Selected Date Section */}
+          {/* Selected Date Section - always visible */}
           {(() => {
             const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed && !safeIsPast(d.date));
             return (
@@ -852,11 +858,13 @@ export function AgendaContent() {
                   {forDate.length > 0 && ` (${forDate.length})`}
                 </h4>
                 {forDate.length > 0 ? (
-                  <div className="space-y-2">
-                    {forDate.map((deadline) => (
-                      <DeadlineRow key={deadline.id} deadline={deadline} />
-                    ))}
-                  </div>
+                  <ScrollArea className="max-h-[312px]">
+                    <div className="space-y-2 pr-2">
+                      {forDate.map((deadline) => (
+                        <DeadlineRow key={deadline.id} deadline={deadline} />
+                      ))}
+                    </div>
+                  </ScrollArea>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground border rounded-lg">
                     <Clock className="h-6 w-6 mx-auto mb-1 opacity-50" />
@@ -867,39 +875,69 @@ export function AgendaContent() {
             );
           })()}
 
-          {/* Upcoming Section */}
-          {(() => {
+          {/* Collapsible sections - clickable text labels */}
+          <div className="flex items-center gap-4 border-t pt-3">
+            {(() => {
+              const upcoming = getUpcomingDeadlines().filter(d => !isSameDay(d.date, selectedDate));
+              const completed = getCompletedDeadlines();
+              return (
+                <>
+                  {upcoming.length > 0 && (
+                    <span
+                      className={cn(
+                        "text-sm cursor-pointer transition-colors select-none",
+                        activeSection === "upcoming"
+                          ? "font-semibold text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      onClick={() => setActiveSection(activeSection === "upcoming" ? null : "upcoming")}
+                    >
+                      Próximos ({upcoming.length})
+                    </span>
+                  )}
+                  {completed.length > 0 && (
+                    <span
+                      className={cn(
+                        "text-sm cursor-pointer transition-colors select-none",
+                        activeSection === "completed"
+                          ? "font-semibold text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      onClick={() => setActiveSection(activeSection === "completed" ? null : "completed")}
+                    >
+                      Concluídos ({completed.length})
+                    </span>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Expandable Upcoming section */}
+          {activeSection === "upcoming" && (() => {
             const upcoming = getUpcomingDeadlines().filter(d => !isSameDay(d.date, selectedDate));
             return upcoming.length > 0 ? (
-              <div>
-                <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Próximos ({upcoming.length})
-                </h4>
-                <div className="space-y-2">
-                  {upcoming.slice(0, 15).map((deadline) => (
+              <ScrollArea className="max-h-[312px]">
+                <div className="space-y-2 pr-2">
+                  {upcoming.map((deadline) => (
                     <DeadlineRow key={deadline.id} deadline={deadline} />
                   ))}
                 </div>
-              </div>
+              </ScrollArea>
             ) : null;
           })()}
 
-          {/* Completed Section */}
-          {(() => {
+          {/* Expandable Completed section */}
+          {activeSection === "completed" && (() => {
             const completed = getCompletedDeadlines();
             return completed.length > 0 ? (
-              <div>
-                <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Concluídos ({completed.length})
-                </h4>
-                <div className="space-y-2">
-                  {completed.slice(0, 10).map((deadline) => (
+              <ScrollArea className="max-h-[312px]">
+                <div className="space-y-2 pr-2">
+                  {completed.map((deadline) => (
                     <DeadlineRow key={deadline.id} deadline={deadline} />
                   ))}
                 </div>
-              </div>
+              </ScrollArea>
             ) : null;
           })()}
         </div>
