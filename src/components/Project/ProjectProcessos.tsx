@@ -63,6 +63,7 @@ interface ProjectProcessosProps {
   projectId: string;
   workspaceId: string | null;
   defaultWorkspaceId: string | null;
+  isLocked?: boolean;
 }
 
 interface ProcessoVinculado {
@@ -138,6 +139,7 @@ interface ProcessoCardProps {
   onVerDetalhes: (processo: ProcessoOAB) => void;
   onDesvincular: (id: string) => void;
   carregandoDetalhes: string | null;
+  isLocked?: boolean;
 }
 
 const ProcessoCard = ({ 
@@ -145,7 +147,8 @@ const ProcessoCard = ({
   index, 
   onVerDetalhes, 
   onDesvincular,
-  carregandoDetalhes
+  carregandoDetalhes,
+  isLocked = true
 }: ProcessoCardProps) => {
   const processo = item.processo;
   const temRecursoVinculado = processo?.capa_completa?.related_lawsuits?.length > 0;
@@ -156,6 +159,7 @@ const ProcessoCard = ({
       key={item.id} 
       draggableId={item.id} 
       index={index}
+      isDragDisabled={isLocked}
     >
       {(provided, snapshot) => (
         <Card
@@ -169,9 +173,9 @@ const ProcessoCard = ({
             {/* Drag Handle */}
             <div
               {...provided.dragHandleProps}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+              className={isLocked ? "cursor-not-allowed p-1 rounded" : "cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"}
             >
-              <GripVertical className="w-4 h-4 text-muted-foreground" />
+              <GripVertical className={`w-4 h-4 ${isLocked ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
             </div>
 
             {/* Processo Info */}
@@ -259,6 +263,7 @@ interface InstanciaSectionProps {
   onVerDetalhes: (processo: ProcessoOAB) => void;
   onDesvincular: (id: string) => void;
   carregandoDetalhes: string | null;
+  isLocked?: boolean;
 }
 
 const InstanciaSection = ({ 
@@ -271,7 +276,8 @@ const InstanciaSection = ({
   icon, 
   onVerDetalhes,
   onDesvincular,
-  carregandoDetalhes
+  carregandoDetalhes,
+  isLocked = true
 }: InstanciaSectionProps) => {
   const [isOpen, setIsOpen] = useState(true);
   
@@ -308,6 +314,7 @@ const InstanciaSection = ({
                   onVerDetalhes={onVerDetalhes}
                   onDesvincular={onDesvincular}
                   carregandoDetalhes={carregandoDetalhes}
+                  isLocked={isLocked}
                 />
               ))}
               {provided.placeholder}
@@ -319,7 +326,7 @@ const InstanciaSection = ({
   );
 };
 
-export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId }: ProjectProcessosProps) {
+export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, isLocked = true }: ProjectProcessosProps) {
   const [processosVinculados, setProcessosVinculados] = useState<ProcessoVinculado[]>([]);
   const [processosDisponiveis, setProcessosDisponiveis] = useState<ProcessoOAB[]>([]);
   const [loading, setLoading] = useState(true);
@@ -835,6 +842,7 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId }:
               onVerDetalhes={handleVerDetalhes}
               onDesvincular={(id) => setDeleteConfirmId(id)}
               carregandoDetalhes={carregandoDetalhes}
+              isLocked={isLocked}
             />
 
             {/* 2ª Instância */}
@@ -849,6 +857,7 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId }:
               onVerDetalhes={handleVerDetalhes}
               onDesvincular={(id) => setDeleteConfirmId(id)}
               carregandoDetalhes={carregandoDetalhes}
+              isLocked={isLocked}
             />
 
             {/* Processos sem instância identificada */}
@@ -864,6 +873,7 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId }:
                 onVerDetalhes={handleVerDetalhes}
                 onDesvincular={(id) => setDeleteConfirmId(id)}
                 carregandoDetalhes={carregandoDetalhes}
+                isLocked={isLocked}
               />
             )}
 
@@ -884,6 +894,7 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId }:
                         onVerDetalhes={handleVerDetalhes}
                         onDesvincular={(id) => setDeleteConfirmId(id)}
                         carregandoDetalhes={carregandoDetalhes}
+                        isLocked={isLocked}
                       />
                     ))}
                     {provided.placeholder}
