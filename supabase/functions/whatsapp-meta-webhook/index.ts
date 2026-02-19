@@ -12,13 +12,11 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Normaliza telefone brasileiro para formato com 9 dígitos
 function normalizePhoneNumber(phone: string): string {
   let cleaned = phone.replace(/\D/g, '');
-  // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar o 9
   if (cleaned.length === 12 && cleaned.startsWith('55')) {
     const ddd = cleaned.substring(2, 4);
     const number = cleaned.substring(4);
     return `55${ddd}9${number}`;
   }
-  // Se não começa com 55 (número sem código do país), adicionar
   if (!cleaned.startsWith('55') && (cleaned.length === 10 || cleaned.length === 11)) {
     cleaned = '55' + cleaned;
     if (cleaned.length === 12) {
@@ -28,6 +26,38 @@ function normalizePhoneNumber(phone: string): string {
     }
   }
   return cleaned;
+}
+
+// Mapeamento de tipo de mensagem Meta -> message_type do banco
+const metaTypeMap: Record<string, string> = {
+  'text': 'text',
+  'image': 'image',
+  'audio': 'audio',
+  'video': 'video',
+  'document': 'document',
+  'location': 'text',
+  'contacts': 'text',
+  'sticker': 'sticker',
+};
+
+// Buscar URL real de mídia do Meta
+async function fetchMediaUrl(mediaId: string, accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      console.log('⚠️ Could not fetch media URL:', response.status);
+      const text = await response.text();
+      console.log('Media API response:', text.substring(0, 200));
+      return null;
+    }
+    const data = await response.json();
+    return data.url || null;
+  } catch (e) {
+    console.log('⚠️ Error fetching media URL:', e);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -41,7 +71,6 @@ Deno.serve(async (req) => {
     console.log('🔐 Meta webhook verification:', { mode, token: token ? '[PROVIDED]' : '[MISSING]' });
 
     if (mode === 'subscribe' && token) {
-      // Buscar instância pelo verify_token
       const { data: instance } = await supabase
         .from('whatsapp_instances')
         .select('id, meta_verify_token')
@@ -69,7 +98,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log('📩 Meta webhook payload:', JSON.stringify(body).substring(0, 500));
 
-    // Meta sends: { object: 'whatsapp_business_account', entry: [...] }
     if (body.object !== 'whatsapp_business_account') {
       console.log('⏭️ Not a WhatsApp event, ignoring');
       return new Response('OK', { status: 200 });
@@ -87,10 +115,9 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Resolve instance by meta_phone_number_id
         const { data: instance } = await supabase
           .from('whatsapp_instances')
-          .select('id, user_id, tenant_id, agent_id, instance_name, meta_access_token')
+          .select('id, user_id, tenant_id, agent_id, instance_name, meta_access_token, meta_phone_number_id')
           .eq('provider', 'meta')
           .eq('meta_phone_number_id', phoneNumberId)
           .limit(1)
@@ -113,12 +140,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Meta requires 200 response quickly
     return new Response('OK', { status: 200 });
 
   } catch (error) {
     console.error('❌ Error processing Meta webhook:', error);
-    // Still return 200 to prevent Meta from retrying
     return new Response('OK', { status: 200 });
   }
 });
@@ -132,10 +157,11 @@ async function handleMetaMessage(
     agent_id: string | null;
     instance_name: string;
     meta_access_token: string;
+    meta_phone_number_id: string;
   },
   value: any
 ) {
-  const from = message.from; // Sender's phone number
+  const from = message.from;
   const messageId = message.id;
   const timestamp = message.timestamp;
   const type = message.type;
@@ -170,25 +196,65 @@ async function handleMetaMessage(
   const phone = normalizePhoneNumber(from);
   console.log(`📞 Meta message from ${from} -> normalized: ${phone} | type: ${type}`);
 
-  // Resolve effective agent: check if conversation was transferred to another agent
+  // Resolve effective agent: 2-step routing (same as Z-API)
   let effectiveAgentId = instance.agent_id || null;
-  if (instance.tenant_id) {
-    const { data: kanbanEntry } = await supabase
+  if (instance.tenant_id && effectiveAgentId) {
+    // 1. Priorizar kanban do agente dono da instância
+    const { data: ownKanban } = await supabase
       .from('whatsapp_conversation_kanban')
       .select('agent_id')
       .eq('phone', phone)
       .eq('tenant_id', instance.tenant_id)
-      .order('updated_at', { ascending: false })
+      .eq('agent_id', effectiveAgentId)
       .limit(1)
       .maybeSingle();
 
-    if (kanbanEntry?.agent_id) {
-      if (kanbanEntry.agent_id !== effectiveAgentId) {
-        console.log(`🔀 Meta: Conversation routed to kanban agent`);
+    if (!ownKanban) {
+      // 2. Contato NÃO está no kanban deste agente - verificar transferência
+      const { data: otherKanban } = await supabase
+        .from('whatsapp_conversation_kanban')
+        .select('agent_id')
+        .eq('phone', phone)
+        .eq('tenant_id', instance.tenant_id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (otherKanban?.agent_id) {
+        console.log('🔀 Meta: Conversation routed to kanban agent (transfer)');
+        effectiveAgentId = otherKanban.agent_id;
       }
-      effectiveAgentId = kanbanEntry.agent_id;
     }
   }
+
+  // Build normalized raw_data with media URLs
+  let rawData: any = { message, contacts: value.contacts, metadata: value.metadata };
+
+  // Fetch real media URLs for media messages
+  if (type === 'image' && message.image?.id) {
+    const mediaUrl = await fetchMediaUrl(message.image.id, instance.meta_access_token);
+    if (mediaUrl) {
+      rawData.image = { imageUrl: mediaUrl, caption: message.image?.caption || '' };
+    }
+  } else if (type === 'audio' && message.audio?.id) {
+    const mediaUrl = await fetchMediaUrl(message.audio.id, instance.meta_access_token);
+    if (mediaUrl) {
+      rawData.audio = { audioUrl: mediaUrl };
+    }
+  } else if (type === 'video' && message.video?.id) {
+    const mediaUrl = await fetchMediaUrl(message.video.id, instance.meta_access_token);
+    if (mediaUrl) {
+      rawData.video = { videoUrl: mediaUrl, caption: message.video?.caption || '' };
+    }
+  } else if (type === 'document' && message.document?.id) {
+    const mediaUrl = await fetchMediaUrl(message.document.id, instance.meta_access_token);
+    if (mediaUrl) {
+      rawData.document = { documentUrl: mediaUrl, fileName: message.document?.filename || '', caption: message.document?.caption || '' };
+    }
+  }
+
+  // Determine correct message_type
+  const mappedMessageType = metaTypeMap[type] || 'text';
 
   // Save message to database
   const { error: insertError } = await supabase
@@ -198,9 +264,9 @@ async function handleMetaMessage(
       message_id: messageId || `meta_${Date.now()}`,
       from_number: phone,
       message_text: messageText,
-      message_type: 'text',
+      message_type: mappedMessageType,
       direction: 'received',
-      raw_data: { message, contacts: value.contacts, metadata: value.metadata },
+      raw_data: rawData,
       user_id: instance.user_id,
       agent_id: effectiveAgentId,
       tenant_id: instance.tenant_id || null,
@@ -213,11 +279,11 @@ async function handleMetaMessage(
     return;
   }
 
-  console.log('✅ Meta message saved:', { phone, text: messageText.substring(0, 50) });
+  console.log('✅ Meta message saved:', { phone, text: messageText.substring(0, 50), type: mappedMessageType });
 
   // Mark as read on Meta side
   try {
-    await fetch(
+    const markReadResp = await fetch(
       `https://graph.facebook.com/v21.0/${value.metadata.phone_number_id}/messages`,
       {
         method: 'POST',
@@ -232,11 +298,12 @@ async function handleMetaMessage(
         }),
       }
     );
+    await markReadResp.text(); // consume body
   } catch (e) {
     console.log('⚠️ Could not mark message as read on Meta:', e);
   }
 
-  // 🤖 Trigger AI response via debounce (same as Z-API flow)
+  // 🤖 Trigger AI response via debounce - pass provider and Meta credentials
   await triggerAIDebounce(phone, messageText, { ...instance, effective_agent_id: effectiveAgentId });
 }
 
@@ -250,6 +317,7 @@ async function triggerAIDebounce(
     agent_id: string | null;
     instance_name: string;
     meta_access_token: string;
+    meta_phone_number_id: string;
     effective_agent_id?: string | null;
   }
 ) {
@@ -348,9 +416,31 @@ async function triggerAIDebounce(
             agent_id: agentIdForAI,
           });
       }
+
+      // Dispatch debounce with provider info
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/whatsapp-ai-debounce`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({
+          phone,
+          tenant_id: instance.tenant_id,
+          instance_id: instance.instance_name,
+          scheduled_at: scheduledAt,
+          user_id: instance.user_id,
+          delay_seconds: delaySeconds,
+          agent_id: agentIdForAI,
+          provider: 'meta',
+          meta_phone_number_id: instance.meta_phone_number_id,
+          meta_access_token: instance.meta_access_token,
+        }),
+      }).catch(e => console.error('❌ Error dispatching debounce:', e));
+
       console.log(`⏳ Debounce: ${delaySeconds}s para ${phone}`);
     } else {
-      // Respond immediately - call the AI debounce function
+      // Respond immediately - call the AI debounce function with Meta credentials
       try {
         const response = await fetch(
           `${Deno.env.get('SUPABASE_URL')}/functions/v1/whatsapp-ai-debounce`,
@@ -360,9 +450,20 @@ async function triggerAIDebounce(
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
             },
-            body: JSON.stringify({ trigger: 'immediate', phone, tenant_id: instance.tenant_id }),
+            body: JSON.stringify({
+              trigger: 'immediate',
+              phone,
+              tenant_id: instance.tenant_id,
+              provider: 'meta',
+              meta_phone_number_id: instance.meta_phone_number_id,
+              meta_access_token: instance.meta_access_token,
+              agent_id: agentIdForAI,
+              instance_id: instance.instance_name,
+              user_id: instance.user_id,
+            }),
           }
         );
+        const respText = await response.text();
         console.log('🤖 AI debounce triggered:', response.status);
       } catch (e) {
         console.error('❌ Error triggering AI debounce:', e);
