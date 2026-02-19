@@ -1,70 +1,35 @@
 
-## Correcoes para Suporte Completo a API Oficial do WhatsApp (Meta)
+## Abrir Drawer da Agenda ao clicar em Prazos no Dashboard
 
-### Problemas Identificados
+### Problema
 
-O sistema atualmente so envia respostas da IA via Z-API. Quando a instancia usa a API Oficial do Meta, a IA processa a mensagem, gera a resposta, mas **nunca a envia** porque nao existe logica de envio via Meta. Alem disso, o tipo de midia e sempre salvo como "text".
+Quando o usuario clica em um prazo na secao "Minhas Tarefas e Prazos" do Dashboard, o sistema navega para a pagina `/agenda`. O comportamento desejado e abrir o **Drawer lateral da Agenda** (que ja existe no sistema), mantendo o usuario no Dashboard.
 
-### Correcoes Planejadas
+### Solucao
 
-**1. `supabase/functions/whatsapp-meta-webhook/index.ts`**
+Adicionar uma prop `onOpenAgendaDrawer` ao componente `PrazosAbertosPanel` para que, ao clicar em um prazo individual, o Drawer da Agenda seja aberto em vez de navegar para a pagina. O botao "Ver todos na Agenda" no rodape continuara navegando para a pagina completa.
 
-- Salvar `message_type` correto (`image`, `audio`, `video`, `document`, `text`) em vez de sempre `'text'`
-- Buscar URLs reais de midia do Meta (endpoint `GET graph.facebook.com/v21.0/{media_id}`) e salvar no `raw_data` no formato que o frontend espera
-- Corrigir roteamento de agente: priorizar o kanban do agente dono da instancia antes de buscar em outros kanbans (padrao do Z-API)
-- Passar `provider: 'meta'` e credenciais Meta ao chamar o debounce, para que ele saiba como enviar a resposta
+### Mudancas tecnicas
 
-**2. `supabase/functions/whatsapp-ai-debounce/index.ts`**
+**1. `src/components/Dashboard/PrazosAbertosPanel.tsx`**
 
-- Adicionar logica de envio via Meta API apos gerar a resposta da IA
-- Se receber `provider: 'meta'`, buscar a instancia no banco para obter `meta_phone_number_id` e `meta_access_token`
-- Enviar via `POST graph.facebook.com/v21.0/{phone_number_id}/messages` com `messaging_product: 'whatsapp'`
-- Manter envio via Z-API como fallback para instancias nao-Meta
+- Adicionar prop opcional `onOpenAgendaDrawer?: () => void` na interface
+- No `onClick` de cada item de prazo (linha 352), chamar `onOpenAgendaDrawer` em vez de `handleNavigateToAgenda`
+- Manter o botao "Ver todos na Agenda" (linha 392) navegando para a pagina normalmente
 
-**3. `supabase/functions/whatsapp-webhook/index.ts`**
+**2. `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx`**
 
-- Na funcao `handleAIResponse` (resposta imediata sem debounce), adicionar a mesma logica de envio condicional
-- Buscar a instancia no banco para verificar se e `provider: 'meta'`
-- Se for Meta, enviar via Graph API; se nao, manter Z-API
+- Adicionar estado local `agendaDrawerOpen` e o componente `AgendaDrawer`
+- Passar `onOpenAgendaDrawer` para o `PrazosAbertosPanel`
 
-### Logica de Envio Condicional (aplicada nos 2 pontos de envio)
+**3. `src/components/Dashboard/Metrics/AdminMetrics.tsx`**
 
-```text
-// Apos gerar resposta da IA e salvar no banco:
-1. Buscar instancia: SELECT provider, meta_phone_number_id, meta_access_token 
-   FROM whatsapp_instances WHERE instance_name = instance_id OR agent_id = agent_id
+- Mesmo ajuste: estado local para o drawer e passar a callback ao `PrazosAbertosPanel`
 
-2. Se provider = 'meta':
-   POST graph.facebook.com/v21.0/{meta_phone_number_id}/messages
-   Headers: Authorization: Bearer {meta_access_token}
-   Body: { messaging_product: 'whatsapp', to: phone, type: 'text', text: { body: message } }
-
-3. Se provider != 'meta':
-   Logica Z-API existente (sem alteracao)
-```
-
-### Correcao de message_type no Meta Webhook
-
-```text
-// Antes: message_type: 'text' (fixo)
-// Depois: message_type mapeado corretamente
-const metaTypeMap = {
-  'text': 'text',
-  'image': 'image', 
-  'audio': 'audio',
-  'video': 'video',
-  'document': 'document',
-  'location': 'text',
-  'contacts': 'text',
-  'sticker': 'sticker'
-};
-message_type: metaTypeMap[type] || 'text'
-```
-
-### Arquivos Modificados
+### Arquivos
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/whatsapp-meta-webhook/index.ts` | Corrigir message_type, raw_data com URLs de midia, roteamento de agente, dados do debounce |
-| `supabase/functions/whatsapp-ai-debounce/index.ts` | Adicionar envio via Meta API alem de Z-API |
-| `supabase/functions/whatsapp-webhook/index.ts` | Adicionar envio via Meta API na resposta imediata da IA |
+| `src/components/Dashboard/PrazosAbertosPanel.tsx` | Adicionar prop `onOpenAgendaDrawer` e usar no click dos prazos |
+| `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` | Adicionar estado e renderizar `AgendaDrawer`, passar callback |
+| `src/components/Dashboard/Metrics/AdminMetrics.tsx` | Adicionar estado e renderizar `AgendaDrawer`, passar callback |
