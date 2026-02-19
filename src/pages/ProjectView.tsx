@@ -1193,7 +1193,7 @@ const ProjectView = ({
             {activeTab === 'protocolos' ? (
               <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} />
             ) : activeTab === 'processos' ? (
-              <ProjectProcessos projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} />
+              <ProjectProcessos projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} isLocked={isColumnsLocked} />
             ) : (
               <>
                 {/* Search */}
