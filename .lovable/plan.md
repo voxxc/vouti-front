@@ -1,92 +1,55 @@
 
 
-## Redesign da Agenda - Layout Minimalista com Filtro por Usuario
+## Aplicar redesign da Agenda ao Drawer
 
-### Visao geral
+### Problema
 
-Transformar a pagina de Agenda de um layout com Cards pesados para um design minimalista inspirado na listagem de Publicacoes: itens em linhas leves com bordas, informacoes compactas e acoes inline. Adicionar filtro de usuario acima da barra de pesquisa (padrao: usuario logado).
+O drawer da Agenda (`AgendaDrawer` -> `AgendaContent`) ainda usa o layout antigo com Cards pesados (~1485 linhas de codigo duplicado). A pagina `Agenda.tsx` ja foi redesenhada com o layout minimalista (duas colunas, filtro de usuario, linhas compactas), mas o drawer nao foi atualizado.
 
-### Mudancas visuais
+### Abordagem
 
-**Antes (atual):**
-- Cards grandes com CardHeader/CardContent para "Prazos Vencidos", "Proximos Prazos"
-- Cards individuais por prazo com padding pesado
-- Secao de admin separada com tabela
-- Calendario ocupa toda a largura
+Extrair a logica e UI redesenhada de `Agenda.tsx` para um componente compartilhado, e reutiliza-lo tanto na pagina quanto no drawer. Isso elimina a duplicacao massiva de codigo.
 
-**Depois (novo):**
-- Layout em duas colunas: calendario a esquerda (compacto), listagem a direita
-- Listagem minimalista com linhas tipo Publicacoes: `border rounded-lg p-3 hover:bg-muted/30 cursor-pointer`
-- Status indicado por bolinha colorida + badge discreto (como na Publicacao)
-- Acoes inline compactas (concluir, menu 3 pontos)
-- Filtro de usuario NO TOPO, acima da busca, visivel para todos (nao apenas admin)
-
-### Estrutura da nova interface
+### Estrutura proposta
 
 ```text
-+----------------------------------------------------------+
-| <- Voltar    Agenda                        [+ Novo Prazo] |
-+----------------------------------------------------------+
-| Filtro: [Usuario ativo v]  (padrao: eu)                   |
-| [Buscar prazos...]                                        |
-+----------------------------------------------------------+
-|  CALENDARIO (compacto)  |  LISTAGEM MINIMALISTA           |
-|                         |  --- Vencidos (3) ---           |
-|   < Fevereiro 2026 >    |  . Prazo X  | 15/02 | Badge    |
-|   Dom Seg Ter ...        |  . Prazo Y  | 10/02 | Badge    |
-|                         |  --- Pendentes (5) ---          |
-|                         |  . Prazo Z  | 25/02 | Badge    |
-|                         |  --- Concluidos (2) ---         |
-|                         |  . Prazo W  | 01/02 | Badge    |
-+----------------------------------------------------------+
+Agenda.tsx (pagina)
+  -> DashboardLayout wrapper
+  -> Header com botao Voltar
+  -> AgendaContentShared (logica + UI redesenhada)
+
+AgendaDrawer.tsx
+  -> Sheet wrapper com header proprio
+  -> AgendaContentShared (mesma logica + UI)
 ```
 
 ### Detalhes tecnicos
 
-**Arquivo principal**: `src/pages/Agenda.tsx` (reescrita do bloco de renderizacao, ~linhas 870-1772)
+**1. Reescrever `AgendaContent.tsx` (~1485 linhas) com o mesmo layout minimalista de `Agenda.tsx`**
 
-**1. Filtro de usuario (topo, acima da busca)**
-- Select com todos os usuarios do tenant (usa `allUsers` ja existente)
-- Padrao: `user.id` (usuario logado)
-- Qualquer usuario pode ver prazos de outros (nao restrito a admin)
-- Ao mudar filtro, filtra deadlines por `advogadoResponsavel.userId === selectedUser` OU `taggedUsers` contendo o selectedUser
-- Label: "Visualizando prazos de:"
+- Copiar a logica e UI redesenhada (filtro de usuario no topo, layout duas colunas com calendario + listagem minimalista, `DeadlineRow`, agrupamento por secoes)
+- Remover elementos especificos da pagina: `DashboardLayout`, botao "Voltar", `useNavigationLoading`, `useSearchParams`
+- Adaptar o layout para funcionar dentro do drawer (sem largura fixa do calendario em telas menores -- empilhar verticalmente por padrao)
+- Manter todos os dialogs (criacao, detalhes, extensao, edicao, confirmacao de conclusao)
 
-**2. Listagem minimalista (substitui os Cards de Vencidos/Proximos/data selecionada)**
-- Cada prazo e uma linha `border rounded-lg p-3 hover:bg-muted/30 transition-colors cursor-pointer`
-- Layout interno:
-  - Esquerda: bolinha de status (vermelho/amarelo/verde) + titulo truncado
-  - Centro: data `text-xs text-muted-foreground`, nome do projeto
-  - Direita: Badge de status + botao concluir + menu 3 pontos (admin)
-- Agrupamento por secoes: "Vencidos", "Pendentes", "Concluidos" com contadores
-- Sem Cards wrapper - secoes sao `h4` simples como no PrazosCasoTab
+**2. Simplificar `Agenda.tsx` para reutilizar `AgendaContent`**
 
-**3. Layout em duas colunas**
-- Esquerda: Calendario (mantido, mas dentro de um container menor `w-[380px]`)
-- Direita: Listagem completa em `flex-1`
-- Responsivo: empilha em mobile
+- Manter apenas o wrapper `DashboardLayout`, header com botao Voltar, e renderizar `<AgendaContent />`
+- Remover toda a logica duplicada (estados, fetches, handlers, computed values) que sera movida para `AgendaContent`
 
-**4. Remocoes**
-- Remove Cards de "Prazos Vencidos" e "Proximos Prazos" (substituidos pela listagem unificada)
-- Remove secao "Visao do Administrador" separada (filtro agora esta no topo)
-- Remove tabela de "Historico de Prazos Cumpridos" (concluidos ficam na listagem agrupada)
+**3. Ajustar `AgendaDrawer.tsx`**
 
-**5. Manter intacto**
-- Dialog de criacao de prazo
-- Dialog de detalhes do prazo (com tabs Info/Comentarios)
-- Dialog de extensao de prazo
-- Dialog de edicao de prazo
-- AlertDialog de confirmacao de conclusao
-- Toda a logica de fetch, create, delete, toggle
+- Remover o `<ScrollArea>` wrapper redundante (o conteudo interno ja tera scroll proprio)
+- Ajustar padding se necessario
 
-**Arquivos modificados:**
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Agenda.tsx` | Reescrever bloco de renderizacao: layout 2 colunas, listagem minimalista, filtro de usuario no topo |
+| `src/components/Agenda/AgendaContent.tsx` | Reescrever com layout minimalista (filtro usuario, calendario compacto, listagem em linhas, DeadlineRow) |
+| `src/pages/Agenda.tsx` | Simplificar para wrapper DashboardLayout + header + `<AgendaContent />` |
+| `src/components/Agenda/AgendaDrawer.tsx` | Ajuste menor de padding/scroll |
 
-**Arquivos NAO modificados:**
-- `AgendaCalendar.tsx` - mantido como esta
-- `EditarPrazoDialog.tsx` - mantido
-- `DeadlineComentarios.tsx` - mantido
-- `useAgendaData.ts` - mantido
+### Resultado
 
+- Drawer e pagina terao exatamente o mesmo visual e funcionalidade
+- Eliminacao de ~1400 linhas de codigo duplicado
+- Manutencao futura: qualquer mudanca na Agenda aplica automaticamente em ambos os contextos
