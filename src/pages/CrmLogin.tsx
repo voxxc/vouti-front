@@ -47,7 +47,7 @@ const CrmLogin = () => {
       setTenantValid(true);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) navigate(`/crm/${tenant}/app`, { replace: true });
+      if (user) navigate(`/crm/${tenant}`, { replace: true });
     };
     validateTenant();
   }, [navigate, tenant]);
@@ -65,7 +65,7 @@ const CrmLogin = () => {
         toast({ title: "Erro", description: error.message || "Erro ao fazer login.", variant: "destructive" });
       } else {
         setIsTransitioning(true);
-        setTimeout(() => navigate(`/crm/${tenant}/app`, { replace: true }), 500);
+        setTimeout(() => navigate(`/crm/${tenant}`, { replace: true }), 500);
       }
     } catch {
       toast({ title: "Erro", description: "Erro inesperado ao fazer login.", variant: "destructive" });

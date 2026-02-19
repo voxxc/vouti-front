@@ -513,8 +513,8 @@ function App() {
             <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
             {/* Vouti.CRM - Standalone por tenant */}
             <Route path="/crm" element={<Navigate to="/" replace />} />
-            <Route path="/crm/:tenant" element={<CrmLogin />} />
-            <Route path="/crm/:tenant/app" element={<CrmApp />} />
+            <Route path="/crm/:tenant/auth" element={<CrmLogin />} />
+            <Route path="/crm/:tenant" element={<CrmApp />} />
             <Route path="/bot" element={<Navigate to="/solvenza/crm" replace />} />
             <Route path="/financial" element={<Navigate to="/solvenza/financial" replace />} />
             <Route path="/controladoria" element={<Navigate to="/solvenza/controladoria" replace />} />
