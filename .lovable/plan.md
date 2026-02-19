@@ -1,71 +1,112 @@
 
-## Corrigir webhook que esta rejeitando TODAS as mensagens
 
-### Causa raiz
+## Implementacao de 4 funcionalidades
 
-A funcao `validateWebhookData()` no `whatsapp-webhook/index.ts` esta **rejeitando 100% das chamadas** do Z-API com status 400. Isso significa que **nenhuma mensagem recebida** esta sendo salva no banco desde ~17:10 UTC de hoje.
+### 1. Campanhas em Massa (WhatsAppCampaigns)
 
-Os numeros `44 9855-2349` e `62 9368-1919` nunca foram gravados no banco porque o webhook estava descartando tudo.
+Nova interface completa na secao "Campanhas" do CRM com:
 
-A validacao na linha 78 exige `instanceId` OU `phone`, mas o Z-API envia diversos tipos de callback (health check, status, presenca, typing, etc.) que podem nao ter esses campos no formato esperado. O resultado e que tudo e rejeitado indiscriminadamente.
+**Tabela no banco: `whatsapp_campaigns`**
+- id, tenant_id, agent_id, name, message_template (texto com suporte a {{nome}}), target_column_id (FK para whatsapp_kanban_columns), batch_size (ex: 10), interval_minutes (ex: 4), status (draft/running/paused/completed), total_contacts, sent_count, failed_count, created_at, updated_at
 
-### Correcao no `supabase/functions/whatsapp-webhook/index.ts`
+**Tabela: `whatsapp_campaign_messages`**
+- id, campaign_id, phone, contact_name, status (pending/sent/failed), scheduled_at, sent_at, error_message, created_at
 
-**1. Tornar a validacao mais permissiva**
+**Frontend: `WhatsAppCampaigns.tsx`**
+- Formulario para criar campanha: nome, mensagem (textarea com botao para inserir {{nome}}), selecao de agente, selecao de coluna do Kanban desse agente, tamanho do lote (padrao 10), intervalo entre lotes em minutos (padrao 4)
+- Ao criar, busca todos os phones da `whatsapp_conversation_kanban` naquela coluna, resolve nomes via `whatsapp_contacts`, e insere registros em `whatsapp_campaign_messages` com `scheduled_at` escalonado (lote 1 = agora, lote 2 = +4min, lote 3 = +8min...)
+- Lista de campanhas com status, progresso (barra), opcao de pausar/retomar
+- A variavel {{nome}} e substituida pelo nome do contato no momento do envio
 
-Mudar a funcao `validateWebhookData` para:
-- Aceitar payloads sem `instanceId`/`phone` (apenas retornar silenciosamente para tipos irrelevantes)
-- Mover a validacao de telefone para DENTRO do handler de mensagens (`handleIncomingMessage`), onde o phone e obrigatorio
-- Nunca retornar 400 para webhooks do Z-API (retornar 200 para tudo, mesmo se ignorar o payload)
+**Edge Function: `whatsapp-process-campaigns`**
+- Similar ao `whatsapp-process-queue` existente: busca mensagens pendentes de campanhas que estao "due", envia via Z-API/Meta, atualiza status
+- Sera chamada via cron job (a cada 1 minuto)
 
-**2. Adicionar log de debug temporario**
+---
 
-Logar o tipo do payload recebido e campos presentes para diagnosticar o que o Z-API esta enviando, sem expor dados sensiveis.
+### 2. Agendar Follow-Up (ContactInfoPanel)
 
-**3. Garantir que payloads sem mensagem sejam ignorados graciosamente**
+**No `ContactInfoPanel.tsx`**, ao clicar em "Agendar Follow-Up":
+- Expande um formulario inline (collapsible) com:
+  - Textarea para a mensagem
+  - Input de data (date picker)
+  - Input de hora (time picker)
+  - Botao "Agendar"
+- Ao confirmar, insere na tabela `whatsapp_pending_messages` com `scheduled_at` = data+hora selecionada, `phone` = numero do contato, `tenant_id`, e um `lead_source` = 'follow_up'
+- O `whatsapp-process-queue` existente ja processa mensagens pendentes, entao o follow-up sera enviado automaticamente
 
-Em vez de retornar `400` (que faz o Z-API reenviar infinitamente), retornar `200` com `{ success: true }` para todo tipo de callback, processando apenas os relevantes.
+---
 
-### Mudanca principal no `validateWebhookData`:
+### 3. Badges de data no chat
 
+**Vouti.CRM (ChatPanel.tsx)**
+- Antes de renderizar as mensagens, agrupar por data
+- Inserir um separador de data entre mensagens de dias diferentes
+- Visual: badge centralizado com fundo semi-transparente mostrando "Hoje", "Ontem", ou a data formatada (ex: "15 de fevereiro de 2026")
+- Estilo similar ao WhatsApp: texto pequeno, pill cinza centralizada
+
+**Vouti Comum (InternalMessaging.tsx / MessageBubble.tsx)**
+- Mesmo conceito: agrupar mensagens por data e inserir badges de separacao entre dias diferentes
+
+---
+
+### 4. Fundo estilo WhatsApp no chat do CRM
+
+**No `ChatPanel.tsx`**
+- Adicionar ao container de mensagens um background com pattern sutil estilo WhatsApp
+- Usar um SVG pattern inline (icones pequenos de mensagem, telefone, etc.) com opacidade muito baixa (~3-5%)
+- Funciona em dark e light mode usando cores CSS variables
+- Classe CSS customizada aplicada na area de mensagens (ScrollArea)
+
+---
+
+### Detalhes tecnicos
+
+**Migracao SQL:**
 ```text
-// ANTES (rejeita tudo sem instanceId/phone):
-function validateWebhookData(data: any): boolean {
-  if (!data || typeof data !== 'object') return false;
-  if (!data.instanceId && !data.phone) return false;  // ESTE FILTRO MATA TUDO
-  ...
-}
+CREATE TABLE whatsapp_campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  agent_id UUID REFERENCES whatsapp_agents(id),
+  name TEXT NOT NULL,
+  message_template TEXT NOT NULL,
+  target_column_id UUID REFERENCES whatsapp_kanban_columns(id),
+  batch_size INTEGER DEFAULT 10,
+  interval_minutes INTEGER DEFAULT 4,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','running','paused','completed')),
+  total_contacts INTEGER DEFAULT 0,
+  sent_count INTEGER DEFAULT 0,
+  failed_count INTEGER DEFAULT 0,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-// DEPOIS (aceita payload basico, valida detalhes dentro do handler):
-function validateWebhookData(data: any): boolean {
-  if (!data || typeof data !== 'object') return false;
-  // Apenas verificar se e um objeto valido. 
-  // Validacao de campos especificos acontece no handler.
-  return true;
-}
+CREATE TABLE whatsapp_campaign_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id UUID REFERENCES whatsapp_campaigns(id) ON DELETE CASCADE,
+  phone TEXT NOT NULL,
+  contact_name TEXT,
+  message TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending','sent','failed','cancelled')),
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  sent_at TIMESTAMPTZ,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS policies para ambas tabelas (tenant isolation)
+-- Trigger para updated_at em whatsapp_campaigns
 ```
 
-E no handler principal, ignorar graciosamente payloads sem dados de mensagem:
+**Arquivos modificados/criados:**
 
-```text
-if (type === 'ReceivedCallback' || type === 'message' || type === 'SentByMeCallback') {
-  if (!webhookData.phone && !webhookData.instanceId) {
-    // Log e ignora
-    return Response 200
-  }
-  await handleIncomingMessage(webhookData);
-}
-```
-
-### Arquivos modificados
-
-| Arquivo | Mudanca |
+| Arquivo | Acao |
 |---|---|
-| `supabase/functions/whatsapp-webhook/index.ts` | Relaxar validacao, mover checagem de phone para dentro do handler, nunca retornar 400 para Z-API |
+| Nova migracao SQL | Criar tabelas whatsapp_campaigns e whatsapp_campaign_messages |
+| `src/components/WhatsApp/sections/WhatsAppCampaigns.tsx` | Reescrever com formulario completo de campanha, lista de campanhas, progresso |
+| `supabase/functions/whatsapp-process-campaigns/index.ts` | Nova edge function para processar fila de campanhas |
+| `src/components/WhatsApp/components/ContactInfoPanel.tsx` | Expandir "Agendar Follow-Up" com formulario inline (mensagem + data/hora) |
+| `src/components/WhatsApp/components/ChatPanel.tsx` | Adicionar badges de data entre mensagens + background pattern WhatsApp |
+| `src/components/Communication/InternalMessaging.tsx` | Adicionar badges de data entre mensagens do chat interno |
 
-### Impacto
-
-- Corrige TODAS as mensagens perdidas para todos os tenants e agentes
-- Mensagens futuras serao salvas normalmente
-- Callbacks irrelevantes do Z-API serao ignorados silenciosamente (200) em vez de rejeitados (400)
-- As conversas `44 9855-2349` e `62 9368-1919` aparecerao assim que o contato enviar nova mensagem (as anteriores foram perdidas)
