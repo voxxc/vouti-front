@@ -7284,6 +7284,129 @@ export type Database = {
           },
         ]
       }
+      whatsapp_campaign_messages: {
+        Row: {
+          campaign_id: string | null
+          contact_name: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          message: string
+          phone: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message: string
+          phone: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message?: string
+          phone?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_campaign_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_campaigns: {
+        Row: {
+          agent_id: string | null
+          batch_size: number | null
+          created_at: string | null
+          created_by: string | null
+          failed_count: number | null
+          id: string
+          interval_minutes: number | null
+          message_template: string
+          name: string
+          sent_count: number | null
+          status: string | null
+          target_column_id: string | null
+          tenant_id: string | null
+          total_contacts: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          batch_size?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          failed_count?: number | null
+          id?: string
+          interval_minutes?: number | null
+          message_template: string
+          name: string
+          sent_count?: number | null
+          status?: string | null
+          target_column_id?: string | null
+          tenant_id?: string | null
+          total_contacts?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          batch_size?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          failed_count?: number | null
+          id?: string
+          interval_minutes?: number | null
+          message_template?: string
+          name?: string
+          sent_count?: number | null
+          status?: string | null
+          target_column_id?: string | null
+          tenant_id?: string | null
+          total_contacts?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_campaigns_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_campaigns_target_column_id_fkey"
+            columns: ["target_column_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_contact_labels: {
         Row: {
           contact_id: string

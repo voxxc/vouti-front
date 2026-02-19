@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.generate-landing-images]
 verify_jwt = false
+
+[functions.whatsapp-process-campaigns]
+verify_jwt = false

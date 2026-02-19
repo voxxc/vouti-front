@@ -1,4 +1,9 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Phone, 
   Mail, 
@@ -51,6 +56,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 import { toast } from "sonner";
+import { FollowUpSection } from "./FollowUpSection";
 
 interface ContactInfoPanelProps {
   conversation: WhatsAppConversation;
@@ -192,10 +198,11 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
             contactPhone={conversation.contactNumber}
             onLabelsChange={() => {}}
           />
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Calendar className="h-4 w-4 mr-2" />
-            Agendar follow-up
-          </Button>
+          <FollowUpSection
+            phone={conversation.contactNumber}
+            tenantId={resolvedTenantId}
+            agentId={currentAgentId}
+          />
           <TransferConversationDialog
             conversation={conversation}
             currentAgentId={currentAgentId}

@@ -290,6 +290,31 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
     }
   };
 
+  const formatDateBadge = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 86400000);
+      const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+      if (msgDate.getTime() === today.getTime()) return "Hoje";
+      if (msgDate.getTime() === yesterday.getTime()) return "Ontem";
+      return format(date, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    } catch {
+      return "";
+    }
+  };
+
+  const getMessageDateKey = (dateString: string) => {
+    try {
+      const d = new Date(dateString);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    } catch {
+      return "";
+    }
+  };
+
   if (!conversation) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-muted/20">
@@ -333,36 +358,53 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                "flex",
-                message.isFromMe ? "justify-end" : "justify-start"
-              )}
-            >
-              <div
-                className={cn(
-                  "max-w-[70%] rounded-lg px-4 py-2 shadow-sm",
-                  message.isFromMe
-                    ? "bg-green-500 text-white rounded-br-none"
-                    : "bg-card text-foreground rounded-bl-none"
+      <ScrollArea className="flex-1 p-4" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='p' width='40' height='40' patternUnits='userSpaceOnUse'%3E%3Cpath d='M20 5 Q22 2 24 5 L26 10 Q24 13 20 13 Q16 13 14 10 Z' fill='%239ca3af' opacity='0.04'/%3E%3Cpath d='M5 25 L10 20 L15 25 L10 30 Z' fill='%239ca3af' opacity='0.03'/%3E%3Ccircle cx='32' cy='28' r='3' fill='%239ca3af' opacity='0.03'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23p)'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'repeat',
+      }}>
+        <div className="space-y-1">
+          {messages.map((message, index) => {
+            const currentDateKey = getMessageDateKey(message.timestamp);
+            const prevDateKey = index > 0 ? getMessageDateKey(messages[index - 1].timestamp) : null;
+            const showDateBadge = currentDateKey !== prevDateKey;
+
+            return (
+              <div key={message.id}>
+                {showDateBadge && (
+                  <div className="flex justify-center my-3">
+                    <span className="text-[11px] bg-muted/80 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
+                      {formatDateBadge(message.timestamp)}
+                    </span>
+                  </div>
                 )}
-              >
-                <MediaRenderer message={message} />
-                <p
+                <div
                   className={cn(
-                    "text-[10px] mt-1 text-right",
-                    message.isFromMe ? "text-green-100" : "text-muted-foreground"
+                    "flex mb-1",
+                    message.isFromMe ? "justify-end" : "justify-start"
                   )}
                 >
-                  {formatMessageTime(message.timestamp)}
-                </p>
+                  <div
+                    className={cn(
+                      "max-w-[70%] rounded-lg px-4 py-2 shadow-sm",
+                      message.isFromMe
+                        ? "bg-green-500 text-white rounded-br-none"
+                        : "bg-card text-foreground rounded-bl-none"
+                    )}
+                  >
+                    <MediaRenderer message={message} />
+                    <p
+                      className={cn(
+                        "text-[10px] mt-1 text-right",
+                        message.isFromMe ? "text-green-100" : "text-muted-foreground"
+                      )}
+                    >
+                      {formatMessageTime(message.timestamp)}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
