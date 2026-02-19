@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import AgendaCalendar from "./AgendaCalendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -836,13 +836,11 @@ export function AgendaContent() {
                   <AlertCircle className="h-4 w-4" />
                   Vencidos ({overdue.length})
                 </h4>
-                <ScrollArea className="max-h-[312px]">
-                  <div className="space-y-2 pr-2">
-                    {overdue.map((deadline) => (
-                      <DeadlineRow key={deadline.id} deadline={deadline} />
-                    ))}
-                  </div>
-                </ScrollArea>
+                <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
+                  {overdue.map((deadline) => (
+                    <DeadlineRow key={deadline.id} deadline={deadline} />
+                  ))}
+                </div>
               </div>
             ) : null;
           })()}
@@ -858,13 +856,11 @@ export function AgendaContent() {
                   {forDate.length > 0 && ` (${forDate.length})`}
                 </h4>
                 {forDate.length > 0 ? (
-                  <ScrollArea className="max-h-[312px]">
-                    <div className="space-y-2 pr-2">
-                      {forDate.map((deadline) => (
-                        <DeadlineRow key={deadline.id} deadline={deadline} />
-                      ))}
-                    </div>
-                  </ScrollArea>
+                  <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
+                    {forDate.map((deadline) => (
+                      <DeadlineRow key={deadline.id} deadline={deadline} />
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground border rounded-lg">
                     <Clock className="h-6 w-6 mx-auto mb-1 opacity-50" />
@@ -917,13 +913,11 @@ export function AgendaContent() {
           {activeSection === "upcoming" && (() => {
             const upcoming = getUpcomingDeadlines().filter(d => !isSameDay(d.date, selectedDate));
             return upcoming.length > 0 ? (
-              <ScrollArea className="max-h-[312px]">
-                <div className="space-y-2 pr-2">
-                  {upcoming.map((deadline) => (
-                    <DeadlineRow key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
-              </ScrollArea>
+              <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
+                {upcoming.map((deadline) => (
+                  <DeadlineRow key={deadline.id} deadline={deadline} />
+                ))}
+              </div>
             ) : null;
           })()}
 
@@ -931,13 +925,11 @@ export function AgendaContent() {
           {activeSection === "completed" && (() => {
             const completed = getCompletedDeadlines();
             return completed.length > 0 ? (
-              <ScrollArea className="max-h-[312px]">
-                <div className="space-y-2 pr-2">
-                  {completed.map((deadline) => (
-                    <DeadlineRow key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
-              </ScrollArea>
+              <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
+                {completed.map((deadline) => (
+                  <DeadlineRow key={deadline.id} deadline={deadline} />
+                ))}
+              </div>
             ) : null;
           })()}
         </div>
