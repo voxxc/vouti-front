@@ -24,6 +24,7 @@ import {
   Plug,
   Shield,
   FolderOpen,
+  Terminal,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ const settingsMenuItems: { id: WhatsAppSection; label: string; icon: React.Eleme
   { id: "apps", label: "Aplicações", icon: AppWindow },
   { id: "integrations", label: "Integrações", icon: Plug },
   { id: "permissions", label: "Permissões", icon: Shield },
+  { id: "commander", label: "Commander", icon: Terminal },
 ];
 
 // Todas as seções de configuração

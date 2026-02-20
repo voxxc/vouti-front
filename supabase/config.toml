@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.whatsapp-process-campaigns]
 verify_jwt = false
+
+[functions.whatsapp-commander]
+verify_jwt = false

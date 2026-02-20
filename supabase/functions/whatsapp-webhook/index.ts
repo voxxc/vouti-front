@@ -221,6 +221,47 @@ async function handleIncomingMessage(data: any) {
 
   const effectiveTenantId = instance.tenant_id || null;
 
+  // === COMMANDER CHECK ===
+  // Verificar se o remetente é um Commander antes de processar normalmente
+  if (effectiveTenantId && !fromMe) {
+    const { data: commander } = await supabase
+      .from('whatsapp_commanders')
+      .select('id, name')
+      .eq('phone_number', phone)
+      .eq('tenant_id', effectiveTenantId)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (commander) {
+      console.log(`🤖 Commander detected: ${commander.name} (${phone})`);
+      const messageText = text?.message || detectMediaInfo(data).caption || '';
+      if (messageText) {
+        // Invocar edge function whatsapp-commander
+        fetch(`${supabaseUrl}/functions/v1/whatsapp-commander`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            phone,
+            message: messageText,
+            tenant_id: effectiveTenantId,
+            user_id: instance.user_id,
+            instance_credentials: {
+              zapi_instance_id: instance.zapi_instance_id,
+              zapi_instance_token: instance.zapi_instance_token,
+              zapi_client_token: instance.zapi_client_token,
+            },
+          }),
+        }).catch(err => console.error('Commander invoke error:', err));
+      }
+      // NÃO processar como mensagem normal
+      return;
+    }
+  }
+
   // Resolve effective agent: check if conversation was transferred to another agent
   let effectiveAgentId = instance.agent_id || null;
   if (effectiveTenantId && effectiveAgentId) {
