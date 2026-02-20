@@ -17,6 +17,7 @@ export interface ProjectProtocolo {
   observacoes?: string;
   processoOabId?: string | null;
   etapas?: ProjectProtocoloEtapa[];
+  ordem: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -92,7 +93,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
       }
       // Se workspaceId for null explicitamente, não aplica filtro - mostra todos
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query.order('ordem', { ascending: true });
 
       if (error) throw error;
 
@@ -128,6 +129,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
         dataConclusao: p.data_conclusao ? new Date(p.data_conclusao) : undefined,
         observacoes: p.observacoes,
         processoOabId: p.processo_oab_id,
+        ordem: p.ordem ?? 0,
         etapas: (p.etapas || []).map((e: any) => ({
           id: e.id,
           protocoloId: e.protocolo_id,
@@ -445,6 +447,35 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
     }
   };
 
+  const reorderProtocolos = async (orderedIds: string[]) => {
+    // Optimistic update
+    const reordered = orderedIds.map((id, index) => {
+      const p = protocolos.find(pr => pr.id === id);
+      return p ? { ...p, ordem: index } : null;
+    }).filter(Boolean) as ProjectProtocolo[];
+    setProtocolos(reordered);
+
+    try {
+      const updates = orderedIds.map((id, index) =>
+        supabase.from('project_protocolos').update({ ordem: index }).eq('id', id)
+      );
+      const results = await Promise.all(updates);
+      const failed = results.find(r => r.error);
+      if (failed?.error) {
+        await fetchProtocolos();
+        throw failed.error;
+      }
+    } catch (error) {
+      console.error('Erro ao reordenar protocolos:', error);
+      await fetchProtocolos();
+      toast({
+        title: 'Erro',
+        description: 'Erro ao reordenar processos',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return {
     protocolos,
     loading,
@@ -454,6 +485,7 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
     deleteProtocolo,
     addEtapa,
     updateEtapa,
-    deleteEtapa
+    deleteEtapa,
+    reorderProtocolos
   };
 }
