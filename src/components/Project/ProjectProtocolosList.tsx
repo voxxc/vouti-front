@@ -11,8 +11,10 @@ import {
   ChevronUp,
   Filter,
   ArrowUpDown,
-  ArrowLeft
+  ArrowLeft,
+  GripVertical
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
   Select,
   SelectContent,
@@ -29,6 +31,7 @@ interface ProjectProtocolosListProps {
   projectId: string;
   workspaceId?: string | null;
   defaultWorkspaceId?: string | null;
+  isLocked?: boolean;
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -45,8 +48,8 @@ const STATUS_COLORS: Record<ProjectProtocolo['status'], string> = {
   cancelado: 'bg-muted text-muted-foreground border-muted'
 };
 
-export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId }: ProjectProtocolosListProps) {
-  const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
+export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true }: ProjectProtocolosListProps) {
+  const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa, reorderProtocolos } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [isExpanded, setIsExpanded] = useState(true);
@@ -90,6 +93,14 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const handleCreateProtocolo = async (data: { nome: string; descricao?: string; responsavelId?: string; dataPrevisao?: Date; observacoes?: string }) => {
     await createProtocolo(data);
     setIsAddDialogOpen(false);
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination || result.destination.index === result.source.index) return;
+    const reordered = Array.from(filteredProtocolos);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    reorderProtocolos(reordered.map(p => p.id));
   };
 
   if (loading) {
@@ -214,36 +225,66 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 )}
               </div>
             ) : (
-              <div className="space-y-1">
-                {filteredProtocolos.map((protocolo) => {
-                  const etapasConcluidas = protocolo.etapas?.filter(e => e.status === 'concluido').length || 0;
-                  const totalEtapas = protocolo.etapas?.length || 0;
-                  
-                  return (
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="protocolos-list">
+                  {(provided) => (
                     <div
-                      key={protocolo.id}
-                      onClick={() => handleProtocoloClick(protocolo)}
-                      className="p-4 hover:bg-accent cursor-pointer border-b transition-colors"
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="space-y-1"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">
-                            {protocolo.nome.toUpperCase()}
-                          </p>
-                          {totalEtapas > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {etapasConcluidas}/{totalEtapas} etapas concluídas
-                            </p>
-                          )}
-                        </div>
-                        <Badge className={STATUS_COLORS[protocolo.status]}>
-                          {STATUS_LABELS[protocolo.status]}
-                        </Badge>
-                      </div>
+                      {filteredProtocolos.map((protocolo, index) => {
+                        const etapasConcluidas = protocolo.etapas?.filter(e => e.status === 'concluido').length || 0;
+                        const totalEtapas = protocolo.etapas?.length || 0;
+                        
+                        return (
+                          <Draggable
+                            key={protocolo.id}
+                            draggableId={protocolo.id}
+                            index={index}
+                            isDragDisabled={isLocked}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                onClick={() => handleProtocoloClick(protocolo)}
+                                className={`p-4 hover:bg-accent cursor-pointer border-b transition-colors ${snapshot.isDragging ? 'bg-accent shadow-lg' : ''}`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-2 flex-1">
+                                    <div
+                                      {...provided.dragHandleProps}
+                                      className={`mt-1 ${isLocked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <GripVertical className={`h-4 w-4 ${isLocked ? 'text-muted-foreground/30' : 'text-muted-foreground'}`} />
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="font-medium text-foreground">
+                                        {protocolo.nome.toUpperCase()}
+                                      </p>
+                                      {totalEtapas > 0 && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {etapasConcluidas}/{totalEtapas} etapas concluídas
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Badge className={STATUS_COLORS[protocolo.status]}>
+                                    {STATUS_LABELS[protocolo.status]}
+                                  </Badge>
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </ScrollArea>
         </>

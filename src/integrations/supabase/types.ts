@@ -4884,6 +4884,7 @@ export type Database = {
           id: string
           nome: string
           observacoes: string | null
+          ordem: number | null
           processo_oab_id: string | null
           project_id: string
           responsavel_id: string | null
@@ -4902,6 +4903,7 @@ export type Database = {
           id?: string
           nome: string
           observacoes?: string | null
+          ordem?: number | null
           processo_oab_id?: string | null
           project_id: string
           responsavel_id?: string | null
@@ -4920,6 +4922,7 @@ export type Database = {
           id?: string
           nome?: string
           observacoes?: string | null
+          ordem?: number | null
           processo_oab_id?: string | null
           project_id?: string
           responsavel_id?: string | null
