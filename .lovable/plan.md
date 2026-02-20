@@ -1,38 +1,73 @@
 
 
-## Abrir Drawer do Caso ao inves de navegar para a pagina
+## PWA - App Instalavel para iOS e Android
 
-### O que muda
+### O que seu cliente ganha
 
-Quando voce clica em "Ver Processo Completo" dentro dos detalhes de um prazo na Agenda, o sistema vai abrir o drawer lateral do caso (ProcessoOABDetalhes) diretamente, sem sair da pagina. Isso e mais rapido e mantem o contexto.
+O sistema Vouti vai poder ser "instalado" no celular como um app normal. Aparece na tela inicial com icone, abre em tela cheia (sem barra do navegador), funciona offline para telas ja carregadas, e carrega rapido.
 
-### Como funciona hoje
+Funciona em **iPhone e Android** sem precisar publicar em loja nenhuma. O cliente so acessa o site e instala.
 
-O botao faz `navigate('/controladoria?processo=ID')`, o que troca a pagina inteira, carrega tudo do zero, e voce perde o contexto do prazo.
+---
 
-### Como vai funcionar
+### O que sera feito
 
-O botao vai abrir o drawer `ProcessoOABDetalhes` por cima do dialog de detalhes do prazo, mantendo tudo no lugar.
+#### 1. Instalar plugin `vite-plugin-pwa`
+Adiciona suporte PWA automatico ao projeto.
+
+#### 2. Configurar `vite.config.ts`
+Adicionar o plugin VitePWA com:
+- Nome do app: "Vouti"
+- Cores do tema
+- Icones (usando o `favicon.png` que ja existe)
+- Service Worker para cache e offline
+- `navigateFallbackDenylist` para nao cachear rotas OAuth (`/~oauth`)
+
+#### 3. Atualizar `index.html`
+Adicionar meta tags para mobile:
+- `theme-color` (cor da barra de status)
+- `apple-mobile-web-app-capable` e `apple-mobile-web-app-status-bar-style` para iOS
+- Link para manifest
+
+#### 4. Criar icones PWA
+Gerar icones nos tamanhos necessarios (192x192 e 512x512) a partir do favicon existente, ou usar o favicon.png diretamente.
+
+#### 5. Criar pagina `/install`
+Uma pagina simples com instrucoes de instalacao e botao para disparar o prompt de instalacao no Android. No iOS, mostra instrucoes de "Compartilhar > Adicionar a Tela de Inicio".
 
 ---
 
 ### Detalhes tecnicos
 
-**Arquivo: `src/components/Agenda/AgendaContent.tsx`**
+**Arquivos modificados:**
+| Arquivo | Acao |
+|---|---|
+| `package.json` | Adicionar `vite-plugin-pwa` |
+| `vite.config.ts` | Configurar VitePWA plugin com manifest, service worker e denylist |
+| `index.html` | Adicionar meta tags mobile (theme-color, apple-mobile-web-app) |
+| `src/pages/Install.tsx` | Nova pagina com instrucoes de instalacao |
+| `src/App.tsx` | Adicionar rota `/install` |
 
-1. Importar `ProcessoOABDetalhes` e hooks necessarios (`useProcessosOAB` ou query direta)
-2. Adicionar estados locais:
-   - `processoDrawerOpen` (boolean)
-   - `selectedProcessoOAB` (ProcessoOAB | null)
-3. Ao clicar no botao "Ver Processo Completo":
-   - Buscar os dados completos do processo pelo ID (`selectedDeadline.processoOrigem.id`) via query ao Supabase
-   - Setar `selectedProcessoOAB` com o resultado
-   - Abrir o drawer com `setProcessoDrawerOpen(true)`
-4. Renderizar `ProcessoOABDetalhes` no final do componente com as props minimas:
-   - `processo={selectedProcessoOAB}`
-   - `open={processoDrawerOpen}`
-   - `onOpenChange={setProcessoDrawerOpen}`
-   - `onToggleMonitoramento` com funcao basica de toggle
-5. Remover o `navigate(...)` e o fechamento do dialog de detalhes
+**Configuracao do manifest (dentro do vite.config.ts):**
+```typescript
+VitePWA({
+  registerType: 'autoUpdate',
+  manifest: {
+    name: 'Vouti - Gestao Juridica',
+    short_name: 'Vouti',
+    description: 'A melhor gestao da sua advocacia.',
+    theme_color: '#1a1a2e',
+    background_color: '#ffffff',
+    display: 'standalone',
+    icons: [
+      { src: '/favicon.png', sizes: '192x192', type: 'image/png' },
+      { src: '/favicon.png', sizes: '512x512', type: 'image/png' }
+    ]
+  },
+  workbox: {
+    navigateFallbackDenylist: [/^\/~oauth/],
+    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+  }
+})
+```
 
-Nenhuma outra pagina ou componente precisa ser alterado.
