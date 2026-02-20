@@ -23,6 +23,9 @@ import { DeadlineComentarios } from "./DeadlineComentarios";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "./UserTagSelector";
 import EditarPrazoDialog from "./EditarPrazoDialog";
+import { ProcessoOABDetalhes } from "@/components/Controladoria/ProcessoOABDetalhes";
+import { ProcessoOAB } from "@/hooks/useOABs";
+import { useToggleMonitoramento } from "@/hooks/useToggleMonitoramento";
 import { Deadline, DeadlineFormData } from "@/types/agenda";
 import { format, isSameDay, isPast, isFuture, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -75,6 +78,11 @@ export function AgendaContent() {
   // Estados para modal de edição de prazo
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editDeadline, setEditDeadline] = useState<Deadline | null>(null);
+
+  // Estados para drawer do processo OAB
+  const [processoDrawerOpen, setProcessoDrawerOpen] = useState(false);
+  const [selectedProcessoOAB, setSelectedProcessoOAB] = useState<ProcessoOAB | null>(null);
+  const { toggleMonitoramento } = useToggleMonitoramento();
 
   // Collapsible section state
   const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | null>(null);
@@ -1029,9 +1037,18 @@ export function AgendaContent() {
                           variant="link" 
                           size="sm" 
                           className="p-0 h-auto text-primary"
-                          onClick={() => {
-                            setIsDetailDialogOpen(false);
-                            navigate(`/controladoria?processo=${selectedDeadline.processoOrigem?.id}`);
+                          onClick={async () => {
+                            const processoId = selectedDeadline.processoOrigem?.id;
+                            if (!processoId) return;
+                            const { data } = await supabase
+                              .from('processos_oab')
+                              .select('*')
+                              .eq('id', processoId)
+                              .single();
+                            if (data) {
+                              setSelectedProcessoOAB(data as unknown as ProcessoOAB);
+                              setProcessoDrawerOpen(true);
+                            }
                           }}
                         >
                           <ExternalLink className="h-3 w-3 mr-1" />
@@ -1270,6 +1287,23 @@ export function AgendaContent() {
           setEditDeadline(null);
         }}
         tenantId={tenantId || ''}
+      />
+
+      {/* Drawer do Processo OAB */}
+      <ProcessoOABDetalhes
+        processo={selectedProcessoOAB}
+        open={processoDrawerOpen}
+        onOpenChange={setProcessoDrawerOpen}
+        onToggleMonitoramento={async (p) => {
+          const result = await toggleMonitoramento(p);
+          if (result && selectedProcessoOAB) {
+            setSelectedProcessoOAB({
+              ...selectedProcessoOAB,
+              monitoramento_ativo: !selectedProcessoOAB.monitoramento_ativo
+            });
+          }
+          return result;
+        }}
       />
     </div>
   );
