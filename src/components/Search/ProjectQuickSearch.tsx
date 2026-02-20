@@ -29,62 +29,65 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Carregar projetos na montagem com filtro de permissão
-  useEffect(() => {
+  // Função para carregar projetos com filtro de permissão
+  const loadProjects = async () => {
     if (!user || !tenantId) return;
     
-    const loadProjects = async () => {
-      // Verificar se é admin ou controller NO TENANT ATUAL
-      const isAdminOrController = await checkIfUserIsAdminOrController(user.id, tenantId);
+    const isAdminOrController = await checkIfUserIsAdminOrController(user.id, tenantId);
+    
+    if (isAdminOrController) {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, client')
+        .eq('tenant_id', tenantId)
+        .eq('module', 'legal')
+        .order('updated_at', { ascending: false });
       
-      if (isAdminOrController) {
-        // Admin/Controller: ver todos os projetos DO TENANT
-        const { data, error } = await supabase
-          .from('projects')
-          .select('id, name, client')
-          .eq('tenant_id', tenantId)
-          .eq('module', 'legal')
-          .order('updated_at', { ascending: false });
-        
-        if (error) {
-          console.error('[ProjectQuickSearch] Error loading projects:', error);
-          return;
-        }
-        if (data) setProjects(data);
-      } else {
-        // Usuário normal: ver apenas projetos onde é criador ou participante DO TENANT
-        const { data: collaboratorProjects } = await supabase
-          .from('project_collaborators')
-          .select('project_id')
-          .eq('user_id', user.id);
-        
-        const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
-        
-        // Buscar projetos criados pelo usuário
-        let orFilter = `created_by.eq.${user.id}`;
-        
-        // Adicionar projetos onde é colaborador
-        if (collaboratorProjectIds.length > 0) {
-          orFilter += `,id.in.(${collaboratorProjectIds.join(',')})`;
-        }
-        
-        const { data, error } = await supabase
-          .from('projects')
-          .select('id, name, client')
-          .eq('tenant_id', tenantId)
-          .eq('module', 'legal')
-          .or(orFilter)
-          .order('updated_at', { ascending: false });
-        
-        if (error) {
-          console.error('[ProjectQuickSearch] Error loading projects:', error);
-          return;
-        }
-        if (data) setProjects(data);
+      if (error) {
+        console.error('[ProjectQuickSearch] Error loading projects:', error);
+        return;
       }
-    };
+      if (data) setProjects(data);
+    } else {
+      const { data: collaboratorProjects } = await supabase
+        .from('project_collaborators')
+        .select('project_id')
+        .eq('user_id', user.id);
+      
+      const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
+      let orFilter = `created_by.eq.${user.id}`;
+      if (collaboratorProjectIds.length > 0) {
+        orFilter += `,id.in.(${collaboratorProjectIds.join(',')})`;
+      }
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, client')
+        .eq('tenant_id', tenantId)
+        .eq('module', 'legal')
+        .or(orFilter)
+        .order('updated_at', { ascending: false });
+      
+      if (error) {
+        console.error('[ProjectQuickSearch] Error loading projects:', error);
+        return;
+      }
+      if (data) setProjects(data);
+    }
+  };
 
+  // Carregar projetos na montagem
+  useEffect(() => {
     loadProjects();
+  }, [user, tenantId]);
+
+  // Escutar evento de projeto criado para atualizar busca rápida
+  useEffect(() => {
+    const handler = () => {
+      setTimeout(() => loadProjects(), 2000);
+    };
+    window.addEventListener('project-created', handler);
+    return () => window.removeEventListener('project-created', handler);
   }, [user, tenantId]);
 
   // Fechar ao clicar fora
