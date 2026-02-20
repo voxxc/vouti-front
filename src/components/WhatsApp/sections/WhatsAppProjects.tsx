@@ -79,7 +79,7 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
   }, [projects, searchTerm]);
 
   const handleCreateProject = async () => {
-    if (!formData.name.trim() || !formData.client.trim() || !user || !tenantId) return;
+    if (!formData.name.trim() || !user || !tenantId) return;
     setIsCreating(true);
     try {
       const { error } = await supabase.from("projects").insert({
@@ -153,10 +153,10 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
                       </Button>
                     </div>
                     <Input placeholder="Nome do projeto *" value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="h-9" />
-                    <Input placeholder="Cliente *" value={formData.client} onChange={e => setFormData(prev => ({ ...prev, client: e.target.value }))} className="h-9" />
+                    <Input placeholder="Cliente (opcional)" value={formData.client} onChange={e => setFormData(prev => ({ ...prev, client: e.target.value }))} className="h-9" />
                     <Input placeholder="Descrição (opcional)" value={formData.description} onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))} className="h-9" />
                     <div className="flex gap-2">
-                      <Button size="sm" className="flex-1" onClick={handleCreateProject} disabled={isCreating || !formData.name.trim() || !formData.client.trim()}>
+                      <Button size="sm" className="flex-1" onClick={handleCreateProject} disabled={isCreating || !formData.name.trim()}>
                         {isCreating ? "Criando..." : "Criar Projeto"}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => { setShowCreateForm(false); setFormData({ name: "", client: "", description: "" }); }}>
