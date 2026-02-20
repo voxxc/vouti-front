@@ -29,7 +29,7 @@ const ClienteCadastro = () => {
   const [isEditing, setIsEditing] = useState(false);
   
   // Criar projeto
-  const [criarProjeto, setCriarProjeto] = useState(false);
+  const [criarProjeto, setCriarProjeto] = useState(true);
   const [nomeProjeto, setNomeProjeto] = useState('');
   
   const isNewCliente = !id || id === 'novo';

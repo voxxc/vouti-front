@@ -29,7 +29,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   
   // Estados para criar projeto vinculado
-  const [criarProjeto, setCriarProjeto] = useState(false);
+  const [criarProjeto, setCriarProjeto] = useState(true);
   const [nomeProjeto, setNomeProjeto] = useState('');
   
   const { fetchClienteById, fetchClientes, loading } = useClientes();
@@ -55,7 +55,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
       setSelectedClienteId(null);
       setIsEditing(false);
       setCliente(null);
-      setCriarProjeto(false);
+      setCriarProjeto(true);
       setNomeProjeto('');
     }
   }, [open]);
@@ -81,7 +81,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
   const handleNewCliente = () => {
     setView('novo');
     setIsEditing(false);
-    setCriarProjeto(false);
+    setCriarProjeto(true);
     setNomeProjeto('');
   };
 
@@ -90,7 +90,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
     setSelectedClienteId(null);
     setIsEditing(false);
     setCliente(null);
-    setCriarProjeto(false);
+    setCriarProjeto(true);
     setNomeProjeto('');
   };
 
@@ -109,6 +109,8 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
             .from('projects')
             .update({ cliente_id: clienteId })
             .eq('id', result.id);
+          // Emitir evento para atualizar busca rápida
+          window.dispatchEvent(new Event('project-created'));
         }
       } catch (error) {
         console.error('Erro ao criar projeto:', error);
@@ -125,6 +127,8 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
     
     if (view === 'novo') {
       handleBack();
+      // Polling de 2s para atualizar métricas após projeto ser criado em background
+      setTimeout(() => loadClientes(), 2000);
     } else if (view === 'detalhes' && selectedClienteId) {
       // Recarregar dados do cliente após edição
       setIsEditing(false);
