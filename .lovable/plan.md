@@ -1,35 +1,52 @@
 
-## Abrir Drawer da Agenda ao clicar em Prazos no Dashboard
+
+## Abrir ProjectDrawer ao selecionar projeto no ProjectsDrawer
 
 ### Problema
 
-Quando o usuario clica em um prazo na secao "Minhas Tarefas e Prazos" do Dashboard, o sistema navega para a pagina `/agenda`. O comportamento desejado e abrir o **Drawer lateral da Agenda** (que ja existe no sistema), mantendo o usuario no Dashboard.
+Ao clicar em um projeto na lista do `ProjectsDrawer` (drawer lateral de projetos), o sistema navega para a pagina `/project/{id}`. O comportamento desejado e abrir o `ProjectDrawer` (drawer de detalhes do projeto) lateralmente, igual ao que ja acontece na busca rapida.
 
 ### Solucao
 
-Adicionar uma prop `onOpenAgendaDrawer` ao componente `PrazosAbertosPanel` para que, ao clicar em um prazo individual, o Drawer da Agenda seja aberto em vez de navegar para a pagina. O botao "Ver todos na Agenda" no rodape continuara navegando para a pagina completa.
+A infraestrutura ja existe no `DashboardLayout`: o `handleQuickProjectSelect` ja faz exatamente isso (seta o `selectedProjectId` e abre o `projectDrawerOpen`). Basta passar um callback para o `ProjectsDrawer` para que ele use essa mesma logica em vez de navegar.
 
-### Mudancas tecnicas
+### Mudancas
 
-**1. `src/components/Dashboard/PrazosAbertosPanel.tsx`**
+**1. `src/components/Projects/ProjectsDrawer.tsx`**
 
-- Adicionar prop opcional `onOpenAgendaDrawer?: () => void` na interface
-- No `onClick` de cada item de prazo (linha 352), chamar `onOpenAgendaDrawer` em vez de `handleNavigateToAgenda`
-- Manter o botao "Ver todos na Agenda" (linha 392) navegando para a pagina normalmente
+- Adicionar prop `onSelectProject?: (projectId: string) => void`
+- No `handleSelectProject`, se `onSelectProject` existir, chamar ele em vez de `navigate`
+- NAO fechar o drawer de projetos ao selecionar (o ProjectDrawer abrira por cima)
 
-**2. `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx`**
+**2. `src/components/Dashboard/DashboardLayout.tsx`**
 
-- Adicionar estado local `agendaDrawerOpen` e o componente `AgendaDrawer`
-- Passar `onOpenAgendaDrawer` para o `PrazosAbertosPanel`
+- Passar `onSelectProject={handleQuickProjectSelect}` para o `ProjectsDrawer`
 
-**3. `src/components/Dashboard/Metrics/AdminMetrics.tsx`**
+Isso reutiliza toda a logica existente do `ProjectDrawer` que ja funciona perfeitamente com a busca rapida.
 
-- Mesmo ajuste: estado local para o drawer e passar a callback ao `PrazosAbertosPanel`
+### Detalhes tecnicos
 
-### Arquivos
+No `ProjectsDrawer.tsx`, a funcao `handleSelectProject` muda de:
+```text
+const handleSelectProject = (project) => {
+  navigate(`/project/${project.id}`);
+  onOpenChange(false);
+};
+```
+Para:
+```text
+const handleSelectProject = (project) => {
+  if (onSelectProject) {
+    onSelectProject(project.id);
+  } else {
+    navigate(`/project/${project.id}`);
+    onOpenChange(false);
+  }
+};
+```
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/Dashboard/PrazosAbertosPanel.tsx` | Adicionar prop `onOpenAgendaDrawer` e usar no click dos prazos |
-| `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` | Adicionar estado e renderizar `AgendaDrawer`, passar callback |
-| `src/components/Dashboard/Metrics/AdminMetrics.tsx` | Adicionar estado e renderizar `AgendaDrawer`, passar callback |
+| `src/components/Projects/ProjectsDrawer.tsx` | Adicionar prop `onSelectProject` e usar no click |
+| `src/components/Dashboard/DashboardLayout.tsx` | Passar `onSelectProject={handleQuickProjectSelect}` ao ProjectsDrawer |
+
