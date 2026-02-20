@@ -1,30 +1,42 @@
 
-## Tornar campo "Cliente" opcional no formulário do ProjectsDrawer
+## Corrigir criacao de projeto ao cadastrar cliente pelo Drawer
 
 ### Problema
 
-Apesar de termos tornado a coluna `client` opcional no banco e no hook `createProject`, o formulário de criação dentro do `ProjectsDrawer` ainda exige o preenchimento do campo "Cliente" em duas validações:
+No `CRMDrawer.tsx`, a condicao para criar o projeto exige que `nomeProjeto` seja preenchido:
 
-- Linha 59: `if (!formData.name.trim() || !formData.client.trim()) return;`
-- Linha 128: `disabled={isCreating || !formData.name.trim() || !formData.client.trim()}`
-- Linha 112: placeholder mostra `"Cliente *"` (indicando obrigatório)
+```text
+if (view === 'novo' && criarProjeto && clienteId && nomeProjeto) {
+```
 
-### Mudanças
+Porem, o placeholder do campo diz "deixe em branco para usar o nome do cliente". Quando o usuario deixa em branco, `nomeProjeto` e uma string vazia (falsy), e a condicao nunca e verdadeira -- o projeto nunca e criado.
 
-**`src/components/Projects/ProjectsDrawer.tsx`**
+### Solucao
 
-1. **Linha 59** - Remover validação do client:
-   - De: `if (!formData.name.trim() || !formData.client.trim()) return;`
-   - Para: `if (!formData.name.trim()) return;`
+**`src/components/CRM/CRMDrawer.tsx`** - Linha 99
 
-2. **Linha 112** - Atualizar placeholder:
-   - De: `placeholder="Cliente *"`
-   - Para: `placeholder="Cliente (opcional)"`
+Remover `nomeProjeto` da condicao e usar fallback para o nome do cliente:
 
-3. **Linha 128** - Remover client da condição de disabled:
-   - De: `disabled={isCreating || !formData.name.trim() || !formData.client.trim()}`
-   - Para: `disabled={isCreating || !formData.name.trim()}`
+De:
+```text
+if (view === 'novo' && criarProjeto && clienteId && nomeProjeto) {
+```
 
-| Arquivo | Mudança |
+Para:
+```text
+if (view === 'novo' && criarProjeto && clienteId) {
+```
+
+E na chamada de `createProject` (linha 101-102), usar fallback:
+```text
+const projectName = nomeProjeto || nomeCliente || 'Novo Projeto';
+const result = await createProject({
+  name: projectName,
+  client: nomeCliente || '',
+  description: `Projeto vinculado ao cliente ${nomeCliente || projectName}`,
+});
+```
+
+| Arquivo | Mudanca |
 |---|---|
-| `src/components/Projects/ProjectsDrawer.tsx` | Remover obrigatoriedade do campo "Cliente" na validação, botão e placeholder |
+| `src/components/CRM/CRMDrawer.tsx` | Remover `nomeProjeto` da condicao e usar fallback com nome do cliente |
