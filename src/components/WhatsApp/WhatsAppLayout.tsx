@@ -27,6 +27,7 @@ import { WhatsAppCannedResponses } from "./settings/WhatsAppCannedResponses";
 import { WhatsAppAppsSettings } from "./settings/WhatsAppAppsSettings";
 import { WhatsAppIntegrationsSettings } from "./settings/WhatsAppIntegrationsSettings";
 import { WhatsAppPermissionsSettings } from "./settings/WhatsAppPermissionsSettings";
+import { WhatsAppCommanderSettings } from "./settings/WhatsAppCommanderSettings";
 import { WhatsAppSection } from "./WhatsAppDrawer";
 import { CRMTopbar } from "./components/CRMTopbar";
 
@@ -103,6 +104,8 @@ export const WhatsAppLayout = () => {
         return <WhatsAppIntegrationsSettings />;
       case "permissions":
         return <WhatsAppPermissionsSettings />;
+      case "commander":
+        return <WhatsAppCommanderSettings />;
       case "projects":
         return null;
       default:

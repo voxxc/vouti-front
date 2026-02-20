@@ -7410,6 +7410,54 @@ export type Database = {
           },
         ]
       }
+      whatsapp_commanders: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          phone_number: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone_number: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone_number?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_commanders_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_commanders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_contact_labels: {
         Row: {
           contact_id: string

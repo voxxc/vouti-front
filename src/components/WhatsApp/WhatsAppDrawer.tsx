@@ -59,6 +59,7 @@ export type WhatsAppSection =
   | "apps"
   | "integrations"
   | "permissions"
+  | "commander"
   | "projects";
 
 interface WhatsAppDrawerProps {
