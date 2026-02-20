@@ -1,27 +1,51 @@
 
-## Polling automatico + checkbox de criar projeto marcado por padrao
 
-### Mudancas
+## Habilitar reordenacao de processos e colunas com o cadeado
 
-**1. `src/components/CRM/CRMDrawer.tsx`**
+### Contexto
 
-- Alterar estado inicial de `criarProjeto` de `false` para `true` (linha 32)
-- Alterar os resets em `handleNewCliente` e `handleBack` e no `useEffect` de fechamento: trocar `setCriarProjeto(false)` para `setCriarProjeto(true)` para manter o padrao marcado
-- No `handleFormSuccess`, apos criar projeto com sucesso, disparar `window.dispatchEvent(new Event('project-created'))`
-- Apos voltar para lista (handleBack), agendar `setTimeout(() => loadClientes(), 2000)` para atualizar metricas
+O botao de cadeado (Lock/Unlock) ja existe no header do projeto e ja controla:
+- Aba "Casos" (processos/project_processos): drag-and-drop de itens funciona via `isLocked`
+- Aba "Colunas": drag-and-drop de colunas e cards funciona via `isColumnsLocked`
 
-**2. `src/pages/ClienteCadastro.tsx`**
+Porem, a aba "Processos" (protocolos/project_protocolos) nao tem suporte a drag-and-drop -- e uma lista estatica sem reordenacao. O usuario quer poder mover a posicao dos processos nessa aba tambem quando o cadeado estiver destravado.
 
-- Alterar estado inicial de `criarProjeto` de `false` para `true` (linha 32)
+### Mudancas necessarias
 
-**3. `src/components/Search/ProjectQuickSearch.tsx`**
+**1. Migration: adicionar coluna `ordem` na tabela `project_protocolos`**
 
-- Adicionar `useEffect` que escuta o evento `project-created` e recarrega a lista de projetos apos 2 segundos
+```sql
+ALTER TABLE project_protocolos ADD COLUMN ordem integer DEFAULT 0;
+```
+
+Inicializar valores existentes com base na data de criacao para manter a ordem atual.
+
+**2. `src/hooks/useProjectProtocolos.ts`**
+
+- Adicionar campo `ordem` na interface `ProjectProtocolo`
+- No `fetchProtocolos`, ordenar por `ordem` ao inves de `created_at desc`
+- Mapear o campo `ordem` do banco para o tipo
+- Expor uma funcao `reorderProtocolos(orderedIds: string[])` que faz UPDATE em batch da coluna `ordem`
+
+**3. `src/components/Project/ProjectProtocolosList.tsx`**
+
+- Adicionar prop `isLocked`
+- Importar `DragDropContext`, `Droppable`, `Draggable` do `@hello-pangea/dnd`
+- Envolver a lista em `DragDropContext` + `Droppable`
+- Cada item da lista vira um `Draggable` com `isDragDisabled={isLocked}`
+- Adicionar icone `GripVertical` visivel quando desbloqueado
+- No `onDragEnd`, chamar `reorderProtocolos` para persistir a nova ordem
+
+**4. `src/pages/ProjectView.tsx`**
+
+- Passar `isLocked={isColumnsLocked}` para `ProjectProtocolosList` (linha 1194)
 
 ### Resumo por arquivo
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/CRM/CRMDrawer.tsx` | Checkbox marcado por padrao + polling 2s para clientes + emitir evento `project-created` |
-| `src/pages/ClienteCadastro.tsx` | Checkbox marcado por padrao |
-| `src/components/Search/ProjectQuickSearch.tsx` | Escutar evento `project-created` e recarregar projetos apos 2s |
+| Migration SQL | Adicionar coluna `ordem` em `project_protocolos` |
+| `src/hooks/useProjectProtocolos.ts` | Campo `ordem` + funcao `reorderProtocolos` + ordenar por `ordem` |
+| `src/components/Project/ProjectProtocolosList.tsx` | Drag-and-drop com `@hello-pangea/dnd` controlado por `isLocked` |
+| `src/pages/ProjectView.tsx` | Passar `isLocked` para `ProjectProtocolosList` |
+
