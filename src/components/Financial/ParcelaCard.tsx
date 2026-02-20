@@ -77,15 +77,15 @@ export const ParcelaCard = ({
         </Badge>
       )}
       
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Coluna: Número + Status */}
-        <div className="flex items-center gap-2 min-w-[100px]">
+        <div className="flex items-center gap-2 min-w-[80px]">
           <span className="text-sm font-medium">#{parcela.numero_parcela}</span>
           {getStatusBadge(parcela.status)}
         </div>
 
         {/* Coluna: Valor */}
-        <div className="flex-1 min-w-[100px]">
+        <div>
           <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">Valor</p>
           <p className="text-sm font-semibold leading-tight">{formatCurrency(Number(parcela.valor_parcela))}</p>
           {/* Juros/Multa inline para atrasados */}
@@ -103,7 +103,7 @@ export const ParcelaCard = ({
         </div>
 
         {/* Coluna: Vencimento */}
-        <div className="flex-1 min-w-[90px]">
+          <div>
           <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">Vencimento</p>
           <p className="text-sm font-medium leading-tight">
             {format(new Date(parcela.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
@@ -112,7 +112,7 @@ export const ParcelaCard = ({
 
         {/* Coluna: Pago em (se aplicável) */}
         {parcela.data_pagamento && (
-          <div className="flex-1 min-w-[90px]">
+            <div>
             <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">Pago em</p>
             <p className="text-sm font-medium text-primary leading-tight">
               {format(new Date(parcela.data_pagamento), 'dd/MM/yyyy', { locale: ptBR })}
@@ -122,7 +122,7 @@ export const ParcelaCard = ({
 
         {/* Coluna: Saldo parcial (se aplicável) */}
         {parcela.status === 'parcial' && (
-          <div className="flex-1 min-w-[90px]">
+          <div>
             <p className="text-[10px] uppercase text-amber-600 leading-none mb-0.5">Saldo Aberto</p>
             <p className="text-sm font-medium text-amber-600 leading-tight">
               {formatCurrency(Number(parcela.saldo_restante ?? 0))}
