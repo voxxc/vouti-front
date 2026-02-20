@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +35,17 @@ export function ProjectsDrawer({ open, onOpenChange, onSelectProject }: Projects
   const {
     projects,
     isBasicLoaded,
-    createProject
+    createProject,
+    refetch
   } = useProjectsOptimized();
+
+  useEffect(() => {
+    const handler = () => {
+      setTimeout(() => refetch(), 2000);
+    };
+    window.addEventListener('project-created', handler);
+    return () => window.removeEventListener('project-created', handler);
+  }, [refetch]);
 
   const filteredProjects = useMemo(() => {
     if (!searchTerm.trim()) return projects;
