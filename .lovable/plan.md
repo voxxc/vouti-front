@@ -1,55 +1,30 @@
 
+## Tornar campo "Cliente" opcional no formulário do ProjectsDrawer
 
-## Corrigir criacao de projeto ao cadastrar cliente + tornar nome do cliente opcional
+### Problema
 
-### Problemas identificados
+Apesar de termos tornado a coluna `client` opcional no banco e no hook `createProject`, o formulário de criação dentro do `ProjectsDrawer` ainda exige o preenchimento do campo "Cliente" em duas validações:
 
-1. **Projeto nao e criado pelo Drawer**: O `CRMDrawer` passa os estados `criarProjeto` e `nomeProjeto` para o `ClienteForm`, mas seu `handleFormSuccess` nao tem nenhuma logica para criar o projeto. Essa logica so existe no `ClienteCadastro.tsx` (pagina standalone).
+- Linha 59: `if (!formData.name.trim() || !formData.client.trim()) return;`
+- Linha 128: `disabled={isCreating || !formData.name.trim() || !formData.client.trim()}`
+- Linha 112: placeholder mostra `"Cliente *"` (indicando obrigatório)
 
-2. **Campo `client` obrigatorio na tabela `projects`**: A coluna `client` na tabela `projects` e `NOT NULL`, impedindo criar projetos sem nome do cliente.
+### Mudanças
 
-### Solucao
+**`src/components/Projects/ProjectsDrawer.tsx`**
 
-**1. Migracao SQL** - Tornar coluna `client` opcional
+1. **Linha 59** - Remover validação do client:
+   - De: `if (!formData.name.trim() || !formData.client.trim()) return;`
+   - Para: `if (!formData.name.trim()) return;`
 
-Alterar a coluna `client` da tabela `projects` para permitir valores nulos, com default vazio:
+2. **Linha 112** - Atualizar placeholder:
+   - De: `placeholder="Cliente *"`
+   - Para: `placeholder="Cliente (opcional)"`
 
-```text
-ALTER TABLE projects ALTER COLUMN client DROP NOT NULL;
-ALTER TABLE projects ALTER COLUMN client SET DEFAULT '';
-```
+3. **Linha 128** - Remover client da condição de disabled:
+   - De: `disabled={isCreating || !formData.name.trim() || !formData.client.trim()}`
+   - Para: `disabled={isCreating || !formData.name.trim()}`
 
-**2. `src/components/CRM/CRMDrawer.tsx`** - Adicionar logica de criacao de projeto
-
-No `handleFormSuccess` do drawer (view "novo"), replicar a mesma logica do `ClienteCadastro`:
-- Importar `useProjectsOptimized` e `supabase`
-- Se `criarProjeto` estiver marcado, chamar `createProject` com o `nomeProjeto`
-- Atualizar o projeto com o `cliente_id` retornado pelo form
-- O campo `client` (nome do cliente) sera passado apenas se disponivel, nao sendo obrigatorio
-
-**3. `src/hooks/useProjectsOptimized.ts`** - Aceitar `client` opcional
-
-Alterar a tipagem do parametro de `createProject` para aceitar `client` como opcional:
-
-```text
-// De:
-data: { name: string; client: string; description: string }
-// Para:
-data: { name: string; client?: string; description: string }
-```
-
-E usar `data.client || ''` no insert.
-
-**4. `src/pages/ClienteCadastro.tsx`** - Corrigir await do update
-
-O `supabase.from('projects').update(...)` dentro do `.then()` nao tem `await`, entao erros sao silenciados. Adicionar tratamento adequado.
-
-### Arquivos modificados
-
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| Migracao SQL | Tornar `client` nullable com default vazio |
-| `src/hooks/useProjectsOptimized.ts` | `client` opcional no `createProject` |
-| `src/components/CRM/CRMDrawer.tsx` | Adicionar logica de criacao de projeto no `handleFormSuccess` |
-| `src/pages/ClienteCadastro.tsx` | Corrigir await no update do `cliente_id` |
-
+| `src/components/Projects/ProjectsDrawer.tsx` | Remover obrigatoriedade do campo "Cliente" na validação, botão e placeholder |
