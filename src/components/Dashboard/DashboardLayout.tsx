@@ -332,7 +332,8 @@ const DashboardLayout = ({
       {/* Drawers de seções - agora gerenciados aqui no layout */}
       <ProjectsDrawer 
         open={activeDrawer === 'projetos'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)}
+        onSelectProject={handleQuickProjectSelect}
       />
       <ControladoriaDrawer 
         open={activeDrawer === 'controladoria'} 

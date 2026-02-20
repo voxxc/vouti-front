@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 interface ProjectsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSelectProject?: (projectId: string) => void;
 }
 
 interface CreateProjectFormData {
@@ -20,7 +21,7 @@ interface CreateProjectFormData {
   description: string;
 }
 
-export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
+export function ProjectsDrawer({ open, onOpenChange, onSelectProject }: ProjectsDrawerProps) {
   const { navigate } = useTenantNavigation();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -46,8 +47,12 @@ export function ProjectsDrawer({ open, onOpenChange }: ProjectsDrawerProps) {
   }, [projects, searchTerm]);
 
   const handleSelectProject = (project: ProjectBasic) => {
-    navigate(`/project/${project.id}`);
-    onOpenChange(false);
+    if (onSelectProject) {
+      onSelectProject(project.id);
+    } else {
+      navigate(`/project/${project.id}`);
+      onOpenChange(false);
+    }
   };
 
   const handleCreateProject = async () => {
