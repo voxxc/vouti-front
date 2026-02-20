@@ -8,6 +8,9 @@ import { CRMContent } from "./CRMContent";
 import { ClienteDetails } from "./ClienteDetails";
 import { ClienteForm } from "./ClienteForm";
 import { useClientes } from "@/hooks/useClientes";
+import { useProjectsOptimized } from "@/hooks/useProjectsOptimized";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Cliente } from "@/types/cliente";
 
 interface CRMDrawerProps {
@@ -30,6 +33,8 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
   const [nomeProjeto, setNomeProjeto] = useState('');
   
   const { fetchClienteById, fetchClientes, loading } = useClientes();
+  const { createProject } = useProjectsOptimized();
+  const { toast } = useToast();
 
   // Carregar clientes ao abrir drawer
   useEffect(() => {
@@ -89,7 +94,31 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
     setNomeProjeto('');
   };
 
-  const handleFormSuccess = async () => {
+  const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {
+    // Criar projeto vinculado se opção marcada (view "novo")
+    if (view === 'novo' && criarProjeto && clienteId && nomeProjeto) {
+      try {
+        const result = await createProject({
+          name: nomeProjeto,
+          client: nomeCliente || '',
+          description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
+        });
+        if (result) {
+          await supabase
+            .from('projects')
+            .update({ cliente_id: clienteId })
+            .eq('id', result.id);
+        }
+      } catch (error) {
+        console.error('Erro ao criar projeto:', error);
+        toast({
+          title: 'Erro ao criar projeto',
+          description: 'O cliente foi salvo, mas houve erro ao criar o projeto.',
+          variant: 'destructive',
+        });
+      }
+    }
+
     // Atualizar lista de clientes
     await loadClientes();
     

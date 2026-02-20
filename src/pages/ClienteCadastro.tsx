@@ -59,11 +59,11 @@ const ClienteCadastro = () => {
     if (criarProjeto && clienteId && (nomeProjeto || nomeCliente)) {
       createProject({
         name: nomeProjeto || nomeCliente || 'Novo Projeto',
-        client: nomeCliente || nomeProjeto,
+        client: nomeCliente || nomeProjeto || '',
         description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
-      }).then(result => {
+      }).then(async (result) => {
         if (result) {
-          supabase
+          await supabase
             .from('projects')
             .update({ cliente_id: clienteId })
             .eq('id', result.id);

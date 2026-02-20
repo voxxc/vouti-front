@@ -286,7 +286,7 @@ export const useProjectsOptimized = () => {
   }, [fetchProjectDetails]);
 
   // Create project
-   const createProject = useCallback(async (data: { name: string; client: string; description: string }): Promise<any> => {
+   const createProject = useCallback(async (data: { name: string; client?: string; description: string }): Promise<any> => {
     if (!user) return null;
 
     try {
@@ -294,7 +294,7 @@ export const useProjectsOptimized = () => {
         .from('projects')
         .insert({
           name: data.name,
-          client: data.client,
+          client: data.client || '',
           description: data.description,
           created_by: user.id,
           tenant_id: tenantId
