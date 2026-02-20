@@ -1,52 +1,55 @@
 
 
-## Abrir ProjectDrawer ao selecionar projeto no ProjectsDrawer
+## Corrigir criacao de projeto ao cadastrar cliente + tornar nome do cliente opcional
 
-### Problema
+### Problemas identificados
 
-Ao clicar em um projeto na lista do `ProjectsDrawer` (drawer lateral de projetos), o sistema navega para a pagina `/project/{id}`. O comportamento desejado e abrir o `ProjectDrawer` (drawer de detalhes do projeto) lateralmente, igual ao que ja acontece na busca rapida.
+1. **Projeto nao e criado pelo Drawer**: O `CRMDrawer` passa os estados `criarProjeto` e `nomeProjeto` para o `ClienteForm`, mas seu `handleFormSuccess` nao tem nenhuma logica para criar o projeto. Essa logica so existe no `ClienteCadastro.tsx` (pagina standalone).
+
+2. **Campo `client` obrigatorio na tabela `projects`**: A coluna `client` na tabela `projects` e `NOT NULL`, impedindo criar projetos sem nome do cliente.
 
 ### Solucao
 
-A infraestrutura ja existe no `DashboardLayout`: o `handleQuickProjectSelect` ja faz exatamente isso (seta o `selectedProjectId` e abre o `projectDrawerOpen`). Basta passar um callback para o `ProjectsDrawer` para que ele use essa mesma logica em vez de navegar.
+**1. Migracao SQL** - Tornar coluna `client` opcional
 
-### Mudancas
+Alterar a coluna `client` da tabela `projects` para permitir valores nulos, com default vazio:
 
-**1. `src/components/Projects/ProjectsDrawer.tsx`**
-
-- Adicionar prop `onSelectProject?: (projectId: string) => void`
-- No `handleSelectProject`, se `onSelectProject` existir, chamar ele em vez de `navigate`
-- NAO fechar o drawer de projetos ao selecionar (o ProjectDrawer abrira por cima)
-
-**2. `src/components/Dashboard/DashboardLayout.tsx`**
-
-- Passar `onSelectProject={handleQuickProjectSelect}` para o `ProjectsDrawer`
-
-Isso reutiliza toda a logica existente do `ProjectDrawer` que ja funciona perfeitamente com a busca rapida.
-
-### Detalhes tecnicos
-
-No `ProjectsDrawer.tsx`, a funcao `handleSelectProject` muda de:
 ```text
-const handleSelectProject = (project) => {
-  navigate(`/project/${project.id}`);
-  onOpenChange(false);
-};
+ALTER TABLE projects ALTER COLUMN client DROP NOT NULL;
+ALTER TABLE projects ALTER COLUMN client SET DEFAULT '';
 ```
-Para:
+
+**2. `src/components/CRM/CRMDrawer.tsx`** - Adicionar logica de criacao de projeto
+
+No `handleFormSuccess` do drawer (view "novo"), replicar a mesma logica do `ClienteCadastro`:
+- Importar `useProjectsOptimized` e `supabase`
+- Se `criarProjeto` estiver marcado, chamar `createProject` com o `nomeProjeto`
+- Atualizar o projeto com o `cliente_id` retornado pelo form
+- O campo `client` (nome do cliente) sera passado apenas se disponivel, nao sendo obrigatorio
+
+**3. `src/hooks/useProjectsOptimized.ts`** - Aceitar `client` opcional
+
+Alterar a tipagem do parametro de `createProject` para aceitar `client` como opcional:
+
 ```text
-const handleSelectProject = (project) => {
-  if (onSelectProject) {
-    onSelectProject(project.id);
-  } else {
-    navigate(`/project/${project.id}`);
-    onOpenChange(false);
-  }
-};
+// De:
+data: { name: string; client: string; description: string }
+// Para:
+data: { name: string; client?: string; description: string }
 ```
+
+E usar `data.client || ''` no insert.
+
+**4. `src/pages/ClienteCadastro.tsx`** - Corrigir await do update
+
+O `supabase.from('projects').update(...)` dentro do `.then()` nao tem `await`, entao erros sao silenciados. Adicionar tratamento adequado.
+
+### Arquivos modificados
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/Projects/ProjectsDrawer.tsx` | Adicionar prop `onSelectProject` e usar no click |
-| `src/components/Dashboard/DashboardLayout.tsx` | Passar `onSelectProject={handleQuickProjectSelect}` ao ProjectsDrawer |
+| Migracao SQL | Tornar `client` nullable com default vazio |
+| `src/hooks/useProjectsOptimized.ts` | `client` opcional no `createProject` |
+| `src/components/CRM/CRMDrawer.tsx` | Adicionar logica de criacao de projeto no `handleFormSuccess` |
+| `src/pages/ClienteCadastro.tsx` | Corrigir await no update do `cliente_id` |
 
