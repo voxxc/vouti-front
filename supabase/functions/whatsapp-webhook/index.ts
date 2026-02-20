@@ -252,7 +252,7 @@ async function handleIncomingMessage(data: any) {
           direction: 'received',
           raw_data: data,
           user_id: instance.user_id,
-          agent_id: effectiveAgentId,
+          agent_id: instance.agent_id || null,
           tenant_id: effectiveTenantId,
           timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
           is_read: false,
@@ -272,7 +272,7 @@ async function handleIncomingMessage(data: any) {
             audio_url: audioUrl,
             tenant_id: effectiveTenantId,
             user_id: instance.user_id,
-            agent_id: effectiveAgentId,
+            agent_id: instance.agent_id || null,
             instance_name: instanceId,
             instance_credentials: {
               zapi_instance_id: instance.zapi_instance_id,
