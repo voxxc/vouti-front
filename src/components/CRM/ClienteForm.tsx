@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Upload, X, Plus, ChevronDown, FolderPlus, Car } from 'lucide-react';
+import { Upload, X, Plus, ChevronDown, FolderPlus, Car, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { GruposParcelasManager } from './GruposParcelasManager';
@@ -633,6 +633,12 @@ export const ClienteForm = ({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-4">
+        {isEditing && (
+          <div className="flex items-start gap-2 p-3 rounded-md border border-amber-500/50 bg-amber-500/10 text-sm text-amber-700 dark:text-amber-400 md:col-span-2 mb-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>Alterar os dados de pagamento irá regenerar todas as parcelas. Parcelas já pagas perderão o histórico.</span>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="data_fechamento">Data de Fechamento *</Label>
