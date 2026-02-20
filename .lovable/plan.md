@@ -1,40 +1,38 @@
 
 
-## Correcao: Drawer recarregando ao voltar de outra aba
+## Abrir Drawer do Caso ao inves de navegar para a pagina
 
-### Causa
+### O que muda
 
-O TanStack React Query tem o comportamento padrao `refetchOnWindowFocus: true`. Quando voce sai da aba e volta, ele refaz todas as queries ativas, o que causa estados de "loading" nos drawers abertos -- dando a impressao de que a pagina inteira recarregou.
+Quando voce clica em "Ver Processo Completo" dentro dos detalhes de um prazo na Agenda, o sistema vai abrir o drawer lateral do caso (ProcessoOABDetalhes) diretamente, sem sair da pagina. Isso e mais rapido e mantem o contexto.
 
-### Correcao
+### Como funciona hoje
 
-**Arquivo: `src/App.tsx`**
+O botao faz `navigate('/controladoria?processo=ID')`, o que troca a pagina inteira, carrega tudo do zero, e voce perde o contexto do prazo.
 
-Adicionar `refetchOnWindowFocus: false` nas opcoes default do QueryClient:
+### Como vai funcionar
 
-```typescript
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-      refetchOnWindowFocus: false,  // <-- adicionar esta linha
-    },
-  },
-});
-```
+O botao vai abrir o drawer `ProcessoOABDetalhes` por cima do dialog de detalhes do prazo, mantendo tudo no lugar.
 
-Com isso, os dados so serao refetchados quando explicitamente invalidados (via `queryClient.invalidateQueries`) ou quando o `staleTime` expirar e o componente remontar. Os drawers permanecerao com seus dados intactos ao trocar de aba.
+---
 
-### Impacto
+### Detalhes tecnicos
 
-- Nenhum efeito colateral negativo -- o sistema ja usa `invalidateQueries` em todas as mutacoes (criar, editar, deletar) para atualizar os dados
-- Real-time subscriptions do Supabase continuam funcionando normalmente
-- A unica diferenca e que trocar de aba nao vai mais causar refetch automatico
+**Arquivo: `src/components/Agenda/AgendaContent.tsx`**
 
-### Resumo
+1. Importar `ProcessoOABDetalhes` e hooks necessarios (`useProcessosOAB` ou query direta)
+2. Adicionar estados locais:
+   - `processoDrawerOpen` (boolean)
+   - `selectedProcessoOAB` (ProcessoOAB | null)
+3. Ao clicar no botao "Ver Processo Completo":
+   - Buscar os dados completos do processo pelo ID (`selectedDeadline.processoOrigem.id`) via query ao Supabase
+   - Setar `selectedProcessoOAB` com o resultado
+   - Abrir o drawer com `setProcessoDrawerOpen(true)`
+4. Renderizar `ProcessoOABDetalhes` no final do componente com as props minimas:
+   - `processo={selectedProcessoOAB}`
+   - `open={processoDrawerOpen}`
+   - `onOpenChange={setProcessoDrawerOpen}`
+   - `onToggleMonitoramento` com funcao basica de toggle
+5. Remover o `navigate(...)` e o fechamento do dialog de detalhes
 
-| Arquivo | Acao |
-|---|---|
-| `src/App.tsx` | Adicionar `refetchOnWindowFocus: false` na configuracao do QueryClient (1 linha) |
-
+Nenhuma outra pagina ou componente precisa ser alterado.
