@@ -1,28 +1,36 @@
 
-## Atualizar drawer de projetos apos criacao via CRM
 
-### Problema
+## Adicionar campo "Observacao" em cada veiculo
 
-O evento `project-created` ja e emitido pelo `CRMDrawer` e o `ProjectQuickSearch` ja escuta esse evento para recarregar. Porem o `ProjectsDrawer` nao escuta esse evento, entao a lista de projetos no drawer nao atualiza automaticamente.
+### Resumo
 
-### Solucao
+Cada veiculo cadastrado passara a ter um campo de texto livre "Observacao". Esse campo sera salvo no JSONB `dados_veiculares` e exibido na tela de detalhes do cliente.
 
-**`src/components/Projects/ProjectsDrawer.tsx`**
+### Mudancas
 
-Adicionar um `useEffect` que escuta o evento `project-created` e chama `refetch` (exposto pelo `useProjectsOptimized`) apos 2 segundos de delay:
+**1. `src/types/cliente.ts` - Interface `Veiculo`**
 
-```text
-const { projects, isBasicLoaded, createProject, refetch } = useProjectsOptimized();
+Adicionar campo opcional `observacao?: string` na interface.
 
-useEffect(() => {
-  const handler = () => {
-    setTimeout(() => refetch(), 2000);
-  };
-  window.addEventListener('project-created', handler);
-  return () => window.removeEventListener('project-created', handler);
-}, [refetch]);
-```
+**2. `src/components/CRM/ClienteForm.tsx` - Formulario de veiculo**
+
+- Adicionar um campo `Textarea` ou `Input` de observacao abaixo dos campos existentes (apos Placa), ocupando largura total (`col-span-2`)
+- Atualizar o objeto inicial de novo veiculo para incluir `observacao: ''`
+- Linha ~387: adicionar `observacao: ''` no onClick de "Adicionar veiculo"
+
+**3. `src/components/CRM/ClienteDetails.tsx` - Exibicao dos dados**
+
+- Na secao "Dados Veiculares", apos a InfoRow de "Placa", adicionar:
+  ```
+  <InfoRow label="Observacao" value={v.observacao} />
+  ```
+
+### Resumo por arquivo
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/Projects/ProjectsDrawer.tsx` | Adicionar listener do evento `project-created` que chama `refetch` com delay de 2s |
+| `src/types/cliente.ts` | Adicionar `observacao?: string` na interface `Veiculo` |
+| `src/components/CRM/ClienteForm.tsx` | Campo textarea de observacao no formulario de cada veiculo + inicializacao |
+| `src/components/CRM/ClienteDetails.tsx` | Exibir observacao na visualizacao de dados veiculares |
+
+Nenhuma migration de banco e necessaria pois o campo e armazenado dentro do JSONB existente `dados_veiculares`.
