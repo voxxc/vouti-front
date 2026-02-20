@@ -96,12 +96,13 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
 
   const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {
     // Criar projeto vinculado se opção marcada (view "novo")
-    if (view === 'novo' && criarProjeto && clienteId && nomeProjeto) {
+    if (view === 'novo' && criarProjeto && clienteId) {
       try {
+        const projectName = nomeProjeto || nomeCliente || 'Novo Projeto';
         const result = await createProject({
-          name: nomeProjeto,
+          name: projectName,
           client: nomeCliente || '',
-          description: `Projeto vinculado ao cliente ${nomeCliente || nomeProjeto}`,
+          description: `Projeto vinculado ao cliente ${nomeCliente || projectName}`,
         });
         if (result) {
           await supabase
