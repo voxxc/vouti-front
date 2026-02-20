@@ -59,6 +59,7 @@ import VeridictoLanding from "@/pages/VeridictoLanding";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SuperAdminWhatsApp from "@/pages/SuperAdminWhatsApp";
 import NotFound from "@/pages/NotFound";
+import Install from "@/pages/Install";
 import Documentos from "@/pages/Documentos";
 import DocumentoEditar from "@/pages/DocumentoEditar";
 import Logo from "@/components/Logo";
@@ -323,6 +324,9 @@ function App() {
           <Routes>
             {/* Homepage - Always dark mode, isolated from ThemeProvider */}
             <Route path="/" element={<HomePage />} />
+            
+            {/* PWA Install Page */}
+            <Route path="/install" element={<Install />} />
             
             {/* ============================================== */}
             {/* ROTAS DINÂMICAS POR TENANT (/:tenant/*)       */}
