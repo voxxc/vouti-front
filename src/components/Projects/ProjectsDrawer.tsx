@@ -56,7 +56,7 @@ export function ProjectsDrawer({ open, onOpenChange, onSelectProject }: Projects
   };
 
   const handleCreateProject = async () => {
-    if (!formData.name.trim() || !formData.client.trim()) return;
+    if (!formData.name.trim()) return;
     
     setIsCreating(true);
     try {
@@ -109,7 +109,7 @@ export function ProjectsDrawer({ open, onOpenChange, onSelectProject }: Projects
                   className="h-9"
                 />
                 <Input
-                  placeholder="Cliente *"
+                  placeholder="Cliente (opcional)"
                   value={formData.client}
                   onChange={e => setFormData(prev => ({ ...prev, client: e.target.value }))}
                   className="h-9"
@@ -125,7 +125,7 @@ export function ProjectsDrawer({ open, onOpenChange, onSelectProject }: Projects
                     size="sm"
                     className="flex-1"
                     onClick={handleCreateProject}
-                    disabled={isCreating || !formData.name.trim() || !formData.client.trim()}
+                    disabled={isCreating || !formData.name.trim()}
                   >
                     {isCreating ? "Criando..." : "Criar Projeto"}
                   </Button>
