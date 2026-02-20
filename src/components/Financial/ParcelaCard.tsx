@@ -131,7 +131,7 @@ export const ParcelaCard = ({
         )}
 
         {/* Ações centralizadas */}
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-1">
           <Button
             size="sm"
             variant="ghost"
