@@ -235,9 +235,31 @@ async function handleIncomingMessage(data: any) {
 
     if (commander) {
       console.log(`🤖 Commander detected: ${commander.name} (${phone})`);
-      const messageText = text?.message || detectMediaInfo(data).caption || '';
-      if (messageText) {
-        // Invocar edge function whatsapp-commander
+      
+      const mediaInfo = detectMediaInfo(data);
+      const messageText = text?.message || mediaInfo.caption || '';
+      const audioUrl = mediaInfo.messageType === 'audio' ? mediaInfo.mediaUrl : null;
+
+      // 1. SALVAR mensagem no banco (para aparecer no histórico da conversa)
+      await supabase
+        .from('whatsapp_messages')
+        .insert({
+          instance_name: instanceId,
+          message_id: messageId || `msg_${Date.now()}`,
+          from_number: phone,
+          message_text: messageText,
+          message_type: mediaInfo.messageType,
+          direction: 'received',
+          raw_data: data,
+          user_id: instance.user_id,
+          agent_id: effectiveAgentId,
+          tenant_id: effectiveTenantId,
+          timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
+          is_read: false,
+        });
+
+      // 2. Invocar edge function whatsapp-commander (com audioUrl se for áudio)
+      if (messageText || audioUrl) {
         fetch(`${supabaseUrl}/functions/v1/whatsapp-commander`, {
           method: 'POST',
           headers: {
@@ -247,8 +269,11 @@ async function handleIncomingMessage(data: any) {
           body: JSON.stringify({
             phone,
             message: messageText,
+            audio_url: audioUrl,
             tenant_id: effectiveTenantId,
             user_id: instance.user_id,
+            agent_id: effectiveAgentId,
+            instance_name: instanceId,
             instance_credentials: {
               zapi_instance_id: instance.zapi_instance_id,
               zapi_instance_token: instance.zapi_instance_token,
@@ -257,7 +282,7 @@ async function handleIncomingMessage(data: any) {
           }),
         }).catch(err => console.error('Commander invoke error:', err));
       }
-      // NÃO processar como mensagem normal
+      // NÃO processar IA/automações, mas mensagem JÁ está salva
       return;
     }
   }

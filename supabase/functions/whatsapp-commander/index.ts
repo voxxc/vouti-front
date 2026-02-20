@@ -55,6 +55,50 @@ const tools = [
   },
 ];
 
+// Transcribe audio using Lovable AI Gateway (OpenAI Whisper compatible)
+async function transcribeAudio(audioUrl: string): Promise<string | null> {
+  try {
+    console.log("🎤 Downloading audio for transcription...");
+    const audioResp = await fetch(audioUrl);
+    if (!audioResp.ok) {
+      console.error("Failed to download audio:", audioResp.status);
+      return null;
+    }
+
+    const audioBlob = await audioResp.blob();
+    console.log(`🎤 Audio downloaded: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+
+    // Send to Lovable AI Gateway STT endpoint
+    const formData = new FormData();
+    const ext = audioBlob.type.includes("ogg") ? "ogg" : audioBlob.type.includes("mp4") ? "m4a" : "ogg";
+    formData.append("file", audioBlob, `audio.${ext}`);
+    formData.append("model", "whisper-1");
+    formData.append("language", "pt");
+
+    const sttResp = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!sttResp.ok) {
+      const errText = await sttResp.text();
+      console.error("STT error:", sttResp.status, errText);
+      return null;
+    }
+
+    const sttData = await sttResp.json();
+    const text = sttData.text?.trim();
+    console.log(`🎤 Transcription: "${text?.substring(0, 80)}..."`);
+    return text || null;
+  } catch (e) {
+    console.error("Transcription error:", e);
+    return null;
+  }
+}
+
 async function sendWhatsAppReply(
   phone: string,
   message: string,
@@ -89,6 +133,36 @@ async function sendWhatsAppReply(
     console.error("Commander reply Z-API error:", resp.status);
   }
   await resp.text(); // consume body
+}
+
+// Save bot response as outgoing message in whatsapp_messages
+async function saveOutgoingMessage(
+  phone: string,
+  message: string,
+  tenantId: string,
+  instanceName: string,
+  userId: string,
+  agentId: string | null
+) {
+  const { error } = await supabase
+    .from("whatsapp_messages")
+    .insert({
+      from_number: phone,
+      message_text: message,
+      direction: "outgoing",
+      tenant_id: tenantId,
+      instance_name: instanceName,
+      message_id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      message_type: "text",
+      user_id: userId,
+      agent_id: agentId,
+      timestamp: new Date().toISOString(),
+      is_read: true,
+    });
+
+  if (error) {
+    console.error("Error saving commander outgoing message:", error.message);
+  }
 }
 
 async function executeCriarPrazo(
@@ -186,16 +260,31 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, tenant_id, instance_credentials, user_id } = await req.json();
+    const { phone, message, audio_url, tenant_id, instance_credentials, user_id, agent_id, instance_name } = await req.json();
 
-    if (!phone || !message || !tenant_id) {
+    if (!phone || !tenant_id) {
       return new Response(JSON.stringify({ error: "Missing params" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`🤖 Commander processing: "${message.substring(0, 50)}..."`);
+    // Resolve input text: transcribe audio if needed
+    let inputText = message || "";
+    if (audio_url && !inputText) {
+      inputText = await transcribeAudio(audio_url) || "";
+    }
+
+    if (!inputText) {
+      const noTextMsg = "⚠️ Não consegui entender o áudio. Tente enviar uma mensagem de texto.";
+      await sendWhatsAppReply(phone, noTextMsg, instance_credentials);
+      await saveOutgoingMessage(phone, noTextMsg, tenant_id, instance_name || "", user_id || "", agent_id || null);
+      return new Response(JSON.stringify({ success: false, error: "No input text" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`🤖 Commander processing: "${inputText.substring(0, 80)}..."`);
 
     // Call Lovable AI with tool calling
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -221,7 +310,7 @@ Regras:
 
 Data atual: ${new Date().toISOString().split("T")[0]}`,
           },
-          { role: "user", content: message },
+          { role: "user", content: inputText },
         ],
         tools,
         tool_choice: "auto",
@@ -239,6 +328,7 @@ Data atual: ${new Date().toISOString().split("T")[0]}`,
         : "⚠️ Erro ao processar comando. Tente novamente.";
 
       await sendWhatsAppReply(phone, errorMsg, instance_credentials);
+      await saveOutgoingMessage(phone, errorMsg, tenant_id, instance_name || "", user_id || "", agent_id || null);
       return new Response(JSON.stringify({ success: false, error: errorMsg }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -248,7 +338,9 @@ Data atual: ${new Date().toISOString().split("T")[0]}`,
     const choice = aiData.choices?.[0];
 
     if (!choice) {
-      await sendWhatsAppReply(phone, "⚠️ Não consegui processar o comando.", instance_credentials);
+      const noChoiceMsg = "⚠️ Não consegui processar o comando.";
+      await sendWhatsAppReply(phone, noChoiceMsg, instance_credentials);
+      await saveOutgoingMessage(phone, noChoiceMsg, tenant_id, instance_name || "", user_id || "", agent_id || null);
       return new Response(JSON.stringify({ success: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -277,10 +369,12 @@ Data atual: ${new Date().toISOString().split("T")[0]}`,
         }
 
         await sendWhatsAppReply(phone, result, instance_credentials);
+        await saveOutgoingMessage(phone, result, tenant_id, instance_name || "", user_id || "", agent_id || null);
       }
     } else if (choice.message?.content) {
       // AI responded with text (e.g., asking for clarification)
       await sendWhatsAppReply(phone, choice.message.content, instance_credentials);
+      await saveOutgoingMessage(phone, choice.message.content, tenant_id, instance_name || "", user_id || "", agent_id || null);
     }
 
     return new Response(JSON.stringify({ success: true }), {
