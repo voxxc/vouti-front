@@ -377,6 +377,18 @@ export const ClienteForm = ({
                           maxLength={7}
                         />
                       </div>
+                      <div className="col-span-2 space-y-2">
+                        <Label className="text-xs">Observação</Label>
+                        <Input
+                          value={veiculo.observacao || ''}
+                          onChange={(e) => {
+                            const updated = [...veiculos];
+                            updated[idx] = { ...updated[idx], observacao: e.target.value };
+                            setVeiculos(updated);
+                          }}
+                          placeholder="Observação sobre o veículo"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -384,7 +396,7 @@ export const ClienteForm = ({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setVeiculos([...veiculos, { cnh: '', cnh_validade: '', renavam: '', placa: '' }])}
+                  onClick={() => setVeiculos([...veiculos, { cnh: '', cnh_validade: '', renavam: '', placa: '', observacao: '' }])}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Adicionar veículo

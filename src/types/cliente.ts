@@ -3,6 +3,7 @@ export interface Veiculo {
   cnh_validade?: string;
   renavam?: string;
   placa?: string;
+  observacao?: string;
 }
 
 export interface DadosVeiculares {

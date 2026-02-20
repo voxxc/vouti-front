@@ -149,6 +149,7 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
                     <InfoRow label="Validade CNH" value={formatDate(v.cnh_validade)} />
                     <InfoRow label="RENAVAM" value={v.renavam} />
                     <InfoRow label="Placa" value={v.placa} />
+                    <InfoRow label="Observação" value={v.observacao} />
                   </div>
                 </div>
               ))}
