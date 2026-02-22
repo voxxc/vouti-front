@@ -4,7 +4,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, UserCog, Loader2 } from 'lucide-react';
 
@@ -95,17 +94,39 @@ export default function RoleManagement() {
     }
   };
 
+  /**
+   * Uses the admin-set-user-roles edge function for server-side validated role management.
+   * This prevents privilege escalation by validating admin permissions server-side.
+   */
+  const setUserRolesViaEdgeFunction = async (userId: string, newRoles: string[]) => {
+    if (!tenantId) {
+      throw new Error('Tenant não identificado');
+    }
+    if (newRoles.length === 0) {
+      throw new Error('O usuário deve ter pelo menos uma role.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('admin-set-user-roles', {
+      body: {
+        target_user_id: userId,
+        tenant_id: tenantId,
+        roles: newRoles,
+      },
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const addRole = async (userId: string, role: string) => {
     setUpdating(userId);
     try {
-      if (!tenantId) {
-        throw new Error('Tenant nao identificado');
-      }
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role: role as any, tenant_id: tenantId });
+      const user = users.find((u) => u.id === userId);
+      const currentRoles = user?.roles || [];
+      const newRoles = [...currentRoles, role];
 
-      if (error) throw error;
+      await setUserRolesViaEdgeFunction(userId, newRoles);
 
       toast({
         title: 'Role adicionada',
@@ -125,7 +146,6 @@ export default function RoleManagement() {
   };
 
   const removeRole = async (userId: string, role: string) => {
-    // Não permitir remover a última role
     const user = users.find((u) => u.id === userId);
     if (user && user.roles.length === 1) {
       toast({
@@ -138,13 +158,10 @@ export default function RoleManagement() {
 
     setUpdating(userId);
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId)
-        .eq('role', role as any);
+      const currentRoles = user?.roles || [];
+      const newRoles = currentRoles.filter((r) => r !== role);
 
-      if (error) throw error;
+      await setUserRolesViaEdgeFunction(userId, newRoles);
 
       toast({
         title: 'Role removida',

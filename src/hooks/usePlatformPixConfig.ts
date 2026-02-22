@@ -64,11 +64,9 @@ export function usePlatformPixConfig() {
     try {
       setSaving(true);
       
-      // Buscar config existente (mesmo inativa)
       const existingConfig = await fetchAllConfigs();
 
       if (existingConfig) {
-        // Update
         const { error } = await supabase
           .from('platform_pix_config' as any)
           .update({
@@ -82,7 +80,6 @@ export function usePlatformPixConfig() {
 
         if (error) throw error;
       } else {
-        // Insert
         const { error } = await supabase
           .from('platform_pix_config' as any)
           .insert({
@@ -122,11 +119,14 @@ export function usePlatformPixConfig() {
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      // Use signed URL instead of public URL (bucket is now private)
+      const { data: urlData, error: signError } = await supabase.storage
         .from('platform-pix-qrcode')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 86400); // 24 hours
 
-      return urlData.publicUrl;
+      if (signError) throw signError;
+
+      return urlData.signedUrl;
     } catch (error: any) {
       toast({
         title: 'Erro ao fazer upload do QR Code',
@@ -137,10 +137,25 @@ export function usePlatformPixConfig() {
     }
   };
 
+  const getQRCodeUrl = async (storedPath: string): Promise<string | null> => {
+    try {
+      const fileName = storedPath.split('/').pop();
+      if (!fileName) return null;
+
+      const { data, error } = await supabase.storage
+        .from('platform-pix-qrcode')
+        .createSignedUrl(fileName, 3600); // 1 hour
+
+      if (error) throw error;
+      return data.signedUrl;
+    } catch {
+      return null;
+    }
+  };
+
   const deleteQRCode = async (url: string): Promise<boolean> => {
     try {
-      // Extrair nome do arquivo da URL
-      const fileName = url.split('/').pop();
+      const fileName = url.split('/').pop()?.split('?')[0]; // Remove query params from signed URLs
       if (!fileName) return false;
 
       const { error } = await supabase.storage
@@ -166,6 +181,7 @@ export function usePlatformPixConfig() {
     saveConfig,
     uploadQRCode,
     deleteQRCode,
+    getQRCodeUrl,
     refetch: fetchConfig,
     fetchAllConfigs
   };
