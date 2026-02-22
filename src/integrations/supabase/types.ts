@@ -8122,6 +8122,15 @@ export type Database = {
         Returns: string
       }
       get_dashboard_processos_count: { Args: never; Returns: number }
+      get_tenant_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          id: string
+          is_active: boolean
+          slug: string
+          system_type_id: string
+        }[]
+      }
       get_user_tenant_id: { Args: never; Returns: string }
       get_users_with_roles: {
         Args: never

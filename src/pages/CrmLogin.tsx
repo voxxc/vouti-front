@@ -33,14 +33,26 @@ const CrmLogin = () => {
         setTenantValid(false);
         return;
       }
-      const { data } = await supabase
-        .from('tenants')
-        .select('id, slug, system_type_id, system_types!inner(code)')
-        .ilike('slug', tenant)
-        .eq('system_types.code', 'crm')
+      // Use RPC to validate tenant exists (works without auth)
+      const { data: rpcData } = await supabase
+        .rpc('get_tenant_by_slug', { p_slug: tenant });
+
+      if (!rpcData || rpcData.length === 0) {
+        setTenantValid(false);
+        return;
+      }
+
+      // Verify it's a CRM system type by checking system_types table
+      // (system_types is a reference table with public read access)
+      const tenantData = rpcData[0];
+      const { data: systemType } = await supabase
+        .from('system_types')
+        .select('code')
+        .eq('id', tenantData.system_type_id)
+        .eq('code', 'crm')
         .maybeSingle();
 
-      if (!data) {
+      if (!systemType) {
         setTenantValid(false);
         return;
       }
