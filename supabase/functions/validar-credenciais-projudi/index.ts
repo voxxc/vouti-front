@@ -57,7 +57,7 @@ serve(async (req) => {
     try {
       const totp = new TOTP(totpSecret);
       const testCode = totp.generate();
-      console.log(`✅ TOTP secret válido. Código de teste gerado: ${testCode.substring(0, 3)}***`);
+      console.log('✅ TOTP secret válido.');
     } catch (error) {
       console.error('❌ Erro ao validar TOTP secret:', error);
       return new Response(

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DOMPurify from 'dompurify';
 import { Bot, Sparkles, RefreshCw, AlertCircle, Loader2, Power, Zap } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -169,7 +170,10 @@ export const VoutiIATab: React.FC<VoutiIATabProps> = ({ processoOabId }) => {
               <div className="bg-card rounded-lg border p-4">
                 <div
                   className="prose prose-sm max-w-none text-foreground dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: formatSummaryToHtml(aiSummary) }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatSummaryToHtml(aiSummary), {
+                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'div', 'span'],
+                    ALLOWED_ATTR: ['class']
+                  }) }}
                 />
               </div>
 

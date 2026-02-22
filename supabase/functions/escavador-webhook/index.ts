@@ -3,6 +3,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 serve(async (req) => {
   try {
+    // Validação de webhook secret (se configurado)
+    const webhookSecret = Deno.env.get('ESCAVADOR_WEBHOOK_SECRET');
+    if (webhookSecret) {
+      const provided = req.headers.get('x-webhook-secret');
+      if (provided !== webhookSecret) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+    }
+
     const payload = await req.json();
     console.log('[Escavador Webhook] Recebido:', JSON.stringify(payload).substring(0, 500));
 

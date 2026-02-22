@@ -196,6 +196,15 @@ serve(async (req) => {
   }
 
   try {
+    // Validação de webhook secret (se configurado)
+    const webhookSecret = Deno.env.get('JUDIT_WEBHOOK_SECRET');
+    if (webhookSecret) {
+      const provided = req.headers.get('x-webhook-secret');
+      if (provided !== webhookSecret) {
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+      }
+    }
+
     const payload = await req.json();
     
     console.log('[Judit Webhook OAB] ========== INICIO WEBHOOK ==========');

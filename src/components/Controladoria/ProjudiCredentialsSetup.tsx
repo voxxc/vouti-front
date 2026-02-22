@@ -72,10 +72,7 @@ const ProjudiCredentialsSetup = ({ onSuccess }: ProjudiCredentialsSetupProps) =>
             // QR code format: otpauth://totp/Projudi:email?secret=XXXXX&issuer=Projudi
             const match = code.data.match(/secret=([A-Z2-7]+)/i);
             if (match && match[1]) {
-              console.log('✅ Secret extraído com sucesso:', {
-                secretLength: match[1].length,
-                secretPreview: match[1].substring(0, 8) + '...'
-              });
+              console.log('✅ Secret extraído com sucesso (length:', match[1].length + ')');
               resolve(match[1]);
             } else {
               console.error('❌ Secret não encontrado no QR Code');

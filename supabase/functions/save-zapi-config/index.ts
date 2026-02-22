@@ -22,10 +22,7 @@ serve(async (req) => {
 
     // Salvar as configurações nas variáveis de ambiente do Deno
     // Isso simula o salvamento para o usuário poder configurar depois
-    console.log('Z-API Configuration received:');
-    console.log('URL:', url.trim());
-    console.log('Instance ID:', instanceId.trim());
-    console.log('Token:', '[REDACTED]');
+    console.log('Z-API Configuration received (fields validated)');
 
     // Em um ambiente real, essas configurações seriam salvas via:
     // 1. Interface do Supabase Dashboard para secrets

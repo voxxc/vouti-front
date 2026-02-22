@@ -56,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (codeError || !resetCode) {
-      console.log("[verify-password-reset] Código inválido ou expirado:", code, email);
+      console.log("[verify-password-reset] Código inválido ou expirado para tentativa de reset");
       return new Response(
         JSON.stringify({ error: "Código inválido ou expirado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -99,7 +99,7 @@ const handler = async (req: Request): Promise<Response> => {
       .update({ used_at: new Date().toISOString() })
       .eq("id", resetCode.id);
 
-    console.log("[verify-password-reset] Senha atualizada para:", email);
+    console.log("[verify-password-reset] Senha atualizada com sucesso");
 
     return new Response(
       JSON.stringify({ success: true, message: "Senha atualizada com sucesso" }),
