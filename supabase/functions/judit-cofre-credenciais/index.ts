@@ -54,10 +54,9 @@ serve(async (req) => {
 
     console.log('=== JUDIT COFRE CREDENCIAIS ===');
     console.log('Customer Key:', customerKey);
-    console.log('Username (CPF):', cleanCpf.substring(0, 3) + '***'); // Log parcial por segurança
+    console.log('Username (CPF):', cleanCpf.substring(0, 3) + '***');
     console.log('System Name:', systemName);
     console.log('Secret presente:', cleanSecret !== '');
-    console.log('Payload enviado:', JSON.stringify(payload, null, 2));
 
     const response = await fetch('https://crawler.prod.judit.io/credentials', {
       method: 'POST',

@@ -12,6 +12,15 @@ serve(async (req) => {
   }
 
   try {
+    // Validação de webhook secret (se configurado)
+    const webhookSecret = Deno.env.get('JUDIT_WEBHOOK_SECRET');
+    if (webhookSecret) {
+      const provided = req.headers.get('x-webhook-secret');
+      if (provided !== webhookSecret) {
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+      }
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
