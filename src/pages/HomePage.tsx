@@ -411,7 +411,7 @@ const HomePage = () => {
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-black italic tracking-tight mb-10">
                 Tudo que seu escritório precisa.
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-5">
+              <div className="grid grid-cols-2 gap-x-8 sm:gap-x-16 gap-y-4 sm:gap-y-5">
                 {features.map((feature, i) => (
                   <div key={i} className="flex items-center gap-4">
                     <span className="text-[#E11D48] text-2xl leading-none">•</span>
