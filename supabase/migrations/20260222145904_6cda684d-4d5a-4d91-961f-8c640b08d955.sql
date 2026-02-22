@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Public can view profiles by username" ON link_profiles;
