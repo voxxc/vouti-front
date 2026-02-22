@@ -52,35 +52,56 @@ export const TenantProvider = ({ children }: TenantProviderProps) => {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from('tenants')
-          .select('*')
-          .ilike('slug', tenantSlug)
-          .single();
+        // First try: authenticated full query (works if user is logged in)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const { data, error: fetchError } = await supabase
+            .from('tenants')
+            .select('*')
+            .ilike('slug', tenantSlug)
+            .single();
 
-        if (fetchError) {
-          console.error('Error fetching tenant:', fetchError);
+          if (!fetchError && data) {
+            if (!data.is_active) {
+              setError('Este sistema está temporariamente desativado');
+              setTenant(null);
+              setLoading(false);
+              return;
+            }
+            setTenant(data as Tenant);
+            setError(null);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fallback: use RPC for pre-auth (returns only id, slug, is_active, system_type_id)
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_tenant_by_slug', { p_slug: tenantSlug });
+
+        if (rpcError || !rpcData || rpcData.length === 0) {
+          console.error('Error fetching tenant:', rpcError);
           setError('Tenant não encontrado');
           setTenant(null);
-          // Redirect to 404 after a short delay
           setTimeout(() => navigate('/not-found'), 100);
           return;
         }
 
-        if (!data) {
-          setError('Tenant não encontrado');
-          setTenant(null);
-          setTimeout(() => navigate('/not-found'), 100);
-          return;
-        }
-
-        if (!data.is_active) {
-          setError('Este sistema está temporariamente desativado');
-          setTenant(null);
-          return;
-        }
-
-        setTenant(data as Tenant);
+        const minimalTenant = rpcData[0];
+        // Set partial tenant data (enough for routing/auth pages)
+        setTenant({
+          id: minimalTenant.id,
+          slug: minimalTenant.slug,
+          is_active: minimalTenant.is_active,
+          system_type_id: minimalTenant.system_type_id,
+          name: '',
+          email_domain: null,
+          logo_url: null,
+          settings: null,
+          created_at: '',
+          updated_at: '',
+        } as Tenant);
         setError(null);
       } catch (err) {
         console.error('Error in fetchTenant:', err);
@@ -92,6 +113,23 @@ export const TenantProvider = ({ children }: TenantProviderProps) => {
 
     fetchTenant();
   }, [tenantSlug, navigate]);
+
+  // After authentication, reload full tenant data
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session && tenantSlug && tenant && !tenant.name) {
+        const { data } = await supabase
+          .from('tenants')
+          .select('*')
+          .ilike('slug', tenantSlug)
+          .single();
+        if (data) {
+          setTenant(data as Tenant);
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [tenantSlug, tenant]);
 
   return (
     <TenantContext.Provider value={{ tenant, tenantSlug: tenantSlug || null, loading, error }}>
