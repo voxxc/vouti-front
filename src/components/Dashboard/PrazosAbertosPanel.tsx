@@ -406,7 +406,8 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
     loading: boolean,
     emptyIcon: React.ReactNode,
     emptyMessage: string,
-    onNavigate: () => void,
+    onCardClick: () => void,
+    onFooterNavigate: () => void,
     navigateLabel: string
   ) => (
     <>
@@ -439,7 +440,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
               <div
                 key={tarefa.id}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={onNavigate}
+                onClick={onCardClick}
               >
                 <div className="flex-shrink-0 mt-0.5">
                   {tarefa.dataExecucao && isPast(new Date(tarefa.dataExecucao)) && !isToday(new Date(tarefa.dataExecucao)) ? (
@@ -479,7 +480,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
           <Button
             variant="ghost"
             size="sm"
-            onClick={onNavigate}
+            onClick={onFooterNavigate}
             className="w-full text-xs text-muted-foreground hover:text-foreground"
           >
             {navigateLabel}
@@ -540,6 +541,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
               loadingAdmin,
               <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-3" />,
               "Nenhuma tarefa administrativa",
+              onOpenAgendaDrawer || handleNavigateToProjetos,
               handleNavigateToProjetos,
               "Ver todos os projetos"
             )}
@@ -551,6 +553,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
               loadingJuridico,
               <Scale className="h-12 w-12 text-muted-foreground/50 mb-3" />,
               "Nenhuma tarefa jurídica",
+              onOpenAgendaDrawer || handleNavigateToControladoria,
               handleNavigateToControladoria,
               "Ver controladoria"
             )}
