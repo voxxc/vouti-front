@@ -1,89 +1,99 @@
 
 
-## Corrigir RLS em `metal_setor_flow` e `project_workspaces`
+## Corrigir salvamento de grupos do WhatsApp no Vouti.CRM
 
-### Problema 1: `metal_setor_flow` - Leitura publica
+### Diagnostico
 
-A politica SELECT atual e:
-```sql
-USING (true)  -- roles: {public} (inclui anon!)
+Ao clicar em "Buscar Grupos", a edge function `whatsapp-list-groups` busca os chats na Z-API, filtra os grupos e retorna corretamente. Porem, o salvamento na tabela `whatsapp_contacts` falha silenciosamente por dois motivos:
+
+1. **Erros do upsert sao ignorados**: O loop `for...of` faz `await supabase.from("whatsapp_contacts").upsert(...)` sem verificar o resultado `.error`. Se o RLS bloquear ou houver qualquer erro, ele segue em frente sem avisar.
+
+2. **Formato do ID do grupo inconsistente**: A Z-API retorna `chat.phone` que pode nao conter o sufixo `@g.us`. Ao carregar grupos salvos, o codigo filtra com `.like("phone", "%@g.us")`, entao mesmo que o save funcione, os grupos nao aparecem se o phone nao tiver esse sufixo.
+
+3. **Upserts individuais sao lentos e frageis**: Fazer um upsert por grupo (um a um) e ineficiente e aumenta a chance de falha parcial.
+
+### Solucao
+
+**Arquivo: `src/components/WhatsApp/sections/WhatsAppInbox.tsx`**
+
+Modificar a funcao `handleFetchGroups`:
+
+1. **Normalizar o ID do grupo**: Garantir que todo group ID tenha o sufixo `@g.us`. Se a Z-API retornar sem, adicionar.
+
+2. **Fazer upsert em batch**: Em vez de um loop `for...of`, usar um unico `upsert` com array de todos os grupos.
+
+3. **Verificar erros do upsert**: Checar `.error` e exibir toast de erro se falhar.
+
+```typescript
+const handleFetchGroups = useCallback(async () => {
+  if (!myAgentId || !tenantId) return;
+  setIsLoadingGroups(true);
+  try {
+    const { data, error } = await supabase.functions.invoke("whatsapp-list-groups", {
+      body: { agentId: myAgentId },
+    });
+    if (error) throw error;
+    if (data?.groups && data.groups.length > 0) {
+      // Normalizar IDs: garantir sufixo @g.us
+      const normalizedGroups = data.groups.map((g: any) => ({
+        id: g.id.includes("@g.us") ? g.id : `${g.id}@g.us`,
+        name: g.name,
+      }));
+
+      // Upsert em batch
+      const contactsToUpsert = normalizedGroups.map((g: any) => ({
+        phone: g.id,
+        name: g.name,
+        tenant_id: tenantId,
+      }));
+
+      const { error: upsertError } = await supabase
+        .from("whatsapp_contacts")
+        .upsert(contactsToUpsert, { onConflict: "tenant_id,phone" });
+
+      if (upsertError) {
+        console.error("Erro ao salvar grupos:", upsertError);
+        toast.error("Grupos encontrados mas erro ao salvar.");
+      } else {
+        toast.success(`${normalizedGroups.length} grupos salvos.`);
+      }
+
+      setGroups(normalizedGroups);
+    } else {
+      toast.info("Nenhum grupo encontrado.");
+    }
+  } catch (error) {
+    console.error("Erro ao buscar grupos:", error);
+    toast.error("Erro ao buscar grupos.");
+  } finally {
+    setIsLoadingGroups(false);
+  }
+}, [myAgentId, tenantId]);
 ```
-Qualquer pessoa (incluindo usuarios nao autenticados) pode ler todos os dados de fluxo de producao.
 
-**Correcao:** Dropar a politica permissiva e criar uma nova restrita a usuarios autenticados com role Metal:
+**Arquivo: `supabase/functions/whatsapp-list-groups/index.ts`**
 
-```sql
-DROP POLICY "Operators can view all flows" ON public.metal_setor_flow;
+Tambem normalizar o ID no lado do servidor para consistencia:
 
-CREATE POLICY "Authenticated metal users can view flows"
-ON public.metal_setor_flow
-FOR SELECT
-TO authenticated
-USING (
-  has_metal_role(auth.uid(), 'operador'::metal_role)
-  OR has_metal_role(auth.uid(), 'admin'::metal_role)
-);
+```typescript
+const groups = (Array.isArray(chats) ? chats : [])
+  .filter((chat: any) => chat.isGroup === true)
+  .map((chat: any) => {
+    const rawId = chat.phone || chat.id;
+    return {
+      id: rawId.includes("@g.us") ? rawId : `${rawId}@g.us`,
+      name: chat.name || chat.phone || 'Grupo',
+      isGroup: true,
+    };
+  });
 ```
-
-Tambem corrigir as outras politicas que usam `roles: {public}` (inclui anon) para usar `TO authenticated`:
-
-```sql
-DROP POLICY "Admins can manage all sector flows" ON public.metal_setor_flow;
-CREATE POLICY "Admins can manage all sector flows"
-ON public.metal_setor_flow FOR ALL TO authenticated
-USING (has_metal_role(auth.uid(), 'admin'::metal_role));
-
-DROP POLICY "Operators can delete their sector flows" ON public.metal_setor_flow;
-CREATE POLICY "Operators can delete their sector flows"
-ON public.metal_setor_flow FOR DELETE TO authenticated
-USING (EXISTS (
-  SELECT 1 FROM metal_profiles mp
-  WHERE mp.user_id = auth.uid() AND mp.setor = metal_setor_flow.setor
-));
-
-DROP POLICY "Operators can insert sector flows" ON public.metal_setor_flow;
-CREATE POLICY "Operators can insert sector flows"
-ON public.metal_setor_flow FOR INSERT TO authenticated
-WITH CHECK (
-  has_metal_role(auth.uid(), 'operador'::metal_role)
-  OR has_metal_role(auth.uid(), 'admin'::metal_role)
-);
-
-DROP POLICY "Operators can update flows" ON public.metal_setor_flow;
-CREATE POLICY "Operators can update flows"
-ON public.metal_setor_flow FOR UPDATE TO authenticated
-USING (
-  has_metal_role(auth.uid(), 'operador'::metal_role)
-  OR has_metal_role(auth.uid(), 'admin'::metal_role)
-);
-```
-
----
-
-### Problema 2: `project_workspaces` - SELECT com `USING(true)`
-
-Analisando as politicas atuais, o SELECT **ja esta correto**:
-
-```
-SELECT: USING ((tenant_id = get_user_tenant_id()) AND is_project_member(project_id))
-  roles: {authenticated}
-```
-
-As politicas de INSERT, UPDATE e DELETE tambem ja verificam `tenant_id = get_user_tenant_id() AND is_project_member(project_id)`.
-
-**Conclusao:** A tabela `project_workspaces` ja possui isolamento por tenant em todas as operacoes. Nenhuma politica usa `USING(true)`. Este ponto ja esta resolvido -- nao requer alteracao.
-
----
 
 ### Resumo
 
-| Tabela | Acao |
+| Mudanca | Motivo |
 |---|---|
-| `metal_setor_flow` | Recriar todas as 5 politicas com `TO authenticated` e restringir SELECT a usuarios com role Metal |
-| `project_workspaces` | Nenhuma alteracao necessaria (ja esta seguro) |
-
-### Impacto
-
-- **Metal system**: Operadores e admins continuam funcionando normalmente. Usuarios anonimos e de outros sistemas perdem acesso (comportamento desejado).
-- **Project workspaces**: Zero impacto, politicas ja estao corretas.
+| Normalizar group ID com `@g.us` (edge function + frontend) | IDs sem sufixo nao sao encontrados ao recarregar |
+| Upsert em batch (array unico) | Mais rapido e atomico |
+| Verificar `.error` do upsert | Erros silenciosos impediam o save |
+| Toast de erro em caso de falha | Usuario sabe que algo deu errado |
 
