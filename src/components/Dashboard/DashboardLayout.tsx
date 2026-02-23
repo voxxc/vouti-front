@@ -7,8 +7,7 @@ import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { LogOut, Settings, Loader2, Clock, FileCheck, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { LogOut, Settings, Loader2, Clock } from "lucide-react";
 
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,9 +20,8 @@ import DashboardSidebar, { ActiveDrawer } from "./DashboardSidebar";
 import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 
 // Drawers
-import { ControladoriaContent } from "@/components/Controladoria/ControladoriaContent";
 import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
-
+import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
 import { CRMDrawer } from "@/components/CRM/CRMDrawer";
 import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
 import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
@@ -69,7 +67,6 @@ const DashboardLayout = ({
   
   // Estado central para o drawer ativo - NOVA ARQUITETURA
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -241,7 +238,6 @@ const DashboardLayout = ({
         currentPage={currentPage} 
         activeDrawer={activeDrawer}
         onDrawerChange={handleDrawerChange}
-        onCollapsedChange={setSidebarCollapsed}
       />
 
       {/* Main Content Area */}
@@ -320,30 +316,6 @@ const DashboardLayout = ({
             children
           )}
         </main>
-
-        {/* Controladoria - sempre montada, controlada por z-index */}
-        <div
-          className={cn(
-            "fixed inset-0 bg-background transition-opacity duration-200",
-            activeDrawer === 'controladoria'
-              ? "z-40 opacity-100 pointer-events-auto"
-              : "z-[-1] opacity-0 pointer-events-none"
-          )}
-          style={{ left: sidebarCollapsed ? '64px' : '224px' }}
-        >
-          <div className="h-full overflow-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-lg">Controladoria</span>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setActiveDrawer(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <ControladoriaContent />
-          </div>
-        </div>
       </div>
       </div>
       
@@ -357,11 +329,15 @@ const DashboardLayout = ({
         projectId={selectedProjectId}
       />
 
-      {/* Drawers de seções */}
-      <ProjectsDrawer
+      {/* Drawers de seções - agora gerenciados aqui no layout */}
+      <ProjectsDrawer 
         open={activeDrawer === 'projetos'} 
         onOpenChange={(open) => !open && setActiveDrawer(null)}
         onSelectProject={handleQuickProjectSelect}
+      />
+      <ControladoriaDrawer 
+        open={activeDrawer === 'controladoria'} 
+        onOpenChange={(open) => !open && setActiveDrawer(null)} 
       />
       <CRMDrawer 
         open={activeDrawer === 'clientes'} 

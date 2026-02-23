@@ -1,76 +1,49 @@
 
+## Adicionar aba "Arquivados" na Caixa de Entrada do WhatsApp
 
-## Corrigir timeout dos processos + sobreposicao do sidebar
+### O que muda
 
-### Problema 1: Processos nao carregam (statement timeout)
+Uma nova aba com icone de arquivo sera adicionada na barra de abas da lista de conversas (ao lado de Abertas, Fila, Grupos e Encerrados). Conversas arquivadas ficam separadas e podem ser desarquivadas.
 
-A tabela `processos_oab` tem 311 registros e `processos_oab_andamentos` tem 22.668. Duas queries estao causando timeout:
+### Como funciona
 
-- **`useAndamentosNaoLidosGlobal`**: Faz JOIN triplo (`processos_oab` + `oabs_cadastradas` + `processos_oab_andamentos`) buscando TODOS os andamentos para TODOS os processos. Com 22k andamentos, isso estoura o timeout.
-- **`useProcessosGeral`**: Busca todos os processos por `tenant_id`, mas **nao existe indice** em `processos_oab.tenant_id`.
+- **Arquivar**: O ticket recebe status `"archived"` (novo valor de status na tabela `whatsapp_tickets`).
+- **Desarquivar**: Muda o status de volta para `"waiting"` (volta para a Fila).
+- Conversas arquivadas nao aparecem nas outras abas.
+- O botao de arquivar ficara disponivel no `ChatPanel` (header da conversa) quando o ticket estiver aberto ou encerrado.
 
-**Solucao**:
-1. Criar indice em `processos_oab(tenant_id)` via migration SQL
-2. Otimizar `useAndamentosNaoLidosGlobal`: separar em 2 queries leves ao inves de 1 JOIN pesado -- buscar processos primeiro, depois contar andamentos nao lidos separadamente
-3. Otimizar `useProcessosGeral`: ja usa 2 queries separadas, o indice resolve o timeout
+### Alteracoes
 
-### Problema 2: Controladoria aparece por cima do sidebar
+**1. Banco de dados** -- Nenhuma migracao necessaria
+A coluna `status` na tabela `whatsapp_tickets` e do tipo `text`, entao ja aceita o valor `"archived"` sem alteracoes de schema.
 
-O painel fixo da Controladoria usa `left: '64px'` (hardcoded), mas o sidebar tem 2 larguras:
-- Collapsed: `w-16` = 64px
-- Expanded: `w-56` = 224px
+**2. `src/components/WhatsApp/components/ConversationList.tsx`**
 
-O estado `isCollapsed` e interno ao `DashboardSidebar` e nao e compartilhado com `DashboardLayout`.
+- Adicionar `"archived"` ao tipo `ConversationTab`
+- Adicionar nova entrada no array `TABS` com icone `Archive` e label "Arquivados"
+- Atualizar `tabCounts` para incluir `archived: number`
 
-**Solucao**: Expor o estado `isCollapsed` do sidebar para o layout, e usar esse valor para definir o `left` dinamico do painel da Controladoria.
+**3. `src/components/WhatsApp/sections/WhatsAppInbox.tsx`**
 
-### Arquivos modificados
+- Atualizar `getFilteredConversations()` com novo case para `activeTab === "archived"`: filtrar conversas cujo ticket tem `status === "archived"`
+- Atualizar `getTabCounts()` para contar conversas arquivadas
+- Adicionar funcao `handleArchiveTicket`: atualiza o ticket para `status: "archived"`
+- Adicionar funcao `handleUnarchiveTicket`: atualiza o ticket para `status: "waiting"`
+- Passar as funcoes de arquivar/desarquivar para o `ChatPanel`
 
-| Arquivo | Acao |
-|---|---|
-| `src/components/Dashboard/DashboardSidebar.tsx` | Adicionar prop `onCollapsedChange` para expor estado collapsed |
-| `src/components/Dashboard/DashboardLayout.tsx` | Receber estado collapsed, usar left dinamico no painel da Controladoria |
-| `src/hooks/useAndamentosNaoLidosGlobal.ts` | Separar JOIN em 2 queries leves: processos + contagem de nao lidos |
-| Migration SQL | Criar indice em `processos_oab(tenant_id)` |
+**4. `src/components/WhatsApp/components/ChatPanel.tsx`**
 
-### Detalhes tecnicos
+- Receber props `onArchiveTicket` e `onUnarchiveTicket`
+- Adicionar botao de arquivar (icone Archive) no header da conversa, visivel quando o ticket nao esta arquivado
+- Adicionar botao de desarquivar quando visualizando conversa da aba "Arquivados"
 
-**DashboardSidebar.tsx**:
-- Adicionar prop `onCollapsedChange?: (collapsed: boolean) => void`
-- Chamar `onCollapsedChange(newValue)` sempre que `isCollapsed` mudar
+### Fluxo do usuario
 
-**DashboardLayout.tsx**:
-- Novo estado: `const [sidebarCollapsed, setSidebarCollapsed] = useState(false)`
-- Passar `onCollapsedChange={setSidebarCollapsed}` ao `DashboardSidebar`
-- No painel da Controladoria: `style={{ left: sidebarCollapsed ? '64px' : '224px' }}`
+1. O agente abre uma conversa na aba "Abertas" ou "Encerrados"
+2. Clica no botao de arquivar no header do chat
+3. A conversa move para a aba "Arquivados"
+4. Na aba "Arquivados", o agente pode desarquivar e a conversa volta para "Fila"
 
-**useAndamentosNaoLidosGlobal.ts** -- Substituir o JOIN pesado por 2 queries:
+### Logica de exclusao entre abas
 
-```typescript
-// Query 1: Buscar processos com OAB (sem andamentos)
-const { data: processosData } = await supabase
-  .from('processos_oab')
-  .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, oab_id, capa_completa, oabs_cadastradas!inner(id, oab_numero, oab_uf, nome_advogado)')
-  .eq('tenant_id', tenantId);
-
-// Query 2: Contar andamentos nao lidos por processo (usando indice existente)
-const { data: naoLidosData } = await supabase
-  .from('processos_oab_andamentos')
-  .select('processo_oab_id')
-  .eq('lida', false);
-
-// Montar mapa de contagens e filtrar processos com nao lidos > 0
-```
-
-**Migration SQL**:
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_processos_oab_tenant_id ON processos_oab(tenant_id);
-```
-
-### Resultado esperado
-
-- Queries rodam dentro do timeout (sem JOIN de 22k andamentos)
-- Painel da Controladoria respeita a largura atual do sidebar
-- Processos carregam normalmente na aba Geral e no hook de andamentos nao lidos
-
+As conversas arquivadas serao excluidas das abas "Abertas", "Fila" e "Encerrados" adicionando a condicao `ticket.status !== "archived"` nos filtros existentes.

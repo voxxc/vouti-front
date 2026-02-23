@@ -246,36 +246,6 @@ export const useControladoriaCache = (): UseControladoriaCache => {
     };
   }, [refreshData]);
 
-  // Polling silencioso a cada 2 minutos (imperceptível ao usuário)
-  useEffect(() => {
-    const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos
-
-    const interval = setInterval(async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const [freshMetrics, freshOabs] = await Promise.all([
-          fetchMetricsOptimized(),
-          fetchOABsOptimized(user.id)
-        ]);
-
-        setMetrics(freshMetrics);
-        setOabs(freshOabs);
-
-        saveToLocalStorage({
-          metrics: freshMetrics,
-          oabs: freshOabs,
-          lastUpdated: Date.now()
-        });
-      } catch (error) {
-        console.error('[Polling] Erro silencioso:', error);
-      }
-    }, POLLING_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return {
     metrics,
     oabs,

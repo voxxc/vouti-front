@@ -940,9 +940,8 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
           <Plus size={16} />
           Vincular Processo
         </Button>
-        <Button variant="outline" className="gap-2" onClick={() => setIsCarteiraDialogOpen(true)} title="Criar Carteira">
+        <Button variant="outline" size="icon" onClick={() => setIsCarteiraDialogOpen(true)} title="Criar Carteira">
           <Briefcase size={16} />
-          Carteira
         </Button>
       </div>
 
