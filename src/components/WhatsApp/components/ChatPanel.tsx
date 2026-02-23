@@ -155,7 +155,8 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
 
   const handleSendMacro = useCallback(() => {
     if (!selectedMacro) return;
-    const processedText = processMacroText(selectedMacro.content || "");
+    const processedText = processMacroText(selectedMacro.message_template || selectedMacro.content || "");
+    if (!processedText.trim()) return;
     onSendMessage(processedText);
     onClearMacro?.();
   }, [selectedMacro, processMacroText, onSendMessage, onClearMacro]);
@@ -481,7 +482,7 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
             </Button>
           </div>
           <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-background rounded-md px-3 py-2 border">
-            {processMacroText(selectedMacro.content || "")}
+            {processMacroText(selectedMacro.message_template || selectedMacro.content || "")}
           </p>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" size="sm" onClick={onClearMacro}>
