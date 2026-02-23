@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, MessageSquare, Users, Inbox, CheckCircle, Clock } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Search, MessageSquare, Users, Inbox, CheckCircle, Clock, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,6 +8,12 @@ import { cn } from "@/lib/utils";
 import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export type ConversationTab = "open" | "waiting" | "groups" | "closed";
 
@@ -23,6 +29,12 @@ interface ConversationWithAgent extends WhatsAppConversation {
   acceptedAt?: string;
 }
 
+interface WhatsAppLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface ConversationListProps {
   conversations: ConversationWithAgent[];
   selectedConversation: ConversationWithAgent | null;
@@ -36,6 +48,7 @@ interface ConversationListProps {
   activeTab?: ConversationTab;
   onTabChange?: (tab: ConversationTab) => void;
   tabCounts?: { open: number; waiting: number; groups: number; closed: number };
+  tenantId?: string | null;
 }
 
 const TABS: { value: ConversationTab; label: string; icon: React.ElementType }[] = [
@@ -88,14 +101,62 @@ export const ConversationList = ({
   tabCounts = { open: 0, waiting: 0, groups: 0, closed: 0 },
   onFetchGroups,
   isLoadingGroups = false,
+  tenantId,
 }: ConversationListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [labels, setLabels] = useState<WhatsAppLabel[]>([]);
+  const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
+  const [labelContactPhones, setLabelContactPhones] = useState<Set<string> | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const filteredConversations = conversations.filter(
-    (conv) =>
+  // Load available labels
+  useEffect(() => {
+    if (!tenantId) return;
+    const loadLabels = async () => {
+      const { data } = await supabase
+        .from("whatsapp_labels")
+        .select("id, name, color")
+        .eq("tenant_id", tenantId)
+        .order("name");
+      if (data) setLabels(data);
+    };
+    loadLabels();
+  }, [tenantId]);
+
+  // Load contact phones for selected label
+  useEffect(() => {
+    if (!selectedLabelId || !tenantId) {
+      setLabelContactPhones(null);
+      return;
+    }
+    const loadLabelContacts = async () => {
+      const { data } = await supabase
+        .from("whatsapp_contact_labels")
+        .select("contact_id, whatsapp_contacts(phone)")
+        .eq("label_id", selectedLabelId)
+        .eq("tenant_id", tenantId);
+      if (data) {
+        const phones = new Set<string>();
+        data.forEach((item: any) => {
+          if (item.whatsapp_contacts?.phone) {
+            phones.add(item.whatsapp_contacts.phone);
+          }
+        });
+        setLabelContactPhones(phones);
+      }
+    };
+    loadLabelContacts();
+  }, [selectedLabelId, tenantId]);
+
+  const selectedLabel = labels.find(l => l.id === selectedLabelId);
+
+  const filteredConversations = conversations.filter((conv) => {
+    const matchesSearch =
       conv.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.contactNumber.includes(searchQuery)
-  );
+      conv.contactNumber.includes(searchQuery);
+    const matchesLabel = !labelContactPhones || labelContactPhones.has(conv.contactNumber);
+    return matchesSearch && matchesLabel;
+  });
 
   const formatTime = (dateString: string) => {
     try {
@@ -120,15 +181,93 @@ export const ConversationList = ({
     <div className="w-80 border-r border-border flex flex-col bg-card">
       {/* Search Header */}
       <div className="p-4 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar conversa..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar conversa..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "p-2 rounded-md border border-input transition-colors relative",
+                  selectedLabelId
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "text-muted-foreground hover:bg-muted/50"
+                )}
+              >
+                <Filter className="h-4 w-4" />
+                {selectedLabelId && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2 z-50 bg-popover border border-border shadow-md" align="end">
+              <div className="text-xs font-medium text-muted-foreground px-2 py-1.5">
+                Filtrar por etiqueta
+              </div>
+              {selectedLabelId && (
+                <button
+                  onClick={() => { setSelectedLabelId(null); setIsFilterOpen(false); }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Limpar filtro
+                </button>
+              )}
+              <div className="mt-1 space-y-0.5 max-h-48 overflow-y-auto">
+                {labels.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-2">Nenhuma etiqueta criada</p>
+                ) : (
+                  labels.map((label) => (
+                    <button
+                      key={label.id}
+                      onClick={() => {
+                        setSelectedLabelId(label.id === selectedLabelId ? null : label.id);
+                        setIsFilterOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
+                        label.id === selectedLabelId
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: label.color }}
+                      />
+                      {label.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
+        {/* Active filter indicator */}
+        {selectedLabel && (
+          <div className="mt-2 flex items-center gap-1.5">
+            <span
+              className="h-2.5 w-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: selectedLabel.color }}
+            />
+            <span className="text-xs text-muted-foreground truncate">
+              Filtrando: <span className="font-medium text-foreground">{selectedLabel.name}</span>
+            </span>
+            <button
+              onClick={() => setSelectedLabelId(null)}
+              className="ml-auto text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs Bar */}
