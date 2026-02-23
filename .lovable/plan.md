@@ -1,54 +1,56 @@
 
-## Compactar cards de processos na aba Geral
 
-### Problema
+## Correcoes: Cards da aba Geral, Badges e Carteira
 
-Os cards de processos na aba Geral estao ocupando espaco demais, forçando o usuario a dar zoom out para visualizar os botoes. Isso acontece porque:
+### 1. Reverter cards da aba Geral para o mesmo estilo das abas individuais de OAB
 
-1. Os badges (Monitorado, novos, tribunal) fazem `flex-wrap`, empurrando conteudo para novas linhas
-2. O botao "Detalhes" com texto ocupa espaco horizontal desnecessario
-3. Com 300+ processos, o layout vertical se acumula
-
-### Solucao
-
-Ajustar o `ProcessoCardGeral` para ser mais compacto:
-
-1. **Botao "Detalhes"**: Trocar de botao com texto para botao icon-only (apenas o icone Eye), com tooltip explicativo -- economiza espaco horizontal
-2. **Layout inline**: Colocar o tribunal badge na mesma linha do CNJ em vez de numa linha separada abaixo
-3. **Reduzir padding**: Diminuir o padding do card de `p-3` para `p-2`
-4. **Badges mais compactos**: Remover texto "Monitorado" do badge, deixar apenas o icone Bell com tooltip
-5. **Remover flex-wrap**: Usar `overflow-hidden` e `flex-nowrap` para manter tudo em uma unica linha
-
-### Alteracao tecnica
+O `ProcessoCardGeral` foi compactado demais na ultima alteracao. Precisa voltar ao mesmo estilo do `ProcessoCard` usado em `OABTab.tsx`:
 
 **Arquivo: `src/components/Controladoria/OABTabGeral.tsx`**
 
-Reescrever o componente `ProcessoCardGeral` (linhas 75-121):
+Reverter o componente `ProcessoCardGeral` para usar o mesmo layout das abas individuais:
 
+- `p-3` no Card (em vez de `p-2`)
+- `gap-3` no container flex (em vez de `gap-2`)
+- `flex-wrap` nos badges (em vez de `flex-nowrap`)
+- Botao "Detalhes" com texto + icone (em vez de icon-only)
+- Tribunal badge em linha separada com `mt-1` (em vez de inline)
+
+### 2. Restaurar badges ao tamanho original
+
+Reverter os badges para `text-xs` padrao (em vez de `text-[10px] px-1.5 py-0`):
+
+- Badge "Monitorado": voltar com texto + icone Bell + `bg-green-600`
+- Badge de andamentos nao lidos: voltar com texto "X novos" + `text-xs`
+- Badge do tribunal: voltar com `text-xs mt-1`
+
+### 3. Carteira no workspace de projetos
+
+O codigo da carteira ja existe e esta funcional em `ProjectProcessos.tsx`:
+- O botao com icone de maleta (Briefcase) aparece ao lado do botao "Vincular Processo"
+- As tabelas `project_carteiras` e `project_carteira_processos` existem no banco
+- As policies RLS estao configuradas
+
+**Possivel causa do problema**: O usuario pode estar em uma rota diferente ou a interface pode nao estar re-renderizando com o codigo atualizado. Vou adicionar uma label "Carteira" ao botao para torna-lo mais visivel, e verificar se o componente esta sendo renderizado corretamente.
+
+Alteracao: trocar o botao icon-only por um botao com texto visivel:
 ```
-Antes:
-- Card com p-3
-- Badges com flex-wrap (podem criar linhas extras)
-- Botao "Detalhes" com texto
-- Tribunal badge em linha separada (mt-1)
+// De:
+<Button variant="outline" size="icon">
+  <Briefcase size={16} />
+</Button>
 
-Depois:
-- Card com p-2
-- Badges inline sem wrap, com overflow hidden
-- Botao icon-only (Eye) com tooltip
-- Tribunal badge na mesma linha do CNJ
-- Tudo em uma unica linha horizontal
+// Para:
+<Button variant="outline" className="gap-2">
+  <Briefcase size={16} />
+  Carteira
+</Button>
 ```
 
-Estrutura final do card:
-
-```
-[CNJ | Bell icon | "3 novos" | TJSP] .................. [Eye button]
-[Autor vs Reu (truncado)]
-```
-
-### Arquivo modificado
+### Arquivos modificados
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/Controladoria/OABTabGeral.tsx` | Modificar -- compactar ProcessoCardGeral |
+| `src/components/Controladoria/OABTabGeral.tsx` | Reverter ProcessoCardGeral para estilo identico ao OABTab |
+| `src/components/Project/ProjectProcessos.tsx` | Tornar botao de carteira mais visivel com texto |
+
