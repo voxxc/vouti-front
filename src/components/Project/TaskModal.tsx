@@ -726,17 +726,11 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className={`grid ${module === 'crm' ? 'grid-cols-4' : 'grid-cols-5'} w-full`}>
+            <TabsList className="grid grid-cols-3 w-full">
               <TabsTrigger value="detalhes" className="gap-1 text-xs">
                 <Edit className="h-3 w-3" />
                 Detalhes
               </TabsTrigger>
-              {module !== 'crm' && (
-                <TabsTrigger value="vinculo" className="gap-1 text-xs">
-                  <Link2 className="h-3 w-3" />
-                  Vinculo
-                </TabsTrigger>
-              )}
               <TabsTrigger value="tarefas" className="gap-1 text-xs">
                 <ListTodo className="h-3 w-3" />
                 Tarefas
@@ -744,10 +738,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
               <TabsTrigger value="arquivos" className="gap-1 text-xs">
                 <Files className="h-3 w-3" />
                 Arquivos
-              </TabsTrigger>
-              <TabsTrigger value="historico" className="gap-1 text-xs">
-                <History className="h-3 w-3" />
-                Historico
               </TabsTrigger>
             </TabsList>
 

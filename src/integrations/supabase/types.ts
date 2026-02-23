@@ -3267,6 +3267,64 @@ export type Database = {
           },
         ]
       }
+      processo_comentarios: {
+        Row: {
+          comment_text: string
+          created_at: string | null
+          id: string
+          mentioned_user_ids: string[] | null
+          processo_id: string
+          reply_to_id: string | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string | null
+          id?: string
+          mentioned_user_ids?: string[] | null
+          processo_id: string
+          reply_to_id?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string | null
+          id?: string
+          mentioned_user_ids?: string[] | null
+          processo_id?: string
+          reply_to_id?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_comentarios_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_comentarios_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "processo_comentarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processo_comentarios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processo_documentos: {
         Row: {
           created_at: string | null
@@ -4448,6 +4506,99 @@ export type Database = {
           },
           {
             foreignKeyName: "project_advogados_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_carteira_processos: {
+        Row: {
+          carteira_id: string
+          created_at: string | null
+          id: string
+          ordem: number | null
+          project_processo_id: string
+        }
+        Insert: {
+          carteira_id: string
+          created_at?: string | null
+          id?: string
+          ordem?: number | null
+          project_processo_id: string
+        }
+        Update: {
+          carteira_id?: string
+          created_at?: string | null
+          id?: string
+          ordem?: number | null
+          project_processo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_carteira_processos_carteira_id_fkey"
+            columns: ["carteira_id"]
+            isOneToOne: false
+            referencedRelation: "project_carteiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_carteira_processos_project_processo_id_fkey"
+            columns: ["project_processo_id"]
+            isOneToOne: false
+            referencedRelation: "project_processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_carteiras: {
+        Row: {
+          cor: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          nome: string
+          ordem: number | null
+          projeto_id: string
+          tenant_id: string
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          nome: string
+          ordem?: number | null
+          projeto_id: string
+          tenant_id: string
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          nome?: string
+          ordem?: number | null
+          projeto_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_carteiras_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_carteiras_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
