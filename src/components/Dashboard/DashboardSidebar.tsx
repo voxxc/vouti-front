@@ -32,9 +32,10 @@ interface DashboardSidebarProps {
   currentPage?: string;
   activeDrawer?: ActiveDrawer;
   onDrawerChange?: (drawer: ActiveDrawer) => void;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: DashboardSidebarProps) => {
+const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, onCollapsedChange }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
@@ -307,7 +308,11 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() => {
+              const newValue = !isCollapsed;
+              setIsCollapsed(newValue);
+              onCollapsedChange?.(newValue);
+            }}
             className={cn(
               "w-full justify-center",
               !isCollapsed && "justify-end"
