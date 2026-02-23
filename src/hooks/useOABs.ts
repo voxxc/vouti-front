@@ -293,9 +293,6 @@ export const useOABs = () => {
   const carregarDetalhesLote = async (oabId: string, onProgress?: (current: number, total: number) => void) => {
     setSincronizando(oabId);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = user ? await getTenantIdForUser(user.id) : null;
-
       const { data, error } = await supabase.functions.invoke('judit-carregar-detalhes-lote', {
         body: { oabId, tenantId, userId: user?.id }
       });
@@ -345,6 +342,8 @@ export const useProcessosOAB = (oabId: string | null) => {
   const [loading, setLoading] = useState(false);
   const [carregandoDetalhes, setCarregandoDetalhes] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
 
   const fetchProcessos = useCallback(async () => {
     if (!oabId) {
@@ -444,47 +443,17 @@ export const useProcessosOAB = (oabId: string | null) => {
     };
   }, [oabId]);
 
-  const carregarDetalhes = async (processoId: string, numeroCnj: string, oabId?: string) => {
-    setCarregandoDetalhes(processoId);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = user ? await getTenantIdForUser(user.id) : null;
-
-      const { data, error } = await supabase.functions.invoke('judit-buscar-detalhes-processo', {
-        body: { processoOabId: processoId, numeroCnj, tenantId, userId: user?.id, oabId }
-      });
-
-      if (error) throw error;
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Erro ao carregar detalhes');
-      }
-
-      toast({
-        title: 'Detalhes carregados',
-        description: `${data.andamentosInseridos} novos andamentos`
-      });
-
-      // Atualizar apenas o processo especifico sem re-fetch completo
-      setProcessos(prev => 
-        prev.map(p => p.id === processoId 
-          ? { ...p, detalhes_carregados: true, detalhes_request_id: data.requestId || p.detalhes_request_id }
-          : p
-        )
-      );
-      
-      return data;
-    } catch (error: any) {
-      console.error('[useProcessosOAB] Erro ao carregar detalhes:', error);
-      toast({
-        title: 'Erro ao carregar detalhes',
-        description: error.message,
-        variant: 'destructive'
-      });
-      return null;
-    } finally {
-      setCarregandoDetalhes(null);
-    }
+  // Simplificado: dados já estão no banco via sincronização inicial + monitoramento
+  const carregarDetalhes = async (processoId: string, _numeroCnj: string, _oabId?: string) => {
+    // Não precisa chamar Edge Function — andamentos já foram carregados na sincronização
+    // e novos chegam via monitoramento + sincronização do super-admin
+    setProcessos(prev => 
+      prev.map(p => p.id === processoId 
+        ? { ...p, detalhes_carregados: true }
+        : p
+      )
+    );
+    return { success: true };
   };
 
   const atualizarOrdem = async (processosOrdenados: ProcessoOAB[]) => {
@@ -515,9 +484,6 @@ export const useProcessosOAB = (oabId: string | null) => {
     onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void
   ) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = user ? await getTenantIdForUser(user.id) : null;
-
       const { data, error } = await supabase.functions.invoke('judit-ativar-monitoramento-oab', {
         body: { processoOabId: processoId, numeroCnj, ativar, tenantId, userId: user?.id, oabId }
       });
@@ -563,43 +529,10 @@ export const useProcessosOAB = (oabId: string | null) => {
     }
   };
 
-  // Consultar request existente de detalhes (GRATUITO - apenas GET)
-  const consultarDetalhesRequest = async (processoId: string, requestId: string) => {
-    setCarregandoDetalhes(processoId);
-    try {
-      // Buscar tenantId para log de auditoria
-      const { data: { user } } = await supabase.auth.getUser();
-      const userTenantId = user ? await getTenantIdForUser(user.id) : null;
-      
-      const { data, error } = await supabase.functions.invoke('judit-consultar-detalhes-request', {
-        body: { processoOabId: processoId, requestId, tenantId: userTenantId, userId: user?.id }
-      });
-
-      if (error) throw error;
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Erro ao consultar');
-      }
-
-      toast({
-        title: 'Andamentos atualizados',
-        description: `${data.andamentosInseridos} novos andamentos`
-      });
-
-      // Nao chamar fetchProcessos() para evitar re-render do modal
-      // O real-time subscription ja vai atualizar a contagem de nao lidos
-      return data;
-    } catch (error: any) {
-      console.error('[useProcessosOAB] Erro ao consultar detalhes:', error);
-      toast({
-        title: 'Erro ao atualizar',
-        description: error.message,
-        variant: 'destructive'
-      });
-      return null;
-    } finally {
-      setCarregandoDetalhes(null);
-    }
+  // Simplificado: dados já estão no banco via sincronização + monitoramento
+  const consultarDetalhesRequest = async (_processoId: string, _requestId: string) => {
+    // Não precisa chamar Edge Function — andamentos já estão no banco
+    return { success: true };
   };
 
   const excluirProcesso = async (processoId: string, numeroCnj: string) => {
