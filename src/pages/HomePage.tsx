@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createLandingLead } from '@/hooks/useLandingLeads';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail, Clock, MessageCircle, DollarSign, Users, FileText, Sparkles, LayoutDashboard, UserCheck } from 'lucide-react';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import showcaseProcessos from '@/assets/showcase-processos.png';
@@ -23,6 +24,8 @@ const HomePage = () => {
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggCode, setEasterEggCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formSuccess, setFormSuccess] = useState(false);
+  const [successName, setSuccessName] = useState('');
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -62,16 +65,20 @@ const HomePage = () => {
         origem: 'vouti_landing'
       });
 
+      const nome = formData.nome.trim();
+      setSuccessName(nome);
+      setFormData({ nome: '', email: '', whatsapp: '', tamanho: '' });
+      setFormSuccess(true);
+
       toast({
         title: 'Solicitação enviada!',
         description: 'Entraremos em contato em breve.'
       });
-
-      setFormData({ nome: '', email: '', whatsapp: '', tamanho: '' });
     } catch (error: any) {
+      console.error('Form submission error:', error);
       toast({
         title: 'Erro ao enviar',
-        description: error.message || 'Tente novamente mais tarde.',
+        description: error?.message || 'Tente novamente mais tarde.',
         variant: 'destructive'
       });
     } finally {
@@ -621,61 +628,83 @@ const HomePage = () => {
               Preencha abaixo e nossa equipe entrará em contato.
             </p>
 
-            <form className="space-y-4" onSubmit={handleSubmitForm}>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">Nome completo</label>
-                <Input 
-                  placeholder="Seu nome"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                  className="border-gray-300 bg-white text-[#0a0a0a] placeholder:text-gray-400 h-12"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">E-mail</label>
-                <Input 
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="border-gray-300 bg-white text-[#0a0a0a] placeholder:text-gray-400 h-12"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">WhatsApp</label>
-                <Input 
-                  placeholder="(00) 00000-0000"
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
-                  className="border-gray-300 bg-white text-[#0a0a0a] placeholder:text-gray-400 h-12"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">Tamanho do escritório</label>
-                <select 
-                  value={formData.tamanho}
-                  onChange={(e) => setFormData({...formData, tamanho: e.target.value})}
-                  className="w-full h-12 px-3 rounded-md bg-white border border-gray-300 text-[#0a0a0a] focus:border-[#0a0a0a] focus:outline-none focus:ring-1 focus:ring-[#0a0a0a]"
+            {formSuccess ? (
+              <div className="text-center py-8 space-y-4">
+                <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
+                <h3 className="text-2xl font-bold text-[#0a0a0a]">
+                  Obrigado, {successName}!
+                </h3>
+                <p className="text-gray-500">
+                  Entraremos em contato em breve para agendar sua demonstração.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setFormSuccess(false)}
+                  className="mt-4 border-gray-300 text-[#0a0a0a] hover:bg-gray-50 rounded-lg"
                 >
-                  <option value="">Selecione</option>
-                  <option value="autonomo">Advogado Autônomo</option>
-                  <option value="pequeno">1-5 advogados</option>
-                  <option value="medio">6-20 advogados</option>
-                  <option value="grande">20+ advogados</option>
-                </select>
+                  Enviar outro formulário
+                </Button>
               </div>
-              <Button 
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 h-12 text-base rounded-lg mt-2"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                ) : null}
-                Agendar Demonstração
-                {!isSubmitting && <ArrowRight className="ml-2 w-5 h-5" />}
-              </Button>
-            </form>
+            ) : (
+              <form className="space-y-4" onSubmit={handleSubmitForm}>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">Nome completo</label>
+                  <Input 
+                    placeholder="Seu nome"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                    className="border-gray-300 bg-white text-[#0a0a0a] placeholder:text-gray-400 h-12"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">E-mail</label>
+                  <Input 
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="border-gray-300 bg-white text-[#0a0a0a] placeholder:text-gray-400 h-12"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">WhatsApp</label>
+                  <Input 
+                    placeholder="(00) 00000-0000"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
+                    className="border-gray-300 bg-white text-[#0a0a0a] placeholder:text-gray-400 h-12"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">Tamanho do escritório</label>
+                  <Select
+                    value={formData.tamanho}
+                    onValueChange={(value) => setFormData({...formData, tamanho: value})}
+                  >
+                    <SelectTrigger className="w-full h-12 bg-white border-gray-300 text-[#0a0a0a] focus:ring-[#0a0a0a] focus:ring-1 rounded-md">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-gray-300">
+                      <SelectItem value="autonomo">Advogado Autônomo</SelectItem>
+                      <SelectItem value="pequeno">1-5 advogados</SelectItem>
+                      <SelectItem value="medio">6-20 advogados</SelectItem>
+                      <SelectItem value="grande">20+ advogados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] border-0 h-12 text-base rounded-lg mt-2"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  ) : null}
+                  Agendar Demonstração
+                  {!isSubmitting && <ArrowRight className="ml-2 w-5 h-5" />}
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </section>
