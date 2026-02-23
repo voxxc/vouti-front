@@ -110,10 +110,11 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
         return;
       }
 
+      const phoneForApi = getPhoneVariant(conversation.contactNumber) || conversation.contactNumber;
       const { data, error } = await supabase.functions.invoke("whatsapp-zapi-action", {
         body: {
           action: "profile-picture",
-          phone: conversation.contactNumber,
+          phone: phoneForApi,
           zapi_instance_id: instance.zapi_instance_id,
           zapi_instance_token: instance.zapi_instance_token,
           zapi_client_token: instance.zapi_client_token || "",
@@ -122,7 +123,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
 
       if (error) throw error;
       const link = data?.data?.link;
-      if (link) {
+      if (link && link !== "null") {
         setProfilePicUrl(link);
       } else {
         toast.info("Foto de perfil não disponível");
