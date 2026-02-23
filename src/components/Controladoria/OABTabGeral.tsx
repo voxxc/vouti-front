@@ -74,44 +74,43 @@ const agruparPorInstancia = (processos: ProcessoOAB[]): ProcessosAgrupados => {
 
 const ProcessoCardGeral = ({ processo, onVerDetalhes }: { processo: ProcessoOAB; onVerDetalhes: (p: ProcessoOAB) => void }) => {
   return (
-    <Card className="p-2 transition-shadow">
-      <div className="flex items-center gap-2 w-full overflow-hidden">
-        <div className="flex-1 min-w-0 overflow-hidden space-y-0.5">
-          <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
-            <span className="font-mono text-sm font-medium truncate shrink-0">
+    <Card className="p-3 transition-shadow">
+      <div className="flex items-center gap-3 w-full overflow-hidden pr-2">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="font-mono text-sm font-medium truncate">
               {processo.numero_cnj}
             </span>
             {processo.monitoramento_ativo && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><Bell className="w-3.5 h-3.5 text-green-600 shrink-0" /></span>
-                </TooltipTrigger>
-                <TooltipContent>Monitorado</TooltipContent>
-              </Tooltip>
-            )}
-            {(processo.andamentos_nao_lidos || 0) > 0 && (
-              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 shrink-0">
-                {processo.andamentos_nao_lidos}
+              <Badge variant="default" className="text-xs bg-green-600">
+                <Bell className="w-3 h-3 mr-1" />
+                Monitorado
               </Badge>
             )}
-            {processo.tribunal_sigla && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-                {processo.tribunal_sigla}
+            {(processo.andamentos_nao_lidos || 0) > 0 && (
+              <Badge variant="destructive" className="text-xs">
+                {processo.andamentos_nao_lidos} novos
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-sm text-muted-foreground truncate max-w-full">
             {processo.parte_ativa || 'Autor não identificado'} vs {processo.parte_passiva || 'Réu não identificado'}
           </p>
+          {processo.tribunal_sigla && (
+            <Badge variant="outline" className="text-xs mt-1">
+              {processo.tribunal_sigla}
+            </Badge>
+          )}
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onVerDetalhes(processo)}>
-              <Eye className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Ver detalhes</TooltipContent>
-        </Tooltip>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 ml-2"
+          onClick={() => onVerDetalhes(processo)}
+        >
+          <Eye className="w-4 h-4 mr-1" />
+          Detalhes
+        </Button>
       </div>
     </Card>
   );
