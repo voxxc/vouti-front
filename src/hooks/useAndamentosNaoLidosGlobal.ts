@@ -43,8 +43,8 @@ export const useAndamentosNaoLidosGlobal = () => {
 
     setLoading(true);
     try {
-      // Fetch all processes with their andamentos
-      const { data, error } = await supabase
+      // Query 1: Fetch processes with OAB data (lightweight, no andamentos join)
+      const { data: processosData, error: processosError } = await supabase
         .from('processos_oab')
         .select(`
           id,
@@ -60,28 +60,38 @@ export const useAndamentosNaoLidosGlobal = () => {
             oab_numero,
             oab_uf,
             nome_advogado
-          ),
-          processos_oab_andamentos!left(
-            id,
-            lida
           )
         `)
         .eq('tenant_id', tenantId);
 
-      if (error) {
-        console.error('Error fetching processos:', error);
+      if (processosError) {
+        console.error('Error fetching processos:', processosError);
         return;
       }
 
+      // Query 2: Get unread counts per processo via RPC
+      const { data: naoLidosData, error: naoLidosError } = await supabase
+        .rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId });
+
+      if (naoLidosError) {
+        console.error('Error fetching nao lidos:', naoLidosError);
+        return;
+      }
+
+      // Build lookup map: processo_oab_id -> nao_lidos count
+      const naoLidosMap = new Map<string, number>();
+      (naoLidosData || []).forEach((row: any) => {
+        naoLidosMap.set(row.processo_oab_id, row.nao_lidos);
+      });
+
       // Extract unique OABs for filter dropdown
       const oabsMap = new Map<string, OABOption>();
-      
-      // Process data and calculate unread counts
-      const processosComNaoLidos = (data || [])
+
+      // Merge and build final list
+      const processosComNaoLidos = (processosData || [])
         .map((p: any) => {
           const oabData = p.oabs_cadastradas;
           
-          // Add to OABs map
           if (oabData && !oabsMap.has(oabData.id)) {
             oabsMap.set(oabData.id, {
               id: oabData.id,
@@ -89,8 +99,7 @@ export const useAndamentosNaoLidosGlobal = () => {
             });
           }
 
-          const naoLidos = (p.processos_oab_andamentos || [])
-            .filter((a: any) => a.lida === false).length;
+          const naoLidos = naoLidosMap.get(p.id) || 0;
 
           return {
             id: p.id,
@@ -142,7 +151,6 @@ export const useAndamentosNaoLidosGlobal = () => {
         async (payload) => {
           const processoOabId = payload.new.processo_oab_id;
           
-          // Recalculate unread count for this processo
           const { data, error } = await supabase
             .from('processos_oab_andamentos')
             .select('id')
@@ -160,7 +168,6 @@ export const useAndamentosNaoLidosGlobal = () => {
               ).filter(p => p.andamentos_nao_lidos > 0)
                 .sort((a, b) => b.andamentos_nao_lidos - a.andamentos_nao_lidos);
               
-              // Update total
               setTotalNaoLidos(updated.reduce((acc, p) => acc + p.andamentos_nao_lidos, 0));
               
               return updated;
