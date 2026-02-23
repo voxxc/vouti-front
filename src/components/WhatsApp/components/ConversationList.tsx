@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { Search, MessageSquare, Users, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, MessageSquare, Users, Inbox, CheckCircle, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { WhatsAppConversation } from "../sections/WhatsAppInbox";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+export type ConversationTab = "open" | "waiting" | "groups" | "closed";
 
 export interface WhatsAppGroup {
   id: string;
@@ -19,6 +19,8 @@ export interface WhatsAppGroup {
 interface ConversationWithAgent extends WhatsAppConversation {
   agentId?: string;
   agentName?: string;
+  ticketStatus?: string;
+  acceptedAt?: string;
 }
 
 interface ConversationListProps {
@@ -31,7 +33,48 @@ interface ConversationListProps {
   onFetchGroups?: () => void;
   isLoadingGroups?: boolean;
   profilePics?: Record<string, string>;
+  activeTab?: ConversationTab;
+  onTabChange?: (tab: ConversationTab) => void;
+  tabCounts?: { open: number; waiting: number; groups: number; closed: number };
 }
+
+const TABS: { value: ConversationTab; label: string; icon: React.ElementType }[] = [
+  { value: "open", label: "Abertas", icon: MessageSquare },
+  { value: "waiting", label: "Fila", icon: Inbox },
+  { value: "groups", label: "Grupos", icon: Users },
+  { value: "closed", label: "Encerrados", icon: CheckCircle },
+];
+
+// 24h countdown component
+const TicketCountdown = ({ acceptedAt }: { acceptedAt: string }) => {
+  const [remaining, setRemaining] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const start = new Date(acceptedAt).getTime();
+      const end = start + 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const diff = end - now;
+      if (diff <= 0) {
+        setRemaining("00:00");
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setRemaining(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+    };
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
+  }, [acceptedAt]);
+
+  return (
+    <span className="text-[10px] text-muted-foreground/70 font-mono flex items-center gap-1">
+      <Clock className="h-3 w-3" />
+      {remaining}
+    </span>
+  );
+};
 
 export const ConversationList = ({
   conversations,
@@ -39,10 +82,10 @@ export const ConversationList = ({
   onSelectConversation,
   isLoading,
   showAgentBadge = false,
-  groups = [],
-  onFetchGroups,
-  isLoadingGroups = false,
   profilePics = {},
+  activeTab,
+  onTabChange,
+  tabCounts = { open: 0, waiting: 0, groups: 0, closed: 0 },
 }: ConversationListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -86,61 +129,36 @@ export const ConversationList = ({
         </div>
       </div>
 
-      {/* Groups Bar */}
-      <div className="px-4 py-2 border-b border-border">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-full shrink-0"
-                  onClick={onFetchGroups}
-                  disabled={isLoadingGroups}
-                >
-                  {isLoadingGroups ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Users className="h-4 w-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Buscar Grupos</TooltipContent>
-            </Tooltip>
-
-            {groups.map((group) => {
-              const isSelected = selectedConversation?.contactNumber === group.id;
-              return (
-                <Tooltip key={group.id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() =>
-                        onSelectConversation({
-                          id: `group-${group.id}`,
-                          contactName: group.name,
-                          contactNumber: group.id,
-                          lastMessage: "",
-                          lastMessageTime: new Date().toISOString(),
-                          unreadCount: 0,
-                        })
-                      }
-                      className={cn(
-                        "h-9 w-9 rounded-full shrink-0 flex items-center justify-center text-xs font-medium transition-all border-2",
-                        isSelected
-                          ? "border-primary bg-primary/20 text-primary"
-                          : "border-transparent bg-muted hover:bg-muted/80 text-muted-foreground"
-                      )}
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{group.name}</TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </TooltipProvider>
-        </div>
+      {/* Tabs Bar */}
+      <div className="px-2 py-1.5 border-b border-border flex items-center gap-1">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const count = tabCounts[tab.value];
+          const isActive = activeTab === tab.value;
+          return (
+            <button
+              key={tab.value}
+              onClick={() => onTabChange(tab.value)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors relative",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted/50"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              {count > 0 && (
+                <span className={cn(
+                  "min-w-[16px] h-4 rounded-full text-[10px] flex items-center justify-center px-1",
+                  isActive ? "bg-primary text-primary-foreground" : "bg-muted-foreground/20 text-muted-foreground"
+                )}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Conversations List */}
@@ -195,11 +213,16 @@ export const ConversationList = ({
                     <p className="text-xs text-muted-foreground truncate">
                       {conversation.lastMessage}
                     </p>
-                    {conversation.unreadCount > 0 && (
-                      <Badge className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-green-500">
-                        {conversation.unreadCount}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {conversation.acceptedAt && activeTab === "open" && (
+                        <TicketCountdown acceptedAt={conversation.acceptedAt} />
+                      )}
+                      {conversation.unreadCount > 0 && (
+                        <Badge className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-green-500">
+                          {conversation.unreadCount}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </button>

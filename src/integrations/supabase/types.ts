@@ -7921,6 +7921,57 @@ export type Database = {
           },
         ]
       }
+      whatsapp_macros: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          message_template: string
+          name: string
+          shortcut: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          message_template: string
+          name: string
+          shortcut?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          message_template?: string
+          name?: string
+          shortcut?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_macros_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_macros_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           agent_id: string | null
@@ -8075,6 +8126,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "whatsapp_teams_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_tickets: {
+        Row: {
+          accepted_at: string | null
+          agent_id: string | null
+          closed_at: string | null
+          created_at: string | null
+          id: string
+          phone: string
+          status: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          agent_id?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          phone: string
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          agent_id?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          phone?: string
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_tickets_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_tickets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

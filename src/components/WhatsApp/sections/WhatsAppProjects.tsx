@@ -22,9 +22,10 @@ interface CrmProject {
 interface WhatsAppProjectsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sidebarCollapsed?: boolean;
 }
 
-export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) {
+export function WhatsAppProjects({ open, onOpenChange, sidebarCollapsed = false }: WhatsAppProjectsProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -114,7 +115,8 @@ export function WhatsAppProjects({ open, onOpenChange }: WhatsAppProjectsProps) 
     <Sheet open={open} onOpenChange={(v) => { if (!v) handleClose(); }} modal={false}>
       <SheetContent
         side="left-offset"
-        className="p-0 flex flex-col !right-0 !w-auto"
+        className={cn("p-0 flex flex-col !right-0 !w-auto", sidebarCollapsed && "!md:left-[56px]")}
+        style={sidebarCollapsed ? { left: '56px' } : undefined}
       >
         <SheetTitle className="sr-only">Projetos</SheetTitle>
 

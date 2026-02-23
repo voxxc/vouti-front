@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
-import { ConversationList } from "../components/ConversationList";
+import { ConversationList, ConversationTab } from "../components/ConversationList";
 import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { Inbox, UserPlus } from "lucide-react";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { toast } from "sonner";
 
 export interface WhatsAppConversation {
   id: string;
@@ -32,6 +33,13 @@ interface WhatsAppInboxProps {
   onConversationOpened?: () => void;
 }
 
+interface TicketInfo {
+  id: string;
+  phone: string;
+  status: string;
+  accepted_at: string | null;
+}
+
 export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }: WhatsAppInboxProps = {}) => {
   const { tenantId } = useTenantId();
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
@@ -43,10 +51,11 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [profilePics, setProfilePics] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<ConversationTab>("open");
+  const [tickets, setTickets] = useState<TicketInfo[]>([]);
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
-    // Não buscar enquanto tenantId ainda está carregando
     if (!tenantId) return;
 
     const findMyAgent = async () => {
@@ -79,7 +88,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       if (match) {
         setSelectedConversation(match);
       } else {
-        // Create temporary conversation entry
         setSelectedConversation({
           id: 'temp-' + normalized,
           contactName: normalized,
@@ -92,6 +100,20 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       onConversationOpened?.();
     }
   }, [initialConversationPhone, conversations]);
+
+  // Load tickets
+  const loadTickets = useCallback(async () => {
+    if (!myAgentId || !tenantId) return;
+    const { data } = await supabase
+      .from("whatsapp_tickets" as any)
+      .select("id, phone, status, accepted_at")
+      .eq("agent_id", myAgentId);
+    setTickets((data as any) || []);
+  }, [myAgentId, tenantId]);
+
+  useEffect(() => {
+    if (myAgentId) loadTickets();
+  }, [myAgentId, loadTickets]);
 
   // Effect para carregar conversas e subscription real-time
   useEffect(() => {
@@ -111,6 +133,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         },
         () => {
           loadConversations();
+          loadTickets();
         }
       )
       .subscribe();
@@ -172,14 +195,12 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     
     if (showLoading) setIsLoading(true);
     try {
-      // Se não tem agente, não carrega nada
       if (!myAgentId) {
         setConversations([]);
         if (showLoading) setIsLoading(false);
         return;
       }
 
-      // Check shared access phones for this agent
       const { data: sharedAccess } = await supabase
         .from("whatsapp_conversation_access" as any)
         .select("phone")
@@ -187,7 +208,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
       const sharedPhones = new Set<string>((sharedAccess || []).map((a: any) => a.phone));
 
-      // Load own messages
       let messagesQuery = supabase
         .from("whatsapp_messages")
         .select("*")
@@ -203,7 +223,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           .eq("tenant_id", tenantId)
       ]);
 
-      // If there are shared access phones, also load messages from those phones (all agents)
       let sharedMessages: any[] = [];
       if (sharedPhones.size > 0) {
         const phoneArray = Array.from(sharedPhones);
@@ -225,7 +244,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         contactNameMap.set(c.phone, c.name);
       });
 
-      // Merge own messages + shared messages (deduplicate by id)
       const allMessages = [...(messagesResult.data || [])];
       const seenIds = new Set(allMessages.map(m => m.id));
       sharedMessages.forEach(m => {
@@ -234,17 +252,14 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           seenIds.add(m.id);
         }
       });
-      // Sort descending by created_at
       allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       const conversationMap = new Map<string, WhatsAppConversation>();
-      
       const unreadMap = new Map<string, number>();
       
       allMessages.forEach((msg) => {
         const normalizedNumber = normalizePhone(msg.from_number);
         
-        // Count unread incoming messages
         if (msg.direction === 'received' && msg.is_read === false) {
           unreadMap.set(normalizedNumber, (unreadMap.get(normalizedNumber) || 0) + 1);
         }
@@ -261,7 +276,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         }
       });
 
-      // Apply unread counts
       unreadMap.forEach((count, phone) => {
         const conv = conversationMap.get(phone);
         if (conv) conv.unreadCount = count;
@@ -270,7 +284,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       const convList = Array.from(conversationMap.values());
       setConversations(convList);
 
-      // Auto-inserir novos contatos no Kanban "Topo de Funil"
       if (myAgentId && convList.length > 0) {
         autoInsertToKanban(convList, myAgentId);
       }
@@ -281,10 +294,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
   }, [tenantId, myAgentId]);
 
-  // Auto-inserir conversas no Topo de Funil do Kanban
   const autoInsertToKanban = useCallback(async (convList: WhatsAppConversation[], agentId: string) => {
     try {
-      // Buscar primeira coluna (Topo de Funil)
       const { data: columns } = await supabase
         .from("whatsapp_kanban_columns")
         .select("id")
@@ -296,7 +307,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       if (!columns || columns.length === 0) return;
       const firstColumnId = columns[0].id;
 
-      // Buscar cards existentes
       const { data: existingCards } = await supabase
         .from("whatsapp_conversation_kanban")
         .select("phone")
@@ -304,7 +314,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
       const existingPhones = new Set(existingCards?.map(c => c.phone) || []);
 
-      // Inserir contatos novos
       const newCards = convList
         .filter(c => !existingPhones.has(c.contactNumber))
         .map((c, idx) => ({
@@ -332,7 +341,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       const normalized = normalizePhone(contactNumber);
       const variant = getPhoneVariant(normalized);
 
-      // Check if agent has shared access to this phone
       let hasSharedAccess = false;
       if (myAgentId) {
         const { data: access } = await supabase
@@ -349,7 +357,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         .select("*")
         .eq("tenant_id", tenantId);
 
-      // If shared access, load ALL messages for this phone (no agent_id filter)
       if (!hasSharedAccess && myAgentId) {
         query = query.eq("agent_id", myAgentId);
       }
@@ -389,10 +396,11 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
     const intervalId = setInterval(() => {
       loadConversations(false);
+      loadTickets();
     }, 2000);
 
     return () => clearInterval(intervalId);
-  }, [tenantId, loadConversations, myAgentId]);
+  }, [tenantId, loadConversations, myAgentId, loadTickets]);
 
   // Polling automático para mensagens
   useEffect(() => {
@@ -471,6 +479,157 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
   }, [myAgentId]);
 
+  // Ticket actions
+  const handleAcceptTicket = useCallback(async () => {
+    if (!selectedConversation || !myAgentId || !tenantId) return;
+    const phone = normalizePhone(selectedConversation.contactNumber);
+    
+    // Check existing ticket
+    const { data: existing } = await supabase
+      .from("whatsapp_tickets" as any)
+      .select("id")
+      .eq("agent_id", myAgentId)
+      .eq("phone", phone)
+      .eq("status", "waiting")
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("whatsapp_tickets" as any)
+        .update({ status: "open", accepted_at: new Date().toISOString() })
+        .eq("id", (existing as any).id);
+    } else {
+      await supabase
+        .from("whatsapp_tickets" as any)
+        .insert({ tenant_id: tenantId, agent_id: myAgentId, phone, status: "open", accepted_at: new Date().toISOString() });
+    }
+    toast.success("Ticket aceito!");
+    loadTickets();
+    setActiveTab("open");
+  }, [selectedConversation, myAgentId, tenantId, loadTickets]);
+
+  const handleCloseTicket = useCallback(async () => {
+    if (!selectedConversation || !myAgentId) return;
+    const phone = normalizePhone(selectedConversation.contactNumber);
+    
+    await supabase
+      .from("whatsapp_tickets" as any)
+      .update({ status: "closed", closed_at: new Date().toISOString() })
+      .eq("agent_id", myAgentId)
+      .eq("phone", phone)
+      .eq("status", "open");
+
+    toast.success("Ticket encerrado!");
+    loadTickets();
+    setActiveTab("closed");
+  }, [selectedConversation, myAgentId, loadTickets]);
+
+  // Build ticket map
+  const ticketMap = new Map<string, TicketInfo>();
+  tickets.forEach(t => ticketMap.set(t.phone, t));
+
+  // Filter conversations by tab
+  const getFilteredConversations = () => {
+    const isGroup = (c: WhatsAppConversation) => c.contactNumber.includes('@g.us');
+
+    if (activeTab === "groups") {
+      // Show groups from conversations + fetched groups
+      const groupConvs = conversations.filter(c => isGroup(c));
+      const groupIds = new Set(groupConvs.map(c => c.contactNumber));
+      const extraGroups: WhatsAppConversation[] = groups
+        .filter(g => !groupIds.has(g.id))
+        .map(g => ({
+          id: `group-${g.id}`,
+          contactName: g.name,
+          contactNumber: g.id,
+          lastMessage: "",
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        }));
+      return [...groupConvs, ...extraGroups];
+    }
+
+    const nonGroupConvs = conversations.filter(c => !isGroup(c));
+
+    if (activeTab === "open") {
+      return nonGroupConvs.filter(c => {
+        const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+        return ticket?.status === "open";
+      });
+    }
+
+    if (activeTab === "waiting") {
+      // All non-group conversations that don't have an "open" ticket
+      return nonGroupConvs.filter(c => {
+        const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+        return !ticket || ticket.status === "waiting";
+      });
+    }
+
+    if (activeTab === "closed") {
+      const now = Date.now();
+      return nonGroupConvs.filter(c => {
+        const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+        if (ticket?.status !== "closed") return false;
+        // Only show closed within last 24h
+        if (ticket.accepted_at) {
+          const closedAge = now - new Date(ticket.accepted_at).getTime();
+          return closedAge < 24 * 60 * 60 * 1000;
+        }
+        return true;
+      });
+    }
+
+    return nonGroupConvs;
+  };
+
+  // Tab counts
+  const getTabCounts = () => {
+    const isGroup = (c: WhatsAppConversation) => c.contactNumber.includes('@g.us');
+    const nonGroupConvs = conversations.filter(c => !isGroup(c));
+    const groupConvs = conversations.filter(c => isGroup(c));
+    const now = Date.now();
+
+    const openCount = nonGroupConvs.filter(c => {
+      const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+      return ticket?.status === "open";
+    }).length;
+
+    const waitingCount = nonGroupConvs.filter(c => {
+      const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+      return !ticket || ticket.status === "waiting";
+    }).length;
+
+    const closedCount = nonGroupConvs.filter(c => {
+      const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+      if (ticket?.status !== "closed") return false;
+      if (ticket.accepted_at) {
+        return (now - new Date(ticket.accepted_at).getTime()) < 24 * 60 * 60 * 1000;
+      }
+      return true;
+    }).length;
+
+    return {
+      open: openCount,
+      waiting: waitingCount,
+      groups: groupConvs.length + groups.filter(g => !groupConvs.some(c => c.contactNumber === g.id)).length,
+      closed: closedCount,
+    };
+  };
+
+  // Get current ticket status for selected conversation
+  const getSelectedTicketStatus = () => {
+    if (!selectedConversation) return undefined;
+    const ticket = ticketMap.get(normalizePhone(selectedConversation.contactNumber));
+    return ticket?.status;
+  };
+
+  const getSelectedAcceptedAt = () => {
+    if (!selectedConversation) return undefined;
+    const ticket = ticketMap.get(normalizePhone(selectedConversation.contactNumber));
+    return ticket?.accepted_at || undefined;
+  };
+
   // Estado: ainda carregando agent_id
   if (myAgentId === undefined) {
     return (
@@ -498,14 +657,23 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     );
   }
 
+  const filteredConversations = getFilteredConversations();
+  const enrichedConversations = filteredConversations.map(c => {
+    const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+    return {
+      ...c,
+      ticketStatus: ticket?.status,
+      acceptedAt: ticket?.accepted_at || undefined,
+    };
+  });
+
   return (
     <div className="flex h-full">
       <ConversationList
-        conversations={conversations}
+        conversations={enrichedConversations}
         selectedConversation={selectedConversation}
         onSelectConversation={(conv) => {
           setSelectedConversation(conv);
-          // Mark messages as read
           if (myAgentId && conv.unreadCount > 0) {
             const normalized = normalizePhone(conv.contactNumber);
             const variant = getPhoneVariant(normalized);
@@ -535,12 +703,18 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         onFetchGroups={handleFetchGroups}
         isLoadingGroups={isLoadingGroups}
         profilePics={profilePics}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tabCounts={getTabCounts()}
       />
 
       <ChatPanel
         conversation={selectedConversation}
         messages={messages}
         onSendMessage={handleSendMessage}
+        ticketStatus={getSelectedTicketStatus()}
+        onAcceptTicket={handleAcceptTicket}
+        onCloseTicket={handleCloseTicket}
       />
 
       {selectedConversation && (
