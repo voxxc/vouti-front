@@ -1,77 +1,54 @@
 
+## Compactar cards de processos na aba Geral
 
-## Corrigir timeout ao carregar processos na aba Geral
+### Problema
 
-### Diagnostico
+Os cards de processos na aba Geral estao ocupando espaco demais, forçando o usuario a dar zoom out para visualizar os botoes. Isso acontece porque:
 
-A query do `useProcessosGeral.ts` faz um `SELECT * FROM processos_oab` com LEFT JOIN em `processos_oab_andamentos` para TODOS os processos do tenant de uma vez. Com 311 processos e 22.668 andamentos (13.491 nao lidos), o banco estoura o timeout de statement.
-
-As abas individuais de OAB funcionam porque cada uma carrega um subconjunto menor de processos.
+1. Os badges (Monitorado, novos, tribunal) fazem `flex-wrap`, empurrando conteudo para novas linhas
+2. O botao "Detalhes" com texto ocupa espaco horizontal desnecessario
+3. Com 300+ processos, o layout vertical se acumula
 
 ### Solucao
 
-Separar em duas queries leves em vez de uma query pesada com join:
+Ajustar o `ProcessoCardGeral` para ser mais compacto:
 
-1. **Query 1**: Buscar processos sem join (rapido)
-2. **Query 2**: Contar andamentos nao lidos com agregacao no banco (um unico SELECT com GROUP BY)
+1. **Botao "Detalhes"**: Trocar de botao com texto para botao icon-only (apenas o icone Eye), com tooltip explicativo -- economiza espaco horizontal
+2. **Layout inline**: Colocar o tribunal badge na mesma linha do CNJ em vez de numa linha separada abaixo
+3. **Reduzir padding**: Diminuir o padding do card de `p-3` para `p-2`
+4. **Badges mais compactos**: Remover texto "Monitorado" do badge, deixar apenas o icone Bell com tooltip
+5. **Remover flex-wrap**: Usar `overflow-hidden` e `flex-nowrap` para manter tudo em uma unica linha
 
-### Alteracao: `src/hooks/useProcessosGeral.ts`
+### Alteracao tecnica
 
-Substituir a query atual:
+**Arquivo: `src/components/Controladoria/OABTabGeral.tsx`**
 
-```typescript
-// ANTES (causa timeout):
-const { data, error } = await supabase
-  .from('processos_oab')
-  .select(`*, processos_oab_andamentos!left(id, lida)`)
-  .eq('tenant_id', tid)
-  .order('ordem_lista', { ascending: true });
+Reescrever o componente `ProcessoCardGeral` (linhas 75-121):
+
+```
+Antes:
+- Card com p-3
+- Badges com flex-wrap (podem criar linhas extras)
+- Botao "Detalhes" com texto
+- Tribunal badge em linha separada (mt-1)
+
+Depois:
+- Card com p-2
+- Badges inline sem wrap, com overflow hidden
+- Botao icon-only (Eye) com tooltip
+- Tribunal badge na mesma linha do CNJ
+- Tudo em uma unica linha horizontal
 ```
 
-Por duas queries separadas:
+Estrutura final do card:
 
-```typescript
-// DEPOIS (rapido):
-// Query 1: buscar processos sem join
-const { data: processosData, error } = await supabase
-  .from('processos_oab')
-  .select('*')
-  .eq('tenant_id', tid)
-  .order('ordem_lista', { ascending: true });
-
-if (error) throw error;
-
-// Query 2: contar nao lidos por processo (agregacao leve)
-const { data: naoLidosData } = await supabase
-  .from('processos_oab_andamentos')
-  .select('processo_oab_id')
-  .eq('tenant_id', tid)
-  .eq('lida', false);
-
-// Montar mapa de contagens
-const naoLidosMap = new Map<string, number>();
-(naoLidosData || []).forEach((a: any) => {
-  naoLidosMap.set(a.processo_oab_id, 
-    (naoLidosMap.get(a.processo_oab_id) || 0) + 1);
-});
-
-// Combinar
-const processosComContagem = (processosData || []).map((p: any) => ({
-  ...p,
-  andamentos_nao_lidos: naoLidosMap.get(p.id) || 0,
-})) as ProcessoOAB[];
-
-setProcessos(deduplicar(processosComContagem));
 ```
-
-### Por que resolve
-
-- A query de processos sem join e rapida (311 rows, sem expandir andamentos)
-- A query de andamentos nao lidos filtra por `lida = false` (reduz de 22k para 13k rows) e retorna apenas o `processo_oab_id` (coluna unica, sem payload pesado)
-- Nenhum join pesado no banco, evitando o timeout
+[CNJ | Bell icon | "3 novos" | TJSP] .................. [Eye button]
+[Autor vs Reu (truncado)]
+```
 
 ### Arquivo modificado
 
 | Arquivo | Acao |
 |---|---|
-| `src/hooks/useProcessosGeral.ts` | Modificar -- separar em duas queries leves |
+| `src/components/Controladoria/OABTabGeral.tsx` | Modificar -- compactar ProcessoCardGeral |
