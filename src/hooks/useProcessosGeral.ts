@@ -33,23 +33,32 @@ export const useProcessosGeral = () => {
       setTenantId(tid);
       if (!tid) return;
 
-      const { data, error } = await supabase
+      // Query 1: buscar processos sem join (rápido)
+      const { data: processosData, error } = await supabase
         .from('processos_oab')
-        .select(`
-          *,
-          processos_oab_andamentos!left(id, lida)
-        `)
+        .select('*')
         .eq('tenant_id', tid)
         .order('ordem_lista', { ascending: true });
 
       if (error) throw error;
 
-      const processosComContagem = (data || []).map((p: any) => {
-        const andamentos = p.processos_oab_andamentos || [];
-        const naoLidos = andamentos.filter((a: any) => a.lida === false).length;
-        const { processos_oab_andamentos, ...processo } = p;
-        return { ...processo, andamentos_nao_lidos: naoLidos } as ProcessoOAB;
+      // Query 2: buscar apenas andamentos não lidos (leve)
+      const { data: naoLidosData } = await supabase
+        .from('processos_oab_andamentos')
+        .select('processo_oab_id')
+        .eq('lida', false);
+
+      // Montar mapa de contagens
+      const naoLidosMap = new Map<string, number>();
+      (naoLidosData || []).forEach((a: any) => {
+        naoLidosMap.set(a.processo_oab_id, 
+          (naoLidosMap.get(a.processo_oab_id) || 0) + 1);
       });
+
+      const processosComContagem = (processosData || []).map((p: any) => ({
+        ...p,
+        andamentos_nao_lidos: naoLidosMap.get(p.id) || 0,
+      })) as ProcessoOAB[];
 
       setProcessos(deduplicar(processosComContagem));
     } catch (error: any) {
