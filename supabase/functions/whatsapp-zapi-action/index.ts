@@ -122,6 +122,13 @@ Deno.serve(async (req) => {
         method = 'PUT';
         requestBody = JSON.stringify({ notifySentByMe: true });
         break;
+      case 'profile-picture':
+        endpoint = `${baseUrl}/profile-picture`;
+        method = 'GET';
+        if (body.phone) {
+          endpoint += `?phone=${body.phone}`;
+        }
+        break;
       case 'set-webhook':
         endpoint = `${baseUrl}/update-webhook-received`;
         method = 'PUT';
