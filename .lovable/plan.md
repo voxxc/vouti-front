@@ -1,35 +1,30 @@
 
 
-## Comentarios na aba Resumo do Workspace (Vouti e Vouti.CRM)
+## Corrigir erro ao apagar agente - FK transferred_from_agent_id
 
-### O que sera feito
+### Problema
 
-Adicionar a secao de comentarios (com mencoes, respostas, edicao e exclusao) na aba **Resumo** do `ProjectProtocoloContent.tsx` -- o componente que renderiza os detalhes de um Processo no Workspace.
+A tabela `whatsapp_conversation_kanban` possui a coluna `transferred_from_agent_id` que referencia `whatsapp_agents(id)`. Quando um agente e excluido, podem existir registros em kanbans de OUTROS agentes que foram transferidos a partir do agente sendo excluido. A cascata atual so limpa registros pelo `column_id`, mas nao trata essa referencia.
 
-### Implementacao
+### Solucao
 
-**Arquivo:** `src/components/Project/ProjectProtocoloContent.tsx`
+**Arquivo:** `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx`
 
-1. Importar o componente `TaskComentarios` (ja existente e funcional)
-2. Na aba `TabsContent value="resumo"`, logo **antes** do bloco "Alterar Status" (linha 408), adicionar:
-   - Um `<Separator />` visual
-   - O componente `<TaskComentarios taskId={protocolo.id} currentUserId={currentUserId} />`
-3. Adicionar a prop `currentUserId` na interface `ProjectProtocoloContentProps` (obtida do usuario logado)
-4. No componente pai que renderiza `ProjectProtocoloContent`, passar o `currentUserId`
+Antes do passo 9 (delete kanban cards), adicionar um passo que limpa a referencia `transferred_from_agent_id`:
 
-O componente `TaskComentarios` ja suporta:
-- Mencionar participantes do projeto com @nome
-- Responder a comentarios existentes
-- Excluir comentarios proprios
-- Realtime via Supabase channel
+```
+// Limpar referencia de transferencia em kanbans de outros agentes
+await supabase
+  .from("whatsapp_conversation_kanban")
+  .update({ transferred_from_agent_id: null, transferred_from_agent_name: null })
+  .eq("transferred_from_agent_id", deleteAgentId);
+```
 
-A tabela `task_comentarios` usa `task_id TEXT`, entao aceita tanto IDs de tasks quanto de protocolos sem necessidade de migracao adicional.
+Isso seta como `null` os campos de auditoria em cards que foram transferidos pelo agente sendo excluido, sem apagar os cards dos outros agentes. Depois disso, o delete normal do agente funcionara sem violar a constraint.
 
-### Arquivos editados
+### Resumo
 
 | Arquivo | Acao |
 |---|---|
-| `ProjectProtocoloContent.tsx` | Adicionar `TaskComentarios` na aba Resumo + prop `currentUserId` |
-| Componente pai (onde renderiza `ProjectProtocoloContent`) | Passar `currentUserId` |
+| `WhatsAppAgentsSettings.tsx` | Adicionar update para nullificar `transferred_from_agent_id` antes de deletar o agente |
 
-Nenhuma migracao SQL necessaria -- reutiliza a tabela `task_comentarios` existente.
