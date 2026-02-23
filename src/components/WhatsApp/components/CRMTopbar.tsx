@@ -56,11 +56,13 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
             vouti<span className="text-[#E11D48]">.</span>crm
           </button>
 
+          <div className="ml-4">
           <CRMQuickSearch onSelectProject={(projectId) => {
             onSectionChange("projects");
             // Dispatch event to open the selected project
             window.dispatchEvent(new CustomEvent('crm-open-project', { detail: { projectId } }));
           }} />
+          </div>
         </div>
 
         {/* Right: Chat, Notifications, Profile, Logout */}
