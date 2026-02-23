@@ -7348,6 +7348,7 @@ export type Database = {
           interval_minutes: number | null
           message_template: string
           name: string
+          scheduled_start_at: string | null
           sent_count: number | null
           status: string | null
           target_column_id: string | null
@@ -7365,6 +7366,7 @@ export type Database = {
           interval_minutes?: number | null
           message_template: string
           name: string
+          scheduled_start_at?: string | null
           sent_count?: number | null
           status?: string | null
           target_column_id?: string | null
@@ -7382,6 +7384,7 @@ export type Database = {
           interval_minutes?: number | null
           message_template?: string
           name?: string
+          scheduled_start_at?: string | null
           sent_count?: number | null
           status?: string | null
           target_column_id?: string | null

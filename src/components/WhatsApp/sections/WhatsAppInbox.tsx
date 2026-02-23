@@ -54,6 +54,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [activeTab, setActiveTab] = useState<ConversationTab>("open");
   const [tickets, setTickets] = useState<TicketInfo[]>([]);
   const [pendingMacro, setPendingMacro] = useState<any | null>(null);
+  const [instanceProvider, setInstanceProvider] = useState<string>("zapi");
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
@@ -76,6 +77,16 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
       setMyAgentId(data?.id || null);
       setMyAgentName(data?.name || null);
+
+      // Detect provider type for this agent's instance
+      if (data?.id) {
+        const { data: instance } = await supabase
+          .from("whatsapp_instances")
+          .select("provider")
+          .eq("agent_id", data.id)
+          .maybeSingle();
+        setInstanceProvider(instance?.provider || "zapi");
+      }
     };
 
     findMyAgent();
@@ -463,7 +474,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   }, [loadConversations]);
 
   const handleFetchGroups = useCallback(async () => {
-    if (!myAgentId) return;
+    if (!myAgentId || !tenantId) return;
     setIsLoadingGroups(true);
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-list-groups", {
@@ -471,14 +482,41 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       });
       if (error) throw error;
       if (data?.groups) {
+        // Persist groups to whatsapp_contacts
+        for (const group of data.groups) {
+          await supabase
+            .from("whatsapp_contacts")
+            .upsert({
+              phone: group.id,
+              name: group.name,
+              tenant_id: tenantId,
+            }, { onConflict: "phone,tenant_id" });
+        }
         setGroups(data.groups);
+        toast.success(`${data.groups.length} grupos encontrados e salvos.`);
       }
     } catch (error) {
       console.error("Erro ao buscar grupos:", error);
     } finally {
       setIsLoadingGroups(false);
     }
-  }, [myAgentId]);
+  }, [myAgentId, tenantId]);
+
+  // Load saved groups from whatsapp_contacts on mount
+  useEffect(() => {
+    if (!tenantId) return;
+    const loadSavedGroups = async () => {
+      const { data } = await supabase
+        .from("whatsapp_contacts")
+        .select("phone, name")
+        .eq("tenant_id", tenantId)
+        .like("phone", "%@g.us");
+      if (data) {
+        setGroups(data.map(g => ({ id: g.phone, name: g.name })));
+      }
+    };
+    loadSavedGroups();
+  }, [tenantId]);
 
   // Ticket actions
   const handleAcceptTicket = useCallback(async () => {
@@ -701,7 +739,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         }}
         isLoading={isLoading}
         groups={groups}
-        onFetchGroups={handleFetchGroups}
+        onFetchGroups={instanceProvider !== "meta" ? handleFetchGroups : undefined}
         isLoadingGroups={isLoadingGroups}
         profilePics={profilePics}
         activeTab={activeTab}

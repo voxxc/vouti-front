@@ -355,13 +355,9 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
   if (!conversation) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-muted/20">
-        <div className="flex items-baseline gap-0 mb-4">
-          <span className="text-5xl font-black tracking-tighter text-foreground">
-            vouti
-            <span className="text-red-500">.</span>
-          </span>
-          <span className="text-2xl font-semibold text-muted-foreground">.crm</span>
-        </div>
+        <span className="text-3xl font-black tracking-tight lowercase text-foreground mb-4">
+          vouti<span className="text-[#E11D48]">.</span>crm
+        </span>
         <p className="text-muted-foreground text-center text-sm">
           O melhor lugar para seu trabalho.
         </p>

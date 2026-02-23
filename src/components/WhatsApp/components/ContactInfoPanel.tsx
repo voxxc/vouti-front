@@ -103,7 +103,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
     const fetchMacros = async () => {
       const { data } = await supabase
         .from("whatsapp_macros" as any)
-        .select("id, name, shortcut, content")
+        .select("id, name, shortcut, message_template")
         .eq("agent_id", currentAgentId)
         .eq("is_active", true)
         .order("shortcut");

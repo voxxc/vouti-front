@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.whatsapp-commander]
 verify_jwt = false
+
+[functions.admin-update-user-credentials]
+verify_jwt = false

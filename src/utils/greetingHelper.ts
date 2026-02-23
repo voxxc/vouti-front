@@ -1,8 +1,7 @@
-export const getGreeting = (): string => {
-  // Use Brasilia timezone (America/Sao_Paulo)
+export const getGreeting = (timezone: string = 'America/Sao_Paulo'): string => {
   const now = new Date();
-  const brasiliaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-  const hour = brasiliaTime.getHours();
+  const localTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  const hour = localTime.getHours();
   
   if (hour >= 6 && hour < 12) {
     return 'Bom dia';
