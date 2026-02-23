@@ -621,7 +621,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const getSelectedTicketStatus = () => {
     if (!selectedConversation) return undefined;
     const ticket = ticketMap.get(normalizePhone(selectedConversation.contactNumber));
-    return ticket?.status;
+    return ticket?.status || "waiting";
   };
 
   const getSelectedAcceptedAt = () => {
@@ -704,7 +704,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         isLoadingGroups={isLoadingGroups}
         profilePics={profilePics}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => { setActiveTab(tab); setSelectedConversation(null); }}
         tabCounts={getTabCounts()}
       />
 
