@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Calendar, Trash2, FileText, Loader2, Pencil, CalendarPlus, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Calendar, Trash2, Loader2, Pencil, CalendarPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -69,11 +69,9 @@ interface TaskTarefasTabProps {
   taskTitle?: string;
   projectId?: string;
   columnName?: string;
-  onGerarRelatorio?: () => void;
-  hasVinculo: boolean;
 }
 
-export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGerarRelatorio, hasVinculo }: TaskTarefasTabProps) => {
+export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: TaskTarefasTabProps) => {
   const { tarefas, loading, adicionarTarefa, atualizarTarefa, removerTarefa } = useTaskTarefas(taskId, { projectId, taskTitle, columnName });
   const { toast } = useToast();
   const { user } = useAuth();
@@ -405,12 +403,6 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName, onGer
           Atividades ({tarefas.length})
         </h3>
         <div className="flex gap-2">
-          {hasVinculo && onGerarRelatorio && (
-            <Button variant="outline" size="sm" onClick={onGerarRelatorio}>
-              <FileText className="h-4 w-4 mr-1" />
-              Gerar Relatorio
-            </Button>
-          )}
           <Button size="sm" onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Nova Tarefa

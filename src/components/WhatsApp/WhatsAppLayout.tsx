@@ -9,6 +9,7 @@ import { WhatsAppReports } from "./sections/WhatsAppReports";
 import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppProjects } from "./sections/WhatsAppProjects";
+import { AgendaContent } from "@/components/Agenda/AgendaContent";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
@@ -122,6 +123,9 @@ export const WhatsAppLayout = () => {
           </div>
           <div className={activeSection === "help" ? "absolute inset-0 z-10 bg-background" : "hidden"}>
             <WhatsAppHelp />
+          </div>
+          <div className={activeSection === "agenda" ? "absolute inset-0 z-10 bg-background" : "hidden"}>
+            <AgendaContent />
           </div>
 
           {/* Kanban - mounted when agent selected */}

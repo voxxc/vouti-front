@@ -25,6 +25,7 @@ import {
   Shield,
   FolderOpen,
   Terminal,
+  Calendar,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -522,6 +523,21 @@ export const WhatsAppSidebar = ({
           >
             <Megaphone className="h-4 w-4 shrink-0" />
             {!collapsed && <span className="text-sm">Campanhas</span>}
+          </Button>
+
+          {/* Agenda */}
+          <Button
+            variant={activeSection === "agenda" ? "secondary" : "ghost"}
+            className={cn(
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
+              activeSection === "agenda" && "bg-primary/10 text-primary"
+            )}
+            onClick={() => onSectionChange("agenda")}
+            title={collapsed ? "Agenda" : undefined}
+          >
+            <Calendar className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Agenda</span>}
           </Button>
 
           {/* Central de Ajuda */}

@@ -74,7 +74,6 @@ import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 import { PrazosCasoTab } from './PrazosCasoTab';
-import { ProcessoComentarios } from './ProcessoComentarios';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ProcessoOABDetalhesProps {
@@ -484,11 +483,6 @@ export const ProcessoOABDetalhes = ({
               </div>
             </Card>
           )}
-
-          {/* Comentários do Processo */}
-          <Card className="p-4">
-            <ProcessoComentarios processoId={processo.id} currentUserId={currentUserId} />
-          </Card>
 
           {/* Toggle de Monitoramento */}
           <Card className="p-4">

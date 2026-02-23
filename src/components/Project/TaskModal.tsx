@@ -19,22 +19,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Edit, Save, X, Plus, Edit2, Trash2, Link2, ListTodo, MessageSquare, Files, History, Loader2, Reply } from "lucide-react";
+import { Edit, Save, X, Plus, Edit2, Trash2, ListTodo, MessageSquare, Files, Loader2, Reply } from "lucide-react";
 import { Task, TASK_STATUSES, Comment, TaskFile, TaskHistoryEntry, AcordoDetails } from "@/types/project";
 import { User } from "@/types/user";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import TaskFilePanel from "./TaskFilePanel";
-import TaskHistoryPanel from "./TaskHistoryPanel";
 import CardColorPicker from "./CardColorPicker";
-import { TaskVinculoTab } from "./TaskVinculoTab";
 import { TaskTarefasTab } from "./TaskTarefasTab";
+import { TaskComentarios } from "./TaskComentarios";
 import { notifyCommentAdded } from "@/utils/notificationHelpers";
 import { supabase } from "@/integrations/supabase/client";
-import { RelatorioUnificado } from "./RelatorioUnificado";
 import { useTaskTarefas } from "@/hooks/useTaskTarefas";
-import { useTaskVinculo } from "@/hooks/useTaskVinculo";
 import { CurrencyInput } from "@/components/ui/currency-input";
 
 interface TaskModalProps {
@@ -58,15 +55,11 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
   const [editedCommentText, setEditedCommentText] = useState("");
   const [editedAcordoDetails, setEditedAcordoDetails] = useState<AcordoDetails>({});
   const [activeTab, setActiveTab] = useState("detalhes");
-  const [relatorioOpen, setRelatorioOpen] = useState(false);
-  const [processoOabId, setProcessoOabId] = useState<string | null>(null);
   const [isAddingComment, setIsAddingComment] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const { toast } = useToast();
 
   const { tarefas: taskTarefas } = useTaskTarefas(task?.id || null, { projectId, taskTitle: task?.title, columnName });
-  const { processoVinculado } = useTaskVinculo(task?.id || null, processoOabId);
-  const [processoTarefas, setProcessoTarefas] = useState<any[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -76,24 +69,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
     }
   }, [task]);
 
-  // Load task processo_oab_id from database
   useEffect(() => {
-    const loadProcessoOabId = async () => {
-      if (!task) return;
-      
-      const { data } = await supabase
-        .from('tasks')
-        .select('processo_oab_id')
-        .eq('id', task.id)
-        .single();
-      
-      if (data?.processo_oab_id) {
-        setProcessoOabId(data.processo_oab_id);
-      }
-    };
-
     if (task && isOpen) {
-      loadProcessoOabId();
       loadTaskData();
     }
 
@@ -129,25 +106,8 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
     };
   }, [task?.id, isOpen]);
 
-  // Buscar tarefas judiciais do processo vinculado
-  useEffect(() => {
-    const buscarTarefasProcesso = async () => {
-      if (!processoOabId) {
-        setProcessoTarefas([]);
-        return;
-      }
 
-      const { data } = await supabase
-        .from('processos_oab_tarefas')
-        .select('*')
-        .eq('processo_oab_id', processoOabId)
-        .order('data_execucao', { ascending: false });
 
-      setProcessoTarefas(data || []);
-    };
-
-    buscarTarefasProcesso();
-  }, [processoOabId]);
 
   const loadTaskData = async () => {
     if (!task) return;
@@ -675,10 +635,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
     onUpdateTask(updatedTask);
   };
 
-  const handleVinculoChange = (novoProcessoOabId: string | null) => {
-    setProcessoOabId(novoProcessoOabId);
-  };
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -944,12 +900,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                   <Badge variant="outline">
                     {TASK_STATUSES[task.status]}
                   </Badge>
-                  {processoOabId && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Link2 className="h-3 w-3" />
-                      Vinculado
-                    </Badge>
-                  )}
                 </div>
 
                 <Separator />
@@ -1106,17 +1056,13 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                     ))}
                   </div>
                 </div>
+
+                {/* Comentários do Processo (Workspace) */}
+                <Separator />
+                <TaskComentarios taskId={task.id} currentUserId={currentUser?.id || ''} />
               </TabsContent>
 
-              {module !== 'crm' && (
-                <TabsContent value="vinculo" className="mt-0">
-                  <TaskVinculoTab
-                    taskId={task.id}
-                    processoOabId={processoOabId}
-                    onVinculoChange={handleVinculoChange}
-                  />
-                </TabsContent>
-              )}
+
 
               <TabsContent value="tarefas" className="mt-0">
                 <TaskTarefasTab
@@ -1124,8 +1070,6 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                   taskTitle={task.title}
                   projectId={projectId}
                   columnName={columnName}
-                  hasVinculo={!!processoOabId}
-                  onGerarRelatorio={() => setRelatorioOpen(true)}
                 />
               </TabsContent>
 
@@ -1137,25 +1081,10 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                 />
               </TabsContent>
 
-              <TabsContent value="historico" className="mt-0">
-                <TaskHistoryPanel history={task.history} />
-              </TabsContent>
             </ScrollArea>
           </Tabs>
         </DialogContent>
       </Dialog>
-
-      {/* Relatorio Unificado */}
-      {processoVinculado && (
-        <RelatorioUnificado
-          open={relatorioOpen}
-          onOpenChange={setRelatorioOpen}
-          processo={processoVinculado}
-          oab={processoVinculado.oab || null}
-          processoTarefas={processoTarefas}
-          taskTarefas={taskTarefas}
-        />
-      )}
     </>
   );
 };

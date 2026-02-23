@@ -12,6 +12,7 @@ import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppLabelConversations } from "./sections/WhatsAppLabelConversations";
 import { WhatsAppProjects } from "./sections/WhatsAppProjects";
+import { AgendaContent } from "@/components/Agenda/AgendaContent";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
@@ -42,6 +43,7 @@ export type WhatsAppSection =
   | "reports" 
   | "campaigns" 
   | "help"
+  | "agenda"
   // Settings sections
   | "account"
   | "agents"
@@ -120,6 +122,8 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         return <WhatsAppCampaigns />;
       case "help":
         return <WhatsAppHelp />;
+      case "agenda":
+        return <AgendaContent />;
       // Settings
       case "account":
         return <WhatsAppAccountSettings />;
