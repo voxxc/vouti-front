@@ -1,75 +1,100 @@
 
-## Ajustes no CRM -- 6 itens
 
-### 1. Logo maior e centralizada sobre o menu
-**Arquivo:** `src/components/WhatsApp/components/CRMTopbar.tsx`
-- Aumentar o texto da logo de `text-2xl` para `text-3xl` (aprox. +15%)
-- Adicionar `ml-2` ou `pl-2` para alinhar mais a direita, sobre o centro do sidemenu (w-56 = 14rem, logo fica ~centralizada com padding adequado)
+## Integrar API do Grok (xAI) como provider alternativo de IA
 
-### 2. Sidemenu retratil (collapsible)
-**Arquivos:** `WhatsAppSidebar.tsx`, `WhatsAppLayout.tsx`, `CRMTopbar.tsx`
-- Adicionar estado `sidebarCollapsed` no `WhatsAppLayout`
-- Passar para `WhatsAppSidebar` que alterna entre `w-56` (expandido) e `w-14` (colapsado, so icones)
-- Adicionar botao de toggle (icone de menu/chevron) na Topbar ou no proprio sidebar
-- No modo colapsado, esconder os textos dos botoes e manter so os icones
-- Collapsibles (Conversas, Kanban, Configuracoes) ficam fechados no modo colapsado
+### Visao geral
+Adicionar suporte multi-provider no sistema de IA do WhatsApp. O usuario podera escolher entre **Lovable AI** (Gemini/GPT) e **Grok (xAI)** nas configuracoes de cada agente. A API do Grok e compativel com o formato OpenAI, entao a mudanca no backend e minima.
 
-### 3. Carregamento em 2o plano + Polling de 5s + Inbox como drawer fixo
-**Arquivo:** `WhatsAppLayout.tsx`
-- A Caixa de Entrada ja fica sempre montada (`hidden` quando nao ativa). Manter esse comportamento.
-- **Montar todos os componentes** sempre (nao so quando activeSection muda). Usar `hidden` CSS para esconder os inativos, assim o conteudo carrega em background.
-- Para os componentes que precisam de dados (Contatos, Relatorios, Campanhas, etc), cada um implementara seu proprio polling de 5 segundos internamente com `setInterval` + silent refresh.
-- Componentes que ja usam polling (Inbox com 4s) mantem o proprio ciclo.
+### 1. Secret da API Key
+- Solicitar ao usuario a chave `GROK_API_KEY` obtida em [console.x.ai](https://console.x.ai)
+- Armazenar como secret do Supabase
 
-Na pratica, a mudanca principal no Layout sera:
-```
-// Em vez de renderizar condicionalmente:
-{activeSection !== "inbox" && <div>{renderOtherSection()}</div>}
+### 2. Migracao de banco de dados
+Adicionar coluna `ai_provider` na tabela `whatsapp_ai_config`:
 
-// Renderizar tudo com hidden:
-<div className={activeSection === "contacts" ? "" : "hidden"}><WhatsAppContacts /></div>
-<div className={activeSection === "reports" ? "" : "hidden"}><WhatsAppReports /></div>
-// ... etc para cada secao
+```sql
+ALTER TABLE whatsapp_ai_config
+ADD COLUMN ai_provider TEXT NOT NULL DEFAULT 'lovable';
 ```
 
-Isso garante que ao clicar no menu, o conteudo aparece instantaneamente (ja estava carregado).
+Valores possiveis: `'lovable'` (padrao) e `'grok'`.
 
-### 4. Modo escuro/claro no canto superior direito
-**Arquivo:** `src/components/WhatsApp/components/CRMTopbar.tsx`
-- Importar e adicionar o `ThemeToggle` (de `@/components/Common/ThemeToggle`) no grupo de botoes a direita da topbar, antes do nome do usuario
-- Vai usar o `ThemeContext` que ja existe e persiste no Supabase
+### 3. Atualizar Edge Function `whatsapp-ai-chat`
 
-### 5. Agentes separados por Times (carteiras)
-**Arquivo:** `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx`
-- A tabela `whatsapp_agents` ja possui coluna `team_id`
-- Ao carregar agentes, tambem carregar os times (`whatsapp_teams`)
-- Agrupar os agentes por `team_id` (e um grupo "Sem Time" para os que nao tem)
-- Renderizar cada time como um `Collapsible` (carteira/accordion):
-  - Header: nome do time com icone de pasta/carteira, badge com quantidade de agentes
-  - Conteudo: lista dos agentes daquele time (mesmo layout atual de lista minimalista)
-- Grupo "Sem Time" aparece por ultimo com agentes nao atribuidos
+**Arquivo:** `supabase/functions/whatsapp-ai-chat/index.ts`
 
-### Detalhes tecnicos
+- Ler o novo campo `ai_provider` da config
+- Se `ai_provider = 'grok'`:
+  - URL: `https://api.x.ai/v1/chat/completions`
+  - Header: `Authorization: Bearer GROK_API_KEY`
+- Se `ai_provider = 'lovable'` (padrao):
+  - Manter o comportamento atual (Lovable AI Gateway)
 
-**Arquivos afetados:**
-1. `src/components/WhatsApp/components/CRMTopbar.tsx` -- logo maior, theme toggle
-2. `src/components/WhatsApp/WhatsAppSidebar.tsx` -- modo colapsado (icones only)
-3. `src/components/WhatsApp/WhatsAppLayout.tsx` -- sidebar collapsed state, pre-mount de secoes
-4. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` -- agrupamento por times
+Trecho principal da mudanca:
 
-**Sidebar colapsado:**
-- Estado `collapsed` controlado por botao toggle
-- Classes condicionais: `w-56` vs `w-14`
-- Textos dos botoes: `{!collapsed && <span>...</span>}`
-- Collapsibles forcados fechados quando colapsado
-- Tooltip nos icones quando colapsado (para acessibilidade)
+```typescript
+const grokApiKey = Deno.env.get('GROK_API_KEY');
 
-**Pre-mount das secoes:**
-- Cada secao principal (Contatos, Relatorios, Campanhas, Ajuda) sera sempre montada com `display: hidden`
-- Secoes de configuracoes continuam condicionais (sao leves e raramente acessadas)
-- Polling de 5s sera adicionado nos componentes que buscam dados (Contatos, Relatorios, Campanhas)
+let apiUrl: string;
+let apiKey: string;
 
-**Agentes por time:**
-- Query: `loadAgents` fara JOIN com `whatsapp_teams` ou busca separada
-- Agrupamento: `Map<string | null, Agent[]>` onde key e o team_id
-- UI: `Collapsible` por grupo, com header estilizado como "carteira"
+if (aiConfig.ai_provider === 'grok') {
+  if (!grokApiKey) throw new Error('GROK_API_KEY not configured');
+  apiUrl = 'https://api.x.ai/v1/chat/completions';
+  apiKey = grokApiKey;
+} else {
+  apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+  apiKey = lovableApiKey;
+}
+
+const aiResponse = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: aiConfig.model_name,
+    messages,
+    temperature: aiConfig.temperature || 0.7,
+    max_tokens: 500,
+  }),
+});
+```
+
+### 4. Atualizar UI de configuracoes
+
+**Arquivo:** `src/components/WhatsApp/settings/WhatsAppAISettings.tsx`
+
+- Adicionar `ai_provider` na interface `AIConfig` (default: `'lovable'`)
+- Adicionar um `Select` de "Provider" acima do select de modelo:
+  - Lovable AI (Gemini / GPT)
+  - Grok (xAI)
+- Ao trocar o provider, filtrar a lista de modelos disponiveis:
+  - **Lovable AI:** Gemini 3 Flash, Gemini 2.5 Flash, Gemini 2.5 Pro (ja existentes)
+  - **Grok:** `grok-3`, `grok-3-mini`, `grok-3-fast`
+- O campo `ai_provider` sera salvo junto com o restante da config
+
+Modelos Grok disponiveis:
+```typescript
+const GROK_MODELS = [
+  { value: "grok-3", label: "Grok 3 (Avancado)" },
+  { value: "grok-3-mini", label: "Grok 3 Mini (Rapido)" },
+  { value: "grok-3-fast", label: "Grok 3 Fast (Balanceado)" },
+];
+```
+
+### 5. Atualizar Edge Function `whatsapp-commander`
+
+Se o Commander tambem usa IA, aplicar a mesma logica de roteamento multi-provider.
+
+### Arquivos afetados
+1. **Migracao SQL** -- adicionar coluna `ai_provider`
+2. `supabase/functions/whatsapp-ai-chat/index.ts` -- roteamento multi-provider
+3. `src/components/WhatsApp/settings/WhatsAppAISettings.tsx` -- select de provider + modelos filtrados
+4. `supabase/config.toml` -- sem alteracao necessaria
+
+### Resultado
+- Cada agente podera usar Lovable AI ou Grok independentemente
+- A troca de provider e feita nas configuracoes sem impacto no restante do sistema
+- O formato de API e identico (OpenAI-compatible), entao o parsing de resposta nao muda
