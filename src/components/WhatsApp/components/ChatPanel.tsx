@@ -370,7 +370,7 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4 bg-green-50/40 dark:bg-transparent" style={{
+      <ScrollArea className="flex-1 p-4 bg-green-100/50 dark:bg-transparent" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='p' width='40' height='40' patternUnits='userSpaceOnUse'%3E%3Cpath d='M20 5 Q22 2 24 5 L26 10 Q24 13 20 13 Q16 13 14 10 Z' fill='%239ca3af' opacity='0.04'/%3E%3Cpath d='M5 25 L10 20 L15 25 L10 30 Z' fill='%239ca3af' opacity='0.03'/%3E%3Ccircle cx='32' cy='28' r='3' fill='%239ca3af' opacity='0.03'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23p)'/%3E%3C/svg%3E")`,
         backgroundRepeat: 'repeat',
       }}>
