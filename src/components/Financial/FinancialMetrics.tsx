@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -77,6 +78,7 @@ interface VencimentoData {
 }
 
 export function FinancialMetrics() {
+  const { user, userRoles } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Metrics>({
     totalClientes: 0, adimplentes: 0, inadimplentes: 0, inativos: 0,
@@ -95,16 +97,10 @@ export function FinancialMetrics() {
 
   const loadMetrics = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-
-      const isAdmin = userRoles?.some(r => r.role === 'admin');
-      const isFinanceiro = userRoles?.some(r => r.role === 'financeiro');
+      const isAdmin = userRoles.some(r => r === 'admin');
+      const isFinanceiro = userRoles.some(r => r === 'financeiro');
       const hasFullAccess = isAdmin || isFinanceiro;
 
       let query = supabase.from('clientes').select('*');

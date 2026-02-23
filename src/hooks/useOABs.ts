@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getTenantIdForUser } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from './useTenantId';
 
 export interface OABCadastrada {
   id: string;
@@ -71,24 +72,14 @@ export const useOABs = () => {
   const [loading, setLoading] = useState(true);
   const [sincronizando, setSincronizando] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user, userRoles } = useAuth();
+  const { tenantId } = useTenantId();
+
+  const isAdminOrController = userRoles.some(r => r === 'admin' || r === 'controller');
 
   const fetchOABs = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      // Buscar tenant_id do usuario
-      const tenantId = await getTenantIdForUser(user.id);
-      
-      // Verificar se usuario e admin ou controller
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-      
-      const isAdminOrController = roleData?.some(r => 
-        r.role === 'admin' || r.role === 'controller'
-      );
 
       let query = supabase
         .from('oabs_cadastradas')
@@ -96,10 +87,8 @@ export const useOABs = () => {
         .order('ordem', { ascending: true });
 
       if (isAdminOrController && tenantId) {
-        // Admin/Controller ve TODAS as OABs do tenant
         query = query.eq('tenant_id', tenantId);
       } else {
-        // Usuarios normais veem apenas suas proprias OABs
         query = query.eq('user_id', user.id);
       }
 
@@ -117,7 +106,7 @@ export const useOABs = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user, tenantId, isAdminOrController]);
 
   useEffect(() => {
     fetchOABs();
@@ -125,11 +114,7 @@ export const useOABs = () => {
 
   const cadastrarOAB = async (oabNumero: string, oabUf: string, nomeAdvogado?: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
-
-      // Get tenant_id for the user
-      const tenantId = await getTenantIdForUser(user.id);
 
       const { data, error } = await supabase
         .from('oabs_cadastradas')
@@ -176,8 +161,6 @@ export const useOABs = () => {
   const sincronizarOAB = async (oabId: string, oabNumero: string, oabUf: string) => {
     setSincronizando(oabId);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenantId = user ? await getTenantIdForUser(user.id) : null;
 
       const { data, error } = await supabase.functions.invoke('judit-sincronizar-oab', {
         body: { oabId, oabNumero, oabUf, tenantId, userId: user?.id }

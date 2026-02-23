@@ -2,27 +2,19 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Reuniao, ReuniaoFormData } from '@/types/reuniao';
 import { toast } from 'sonner';
-import { getTenantIdForUser } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from './useTenantId';
 
 export const useReunioes = (selectedDate?: Date) => {
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
 
   const fetchReunioes = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario nao autenticado');
-
-      // RLS now handles tenant filtering automatically
-      const { data: userRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      const isAdmin = !!userRole;
+      if (!user) return;
 
       let query = supabase
         .from('reunioes')
@@ -54,11 +46,7 @@ export const useReunioes = (selectedDate?: Date) => {
 
   const createReuniao = async (formData: ReuniaoFormData) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
-
-      // Get tenant_id for the user
-      const tenantId = await getTenantIdForUser(user.id);
 
       let clienteId = formData.cliente_id;
 
@@ -150,7 +138,6 @@ export const useReunioes = (selectedDate?: Date) => {
   ) => {
     try {
       if (situacao === 'remarcada' && novaData && novoHorario) {
-        // Remarcar: atualiza data/horario e mantém ativa
         const { error } = await supabase
           .from('reunioes')
           .update({
@@ -163,7 +150,6 @@ export const useReunioes = (selectedDate?: Date) => {
         if (error) throw error;
         toast.success('Reunião remarcada com sucesso');
       } else {
-        // Desmarcar ou fallback
         const { error } = await supabase
           .from('reunioes')
           .update({

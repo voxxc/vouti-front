@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { useToast } from '@/hooks/use-toast';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
@@ -60,7 +61,8 @@ const ControladoriaProcessoDetalhes = () => {
   const { toast } = useToast();
   const [processo, setProcesso] = useState<Processo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isController, setIsController] = useState(false);
+  const { userRoles } = useAuth();
+  const isController = userRoles.some(r => r === 'controller' || r === 'admin');
   const [deleting, setDeleting] = useState(false);
   const [modoSelecao, setModoSelecao] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
@@ -80,26 +82,8 @@ const ControladoriaProcessoDetalhes = () => {
   useEffect(() => {
     if (id) {
       fetchProcesso();
-      checkUserRole();
     }
   }, [id]);
-
-  const checkUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-
-      const hasControllerRole = roles?.some(r => r.role === 'controller' || r.role === 'admin');
-      setIsController(!!hasControllerRole);
-    } catch (error) {
-      console.error('Erro ao verificar role:', error);
-    }
-  };
 
   const fetchProcesso = async () => {
     try {

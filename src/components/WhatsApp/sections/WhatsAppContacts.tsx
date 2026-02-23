@@ -82,8 +82,8 @@ export const WhatsAppContacts = ({ onStartConversation }: WhatsAppContactsProps 
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id || null);
     });
   }, []);
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenantId } from "@/hooks/useTenantId";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface WhatsAppContextType {
   isAdminOrController: boolean;
@@ -23,59 +23,42 @@ interface WhatsAppProviderProps {
 }
 
 export const WhatsAppProvider = ({ children }: WhatsAppProviderProps) => {
-  const { tenantId } = useTenantId();
+  const { user, userRoles, tenantId, loading: authLoading } = useAuth();
   const [isAdminOrController, setIsAdminOrController] = useState(false);
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setLoading(false);
-          return;
-        }
+    if (authLoading) return;
 
-        setUserId(user.id);
-
-        // Check if user is admin or controller
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .in("role", ["admin", "controller"]);
-
-        const hasAdminRole = roleData && roleData.length > 0;
-        setIsAdminOrController(hasAdminRole);
-
-        // If not admin, get the agent ID for this user
-        if (!hasAdminRole && user.email && tenantId) {
-          const { data: agentData } = await supabase
-            .from("whatsapp_agents")
-            .select("id")
-            .eq("email", user.email)
-            .eq("tenant_id", tenantId)
-            .eq("is_active", true)
-            .maybeSingle();
-
-          setCurrentAgentId(agentData?.id || null);
-        }
-      } catch (error) {
-        console.error("Error checking user role:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (tenantId) {
-      checkUserRole();
+    if (!user) {
+      setLoading(false);
+      return;
     }
-  }, [tenantId]);
+
+    const hasAdminRole = userRoles.some(r => r === 'admin' || r === 'controller');
+    setIsAdminOrController(hasAdminRole);
+
+    // If not admin, get the agent ID for this user
+    if (!hasAdminRole && user.email && tenantId) {
+      supabase
+        .from("whatsapp_agents")
+        .select("id")
+        .eq("email", user.email)
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .maybeSingle()
+        .then(({ data: agentData }) => {
+          setCurrentAgentId(agentData?.id || null);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [user, userRoles, tenantId, authLoading]);
 
   return (
-    <WhatsAppContext.Provider value={{ isAdminOrController, currentAgentId, userId, loading }}>
+    <WhatsAppContext.Provider value={{ isAdminOrController, currentAgentId, userId: user?.id || null, loading }}>
       {children}
     </WhatsAppContext.Provider>
   );

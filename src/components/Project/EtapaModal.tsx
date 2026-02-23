@@ -114,10 +114,10 @@ export function EtapaModal({
   const [editingFileDescription, setEditingFileDescription] = useState<string | null>(null);
   const [fileDescriptionText, setFileDescriptionText] = useState('');
 
-  // Get current user ID
+  // Get current user ID from session (avoids redundant getUser API call)
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id || null);
     });
   }, []);
 

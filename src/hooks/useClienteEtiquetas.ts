@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { getTenantIdForUser } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from './useTenantId';
 import { Etiqueta, ClienteEtiqueta } from '@/types/cliente';
 
 export const useClienteEtiquetas = (clienteId?: string) => {
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([]);
   const [clienteEtiquetas, setClienteEtiquetas] = useState<ClienteEtiqueta[]>([]);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
 
   // Buscar todas as etiquetas disponíveis (globais + do tenant)
   const fetchEtiquetas = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const tenantId = await getTenantIdForUser(user.id);
+      if (!tenantId) return;
 
       const { data, error } = await supabase
         .from('etiquetas')
@@ -53,10 +53,7 @@ export const useClienteEtiquetas = (clienteId?: string) => {
 
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
-
-      const tenantId = await getTenantIdForUser(user.id);
 
       const { error } = await supabase
         .from('cliente_etiquetas')
@@ -72,7 +69,6 @@ export const useClienteEtiquetas = (clienteId?: string) => {
       return true;
     } catch (error: any) {
       if (error.code === '23505') {
-        // Duplicate key - já existe
         return true;
       }
       toast({
@@ -119,10 +115,7 @@ export const useClienteEtiquetas = (clienteId?: string) => {
   const createEtiqueta = async (nome: string, cor: string): Promise<Etiqueta | null> => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
-
-      const tenantId = await getTenantIdForUser(user.id);
 
       const { data, error } = await supabase
         .from('etiquetas')
@@ -158,7 +151,7 @@ export const useClienteEtiquetas = (clienteId?: string) => {
 
   useEffect(() => {
     fetchEtiquetas();
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     if (clienteId) {

@@ -2,28 +2,22 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Cliente, ClienteDocumento } from '@/types/cliente';
 import { toast } from '@/hooks/use-toast';
-import { getTenantIdForUser } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from './useTenantId';
 
 export const useClientes = () => {
   const [loading, setLoading] = useState(false);
+  const { user, userRoles } = useAuth();
+  const { tenantId } = useTenantId();
 
   const fetchClientes = async (): Promise<Cliente[]> => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         throw new Error('Usuario nao autenticado');
       }
 
-      // RLS now handles tenant filtering automatically
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin');
-
-      const isAdmin = rolesData && rolesData.length > 0;
+      const isAdmin = userRoles.some(r => r === 'admin');
 
       let query = supabase
         .from('clientes')
@@ -75,14 +69,9 @@ export const useClientes = () => {
   const createCliente = async (clienteData: Partial<Cliente>): Promise<Cliente | null> => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         throw new Error('Usuario nao autenticado');
       }
-
-      // Get tenant_id for the user
-      const tenantId = await getTenantIdForUser(user.id);
 
       const { data, error } = await supabase
         .from('clientes')
@@ -172,8 +161,6 @@ export const useClientes = () => {
   ): Promise<ClienteDocumento | null> => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
         throw new Error('Usuário não autenticado');
       }
@@ -186,9 +173,6 @@ export const useClientes = () => {
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
-
-      // Get tenant_id for the user
-      const tenantId = await getTenantIdForUser(user.id);
 
       const { data, error: dbError } = await supabase
         .from('cliente_documentos')

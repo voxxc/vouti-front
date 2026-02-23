@@ -79,20 +79,12 @@ const ProjectView = ({
     deleteWorkspace
   } = useProjectWorkspaces(project.id, project.name);
 
-  // Verificar se usuário é admin
+  // Verificar se usuário é admin (usando prop currentUser.role em vez de query)
   useEffect(() => {
-    const checkAdmin = async () => {
-      if (!currentUser?.id) return;
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', currentUser.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      setIsAdmin(!!data);
-    };
-    checkAdmin();
-  }, [currentUser?.id]);
+    if (currentUser?.role === 'admin') {
+      setIsAdmin(true);
+    }
+  }, [currentUser?.role]);
 
   // Load columns from database when workspace changes
   useEffect(() => {

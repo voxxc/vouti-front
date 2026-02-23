@@ -11,6 +11,7 @@ import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePlanoLimites } from "@/hooks/usePlanoLimites";
@@ -269,14 +270,9 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
     }
   };
 
-  // Obter o usuário atual para verificar auto-edição
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id || null);
-    });
-  }, []);
+  // Obter o usuário atual para verificar auto-edição (from auth context)
+  const { user: authUser } = useAuth();
+  const currentUserId = authUser?.id || null;
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
