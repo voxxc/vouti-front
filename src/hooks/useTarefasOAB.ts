@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getTenantIdForUser } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from './useTenantId';
 
 export interface TarefaOAB {
   id: string;
@@ -29,6 +30,8 @@ export const useTarefasOAB = (processoOabId: string | null) => {
   const [tarefas, setTarefas] = useState<TarefaOAB[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
 
   const fetchTarefas = useCallback(async () => {
     if (!processoOabId) {
@@ -86,10 +89,7 @@ export const useTarefasOAB = (processoOabId: string | null) => {
     if (!processoOabId) return null;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
-
-      const tenantId = await getTenantIdForUser(user.id);
 
       const { data: novaTarefa, error } = await supabase
         .from('processos_oab_tarefas')

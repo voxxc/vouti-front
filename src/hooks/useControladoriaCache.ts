@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { OABCadastrada } from './useOABs';
-import { getTenantIdForUser } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from './useTenantId';
 
 const CACHE_KEY = 'controladoria_cache';
 const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutos
@@ -46,7 +47,6 @@ const loadFromLocalStorage = (): ControladoriaCache | null => {
     
     const parsed = JSON.parse(cached) as ControladoriaCache;
     
-    // Verificar se cache expirou
     if (Date.now() - parsed.lastUpdated > CACHE_EXPIRY_MS) {
       console.log('[Cache] Cache expirado, será atualizado em background');
     }
@@ -92,20 +92,12 @@ const fetchMetricsOptimized = async (): Promise<ControladoriaMetrics> => {
   };
 };
 
-// Função para buscar OABs
-const fetchOABsOptimized = async (userId: string): Promise<OABCadastrada[]> => {
-  const tenantId = await getTenantIdForUser(userId);
-  
-  // Verificar role do usuário
-  const { data: roleData } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId);
-  
-  const isAdminOrController = roleData?.some(r => 
-    r.role === 'admin' || r.role === 'controller'
-  );
-
+// Optimized: accepts userId, tenantId, and roles to avoid redundant queries
+const fetchOABsOptimized = async (
+  userId: string, 
+  tenantId: string | null, 
+  isAdminOrController: boolean
+): Promise<OABCadastrada[]> => {
   let query = supabase
     .from('oabs_cadastradas')
     .select('*')
@@ -124,12 +116,16 @@ const fetchOABsOptimized = async (userId: string): Promise<OABCadastrada[]> => {
 };
 
 export const useControladoriaCache = (): UseControladoriaCache => {
+  const { user, userRoles } = useAuth();
+  const { tenantId } = useTenantId();
   const [metrics, setMetrics] = useState<ControladoriaMetrics>(defaultMetrics);
   const [oabs, setOabs] = useState<OABCadastrada[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCacheLoaded, setIsCacheLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const fetchedRef = useRef(false);
+
+  const isAdminOrController = userRoles.some(r => r === 'admin' || r === 'controller');
 
   // Carregar dados do cache e depois atualizar em background
   const loadData = useCallback(async () => {
@@ -143,26 +139,23 @@ export const useControladoriaCache = (): UseControladoriaCache => {
       console.log('[Cache] Dados carregados do cache');
     }
 
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     // Buscar dados frescos em background
     setIsRefreshing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        setIsRefreshing(false);
-        return;
-      }
-
       const [freshMetrics, freshOabs] = await Promise.all([
         fetchMetricsOptimized(),
-        fetchOABsOptimized(user.id)
+        fetchOABsOptimized(user.id, tenantId, isAdminOrController)
       ]);
 
       setMetrics(freshMetrics);
       setOabs(freshOabs);
       setIsCacheLoaded(true);
       
-      // Salvar no cache
       saveToLocalStorage({
         metrics: freshMetrics,
         oabs: freshOabs,
@@ -176,18 +169,17 @@ export const useControladoriaCache = (): UseControladoriaCache => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [user, tenantId, isAdminOrController]);
 
   // Força atualização dos dados
   const refreshData = useCallback(async () => {
+    if (!user) return;
+
     setIsRefreshing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const [freshMetrics, freshOabs] = await Promise.all([
         fetchMetricsOptimized(),
-        fetchOABsOptimized(user.id)
+        fetchOABsOptimized(user.id, tenantId, isAdminOrController)
       ]);
 
       setMetrics(freshMetrics);
@@ -203,7 +195,7 @@ export const useControladoriaCache = (): UseControladoriaCache => {
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [user, tenantId, isAdminOrController]);
 
   // Invalida cache (para usar após alterações)
   const invalidateCache = useCallback(() => {
@@ -213,11 +205,11 @@ export const useControladoriaCache = (): UseControladoriaCache => {
 
   // Carregar dados na montagem
   useEffect(() => {
-    if (!fetchedRef.current) {
+    if (!fetchedRef.current && user) {
       fetchedRef.current = true;
       loadData();
     }
-  }, [loadData]);
+  }, [loadData, user]);
 
   // Real-time subscriptions para atualizações automáticas
   useEffect(() => {
@@ -257,7 +249,7 @@ export const useControladoriaCache = (): UseControladoriaCache => {
   };
 };
 
-// Função para pré-carregar dados (chamada após login)
+// Função para pré-carregar dados (chamada após login - standalone, needs getUser)
 export const prefetchControladoriaData = async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -265,9 +257,20 @@ export const prefetchControladoriaData = async () => {
 
     console.log('[Prefetch] Iniciando pré-carregamento da Controladoria...');
 
+    // For prefetch, we need to fetch tenant and roles since we're outside React
+    const [profileRes, rolesRes] = await Promise.all([
+      supabase.from('profiles').select('tenant_id').eq('user_id', user.id).single(),
+      supabase.from('user_roles').select('role').eq('user_id', user.id)
+    ]);
+
+    const tenantId = profileRes.data?.tenant_id || null;
+    const isAdminOrController = rolesRes.data?.some(r => 
+      r.role === 'admin' || r.role === 'controller'
+    ) || false;
+
     const [metrics, oabs] = await Promise.all([
       fetchMetricsOptimized(),
-      fetchOABsOptimized(user.id)
+      fetchOABsOptimized(user.id, tenantId, isAdminOrController)
     ]);
 
     saveToLocalStorage({

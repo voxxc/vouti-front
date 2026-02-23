@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,7 @@ interface FinancialContentProps {
 }
 
 export function FinancialContent({ onNavigateMetrics, onViewCliente }: FinancialContentProps) {
+  const { user, userRoles } = useAuth();
   const [activeTab, setActiveTab] = useState<'clients' | 'colaboradores' | 'custos'>('clients');
   const [clientes, setClientes] = useState<ClienteFinanceiro[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,19 +42,13 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
 
   const loadClientes = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Usuário não autenticado');
         return;
       }
 
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-
-      const isAdmin = userRoles?.some(r => r.role === 'admin');
-      const isFinanceiro = userRoles?.some(r => r.role === 'financeiro');
+      const isAdmin = userRoles.some(r => r === 'admin');
+      const isFinanceiro = userRoles.some(r => r === 'financeiro');
       const hasFullAccess = isAdmin || isFinanceiro;
 
       let query = supabase

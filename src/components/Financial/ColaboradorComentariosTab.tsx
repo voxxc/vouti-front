@@ -9,6 +9,7 @@ import { Send, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
 
 interface ColaboradorComentariosTabProps {
@@ -20,8 +21,9 @@ export const ColaboradorComentariosTab = ({ colaboradorId }: ColaboradorComentar
   const [loading, setLoading] = useState(true);
   const [novoComentario, setNovoComentario] = useState('');
   const [saving, setSaving] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { user } = useAuth();
   const { tenantId } = useTenantId();
+  const currentUserId = user?.id || null;
 
   const fetchComentarios = useCallback(async () => {
     try {
@@ -59,10 +61,6 @@ export const ColaboradorComentariosTab = ({ colaboradorId }: ColaboradorComentar
 
   useEffect(() => {
     fetchComentarios();
-    
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
-    });
   }, [fetchComentarios]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +70,6 @@ export const ColaboradorComentariosTab = ({ colaboradorId }: ColaboradorComentar
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
 
       const { error } = await supabase

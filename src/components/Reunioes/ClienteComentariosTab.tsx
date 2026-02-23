@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Send } from 'lucide-react';
 import { useReuniaoClienteComentarios } from '@/hooks/useReuniaoClienteComentarios';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { TenantMentionInput } from '@/components/Common/TenantMentionInput';
@@ -20,13 +20,8 @@ export const ClienteComentariosTab = ({ clienteId, clienteName }: ClienteComenta
   const [novoComentario, setNovoComentario] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUserId(data.user.id);
-    });
-  }, []);
+  const { user } = useAuth();
+  const currentUserId = user?.id || '';
 
   const handleSubmit = async () => {
     if (!novoComentario.trim()) return;

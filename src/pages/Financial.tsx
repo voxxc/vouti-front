@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ interface ClienteFinanceiro extends Cliente {
 }
 
 const Financial = () => {
+  const { user, userRoles } = useAuth();
   const { navigate } = useTenantNavigation();
   const { stopLoading, navigationId } = useNavigationLoading();
   const [clientes, setClientes] = useState<ClienteFinanceiro[]>([]);
@@ -62,20 +64,13 @@ const Financial = () => {
 
   const loadClientes = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Usuário não autenticado');
         return;
       }
 
-      // Verificar se o usuário é admin OU financeiro
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-
-      const isAdmin = userRoles?.some(r => r.role === 'admin');
-      const isFinanceiro = userRoles?.some(r => r.role === 'financeiro');
+      const isAdmin = userRoles.some(r => r === 'admin');
+      const isFinanceiro = userRoles.some(r => r === 'financeiro');
       const hasFullAccess = isAdmin || isFinanceiro;
 
       // Query condicional: admins e financeiro veem todos, outros veem apenas seus clientes

@@ -64,14 +64,13 @@ export const ClienteFinanceiroDialog = ({
   const [parcelaParaEditar, setParcelaParaEditar] = useState<ClienteParcela | null>(null);
   const [editarParcelaDadosOpen, setEditarParcelaDadosOpen] = useState(false);
   const [parcelaParaEditarDados, setParcelaParaEditarDados] = useState<ClienteParcela | null>(null);
+  // Use a lazy import to avoid circular deps - get user from auth session
   const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
-    };
-    getCurrentUser();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setCurrentUserId(session.user.id);
+    });
   }, []);
 
   if (!cliente) return null;
