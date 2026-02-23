@@ -195,12 +195,31 @@ export const useAndamentosNaoLidosGlobal = () => {
     return { error };
   };
 
+  const marcarTodosGlobalComoLidos = async () => {
+    const ids = processosRef.current.map(p => p.id);
+    if (ids.length === 0) return { error: null };
+
+    const { error } = await supabase
+      .from('processos_oab_andamentos')
+      .update({ lida: true })
+      .in('processo_oab_id', ids)
+      .eq('lida', false);
+
+    if (!error) {
+      setProcessos([]);
+      setTotalNaoLidos(0);
+    }
+
+    return { error };
+  };
+
   return {
     processos,
     loading,
     oabs,
     totalNaoLidos,
     refetch: fetchProcessos,
-    marcarTodosComoLidos
+    marcarTodosComoLidos,
+    marcarTodosGlobalComoLidos
   };
 };
