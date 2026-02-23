@@ -1,49 +1,64 @@
 
-## Adicionar aba "Arquivados" na Caixa de Entrada do WhatsApp
+
+## Adicionar botao "Ler Todos" na Central de Andamentos Nao Lidos
 
 ### O que muda
 
-Uma nova aba com icone de arquivo sera adicionada na barra de abas da lista de conversas (ao lado de Abertas, Fila, Grupos e Encerrados). Conversas arquivadas ficam separadas e podem ser desarquivadas.
-
-### Como funciona
-
-- **Arquivar**: O ticket recebe status `"archived"` (novo valor de status na tabela `whatsapp_tickets`).
-- **Desarquivar**: Muda o status de volta para `"waiting"` (volta para a Fila).
-- Conversas arquivadas nao aparecem nas outras abas.
-- O botao de arquivar ficara disponivel no `ChatPanel` (header da conversa) quando o ticket estiver aberto ou encerrado.
+Um botao "Ler Todos" sera adicionado no header da Central, ao lado do titulo. Ao clicar, um dialog de confirmacao aparece (pois a acao e irreversivel) e, ao confirmar, todos os andamentos nao lidos de todos os processos sao marcados como lidos de uma vez.
 
 ### Alteracoes
 
-**1. Banco de dados** -- Nenhuma migracao necessaria
-A coluna `status` na tabela `whatsapp_tickets` e do tipo `text`, entao ja aceita o valor `"archived"` sem alteracoes de schema.
+**1. `src/hooks/useAndamentosNaoLidosGlobal.ts`**
 
-**2. `src/components/WhatsApp/components/ConversationList.tsx`**
+Adicionar funcao `marcarTodosGlobalComoLidos` que faz um UPDATE em batch:
 
-- Adicionar `"archived"` ao tipo `ConversationTab`
-- Adicionar nova entrada no array `TABS` com icone `Archive` e label "Arquivados"
-- Atualizar `tabCounts` para incluir `archived: number`
+```typescript
+const marcarTodosGlobalComoLidos = async () => {
+  const ids = processosRef.current.map(p => p.id);
+  if (ids.length === 0) return { error: null };
 
-**3. `src/components/WhatsApp/sections/WhatsAppInbox.tsx`**
+  const { error } = await supabase
+    .from('processos_oab_andamentos')
+    .update({ lida: true })
+    .in('processo_oab_id', ids)
+    .eq('lida', false);
 
-- Atualizar `getFilteredConversations()` com novo case para `activeTab === "archived"`: filtrar conversas cujo ticket tem `status === "archived"`
-- Atualizar `getTabCounts()` para contar conversas arquivadas
-- Adicionar funcao `handleArchiveTicket`: atualiza o ticket para `status: "archived"`
-- Adicionar funcao `handleUnarchiveTicket`: atualiza o ticket para `status: "waiting"`
-- Passar as funcoes de arquivar/desarquivar para o `ChatPanel`
+  if (!error) {
+    setProcessos([]);
+    setTotalNaoLidos(0);
+  }
 
-**4. `src/components/WhatsApp/components/ChatPanel.tsx`**
+  return { error };
+};
+```
 
-- Receber props `onArchiveTicket` e `onUnarchiveTicket`
-- Adicionar botao de arquivar (icone Archive) no header da conversa, visivel quando o ticket nao esta arquivado
-- Adicionar botao de desarquivar quando visualizando conversa da aba "Arquivados"
+Retornar `marcarTodosGlobalComoLidos` no return do hook.
 
-### Fluxo do usuario
+**2. `src/components/Controladoria/CentralAndamentosNaoLidos.tsx`**
 
-1. O agente abre uma conversa na aba "Abertas" ou "Encerrados"
-2. Clica no botao de arquivar no header do chat
-3. A conversa move para a aba "Arquivados"
-4. Na aba "Arquivados", o agente pode desarquivar e a conversa volta para "Fila"
+- Extrair `marcarTodosGlobalComoLidos` do hook
+- Adicionar estado `confirmMarkAllGlobal` (boolean) para controlar o dialog
+- Adicionar botao no header (ao lado do titulo/badge):
 
-### Logica de exclusao entre abas
+```tsx
+<Button
+  variant="outline"
+  size="sm"
+  onClick={() => setConfirmMarkAllGlobal(true)}
+  disabled={totalNaoLidos === 0 || loading}
+>
+  <CheckCheck className="h-4 w-4 mr-1" />
+  Ler Todos
+</Button>
+```
 
-As conversas arquivadas serao excluidas das abas "Abertas", "Fila" e "Encerrados" adicionando a condicao `ticket.status !== "archived"` nos filtros existentes.
+- Adicionar um segundo `AlertDialog` para confirmacao global com texto: "Todos os **{totalNaoLidos}** andamentos nao lidos de **todos os processos** serao marcados como lidos."
+- No confirmar, chamar `marcarTodosGlobalComoLidos()` com toast de sucesso/erro
+
+### Resumo
+
+| Arquivo | Mudanca |
+|---|---|
+| `useAndamentosNaoLidosGlobal.ts` | Nova funcao `marcarTodosGlobalComoLidos` |
+| `CentralAndamentosNaoLidos.tsx` | Botao "Ler Todos" + AlertDialog de confirmacao |
+
