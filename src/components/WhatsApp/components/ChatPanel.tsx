@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { WhatsAppConversation, WhatsAppMessage } from "../sections/WhatsAppInbox";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { EmojiPicker } from "./EmojiPicker";
+import { getGreeting } from "@/utils/greetingHelper";
 
 interface ChatPanelProps {
   conversation: WhatsAppConversation | null;
@@ -18,6 +21,10 @@ interface ChatPanelProps {
   ticketStatus?: string;
   onAcceptTicket?: () => void;
   onCloseTicket?: () => void;
+  selectedMacro?: any | null;
+  onClearMacro?: () => void;
+  agentId?: string | null;
+  tenantId?: string | null;
 }
 
 function detectMimeType(file: File): "image" | "audio" | "video" | "document" {
@@ -105,14 +112,16 @@ const MediaRenderer = ({ message }: { message: WhatsAppMessage }) => {
   );
 };
 
-export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket }: ChatPanelProps) => {
+export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, selectedMacro, onClearMacro, agentId, tenantId }: ChatPanelProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string; preview?: string } | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -132,6 +141,29 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
+  }, []);
+
+  const processMacroText = useCallback((content: string) => {
+    if (!conversation) return content;
+    let text = content;
+    text = text.replace(/\{\{nome\}\}/g, conversation.contactName || "");
+    text = text.replace(/\{\{telefone\}\}/g, conversation.contactNumber || "");
+    text = text.replace(/\{\{email\}\}/g, `${conversation.contactNumber}@whatsapp.com`);
+    text = text.replace(/\{\{saudacao\}\}/g, getGreeting());
+    return text;
+  }, [conversation]);
+
+  const handleSendMacro = useCallback(() => {
+    if (!selectedMacro) return;
+    const processedText = processMacroText(selectedMacro.content || "");
+    onSendMessage(processedText);
+    onClearMacro?.();
+  }, [selectedMacro, processMacroText, onSendMessage, onClearMacro]);
+
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setEmojiOpen(false);
+    inputRef.current?.focus();
   }, []);
 
   const handleSend = () => {
@@ -443,6 +475,30 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
         </div>
       )}
 
+      {/* Macro Confirm Panel */}
+      {selectedMacro && (
+        <div className="px-4 py-3 border-t border-border bg-accent/30 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-foreground">/{selectedMacro.shortcut} — {selectedMacro.name}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClearMacro}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-background rounded-md px-3 py-2 border">
+            {processMacroText(selectedMacro.content || "")}
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={onClearMacro}>
+              Cancelar
+            </Button>
+            <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white" onClick={handleSendMacro}>
+              <Send className="h-3.5 w-3.5 mr-1" />
+              Enviar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="p-4 border-t border-border bg-card">
         {isRecording ? (
@@ -475,9 +531,20 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
-              <Smile className="h-5 w-5 text-muted-foreground" />
-            </Button>
+            <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
+                  <Smile className="h-5 w-5 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="p-0 w-auto">
+                <EmojiPicker
+                  agentId={agentId}
+                  tenantId={tenantId}
+                  onEmojiSelect={handleEmojiSelect}
+                />
+              </PopoverContent>
+            </Popover>
             <Button
               variant="ghost"
               size="icon"
@@ -495,6 +562,7 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
               onChange={handleFileSelect}
             />
             <Input
+              ref={inputRef}
               placeholder={pendingFile ? "Adicione uma legenda..." : "Digite uma mensagem..."}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}

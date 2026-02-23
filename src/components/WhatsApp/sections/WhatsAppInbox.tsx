@@ -53,6 +53,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [profilePics, setProfilePics] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<ConversationTab>("open");
   const [tickets, setTickets] = useState<TicketInfo[]>([]);
+  const [pendingMacro, setPendingMacro] = useState<any | null>(null);
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
@@ -715,6 +716,10 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         ticketStatus={getSelectedTicketStatus()}
         onAcceptTicket={handleAcceptTicket}
         onCloseTicket={handleCloseTicket}
+        selectedMacro={pendingMacro}
+        onClearMacro={() => setPendingMacro(null)}
+        agentId={myAgentId}
+        tenantId={tenantId}
       />
 
       {selectedConversation && (
@@ -730,6 +735,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
             setSelectedConversation(null);
             loadConversations();
           }}
+          onMacroSelect={(macro) => setPendingMacro(macro)}
         />
       )}
     </div>
