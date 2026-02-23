@@ -490,7 +490,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
               phone: group.id,
               name: group.name,
               tenant_id: tenantId,
-            }, { onConflict: "phone,tenant_id" });
+            }, { onConflict: "tenant_id,phone" });
         }
         setGroups(data.groups);
         toast.success(`${data.groups.length} grupos encontrados e salvos.`);
