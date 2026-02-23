@@ -1,79 +1,77 @@
 
 
-## Adicionar aba "Geral" na seção OABs da Controladoria
+## Corrigir timeout ao carregar processos na aba Geral
 
-### O que muda
+### Diagnostico
 
-Uma nova aba chamada **"Geral"** sera adicionada antes de todas as abas de OABs individuais. Essa aba consolida todos os processos de todas as OABs cadastradas, sem duplicacoes (processos com o mesmo `numero_cnj` aparecem apenas uma vez). Tambem inclui uma barra de pesquisa para filtrar processos por CNJ, partes ou tribunal.
+A query do `useProcessosGeral.ts` faz um `SELECT * FROM processos_oab` com LEFT JOIN em `processos_oab_andamentos` para TODOS os processos do tenant de uma vez. Com 311 processos e 22.668 andamentos (13.491 nao lidos), o banco estoura o timeout de statement.
 
-### Como funciona
+As abas individuais de OAB funcionam porque cada uma carrega um subconjunto menor de processos.
 
-- **Deduplicacao**: Processos com o mesmo `numero_cnj` que aparecem em multiplas OABs sao mostrados apenas uma vez, priorizando o registro com mais dados (detalhes carregados, monitoramento ativo).
-- **Pesquisa**: Campo de busca filtra por numero CNJ, parte ativa, parte passiva ou tribunal.
-- **Visualizacao**: Mesma estrutura de cards e agrupamento por instancia ja utilizada nas abas individuais.
+### Solucao
 
-### Alteracoes tecnicas
+Separar em duas queries leves em vez de uma query pesada com join:
 
-**1. Novo componente: `src/components/Controladoria/OABTabGeral.tsx`**
+1. **Query 1**: Buscar processos sem join (rapido)
+2. **Query 2**: Contar andamentos nao lidos com agregacao no banco (um unico SELECT com GROUP BY)
 
-Componente que:
-- Busca todos os processos do tenant via `processos_oab` (com join na `oabs_cadastradas` para pegar nome do advogado)
-- Deduplica por `numero_cnj`, mantendo o registro mais completo
-- Reutiliza os componentes `ProcessoCard` e `InstanciaSection` do `OABTab.tsx` (serao extraidos para um arquivo compartilhado ou importados)
-- Inclui barra de pesquisa e os mesmos filtros de UF/monitorados/nao-lidos
-- Abre o drawer de detalhes (`ProcessoOABDetalhes`) ao clicar em "Detalhes"
+### Alteracao: `src/hooks/useProcessosGeral.ts`
 
-**2. Novo hook: `src/hooks/useProcessosGeral.ts`**
-
-Hook dedicado que:
-- Busca todos os processos do tenant (sem filtro de `oab_id`)
-- Faz deduplicacao no JavaScript: agrupa por `numero_cnj`, seleciona o registro com `detalhes_carregados = true` ou `monitoramento_ativo = true` como prioritario
-- Retorna a lista deduplicada com contagem de andamentos nao lidos
-- Inclui real-time subscription para atualizacoes
+Substituir a query atual:
 
 ```typescript
-// Logica de deduplicacao
-const deduplicar = (processos: ProcessoOAB[]): ProcessoOAB[] => {
-  const mapa = new Map<string, ProcessoOAB>();
-  processos.forEach(p => {
-    const existente = mapa.get(p.numero_cnj);
-    if (!existente || 
-        (!existente.detalhes_carregados && p.detalhes_carregados) ||
-        (!existente.monitoramento_ativo && p.monitoramento_ativo)) {
-      mapa.set(p.numero_cnj, p);
-    }
-  });
-  return Array.from(mapa.values());
-};
+// ANTES (causa timeout):
+const { data, error } = await supabase
+  .from('processos_oab')
+  .select(`*, processos_oab_andamentos!left(id, lida)`)
+  .eq('tenant_id', tid)
+  .order('ordem_lista', { ascending: true });
 ```
 
-**3. Modificacao: `src/components/Controladoria/OABManager.tsx`**
+Por duas queries separadas:
 
-- Adicionar aba "Geral" com valor `"geral"` como primeira aba no `TabsList`
-- Definir `activeTab` inicial como `"geral"` em vez de string vazia
-- Adicionar `TabsContent` para `"geral"` renderizando o componente `OABTabGeral`
+```typescript
+// DEPOIS (rapido):
+// Query 1: buscar processos sem join
+const { data: processosData, error } = await supabase
+  .from('processos_oab')
+  .select('*')
+  .eq('tenant_id', tid)
+  .order('ordem_lista', { ascending: true });
 
-Trecho da mudanca no TabsList:
+if (error) throw error;
+
+// Query 2: contar nao lidos por processo (agregacao leve)
+const { data: naoLidosData } = await supabase
+  .from('processos_oab_andamentos')
+  .select('processo_oab_id')
+  .eq('tenant_id', tid)
+  .eq('lida', false);
+
+// Montar mapa de contagens
+const naoLidosMap = new Map<string, number>();
+(naoLidosData || []).forEach((a: any) => {
+  naoLidosMap.set(a.processo_oab_id, 
+    (naoLidosMap.get(a.processo_oab_id) || 0) + 1);
+});
+
+// Combinar
+const processosComContagem = (processosData || []).map((p: any) => ({
+  ...p,
+  andamentos_nao_lidos: naoLidosMap.get(p.id) || 0,
+})) as ProcessoOAB[];
+
+setProcessos(deduplicar(processosComContagem));
 ```
-<TabsList>
-  <TabsTrigger value="geral">
-    Geral
-    <Badge variant="secondary">{totalProcessosUnicos}</Badge>
-  </TabsTrigger>
-  {oabs.map((oab) => (
-    <TabsTrigger key={oab.id} value={oab.id}>
-      {oab.oab_numero}/{oab.oab_uf}
-      ...
-    </TabsTrigger>
-  ))}
-</TabsList>
-```
 
-### Resumo de arquivos
+### Por que resolve
+
+- A query de processos sem join e rapida (311 rows, sem expandir andamentos)
+- A query de andamentos nao lidos filtra por `lida = false` (reduz de 22k para 13k rows) e retorna apenas o `processo_oab_id` (coluna unica, sem payload pesado)
+- Nenhum join pesado no banco, evitando o timeout
+
+### Arquivo modificado
 
 | Arquivo | Acao |
 |---|---|
-| `src/hooks/useProcessosGeral.ts` | Criar -- hook para buscar todos os processos do tenant e deduplicar |
-| `src/components/Controladoria/OABTabGeral.tsx` | Criar -- componente da aba Geral com lista deduplicada e pesquisa |
-| `src/components/Controladoria/OABManager.tsx` | Modificar -- adicionar aba "Geral" antes das OABs individuais |
-
+| `src/hooks/useProcessosGeral.ts` | Modificar -- separar em duas queries leves |
