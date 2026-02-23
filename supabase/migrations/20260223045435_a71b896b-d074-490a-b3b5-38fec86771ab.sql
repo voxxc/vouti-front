@@ -1,0 +1,1 @@
+ALTER TABLE deadlines ADD COLUMN module TEXT DEFAULT 'legal';

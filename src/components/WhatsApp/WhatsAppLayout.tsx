@@ -125,7 +125,7 @@ export const WhatsAppLayout = () => {
             <WhatsAppHelp />
           </div>
           <div className={activeSection === "agenda" ? "absolute inset-0 z-10 bg-background" : "hidden"}>
-            <AgendaContent />
+            <AgendaContent module="crm" />
           </div>
 
           {/* Kanban - mounted when agent selected */}

@@ -123,7 +123,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
       case "help":
         return <WhatsAppHelp />;
       case "agenda":
-        return <AgendaContent />;
+        return <AgendaContent module="crm" />;
       // Settings
       case "account":
         return <WhatsAppAccountSettings />;

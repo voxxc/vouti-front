@@ -38,7 +38,11 @@ import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificationHelpers";
 
-export function AgendaContent() {
+interface AgendaContentProps {
+  module?: string;
+}
+
+export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
@@ -182,6 +186,7 @@ export function AgendaContent() {
             protocolo:project_protocolos (nome, project_id)
           )
         `)
+        .eq('module', module)
         .order('date', { ascending: true });
 
       if (error) {
@@ -350,7 +355,8 @@ export function AgendaContent() {
           description: formData.description,
           date: format(formData.date, 'yyyy-MM-dd'),
           project_id: formData.projectId || null,
-          advogado_responsavel_id: selectedAdvogado
+          advogado_responsavel_id: selectedAdvogado,
+          module
         })
         .select()
         .single();

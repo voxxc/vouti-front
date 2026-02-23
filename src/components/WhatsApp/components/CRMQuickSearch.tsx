@@ -1,0 +1,156 @@
+import { useState, useEffect, useRef } from 'react';
+import { Input } from '@/components/ui/input';
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenantId } from '@/hooks/useTenantId';
+import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
+import { Search } from 'lucide-react';
+
+interface CRMQuickSearchProps {
+  onSelectProject?: (projectId: string) => void;
+}
+
+interface ProjectItem {
+  id: string;
+  name: string;
+  client: string | null;
+}
+
+export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const { user } = useAuth();
+  const { tenantId } = useTenantId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const loadProjects = async () => {
+    if (!user || !tenantId) return;
+    
+    const isAdminOrController = await checkIfUserIsAdminOrController(user.id, tenantId);
+    
+    if (isAdminOrController) {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, client')
+        .eq('tenant_id', tenantId)
+        .eq('module', 'crm')
+        .order('updated_at', { ascending: false });
+      
+      if (error) {
+        console.error('[CRMQuickSearch] Error loading projects:', error);
+        return;
+      }
+      if (data) setProjects(data);
+    } else {
+      const { data: collaboratorProjects } = await supabase
+        .from('project_collaborators')
+        .select('project_id')
+        .eq('user_id', user.id);
+      
+      const collaboratorProjectIds = collaboratorProjects?.map(cp => cp.project_id) || [];
+      let orFilter = `created_by.eq.${user.id}`;
+      if (collaboratorProjectIds.length > 0) {
+        orFilter += `,id.in.(${collaboratorProjectIds.join(',')})`;
+      }
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, client')
+        .eq('tenant_id', tenantId)
+        .eq('module', 'crm')
+        .or(orFilter)
+        .order('updated_at', { ascending: false });
+      
+      if (error) {
+        console.error('[CRMQuickSearch] Error loading projects:', error);
+        return;
+      }
+      if (data) setProjects(data);
+    }
+  };
+
+  useEffect(() => {
+    loadProjects();
+  }, [user, tenantId]);
+
+  useEffect(() => {
+    const handler = () => {
+      setTimeout(() => loadProjects(), 2000);
+    };
+    window.addEventListener('project-created', handler);
+    return () => window.removeEventListener('project-created', handler);
+  }, [user, tenantId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredProjects = projects.filter(p => 
+    searchTerm.length >= 1 && (
+      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.client?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const handleSelect = (projectId: string) => {
+    onSelectProject?.(projectId);
+    setSearchTerm('');
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          placeholder="Busca Rápida..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setOpen(e.target.value.length >= 1);
+          }}
+          onFocus={() => {
+            if (searchTerm.length >= 1) setOpen(true);
+          }}
+          className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
+        />
+      </div>
+      
+      {open && filteredProjects.length > 0 && (
+        <div className="absolute top-full left-0 mt-1 w-64 z-50 bg-popover border border-border rounded-md shadow-lg">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {filteredProjects.slice(0, 5).map((project) => (
+                  <CommandItem
+                    key={project.id}
+                    onSelect={() => handleSelect(project.id)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">{project.name}</span>
+                      {project.client && (
+                        <span className="text-xs text-muted-foreground">{project.client}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </div>
+      )}
+    </div>
+  );
+};
