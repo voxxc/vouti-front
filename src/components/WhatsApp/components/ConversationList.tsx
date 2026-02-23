@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, MessageSquare, Users, Inbox, CheckCircle, Clock, Filter, X } from "lucide-react";
+import { Search, MessageSquare, Users, Inbox, CheckCircle, Clock, Filter, X, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-export type ConversationTab = "open" | "waiting" | "groups" | "closed";
+export type ConversationTab = "open" | "waiting" | "groups" | "closed" | "archived";
 
 export interface WhatsAppGroup {
   id: string;
@@ -47,7 +47,7 @@ interface ConversationListProps {
   profilePics?: Record<string, string>;
   activeTab?: ConversationTab;
   onTabChange?: (tab: ConversationTab) => void;
-  tabCounts?: { open: number; waiting: number; groups: number; closed: number };
+  tabCounts?: { open: number; waiting: number; groups: number; closed: number; archived: number };
   tenantId?: string | null;
 }
 
@@ -56,6 +56,7 @@ const TABS: { value: ConversationTab; label: string; icon: React.ElementType }[]
   { value: "waiting", label: "Fila", icon: Inbox },
   { value: "groups", label: "Grupos", icon: Users },
   { value: "closed", label: "Encerrados", icon: CheckCircle },
+  { value: "archived", label: "Arquivados", icon: Archive },
 ];
 
 // 24h countdown component
@@ -98,7 +99,7 @@ export const ConversationList = ({
   profilePics = {},
   activeTab,
   onTabChange,
-  tabCounts = { open: 0, waiting: 0, groups: 0, closed: 0 },
+  tabCounts = { open: 0, waiting: 0, groups: 0, closed: 0, archived: 0 },
   onFetchGroups,
   isLoadingGroups = false,
   tenantId,

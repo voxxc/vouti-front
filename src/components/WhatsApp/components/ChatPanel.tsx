@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Paperclip, Smile, Mic, MoreVertical, MessageSquare, FileText, X, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Send, Paperclip, Smile, Mic, MoreVertical, MessageSquare, FileText, X, Loader2, CheckCircle, XCircle, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { WhatsAppConversation, WhatsAppMessage } from "../sections/WhatsAppInbox";
+import { ConversationTab } from "./ConversationList";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,9 @@ interface ChatPanelProps {
   ticketStatus?: string;
   onAcceptTicket?: () => void;
   onCloseTicket?: () => void;
+  onArchiveTicket?: () => void;
+  onUnarchiveTicket?: () => void;
+  activeTab?: ConversationTab;
   selectedMacro?: any | null;
   onClearMacro?: () => void;
   agentId?: string | null;
@@ -112,7 +116,7 @@ const MediaRenderer = ({ message }: { message: WhatsAppMessage }) => {
   );
 };
 
-export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, selectedMacro, onClearMacro, agentId, tenantId }: ChatPanelProps) => {
+export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, onArchiveTicket, onUnarchiveTicket, activeTab, selectedMacro, onClearMacro, agentId, tenantId }: ChatPanelProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string; preview?: string } | null>(null);
@@ -391,6 +395,17 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
             <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={onCloseTicket} title="Encerrar Ticket">
               <XCircle className="h-4 w-4" />
             </Button>
+          )}
+          {activeTab === "archived" && onUnarchiveTicket ? (
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:text-primary hover:bg-primary/10" onClick={onUnarchiveTicket} title="Desarquivar">
+              <ArchiveRestore className="h-4 w-4" />
+            </Button>
+          ) : (
+            ticketStatus && ticketStatus !== "archived" && onArchiveTicket && (
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50" onClick={onArchiveTicket} title="Arquivar">
+                <Archive className="h-4 w-4" />
+              </Button>
+            )
           )}
           <Button variant="ghost" size="icon" className="h-9 w-9">
             <MoreVertical className="h-4 w-4" />

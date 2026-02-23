@@ -578,6 +578,39 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     setActiveTab("closed");
   }, [selectedConversation, myAgentId, loadTickets]);
 
+  const handleArchiveTicket = useCallback(async () => {
+    if (!selectedConversation || !myAgentId) return;
+    const phone = normalizePhone(selectedConversation.contactNumber);
+    
+    await supabase
+      .from("whatsapp_tickets" as any)
+      .update({ status: "archived" })
+      .eq("agent_id", myAgentId)
+      .eq("phone", phone);
+
+    toast.success("Conversa arquivada!");
+    loadTickets();
+    setSelectedConversation(null);
+    setActiveTab("archived");
+  }, [selectedConversation, myAgentId, loadTickets]);
+
+  const handleUnarchiveTicket = useCallback(async () => {
+    if (!selectedConversation || !myAgentId) return;
+    const phone = normalizePhone(selectedConversation.contactNumber);
+    
+    await supabase
+      .from("whatsapp_tickets" as any)
+      .update({ status: "waiting" })
+      .eq("agent_id", myAgentId)
+      .eq("phone", phone)
+      .eq("status", "archived");
+
+    toast.success("Conversa desarquivada!");
+    loadTickets();
+    setSelectedConversation(null);
+    setActiveTab("waiting");
+  }, [selectedConversation, myAgentId, loadTickets]);
+
   // Build ticket map
   const ticketMap = new Map<string, TicketInfo>();
   tickets.forEach(t => ticketMap.set(t.phone, t));
@@ -587,7 +620,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     const isGroup = (c: WhatsAppConversation) => c.contactNumber.includes('@g.us');
 
     if (activeTab === "groups") {
-      // Show groups from conversations + fetched groups
       const groupConvs = conversations.filter(c => isGroup(c));
       const groupIds = new Set(groupConvs.map(c => c.contactNumber));
       const extraGroups: WhatsAppConversation[] = groups
@@ -605,6 +637,13 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
     const nonGroupConvs = conversations.filter(c => !isGroup(c));
 
+    if (activeTab === "archived") {
+      return nonGroupConvs.filter(c => {
+        const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+        return ticket?.status === "archived";
+      });
+    }
+
     if (activeTab === "open") {
       return nonGroupConvs.filter(c => {
         const ticket = ticketMap.get(normalizePhone(c.contactNumber));
@@ -613,7 +652,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
 
     if (activeTab === "waiting") {
-      // All non-group conversations that don't have an "open" ticket
       return nonGroupConvs.filter(c => {
         const ticket = ticketMap.get(normalizePhone(c.contactNumber));
         return !ticket || ticket.status === "waiting";
@@ -625,7 +663,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       return nonGroupConvs.filter(c => {
         const ticket = ticketMap.get(normalizePhone(c.contactNumber));
         if (ticket?.status !== "closed") return false;
-        // Only show closed within last 24h
         if (ticket.accepted_at) {
           const closedAge = now - new Date(ticket.accepted_at).getTime();
           return closedAge < 24 * 60 * 60 * 1000;
@@ -663,11 +700,17 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       return true;
     }).length;
 
+    const archivedCount = nonGroupConvs.filter(c => {
+      const ticket = ticketMap.get(normalizePhone(c.contactNumber));
+      return ticket?.status === "archived";
+    }).length;
+
     return {
       open: openCount,
       waiting: waitingCount,
       groups: groupConvs.length + groups.filter(g => !groupConvs.some(c => c.contactNumber === g.id)).length,
       closed: closedCount,
+      archived: archivedCount,
     };
   };
 
@@ -770,6 +813,9 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         ticketStatus={getSelectedTicketStatus()}
         onAcceptTicket={handleAcceptTicket}
         onCloseTicket={handleCloseTicket}
+        onArchiveTicket={handleArchiveTicket}
+        onUnarchiveTicket={handleUnarchiveTicket}
+        activeTab={activeTab}
         selectedMacro={pendingMacro}
         onClearMacro={() => setPendingMacro(null)}
         agentId={myAgentId}
