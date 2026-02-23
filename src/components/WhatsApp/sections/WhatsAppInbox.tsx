@@ -42,6 +42,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [myAgentName, setMyAgentName] = useState<string | null>(null);
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [profilePics, setProfilePics] = useState<Record<string, string>>({});
 
   // Buscar agent_id do usuário logado
   useEffect(() => {
@@ -533,6 +534,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         groups={groups}
         onFetchGroups={handleFetchGroups}
         isLoadingGroups={isLoadingGroups}
+        profilePics={profilePics}
       />
 
       <ChatPanel
@@ -548,6 +550,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           currentAgentId={myAgentId}
           currentAgentName={myAgentName}
           tenantId={tenantId}
+          profilePicUrl={profilePics[selectedConversation.contactNumber]}
+          onProfilePicFetched={(phone, url) => setProfilePics(prev => ({ ...prev, [phone]: url }))}
           onTransferComplete={() => {
             setSelectedConversation(null);
             loadConversations();

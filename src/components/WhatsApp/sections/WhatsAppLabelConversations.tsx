@@ -23,6 +23,7 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
   const [isLoading, setIsLoading] = useState(true);
   const [myAgentId, setMyAgentId] = useState<string | null>(null);
   const [myAgentName, setMyAgentName] = useState<string | null>(null);
+  const [profilePics, setProfilePics] = useState<Record<string, string>>({});
 
   // Load agent info
   useEffect(() => {
@@ -215,6 +216,7 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
           selectedConversation={selectedConversation}
           onSelectConversation={setSelectedConversation}
           isLoading={false}
+          profilePics={profilePics}
         />
 
         <ChatPanel
@@ -229,6 +231,8 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
             currentAgentId={myAgentId}
             currentAgentName={myAgentName}
             tenantId={tenantId}
+            profilePicUrl={profilePics[selectedConversation.contactNumber]}
+            onProfilePicFetched={(phone, url) => setProfilePics(prev => ({ ...prev, [phone]: url }))}
             onTransferComplete={() => {
               setSelectedConversation(null);
               loadConversations();
