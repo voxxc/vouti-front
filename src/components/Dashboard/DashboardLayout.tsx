@@ -7,7 +7,8 @@ import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
-import { LogOut, Settings, Loader2, Clock } from "lucide-react";
+import { LogOut, Settings, Loader2, Clock, FileCheck, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,7 +23,7 @@ import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 // Drawers
 import { ControladoriaContent } from "@/components/Controladoria/ControladoriaContent";
 import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
-import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
+
 import { CRMDrawer } from "@/components/CRM/CRMDrawer";
 import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
 import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
@@ -317,6 +318,30 @@ const DashboardLayout = ({
             children
           )}
         </main>
+
+        {/* Controladoria - sempre montada, controlada por z-index */}
+        <div
+          className={cn(
+            "fixed inset-0 bg-background transition-opacity duration-200",
+            activeDrawer === 'controladoria'
+              ? "z-40 opacity-100 pointer-events-auto"
+              : "z-[-1] opacity-0 pointer-events-none"
+          )}
+          style={{ left: '64px' }}
+        >
+          <div className="h-full overflow-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileCheck className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-lg">Controladoria</span>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setActiveDrawer(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <ControladoriaContent />
+          </div>
+        </div>
       </div>
       </div>
       
@@ -330,24 +355,11 @@ const DashboardLayout = ({
         projectId={selectedProjectId}
       />
 
-      {/* Pre-carregamento invisível da Controladoria */}
-      <div
-        className="fixed"
-        style={{ visibility: 'hidden', position: 'absolute', top: -9999, left: -9999, width: 1, height: 1, overflow: 'hidden', pointerEvents: 'none' }}
-        aria-hidden="true"
-      >
-        <ControladoriaContent />
-      </div>
-
-      {/* Drawers de seções - agora gerenciados aqui no layout */}
+      {/* Drawers de seções */}
       <ProjectsDrawer
         open={activeDrawer === 'projetos'} 
         onOpenChange={(open) => !open && setActiveDrawer(null)}
         onSelectProject={handleQuickProjectSelect}
-      />
-      <ControladoriaDrawer 
-        open={activeDrawer === 'controladoria'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
       />
       <CRMDrawer 
         open={activeDrawer === 'clientes'} 
