@@ -34,7 +34,7 @@ export const WhatsAppTeamsSettings = () => {
       if (error) throw error;
       setTeams(data || []);
     } catch {
-      toast.error("Erro ao carregar times");
+      toast.error("Erro ao carregar departamentos");
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +46,7 @@ export const WhatsAppTeamsSettings = () => {
 
   const handleCreate = async () => {
     if (!newTeamName.trim()) {
-      toast.error("Informe o nome do time");
+      toast.error("Informe o nome do departamento");
       return;
     }
     if (!tenantId) return;
@@ -60,11 +60,11 @@ export const WhatsAppTeamsSettings = () => {
 
       if (error) throw error;
 
-      toast.success("Time criado com sucesso!");
+      toast.success("Departamento criado com sucesso!");
       setNewTeamName("");
       loadTeams();
     } catch {
-      toast.error("Erro ao criar time");
+      toast.error("Erro ao criar departamento");
     } finally {
       setIsCreating(false);
     }
@@ -80,17 +80,17 @@ export const WhatsAppTeamsSettings = () => {
         .limit(1);
 
       if (agents && agents.length > 0) {
-        toast.error("Não é possível excluir: existem agentes neste time. Remova-os primeiro.");
+        toast.error("Não é possível excluir: existem agentes neste departamento. Remova-os primeiro.");
         return;
       }
 
       const { error } = await supabase.from("whatsapp_teams").delete().eq("id", teamId);
       if (error) throw error;
 
-      toast.success("Time excluído");
+      toast.success("Departamento excluído");
       loadTeams();
     } catch {
-      toast.error("Erro ao excluir time");
+      toast.error("Erro ao excluir departamento");
     }
   };
 
@@ -98,8 +98,8 @@ export const WhatsAppTeamsSettings = () => {
     <div className="h-full overflow-auto p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Times</h1>
-          <p className="text-muted-foreground">Organize os agentes em times de atendimento</p>
+      <h1 className="text-2xl font-bold text-foreground">Departamentos</h1>
+          <p className="text-muted-foreground">Organize os agentes em departamentos de atendimento</p>
         </div>
 
         {/* Create team */}
@@ -107,14 +107,14 @@ export const WhatsAppTeamsSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5" />
-              Novo Time
+              Novo Departamento
             </CardTitle>
-            <CardDescription>Crie um grupo de agentes para atendimento</CardDescription>
+            <CardDescription>Crie um departamento de agentes para atendimento</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-3 items-end">
               <div className="flex-1 space-y-1.5">
-                <Label>Nome do Time</Label>
+                <Label>Nome do Departamento</Label>
                 <Input
                   value={newTeamName}
                   onChange={e => setNewTeamName(e.target.value)}
@@ -135,7 +135,7 @@ export const WhatsAppTeamsSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UsersRound className="h-5 w-5" />
-              Times Cadastrados
+              Departamentos Cadastrados
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -144,7 +144,7 @@ export const WhatsAppTeamsSettings = () => {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : teams.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum time cadastrado ainda.</p>
+              <p className="text-sm text-muted-foreground">Nenhum departamento cadastrado ainda.</p>
             ) : (
               <div className="space-y-2">
                 {teams.map(team => (

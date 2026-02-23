@@ -67,7 +67,7 @@ interface WhatsAppSidebarProps {
 const settingsMenuItems: { id: WhatsAppSection; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Conta", icon: User },
   { id: "agents", label: "Agentes", icon: Users2 },
-  { id: "teams", label: "Times", icon: UsersRound },
+  { id: "teams", label: "Departamentos", icon: UsersRound },
   { id: "inboxes", label: "Caixas de Entrada", icon: Inbox },
   { id: "labels", label: "Etiquetas", icon: Tag },
   { id: "attributes", label: "Atributos", icon: Sliders },
@@ -377,7 +377,7 @@ export const WhatsAppSidebar = ({
                     >
                       <span className="flex items-center gap-2">
                         <UsersRound className="h-3 w-3" />
-                        <span className="text-xs">Times</span>
+                        <span className="text-xs">Departamentos</span>
                       </span>
                       {teamsOpen ? (
                         <ChevronDown className="h-3 w-3" />
@@ -389,7 +389,7 @@ export const WhatsAppSidebar = ({
                   <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
                     {crmTeams.length === 0 ? (
                       <p className="text-[10px] text-muted-foreground px-2 py-1">
-                        Nenhum time
+                        Nenhum departamento
                       </p>
                     ) : (
                       crmTeams.map((team) => (
