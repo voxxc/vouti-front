@@ -20,6 +20,7 @@ import DashboardSidebar, { ActiveDrawer } from "./DashboardSidebar";
 import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 
 // Drawers
+import { ControladoriaContent } from "@/components/Controladoria/ControladoriaContent";
 import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
 import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
 import { CRMDrawer } from "@/components/CRM/CRMDrawer";
@@ -329,8 +330,17 @@ const DashboardLayout = ({
         projectId={selectedProjectId}
       />
 
+      {/* Pre-carregamento invisível da Controladoria */}
+      <div
+        className="fixed"
+        style={{ visibility: 'hidden', position: 'absolute', top: -9999, left: -9999, width: 1, height: 1, overflow: 'hidden', pointerEvents: 'none' }}
+        aria-hidden="true"
+      >
+        <ControladoriaContent />
+      </div>
+
       {/* Drawers de seções - agora gerenciados aqui no layout */}
-      <ProjectsDrawer 
+      <ProjectsDrawer
         open={activeDrawer === 'projetos'} 
         onOpenChange={(open) => !open && setActiveDrawer(null)}
         onSelectProject={handleQuickProjectSelect}
