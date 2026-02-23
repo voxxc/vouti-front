@@ -1,34 +1,30 @@
 
 
-## Plano: Corrigir build errors e simplificar `useOABs.ts`
+## Plano: Cards de prazo abrem o Drawer da Agenda
+
+### Situacao atual
+
+No `PrazosAbertosPanel.tsx`, existem 3 abas de tarefas/prazos:
+
+- **Prazos** (linha 353): Ao clicar, ja chama `onOpenAgendaDrawer` (que abre o drawer da agenda). Isso ja funciona.
+- **Admin** (linha 442/543): Ao clicar, chama `handleNavigateToProjetos` — navega para `/projects`.
+- **Juridico** (linha 442/554): Ao clicar, chama `handleNavigateToControladoria` — navega para `/controladoria`.
 
 ### O que muda
 
-Concordo com sua analise. Sao 3 correções:
+Alterar o `onClick` dos cards nas abas **Admin** e **Juridico** para tambem abrir o drawer da agenda, igual a aba Prazos.
 
-1. **`carregarDetalhes` e `consultarDetalhesRequest`**: Remover a chamada a Edge Function. O "Ver Detalhes" nao precisa buscar dados na Judit — os andamentos ja foram carregados na sincronizacao inicial e novos chegam via monitoramento + sincronizacao do super-admin. Essas duas funcoes podem ser removidas ou simplificadas para apenas abrir o drawer sem chamar API.
+### Alteracoes
 
-2. **`carregarDetalhesLote`** (no `useOABs`): Mesma logica — remover `getUser()` + `getTenantIdForUser()` e usar `user` e `tenantId` que ja existem no escopo do hook (linhas 75-76).
+**Arquivo**: `src/components/Dashboard/PrazosAbertosPanel.tsx`
 
-3. **`toggleMonitoramento`**: Este precisa continuar funcionando. A correção e simples — adicionar `const { user } = useAuth()` e `const { tenantId } = useTenantId()` no topo do `useProcessosOAB` e remover as 2 linhas manuais (518-519).
+1. **Aba Admin** (linha 543): Trocar `handleNavigateToProjetos` por `onOpenAgendaDrawer || handleNavigateToProjetos` no `onNavigate` passado ao `renderTarefasList`
 
-### Alteracoes detalhadas
+2. **Aba Juridico** (linha 554): Trocar `handleNavigateToControladoria` por `onOpenAgendaDrawer || handleNavigateToControladoria` no `onNavigate` passado ao `renderTarefasList`
 
-**Arquivo**: `src/hooks/useOABs.ts`
+Os botoes "Ver todos os projetos" e "Ver controladoria" no rodape de cada aba continuam navegando normalmente — so o clique nos cards individuais muda.
 
-**No hook `useOABs` (linha 70)**:
-- `carregarDetalhesLote` (linhas 296-297): Remover `getUser()` + `getTenantIdForUser()`, usar `user` e `tenantId` do escopo (ja existem linhas 75-76)
+### Detalhe tecnico
 
-**No hook `useProcessosOAB` (linha 343)**:
-- Adicionar `const { user } = useAuth()` e `const { tenantId } = useTenantId()` logo apos linha 347
-- `carregarDetalhes` (linhas 447-487): Remover a chamada a Edge Function. Simplificar para apenas retornar sem chamar API (o drawer ja mostra andamentos do banco)
-- `consultarDetalhesRequest` (linhas 567-602): Remover a chamada a Edge Function. Mesma razao — dados ja estao no banco
-- `toggleMonitoramento` (linhas 517-519): Remover `getUser()` + `getTenantIdForUser()`, usar `user` e `tenantId` do contexto
-
-### Resultado
-
-- 4 erros de build resolvidos
-- Toggle de monitoramento continua funcionando normalmente
-- "Ver Detalhes" abre sem chamar Edge Function desnecessaria
-- Carregamento em lote usa contexto cached
+A funcao `renderTarefasList` recebe `onNavigate` como parametro e usa tanto no `onClick` dos cards (linha 442) quanto no botao do rodape (linha 482). Para diferenciar, sera necessario passar dois callbacks separados: um para o card (abre drawer) e outro para o botao do rodape (navega para a pagina). Isso requer um pequeno ajuste na assinatura de `renderTarefasList` para aceitar `onCardClick` e `onFooterNavigate` separadamente.
 
