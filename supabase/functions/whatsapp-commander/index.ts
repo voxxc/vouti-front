@@ -11,6 +11,7 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GROK_API_KEY = Deno.env.get("GROK_API_KEY");
 
 // ─── Tools definition ───────────────────────────────────────────────────────
 
@@ -640,15 +641,36 @@ serve(async (req) => {
 
     console.log(`🤖 Commander processing: "${inputText.substring(0, 100)}..."`);
 
+    // Determine AI provider from agent config
+    let aiApiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let aiApiKey = LOVABLE_API_KEY;
+    let aiModel = "google/gemini-3-flash-preview";
+
+    if (agent_id) {
+      const { data: aiCfg } = await supabase
+        .from("whatsapp_ai_config")
+        .select("ai_provider, model_name")
+        .eq("agent_id", agent_id)
+        .maybeSingle();
+
+      if (aiCfg?.ai_provider === "grok" && GROK_API_KEY) {
+        aiApiUrl = "https://api.x.ai/v1/chat/completions";
+        aiApiKey = GROK_API_KEY;
+        aiModel = aiCfg.model_name || "grok-3-fast";
+      } else if (aiCfg?.model_name) {
+        aiModel = aiCfg.model_name;
+      }
+    }
+
     // Call AI with tool calling
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(aiApiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: aiModel,
         messages: [
           { role: "system", content: buildSystemPrompt() },
           { role: "user", content: inputText },

@@ -28,6 +28,7 @@ interface AIConfig {
   temperature: number;
   max_history: number;
   response_delay_seconds: number;
+  ai_provider: string;
 }
 
 const DEFAULT_PROMPT = `Você é um assistente virtual prestativo. Responda de forma amigável e profissional.
@@ -39,10 +40,16 @@ REGRAS:
 - Se não souber algo, peça para aguardar um atendente humano
 - Nunca invente informações`;
 
-const AVAILABLE_MODELS = [
+const LOVABLE_MODELS = [
   { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Rápido)" },
   { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Balanceado)" },
   { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Avançado)" },
+];
+
+const GROK_MODELS = [
+  { value: "grok-3", label: "Grok 3 (Avançado)" },
+  { value: "grok-3-mini", label: "Grok 3 Mini (Rápido)" },
+  { value: "grok-3-fast", label: "Grok 3 Fast (Balanceado)" },
 ];
 
 interface WhatsAppAISettingsProps {
@@ -69,6 +76,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
     temperature: 0.7,
     max_history: 10,
     response_delay_seconds: 0,
+    ai_provider: "lovable",
   });
 
   useEffect(() => {
@@ -114,6 +122,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           temperature: data.temperature || 0.7,
           max_history: data.max_history || 10,
           response_delay_seconds: data.response_delay_seconds || 0,
+          ai_provider: (data as any).ai_provider || "lovable",
         });
       }
 
@@ -360,6 +369,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
         temperature: config.temperature,
         max_history: config.max_history,
         response_delay_seconds: config.response_delay_seconds,
+        ai_provider: config.ai_provider,
         updated_at: new Date().toISOString(),
       };
 
@@ -659,6 +669,26 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
           <CardTitle className="text-lg">Configurações Avançadas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Provider de IA */}
+          <div className="space-y-2">
+            <Label>Provider de IA</Label>
+            <Select
+              value={config.ai_provider}
+              onValueChange={(value) => {
+                const defaultModel = value === 'grok' ? 'grok-3-fast' : 'google/gemini-3-flash-preview';
+                setConfig(prev => ({ ...prev, ai_provider: value, model_name: defaultModel }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lovable">Lovable AI (Gemini / GPT)</SelectItem>
+                <SelectItem value="grok">Grok (xAI)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Modelo */}
           <div className="space-y-2">
             <Label>Modelo de IA</Label>
@@ -670,7 +700,7 @@ export const WhatsAppAISettings = ({ isSuperAdmin = false, agentId }: WhatsAppAI
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {AVAILABLE_MODELS.map((model) => (
+                {(config.ai_provider === 'grok' ? GROK_MODELS : LOVABLE_MODELS).map((model) => (
                   <SelectItem key={model.value} value={model.value}>
                     {model.label}
                   </SelectItem>

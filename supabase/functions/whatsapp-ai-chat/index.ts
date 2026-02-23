@@ -9,6 +9,7 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+const grokApiKey = Deno.env.get('GROK_API_KEY');
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -135,18 +136,38 @@ serve(async (req) => {
       messagesCount: messages.length 
     });
 
-    // Chamar Lovable AI Gateway
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Determinar provider (Lovable AI ou Grok)
+    let apiUrl: string;
+    let apiKey: string;
+
+    if (aiConfig.ai_provider === 'grok') {
+      if (!grokApiKey) {
+        console.error('❌ GROK_API_KEY não configurada');
+        return new Response(
+          JSON.stringify({ error: 'GROK_API_KEY not configured', success: false }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      apiUrl = 'https://api.x.ai/v1/chat/completions';
+      apiKey = grokApiKey;
+    } else {
+      apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+      apiKey = lovableApiKey;
+    }
+
+    console.log(`🔀 Provider: ${aiConfig.ai_provider || 'lovable'}, URL: ${apiUrl}`);
+
+    const aiResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: aiConfig.model_name || 'google/gemini-3-flash-preview',
         messages,
         temperature: aiConfig.temperature || 0.7,
-        max_tokens: 500, // Limitar para WhatsApp
+        max_tokens: 500,
       }),
     });
 
