@@ -1,73 +1,76 @@
 
 
-## Controladoria sempre montada, atras do dashboard
+## Corrigir timeout dos processos + sobreposicao do sidebar
 
-### Problema atual
+### Problema 1: Processos nao carregam (statement timeout)
 
-A abordagem de pre-carregamento invisivel (`visibility: hidden` com 1x1px) nao funciona como esperado porque:
-- O `ControladoriaContent` dentro da div oculta e uma instancia React separada da que esta dentro do `ControladoriaDrawer`
-- Quando o drawer abre, o Sheet monta uma **nova** instancia do `ControladoriaContent` -- os dados precisam carregar de novo
-- O cache de localStorage ajuda, mas o componente ainda precisa montar, executar hooks, renderizar -- nao e instantaneo
+A tabela `processos_oab` tem 311 registros e `processos_oab_andamentos` tem 22.668. Duas queries estao causando timeout:
 
-### Nova abordagem
+- **`useAndamentosNaoLidosGlobal`**: Faz JOIN triplo (`processos_oab` + `oabs_cadastradas` + `processos_oab_andamentos`) buscando TODOS os andamentos para TODOS os processos. Com 22k andamentos, isso estoura o timeout.
+- **`useProcessosGeral`**: Busca todos os processos por `tenant_id`, mas **nao existe indice** em `processos_oab.tenant_id`.
 
-Eliminar o `ControladoriaDrawer` (Sheet) para a Controladoria e renderizar o conteudo como uma **camada fixa sempre montada** no layout, controlada por z-index:
+**Solucao**:
+1. Criar indice em `processos_oab(tenant_id)` via migration SQL
+2. Otimizar `useAndamentosNaoLidosGlobal`: separar em 2 queries leves ao inves de 1 JOIN pesado -- buscar processos primeiro, depois contar andamentos nao lidos separadamente
+3. Otimizar `useProcessosGeral`: ja usa 2 queries separadas, o indice resolve o timeout
 
-1. **Sempre montada**: A Controladoria fica renderizada como um painel fixo ao lado da sidebar, ocupando o mesmo espaco que o dashboard
-2. **Atras do dashboard**: Quando `activeDrawer !== 'controladoria'`, o painel fica com `z-index` menor (invisivel atras do conteudo principal)
-3. **Na frente quando clicada**: Quando `activeDrawer === 'controladoria'`, o painel sobe para `z-index` maior e aparece instantaneamente -- sem animacao de Sheet, sem remontagem
+### Problema 2: Controladoria aparece por cima do sidebar
+
+O painel fixo da Controladoria usa `left: '64px'` (hardcoded), mas o sidebar tem 2 larguras:
+- Collapsed: `w-16` = 64px
+- Expanded: `w-56` = 224px
+
+O estado `isCollapsed` e interno ao `DashboardSidebar` e nao e compartilhado com `DashboardLayout`.
+
+**Solucao**: Expor o estado `isCollapsed` do sidebar para o layout, e usar esse valor para definir o `left` dinamico do painel da Controladoria.
 
 ### Arquivos modificados
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/Dashboard/DashboardLayout.tsx` | Remover div invisivel + remover ControladoriaDrawer. Adicionar painel fixo da Controladoria sempre montado, controlado por z-index/visibilidade |
+| `src/components/Dashboard/DashboardSidebar.tsx` | Adicionar prop `onCollapsedChange` para expor estado collapsed |
+| `src/components/Dashboard/DashboardLayout.tsx` | Receber estado collapsed, usar left dinamico no painel da Controladoria |
+| `src/hooks/useAndamentosNaoLidosGlobal.ts` | Separar JOIN em 2 queries leves: processos + contagem de nao lidos |
+| Migration SQL | Criar indice em `processos_oab(tenant_id)` |
 
 ### Detalhes tecnicos
 
+**DashboardSidebar.tsx**:
+- Adicionar prop `onCollapsedChange?: (collapsed: boolean) => void`
+- Chamar `onCollapsedChange(newValue)` sempre que `isCollapsed` mudar
+
 **DashboardLayout.tsx**:
+- Novo estado: `const [sidebarCollapsed, setSidebarCollapsed] = useState(false)`
+- Passar `onCollapsedChange={setSidebarCollapsed}` ao `DashboardSidebar`
+- No painel da Controladoria: `style={{ left: sidebarCollapsed ? '64px' : '224px' }}`
 
-1. Remover a div de pre-carregamento invisivel (linhas 333-340)
-2. Remover o `<ControladoriaDrawer>` (linhas 348-351)
-3. Adicionar, logo apos o `</main>`, um painel fixo:
+**useAndamentosNaoLidosGlobal.ts** -- Substituir o JOIN pesado por 2 queries:
 
-```tsx
-{/* Controladoria - sempre montada, controlada por z-index */}
-<div
-  className={cn(
-    "fixed inset-0 bg-background transition-opacity duration-200",
-    activeDrawer === 'controladoria'
-      ? "z-40 opacity-100 pointer-events-auto"
-      : "z-[-1] opacity-0 pointer-events-none"
-  )}
-  style={{ left: '64px' }} // offset da sidebar
->
-  <div className="h-full overflow-auto p-6">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <FileCheck className="h-5 w-5 text-primary" />
-        <span className="font-semibold text-lg">Controladoria</span>
-      </div>
-      <Button variant="ghost" size="icon" onClick={() => setActiveDrawer(null)}>
-        <X className="h-4 w-4" />
-      </Button>
-    </div>
-    <ControladoriaContent />
-  </div>
-</div>
+```typescript
+// Query 1: Buscar processos com OAB (sem andamentos)
+const { data: processosData } = await supabase
+  .from('processos_oab')
+  .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, oab_id, capa_completa, oabs_cadastradas!inner(id, oab_numero, oab_uf, nome_advogado)')
+  .eq('tenant_id', tenantId);
+
+// Query 2: Contar andamentos nao lidos por processo (usando indice existente)
+const { data: naoLidosData } = await supabase
+  .from('processos_oab_andamentos')
+  .select('processo_oab_id')
+  .eq('lida', false);
+
+// Montar mapa de contagens e filtrar processos com nao lidos > 0
 ```
 
-- Quando `activeDrawer === 'controladoria'`: z-40, opacity 100, interagivel -- aparece na frente
-- Quando nao: z-[-1], opacity 0, pointer-events none -- fica atras, invisivel, mas **sempre montada**
-- A `ControladoriaContent` nunca desmonta -- hooks rodam continuamente, dados ficam frescos
-- Transicao de opacity de 200ms para suavidade visual
+**Migration SQL**:
 
-4. Adicionar imports de `cn`, `FileCheck`, `X` e `Button` (alguns ja existem)
+```sql
+CREATE INDEX IF NOT EXISTS idx_processos_oab_tenant_id ON processos_oab(tenant_id);
+```
 
-### Resultado
+### Resultado esperado
 
-- Login -> dashboard carrega -> Controladoria ja esta montada e carregando dados em paralelo
-- Usuario clica em Controladoria -> painel aparece instantaneamente (ja esta renderizado)
-- Usuario fecha -> painel some visualmente mas continua montado e atualizado
-- Polling de 2min continua funcionando no `useControladoriaCache`
+- Queries rodam dentro do timeout (sem JOIN de 22k andamentos)
+- Painel da Controladoria respeita a largura atual do sidebar
+- Processos carregam normalmente na aba Geral e no hook de andamentos nao lidos
 
