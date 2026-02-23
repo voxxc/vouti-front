@@ -71,6 +71,7 @@ interface ContactInfoPanelProps {
   onTransferComplete?: () => void;
   profilePicUrl?: string | null;
   onProfilePicFetched?: (phone: string, url: string) => void;
+  onMacroSelect?: (macro: any) => void;
 }
 
 interface KanbanColumnOption {
@@ -79,8 +80,9 @@ interface KanbanColumnOption {
   color: string;
 }
 
-export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, conversationAgentId, conversationAgentName, onTransferComplete, profilePicUrl, onProfilePicFetched }: ContactInfoPanelProps) => {
+export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, conversationAgentId, conversationAgentName, onTransferComplete, profilePicUrl, onProfilePicFetched, onMacroSelect }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
+  const [agentMacros, setAgentMacros] = useState<any[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
   const [loadingPic, setLoadingPic] = useState(false);
@@ -94,6 +96,23 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   const [showColumnConfirm, setShowColumnConfirm] = useState(false);
   const [kanbanCardId, setKanbanCardId] = useState<string | null>(null);
   const [transferredFromName, setTransferredFromName] = useState<string | null>(null);
+
+  // Polling macros every 2s
+  useEffect(() => {
+    if (!currentAgentId) return;
+    const fetchMacros = async () => {
+      const { data } = await supabase
+        .from("whatsapp_macros" as any)
+        .select("id, name, shortcut, content")
+        .eq("agent_id", currentAgentId)
+        .eq("is_active", true)
+        .order("shortcut");
+      setAgentMacros((data as any[]) || []);
+    };
+    fetchMacros();
+    const interval = setInterval(fetchMacros, 2000);
+    return () => clearInterval(interval);
+  }, [currentAgentId]);
 
   // Fetch profile picture from Z-API
   const fetchProfilePicture = async () => {
@@ -333,13 +352,22 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       title: "Macros",
       icon: Sparkles,
       content: (
-        <div className="py-2 space-y-2">
-          <Button variant="ghost" size="sm" className="w-full justify-start text-xs">
-            /saudacao - Mensagem de boas-vindas
-          </Button>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-xs">
-            /preco - Informações de preço
-          </Button>
+        <div className="py-2 space-y-1">
+          {agentMacros.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhuma macro configurada.</p>
+          ) : (
+            agentMacros.map((macro: any) => (
+              <Button
+                key={macro.id}
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs"
+                onClick={() => onMacroSelect?.(macro)}
+              >
+                /{macro.shortcut} - {macro.name}
+              </Button>
+            ))
+          )}
         </div>
       ),
     },

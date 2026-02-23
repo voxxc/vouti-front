@@ -7704,6 +7704,48 @@ export type Database = {
           },
         ]
       }
+      whatsapp_emoji_history: {
+        Row: {
+          agent_id: string | null
+          emoji: string
+          id: string
+          last_used_at: string | null
+          tenant_id: string | null
+          use_count: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          emoji: string
+          id?: string
+          last_used_at?: string | null
+          tenant_id?: string | null
+          use_count?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          emoji?: string
+          id?: string
+          last_used_at?: string | null
+          tenant_id?: string | null
+          use_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_emoji_history_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_emoji_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           agent_id: string | null
