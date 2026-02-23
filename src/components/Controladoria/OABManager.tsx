@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { useOABs, useProcessosOAB, OABCadastrada, ProcessoOAB } from '@/hooks/useOABs';
 import { OABTab } from './OABTab';
+import { OABTabGeral } from './OABTabGeral';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
 import { Progress } from '@/components/ui/progress';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
@@ -70,7 +71,7 @@ export const OABManager = () => {
   const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
   const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, isRunning: false });
-  const [activeTab, setActiveTab] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('geral');
   
   // Form state
   const [oabNumero, setOabNumero] = useState('');
@@ -273,9 +274,18 @@ export const OABManager = () => {
         )}
         </div>
       ) : (
-        <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab || 'geral'} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 flex-shrink-0">
             <TabsList className="h-auto p-1">
+              <TabsTrigger
+                value="geral"
+                className="flex items-center gap-2 px-3 py-2"
+              >
+                <span className="font-medium">Geral</span>
+                <Badge variant="secondary" className="text-xs">
+                  {oabs.reduce((sum, o) => sum + o.total_processos, 0)}
+                </Badge>
+              </TabsTrigger>
               {oabs.map((oab) => (
                 <TabsTrigger
                   key={oab.id}
@@ -294,6 +304,10 @@ export const OABManager = () => {
               ))}
             </TabsList>
           </div>
+
+          <TabsContent value="geral" className="mt-4 flex-1">
+            <OABTabGeral />
+          </TabsContent>
 
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
