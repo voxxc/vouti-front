@@ -1,80 +1,73 @@
 
 
-## Pre-carregamento invisivel da Controladoria com polling silencioso
+## Controladoria sempre montada, atras do dashboard
 
-### Abordagem
+### Problema atual
 
-Atualmente, o `ControladoriaContent` so monta quando o drawer abre (`open=true`), pois o Sheet do Radix usa portal e so renderiza o conteudo quando esta aberto. A ideia e:
+A abordagem de pre-carregamento invisivel (`visibility: hidden` com 1x1px) nao funciona como esperado porque:
+- O `ControladoriaContent` dentro da div oculta e uma instancia React separada da que esta dentro do `ControladoriaDrawer`
+- Quando o drawer abre, o Sheet monta uma **nova** instancia do `ControladoriaContent` -- os dados precisam carregar de novo
+- O cache de localStorage ajuda, mas o componente ainda precisa montar, executar hooks, renderizar -- nao e instantaneo
 
-1. **Pre-renderizar o `ControladoriaContent` de forma invisivel** no `DashboardLayout`, fora do Sheet, usando `visibility: hidden` + `position: absolute` + `pointer-events: none`. Isso faz o React montar o componente, executar os hooks (carregar dados do Supabase), mas sem ocupar espaco visual nem ser interagivel.
+### Nova abordagem
 
-2. **Quando o drawer abrir**, o conteudo ja estara em memoria (cache do `useControladoriaCache` ja preenchido + estado dos componentes preservado). A percepcao sera de carregamento instantaneo.
+Eliminar o `ControladoriaDrawer` (Sheet) para a Controladoria e renderizar o conteudo como uma **camada fixa sempre montada** no layout, controlada por z-index:
 
-3. **Adicionar polling silencioso de 2 minutos** no `useControladoriaCache` -- um `setInterval` que chama `refreshData()` a cada 120s sem mostrar indicador visual (sem setar `isRefreshing`). Imperceptivel, igual ao dashboard.
+1. **Sempre montada**: A Controladoria fica renderizada como um painel fixo ao lado da sidebar, ocupando o mesmo espaco que o dashboard
+2. **Atras do dashboard**: Quando `activeDrawer !== 'controladoria'`, o painel fica com `z-index` menor (invisivel atras do conteudo principal)
+3. **Na frente quando clicada**: Quando `activeDrawer === 'controladoria'`, o painel sobe para `z-index` maior e aparece instantaneamente -- sem animacao de Sheet, sem remontagem
 
 ### Arquivos modificados
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/Dashboard/DashboardLayout.tsx` | Adicionar div invisivel com `ControladoriaContent` para pre-carregamento |
-| `src/hooks/useControladoriaCache.ts` | Adicionar polling silencioso de 2 min (silent refresh sem indicador visual) |
+| `src/components/Dashboard/DashboardLayout.tsx` | Remover div invisivel + remover ControladoriaDrawer. Adicionar painel fixo da Controladoria sempre montado, controlado por z-index/visibilidade |
 
 ### Detalhes tecnicos
 
-**DashboardLayout.tsx** -- Adicionar antes dos drawers:
+**DashboardLayout.tsx**:
 
-```
-{/* Pre-carregamento invisivel da Controladoria */}
+1. Remover a div de pre-carregamento invisivel (linhas 333-340)
+2. Remover o `<ControladoriaDrawer>` (linhas 348-351)
+3. Adicionar, logo apos o `</main>`, um painel fixo:
+
+```tsx
+{/* Controladoria - sempre montada, controlada por z-index */}
 <div
-  className="fixed"
-  style={{ visibility: 'hidden', position: 'absolute', top: -9999, left: -9999, width: 1, height: 1, overflow: 'hidden', pointerEvents: 'none' }}
-  aria-hidden="true"
+  className={cn(
+    "fixed inset-0 bg-background transition-opacity duration-200",
+    activeDrawer === 'controladoria'
+      ? "z-40 opacity-100 pointer-events-auto"
+      : "z-[-1] opacity-0 pointer-events-none"
+  )}
+  style={{ left: '64px' }} // offset da sidebar
 >
-  <ControladoriaContent />
+  <div className="h-full overflow-auto p-6">
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <FileCheck className="h-5 w-5 text-primary" />
+        <span className="font-semibold text-lg">Controladoria</span>
+      </div>
+      <Button variant="ghost" size="icon" onClick={() => setActiveDrawer(null)}>
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+    <ControladoriaContent />
+  </div>
 </div>
 ```
 
-Isso monta o componente e seus hooks (useControladoriaCache, useOABs, etc.) em background. Quando o drawer abrir, o useControladoriaCache ja tera dados em memoria -- o cache sera compartilhado porque o hook usa localStorage + estado do React.
+- Quando `activeDrawer === 'controladoria'`: z-40, opacity 100, interagivel -- aparece na frente
+- Quando nao: z-[-1], opacity 0, pointer-events none -- fica atras, invisivel, mas **sempre montada**
+- A `ControladoriaContent` nunca desmonta -- hooks rodam continuamente, dados ficam frescos
+- Transicao de opacity de 200ms para suavidade visual
 
-**useControladoriaCache.ts** -- Adicionar apos o real-time subscription:
+4. Adicionar imports de `cn`, `FileCheck`, `X` e `Button` (alguns ja existem)
 
-```
-// Polling silencioso a cada 2 minutos
-useEffect(() => {
-  const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos
+### Resultado
 
-  const interval = setInterval(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const [freshMetrics, freshOabs] = await Promise.all([
-        fetchMetricsOptimized(),
-        fetchOABsOptimized(user.id)
-      ]);
-
-      setMetrics(freshMetrics);
-      setOabs(freshOabs);
-
-      saveToLocalStorage({
-        metrics: freshMetrics,
-        oabs: freshOabs,
-        lastUpdated: Date.now()
-      });
-    } catch (error) {
-      console.error('[Polling] Erro silencioso:', error);
-    }
-  }, POLLING_INTERVAL);
-
-  return () => clearInterval(interval);
-}, []);
-```
-
-Nota: Este polling NAO seta `isRefreshing = true`, entao nenhum spinner aparece. E completamente imperceptivel para o usuario.
-
-### Resultado esperado
-
-- Ao entrar no dashboard, a Controladoria carrega dados em background (invisivel)
-- Ao clicar no drawer Controladoria, os dados ja estao prontos -- abertura instantanea
-- A cada 2 minutos, os dados sao atualizados silenciosamente sem nenhum indicador visual
+- Login -> dashboard carrega -> Controladoria ja esta montada e carregando dados em paralelo
+- Usuario clica em Controladoria -> painel aparece instantaneamente (ja esta renderizado)
+- Usuario fecha -> painel some visualmente mas continua montado e atualizado
+- Polling de 2min continua funcionando no `useControladoriaCache`
 
