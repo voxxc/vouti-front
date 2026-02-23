@@ -22,11 +22,12 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const CentralAndamentosNaoLidos = () => {
-  const { processos, loading, oabs, totalNaoLidos, marcarTodosComoLidos, refetch } = useAndamentosNaoLidosGlobal();
+  const { processos, loading, oabs, totalNaoLidos, marcarTodosComoLidos, marcarTodosGlobalComoLidos, refetch } = useAndamentosNaoLidosGlobal();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterOabId, setFilterOabId] = useState<string>("all");
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoComNaoLidos | null>(null);
   const [confirmMarkAll, setConfirmMarkAll] = useState<string | null>(null);
+  const [confirmMarkAllGlobal, setConfirmMarkAllGlobal] = useState(false);
   const [isMarking, setIsMarking] = useState(false);
 
   const filteredProcessos = processos.filter(p => {
@@ -59,6 +60,21 @@ export const CentralAndamentosNaoLidos = () => {
     refetch();
   };
 
+  const handleMarcarTodosGlobal = async () => {
+    setIsMarking(true);
+    try {
+      const { error } = await marcarTodosGlobalComoLidos();
+      if (error) {
+        toast.error("Erro ao marcar todos os andamentos como lidos");
+      } else {
+        toast.success("Todos os andamentos foram marcados como lidos");
+      }
+    } finally {
+      setIsMarking(false);
+      setConfirmMarkAllGlobal(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between flex-shrink-0">
@@ -76,6 +92,15 @@ export const CentralAndamentosNaoLidos = () => {
             Processos com movimentações pendentes de leitura em todas as OABs
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setConfirmMarkAllGlobal(true)}
+          disabled={totalNaoLidos === 0 || loading}
+        >
+          <CheckCheck className="h-4 w-4 mr-1" />
+          Ler Todos
+        </Button>
       </div>
 
       {/* Filtros */}
@@ -235,6 +260,30 @@ export const CentralAndamentosNaoLidos = () => {
             <AlertDialogCancel disabled={isMarking}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => confirmMarkAll && handleMarcarComoLidos(confirmMarkAll)}
+              disabled={isMarking}
+            >
+              {isMarking ? "Marcando..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal de confirmação global */}
+      <AlertDialog open={confirmMarkAllGlobal} onOpenChange={(open) => !open && setConfirmMarkAllGlobal(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-primary" />
+              Marcar todos como lidos?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os <strong>{totalNaoLidos}</strong> andamentos não lidos de <strong>todos os processos</strong> serão marcados como lidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarking}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleMarcarTodosGlobal}
               disabled={isMarking}
             >
               {isMarking ? "Marcando..." : "Confirmar"}
