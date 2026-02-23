@@ -91,11 +91,14 @@ serve(async (req) => {
     // Filter groups only
     const groups = (Array.isArray(chats) ? chats : [])
       .filter((chat: any) => chat.isGroup === true)
-      .map((chat: any) => ({
-        id: chat.phone || chat.id,
-        name: chat.name || chat.phone || 'Grupo',
-        isGroup: true,
-      }));
+      .map((chat: any) => {
+        const rawId = chat.phone || chat.id;
+        return {
+          id: rawId.includes("@g.us") ? rawId : `${rawId}@g.us`,
+          name: chat.name || chat.phone || 'Grupo',
+          isGroup: true,
+        };
+      });
 
     return new Response(JSON.stringify({ success: true, groups }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

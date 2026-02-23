@@ -481,19 +481,34 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         body: { agentId: myAgentId },
       });
       if (error) throw error;
-      if (data?.groups) {
-        // Persist groups to whatsapp_contacts
-        for (const group of data.groups) {
-          await supabase
-            .from("whatsapp_contacts")
-            .upsert({
-              phone: group.id,
-              name: group.name,
-              tenant_id: tenantId,
-            }, { onConflict: "tenant_id,phone" });
+      if (data?.groups && data.groups.length > 0) {
+        // Normalizar IDs: garantir sufixo @g.us
+        const normalizedGroups = data.groups.map((g: any) => ({
+          id: g.id.includes("@g.us") ? g.id : `${g.id}@g.us`,
+          name: g.name,
+        }));
+
+        // Upsert em batch
+        const contactsToUpsert = normalizedGroups.map((g: any) => ({
+          phone: g.id,
+          name: g.name,
+          tenant_id: tenantId,
+        }));
+
+        const { error: upsertError } = await supabase
+          .from("whatsapp_contacts")
+          .upsert(contactsToUpsert, { onConflict: "tenant_id,phone" });
+
+        if (upsertError) {
+          console.error("Erro ao salvar grupos:", upsertError);
+          toast.error("Grupos encontrados mas erro ao salvar.");
+        } else {
+          toast.success(`${normalizedGroups.length} grupos salvos.`);
         }
-        setGroups(data.groups);
-        toast.success(`${data.groups.length} grupos encontrados e salvos.`);
+
+        setGroups(normalizedGroups);
+      } else {
+        toast.info("Nenhum grupo encontrado.");
       }
     } catch (error) {
       console.error("Erro ao buscar grupos:", error);
