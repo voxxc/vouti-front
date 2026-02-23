@@ -77,6 +77,8 @@ export const WhatsAppAgentsSettings = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [deleteAgentId, setDeleteAgentId] = useState<string | null>(null);
   const [isDeletingAgent, setIsDeletingAgent] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [editingAgentName, setEditingAgentName] = useState<string>("");
   const [isSavingName, setIsSavingName] = useState(false);
 
@@ -695,16 +697,47 @@ export const WhatsAppAgentsSettings = () => {
   const handleDeleteAgent = async () => {
     if (!deleteAgentId || !tenantId) return;
     
+    const agentToDelete = agents.find(a => a.id === deleteAgentId);
+    if (!agentToDelete || deleteConfirmName !== agentToDelete.name) {
+      toast({ title: "Nome incorreto", description: "Digite o nome exato do agente para confirmar.", variant: "destructive" });
+      return;
+    }
+    
     setIsDeletingAgent(true);
     try {
-      // Delete associated instance first
-      await supabase
-        .from("whatsapp_instances")
-        .delete()
-        .eq("agent_id", deleteAgentId)
-        .eq("tenant_id", tenantId);
-
-      // Delete kanban data
+      // 1. Delete campaign messages (via campaigns)
+      const { data: campaigns } = await supabase
+        .from("whatsapp_campaigns")
+        .select("id")
+        .eq("agent_id", deleteAgentId);
+      
+      if (campaigns && campaigns.length > 0) {
+        const campaignIds = campaigns.map(c => c.id);
+        await supabase.from("whatsapp_campaign_messages").delete().in("campaign_id", campaignIds);
+      }
+      
+      // 2. Delete campaigns
+      await supabase.from("whatsapp_campaigns").delete().eq("agent_id", deleteAgentId);
+      
+      // 3. Delete tickets
+      await supabase.from("whatsapp_tickets" as any).delete().eq("agent_id", deleteAgentId);
+      
+      // 4. Delete emoji history
+      await supabase.from("whatsapp_emoji_history").delete().eq("agent_id", deleteAgentId);
+      
+      // 5. Delete macros
+      await supabase.from("whatsapp_macros" as any).delete().eq("agent_id", deleteAgentId);
+      
+      // 6. Delete AI config
+      await supabase.from("whatsapp_ai_config" as any).delete().eq("agent_id", deleteAgentId);
+      
+      // 7. Delete conversation access
+      await supabase.from("whatsapp_conversation_access" as any).delete().eq("agent_id", deleteAgentId);
+      
+      // 8. Delete messages
+      await supabase.from("whatsapp_messages").delete().eq("agent_id", deleteAgentId);
+      
+      // 9. Delete kanban cards then columns
       const { data: columns } = await supabase
         .from("whatsapp_kanban_columns")
         .select("id")
@@ -712,17 +745,17 @@ export const WhatsAppAgentsSettings = () => {
 
       if (columns && columns.length > 0) {
         const columnIds = columns.map(c => c.id);
-        await supabase
-          .from("whatsapp_conversation_kanban")
-          .delete()
-          .in("column_id", columnIds);
-        await supabase
-          .from("whatsapp_kanban_columns")
-          .delete()
-          .eq("agent_id", deleteAgentId);
+        await supabase.from("whatsapp_conversation_kanban").delete().in("column_id", columnIds);
+        await supabase.from("whatsapp_kanban_columns").delete().eq("agent_id", deleteAgentId);
       }
 
-      // Delete the agent
+      // 10. Delete instances
+      await supabase.from("whatsapp_instances").delete().eq("agent_id", deleteAgentId).eq("tenant_id", tenantId);
+      
+      // 11. Delete agent roles
+      await supabase.from("whatsapp_agent_roles" as any).delete().eq("agent_id", deleteAgentId);
+
+      // 12. Delete the agent
       const { error } = await supabase
         .from("whatsapp_agents")
         .delete()
@@ -731,14 +764,13 @@ export const WhatsAppAgentsSettings = () => {
 
       if (error) throw error;
 
-      // Close expanded if it was the deleted one
       if (expandedAgentId === deleteAgentId) {
         setExpandedAgentId(null);
       }
 
       toast({
         title: "Agente apagado",
-        description: "O agente e suas configurações foram removidos",
+        description: "O agente e todo seu histórico foram removidos permanentemente.",
       });
 
       await loadAgents();
@@ -752,6 +784,8 @@ export const WhatsAppAgentsSettings = () => {
     } finally {
       setIsDeletingAgent(false);
       setDeleteAgentId(null);
+      setDeleteStep(1);
+      setDeleteConfirmName("");
     }
   };
 
@@ -1086,28 +1120,57 @@ export const WhatsAppAgentsSettings = () => {
           onAgentAdded={loadAgents}
         />
 
-        {/* Dialog de confirmação para apagar */}
-        <AlertDialog open={!!deleteAgentId} onOpenChange={(open) => !open && setDeleteAgentId(null)}>
+        {/* Dialog de confirmação para apagar - Dupla confirmação */}
+        <AlertDialog open={!!deleteAgentId} onOpenChange={(open) => { if (!open) { setDeleteAgentId(null); setDeleteStep(1); setDeleteConfirmName(""); } }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Apagar agente?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {deleteStep === 1 ? "Apagar agente?" : "⚠️ CONFIRMAÇÃO FINAL"}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                Essa ação é irreversível. O agente, suas credenciais Z-API, colunas do Kanban e conversas vinculadas serão removidos permanentemente.
+                {deleteStep === 1 ? (
+                  `Tem certeza que deseja apagar o agente "${agents.find(a => a.id === deleteAgentId)?.name}"?`
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-destructive font-medium">
+                      Esta ação apagará PERMANENTEMENTE todas as conversas, kanbans, macros, campanhas e histórico deste agente.
+                    </p>
+                    <div>
+                      <p className="text-sm mb-2">
+                        Digite o nome do agente <strong>"{agents.find(a => a.id === deleteAgentId)?.name}"</strong> para confirmar:
+                      </p>
+                      <Input 
+                        value={deleteConfirmName} 
+                        onChange={(e) => setDeleteConfirmName(e.target.value)} 
+                        placeholder="Nome do agente"
+                      />
+                    </div>
+                  </div>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isDeletingAgent}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteAgent}
-                disabled={isDeletingAgent}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {isDeletingAgent ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Apagando...</>
-                ) : (
-                  "Apagar"
-                )}
-              </AlertDialogAction>
+              {deleteStep === 1 ? (
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); setDeleteStep(2); }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Continuar
+                </AlertDialogAction>
+              ) : (
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); handleDeleteAgent(); }}
+                  disabled={isDeletingAgent || deleteConfirmName !== agents.find(a => a.id === deleteAgentId)?.name}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeletingAgent ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Apagando...</>
+                  ) : (
+                    "Apagar Permanentemente"
+                  )}
+                </AlertDialogAction>
+              )}
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

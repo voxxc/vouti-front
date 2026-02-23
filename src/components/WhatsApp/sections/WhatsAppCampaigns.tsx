@@ -68,6 +68,7 @@ export const WhatsAppCampaigns = () => {
   const [selectedColumnId, setSelectedColumnId] = useState("");
   const [batchSize, setBatchSize] = useState(10);
   const [intervalMinutes, setIntervalMinutes] = useState(4);
+  const [scheduledStartAt, setScheduledStartAt] = useState("");
 
   useEffect(() => {
     loadCampaigns();
@@ -151,30 +152,35 @@ export const WhatsAppCampaigns = () => {
       contacts?.forEach((c) => nameMap.set(c.phone, c.name));
 
       // 3. Create campaign
+      const campaignData: any = {
+        tenant_id: tenantId,
+        agent_id: selectedAgentId,
+        name,
+        message_template: messageTemplate,
+        target_column_id: selectedColumnId,
+        batch_size: batchSize,
+        interval_minutes: intervalMinutes,
+        status: "running",
+        total_contacts: phones.length,
+        created_by: user.id,
+      };
+      if (scheduledStartAt) {
+        campaignData.scheduled_start_at = new Date(scheduledStartAt).toISOString();
+      }
+
       const { data: campaign, error: campError } = await supabase
         .from("whatsapp_campaigns")
-        .insert({
-          tenant_id: tenantId,
-          agent_id: selectedAgentId,
-          name,
-          message_template: messageTemplate,
-          target_column_id: selectedColumnId,
-          batch_size: batchSize,
-          interval_minutes: intervalMinutes,
-          status: "running",
-          total_contacts: phones.length,
-          created_by: user.id,
-        })
+        .insert(campaignData)
         .select()
         .single();
 
       if (campError || !campaign) throw campError;
 
       // 4. Create scheduled messages in batches
-      const now = new Date();
+      const startTime = scheduledStartAt ? new Date(scheduledStartAt) : new Date();
       const messages = phones.map((phone, index) => {
         const batchIndex = Math.floor(index / batchSize);
-        const scheduledAt = new Date(now.getTime() + batchIndex * intervalMinutes * 60 * 1000);
+        const scheduledAt = new Date(startTime.getTime() + batchIndex * intervalMinutes * 60 * 1000);
         const contactName = nameMap.get(phone) || phone;
         const msg = messageTemplate.replace(/\{\{nome\}\}/g, contactName);
 
@@ -253,6 +259,7 @@ export const WhatsAppCampaigns = () => {
     setSelectedColumnId("");
     setBatchSize(10);
     setIntervalMinutes(4);
+    setScheduledStartAt("");
   };
 
   const getStatusBadge = (status: string) => {
@@ -347,6 +354,16 @@ export const WhatsAppCampaigns = () => {
                   <Label>Intervalo (min)</Label>
                   <Input type="number" min={1} max={60} value={intervalMinutes} onChange={(e) => setIntervalMinutes(Number(e.target.value))} />
                 </div>
+              </div>
+
+              <div>
+                <Label>Horário de início (opcional)</Label>
+                <Input 
+                  type="datetime-local" 
+                  value={scheduledStartAt} 
+                  onChange={(e) => setScheduledStartAt(e.target.value)} 
+                />
+                <p className="text-xs text-muted-foreground mt-1">Se não definido, a campanha inicia imediatamente.</p>
               </div>
 
               <Button onClick={handleCreate} disabled={loading} className="w-full">

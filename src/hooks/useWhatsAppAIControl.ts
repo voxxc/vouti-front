@@ -45,8 +45,12 @@ export const useWhatsAppAIControl = ({ phoneNumber, tenantId }: UseWhatsAppAICon
       
       if (error) throw error;
       
+      // For groups (@g.us), AI is disabled by default unless explicitly enabled
+      const isGroup = phoneNumber.includes('@g.us');
+      const isDisabled = isGroup ? !data ? true : !!data : !!data;
+      
       setState({
-        isAIDisabled: !!data,
+        isAIDisabled: isDisabled,
         isLoading: false,
         disabledAt: data?.disabled_at || null,
         disabledBy: data?.disabled_by || null,
