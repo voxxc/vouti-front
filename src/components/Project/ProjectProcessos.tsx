@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Trash2,
   Plus,
-  Search
+  Search,
+  Briefcase,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -338,6 +340,13 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [carregandoDetalhes, setCarregandoDetalhes] = useState<string | null>(null);
+
+  // Carteira state
+  const [carteiras, setCarteiras] = useState<any[]>([]);
+  const [carteiraProcessos, setCarteiraProcessos] = useState<Record<string, string[]>>({});
+  const [isCarteiraDialogOpen, setIsCarteiraDialogOpen] = useState(false);
+  const [novaCarteiraNome, setNovaCarteiraNome] = useState('');
+  const [novaCarteiraCor, setNovaCarteiraCor] = useState('#6366f1');
   
   const { tenantId } = useTenantId();
   const { toast } = useToast();
@@ -430,9 +439,115 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
     }
   }, [projectId, workspaceId, defaultWorkspaceId]);
 
+  // Load carteiras
+  const loadCarteiras = useCallback(async () => {
+    if (!workspaceId || !tenantId) return;
+    try {
+      const { data: carteirasData } = await supabase
+        .from('project_carteiras')
+        .select('*')
+        .eq('projeto_id', projectId)
+        .eq('workspace_id', workspaceId)
+        .order('ordem');
+      
+      setCarteiras(carteirasData || []);
+
+      if (carteirasData?.length) {
+        const carteiraIds = carteirasData.map((c: any) => c.id);
+        const { data: cpData } = await supabase
+          .from('project_carteira_processos')
+          .select('carteira_id, project_processo_id')
+          .in('carteira_id', carteiraIds);
+        
+        const map: Record<string, string[]> = {};
+        (cpData || []).forEach((cp: any) => {
+          if (!map[cp.carteira_id]) map[cp.carteira_id] = [];
+          map[cp.carteira_id].push(cp.project_processo_id);
+        });
+        setCarteiraProcessos(map);
+      } else {
+        setCarteiraProcessos({});
+      }
+    } catch (error) {
+      console.error('Erro ao carregar carteiras:', error);
+    }
+  }, [projectId, workspaceId, tenantId]);
+
   useEffect(() => {
     loadProcessosVinculados();
-  }, [loadProcessosVinculados]);
+    loadCarteiras();
+  }, [loadProcessosVinculados, loadCarteiras]);
+
+  const handleCriarCarteira = async () => {
+    if (!novaCarteiraNome.trim() || !workspaceId || !tenantId) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('project_carteiras')
+        .insert({
+          projeto_id: projectId,
+          workspace_id: workspaceId,
+          tenant_id: tenantId,
+          nome: novaCarteiraNome.trim(),
+          cor: novaCarteiraCor,
+          ordem: carteiras.length,
+          created_by: user?.id,
+        });
+      if (error) throw error;
+      toast({ title: 'Carteira criada' });
+      setNovaCarteiraNome('');
+      setIsCarteiraDialogOpen(false);
+      loadCarteiras();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeletarCarteira = async (carteiraId: string) => {
+    try {
+      await supabase.from('project_carteira_processos').delete().eq('carteira_id', carteiraId);
+      await supabase.from('project_carteiras').delete().eq('id', carteiraId);
+      toast({ title: 'Carteira removida' });
+      loadCarteiras();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleMoverParaCarteira = async (projectProcessoId: string, carteiraId: string) => {
+    try {
+      // Remove de outras carteiras primeiro
+      for (const [cId, pIds] of Object.entries(carteiraProcessos)) {
+        if (pIds.includes(projectProcessoId)) {
+          await supabase
+            .from('project_carteira_processos')
+            .delete()
+            .eq('carteira_id', cId)
+            .eq('project_processo_id', projectProcessoId);
+        }
+      }
+      // Adiciona na nova
+      await supabase
+        .from('project_carteira_processos')
+        .insert({ carteira_id: carteiraId, project_processo_id: projectProcessoId });
+      loadCarteiras();
+    } catch (error) {
+      console.error('Erro ao mover processo para carteira:', error);
+    }
+  };
+
+  const handleRemoverDeCarteira = async (projectProcessoId: string, carteiraId: string) => {
+    try {
+      await supabase
+        .from('project_carteira_processos')
+        .delete()
+        .eq('carteira_id', carteiraId)
+        .eq('project_processo_id', projectProcessoId);
+      loadCarteiras();
+    } catch (error) {
+      console.error('Erro ao remover processo da carteira:', error);
+    }
+  };
 
   const loadProcessosDisponiveis = async () => {
     try {
@@ -715,6 +830,14 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
     
     const sourceId = result.source.droppableId;
     const destId = result.destination.droppableId;
+
+    // Handle drag to carteira
+    if (destId.startsWith('carteira-') && sourceId !== destId) {
+      const carteiraId = destId.replace('carteira-', '');
+      const draggedId = result.draggableId;
+      handleMoverParaCarteira(draggedId, carteiraId);
+      return;
+    }
     
     if (sourceId !== destId) return;
 
@@ -817,6 +940,9 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
           <Plus size={16} />
           Vincular Processo
         </Button>
+        <Button variant="outline" size="icon" onClick={() => setIsCarteiraDialogOpen(true)} title="Criar Carteira">
+          <Briefcase size={16} />
+        </Button>
       </div>
 
       {processosVinculados.length === 0 ? (
@@ -903,6 +1029,66 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
               </Droppable>
             )}
           </div>
+
+          {/* Carteiras */}
+          {carteiras.map((carteira) => {
+            const processoIds = carteiraProcessos[carteira.id] || [];
+            const processosNaCarteira = processosVinculados.filter(p => processoIds.includes(p.id));
+            return (
+              <Collapsible key={carteira.id} defaultOpen className="space-y-2">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center gap-2 p-3 rounded-lg border bg-muted/30 hover:opacity-90 transition-opacity">
+                    <Briefcase className="w-4 h-4" style={{ color: carteira.cor }} />
+                    <span className="font-semibold text-sm">{carteira.nome}</span>
+                    <Badge variant="secondary" className="ml-auto mr-2">
+                      {processosNaCarteira.length}
+                    </Badge>
+                    {!isLocked && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => { e.stopPropagation(); handleDeletarCarteira(carteira.id); }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <Droppable droppableId={`carteira-${carteira.id}`}>
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-2 pl-3 border-l-2 ml-2 min-h-[40px]"
+                        style={{ borderColor: carteira.cor }}
+                      >
+                        {processosNaCarteira.length === 0 && (
+                          <p className="text-xs text-muted-foreground py-2">
+                            {isLocked ? 'Carteira vazia' : 'Desbloqueie o cadeado e arraste processos para cá'}
+                          </p>
+                        )}
+                        {processosNaCarteira.map((item, index) => (
+                          <ProcessoCard
+                            key={item.id}
+                            item={item}
+                            index={index}
+                            onVerDetalhes={handleVerDetalhes}
+                            onDesvincular={(id) => setDeleteConfirmId(id)}
+                            carregandoDetalhes={carregandoDetalhes}
+                            isLocked={isLocked}
+                          />
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
         </DragDropContext>
       )}
 
@@ -1002,6 +1188,38 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog Criar Carteira */}
+      <Dialog open={isCarteiraDialogOpen} onOpenChange={setIsCarteiraDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nova Carteira</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Nome</label>
+              <Input
+                value={novaCarteiraNome}
+                onChange={(e) => setNovaCarteiraNome(e.target.value)}
+                placeholder="Nome da carteira..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Cor</label>
+              <input
+                type="color"
+                value={novaCarteiraCor}
+                onChange={(e) => setNovaCarteiraCor(e.target.value)}
+                className="w-10 h-10 rounded border cursor-pointer"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCarteiraDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleCriarCarteira} disabled={!novaCarteiraNome.trim()}>Criar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

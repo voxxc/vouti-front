@@ -74,6 +74,8 @@ import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 import { PrazosCasoTab } from './PrazosCasoTab';
+import { ProcessoComentarios } from './ProcessoComentarios';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProcessoOABDetalhesProps {
   processo: ProcessoOAB | null;
@@ -197,6 +199,7 @@ export const ProcessoOABDetalhes = ({
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
@@ -277,6 +280,13 @@ export const ProcessoOABDetalhes = ({
       setEditandoPartes(false);
     }
   }, [open]);
+
+  // Buscar user id atual
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
 
   if (!processo) return null;
   
@@ -474,6 +484,11 @@ export const ProcessoOABDetalhes = ({
               </div>
             </Card>
           )}
+
+          {/* Comentários do Processo */}
+          <Card className="p-4">
+            <ProcessoComentarios processoId={processo.id} currentUserId={currentUserId} />
+          </Card>
 
           {/* Toggle de Monitoramento */}
           <Card className="p-4">

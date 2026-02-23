@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Users, Save, Loader2, Pencil, X, Check } from "lucide-react";
+import { Globe, Users, Save, Loader2, Pencil, Check, Calendar } from "lucide-react";
 import { useTenantSettings } from "@/hooks/useTenantSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AgendaContent } from "@/components/Agenda/AgendaContent";
 
 const TIMEZONES = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
@@ -41,11 +41,20 @@ interface UserWithRole {
   primary_role: string;
 }
 
+type TabKey = "geral" | "usuarios" | "agenda";
+
+const TAB_ITEMS: { key: TabKey; label: string }[] = [
+  { key: "geral", label: "Geral" },
+  { key: "usuarios", label: "Usuários" },
+  { key: "agenda", label: "Agenda" },
+];
+
 export const WhatsAppAccountSettings = () => {
   const { timezone, updateTimezone, saving } = useTenantSettings();
   const [selectedTimezone, setSelectedTimezone] = useState(timezone);
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>("geral");
   
   // Edit user state
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
@@ -134,19 +143,33 @@ export const WhatsAppAccountSettings = () => {
           <p className="text-muted-foreground">Gerencie as configurações da sua conta</p>
         </div>
 
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList>
-            <TabsTrigger value="general" className="gap-2">
-              <Globe className="h-4 w-4" />
-              Geral
-            </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="h-4 w-4" />
-              Usuários
-            </TabsTrigger>
-          </TabsList>
+        {/* Tab Navigation - Estilo texto clicável com underline */}
+        <div className="flex items-center gap-6 border-b border-border">
+          {TAB_ITEMS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className="relative pb-2"
+            >
+              <span
+                className={`text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </span>
+              {activeTab === tab.key && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
 
-          <TabsContent value="general" className="space-y-4 mt-4">
+        {/* Tab Content */}
+        {activeTab === "geral" && (
+          <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -179,9 +202,11 @@ export const WhatsAppAccountSettings = () => {
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="users" className="space-y-4 mt-4">
+        {activeTab === "usuarios" && (
+          <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -219,8 +244,14 @@ export const WhatsAppAccountSettings = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
+
+        {activeTab === "agenda" && (
+          <div className="-mx-6 -mt-2">
+            <AgendaContent />
+          </div>
+        )}
 
         {/* Edit User Dialog */}
         <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
