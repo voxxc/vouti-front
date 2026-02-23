@@ -60,6 +60,7 @@ interface WhatsAppSidebarProps {
   selectedTeamId?: string;
   onOpenProjects?: () => void;
   projectsDrawerOpen?: boolean;
+  collapsed?: boolean;
 }
 
 const settingsMenuItems: { id: WhatsAppSection; label: string; icon: React.ElementType }[] = [
@@ -97,6 +98,7 @@ export const WhatsAppSidebar = ({
   selectedTeamId,
   onOpenProjects,
   projectsDrawerOpen,
+  collapsed = false,
 }: WhatsAppSidebarProps) => {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -227,314 +229,373 @@ export const WhatsAppSidebar = ({
   const isKanbanSection = activeSection === "kanban";
 
   return (
-    <aside className="w-56 bg-card border-r border-border flex flex-col h-full flex-shrink-0">
+    <aside className={cn("bg-card border-r border-border flex flex-col h-full flex-shrink-0 transition-all duration-200", collapsed ? "w-14" : "w-56")}>
       {/* Menu Items com Scroll */}
       <ScrollArea className="flex-1">
-        <nav className="p-2 space-y-1">
+        <nav className={cn("space-y-1", collapsed ? "p-1" : "p-2")}>
           {/* Projetos */}
           <Button
             variant={projectsDrawerOpen ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-10",
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
               projectsDrawerOpen && "bg-primary/10 text-primary"
             )}
             onClick={() => onOpenProjects?.()}
+            title={collapsed ? "Projetos" : undefined}
           >
-            <FolderOpen className="h-4 w-4" />
-            <span className="text-sm">Projetos</span>
+            <FolderOpen className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Projetos</span>}
           </Button>
 
           {/* Caixa de Entrada */}
           <Button
             variant={activeSection === "inbox" ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-10",
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
               activeSection === "inbox" && "bg-primary/10 text-primary"
             )}
             onClick={() => onSectionChange("inbox")}
+            title={collapsed ? "Caixa de Entrada" : undefined}
           >
-            <Inbox className="h-4 w-4" />
-            <span className="text-sm">Caixa de Entrada</span>
+            <Inbox className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Caixa de Entrada</span>}
           </Button>
 
-          {/* Conversas - Collapsible */}
-          <Collapsible open={conversationsOpen} onOpenChange={setConversationsOpen}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant={isConversationsSection ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-between h-10",
-                  isConversationsSection && "bg-primary/10 text-primary"
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="text-sm">Conversas</span>
-                </span>
-                {conversationsOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pl-4 pt-1 space-y-0.5">
-              <Button
-                variant={activeSection === "all-conversations" ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-2 h-8 text-sm",
-                  activeSection === "all-conversations" && "bg-primary/10 text-primary"
-                )}
-                onClick={() => onSectionChange("all-conversations")}
-              >
-                <MessageSquare className="h-3 w-3" />
-                <span className="text-xs">Todas as Conversas</span>
-              </Button>
-
-              {/* Etiquetas sub-menu */}
-              <Collapsible open={labelsOpen} onOpenChange={setLabelsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant={activeSection === "label-filter" ? "secondary" : "ghost"}
-                    className={cn(
-                      "w-full justify-between h-8 text-sm",
-                      activeSection === "label-filter" && "bg-primary/10 text-primary"
-                    )}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Tag className="h-3 w-3" />
-                      <span className="text-xs">Etiquetas</span>
-                    </span>
-                    {labelsOpen ? (
-                      <ChevronDown className="h-3 w-3" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
-                  {crmLabels.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground px-2 py-1">
-                      Nenhuma etiqueta
-                    </p>
-                  ) : (
-                    crmLabels.map((label) => (
-                      <Button
-                        key={label.id}
-                        variant={selectedLabelId === label.id ? "secondary" : "ghost"}
-                        className={cn(
-                          "w-full justify-start gap-2 h-7 text-xs",
-                          selectedLabelId === label.id && "bg-primary/10 text-primary"
-                        )}
-                        onClick={() => {
-                          onSectionChange("label-filter");
-                          onLabelSelect?.(label.id, label.name);
-                        }}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: label.color }}
-                        />
-                        <span className="truncate">{label.name}</span>
-                      </Button>
-                    ))
+          {/* Conversas - Collapsible (hidden when collapsed) */}
+          {!collapsed ? (
+            <Collapsible open={conversationsOpen} onOpenChange={setConversationsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant={isConversationsSection ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-between h-10",
+                    isConversationsSection && "bg-primary/10 text-primary"
                   )}
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Times sub-menu */}
-              <Collapsible open={teamsOpen} onOpenChange={setTeamsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant={activeSection === "team-filter" ? "secondary" : "ghost"}
-                    className={cn(
-                      "w-full justify-between h-8 text-sm",
-                      activeSection === "team-filter" && "bg-primary/10 text-primary"
-                    )}
-                  >
-                    <span className="flex items-center gap-2">
-                      <UsersRound className="h-3 w-3" />
-                      <span className="text-xs">Times</span>
-                    </span>
-                    {teamsOpen ? (
-                      <ChevronDown className="h-3 w-3" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
-                  {crmTeams.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground px-2 py-1">
-                      Nenhum time
-                    </p>
+                >
+                  <span className="flex items-center gap-3">
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="text-sm">Conversas</span>
+                  </span>
+                  {conversationsOpen ? (
+                    <ChevronDown className="h-4 w-4" />
                   ) : (
-                    crmTeams.map((team) => (
-                      <Button
-                        key={team.id}
-                        variant={selectedTeamId === team.id ? "secondary" : "ghost"}
-                        className={cn(
-                          "w-full justify-start gap-2 h-7 text-xs",
-                          selectedTeamId === team.id && "bg-primary/10 text-primary"
-                        )}
-                        onClick={() => {
-                          onSectionChange("team-filter");
-                          onTeamSelect?.(team.id, team.name);
-                        }}
-                      >
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-4 pt-1 space-y-0.5">
+                <Button
+                  variant={activeSection === "all-conversations" ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-2 h-8 text-sm",
+                    activeSection === "all-conversations" && "bg-primary/10 text-primary"
+                  )}
+                  onClick={() => onSectionChange("all-conversations")}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                  <span className="text-xs">Todas as Conversas</span>
+                </Button>
+
+                {/* Etiquetas sub-menu */}
+                <Collapsible open={labelsOpen} onOpenChange={setLabelsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant={activeSection === "label-filter" ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-between h-8 text-sm",
+                        activeSection === "label-filter" && "bg-primary/10 text-primary"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Tag className="h-3 w-3" />
+                        <span className="text-xs">Etiquetas</span>
+                      </span>
+                      {labelsOpen ? (
+                        <ChevronDown className="h-3 w-3" />
+                      ) : (
+                        <ChevronRight className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
+                    {crmLabels.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground px-2 py-1">
+                        Nenhuma etiqueta
+                      </p>
+                    ) : (
+                      crmLabels.map((label) => (
+                        <Button
+                          key={label.id}
+                          variant={selectedLabelId === label.id ? "secondary" : "ghost"}
+                          className={cn(
+                            "w-full justify-start gap-2 h-7 text-xs",
+                            selectedLabelId === label.id && "bg-primary/10 text-primary"
+                          )}
+                          onClick={() => {
+                            onSectionChange("label-filter");
+                            onLabelSelect?.(label.id, label.name);
+                          }}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: label.color }}
+                          />
+                          <span className="truncate">{label.name}</span>
+                        </Button>
+                      ))
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Times sub-menu */}
+                <Collapsible open={teamsOpen} onOpenChange={setTeamsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant={activeSection === "team-filter" ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-between h-8 text-sm",
+                        activeSection === "team-filter" && "bg-primary/10 text-primary"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
                         <UsersRound className="h-3 w-3" />
-                        <span className="truncate">{team.name}</span>
-                      </Button>
-                    ))
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Kanban CRM - Collapsible with Agents */}
-          <Collapsible open={kanbanOpen} onOpenChange={setKanbanOpen}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant={isKanbanSection ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-between h-10",
-                  isKanbanSection && "bg-primary/10 text-primary"
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <Columns3 className="h-4 w-4" />
-                  <span className="text-sm">Kanban CRM</span>
-                </span>
-                {kanbanOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pl-4 pt-1 space-y-0.5">
-              {agents.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-2 py-1">
-                  Nenhum agente ativo
-                </p>
-              ) : (
-                agents.map((agent) => (
-                  <Button
-                    key={agent.id}
-                    variant={selectedKanbanAgentId === agent.id ? "secondary" : "ghost"}
-                    className={cn(
-                      "w-full justify-start gap-2 h-8 text-sm",
-                      selectedKanbanAgentId === agent.id && "bg-primary/10 text-primary"
+                        <span className="text-xs">Times</span>
+                      </span>
+                      {teamsOpen ? (
+                        <ChevronDown className="h-3 w-3" />
+                      ) : (
+                        <ChevronRight className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-3 pt-0.5 space-y-0.5">
+                    {crmTeams.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground px-2 py-1">
+                        Nenhum time
+                      </p>
+                    ) : (
+                      crmTeams.map((team) => (
+                        <Button
+                          key={team.id}
+                          variant={selectedTeamId === team.id ? "secondary" : "ghost"}
+                          className={cn(
+                            "w-full justify-start gap-2 h-7 text-xs",
+                            selectedTeamId === team.id && "bg-primary/10 text-primary"
+                          )}
+                          onClick={() => {
+                            onSectionChange("team-filter");
+                            onTeamSelect?.(team.id, team.name);
+                          }}
+                        >
+                          <UsersRound className="h-3 w-3" />
+                          <span className="truncate">{team.name}</span>
+                        </Button>
+                      ))
                     )}
-                    onClick={() => {
-                      onSectionChange("kanban");
-                      onKanbanAgentSelect?.(agent.id, agent.name);
-                    }}
-                  >
-                    <User className="h-3 w-3" />
-                    <span className="text-xs truncate">{agent.name}</span>
-                  </Button>
-                ))
+                  </CollapsibleContent>
+                </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <Button
+              variant={isConversationsSection ? "secondary" : "ghost"}
+              className={cn(
+                "w-full h-10 justify-center px-0",
+                isConversationsSection && "bg-primary/10 text-primary"
               )}
-            </CollapsibleContent>
-          </Collapsible>
+              onClick={() => onSectionChange("all-conversations")}
+              title="Conversas"
+            >
+              <MessageSquare className="h-4 w-4 shrink-0" />
+            </Button>
+          )}
+
+          {/* Kanban CRM */}
+          {!collapsed ? (
+            <Collapsible open={kanbanOpen} onOpenChange={setKanbanOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant={isKanbanSection ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-between h-10",
+                    isKanbanSection && "bg-primary/10 text-primary"
+                  )}
+                >
+                  <span className="flex items-center gap-3">
+                    <Columns3 className="h-4 w-4" />
+                    <span className="text-sm">Kanban CRM</span>
+                  </span>
+                  {kanbanOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-4 pt-1 space-y-0.5">
+                {agents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-1">
+                    Nenhum agente ativo
+                  </p>
+                ) : (
+                  agents.map((agent) => (
+                    <Button
+                      key={agent.id}
+                      variant={selectedKanbanAgentId === agent.id ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-start gap-2 h-8 text-sm",
+                        selectedKanbanAgentId === agent.id && "bg-primary/10 text-primary"
+                      )}
+                      onClick={() => {
+                        onSectionChange("kanban");
+                        onKanbanAgentSelect?.(agent.id, agent.name);
+                      }}
+                    >
+                      <User className="h-3 w-3" />
+                      <span className="text-xs truncate">{agent.name}</span>
+                    </Button>
+                  ))
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <Button
+              variant={isKanbanSection ? "secondary" : "ghost"}
+              className={cn(
+                "w-full h-10 justify-center px-0",
+                isKanbanSection && "bg-primary/10 text-primary"
+              )}
+              onClick={() => {
+                if (agents.length > 0) {
+                  onSectionChange("kanban");
+                  onKanbanAgentSelect?.(agents[0].id, agents[0].name);
+                }
+              }}
+              title="Kanban CRM"
+            >
+              <Columns3 className="h-4 w-4 shrink-0" />
+            </Button>
+          )}
 
           {/* Contatos */}
           <Button
             variant={activeSection === "contacts" ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-10",
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
               activeSection === "contacts" && "bg-primary/10 text-primary"
             )}
             onClick={() => onSectionChange("contacts")}
+            title={collapsed ? "Contatos" : undefined}
           >
-            <Users className="h-4 w-4" />
-            <span className="text-sm">Contatos</span>
+            <Users className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Contatos</span>}
           </Button>
 
           {/* Relatórios */}
           <Button
             variant={activeSection === "reports" ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-10",
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
               activeSection === "reports" && "bg-primary/10 text-primary"
             )}
             onClick={() => onSectionChange("reports")}
+            title={collapsed ? "Relatórios" : undefined}
           >
-            <BarChart3 className="h-4 w-4" />
-            <span className="text-sm">Relatórios</span>
+            <BarChart3 className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Relatórios</span>}
           </Button>
 
           {/* Campanhas */}
           <Button
             variant={activeSection === "campaigns" ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-10",
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
               activeSection === "campaigns" && "bg-primary/10 text-primary"
             )}
             onClick={() => onSectionChange("campaigns")}
+            title={collapsed ? "Campanhas" : undefined}
           >
-           <Megaphone className="h-4 w-4" />
-            <span className="text-sm">Campanhas</span>
+            <Megaphone className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Campanhas</span>}
           </Button>
 
           {/* Central de Ajuda */}
           <Button
             variant={activeSection === "help" ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-10",
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
               activeSection === "help" && "bg-primary/10 text-primary"
             )}
             onClick={() => onSectionChange("help")}
+            title={collapsed ? "Central de Ajuda" : undefined}
           >
-            <HelpCircle className="h-4 w-4" />
-            <span className="text-sm">Central de Ajuda</span>
+            <HelpCircle className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Central de Ajuda</span>}
           </Button>
 
-          {/* Configurações - Collapsible */}
-          <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant={isSettingsSection ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-between h-10",
-                  isSettingsSection && "bg-primary/10 text-primary"
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <Settings className="h-4 w-4" />
-                  <span className="text-sm">Configurações</span>
-                </span>
-                {settingsOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pl-4 pt-1 space-y-0.5">
-              {settingsMenuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeSection === item.id;
-                
-                return (
-                  <Button
-                    key={item.id}
-                    variant={isActive ? "secondary" : "ghost"}
-                    className={cn(
-                      "w-full justify-start gap-2 h-8 text-sm",
-                      isActive && "bg-primary/10 text-primary"
-                    )}
-                    onClick={() => onSectionChange(item.id)}
-                  >
-                    <Icon className="h-3 w-3" />
-                    <span className="text-xs">{item.label}</span>
-                  </Button>
-                );
-              })}
-            </CollapsibleContent>
-          </Collapsible>
+          {/* Configurações */}
+          {!collapsed ? (
+            <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant={isSettingsSection ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-between h-10",
+                    isSettingsSection && "bg-primary/10 text-primary"
+                  )}
+                >
+                  <span className="flex items-center gap-3">
+                    <Settings className="h-4 w-4" />
+                    <span className="text-sm">Configurações</span>
+                  </span>
+                  {settingsOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-4 pt-1 space-y-0.5">
+                {settingsMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeSection === item.id;
+                  
+                  return (
+                    <Button
+                      key={item.id}
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-start gap-2 h-8 text-sm",
+                        isActive && "bg-primary/10 text-primary"
+                      )}
+                      onClick={() => onSectionChange(item.id)}
+                    >
+                      <Icon className="h-3 w-3" />
+                      <span className="text-xs">{item.label}</span>
+                    </Button>
+                  );
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <Button
+              variant={isSettingsSection ? "secondary" : "ghost"}
+              className={cn(
+                "w-full h-10 justify-center px-0",
+                isSettingsSection && "bg-primary/10 text-primary"
+              )}
+              onClick={() => onSectionChange("account")}
+              title="Configurações"
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+            </Button>
+          )}
         </nav>
       </ScrollArea>
 

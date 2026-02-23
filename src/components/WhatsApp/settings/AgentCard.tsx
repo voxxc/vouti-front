@@ -9,6 +9,7 @@ export interface Agent {
   is_active: boolean;
   isConnected?: boolean;
   instanceId?: string;
+  team_id?: string | null;
 }
 
 interface AgentCardProps {

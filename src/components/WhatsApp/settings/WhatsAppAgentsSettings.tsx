@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Users2, Loader2, Wifi, WifiOff, QrCode, 
   Unplug, RotateCcw, Save, CheckCircle2, XCircle, RefreshCw, User, Trash2,
-  Copy, ExternalLink, Globe, ChevronRight
+  Copy, ExternalLink, Globe, ChevronRight, FolderOpen, ChevronDown
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -22,6 +22,8 @@ import { WhatsAppAISettings } from "./WhatsAppAISettings";
 import { useToast } from "@/hooks/use-toast";
 import { extractInstanceId, extractInstanceToken } from "@/utils/zapiHelpers";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 
 interface InstanceConfig {
   id?: string;
@@ -39,6 +41,7 @@ export const WhatsAppAgentsSettings = () => {
   const { toast } = useToast();
   const { tenantId } = useTenantId();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -102,36 +105,45 @@ export const WhatsAppAgentsSettings = () => {
     
     setIsLoading(true);
     try {
-      const { data: agentsData, error: agentsError } = await supabase
-        .from("whatsapp_agents")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: true });
+      const [agentsResult, instancesResult, teamsResult] = await Promise.all([
+        supabase
+          .from("whatsapp_agents")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("whatsapp_instances")
+          .select("agent_id, connection_status")
+          .eq("tenant_id", tenantId),
+        supabase
+          .from("whatsapp_teams")
+          .select("id, name")
+          .eq("tenant_id", tenantId)
+          .order("name"),
+      ]);
 
-      if (agentsError) throw agentsError;
+      if (agentsResult.error) throw agentsResult.error;
 
-      const { data: instancesData } = await supabase
-        .from("whatsapp_instances")
-        .select("agent_id, connection_status")
-        .eq("tenant_id", tenantId);
+      setTeams(teamsResult.data || []);
 
       const instanceMap = new Map(
-        instancesData?.map(i => [i.agent_id, i.connection_status === "connected"]) || []
+        instancesResult.data?.map(i => [i.agent_id, i.connection_status === "connected"]) || []
       );
 
-      const formattedAgents: Agent[] = (agentsData || []).map(a => ({
+      const formattedAgents: Agent[] = (agentsResult.data || []).map(a => ({
         id: a.id,
         name: a.name,
         role: a.role,
         is_active: a.is_active,
         isConnected: instanceMap.get(a.id) || false,
+        team_id: a.team_id || null,
       }));
 
       setAgents(formattedAgents);
 
       // Check if current user already has an agent
       if (currentUserEmail) {
-        const hasAgent = (agentsData || []).some(
+        const hasAgent = (agentsResult.data || []).some(
           a => a.email?.toLowerCase() === currentUserEmail.toLowerCase()
         );
         setHasOwnAgent(hasAgent);
@@ -807,17 +819,32 @@ export const WhatsAppAgentsSettings = () => {
             <p className="text-sm">Clique em "Adicionar Agente" para começar</p>
           </div>
         ) : (
-          <div className="border border-border rounded-lg divide-y divide-border">
-            {agents.map(agent => {
-              const roleLabels: Record<string, string> = {
-                admin: "Administrador",
-                atendente: "Atendente",
-                supervisor: "Supervisor",
-              };
+          (() => {
+            const roleLabels: Record<string, string> = {
+              admin: "Administrador",
+              atendente: "Atendente",
+              supervisor: "Supervisor",
+            };
 
-              return (
+            // Group agents by team
+            const teamMap = new Map<string | null, Agent[]>();
+            agents.forEach(agent => {
+              const key = agent.team_id || null;
+              if (!teamMap.has(key)) teamMap.set(key, []);
+              teamMap.get(key)!.push(agent);
+            });
+
+            const teamNameMap = new Map(teams.map(t => [t.id, t.name]));
+
+            // Sort: teams first (alphabetically), then "Sem Time"
+            const sortedKeys = Array.from(teamMap.keys()).sort((a, b) => {
+              if (a === null) return 1;
+              if (b === null) return -1;
+              return (teamNameMap.get(a) || "").localeCompare(teamNameMap.get(b) || "");
+            });
+
+            const renderAgentRow = (agent: Agent) => (
               <div key={agent.id}>
-                {/* Linha do Agente - Lista minimalista */}
                 <div 
                   className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => handleAgentClick(agent)}
@@ -843,10 +870,8 @@ export const WhatsAppAgentsSettings = () => {
                   )} />
                 </div>
 
-                {/* Expansão Inline com Tabs */}
                 {expandedAgentId === agent.id && (
                   <Card className="mt-4 border-primary/50 shadow-lg">
-                    {/* Editable Agent Name */}
                     <div className="px-6 pt-6 pb-2">
                       <Label htmlFor="agent-name-edit" className="text-sm font-medium">Nome do Agente (usado nas mensagens)</Label>
                       <div className="flex items-center gap-2 mt-1">
@@ -892,19 +917,22 @@ export const WhatsAppAgentsSettings = () => {
                       <CardHeader className="pb-0">
                         <div className="flex items-center justify-between">
                           <TabsList className="grid w-full grid-cols-2 flex-1">
-                          <TabsTrigger value="connection" className="gap-2">
-                            <Wifi className="h-4 w-4" />
-                            Conexão
-                          </TabsTrigger>
-                          <TabsTrigger value="ai" className="gap-2">
-                            Comportamento da IA
-                          </TabsTrigger>
+                            <TabsTrigger value="connection" className="gap-2">
+                              <Wifi className="h-4 w-4" />
+                              Conexão
+                            </TabsTrigger>
+                            <TabsTrigger value="ai" className="gap-2">
+                              Comportamento da IA
+                            </TabsTrigger>
                           </TabsList>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={(e) => { e.stopPropagation(); setDeleteAgentId(agent.id); }}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 ml-2 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteAgentId(agent.id);
+                            }}
                             title="Apagar agente"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -912,346 +940,143 @@ export const WhatsAppAgentsSettings = () => {
                         </div>
                       </CardHeader>
 
-                      <CardContent className="pt-6">
-                        {/* Aba Conexão */}
-                        <TabsContent value="connection" className="mt-0 space-y-6">
-                          {/* Provider Selector */}
-                          <div className="space-y-2">
-                            <Label className="text-sm font-semibold">Provedor WhatsApp</Label>
-                            <div className="flex gap-2">
-                              <Button
-                                variant={config.provider === 'zapi' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setConfig(prev => ({ ...prev, provider: 'zapi' }))}
-                                className="flex-1 gap-2"
-                              >
-                                <Wifi className="h-4 w-4" />
-                                Vouti.API (Z-API)
-                              </Button>
-                              <Button
-                                variant={config.provider === 'meta' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setConfig(prev => ({ ...prev, provider: 'meta' }))}
-                                className="flex-1 gap-2"
-                              >
-                                <Globe className="h-4 w-4" />
-                                Meta WhatsApp (API Oficial)
-                              </Button>
+                      <TabsContent value="connection">
+                        <CardContent className="space-y-6 pt-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <StatusIcon className={cn("h-4 w-4", statusDisplay.className)} />
+                              <span className="text-sm font-medium">{statusDisplay.text}</span>
                             </div>
-                          </div>
-
-                          {/* Status */}
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "w-3 h-3 rounded-full",
-                                isConnected ? "bg-green-500" : "bg-muted-foreground/40"
-                              )} />
-                              <div className="flex items-center gap-2">
-                                <StatusIcon className={cn("h-5 w-5", statusDisplay.className)} />
-                                <span className="font-medium">{statusDisplay.text}</span>
-                              </div>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => config.provider === 'meta' ? checkMetaStatus() : checkZAPIStatus()}
-                              disabled={isCheckingStatus}
-                            >
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              if (config.provider === 'meta') checkMetaStatus();
+                              else checkZAPIStatus();
+                            }} disabled={isCheckingStatus}>
                               <RefreshCw className={cn("h-4 w-4", isCheckingStatus && "animate-spin")} />
                             </Button>
                           </div>
 
-                          {/* ========== META FORM ========== */}
-                          {config.provider === 'meta' && (
-                            <div className="space-y-4">
-                              <h3 className="font-semibold flex items-center gap-2">
-                                <Globe className="h-4 w-4" />
-                                Credenciais Meta WhatsApp Cloud API
-                              </h3>
-
-                              <div className="space-y-2">
-                                <Label htmlFor="meta_phone_number_id">Phone Number ID</Label>
-                                <Input
-                                  id="meta_phone_number_id"
-                                  value={config.meta_phone_number_id}
-                                  onChange={(e) => setConfig(prev => ({ ...prev, meta_phone_number_id: e.target.value.trim() }))}
-                                  placeholder="Ex: 123456789012345"
-                                  className="font-mono"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  Encontrado em Meta Developers → WhatsApp → API Setup
-                                </p>
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor="meta_access_token">Access Token (Permanente)</Label>
-                                <Input
-                                  id="meta_access_token"
-                                  type="password"
-                                  value={config.meta_access_token}
-                                  onChange={(e) => setConfig(prev => ({ ...prev, meta_access_token: e.target.value.trim() }))}
-                                  placeholder="Token permanente do Meta"
-                                  className="font-mono"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  Token gerado no painel Meta Business. Use um token permanente (System User Token).
-                                </p>
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor="meta_waba_id">WABA ID (Opcional)</Label>
-                                <Input
-                                  id="meta_waba_id"
-                                  value={config.meta_waba_id}
-                                  onChange={(e) => setConfig(prev => ({ ...prev, meta_waba_id: e.target.value.trim() }))}
-                                  placeholder="WhatsApp Business Account ID"
-                                  className="font-mono"
-                                />
-                              </div>
-
-                              {/* Webhook URL - Read Only */}
-                              <div className="space-y-2 p-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
-                                <Label className="font-semibold text-primary">Webhook URL</Label>
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    readOnly
-                                    value="https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-meta-webhook"
-                                    className="font-mono text-xs bg-background"
-                                  />
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText("https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-meta-webhook");
-                                      toast({ title: "Copiado!", description: "URL do webhook copiada" });
-                                    }}
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Cole esta URL no painel Meta Developers → WhatsApp → Configuration → Webhook URL
-                                </p>
-                              </div>
-
-                              {/* Verify Token - Read Only */}
-                              {config.meta_verify_token && (
-                                <div className="space-y-2">
-                                  <Label>Verify Token</Label>
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      readOnly
-                                      value={config.meta_verify_token}
-                                      className="font-mono text-xs bg-muted"
-                                    />
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(config.meta_verify_token);
-                                        toast({ title: "Copiado!", description: "Verify Token copiado" });
-                                      }}
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    Use este token no campo "Verify Token" do webhook no Meta Developers
-                                  </p>
-                                </div>
-                              )}
-
-                              <Button onClick={handleSaveCredentials} disabled={isSaving} className="w-full">
-                                <Save className="h-4 w-4 mr-2" />
-                                {isSaving ? "Salvando..." : "Salvar Credenciais Meta"}
-                              </Button>
-
-                              {/* Link to Meta */}
-                              <a 
-                                href="https://developers.facebook.com/apps/" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 text-sm text-primary hover:underline"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                                Abrir Meta Developers
-                              </a>
-                            </div>
-                          )}
-
-                          {/* ========== Z-API FORM ========== */}
-                          {config.provider === 'zapi' && (
-                            <>
-                              {/* Credenciais */}
-                              <div className="space-y-4">
-                                <h3 className="font-semibold">Credenciais Vouti.API</h3>
-                                
-                                {/* Campo para colar URL completa */}
-                                <div className="space-y-2">
-                                  <Label htmlFor="zapi_full_url">API da Instância (URL Completa)</Label>
-                                  <Input
-                                    id="zapi_full_url"
-                                    placeholder="Cole a URL completa da Z-API aqui..."
-                                    className="font-mono text-xs"
-                                    onChange={(e) => {
-                                      const url = e.target.value;
-                                      const instanceId = extractInstanceId(url);
-                                      const instanceToken = extractInstanceToken(url);
-                                      if (instanceId || instanceToken) {
-                                        setConfig(prev => ({
-                                          ...prev,
-                                          zapi_instance_id: instanceId || prev.zapi_instance_id,
-                                          zapi_instance_token: instanceToken || prev.zapi_instance_token,
-                                        }));
-                                        e.target.value = "";
-                                        toast({
-                                          title: "Credenciais extraídas",
-                                          description: "ID e Token foram preenchidos automaticamente",
-                                        });
-                                      }
-                                    }}
-                                  />
-                                  <p className="text-xs text-muted-foreground">
-                                    Cole a URL e os campos abaixo serão preenchidos automaticamente
-                                  </p>
-                                </div>
-
-                                {/* Grid de credenciais */}
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="zapi_instance_id">ID da Instância</Label>
-                                    <Input
-                                      id="zapi_instance_id"
-                                      value={config.zapi_instance_id}
-                                      onChange={(e) => setConfig(prev => ({ 
-                                        ...prev, 
-                                        zapi_instance_id: extractInstanceId(e.target.value)
-                                      }))}
-                                      placeholder="3E8A7687..."
-                                      className="font-mono"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="zapi_instance_token">Token da Instância</Label>
-                                    <Input
-                                      id="zapi_instance_token"
-                                      value={config.zapi_instance_token}
-                                      onChange={(e) => setConfig(prev => ({ 
-                                        ...prev, 
-                                        zapi_instance_token: extractInstanceToken(e.target.value)
-                                      }))}
-                                      placeholder="F5DA3871..."
-                                      className="font-mono"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <Label htmlFor="zapi_client_token">Client-Token (Opcional)</Label>
-                                  <Input
-                                    id="zapi_client_token"
-                                    value={config.zapi_client_token}
-                                    onChange={(e) => setConfig(prev => ({ ...prev, zapi_client_token: e.target.value }))}
-                                    placeholder="Token de segurança (opcional)"
-                                    className="font-mono"
-                                  />
-                                  <p className="text-xs text-muted-foreground">
-                                    Se sua instância Z-API exigir token de segurança adicional
-                                  </p>
-                                </div>
-
-                                <Button onClick={handleSaveCredentials} disabled={isSaving} className="w-full">
-                                  <Save className="h-4 w-4 mr-2" />
-                                  {isSaving ? "Salvando..." : "Salvar Credenciais"}
+                          {/* Provider selector and credentials - kept inline */}
+                          <div className="space-y-4">
+                            <div>
+                              <Label className="text-sm font-medium mb-2 block">Provedor</Label>
+                              <div className="flex gap-2">
+                                <Button variant={config.provider === 'zapi' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(p => ({...p, provider: 'zapi'}))}>Z-API</Button>
+                                <Button variant={config.provider === 'meta' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(p => ({...p, provider: 'meta'}))}>
+                                  <Globe className="h-4 w-4 mr-1" /> Meta Cloud API
                                 </Button>
                               </div>
+                            </div>
 
-                              {/* Separador */}
-                              <div className="border-t pt-6">
-                                <h3 className="font-semibold mb-4">Ações</h3>
-                                
-                                {/* Botões de Ação */}
-                                <div className="flex flex-wrap gap-3">
-                                  <Button
-                                    onClick={handleGenerateQRCode}
-                                    disabled={isGeneratingQR || isConnected || !config.zapi_instance_id}
-                                    variant={isConnected ? "outline" : "default"}
-                                  >
-                                    {isGeneratingQR ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <QrCode className="h-4 w-4 mr-2" />
-                                    )}
-                                    {isConnected ? "Já Conectado" : "Conectar via QR Code"}
-                                  </Button>
+                            {config.provider === 'zapi' ? (
+                              <div className="space-y-3">
+                                <div><Label>Instance ID</Label><Input value={config.zapi_instance_id} onChange={e => setConfig(p => ({...p, zapi_instance_id: extractInstanceId(e.target.value)}))} placeholder="Cole o ID ou link da instância" /></div>
+                                <div><Label>Instance Token</Label><Input value={config.zapi_instance_token} onChange={e => setConfig(p => ({...p, zapi_instance_token: extractInstanceToken(e.target.value)}))} placeholder="Cole o token ou link" /></div>
+                                <div><Label>Client Token (opcional)</Label><Input value={config.zapi_client_token} onChange={e => setConfig(p => ({...p, zapi_client_token: e.target.value}))} placeholder="Token do cliente" /></div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div><Label>Phone Number ID</Label><Input value={config.meta_phone_number_id} onChange={e => setConfig(p => ({...p, meta_phone_number_id: e.target.value}))} placeholder="ID do número no Meta" /></div>
+                                <div><Label>Access Token</Label><Input value={config.meta_access_token} onChange={e => setConfig(p => ({...p, meta_access_token: e.target.value}))} placeholder="Token de acesso permanente" /></div>
+                                <div><Label>WABA ID (opcional)</Label><Input value={config.meta_waba_id} onChange={e => setConfig(p => ({...p, meta_waba_id: e.target.value}))} placeholder="WhatsApp Business Account ID" /></div>
+                                {config.meta_verify_token && (
+                                  <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+                                    <Label className="text-xs">Verify Token (para webhook)</Label>
+                                    <div className="flex items-center gap-2">
+                                      <code className="text-xs bg-background px-2 py-1 rounded flex-1 overflow-x-auto">{config.meta_verify_token}</code>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(config.meta_verify_token); toast({title: "Copiado!"}); }}><Copy className="h-3 w-3" /></Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
-                                  <Button
-                                    onClick={handleDisconnect}
-                                    disabled={isDisconnecting || !isConnected}
-                                    variant="outline"
-                                  >
-                                    {isDisconnecting ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <Unplug className="h-4 w-4 mr-2" />
-                                    )}
+                            <Button onClick={handleSaveCredentials} disabled={isSaving} className="w-full gap-2">
+                              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                              Salvar Credenciais
+                            </Button>
+                          </div>
+
+                          {config.provider === 'zapi' && (
+                            <>
+                              {!qrCode && !isConnected && (
+                                <Button onClick={handleGenerateQRCode} disabled={isGeneratingQR} variant="outline" className="w-full gap-2">
+                                  {isGeneratingQR ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                                  Gerar QR Code
+                                </Button>
+                              )}
+                              {qrCode && (
+                                <div className="text-center space-y-3">
+                                  <p className="text-sm text-muted-foreground">Escaneie com seu WhatsApp:</p>
+                                  <img src={`data:image/png;base64,${qrCode}`} alt="QR Code" className="mx-auto max-w-[250px] rounded-lg border" />
+                                  {isPolling && <p className="text-xs text-muted-foreground animate-pulse">Aguardando conexão...</p>}
+                                  <Button variant="ghost" size="sm" onClick={handleCancelQR}>Cancelar</Button>
+                                </div>
+                              )}
+                              {isConnected && (
+                                <div className="flex gap-2">
+                                  <Button onClick={handleDisconnect} disabled={isDisconnecting} variant="destructive" className="flex-1 gap-2">
+                                    {isDisconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
                                     Desconectar
                                   </Button>
-
-                                  <Button
-                                    onClick={handleReset}
-                                    disabled={isResetting}
-                                    variant="destructive"
-                                  >
-                                    {isResetting ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <RotateCcw className="h-4 w-4 mr-2" />
-                                    )}
-                                    Resetar
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* QR Code Display */}
-                              {qrCode && (
-                                <div className="border rounded-lg p-6 bg-background flex flex-col items-center gap-4">
-                                  <img
-                                    src={qrCode.startsWith('data:image/') ? qrCode : `data:image/png;base64,${qrCode}`}
-                                    alt="QR Code WhatsApp"
-                                    className="w-64 h-64"
-                                  />
-                                  <div className="text-center">
-                                    <p className="font-medium">Escaneie com seu WhatsApp</p>
-                                    {isPolling && (
-                                      <p className="text-sm text-muted-foreground flex items-center gap-2 justify-center mt-2">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Aguardando conexão...
-                                      </p>
-                                    )}
-                                  </div>
-                                  <Button variant="ghost" size="sm" onClick={handleCancelQR}>
-                                    Cancelar
+                                  <Button onClick={handleReset} disabled={isResetting} variant="outline" className="gap-2">
+                                    {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                                    Reset
                                   </Button>
                                 </div>
                               )}
                             </>
                           )}
-                        </TabsContent>
 
-                        {/* Aba Comportamento da IA */}
-                        <TabsContent value="ai" className="mt-0">
-                          <WhatsAppAISettings isSuperAdmin={false} agentId={agent.id} />
-                        </TabsContent>
-                      </CardContent>
+                          {config.provider === 'meta' && config.meta_verify_token && (
+                            <div className="p-4 border rounded-lg space-y-2">
+                              <h4 className="text-sm font-medium">Configurar Webhook no Meta</h4>
+                              <p className="text-xs text-muted-foreground">Configure a URL do webhook e o Verify Token no painel da Meta:</p>
+                              <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open('https://developers.facebook.com/apps/', '_blank')}>
+                                <ExternalLink className="h-3 w-3" /> Abrir Meta Developers
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </TabsContent>
+
+                      <TabsContent value="ai">
+                        <CardContent className="pt-4">
+                          <WhatsAppAISettings agentId={agent.id} />
+                        </CardContent>
+                      </TabsContent>
                     </Tabs>
                   </Card>
                 )}
               </div>
-              );
-            })}
-          </div>
+            );
+
+            return (
+              <div className="space-y-4">
+                {sortedKeys.map(teamKey => {
+                  const teamAgents = teamMap.get(teamKey) || [];
+                  const teamName = teamKey ? teamNameMap.get(teamKey) || "Time Desconhecido" : "Sem Time";
+
+                  return (
+                    <Collapsible key={teamKey || "no-team"} defaultOpen>
+                      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+                        <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-semibold text-foreground">{teamName}</span>
+                        <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">
+                          {teamAgents.length}
+                        </Badge>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto transition-transform group-data-[state=closed]:-rotate-90" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border border-border rounded-lg divide-y divide-border mt-1">
+                          {teamAgents.map(renderAgentRow)}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+              </div>
+            );
+          })()
         )}
 
         {/* Dialog para adicionar */}
