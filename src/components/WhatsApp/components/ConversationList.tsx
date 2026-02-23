@@ -86,6 +86,8 @@ export const ConversationList = ({
   activeTab,
   onTabChange,
   tabCounts = { open: 0, waiting: 0, groups: 0, closed: 0 },
+  onFetchGroups,
+  isLoadingGroups = false,
 }: ConversationListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -147,7 +149,6 @@ export const ConversationList = ({
               )}
             >
               <Icon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{tab.label}</span>
               {count > 0 && (
                 <span className={cn(
                   "min-w-[16px] h-4 rounded-full text-[10px] flex items-center justify-center px-1",
@@ -160,6 +161,20 @@ export const ConversationList = ({
           );
         })}
       </div>
+
+      {/* Fetch Groups Button */}
+      {activeTab === "groups" && onFetchGroups && (
+        <div className="px-3 py-2 border-b border-border">
+          <button
+            onClick={onFetchGroups}
+            disabled={isLoadingGroups}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            <Search className="h-3.5 w-3.5" />
+            {isLoadingGroups ? "Buscando..." : "Buscar Grupos"}
+          </button>
+        </div>
+      )}
 
       {/* Conversations List */}
       <ScrollArea className="flex-1">
