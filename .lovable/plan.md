@@ -1,47 +1,56 @@
 
 
-## Corrigir vulnerabilidades RLS
+## Persistir grupos WhatsApp identificados
 
-### 1. project_workspaces - Ja corrigido
+### Problema
+Os grupos buscados via "Buscar Grupos" nao estao sendo salvos no banco. O codigo atual tenta usar `upsert` com `onConflict: "phone,tenant_id"`, mas a tabela `whatsapp_contacts` usa um **indice unico parcial** (`WHERE tenant_id IS NOT NULL`) ao inves de uma constraint direta. O Supabase JS client nao consegue fazer upsert corretamente com indices parciais, fazendo o insert falhar silenciosamente.
 
-Ao verificar as politicas RLS atuais, elas JA possuem isolamento por tenant:
-- SELECT: `tenant_id = get_user_tenant_id() AND is_project_member(project_id)`
-- INSERT: `tenant_id = get_user_tenant_id() AND is_project_member(project_id)`
-- UPDATE: `tenant_id = get_user_tenant_id() AND is_project_member(project_id)`
-- DELETE: `tenant_id = get_user_tenant_id() AND is_project_member(project_id)`
+### Solucao
 
-Nenhuma acao necessaria. O alerta do scan esta desatualizado.
+**1. Migration SQL: criar constraint unica real**
 
-### 2. metal_profiles - Leitura publica de dados pessoais
-
-**Problema:** A politica SELECT usa `USING(true)`, permitindo que qualquer pessoa (incluindo anonimos) leia emails e nomes de funcionarios.
-
-**Solucao:** Substituir a politica SELECT para exigir autenticacao e pertencer ao sistema Metal (ter um role na tabela `metal_user_roles`).
-
-**SQL Migration:**
+Adicionar uma constraint UNIQUE real em `(tenant_id, phone)` que o upsert consiga utilizar, ou substituir o indice parcial por uma constraint:
 
 ```sql
--- Remover politica permissiva
-DROP POLICY "Users can view all profiles" ON metal_profiles;
+-- Remover indice parcial existente
+DROP INDEX IF EXISTS idx_whatsapp_contacts_tenant_phone;
 
--- Nova politica: apenas usuarios autenticados do Metal podem ver perfis
-CREATE POLICY "Authenticated metal users can view profiles"
-ON metal_profiles FOR SELECT
-TO authenticated
-USING (
-  EXISTS (
-    SELECT 1 FROM metal_user_roles
-    WHERE metal_user_roles.user_id = auth.uid()
-  )
-);
+-- Criar constraint unica real (que funciona com ON CONFLICT)
+ALTER TABLE whatsapp_contacts
+  ADD CONSTRAINT whatsapp_contacts_tenant_phone_unique
+  UNIQUE (tenant_id, phone);
 ```
 
-Isso garante que so usuarios autenticados que possuem um role no sistema Metal conseguem listar os perfis, bloqueando acesso anonimo e de usuarios de outros sistemas (juridico, link, etc).
+**2. Ajustar o upsert no codigo (WhatsAppInbox.tsx)**
 
-### Resumo
+Atualizar a funcao `handleFetchGroups` para:
+- Usar `ignoreDuplicates: true` como fallback
+- Adicionar tratamento de erro no loop de persistencia
+- Garantir que os grupos sao carregados do banco apos salvar
 
-| Item | Acao |
+```typescript
+// Persistir grupos - inserir ou atualizar
+for (const group of data.groups) {
+  await supabase
+    .from("whatsapp_contacts")
+    .upsert({
+      phone: group.id,
+      name: group.name,
+      tenant_id: tenantId,
+    }, { onConflict: "tenant_id,phone" })
+    .select();
+}
+```
+
+**3. Garantir carregamento ao montar o componente**
+
+O `useEffect` que carrega grupos salvos (linhas 506-519) ja existe e esta correto. Apos a migration, ele passara a funcionar pois os dados estarao efetivamente salvos no banco.
+
+### Resumo tecnico
+
+| Etapa | Acao |
 |---|---|
-| project_workspaces | Nenhuma - politicas ja estao corretas |
-| metal_profiles | Migration SQL para restringir SELECT a usuarios autenticados do Metal |
+| Migration SQL | Substituir indice parcial por constraint UNIQUE real |
+| WhatsAppInbox.tsx | Ajustar onConflict para usar a nova constraint |
+| Carregamento | Ja implementado - useEffect com `like("phone", "%@g.us")` |
 
