@@ -56,7 +56,7 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
             vouti<span className="text-[#E11D48]">.</span>crm
           </button>
 
-          <div className="ml-4">
+          <div className="ml-10">
           <CRMQuickSearch onSelectProject={(projectId) => {
             onSectionChange("projects");
             // Dispatch event to open the selected project
