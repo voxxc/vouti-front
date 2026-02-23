@@ -17,7 +17,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { ProcessoOAB } from '@/hooks/useOABs';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 import { useProcessosGeral } from '@/hooks/useProcessosGeral';
@@ -208,7 +208,7 @@ export const OABTabGeral = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col space-y-4 h-[calc(100vh-380px)]">
       {/* Search bar and filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -263,8 +263,8 @@ export const OABTabGeral = () => {
           <p>{termoBusca ? 'Nenhum processo encontrado para esta pesquisa' : 'Nenhum processo cadastrado'}</p>
         </div>
       ) : (
-        <ScrollArea className="h-[calc(100vh-380px)]">
-          <div className="space-y-4 pr-4">
+        <div className="flex-1 overflow-y-auto pr-4" style={{ minHeight: '300px' }}>
+          <div className="space-y-4">
             <InstanciaSectionGeral
               titulo="1ª Instância"
               processos={processosAgrupados.primeiraInstancia}
@@ -293,7 +293,7 @@ export const OABTabGeral = () => {
               onVerDetalhes={handleVerDetalhes}
             />
           </div>
-        </ScrollArea>
+        </div>
       )}
 
       {/* Drawer de detalhes */}
