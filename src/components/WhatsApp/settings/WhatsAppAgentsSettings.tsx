@@ -737,7 +737,13 @@ export const WhatsAppAgentsSettings = () => {
       // 8. Delete messages
       await supabase.from("whatsapp_messages").delete().eq("agent_id", deleteAgentId);
       
-      // 9. Delete kanban cards then columns
+      // 9. Nullify transfer references in other agents' kanban cards
+      await supabase
+        .from("whatsapp_conversation_kanban")
+        .update({ transferred_from_agent_id: null, transferred_from_agent_name: null } as any)
+        .eq("transferred_from_agent_id", deleteAgentId);
+
+      // 10. Delete kanban cards then columns
       const { data: columns } = await supabase
         .from("whatsapp_kanban_columns")
         .select("id")
