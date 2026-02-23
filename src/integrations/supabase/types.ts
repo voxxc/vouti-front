@@ -8476,6 +8476,13 @@ export type Database = {
         Args: { key: string; text_to_encrypt: string }
         Returns: string
       }
+      get_andamentos_nao_lidos_por_processo: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          nao_lidos: number
+          processo_oab_id: string
+        }[]
+      }
       get_dashboard_processos_count: { Args: never; Returns: number }
       get_tenant_by_slug: {
         Args: { p_slug: string }
@@ -8485,6 +8492,10 @@ export type Database = {
           slug: string
           system_type_id: string
         }[]
+      }
+      get_total_andamentos_nao_lidos: {
+        Args: { p_tenant_id: string }
+        Returns: number
       }
       get_user_tenant_id: { Args: never; Returns: string }
       get_users_with_roles: {

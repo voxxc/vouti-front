@@ -13,26 +13,16 @@ export const CentralControladoria = () => {
   const [activeTab, setActiveTab] = useState<TabValue>('andamentos');
   const [totalNaoLidos, setTotalNaoLidos] = useState(0);
 
-  // Fetch total unread count for badge
+  // Fetch total unread count for badge using RPC
   useEffect(() => {
     if (!tenantId) return;
 
     const fetchTotalNaoLidos = async () => {
-      const { data } = await supabase
-        .from('processos_oab')
-        .select(`
-          id,
-          processos_oab_andamentos!left(id, lida)
-        `)
-        .eq('tenant_id', tenantId);
+      const { data, error } = await supabase
+        .rpc('get_total_andamentos_nao_lidos', { p_tenant_id: tenantId });
 
-      if (data) {
-        const total = data.reduce((acc, p) => {
-          const naoLidos = (p.processos_oab_andamentos || [])
-            .filter((a: any) => a.lida === false).length;
-          return acc + naoLidos;
-        }, 0);
-        setTotalNaoLidos(total);
+      if (!error && data !== null) {
+        setTotalNaoLidos(data);
       }
     };
 
