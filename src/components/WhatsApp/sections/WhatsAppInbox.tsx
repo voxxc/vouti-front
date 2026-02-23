@@ -745,6 +745,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         activeTab={activeTab}
         onTabChange={(tab) => { setActiveTab(tab); setSelectedConversation(null); }}
         tabCounts={getTabCounts()}
+        tenantId={tenantId}
       />
 
       <ChatPanel
