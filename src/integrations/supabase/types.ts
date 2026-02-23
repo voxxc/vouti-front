@@ -7116,6 +7116,7 @@ export type Database = {
         Row: {
           agent_id: string | null
           agent_name: string | null
+          ai_provider: string
           created_at: string | null
           id: string
           instance_name: string | null
@@ -7131,6 +7132,7 @@ export type Database = {
         Insert: {
           agent_id?: string | null
           agent_name?: string | null
+          ai_provider?: string
           created_at?: string | null
           id?: string
           instance_name?: string | null
@@ -7146,6 +7148,7 @@ export type Database = {
         Update: {
           agent_id?: string | null
           agent_name?: string | null
+          ai_provider?: string
           created_at?: string | null
           id?: string
           instance_name?: string | null
