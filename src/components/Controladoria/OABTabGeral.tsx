@@ -75,7 +75,7 @@ const agruparPorInstancia = (processos: ProcessoOAB[]): ProcessosAgrupados => {
 const ProcessoCardGeral = ({ processo, onVerDetalhes }: { processo: ProcessoOAB; onVerDetalhes: (p: ProcessoOAB) => void }) => {
   return (
     <Card className="p-3 transition-shadow">
-      <div className="flex items-center gap-3 w-full overflow-hidden pr-2">
+      <div className="flex items-center gap-3 w-full pr-2">
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-mono text-sm font-medium truncate">
