@@ -1,81 +1,95 @@
 
 
-## Ajustes no CRM WhatsApp - 6 Itens
+## Macros em Tempo Real + Emoji Picker com Historico
 
-### 1. Remover labels das abas (somente icones)
+### 1. Macros: Polling + Exibicao no Painel de Conversa
 
-**Arquivo:** `src/components/WhatsApp/components/ConversationList.tsx`
+**Problema atual:** A secao "Macros" no ContactInfoPanel (painel direito) mostra botoes hardcoded (`/saudacao`, `/preco`). Precisa carregar macros reais do banco com polling de 2s, e ao clicar em uma macro, exibir um mini drawer de confirmacao acima da barra de digitar.
 
-- Remover `<span className="hidden sm:inline">{tab.label}</span>` da linha 150
-- Manter apenas o icone e o badge de contagem
+**Arquivos afetados:**
 
-### 2. Fundo verde suave na area de mensagens (modo claro)
+**`src/components/WhatsApp/components/ContactInfoPanel.tsx`**
+- Substituir o conteudo hardcoded da secao `macros` (linhas 331-345)
+- Adicionar estado para macros do agente: `agentMacros`
+- Adicionar `useEffect` com polling de 2 segundos que busca macros ativas do agente (`whatsapp_macros` where `agent_id = currentAgentId` and `is_active = true`)
+- Cada macro aparece como um botao com o shortcut e nome
+- Ao clicar em uma macro, chamar callback `onMacroSelect(macro)` passado como prop
 
-**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
+**`src/components/WhatsApp/components/ChatPanel.tsx`**
+- Adicionar nova prop `macros` (lista de macros do agente) e `agentId` (para buscar macros)
+- Adicionar estado `selectedMacro` para controlar o mini drawer
+- Criar componente inline `MacroConfirmPanel`:
+  - Aparece acima da barra de input (entre a area de mensagens e o input)
+  - Mostra o nome da macro, o texto processado (com variaveis substituidas), e dois botoes: "Cancelar" e "Enviar"
+  - Ao confirmar, processa as variaveis (`{{nome}}` -> nome do contato, `{{telefone}}` -> numero, `{{saudacao}}` -> resultado de `getGreeting()`)
+  - Chama `onSendMessage` com o texto final e fecha o painel
+- Buscar macros do agente com polling de 2s diretamente no ChatPanel (ou receber via props do WhatsAppInbox)
 
-- Na `ScrollArea` de mensagens (linha 370), adicionar um background verde bem suave
-- Usar `bg-green-50/40 dark:bg-transparent` (verde suavissimo no light mode, sem mudanca no dark)
-- Manter o pattern SVG existente por cima
+**`src/components/WhatsApp/sections/WhatsAppInbox.tsx`**
+- Adicionar estado `agentMacros` com polling de 2 segundos buscando da tabela `whatsapp_macros`
+- Passar macros como props para o ChatPanel e ContactInfoPanel
+- Ao clicar na macro no ContactInfoPanel, acionar estado no ChatPanel para mostrar o mini drawer de confirmacao
 
-### 3. Tela de boas-vindas com logo ao trocar de aba
+**Fluxo:**
+1. Agente abre conversa -> painel direito mostra secao "Macros" com macros reais do banco
+2. Agente clica em uma macro -> mini drawer aparece acima da barra de input
+3. Mini drawer mostra texto processado com variaveis substituidas
+4. Agente clica "Enviar" -> mensagem enviada, mini drawer fecha
+5. Agente clica "Cancelar" -> mini drawer fecha
 
-**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
+### 2. Emoji Picker Funcional com Historico por Agente
 
-- Quando `conversation` e `null`, trocar a tela atual (icone generico + "WhatsApp Web") por:
-  - Logo "vouti" com ponto vermelho (reutilizar `LogoVouti`)
-  - Subtitulo ".crm" ao lado
-  - Slogan: "O melhor lugar para seu trabalho."
-  - Design centralizado, clean
+**Nova tabela SQL (migracao):**
 
-**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+```sql
+CREATE TABLE whatsapp_emoji_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  agent_id UUID REFERENCES whatsapp_agents(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  use_count INTEGER DEFAULT 1,
+  last_used_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(agent_id, emoji)
+);
 
-- Ao trocar de aba (`onTabChange`), resetar `selectedConversation` para `null`
-  - Isso faz o ChatPanel mostrar a tela de boas-vindas automaticamente
-  - O usuario clica em uma conversa da nova aba para abri-la
+ALTER TABLE whatsapp_emoji_history ENABLE ROW LEVEL SECURITY;
 
-### 4. Conversas transferidas aparecem na Fila de Espera
+CREATE POLICY "tenant_emoji_history" ON whatsapp_emoji_history
+  FOR ALL USING (tenant_id = get_user_tenant_id() OR tenant_id IS NULL);
+```
 
-**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+**`src/components/WhatsApp/components/EmojiPicker.tsx`** (novo arquivo)
+- Componente de emoji picker customizado (sem dependencia externa)
+- Categorias: Recentes (historico do agente), Smileys, Gestos, Animais, Comida, Viagem, Atividades, Objetos, Simbolos
+- Cada categoria com emojis unicode nativos
+- Secao "Recentes" no topo: busca os 20 emojis mais usados pelo agente (ordenados por `use_count DESC`)
+- Ao clicar num emoji:
+  - Insere no campo de texto (callback `onEmojiSelect`)
+  - Faz upsert na `whatsapp_emoji_history` (incrementa `use_count` ou insere novo)
+- Campo de busca para filtrar emojis
+- Renderiza como Popover ancorado no botao de emoji
 
-- Ao carregar conversas, verificar na tabela `whatsapp_conversation_kanban` se ha cards na coluna "Transferidos" para o agente atual
-- Essas conversas devem aparecer na aba "Fila de Espera" com status "waiting"
-- Criar ticket "waiting" automaticamente para conversas transferidas que nao tenham ticket ainda
-- Ao aceitar, o ticket muda para "open" e a conversa vai para "Abertas"
+**`src/components/WhatsApp/components/ChatPanel.tsx`**
+- Importar `EmojiPicker`
+- Substituir o botao `Smile` (linha 478) por um `Popover` com trigger no botao e content com o `EmojiPicker`
+- Ao selecionar emoji, inserir no `newMessage` na posicao do cursor
+- Passar `agentId` e `tenantId` para o EmojiPicker gravar historico
 
-### 5. Botoes Aceitar/Encerrar sempre visiveis no header
+### Detalhes tecnicos - Resumo
 
-**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
+**Migracao SQL:** Criar tabela `whatsapp_emoji_history`
 
-- O ChatPanel ja recebe `ticketStatus`, `onAcceptTicket`, `onCloseTicket` como props (linhas 353-362)
-- Problema: os botoes so aparecem condicionalmente. Ajustar para:
-  - **Aceitar** (CheckCircle verde): visivel quando `ticketStatus === "waiting"` OU quando nao ha ticket (conversa nova)
-  - **Encerrar** (XCircle vermelho): visivel quando `ticketStatus === "open"`
-  - Ambos devem estar sempre presentes no header (um ou outro, nunca os dois ao mesmo tempo)
-  - Manter o botao de tres pontinhos (MoreVertical)
+**Arquivos novos:**
+- `src/components/WhatsApp/components/EmojiPicker.tsx`
 
-**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+**Arquivos editados:**
+1. `ChatPanel.tsx` -- macro confirm panel acima do input, emoji popover funcional
+2. `ContactInfoPanel.tsx` -- secao macros com dados reais do banco + polling
+3. `WhatsAppInbox.tsx` -- estado de macros com polling 2s, passar props para ChatPanel e ContactInfoPanel
 
-- Garantir que `ticketStatus` e passado corretamente para o ChatPanel mesmo para conversas sem ticket (tratar como "waiting")
+**Processamento de variaveis da macro (client-side):**
+- `{{nome}}` -> `conversation.contactName`
+- `{{telefone}}` -> `conversation.contactNumber`
+- `{{email}}` -> `conversation.contactNumber + "@whatsapp.com"` (ou do contato salvo)
+- `{{saudacao}}` -> `getGreeting()` do `greetingHelper.ts` (ja usa fuso de Brasilia)
 
-### 6. Aba Grupos: botao "Buscar Grupos" interno + persistencia
-
-**Arquivo:** `src/components/WhatsApp/components/ConversationList.tsx`
-
-- Quando `activeTab === "groups"`, exibir um botao "Buscar Grupos" no topo da lista (antes dos cards)
-- Ao clicar, chamar `onFetchGroups` (ja existente, invoca edge function `whatsapp-list-groups`)
-- Os grupos buscados devem ser salvos na tabela `whatsapp_contacts` (ou nova tabela) para persistir
-- Permitir ao usuario editar/salvar um nome customizado para cada grupo
-- Exibir os grupos salvos mesmo sem clicar "Buscar" novamente
-
-**Persistencia de grupos:**
-- Ao buscar grupos, salvar na `whatsapp_contacts` com o campo `phone` = group JID (contendo `@g.us`)
-- Usar o campo `name` para o nome customizado
-- Na proxima abertura, carregar grupos ja salvos da `whatsapp_contacts`
-
-### Detalhes tecnicos - Resumo de arquivos
-
-1. `ConversationList.tsx` -- remover labels, adicionar botao "Buscar Grupos" na aba grupos
-2. `ChatPanel.tsx` -- fundo verde suave, tela boas-vindas com logo Vouti.CRM, ajustar visibilidade botoes aceitar/encerrar
-3. `WhatsAppInbox.tsx` -- resetar conversa ao trocar aba, incluir transferidos na fila, ajustar ticketStatus default
-
-Nao ha necessidade de migracao SQL pois os grupos podem ser persistidos na tabela `whatsapp_contacts` ja existente.
