@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CRMNotificationsBell } from "./CRMNotificationsBell";
 import { CRMInternalChat } from "./CRMInternalChat";
+import { CRMQuickSearch } from "./CRMQuickSearch";
 import { useMessages } from "@/hooks/useMessages";
 import { WhatsAppSection } from "../WhatsAppDrawer";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
@@ -54,6 +55,12 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
           >
             vouti<span className="text-[#E11D48]">.</span>crm
           </button>
+
+          <CRMQuickSearch onSelectProject={(projectId) => {
+            onSectionChange("projects");
+            // Dispatch event to open the selected project
+            window.dispatchEvent(new CustomEvent('crm-open-project', { detail: { projectId } }));
+          }} />
         </div>
 
         {/* Right: Chat, Notifications, Profile, Logout */}

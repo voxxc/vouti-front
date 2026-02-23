@@ -1789,6 +1789,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          module: string | null
           processo_oab_id: string | null
           project_id: string | null
           protocolo_etapa_id: string | null
@@ -1807,6 +1808,7 @@ export type Database = {
           date: string
           description?: string | null
           id?: string
+          module?: string | null
           processo_oab_id?: string | null
           project_id?: string | null
           protocolo_etapa_id?: string | null
@@ -1825,6 +1827,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          module?: string | null
           processo_oab_id?: string | null
           project_id?: string | null
           protocolo_etapa_id?: string | null
