@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Users, Save, Loader2, Pencil, Check, Calendar } from "lucide-react";
+import { Globe, Users, Save, Loader2, Pencil, Check } from "lucide-react";
 import { useTenantSettings } from "@/hooks/useTenantSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AgendaContent } from "@/components/Agenda/AgendaContent";
 
 const TIMEZONES = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
@@ -41,12 +40,11 @@ interface UserWithRole {
   primary_role: string;
 }
 
-type TabKey = "geral" | "usuarios" | "agenda";
+type TabKey = "geral" | "usuarios";
 
 const TAB_ITEMS: { key: TabKey; label: string }[] = [
   { key: "geral", label: "Geral" },
   { key: "usuarios", label: "Usuários" },
-  { key: "agenda", label: "Agenda" },
 ];
 
 export const WhatsAppAccountSettings = () => {
@@ -244,12 +242,6 @@ export const WhatsAppAccountSettings = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
-        )}
-
-        {activeTab === "agenda" && (
-          <div className="-mx-6 -mt-2">
-            <AgendaContent />
           </div>
         )}
 

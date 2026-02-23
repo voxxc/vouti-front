@@ -6164,6 +6164,57 @@ export type Database = {
         }
         Relationships: []
       }
+      task_comentarios: {
+        Row: {
+          comment_text: string
+          created_at: string | null
+          id: string
+          mentioned_user_ids: string[] | null
+          reply_to_id: string | null
+          task_id: string
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string | null
+          id?: string
+          mentioned_user_ids?: string[] | null
+          reply_to_id?: string | null
+          task_id: string
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string | null
+          id?: string
+          mentioned_user_ids?: string[] | null
+          reply_to_id?: string | null
+          task_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comentarios_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "task_comentarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_comentarios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_comments: {
         Row: {
           comment_text: string
