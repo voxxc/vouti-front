@@ -1,49 +1,79 @@
 
-## Adicionar aba "Arquivados" na Caixa de Entrada do WhatsApp
+
+## Adicionar aba "Geral" na seção OABs da Controladoria
 
 ### O que muda
 
-Uma nova aba com icone de arquivo sera adicionada na barra de abas da lista de conversas (ao lado de Abertas, Fila, Grupos e Encerrados). Conversas arquivadas ficam separadas e podem ser desarquivadas.
+Uma nova aba chamada **"Geral"** sera adicionada antes de todas as abas de OABs individuais. Essa aba consolida todos os processos de todas as OABs cadastradas, sem duplicacoes (processos com o mesmo `numero_cnj` aparecem apenas uma vez). Tambem inclui uma barra de pesquisa para filtrar processos por CNJ, partes ou tribunal.
 
 ### Como funciona
 
-- **Arquivar**: O ticket recebe status `"archived"` (novo valor de status na tabela `whatsapp_tickets`).
-- **Desarquivar**: Muda o status de volta para `"waiting"` (volta para a Fila).
-- Conversas arquivadas nao aparecem nas outras abas.
-- O botao de arquivar ficara disponivel no `ChatPanel` (header da conversa) quando o ticket estiver aberto ou encerrado.
+- **Deduplicacao**: Processos com o mesmo `numero_cnj` que aparecem em multiplas OABs sao mostrados apenas uma vez, priorizando o registro com mais dados (detalhes carregados, monitoramento ativo).
+- **Pesquisa**: Campo de busca filtra por numero CNJ, parte ativa, parte passiva ou tribunal.
+- **Visualizacao**: Mesma estrutura de cards e agrupamento por instancia ja utilizada nas abas individuais.
 
-### Alteracoes
+### Alteracoes tecnicas
 
-**1. Banco de dados** -- Nenhuma migracao necessaria
-A coluna `status` na tabela `whatsapp_tickets` e do tipo `text`, entao ja aceita o valor `"archived"` sem alteracoes de schema.
+**1. Novo componente: `src/components/Controladoria/OABTabGeral.tsx`**
 
-**2. `src/components/WhatsApp/components/ConversationList.tsx`**
+Componente que:
+- Busca todos os processos do tenant via `processos_oab` (com join na `oabs_cadastradas` para pegar nome do advogado)
+- Deduplica por `numero_cnj`, mantendo o registro mais completo
+- Reutiliza os componentes `ProcessoCard` e `InstanciaSection` do `OABTab.tsx` (serao extraidos para um arquivo compartilhado ou importados)
+- Inclui barra de pesquisa e os mesmos filtros de UF/monitorados/nao-lidos
+- Abre o drawer de detalhes (`ProcessoOABDetalhes`) ao clicar em "Detalhes"
 
-- Adicionar `"archived"` ao tipo `ConversationTab`
-- Adicionar nova entrada no array `TABS` com icone `Archive` e label "Arquivados"
-- Atualizar `tabCounts` para incluir `archived: number`
+**2. Novo hook: `src/hooks/useProcessosGeral.ts`**
 
-**3. `src/components/WhatsApp/sections/WhatsAppInbox.tsx`**
+Hook dedicado que:
+- Busca todos os processos do tenant (sem filtro de `oab_id`)
+- Faz deduplicacao no JavaScript: agrupa por `numero_cnj`, seleciona o registro com `detalhes_carregados = true` ou `monitoramento_ativo = true` como prioritario
+- Retorna a lista deduplicada com contagem de andamentos nao lidos
+- Inclui real-time subscription para atualizacoes
 
-- Atualizar `getFilteredConversations()` com novo case para `activeTab === "archived"`: filtrar conversas cujo ticket tem `status === "archived"`
-- Atualizar `getTabCounts()` para contar conversas arquivadas
-- Adicionar funcao `handleArchiveTicket`: atualiza o ticket para `status: "archived"`
-- Adicionar funcao `handleUnarchiveTicket`: atualiza o ticket para `status: "waiting"`
-- Passar as funcoes de arquivar/desarquivar para o `ChatPanel`
+```typescript
+// Logica de deduplicacao
+const deduplicar = (processos: ProcessoOAB[]): ProcessoOAB[] => {
+  const mapa = new Map<string, ProcessoOAB>();
+  processos.forEach(p => {
+    const existente = mapa.get(p.numero_cnj);
+    if (!existente || 
+        (!existente.detalhes_carregados && p.detalhes_carregados) ||
+        (!existente.monitoramento_ativo && p.monitoramento_ativo)) {
+      mapa.set(p.numero_cnj, p);
+    }
+  });
+  return Array.from(mapa.values());
+};
+```
 
-**4. `src/components/WhatsApp/components/ChatPanel.tsx`**
+**3. Modificacao: `src/components/Controladoria/OABManager.tsx`**
 
-- Receber props `onArchiveTicket` e `onUnarchiveTicket`
-- Adicionar botao de arquivar (icone Archive) no header da conversa, visivel quando o ticket nao esta arquivado
-- Adicionar botao de desarquivar quando visualizando conversa da aba "Arquivados"
+- Adicionar aba "Geral" com valor `"geral"` como primeira aba no `TabsList`
+- Definir `activeTab` inicial como `"geral"` em vez de string vazia
+- Adicionar `TabsContent` para `"geral"` renderizando o componente `OABTabGeral`
 
-### Fluxo do usuario
+Trecho da mudanca no TabsList:
+```
+<TabsList>
+  <TabsTrigger value="geral">
+    Geral
+    <Badge variant="secondary">{totalProcessosUnicos}</Badge>
+  </TabsTrigger>
+  {oabs.map((oab) => (
+    <TabsTrigger key={oab.id} value={oab.id}>
+      {oab.oab_numero}/{oab.oab_uf}
+      ...
+    </TabsTrigger>
+  ))}
+</TabsList>
+```
 
-1. O agente abre uma conversa na aba "Abertas" ou "Encerrados"
-2. Clica no botao de arquivar no header do chat
-3. A conversa move para a aba "Arquivados"
-4. Na aba "Arquivados", o agente pode desarquivar e a conversa volta para "Fila"
+### Resumo de arquivos
 
-### Logica de exclusao entre abas
+| Arquivo | Acao |
+|---|---|
+| `src/hooks/useProcessosGeral.ts` | Criar -- hook para buscar todos os processos do tenant e deduplicar |
+| `src/components/Controladoria/OABTabGeral.tsx` | Criar -- componente da aba Geral com lista deduplicada e pesquisa |
+| `src/components/Controladoria/OABManager.tsx` | Modificar -- adicionar aba "Geral" antes das OABs individuais |
 
-As conversas arquivadas serao excluidas das abas "Abertas", "Fila" e "Encerrados" adicionando a condicao `ticket.status !== "archived"` nos filtros existentes.
