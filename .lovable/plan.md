@@ -1,135 +1,81 @@
 
-## Alteracoes no CRM - 4 Itens Principais
 
-### 1. Sistema de Abas na Lista de Conversas (ConversationList)
+## Ajustes no CRM WhatsApp - 6 Itens
 
-Substituir a barra de grupos por 4 botoes/abas horizontais acima da lista de conversas:
+### 1. Remover labels das abas (somente icones)
 
-**Arquivo principal:** `src/components/WhatsApp/components/ConversationList.tsx`
-**Arquivo auxiliar:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+**Arquivo:** `src/components/WhatsApp/components/ConversationList.tsx`
 
-**Abas:**
-1. **Abertas** (icone MessageSquare) - Conversas ativas que o agente ja aceitou/respondeu
-2. **Fila de Espera** (icone Inbox) - TODAS as conversas que chegam para aquele numero. Novas conversas sao "tickets" que precisam ser aceitos. Ao aceitar, movem para a aba "Abertas"
-3. **Grupos** (icone Users) - Grupos WhatsApp do numero. Interacao normal, mas IA so fala se habilitada por conversa
-4. **Encerrados** (icone Clock/CheckCircle) - Atendimentos encerrados nas ultimas 24h (historico). Se o contato voltar para a Fila de Espera, aparece la normalmente mas mantem historico aqui
+- Remover `<span className="hidden sm:inline">{tab.label}</span>` da linha 150
+- Manter apenas o icone e o badge de contagem
 
-**Mudancas na ConversationList:**
-- Remover a "Groups Bar" atual
-- Adicionar uma barra de abas com 4 botoes compactos (icone + label pequeno) no topo, abaixo do campo de busca
-- Nova prop `activeTab` e `onTabChange` para controlar qual aba esta ativa
-- Nova prop `onAcceptTicket` para aceitar tickets da Fila de Espera
-- Nova prop `onCloseTicket` para encerrar atendimentos
+### 2. Fundo verde suave na area de mensagens (modo claro)
 
-**Mudancas no WhatsAppInbox:**
-- Gerenciar estado `activeTab` (default: "open")
-- Filtrar conversas de acordo com a aba ativa
-- Para separar conversas "abertas" vs "fila de espera", sera necessario um campo de status. Proposta: adicionar coluna `ticket_status` na tabela `whatsapp_conversation_kanban` ou criar uma nova tabela `whatsapp_tickets`
+**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
 
-**Mudancas no ChatPanel (header):**
-- Substituir botoes Video e Phone por:
-  - **Aceitar Ticket** (icone CheckCircle, verde) - visivel quando conversa vem da Fila de Espera
-  - **Encerrar Ticket** (icone XCircle, vermelho) - visivel quando conversa esta aberta
-  - Manter o botao **tres pontinhos** (MoreVertical)
+- Na `ScrollArea` de mensagens (linha 370), adicionar um background verde bem suave
+- Usar `bg-green-50/40 dark:bg-transparent` (verde suavissimo no light mode, sem mudanca no dark)
+- Manter o pattern SVG existente por cima
 
-### 2. Contador de 24h por Conversa
+### 3. Tela de boas-vindas com logo ao trocar de aba
 
-**Arquivos:** `ConversationList.tsx`, `WhatsAppInbox.tsx`
+**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
 
-- Ao responder um contato (1a mensagem outgoing), registrar timestamp de inicio
-- Exibir um contador regressivo de 24h no card da conversa na lista
-- Design: badge minimalista e suave, pequeno, no canto do card (ex: "23:45" em texto muted, com barra de progresso circular fina ou apenas texto)
-- Aumentar levemente a altura do card se necessario para acomodar o contador
-- Quando expirar (24h), mover automaticamente para "Encerrados"
+- Quando `conversation` e `null`, trocar a tela atual (icone generico + "WhatsApp Web") por:
+  - Logo "vouti" com ponto vermelho (reutilizar `LogoVouti`)
+  - Subtitulo ".crm" ao lado
+  - Slogan: "O melhor lugar para seu trabalho."
+  - Design centralizado, clean
 
-**Dados:** Usar o timestamp da primeira resposta do agente na conversa (primeira mensagem outgoing apos a ultima mensagem incoming). Pode ser calculado client-side a partir das mensagens existentes, ou armazenado em uma nova coluna `ticket_started_at` em `whatsapp_conversation_kanban`
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
 
-### 3. Fix Sidebar Collapse e Drawer de Projetos
+- Ao trocar de aba (`onTabChange`), resetar `selectedConversation` para `null`
+  - Isso faz o ChatPanel mostrar a tela de boas-vindas automaticamente
+  - O usuario clica em uma conversa da nova aba para abri-la
 
-**Arquivo:** `src/components/WhatsApp/sections/WhatsAppProjects.tsx`
+### 4. Conversas transferidas aparecem na Fila de Espera
 
-Problema: Quando a sidebar esta colapsada, o drawer de Projetos nao se ajusta (provavelmente usa `side="left-offset"` que calcula offset baseado na largura fixa da sidebar).
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
 
-**Solucao:**
-- Passar `sidebarCollapsed` como prop para `WhatsAppProjects`
-- Ajustar o offset do Sheet baseado no estado da sidebar (w-56 = 14rem vs w-14 = 3.5rem)
-- Ou usar CSS dinamico no `SheetContent` para compensar
+- Ao carregar conversas, verificar na tabela `whatsapp_conversation_kanban` se ha cards na coluna "Transferidos" para o agente atual
+- Essas conversas devem aparecer na aba "Fila de Espera" com status "waiting"
+- Criar ticket "waiting" automaticamente para conversas transferidas que nao tenham ticket ainda
+- Ao aceitar, o ticket muda para "open" e a conversa vai para "Abertas"
 
-### 4. Ativacao de Macros em Configuracoes
+### 5. Botoes Aceitar/Encerrar sempre visiveis no header
 
-**Arquivo:** `src/components/WhatsApp/settings/WhatsAppMacrosSettings.tsx`
-**Nova tabela:** `whatsapp_macros`
+**Arquivo:** `src/components/WhatsApp/components/ChatPanel.tsx`
 
-**Funcionalidades:**
-- Configurar macros por agente (selecionar qual agente tera macros ativadas)
-- Criar/editar macros com:
-  - Nome/atalho da macro
-  - Texto da mensagem com variaveis: `{{nome}}`, `{{telefone}}`, `{{email}}` (dados do contato/lead cadastrado)
-  - Variavel especial `{{saudacao}}` que automaticamente substitui por "Bom dia", "Boa tarde" ou "Boa noite" de acordo com o fuso de Brasilia (America/Sao_Paulo)
-- Toggle de ativacao/desativacao por agente
-- Lista de macros com edicao inline ou modal
+- O ChatPanel ja recebe `ticketStatus`, `onAcceptTicket`, `onCloseTicket` como props (linhas 353-362)
+- Problema: os botoes so aparecem condicionalmente. Ajustar para:
+  - **Aceitar** (CheckCircle verde): visivel quando `ticketStatus === "waiting"` OU quando nao ha ticket (conversa nova)
+  - **Encerrar** (XCircle vermelho): visivel quando `ticketStatus === "open"`
+  - Ambos devem estar sempre presentes no header (um ou outro, nunca os dois ao mesmo tempo)
+  - Manter o botao de tres pontinhos (MoreVertical)
 
-**Saudacao automatica:**
-- Usar a funcao `getGreeting()` ja existente em `src/utils/greetingHelper.ts` (ja calcula Bom dia/Boa tarde/Boa noite baseado na hora)
-- Ajustar para usar fuso de Brasilia explicitamente (converter hora UTC para Brasilia antes de calcular)
-- Ao processar a macro, substituir `{{saudacao}}` pelo valor retornado
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
 
-### Detalhes Tecnicos
+- Garantir que `ticketStatus` e passado corretamente para o ChatPanel mesmo para conversas sem ticket (tratar como "waiting")
 
-**Migracao SQL necessaria:**
+### 6. Aba Grupos: botao "Buscar Grupos" interno + persistencia
 
-```sql
--- Tabela de macros
-CREATE TABLE whatsapp_macros (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenants(id),
-  agent_id UUID REFERENCES whatsapp_agents(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  shortcut TEXT, -- atalho rapido ex: /ola
-  message_template TEXT NOT NULL, -- texto com {{variaveis}}
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+**Arquivo:** `src/components/WhatsApp/components/ConversationList.tsx`
 
--- Tabela de tickets (status das conversas)
-CREATE TABLE whatsapp_tickets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenants(id),
-  agent_id UUID REFERENCES whatsapp_agents(id),
-  phone TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'waiting', -- waiting, open, closed
-  accepted_at TIMESTAMPTZ,
-  closed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+- Quando `activeTab === "groups"`, exibir um botao "Buscar Grupos" no topo da lista (antes dos cards)
+- Ao clicar, chamar `onFetchGroups` (ja existente, invoca edge function `whatsapp-list-groups`)
+- Os grupos buscados devem ser salvos na tabela `whatsapp_contacts` (ou nova tabela) para persistir
+- Permitir ao usuario editar/salvar um nome customizado para cada grupo
+- Exibir os grupos salvos mesmo sem clicar "Buscar" novamente
 
-ALTER TABLE whatsapp_macros ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_tickets ENABLE ROW LEVEL SECURITY;
+**Persistencia de grupos:**
+- Ao buscar grupos, salvar na `whatsapp_contacts` com o campo `phone` = group JID (contendo `@g.us`)
+- Usar o campo `name` para o nome customizado
+- Na proxima abertura, carregar grupos ja salvos da `whatsapp_contacts`
 
--- RLS policies para ambas tabelas (tenant-based)
-CREATE POLICY "tenant_macros" ON whatsapp_macros
-  FOR ALL USING (tenant_id = get_user_tenant_id() OR tenant_id IS NULL);
+### Detalhes tecnicos - Resumo de arquivos
 
-CREATE POLICY "tenant_tickets" ON whatsapp_tickets
-  FOR ALL USING (tenant_id = get_user_tenant_id() OR tenant_id IS NULL);
-```
+1. `ConversationList.tsx` -- remover labels, adicionar botao "Buscar Grupos" na aba grupos
+2. `ChatPanel.tsx` -- fundo verde suave, tela boas-vindas com logo Vouti.CRM, ajustar visibilidade botoes aceitar/encerrar
+3. `WhatsAppInbox.tsx` -- resetar conversa ao trocar aba, incluir transferidos na fila, ajustar ticketStatus default
 
-**Arquivos afetados (resumo):**
-
-1. `src/components/WhatsApp/components/ConversationList.tsx` -- 4 abas, remover groups bar, contador 24h
-2. `src/components/WhatsApp/components/ChatPanel.tsx` -- trocar Video/Phone por Aceitar/Encerrar ticket
-3. `src/components/WhatsApp/sections/WhatsAppInbox.tsx` -- gerenciar tabs, tickets, filtros
-4. `src/components/WhatsApp/sections/WhatsAppProjects.tsx` -- fix offset com sidebar colapsada
-5. `src/components/WhatsApp/WhatsAppLayout.tsx` -- passar sidebarCollapsed para Projects
-6. `src/components/WhatsApp/settings/WhatsAppMacrosSettings.tsx` -- implementar CRUD de macros
-7. `src/utils/greetingHelper.ts` -- ajustar para fuso de Brasilia explicito
-8. Migracao SQL -- criar tabelas `whatsapp_macros` e `whatsapp_tickets`
-
-**Fluxo do sistema de tickets:**
-- Mensagem incoming sem ticket existente -> cria ticket com status "waiting" -> aparece na Fila de Espera
-- Agente clica "Aceitar Ticket" -> status muda para "open", `accepted_at = now()` -> move para Abertas, inicia contador 24h
-- Agente clica "Encerrar Ticket" -> status muda para "closed", `closed_at = now()` -> move para Encerrados
-- Contato envia nova mensagem apos encerramento -> cria novo ticket "waiting" na Fila de Espera
-- Apos 24h do `accepted_at` sem nova interacao -> auto-move para Encerrados (calculado client-side)
+Nao ha necessidade de migracao SQL pois os grupos podem ser persistidos na tabela `whatsapp_contacts` ja existente.
