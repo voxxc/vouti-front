@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Search, MessageSquare, Users, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -30,6 +30,7 @@ interface ConversationListProps {
   groups?: WhatsAppGroup[];
   onFetchGroups?: () => void;
   isLoadingGroups?: boolean;
+  profilePics?: Record<string, string>;
 }
 
 export const ConversationList = ({
@@ -41,6 +42,7 @@ export const ConversationList = ({
   groups = [],
   onFetchGroups,
   isLoadingGroups = false,
+  profilePics = {},
 }: ConversationListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -162,6 +164,9 @@ export const ConversationList = ({
                 )}
               >
                 <Avatar className="h-10 w-10 shrink-0">
+                  {profilePics[conversation.contactNumber] && (
+                    <AvatarImage src={profilePics[conversation.contactNumber]} alt={conversation.contactName} />
+                  )}
                   <AvatarFallback className="bg-green-500/20 text-green-600 text-sm">
                     {conversation.contactNumber.includes('@g.us') ? (
                       <Users className="h-4 w-4" />

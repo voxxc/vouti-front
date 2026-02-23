@@ -69,6 +69,8 @@ interface ContactInfoPanelProps {
   conversationAgentId?: string | null;
   conversationAgentName?: string | null;
   onTransferComplete?: () => void;
+  profilePicUrl?: string | null;
+  onProfilePicFetched?: (phone: string, url: string) => void;
 }
 
 interface KanbanColumnOption {
@@ -77,11 +79,10 @@ interface KanbanColumnOption {
   color: string;
 }
 
-export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, conversationAgentId, conversationAgentName, onTransferComplete }: ContactInfoPanelProps) => {
+export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId, currentAgentName, tenantId: propTenantId, conversationAgentId, conversationAgentName, onTransferComplete, profilePicUrl, onProfilePicFetched }: ContactInfoPanelProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
-  const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
   const [loadingPic, setLoadingPic] = useState(false);
   const { tenantId: hookTenantId } = useTenantId();
   const resolvedTenantId = propTenantId || hookTenantId;
@@ -124,7 +125,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       if (error) throw error;
       const link = data?.data?.link;
       if (link && link !== "null") {
-        setProfilePicUrl(link);
+        onProfilePicFetched?.(conversation.contactNumber, link);
       } else {
         toast.info("Foto de perfil não disponível");
       }

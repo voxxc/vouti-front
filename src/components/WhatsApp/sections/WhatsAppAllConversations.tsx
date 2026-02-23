@@ -20,8 +20,9 @@ export const WhatsAppAllConversations = () => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-    const [myAgentName, setMyAgentName] = useState<string | null>(null);
+  const [myAgentName, setMyAgentName] = useState<string | null>(null);
   const [myAgentId, setMyAgentId] = useState<string | null>(null);
+  const [profilePics, setProfilePics] = useState<Record<string, string>>({});
 
   // Check if user is super admin + fetch agent name
   useEffect(() => {
@@ -242,6 +243,7 @@ export const WhatsAppAllConversations = () => {
         onSelectConversation={setSelectedConversation}
         isLoading={isLoading}
         showAgentBadge={true}
+        profilePics={profilePics}
       />
 
       <ChatPanel
@@ -258,6 +260,8 @@ export const WhatsAppAllConversations = () => {
           tenantId={tenantId}
           conversationAgentId={selectedConversation.agentId}
           conversationAgentName={selectedConversation.agentName}
+          profilePicUrl={profilePics[selectedConversation.contactNumber]}
+          onProfilePicFetched={(phone, url) => setProfilePics(prev => ({ ...prev, [phone]: url }))}
           onTransferComplete={() => {
             setSelectedConversation(null);
             loadConversations();
