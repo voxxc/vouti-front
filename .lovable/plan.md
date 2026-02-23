@@ -1,147 +1,93 @@
 
-## Ajustes CRM + Workspace do Projeto - 5 Itens
 
-### 1. Conta: Estilo de Navegacao como Extras do Vouti
+## Correcoes Urgentes + Agenda no CRM
 
-**Arquivo:** `src/components/WhatsApp/settings/WhatsAppAccountSettings.tsx`
+### 1. Agenda como Drawer na Sidebar do CRM (isolada do Vouti)
 
-**Problema:** Atualmente usa `Tabs` com `TabsList` e `TabsTrigger` (botoes com fundo). O usuario quer nomes clicaveis como no `ExtrasDrawer.tsx` do Vouti.
+A Agenda sai de Config > Conta e vira um botao proprio na sidebar do CRM, abrindo como uma secao completa (igual Contatos, Campanhas, etc.).
 
-**Solucao:**
-- Remover `Tabs/TabsList/TabsTrigger` do Radix
-- Substituir por botoes de texto simples com underline ativo (mesmo padrao do `TabButton` do `ExtrasDrawer.tsx`)
-- Layout: texto clicavel com `text-sm font-medium`, cor `text-foreground` quando ativo, `text-muted-foreground` quando inativo
-- Linha inferior `h-0.5 bg-primary rounded-full` no item ativo
-- Adicionar nova aba "Agenda" ao lado de "Geral" e "Usuarios"
+**Arquivos editados:**
 
-### 2. Aba Agenda no CRM (Identica ao Vouti)
+- **`WhatsAppDrawer.tsx`**: Adicionar `"agenda"` ao tipo `WhatsAppSection`. Adicionar case `"agenda"` no `renderSection()` que renderiza `<AgendaContent />`
+- **`WhatsAppLayout.tsx`**: Adicionar case `"agenda"` no `renderSettingsSection()` ou como secao principal. Adicionar div para montar a secao Agenda
+- **`WhatsAppSidebar.tsx`**: Adicionar botao "Agenda" com icone `Calendar` na sidebar, entre Campanhas e Central de Ajuda
+- **`WhatsAppAccountSettings.tsx`**: Remover a aba "Agenda" e o import de `AgendaContent`. Manter apenas "Geral" e "Usuarios"
 
-**Arquivo:** `src/components/WhatsApp/settings/WhatsAppAccountSettings.tsx`
+A agenda do CRM reutiliza o componente `AgendaContent` mas e totalmente isolada -- os dados ja sao filtrados por tenant/usuario logado, entao nao se mistura com o Vouti.
 
-**Solucao:**
-- Importar `AgendaContent` de `@/components/Agenda/AgendaContent`
-- Adicionar nova tab "Agenda" que renderiza `<AgendaContent />` diretamente
-- O componente `AgendaContent` ja e compartilhado entre a pagina e o drawer do Vouti (conforme arquitetura existente), entao sera 100% identico
-- Nao precisa de nenhuma alteracao no componente AgendaContent em si
+---
 
-### 3. Processo no Workspace: Remover Botoes + Adicionar Comentarios
+### 2. DESFAZER Comentarios no ProcessoOABDetalhes (Casos)
 
-**Arquivo:** `src/components/Controladoria/ProcessoOABDetalhes.tsx`
+Os comentarios foram adicionados ERRONEAMENTE no drawer de Casos (`ProcessoOABDetalhes.tsx`). "Processo" no contexto de Workspace NAO e "Caso/Processo Judicial".
 
-**Problema:** Ao clicar em um processo no workspace, o drawer mostra tabs "Resumo, Andamentos, Partes, Intimacoes, Prazos, Tarefas, IA" (7 tabs). O usuario quer:
-- Remover tabs/botoes desnecessarios? -- Na verdade, ao reler o pedido, o usuario menciona "Vinculo, Relatorio e Historico" que existem no **TaskModal** (modal de tarefa/card), nao no drawer de processo. Vou verificar ambos contextos.
+**Arquivo:** `ProcessoOABDetalhes.tsx`
+- Remover o import de `ProcessoComentarios`
+- Remover o bloco `<Card>` com `<ProcessoComentarios>` que esta nas linhas 488-491 da aba Resumo
 
-**Esclarecimento:** Os botoes "Vinculo", "Relatorio" e "Historico" existem no `TaskModal.tsx` (linhas 735-751), nao no `ProcessoOABDetalhes.tsx`. Porem o usuario fala "dentro do workspace do projeto, ao clicar em algum processo" -- os processos usam o drawer `ProcessoOABDetalhes`. Os botoes mencionados estao nos cards/tarefas.
+A tabela `processo_comentarios`, o hook `useProcessoComentarios` e o componente `ProcessoComentarios` continuam existindo -- serao reaproveitados para os Processos do Workspace (TaskModal).
 
-**Acao no TaskModal.tsx:**
-- Remover a tab "Vinculo" (linha 734-738)
-- Remover a tab "Historico" (linha 748-751)
-- Remover o botao "Gerar Relatorio" do `TaskTarefasTab`
-- Manter apenas: Detalhes, Tarefas, Arquivos
+---
 
-**Acao no ProcessoOABDetalhes.tsx -- Comentarios no Resumo:**
-- Na tab "Resumo", acima do toggle de monitoramento (que funciona como "alterar status"), adicionar uma secao de Comentarios
-- Criar tabela `processo_comentarios` com: `id`, `processo_id` (FK processos_oab), `user_id`, `comment_text`, `reply_to_id` (self-reference para respostas), `mentioned_user_ids` (UUID array), `tenant_id`, `created_at`, `updated_at`
-- RLS: usuarios do mesmo tenant podem ler/escrever
-- Interface similar ao `DeadlineComentarios` existente mas adaptada para processos
-- Suporte a responder mensagem (reply_to_id) mostrando a mensagem original
-- Suporte a mencionar usuarios do projeto com `@nome` (buscar colaboradores do projeto)
+### 3. TaskModal (Processos do Workspace): Limpeza Completa + Comentarios
+
+O TaskModal AINDA possui codigo residual de Vinculo, Historico e Relatorio que precisa ser removido, ALEM de receber o sistema de comentarios.
+
+**Arquivo:** `TaskModal.tsx`
+
+**Remover:**
+- `TabsContent value="vinculo"` (linhas 1111-1118) -- o bloco condicional com `TaskVinculoTab`
+- `TabsContent value="historico"` (linhas 1140-1142) -- o bloco com `TaskHistoryPanel`
+- O bloco `RelatorioUnificado` (linhas 1148-1158) e o estado `relatorioOpen`
+- A prop `onGerarRelatorio` passada para `TaskTarefasTab` (linha 1128)
+- Os imports nao mais utilizados: `TaskVinculoTab`, `TaskHistoryPanel`, `RelatorioUnificado`, `useTaskVinculo`, `History`, `Link2`
+- Os estados: `relatorioOpen`, `processoOabId`, `processoVinculado`
+
+**Adicionar na aba "Detalhes":**
+- Abaixo dos comentarios existentes (que ja existem no final da tab "detalhes"), ou como secao propria, adicionar `<ProcessoComentarios>` usando o `task.id` como `processoId`
+- O componente `ProcessoComentarios` ja suporta replies e mencoes, perfeito para processos do workspace
+
+**Arquivo:** `TaskTarefasTab.tsx`
+- Remover a prop `onGerarRelatorio` e `hasVinculo`
+- Remover o botao "Gerar Relatorio" (linhas 408-412)
+
+**Nota sobre a tabela:** A tabela `processo_comentarios` usa `processo_id` referenciando `processos_oab`. Para os processos do workspace (tasks), sera necessario criar uma tabela separada `task_comentarios` ou adaptar `processo_comentarios` para aceitar tasks. A abordagem mais limpa: criar `task_comentarios` com a mesma estrutura, referenciando `project_processos(id)` em vez de `processos_oab(id)`.
 
 **Migracao SQL:**
-```sql
-CREATE TABLE processo_comentarios (
+```
+CREATE TABLE task_comentarios (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  processo_id UUID NOT NULL REFERENCES processos_oab(id) ON DELETE CASCADE,
+  task_id TEXT NOT NULL,
   user_id UUID NOT NULL,
   comment_text TEXT NOT NULL,
-  reply_to_id UUID REFERENCES processo_comentarios(id) ON DELETE SET NULL,
+  reply_to_id UUID REFERENCES task_comentarios(id) ON DELETE SET NULL,
   mentioned_user_ids UUID[] DEFAULT '{}',
   tenant_id UUID NOT NULL REFERENCES tenants(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
-ALTER TABLE processo_comentarios ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "tenant_processo_comentarios" ON processo_comentarios
+ALTER TABLE task_comentarios ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "tenant_task_comentarios" ON task_comentarios
   FOR ALL USING (tenant_id = get_user_tenant_id());
-
-CREATE TRIGGER update_processo_comentarios_updated_at
-  BEFORE UPDATE ON processo_comentarios
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
-### 4. Colunas Arrastáveis com Cadeado Desbloqueado
+**Novo hook:** `useTaskComentarios.ts` -- similar ao `useProcessoComentarios` mas referenciando `task_comentarios`
 
-**Status:** Ja implementado! O codigo em `ProjectView.tsx` (linha 1225-1229) ja usa `isDragDisabled={isColumnsLocked}` nas colunas e o `handleDragEnd` (linha 202-227) ja trata reordenacao de colunas. Ao desbloquear o cadeado, as colunas ja podem ser arrastadas.
+**Novo componente:** `TaskComentarios.tsx` -- similar ao `ProcessoComentarios` mas usando o novo hook
 
-**Acao:** Nenhuma alteracao necessaria. Confirmar que funciona corretamente.
+---
 
-### 5. Botao Carteira ao Lado de "+ Novo Processo"
+### Resumo de Alteracoes
 
-**Arquivo:** `src/components/Project/ProjectProcessos.tsx`
-
-**Conceito:** Carteira e um agrupador visual de processos dentro do workspace. Ao criar uma carteira, ela aparece vazia. Com o cadeado desbloqueado, o usuario pode arrastar processos para dentro da carteira.
-
-**Migracao SQL:**
-```sql
-CREATE TABLE project_carteiras (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  projeto_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  workspace_id UUID NOT NULL,
-  tenant_id UUID NOT NULL REFERENCES tenants(id),
-  nome TEXT NOT NULL,
-  cor TEXT DEFAULT '#6366f1',
-  ordem INTEGER DEFAULT 0,
-  created_by UUID NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE project_carteira_processos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  carteira_id UUID NOT NULL REFERENCES project_carteiras(id) ON DELETE CASCADE,
-  project_processo_id UUID NOT NULL REFERENCES project_processos(id) ON DELETE CASCADE,
-  ordem INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(carteira_id, project_processo_id)
-);
-
-ALTER TABLE project_carteiras ENABLE ROW LEVEL SECURITY;
-ALTER TABLE project_carteira_processos ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "tenant_carteiras" ON project_carteiras
-  FOR ALL USING (tenant_id = get_user_tenant_id());
-
-CREATE POLICY "tenant_carteira_processos" ON project_carteira_processos
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM project_carteiras pc
-      WHERE pc.id = carteira_id AND pc.tenant_id = get_user_tenant_id()
-    )
-  );
-```
-
-**Implementacao no ProjectProcessos.tsx:**
-- Botao minimalista (icone pasta/briefcase) ao lado de "Vincular Processo"
-- Dialog para criar carteira (nome + cor opcional)
-- Carteiras aparecem como secoes colapsaveis (similar a InstanciaSection)
-- Com cadeado desbloqueado (`isLocked = false`), processos podem ser arrastados para dentro de carteiras
-- Processos em carteira ficam fixados ate serem removidos manualmente
-- Drag-and-drop entre carteiras e secoes de instancia
-
-### Resumo de Arquivos
-
-**Migracoes SQL:**
-- Tabela `processo_comentarios`
-- Tabelas `project_carteiras` e `project_carteira_processos`
-
-**Arquivos novos:**
-- `src/components/Controladoria/ProcessoComentarios.tsx` -- componente de comentarios para processos
-
-**Arquivos editados:**
-1. `WhatsAppAccountSettings.tsx` -- estilo tabs texto clicavel + aba Agenda
-2. `ProcessoOABDetalhes.tsx` -- adicionar secao de comentarios no Resumo
-3. `ProjectProcessos.tsx` -- botao carteira + secoes de carteira + drag-and-drop
-4. `TaskModal.tsx` -- remover tabs Vinculo, Historico, botao Relatorio
-5. `TaskTarefasTab.tsx` -- remover prop/botao Gerar Relatorio
+| Arquivo | Acao |
+|---|---|
+| `WhatsAppDrawer.tsx` | Adicionar "agenda" ao type + case no switch |
+| `WhatsAppLayout.tsx` | Adicionar secao Agenda na renderizacao |
+| `WhatsAppSidebar.tsx` | Adicionar botao Agenda na sidebar |
+| `WhatsAppAccountSettings.tsx` | Remover aba Agenda, manter so Geral e Usuarios |
+| `ProcessoOABDetalhes.tsx` | REMOVER ProcessoComentarios (foi adicionado no lugar errado) |
+| `TaskModal.tsx` | Remover Vinculo/Historico/Relatorio residuais + adicionar TaskComentarios |
+| `TaskTarefasTab.tsx` | Remover props onGerarRelatorio e hasVinculo e botao |
+| Novo: `TaskComentarios.tsx` | Componente de comentarios para processos do workspace |
+| Novo: `useTaskComentarios.ts` | Hook para CRUD de comentarios em tasks |
+| Migracao SQL | Criar tabela `task_comentarios` |
