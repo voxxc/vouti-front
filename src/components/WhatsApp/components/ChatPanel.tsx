@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Paperclip, Smile, Mic, MoreVertical, Phone, Video, MessageSquare, FileText, X, Loader2, Square } from "lucide-react";
+import { Send, Paperclip, Smile, Mic, MoreVertical, MessageSquare, FileText, X, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,6 +15,9 @@ interface ChatPanelProps {
   conversation: WhatsAppConversation | null;
   messages: WhatsAppMessage[];
   onSendMessage: (text: string, messageType?: string, mediaUrl?: string) => void;
+  ticketStatus?: string;
+  onAcceptTicket?: () => void;
+  onCloseTicket?: () => void;
 }
 
 function detectMimeType(file: File): "image" | "audio" | "video" | "document" {
@@ -102,7 +105,7 @@ const MediaRenderer = ({ message }: { message: WhatsAppMessage }) => {
   );
 };
 
-export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelProps) => {
+export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket }: ChatPanelProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string; preview?: string } | null>(null);
@@ -124,7 +127,6 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
     prevMessagesLengthRef.current = messages.length;
   }, [messages]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -203,7 +205,6 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
     setPendingFile(null);
   };
 
-  // --- Audio Recording ---
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -238,7 +239,6 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
 
     return new Promise<void>((resolve) => {
       mediaRecorderRef.current!.onstop = async () => {
-        // Cleanup
         if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
         if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
 
@@ -350,12 +350,16 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-9 w-9">
-            <Video className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9">
-            <Phone className="h-4 w-4" />
-          </Button>
+          {ticketStatus === "waiting" && onAcceptTicket && (
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-green-500 hover:text-green-600 hover:bg-green-500/10" onClick={onAcceptTicket}>
+              <CheckCircle className="h-4 w-4" />
+            </Button>
+          )}
+          {ticketStatus === "open" && onCloseTicket && (
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={onCloseTicket}>
+              <XCircle className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-9 w-9">
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -439,7 +443,6 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
       {/* Input Area */}
       <div className="p-4 border-t border-border bg-card">
         {isRecording ? (
-          /* Recording UI */
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -468,7 +471,6 @@ export const ChatPanel = ({ conversation, messages, onSendMessage }: ChatPanelPr
             </Button>
           </div>
         ) : (
-          /* Normal input UI */
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
               <Smile className="h-5 w-5 text-muted-foreground" />

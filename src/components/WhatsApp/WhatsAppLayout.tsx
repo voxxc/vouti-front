@@ -139,7 +139,7 @@ export const WhatsAppLayout = () => {
           )}
         </main>
       </div>
-      <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
+      <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} sidebarCollapsed={sidebarCollapsed} />
     </div>
   );
 };
