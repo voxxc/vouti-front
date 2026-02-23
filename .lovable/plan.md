@@ -1,57 +1,66 @@
 
 
-## Corrigir redirecionamento de logout do CRM
+## Proteger HomePage contra crash no envio do formulario
 
-### Problema
-Ao deslogar do CRM integrado (`/demorais/crm`), o usuario e redirecionado para `/crm/demorais/auth` (rota do CRM standalone), quando deveria ir para `/demorais/auth` (rota de auth do sistema integrado).
+### Diagnostico
 
-Isso acontece porque o `handleLogout` no `CRMTopbar.tsx` sempre usa o path do CRM standalone:
-```
-navigate(`/crm/${tenant}/auth`)
-```
+Testei o formulario da HomePage tanto em desktop quanto em mobile e nao consegui reproduzir o crash. O envio funciona corretamente (dados salvos, toast exibido, formulario limpo). No entanto, para garantir que isso nao aconteca novamente, vou adicionar protecoes extras.
+
+### Possiveis causas do crash
+
+1. **Erro nao tratado no `createLandingLead`**: Se o Supabase retornar um erro inesperado (timeout, rede), o `throw error` pode propagar de forma inesperada
+2. **Native `<select>` element**: O formulario usa um `<select>` HTML nativo em vez do componente Radix `Select`. Ao resetar o valor para `""`, alguns navegadores moveis podem ter comportamento imprevisivel
+3. **Re-render durante animacao do toast**: Em dispositivos mais lentos, a combinacao de toast + reset de form + scroll animation pode causar um estado inconsistente
 
 ### Solucao
 
-Detectar em qual contexto o CRM esta rodando (integrado vs standalone) verificando a URL atual, e redirecionar para o auth correto.
+**Arquivo: `src/pages/HomePage.tsx`**
 
-**Arquivo:** `src/components/WhatsApp/components/CRMTopbar.tsx`
+1. **Adicionar estado de sucesso** - Em vez de apenas mostrar um toast e resetar o form, exibir uma mensagem visual de confirmacao no proprio formulario. Isso evita que o usuario fique perdido caso o toast desapareca rapidamente.
 
-Alterar o `handleLogout` para:
+2. **Melhorar o error handling** - Envolver todo o fluxo de submit em try/catch mais robusto, com tratamento para erros de rede e timeouts.
+
+3. **Substituir `<select>` nativo por Radix Select** - Usar o componente `Select` do shadcn/ui para consistencia e evitar bugs de browser nativo.
+
+4. **Prevenir re-submit** - Desabilitar o botao durante e apos o envio por alguns segundos.
 
 ```typescript
-const handleLogout = async () => {
-  await supabase.auth.signOut();
+// Estado de sucesso
+const [formSuccess, setFormSuccess] = useState(false);
 
-  // Detectar se estamos no CRM standalone (/crm/:tenant) ou integrado (/:tenant/crm)
-  const isStandalone = window.location.pathname.startsWith('/crm/');
-
-  if (isStandalone) {
-    navigate(`/crm/${tenant}/auth`, { replace: true });
-  } else {
-    navigate(`/${tenant}/auth`, { replace: true });
+const handleSubmitForm = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!formData.nome.trim()) { ... }
+  
+  setIsSubmitting(true);
+  try {
+    await createLandingLead({ ... });
+    setFormData({ nome: '', email: '', whatsapp: '', tamanho: '' });
+    setFormSuccess(true);
+    toast({ title: 'Solicitacao enviada!', ... });
+  } catch (error: any) {
+    console.error('Error:', error);
+    toast({ title: 'Erro ao enviar', ... });
+  } finally {
+    setIsSubmitting(false);
   }
 };
 ```
 
-Tambem corrigir a mesma logica no `CrmApp.tsx` (linha 20), que redireciona usuarios nao autenticados:
+Na UI, quando `formSuccess` for true, mostrar uma mensagem de sucesso no lugar do formulario (com botao para "Enviar outro"):
 
-**Arquivo:** `src/pages/CrmApp.tsx`
-
-```typescript
-if (!user) {
-  const isStandalone = window.location.pathname.startsWith('/crm/');
-  if (isStandalone) {
-    navigate(`/crm/${tenant}/auth`, { replace: true });
-  } else {
-    navigate(`/${tenant}/auth`, { replace: true });
-  }
-}
+```
+Obrigado, {nome}!
+Entraremos em contato em breve.
+[Enviar outro formulario]
 ```
 
 ### Resumo
 
-| Arquivo | Mudanca |
+| Mudanca | Motivo |
 |---|---|
-| CRMTopbar.tsx | Logout redireciona para auth correto baseado no contexto (integrado vs standalone) |
-| CrmApp.tsx | Redirect de usuario nao autenticado tambem respeita o contexto |
+| Estado de sucesso visual | Feedback claro para o lead, previne re-submits |
+| Error handling mais robusto | Captura erros de rede/timeout que podem crashar |
+| Substituir select nativo por Radix | Evita bugs de compatibilidade de browser |
+| Desabilitar botao pos-envio | Previne double-submit |
 
