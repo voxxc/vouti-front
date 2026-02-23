@@ -6,6 +6,7 @@ import { ConversationList } from "../components/ConversationList";
 import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
+import { normalizePhone } from "@/utils/phoneUtils";
 
 interface AllConversationsItem extends WhatsAppConversation {
   agentId?: string;
@@ -73,21 +74,36 @@ export const WhatsAppAllConversations = () => {
         query = query.is("tenant_id", null);
       }
 
-      const { data, error } = await query;
+      // Fetch contacts in parallel
+      const contactsQuery = tenantId
+        ? supabase.from("whatsapp_contacts").select("phone, name").eq("tenant_id", tenantId)
+        : null;
 
-      if (error) throw error;
+      const [messagesResult, contactsResult] = await Promise.all([
+        query,
+        contactsQuery || Promise.resolve({ data: [], error: null }),
+      ]);
 
-      // Group messages by phone number, keeping agent info
+      if (messagesResult.error) throw messagesResult.error;
+
+      // Build contact name map
+      const contactNameMap = new Map<string, string>();
+      (contactsResult.data as any[] || []).forEach((c: any) => {
+        contactNameMap.set(normalizePhone(c.phone), c.name);
+        contactNameMap.set(c.phone, c.name);
+      });
+
+      // Group messages by normalized phone (no agent duplication)
       const conversationMap = new Map<string, AllConversationsItem>();
       
-      data?.forEach((msg: any) => {
+      (messagesResult.data as any[] || []).forEach((msg: any) => {
         const number = msg.from_number;
-        const key = `${number}-${msg.agent_id || 'no-agent'}`;
+        const normalizedNumber = normalizePhone(number);
         
-        if (!conversationMap.has(key)) {
-          conversationMap.set(key, {
+        if (!conversationMap.has(normalizedNumber)) {
+          conversationMap.set(normalizedNumber, {
             id: msg.id,
-            contactName: number,
+            contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(number) || number,
             contactNumber: number,
             lastMessage: msg.message_text || "",
             lastMessageTime: msg.created_at,
