@@ -54,7 +54,7 @@ const menuItems: { id: SuperAdminWhatsAppSection; label: string; icon: React.Ele
 const settingsMenuItems: { id: SuperAdminWhatsAppSection; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Conta", icon: User },
   { id: "agents", label: "Agentes", icon: Users2 },
-  { id: "teams", label: "Times", icon: UsersRound },
+  { id: "teams", label: "Departamentos", icon: UsersRound },
   { id: "inboxes", label: "Caixas de Entrada", icon: Inbox },
   { id: "labels", label: "Etiquetas", icon: Tag },
   { id: "attributes", label: "Atributos", icon: Sliders },

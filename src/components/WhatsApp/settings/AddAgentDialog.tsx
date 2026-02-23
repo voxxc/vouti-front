@@ -186,13 +186,13 @@ export const AddAgentDialog = ({ open, onOpenChange, onAgentAdded }: AddAgentDia
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="team">Time (opcional)</Label>
+            <Label htmlFor="team">Departamento (opcional)</Label>
             <Select value={teamId} onValueChange={setTeamId}>
               <SelectTrigger>
-                <SelectValue placeholder="Nenhum time" />
+                <SelectValue placeholder="Nenhum departamento" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Nenhum time</SelectItem>
+                <SelectItem value="none">Nenhum departamento</SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
