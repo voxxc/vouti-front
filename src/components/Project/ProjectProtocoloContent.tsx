@@ -64,6 +64,8 @@ import { RelatorioProtocolo } from './RelatorioProtocolo';
 import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
 import { ProtocoloVinculoTab } from './ProtocoloVinculoTab';
 import { DeadlineComentarios } from '@/components/Agenda/DeadlineComentarios';
+import { TaskComentarios } from './TaskComentarios';
+import { Separator } from '@/components/ui/separator';
 
 export interface ProjectProtocoloContentProps {
   protocolo: ProjectProtocolo;
@@ -405,6 +407,9 @@ export function ProjectProtocoloContent({
                     <p className="mt-1 text-sm">{protocolo.observacoes}</p>
                   </div>
                 )}
+                <Separator />
+                <TaskComentarios taskId={protocolo.id} currentUserId={user?.id || ''} />
+
                 <div className="pt-4 border-t space-y-3">
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase mb-2 block">Alterar Status</Label>
