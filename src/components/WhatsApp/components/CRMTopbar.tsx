@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageCircle, LogOut } from "lucide-react";
+import { MessageCircle, LogOut, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
@@ -8,12 +8,15 @@ import { CRMNotificationsBell } from "./CRMNotificationsBell";
 import { CRMInternalChat } from "./CRMInternalChat";
 import { useMessages } from "@/hooks/useMessages";
 import { WhatsAppSection } from "../WhatsAppDrawer";
+import { ThemeToggle } from "@/components/Common/ThemeToggle";
 
 interface CRMTopbarProps {
   onSectionChange: (section: WhatsAppSection) => void;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
-export const CRMTopbar = ({ onSectionChange }: CRMTopbarProps) => {
+export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }: CRMTopbarProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { tenant } = useParams();
@@ -34,13 +37,24 @@ export const CRMTopbar = ({ onSectionChange }: CRMTopbarProps) => {
   return (
     <>
       <header className="h-12 bg-card border-b border-border flex items-center justify-between px-4 shrink-0">
-        {/* Left: Logo */}
-        <button
-          onClick={() => onSectionChange("inbox")}
-          className="text-2xl font-black tracking-tight lowercase text-foreground hover:opacity-80 transition-opacity cursor-pointer"
-        >
-          vouti<span className="text-[#E11D48]">.</span>crm
-        </button>
+        {/* Left: Logo + Sidebar Toggle */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onToggleSidebar}
+            title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+          >
+            {sidebarCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
+          <button
+            onClick={() => onSectionChange("inbox")}
+            className="text-3xl font-black tracking-tight lowercase text-foreground hover:opacity-80 transition-opacity cursor-pointer ml-1"
+          >
+            vouti<span className="text-[#E11D48]">.</span>crm
+          </button>
+        </div>
 
         {/* Right: Chat, Notifications, Profile, Logout */}
         <div className="flex items-center gap-2">
@@ -62,6 +76,9 @@ export const CRMTopbar = ({ onSectionChange }: CRMTopbarProps) => {
 
           {/* Notifications */}
           <CRMNotificationsBell />
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Profile Name */}
           <span className="text-sm font-medium text-foreground hidden sm:inline">
