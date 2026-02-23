@@ -1,64 +1,63 @@
 
 
-## Adicionar botao "Ler Todos" na Central de Andamentos Nao Lidos
+## Diagnostico e Correcao: Falhas de Carregamento no Tenant Solvenza
 
-### O que muda
+### Problema identificado
 
-Um botao "Ler Todos" sera adicionado no header da Central, ao lado do titulo. Ao clicar, um dialog de confirmacao aparece (pois a acao e irreversivel) e, ao confirmar, todos os andamentos nao lidos de todos os processos sao marcados como lidos de uma vez.
+O tenant Solvenza possui **21.772 andamentos** (8.506 nao lidos) em **311 processos**. Os logs mostram dezenas de erros `"canceling statement due to statement timeout"` e `"Timed out acquiring connection from connection pool"`, causando:
 
-### Alteracoes
+1. **"Erro ao carregar projetos"** - toast visivel no dashboard
+2. **Central travando** - queries pesadas saturam o connection pool
 
-**1. `src/hooks/useAndamentosNaoLidosGlobal.ts`**
+### Causa raiz
 
-Adicionar funcao `marcarTodosGlobalComoLidos` que faz um UPDATE em batch:
+Tres queries pesadas rodam simultaneamente ao abrir o dashboard/controladoria, saturando o pool de conexoes:
 
-```typescript
-const marcarTodosGlobalComoLidos = async () => {
-  const ids = processosRef.current.map(p => p.id);
-  if (ids.length === 0) return { error: null };
+| Query | O que faz | Volume |
+|---|---|---|
+| `CentralControladoria.tsx` (badge) | LEFT JOIN 311 processos × 21.772 andamentos, filtra `lida=false` no JS | ~22k rows |
+| `useAndamentosNaoLidosGlobal.ts` | Mesmo JOIN + dados de OAB | ~22k rows |
+| `useProjectsOptimized.ts` + `DashboardLayout.tsx` | Queries normais que falham porque o pool esta esgotado | Vitimas colaterais |
 
-  const { error } = await supabase
-    .from('processos_oab_andamentos')
-    .update({ lida: true })
-    .in('processo_oab_id', ids)
-    .eq('lida', false);
+O pool de conexoes do Supabase Free tier suporta ~20 conexoes. As queries de andamentos demoram tanto que bloqueiam as demais.
 
-  if (!error) {
-    setProcessos([]);
-    setTotalNaoLidos(0);
-  }
+### Solucao em 2 partes
 
-  return { error };
-};
-```
+**Parte 1: Otimizacao de performance (banco + frontend)**
 
-Retornar `marcarTodosGlobalComoLidos` no return do hook.
+Criar 2 funcoes SQL + 1 indice composto para eliminar as queries pesadas:
 
-**2. `src/components/Controladoria/CentralAndamentosNaoLidos.tsx`**
+**Migracao SQL:**
+- `get_total_andamentos_nao_lidos(p_tenant_id)` - retorna 1 numero em vez de 22k rows
+- `get_andamentos_nao_lidos_por_processo(p_tenant_id)` - retorna ~50 rows (processos com pendencias) em vez de 22k
+- Indice composto `idx_andamentos_processo_lida_composite` em `(processo_oab_id) WHERE lida = false`
 
-- Extrair `marcarTodosGlobalComoLidos` do hook
-- Adicionar estado `confirmMarkAllGlobal` (boolean) para controlar o dialog
-- Adicionar botao no header (ao lado do titulo/badge):
+**`CentralControladoria.tsx`:**
+- Substituir query pesada por `supabase.rpc('get_total_andamentos_nao_lidos', { p_tenant_id: tenantId })`
+- Retorna 1 numero, executa em <10ms
 
-```tsx
-<Button
-  variant="outline"
-  size="sm"
-  onClick={() => setConfirmMarkAllGlobal(true)}
-  disabled={totalNaoLidos === 0 || loading}
->
-  <CheckCheck className="h-4 w-4 mr-1" />
-  Ler Todos
-</Button>
-```
+**`useAndamentosNaoLidosGlobal.ts`:**
+- Query 1: Buscar processos com OAB (sem join de andamentos) - ~311 rows leves
+- Query 2: `supabase.rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId })` - ~50 rows
+- Merge em memoria por `processo_oab_id`
+- Resultado: mesma funcionalidade, 99% menos dados transferidos
 
-- Adicionar um segundo `AlertDialog` para confirmacao global com texto: "Todos os **{totalNaoLidos}** andamentos nao lidos de **todos os processos** serao marcados como lidos."
-- No confirmar, chamar `marcarTodosGlobalComoLidos()` com toast de sucesso/erro
+**Parte 2: Marcar todos os andamentos como lidos**
 
-### Resumo
+Usar a funcao `marcarTodosGlobalComoLidos` ja implementada, executando-a via SQL direto para o tenant Solvenza, limpando os 8.506 andamentos pendentes de uma vez.
 
-| Arquivo | Mudanca |
-|---|---|
-| `useAndamentosNaoLidosGlobal.ts` | Nova funcao `marcarTodosGlobalComoLidos` |
-| `CentralAndamentosNaoLidos.tsx` | Botao "Ler Todos" + AlertDialog de confirmacao |
+### Impacto esperado
+
+| Metrica | Antes | Depois |
+|---|---|---|
+| Rows para badge | ~22.000 | 1 |
+| Rows para lista | ~22.000 | ~360 |
+| Tempo de resposta | Timeout (>8s) | <200ms |
+| Erro "carregar projetos" | Sim (pool esgotado) | Nao (pool livre) |
+
+### Arquivos alterados
+
+- **Migracao SQL**: 2 funcoes + 1 indice
+- `src/components/Controladoria/CentralControladoria.tsx` - RPC para badge
+- `src/hooks/useAndamentosNaoLidosGlobal.ts` - RPC + merge para lista
 
