@@ -43,8 +43,8 @@ export const useAndamentosNaoLidosGlobal = () => {
 
     setLoading(true);
     try {
-      // Fetch all processes with their andamentos
-      const { data, error } = await supabase
+      // Query 1: Buscar processos com OAB (sem andamentos - leve)
+      const { data: processosData, error } = await supabase
         .from('processos_oab')
         .select(`
           id,
@@ -60,10 +60,6 @@ export const useAndamentosNaoLidosGlobal = () => {
             oab_numero,
             oab_uf,
             nome_advogado
-          ),
-          processos_oab_andamentos!left(
-            id,
-            lida
           )
         `)
         .eq('tenant_id', tenantId);
@@ -73,15 +69,25 @@ export const useAndamentosNaoLidosGlobal = () => {
         return;
       }
 
+      // Query 2: Buscar apenas andamentos não lidos (usa índice parcial)
+      const { data: naoLidosData } = await supabase
+        .from('processos_oab_andamentos')
+        .select('processo_oab_id')
+        .eq('lida', false);
+
+      // Montar mapa de contagens
+      const naoLidosMap = new Map<string, number>();
+      (naoLidosData || []).forEach((a: any) => {
+        naoLidosMap.set(a.processo_oab_id, (naoLidosMap.get(a.processo_oab_id) || 0) + 1);
+      });
+
       // Extract unique OABs for filter dropdown
       const oabsMap = new Map<string, OABOption>();
       
-      // Process data and calculate unread counts
-      const processosComNaoLidos = (data || [])
+      const processosComNaoLidos = (processosData || [])
         .map((p: any) => {
           const oabData = p.oabs_cadastradas;
           
-          // Add to OABs map
           if (oabData && !oabsMap.has(oabData.id)) {
             oabsMap.set(oabData.id, {
               id: oabData.id,
@@ -89,8 +95,7 @@ export const useAndamentosNaoLidosGlobal = () => {
             });
           }
 
-          const naoLidos = (p.processos_oab_andamentos || [])
-            .filter((a: any) => a.lida === false).length;
+          const naoLidos = naoLidosMap.get(p.id) || 0;
 
           return {
             id: p.id,

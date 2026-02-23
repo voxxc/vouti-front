@@ -69,6 +69,7 @@ const DashboardLayout = ({
   
   // Estado central para o drawer ativo - NOVA ARQUITETURA
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -240,6 +241,7 @@ const DashboardLayout = ({
         currentPage={currentPage} 
         activeDrawer={activeDrawer}
         onDrawerChange={handleDrawerChange}
+        onCollapsedChange={setSidebarCollapsed}
       />
 
       {/* Main Content Area */}
@@ -327,7 +329,7 @@ const DashboardLayout = ({
               ? "z-40 opacity-100 pointer-events-auto"
               : "z-[-1] opacity-0 pointer-events-none"
           )}
-          style={{ left: '64px' }}
+          style={{ left: sidebarCollapsed ? '64px' : '224px' }}
         >
           <div className="h-full overflow-auto p-6">
             <div className="flex items-center justify-between mb-4">
