@@ -20,11 +20,13 @@ import {
   Settings2,
   Pencil,
   StickyNote,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Camera,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -79,6 +81,8 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   const [openSections, setOpenSections] = useState<string[]>(["actions"]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
+  const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
+  const [loadingPic, setLoadingPic] = useState(false);
   const { tenantId: hookTenantId } = useTenantId();
   const resolvedTenantId = propTenantId || hookTenantId;
 
@@ -89,6 +93,47 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   const [showColumnConfirm, setShowColumnConfirm] = useState(false);
   const [kanbanCardId, setKanbanCardId] = useState<string | null>(null);
   const [transferredFromName, setTransferredFromName] = useState<string | null>(null);
+
+  // Fetch profile picture from Z-API
+  const fetchProfilePicture = async () => {
+    if (!currentAgentId || loadingPic) return;
+    setLoadingPic(true);
+    try {
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("zapi_instance_id, zapi_instance_token, zapi_client_token")
+        .eq("agent_id", currentAgentId)
+        .maybeSingle();
+
+      if (!instance?.zapi_instance_id) {
+        toast.error("Credenciais Z-API não configuradas");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("whatsapp-zapi-action", {
+        body: {
+          action: "profile-picture",
+          phone: conversation.contactNumber,
+          zapi_instance_id: instance.zapi_instance_id,
+          zapi_instance_token: instance.zapi_instance_token,
+          zapi_client_token: instance.zapi_client_token || "",
+        },
+      });
+
+      if (error) throw error;
+      const link = data?.data?.link;
+      if (link) {
+        setProfilePicUrl(link);
+      } else {
+        toast.info("Foto de perfil não disponível");
+      }
+    } catch (err) {
+      console.error("Erro ao buscar foto:", err);
+      toast.error("Erro ao buscar foto de perfil");
+    } finally {
+      setLoadingPic(false);
+    }
+  };
 
   // Load contact ID if exists
   useEffect(() => {
@@ -336,8 +381,11 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
     <div className="w-80 border-l border-border bg-card flex flex-col">
       {/* Contact Header */}
       <div className="p-6 border-b border-border text-center">
-        <div className="relative inline-block">
-          <Avatar className="h-20 w-20 mx-auto mb-4">
+        <div className="relative inline-block group">
+          <Avatar className="h-20 w-20 mx-auto mb-1">
+            {profilePicUrl && (
+              <AvatarImage src={profilePicUrl} alt={conversation.contactName} />
+            )}
             <AvatarFallback className="bg-green-500/20 text-green-600 text-2xl">
               {conversation.contactName.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -351,6 +399,18 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
+          <button
+            onClick={fetchProfilePicture}
+            disabled={loadingPic}
+            className="mx-auto flex items-center justify-center h-5 w-5 rounded-full opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity text-muted-foreground cursor-pointer"
+            title="Buscar foto de perfil"
+          >
+            {loadingPic ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
         <h3 className="font-semibold text-lg text-foreground">
           {conversation.contactName}
