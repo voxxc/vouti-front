@@ -14,6 +14,7 @@ function maskPhone(phone: string): string {
 
 // Normaliza telefone brasileiro para formato com 9 dígitos
 function normalizePhoneNumber(phone: string): string {
+  if (phone.startsWith('lid_')) return phone; // preservar fallback LID
   let cleaned = phone.replace(/@.*$/, '').replace(/\D/g, '');
   if (cleaned.length === 12 && cleaned.startsWith('55')) {
     const ddd = cleaned.substring(2, 4);
@@ -55,7 +56,26 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     }
   }
 
-  // 4. NOVO: buscar por chatName na tabela de contatos
+  // 3.5 NOVO: Para fromMe=true, buscar conversa recebida recente na mesma instância
+  if (data.fromMe === true && data.instanceId) {
+    const { data: recentReceived } = await supabase
+      .from('whatsapp_messages')
+      .select('from_number')
+      .eq('instance_name', data.instanceId)
+      .eq('direction', 'received')
+      .not('from_number', 'like', 'lid_%')
+      .gt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (recentReceived?.from_number?.startsWith('55')) {
+      console.log('Resolved fromMe LID via recent received message:', maskPhone(recentReceived.from_number));
+      return recentReceived.from_number;
+    }
+  }
+
+  // 4. buscar por chatName na tabela de contatos
   if (data.chatName) {
     const { data: contact } = await supabase
       .from('whatsapp_contacts')
