@@ -144,7 +144,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           filter: `tenant_id=eq.${tenantId}`
         },
         () => {
-          loadConversations();
+          loadConversations(false);
           loadTickets();
         }
       )
@@ -404,7 +404,23 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
   }, [tenantId, myAgentId]);
 
-  // Polling removido — Realtime (postgres_changes) já está implementado neste componente
+  // Polling de fallback (15s) para garantir atualização quando Realtime falha
+  useEffect(() => {
+    if (!tenantId || myAgentId === undefined) return;
+    const intervalId = setInterval(() => {
+      loadConversations(false);
+    }, 15000);
+    return () => clearInterval(intervalId);
+  }, [tenantId, myAgentId, loadConversations]);
+
+  // Polling de fallback para mensagens da conversa ativa (15s)
+  useEffect(() => {
+    if (!selectedConversation || !tenantId) return;
+    const intervalId = setInterval(() => {
+      loadMessages(selectedConversation.contactNumber);
+    }, 15000);
+    return () => clearInterval(intervalId);
+  }, [selectedConversation, tenantId, loadMessages]);
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation || !tenantId) return;
