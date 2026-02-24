@@ -234,7 +234,7 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
   useEffect(() => {
     const intervalId = setInterval(() => {
       loadConversations(false);
-    }, 15000);
+    }, 2000);
 
     return () => {
       clearInterval(intervalId);
@@ -247,7 +247,7 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
 
     const intervalId = setInterval(() => {
       loadMessages(selectedConversation.contactNumber);
-    }, 15000);
+    }, 2000);
 
     return () => {
       clearInterval(intervalId);

@@ -31,8 +31,7 @@ function isValidBrazilianPhone(phone: string): boolean {
 function isLidNumber(phone: string): boolean {
   if (phone.includes('@lid')) return true;
   const digits = phone.replace(/\D/g, '');
-  // Qualquer número > 13 dígitos é LID ou grupo (telefone BR = 12-13)
-  if (digits.length > 13) return true;
+  if (digits.length > 13 && !digits.startsWith('55')) return true;
   return false;
 }
 
@@ -264,12 +263,6 @@ function detectMediaInfo(data: any): { messageType: string; mediaUrl: string | n
 }
 
 async function handleIncomingMessage(data: any) {
-  // Ignorar mensagens de grupo (não são conversas individuais do CRM)
-  if (data.isGroup === true) {
-    console.log('Skipping group message:', data.chatName || 'unknown group');
-    return;
-  }
-
   const { instanceId, phone: rawPhone, messageId, text, chatName, momment, fromMe } = data;
   
   let resolvedPhone = rawPhone;
