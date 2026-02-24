@@ -1,54 +1,41 @@
 
 
-## Problema: mensagens enviadas do celular com LID continuam não aparecendo corretamente
+## Problema: Mensagem `fromMe` foi parar no grupo "Pedagógico 02"
 
-### O que descobri nos logs e banco
+### O que aconteceu (rastreamento completo)
 
-A mensagem das 14:01:08 **foi salva** (o fallback funcionou), mas com `from_number: 252368050503779` — um LID inválido. Isso cria uma "conversa fantasma" que não aparece na inbox real.
+A mensagem enviada do celular às 14:07:44 (imagem com texto sobre aulas de inglês) tinha `phone: 176424824631532@lid` (formato LID). A estratégia 3.5 que eu criei ("buscar conversa recebida mais recente na mesma instância") resolveu para `5547883224521631196696` — que é o número do **grupo "Pedagógico 02"**, NÃO o contato individual.
 
-Dados concretos do banco:
+Prova no banco:
 
-| Hora | Direção | from_number | chatLid | chatName | raw phone |
-|---|---|---|---|---|---|
-| 14:01:01 | received | **5545999180026** | 23081254949024@lid | Minha Esposa | 554599180026 |
-| 14:01:02 | received | **5545999180026** | 23081254949024@lid | Minha Esposa | 554599180026 |
-| 14:01:08 | outgoing (fromMe) | **252368050503779** | 252368050503779@lid | (vazio) | 252368050503779@lid |
+| Hora | from_number | len | isGroup | chatName |
+|---|---|---|---|---|
+| 14:07:45 | 5545999180026 | 13 | false | Minha Esposa |
+| 14:07:44 | **5547883224521631196696** | **22** | false* | *(vazio)* |
+| 14:05:30 | 5547883224521631196696 | 22 | **true** | Pedagógico 02 |
 
-O problema: a mensagem enviada pelo celular (`fromMe=true`) tem um LID **diferente** do LID das mensagens recebidas da mesma pessoa, e o `chatName` vem **vazio**. Por isso nenhuma das estratégias de resolução funciona.
+*A mensagem outgoing herdou o from_number do grupo porque a query da estratégia 3.5 pegou a mensagem mais recente recebida, que era do grupo (14:05:30), e o número do grupo (22 dígitos) passou no filtro `startsWith('55')`.
 
 ### Causa raiz
 
-1. `normalizePhoneNumber` recebe `lid_252368050503779` e **remove o prefixo** `lid_` porque faz `.replace(/\D/g, '')` — resultado: `252368050503779` (sem o prefixo protetor)
-2. Para mensagens `fromMe=true`, o Z-API envia o LID do **destinatário** (não do remetente). O `connectedPhone` (559291276333) é o número do próprio usuário
-3. `chatName` vem vazio para mensagens `fromMe=true`, impedindo correlação por nome
+O filtro da estratégia 3.5 é insuficiente:
+```typescript
+.not('from_number', 'like', 'lid_%')  // filtra lid_, OK
+// MAS não filtra números de grupo (22 dígitos, formato 554788322452-1631196696)
+```
 
-### Solucao (2 correções)
+Número de grupo normalizado: `5547883224521631196696` (22 chars) — passa no `startsWith('55')` mas NÃO é um telefone real. Telefones brasileiros têm 12-13 dígitos.
+
+### Correção
 
 **Arquivo**: `supabase/functions/whatsapp-webhook/index.ts`
 
-**Correção 1: `normalizePhoneNumber` deve preservar prefixo `lid_`**
+**1. Estratégia 3.5: adicionar validação de comprimento**
 
-A função atual remove tudo que não é dígito, destruindo o prefixo `lid_`. Precisa retornar o valor original se começar com `lid_`:
-
-```typescript
-function normalizePhoneNumber(phone: string): string {
-  if (phone.startsWith('lid_')) return phone; // preservar fallback
-  let cleaned = phone.replace(/@.*$/, '').replace(/\D/g, '');
-  if (cleaned.length === 12 && cleaned.startsWith('55')) {
-    const ddd = cleaned.substring(2, 4);
-    const number = cleaned.substring(4);
-    return `55${ddd}9${number}`;
-  }
-  return cleaned;
-}
-```
-
-**Correção 2: Para `fromMe=true` com LID, buscar conversa recente na mesma instância**
-
-Adicionar uma nova estratégia em `resolvePhoneFromLid` específica para `fromMe=true`: buscar a mensagem recebida mais recente na mesma instância (últimas horas) e usar o `from_number` dela como destinatário provável:
+A query precisa filtrar por comprimento do `from_number` (12-13 chars para telefone brasileiro) para excluir números de grupo:
 
 ```typescript
-// Estratégia especial para fromMe=true: buscar conversa ativa recente
+// 3.5: Para fromMe=true, buscar conversa recebida recente na mesma instância
 if (data.fromMe === true && data.instanceId) {
   const { data: recentReceived } = await supabase
     .from('whatsapp_messages')
@@ -58,20 +45,40 @@ if (data.fromMe === true && data.instanceId) {
     .not('from_number', 'like', 'lid_%')
     .gt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString())
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(10);  // pegar os 10 mais recentes e filtrar em código
   
-  if (recentReceived?.from_number?.startsWith('55')) {
-    return recentReceived.from_number;
+  if (recentReceived && recentReceived.length > 0) {
+    // Filtrar: apenas telefones brasileiros reais (12-13 dígitos, começando com 55)
+    const validPhone = recentReceived.find(m => 
+      m.from_number.startsWith('55') && 
+      m.from_number.length >= 12 && 
+      m.from_number.length <= 13
+    );
+    if (validPhone) {
+      console.log('Resolved fromMe LID via recent received message:', maskPhone(validPhone.from_number));
+      return validPhone.from_number;
+    }
   }
 }
 ```
 
-Essa heurística funciona porque: se o usuário enviou uma mensagem do celular, provavelmente é uma resposta a uma conversa recente na mesma instância.
+**2. Validação global: adicionar helper `isValidBrazilianPhone`**
+
+Criar uma função auxiliar para reusar a validação em todas as estratégias:
+
+```typescript
+function isValidBrazilianPhone(phone: string): boolean {
+  return phone.startsWith('55') && phone.length >= 12 && phone.length <= 13;
+}
+```
+
+**3. Aplicar a mesma validação na estratégia do chatName (passo 5)**
+
+O mesmo bug pode acontecer lá — se o chatName correlacionar com uma mensagem de grupo, ela herdaria o from_number do grupo.
 
 ### Resultado esperado
 
-- Mensagens `fromMe=true` com LID serão associadas à conversa correta (baseado no histórico recente)
-- Mensagens com fallback `lid_` manterão o prefixo no banco (para identificação e resolução futura)
-- Caso não haja conversa recente, a mensagem será salva com `lid_` visível na inbox em vez de sumir
+- Números de grupo (22+ dígitos) serão filtrados pela validação de comprimento
+- A estratégia 3.5 pegará o primeiro telefone **real** recente (ex: `5545999180026` de "Minha Esposa")
+- Mensagens `fromMe` com LID serão associadas à conversa individual correta
 
