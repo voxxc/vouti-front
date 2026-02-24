@@ -277,11 +277,34 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
     }
   }, [agentId, agentName]);
 
-  // Polling every 2 seconds
+  // Realtime para kanban e mensagens
   useEffect(() => {
-    const interval = setInterval(silentRefresh, 2000);
-    return () => clearInterval(interval);
-  }, [silentRefresh]);
+    const channel = supabase
+      .channel(`kanban-${agentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'whatsapp_conversation_kanban',
+        },
+        () => silentRefresh()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_messages',
+        },
+        () => silentRefresh()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [agentId, silentRefresh]);
 
   // Handle card click -> navigate to inbox
   const handleCardClick = (card: KanbanCard) => {

@@ -124,11 +124,6 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
     loadConversations();
   }, [loadConversations]);
 
-  // Polling
-  useEffect(() => {
-    const interval = setInterval(() => loadConversations(false), 3000);
-    return () => clearInterval(interval);
-  }, [loadConversations]);
 
   // Load messages for selected conversation
   const loadMessages = useCallback(async (contactNumber: string) => {
@@ -167,11 +162,33 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
     }
   }, [selectedConversation, loadMessages]);
 
+  // Realtime para conversas e mensagens
   useEffect(() => {
-    if (!selectedConversation) return;
-    const interval = setInterval(() => loadMessages(selectedConversation.contactNumber), 2000);
-    return () => clearInterval(interval);
-  }, [selectedConversation, loadMessages]);
+    if (!tenantId) return;
+
+    const channel = supabase
+      .channel(`label-conv-${labelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_messages',
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        () => {
+          loadConversations(false);
+          if (selectedConversation) {
+            loadMessages(selectedConversation.contactNumber);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, labelId, loadConversations, selectedConversation, loadMessages]);
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation) return;

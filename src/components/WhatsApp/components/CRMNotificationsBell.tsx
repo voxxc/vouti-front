@@ -55,9 +55,30 @@ export const CRMNotificationsBell = () => {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 5000);
-    return () => clearInterval(interval);
   }, [user?.id, tenantId]);
+
+  // Realtime para notificações
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`crm-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => loadNotifications()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const markAllRead = async () => {
     if (!user?.id || unreadCount === 0) return;

@@ -97,7 +97,7 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
   const [kanbanCardId, setKanbanCardId] = useState<string | null>(null);
   const [transferredFromName, setTransferredFromName] = useState<string | null>(null);
 
-  // Polling macros every 2s
+  // Carregar macros uma vez (dados de configuração, não precisam de polling)
   useEffect(() => {
     if (!currentAgentId) return;
     const fetchMacros = async () => {
@@ -110,8 +110,6 @@ export const ContactInfoPanel = ({ conversation, onContactSaved, currentAgentId,
       setAgentMacros((data as any[]) || []);
     };
     fetchMacros();
-    const interval = setInterval(fetchMacros, 2000);
-    return () => clearInterval(interval);
   }, [currentAgentId]);
 
   // Fetch profile picture from Z-API

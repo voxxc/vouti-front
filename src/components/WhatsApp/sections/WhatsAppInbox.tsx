@@ -402,28 +402,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
   }, [tenantId, myAgentId]);
 
-  // Polling automático para conversas
-  useEffect(() => {
-    if (!tenantId || myAgentId === undefined) return;
-
-    const intervalId = setInterval(() => {
-      loadConversations(false);
-      loadTickets();
-    }, 2000);
-
-    return () => clearInterval(intervalId);
-  }, [tenantId, loadConversations, myAgentId, loadTickets]);
-
-  // Polling automático para mensagens
-  useEffect(() => {
-    if (!selectedConversation || !tenantId) return;
-
-    const intervalId = setInterval(() => {
-      loadMessages(selectedConversation.contactNumber);
-    }, 2000);
-
-    return () => clearInterval(intervalId);
-  }, [selectedConversation, tenantId, loadMessages]);
+  // Polling removido — Realtime (postgres_changes) já está implementado neste componente
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation || !tenantId) return;
