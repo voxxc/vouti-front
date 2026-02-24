@@ -24,6 +24,10 @@ function normalizePhoneNumber(phone: string): string {
   return cleaned;
 }
 
+function isValidBrazilianPhone(phone: string): boolean {
+  return phone.startsWith('55') && phone.length >= 12 && phone.length <= 13;
+}
+
 function isLidNumber(phone: string): boolean {
   if (phone.includes('@lid')) return true;
   const digits = phone.replace(/\D/g, '');
@@ -66,12 +70,15 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
       .not('from_number', 'like', 'lid_%')
       .gt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(10);
     
-    if (recentReceived?.from_number?.startsWith('55')) {
-      console.log('Resolved fromMe LID via recent received message:', maskPhone(recentReceived.from_number));
-      return recentReceived.from_number;
+    if (recentReceived && recentReceived.length > 0) {
+      // Filtrar: apenas telefones brasileiros reais (12-13 dígitos) para excluir números de grupo (22+ dígitos)
+      const validPhone = recentReceived.find(m => isValidBrazilianPhone(m.from_number));
+      if (validPhone) {
+        console.log('Resolved fromMe LID via recent received message:', maskPhone(validPhone.from_number));
+        return validPhone.from_number;
+      }
     }
   }
 
@@ -105,7 +112,7 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     if (historyMatches && historyMatches.length > 0) {
       for (const m of historyMatches) {
         const rawChatName = (m.raw_data as any)?.chatName;
-        if (rawChatName === data.chatName && m.from_number.startsWith('55')) {
+        if (rawChatName === data.chatName && isValidBrazilianPhone(m.from_number)) {
           return m.from_number;
         }
       }
