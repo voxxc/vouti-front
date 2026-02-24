@@ -1,26 +1,50 @@
 
 
-## Remover polling do AgendaMetrics
+## Migrar WhatsApp para Realtime e eliminar pollings
 
-Mudanca simples: no `AgendaMetrics.tsx`, remover o `refetchInterval` e aumentar o `staleTime` do React Query para que os dados so atualizem quando o usuario recarregar a pagina (F5).
+### Resumo da mudanca
 
-### O que muda
+6 componentes serao alterados. Componentes que ja tem Realtime terao apenas o polling removido. Componentes sem Realtime ganharao subscription e terao o polling removido.
 
-No arquivo `src/components/Dashboard/Metrics/AgendaMetrics.tsx`, linhas 53-54:
+### Componentes e acoes
 
-**Antes:**
+| Componente | Polling atual | Realtime existente? | Acao |
+|---|---|---|---|
+| **WhatsAppInbox** | 2s (conversas + mensagens) | Sim, completo | Remover os 2 `setInterval` (linhas 405-426) |
+| **WhatsAppAllConversations** | 2s (conversas + mensagens) | Sim (conversas) | Remover os 2 `setInterval` (linhas 204-221). Adicionar Realtime para mensagens da conversa selecionada |
+| **WhatsAppLabelConversations** | 3s conversas + 2s mensagens | Nao | Adicionar Realtime em `whatsapp_messages` para atualizar conversas e mensagens. Remover os 2 `setInterval` (linhas 127-131 e 170-174) |
+| **WhatsAppKanban** | 2s | Nao | Adicionar Realtime em `whatsapp_conversation_kanban` + `whatsapp_messages`. Remover `setInterval` (linhas 280-284) |
+| **ContactInfoPanel** | 2s (macros) | Nao | Macros raramente mudam. Carregar uma vez, remover `setInterval` (linhas 100-115). Sem Realtime necessario |
+| **CRMNotificationsBell** | 5s | Nao | Adicionar Realtime em `notifications` filtrado por `user_id`. Remover `setInterval` (linhas 56-60) |
+
+### Detalhes tecnicos
+
+**Padrao Realtime aplicado** (mesmo do WhatsAppInbox que ja funciona):
+```typescript
+const channel = supabase
+  .channel('nome-canal')
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'whatsapp_messages',
+    filter: `tenant_id=eq.${tenantId}`
+  }, () => loadData())
+  .subscribe();
+
+return () => { supabase.removeChannel(channel); };
 ```
-staleTime: 2 * 1000,
-refetchInterval: 4 * 1000,
-```
 
-**Depois:**
-```
-staleTime: Infinity,
-```
+**WhatsAppLabelConversations** - Ao receber INSERT em `whatsapp_messages`, chama `loadConversations(false)`. Se houver conversa selecionada, tambem chama `loadMessages`.
 
-Isso faz com que:
-- Os dados sejam buscados **uma unica vez** ao abrir o Dashboard
-- So atualizem com F5 ou ao navegar para outra pagina e voltar
-- Reducao de **900 queries/hora para ~1 query/hora** por usuario com role "agenda"
+**WhatsAppKanban** - Escuta INSERT em `whatsapp_messages` e changes em `whatsapp_conversation_kanban` para chamar `silentRefresh`.
+
+**CRMNotificationsBell** - Escuta INSERT em `notifications` filtrado pelo `user_id` para chamar `loadNotifications`.
+
+**ContactInfoPanel** - Macros sao dados de configuracao que quase nunca mudam em tempo real. Basta carregar uma vez ao montar (o fetch inicial ja existe). Sem Realtime, sem polling.
+
+### Economia estimada
+
+- **Antes**: ~10.800 queries/hora (3 usuarios ativos no WhatsApp)
+- **Depois**: ~50 queries/hora (apenas carregamentos iniciais + reacoes a eventos reais)
+- **Reducao**: ~99.5%
 
