@@ -1,30 +1,26 @@
 
 
-## Plano: Cards de prazo abrem o Drawer da Agenda
+## Remover polling do AgendaMetrics
 
-### Situacao atual
-
-No `PrazosAbertosPanel.tsx`, existem 3 abas de tarefas/prazos:
-
-- **Prazos** (linha 353): Ao clicar, ja chama `onOpenAgendaDrawer` (que abre o drawer da agenda). Isso ja funciona.
-- **Admin** (linha 442/543): Ao clicar, chama `handleNavigateToProjetos` — navega para `/projects`.
-- **Juridico** (linha 442/554): Ao clicar, chama `handleNavigateToControladoria` — navega para `/controladoria`.
+Mudanca simples: no `AgendaMetrics.tsx`, remover o `refetchInterval` e aumentar o `staleTime` do React Query para que os dados so atualizem quando o usuario recarregar a pagina (F5).
 
 ### O que muda
 
-Alterar o `onClick` dos cards nas abas **Admin** e **Juridico** para tambem abrir o drawer da agenda, igual a aba Prazos.
+No arquivo `src/components/Dashboard/Metrics/AgendaMetrics.tsx`, linhas 53-54:
 
-### Alteracoes
+**Antes:**
+```
+staleTime: 2 * 1000,
+refetchInterval: 4 * 1000,
+```
 
-**Arquivo**: `src/components/Dashboard/PrazosAbertosPanel.tsx`
+**Depois:**
+```
+staleTime: Infinity,
+```
 
-1. **Aba Admin** (linha 543): Trocar `handleNavigateToProjetos` por `onOpenAgendaDrawer || handleNavigateToProjetos` no `onNavigate` passado ao `renderTarefasList`
-
-2. **Aba Juridico** (linha 554): Trocar `handleNavigateToControladoria` por `onOpenAgendaDrawer || handleNavigateToControladoria` no `onNavigate` passado ao `renderTarefasList`
-
-Os botoes "Ver todos os projetos" e "Ver controladoria" no rodape de cada aba continuam navegando normalmente — so o clique nos cards individuais muda.
-
-### Detalhe tecnico
-
-A funcao `renderTarefasList` recebe `onNavigate` como parametro e usa tanto no `onClick` dos cards (linha 442) quanto no botao do rodape (linha 482). Para diferenciar, sera necessario passar dois callbacks separados: um para o card (abre drawer) e outro para o botao do rodape (navega para a pagina). Isso requer um pequeno ajuste na assinatura de `renderTarefasList` para aceitar `onCardClick` e `onFooterNavigate` separadamente.
+Isso faz com que:
+- Os dados sejam buscados **uma unica vez** ao abrir o Dashboard
+- So atualizem com F5 ou ao navegar para outra pagina e voltar
+- Reducao de **900 queries/hora para ~1 query/hora** por usuario com role "agenda"
 
