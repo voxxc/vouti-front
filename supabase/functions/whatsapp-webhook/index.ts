@@ -31,6 +31,7 @@ function isLidNumber(phone: string): boolean {
 }
 
 async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<string | null> {
+  // 1. chatId
   if (data.chatId && typeof data.chatId === 'string') {
     const chatPhone = data.chatId.replace(/@.*$/, '').replace(/\D/g, '');
     if (chatPhone.startsWith('55') && chatPhone.length >= 12 && chatPhone.length <= 13) {
@@ -38,6 +39,7 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     }
   }
 
+  // 2. chatLid
   if (data.chatLid && typeof data.chatLid === 'string') {
     const chatLidPhone = data.chatLid.replace(/@.*$/, '').replace(/\D/g, '');
     if (chatLidPhone.startsWith('55') && chatLidPhone.length >= 12 && chatLidPhone.length <= 13) {
@@ -45,6 +47,7 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     }
   }
   
+  // 3. campo "to"
   if (data.to && typeof data.to === 'string') {
     const toPhone = data.to.replace(/@.*$/, '').replace(/\D/g, '');
     if (toPhone.startsWith('55') && toPhone.length >= 12 && toPhone.length <= 13) {
@@ -52,6 +55,44 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     }
   }
 
+  // 4. NOVO: buscar por chatName na tabela de contatos
+  if (data.chatName) {
+    const { data: contact } = await supabase
+      .from('whatsapp_contacts')
+      .select('phone')
+      .eq('name', data.chatName)
+      .limit(1)
+      .maybeSingle();
+    if (contact?.phone) {
+      const normalized = normalizePhoneNumber(contact.phone);
+      if (normalized.startsWith('55') && normalized.length >= 12) {
+        return normalized;
+      }
+    }
+  }
+
+  // 5. NOVO: buscar por chatName no histórico de mensagens recentes
+  if (data.chatName && data.instanceId) {
+    const { data: historyMatches } = await supabase
+      .from('whatsapp_messages')
+      .select('from_number, raw_data')
+      .eq('instance_name', data.instanceId)
+      .neq('from_number', '')
+      .not('from_number', 'like', 'lid_%')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    
+    if (historyMatches && historyMatches.length > 0) {
+      for (const m of historyMatches) {
+        const rawChatName = (m.raw_data as any)?.chatName;
+        if (rawChatName === data.chatName && m.from_number.startsWith('55')) {
+          return m.from_number;
+        }
+      }
+    }
+  }
+
+  // 6. Busca por LID no histórico (existente)
   const lidOriginal = originalPhone.includes('@') ? originalPhone : `${originalPhone}@lid`;
   const lidClean = originalPhone.replace(/@.*$/, '');
   
@@ -64,11 +105,20 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     .limit(1)
     .maybeSingle();
 
-  if (match?.from_number) {
+  if (match?.from_number && !match.from_number.startsWith('lid_')) {
     return match.from_number;
   }
 
-  console.warn('Could not resolve LID');
+  // 7. Logging detalhado para diagnóstico
+  console.warn('Could not resolve LID', JSON.stringify({
+    originalPhone,
+    chatId: data.chatId,
+    chatLid: data.chatLid,
+    chatName: data.chatName,
+    to: data.to,
+    fromMe: data.fromMe,
+    instanceId: data.instanceId,
+  }));
   return null;
 }
 
@@ -194,7 +244,11 @@ async function handleIncomingMessage(data: any) {
     if (realPhone) {
       resolvedPhone = realPhone;
     } else {
-      return;
+      // Fallback: salvar com identificador temporário em vez de descartar
+      resolvedPhone = chatName 
+        ? `lid_${chatName.replace(/[^a-zA-Z0-9]/g, '_')}` 
+        : `lid_${rawPhone.replace(/@.*$/, '').replace(/\D/g, '')}`;
+      console.warn('Using fallback phone for unresolved LID:', resolvedPhone);
     }
   }
   
