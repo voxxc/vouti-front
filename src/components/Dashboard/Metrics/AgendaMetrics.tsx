@@ -48,8 +48,7 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
 
       return metricsMap;
     },
-    staleTime: 2 * 1000,
-    refetchInterval: 4 * 1000,
+    staleTime: Infinity,
     enabled: !!userId,
   });
 
