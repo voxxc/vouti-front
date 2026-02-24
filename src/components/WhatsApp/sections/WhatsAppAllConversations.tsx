@@ -254,6 +254,18 @@ export const WhatsAppAllConversations = () => {
       });
 
       if (error) throw error;
+
+      // Optimistic message for immediate feedback
+      const optimisticMsg: WhatsAppMessage = {
+        id: `optimistic_${Date.now()}`,
+        messageText: text,
+        direction: "outgoing",
+        timestamp: new Date().toISOString(),
+        isFromMe: true,
+        messageType: (messageType as WhatsAppMessage['messageType']) || "text",
+        mediaUrl,
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
