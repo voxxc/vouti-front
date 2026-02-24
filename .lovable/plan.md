@@ -1,160 +1,77 @@
 
 
-## Problema: Mensagens do celular não aparecem na caixa de entrada
+## Problema: mensagens enviadas do celular com LID continuam não aparecendo corretamente
 
-### Diagnóstico
+### O que descobri nos logs e banco
 
-O webhook recebe a mensagem normalmente (status 200), mas **descarta silenciosamente** quando o número vem no formato LID (identificador interno do WhatsApp) e não consegue resolver para um número real.
+A mensagem das 14:01:08 **foi salva** (o fallback funcionou), mas com `from_number: 252368050503779` — um LID inválido. Isso cria uma "conversa fantasma" que não aparece na inbox real.
 
-Evidência concreta: a mensagem de imagem das 13:53:29 gerou o warning `"Could not resolve LID"` e **não foi salva no banco** (query confirmou 0 registros após 13:53:00).
+Dados concretos do banco:
+
+| Hora | Direção | from_number | chatLid | chatName | raw phone |
+|---|---|---|---|---|---|
+| 14:01:01 | received | **5545999180026** | 23081254949024@lid | Minha Esposa | 554599180026 |
+| 14:01:02 | received | **5545999180026** | 23081254949024@lid | Minha Esposa | 554599180026 |
+| 14:01:08 | outgoing (fromMe) | **252368050503779** | 252368050503779@lid | (vazio) | 252368050503779@lid |
+
+O problema: a mensagem enviada pelo celular (`fromMe=true`) tem um LID **diferente** do LID das mensagens recebidas da mesma pessoa, e o `chatName` vem **vazio**. Por isso nenhuma das estratégias de resolução funciona.
 
 ### Causa raiz
 
-O Z-API está enviando `phone` no formato LID (ex: `34028340283@lid` ou números com 14+ dígitos que não começam com 55). A função `resolvePhoneFromLid` tenta 4 estratégias:
+1. `normalizePhoneNumber` recebe `lid_252368050503779` e **remove o prefixo** `lid_` porque faz `.replace(/\D/g, '')` — resultado: `252368050503779` (sem o prefixo protetor)
+2. Para mensagens `fromMe=true`, o Z-API envia o LID do **destinatário** (não do remetente). O `connectedPhone` (559291276333) é o número do próprio usuário
+3. `chatName` vem vazio para mensagens `fromMe=true`, impedindo correlação por nome
 
-1. Extrair de `chatId` - falha se chatId também é LID
-2. Extrair de `chatLid` - falha se chatLid não tem formato brasileiro
-3. Extrair de `senderName` - raramente funciona
-4. Buscar no banco por mensagens anteriores - falha se é primeira interação ou dados anteriores também usam LID
-
-Quando todas falham, a mensagem é **silenciosamente descartada** (linha 197: `return;`).
-
-### Solução
-
-Expandir a resolução de LID com mais fontes de dados disponíveis no payload do Z-API e adicionar fallback para salvar a mensagem mesmo quando não consegue resolver completamente.
-
-### Mudanças no código
+### Solucao (2 correções)
 
 **Arquivo**: `supabase/functions/whatsapp-webhook/index.ts`
 
-| Mudança | Detalhe |
-|---|---|
-| Expandir `resolvePhoneFromLid` | Adicionar extração do campo `connectedPhone` (número do remetente quando `fromMe=true`), buscar pelo `chatName` na tabela de contatos, e tentar extrair número do `participantLid` |
-| Fallback para `fromMe=true` | Quando a mensagem é `fromMe` e o LID não resolve, usar o `connectedPhone` como contexto e buscar o número de destino pelo `messageId` ou `chatName` no histórico |
-| Salvar com LID como fallback | Em vez de descartar, salvar a mensagem com o LID como `from_number` temporário e marcar com um flag `needs_phone_resolution` para resolução posterior |
-| Logging melhorado | Logar os campos disponíveis quando falha a resolução para diagnóstico |
+**Correção 1: `normalizePhoneNumber` deve preservar prefixo `lid_`**
 
-### Implementação técnica
+A função atual remove tudo que não é dígito, destruindo o prefixo `lid_`. Precisa retornar o valor original se começar com `lid_`:
 
 ```typescript
-// resolvePhoneFromLid melhorado
-async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<string | null> {
-  // 1. chatId (existente)
-  if (data.chatId && typeof data.chatId === 'string') {
-    const chatPhone = data.chatId.replace(/@.*$/, '').replace(/\D/g, '');
-    if (chatPhone.startsWith('55') && chatPhone.length >= 12 && chatPhone.length <= 13) {
-      return chatPhone;
-    }
+function normalizePhoneNumber(phone: string): string {
+  if (phone.startsWith('lid_')) return phone; // preservar fallback
+  let cleaned = phone.replace(/@.*$/, '').replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    const ddd = cleaned.substring(2, 4);
+    const number = cleaned.substring(4);
+    return `55${ddd}9${number}`;
   }
+  return cleaned;
+}
+```
 
-  // 2. chatLid (existente)
-  if (data.chatLid && typeof data.chatLid === 'string') {
-    const chatLidPhone = data.chatLid.replace(/@.*$/, '').replace(/\D/g, '');
-    if (chatLidPhone.startsWith('55') && chatLidPhone.length >= 12 && chatLidPhone.length <= 13) {
-      return chatLidPhone;
-    }
-  }
+**Correção 2: Para `fromMe=true` com LID, buscar conversa recente na mesma instância**
 
-  // 3. NOVO: buscar por instanceId + chatName na tabela de contatos
-  if (data.chatName && data.instanceId) {
-    const { data: contact } = await supabase
-      .from('whatsapp_contacts')
-      .select('phone')
-      .eq('name', data.chatName)
-      .limit(1)
-      .maybeSingle();
-    if (contact?.phone) return normalizePhoneNumber(contact.phone);
-  }
+Adicionar uma nova estratégia em `resolvePhoneFromLid` específica para `fromMe=true`: buscar a mensagem recebida mais recente na mesma instância (últimas horas) e usar o `from_number` dela como destinatário provável:
 
-  // 4. NOVO: buscar por chatName no histórico de mensagens
-  if (data.chatName) {
-    const { data: match } = await supabase
-      .from('whatsapp_messages')
-      .select('from_number')
-      .eq('instance_name', data.instanceId)
-      .neq('from_number', '')
-      .not('from_number', 'like', '%@lid%')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    
-    // Buscar correlação pelo raw_data.chatName
-    if (match && match.length > 0) {
-      for (const m of match) {
-        // Verificar se este from_number tem mensagens com o mesmo chatName
-        const { data: check } = await supabase
-          .from('whatsapp_messages')
-          .select('id')
-          .eq('from_number', m.from_number)
-          .limit(1)
-          .maybeSingle();
-        if (check) return m.from_number;
-      }
-    }
-  }
-
-  // 5. Busca existente por LID no histórico
-  const lidOriginal = originalPhone.includes('@') ? originalPhone : `${originalPhone}@lid`;
-  const lidClean = originalPhone.replace(/@.*$/, '');
-  
-  const { data: match } = await supabase
+```typescript
+// Estratégia especial para fromMe=true: buscar conversa ativa recente
+if (data.fromMe === true && data.instanceId) {
+  const { data: recentReceived } = await supabase
     .from('whatsapp_messages')
     .select('from_number')
+    .eq('instance_name', data.instanceId)
     .eq('direction', 'received')
-    .or(`raw_data->>chatLid.eq.${lidOriginal},raw_data->>chatLid.eq.${lidClean},raw_data->>phone.eq.${lidClean}`)
-    .order('timestamp', { ascending: false })
+    .not('from_number', 'like', 'lid_%')
+    .gt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-
-  if (match?.from_number) return match.from_number;
-
-  // 6. NOVO: Logging detalhado para diagnóstico
-  console.warn('Could not resolve LID', JSON.stringify({
-    originalPhone,
-    chatId: data.chatId,
-    chatLid: data.chatLid,
-    chatName: data.chatName,
-    fromMe: data.fromMe,
-    instanceId: data.instanceId,
-  }));
   
-  return null;
-}
-```
-
-**Fallback: não descartar mensagens não resolvidas**
-
-Em vez de `return` silencioso quando LID não resolve, salvar com o LID como número temporário:
-
-```typescript
-// Linha 192-198 atual:
-if (rawPhone && isLidNumber(rawPhone)) {
-  const realPhone = await resolvePhoneFromLid(data, rawPhone);
-  if (realPhone) {
-    resolvedPhone = realPhone;
-  } else {
-    return; // ← PROBLEMA: descarta silenciosamente
-  }
-}
-
-// Mudança proposta:
-if (rawPhone && isLidNumber(rawPhone)) {
-  const realPhone = await resolvePhoneFromLid(data, rawPhone);
-  if (realPhone) {
-    resolvedPhone = realPhone;
-  } else {
-    // Fallback: usar chatName como identificador temporário
-    // para não perder a mensagem
-    resolvedPhone = data.chatName 
-      ? `lid_${data.chatName.replace(/[^a-zA-Z0-9]/g, '_')}` 
-      : `lid_${rawPhone.replace(/@.*$/, '')}`;
-    console.warn('Using fallback phone for unresolved LID:', resolvedPhone);
+  if (recentReceived?.from_number?.startsWith('55')) {
+    return recentReceived.from_number;
   }
 }
 ```
+
+Essa heurística funciona porque: se o usuário enviou uma mensagem do celular, provavelmente é uma resposta a uma conversa recente na mesma instância.
 
 ### Resultado esperado
 
-- Mensagens com LID serão resolvidas com mais fontes (chatName, contatos, histórico)
-- Mensagens que não puderem ser resolvidas serão salvas com identificador temporário em vez de descartadas
-- Log detalhado para diagnóstico de LIDs não resolvidos
+- Mensagens `fromMe=true` com LID serão associadas à conversa correta (baseado no histórico recente)
+- Mensagens com fallback `lid_` manterão o prefixo no banco (para identificação e resolução futura)
+- Caso não haja conversa recente, a mensagem será salva com `lid_` visível na inbox em vez de sumir
 
