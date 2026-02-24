@@ -106,10 +106,11 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
             
             // Adicionar mensagem evitando duplicação
             setMessages(prev => {
-              if (prev.some(m => m.id === formattedMsg.id)) {
-                return prev;
-              }
-              return [...prev, formattedMsg];
+              const withoutOptimistic = newMsg.direction === 'outgoing'
+                ? prev.filter(m => !m.id.startsWith('optimistic_') || m.messageText !== formattedMsg.messageText)
+                : prev;
+              if (withoutOptimistic.some(m => m.id === formattedMsg.id)) return withoutOptimistic;
+              return [...withoutOptimistic, formattedMsg];
             });
           }
         }
@@ -271,7 +272,7 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
       if (error) throw error;
 
       const optimisticMsg: WhatsAppMessage = {
-        id: crypto.randomUUID(),
+        id: `optimistic_${Date.now()}`,
         messageText: text,
         direction: "outgoing",
         timestamp: new Date().toISOString(),

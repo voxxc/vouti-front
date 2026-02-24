@@ -187,10 +187,12 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
             };
             
             setMessages(prev => {
-              if (prev.some(m => m.id === formattedMsg.id)) {
-                return prev;
-              }
-              return [...prev, formattedMsg];
+              // Remove optimistic message if real outgoing arrived
+              const withoutOptimistic = newMsg.direction === 'outgoing'
+                ? prev.filter(m => !m.id.startsWith('optimistic_') || m.messageText !== formattedMsg.messageText)
+                : prev;
+              if (withoutOptimistic.some(m => m.id === formattedMsg.id)) return withoutOptimistic;
+              return [...withoutOptimistic, formattedMsg];
             });
           }
         }
@@ -432,7 +434,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       if (error) throw error;
 
       const optimisticMsg: WhatsAppMessage = {
-        id: crypto.randomUUID(),
+        id: `optimistic_${Date.now()}`,
         messageText: text,
         direction: "outgoing",
         timestamp: new Date().toISOString(),
