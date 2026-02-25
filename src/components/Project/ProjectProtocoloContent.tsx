@@ -48,7 +48,9 @@ import {
   Info,
   MessageSquare,
   Pencil,
-  Save
+  Save,
+  Scale,
+  ExternalLink
 } from 'lucide-react';
 import { isPast, isToday } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -128,6 +130,7 @@ export function ProjectProtocoloContent({
   
   const [selectedDeadline, setSelectedDeadline] = useState<any | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [casoVinculadoData, setCasoVinculadoData] = useState<any | null>(null);
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   
   const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
@@ -184,9 +187,21 @@ export function ProjectProtocoloContent({
     fetchTarefasProcesso();
   }, [protocolo?.processoOabId]);
 
-  const openDeadlineDetails = (prazo: any) => {
+  const openDeadlineDetails = async (prazo: any) => {
     setSelectedDeadline(prazo);
     setIsDetailDialogOpen(true);
+    
+    // Fetch caso vinculado if protocolo has processoOabId
+    if (protocolo?.processoOabId) {
+      const { data } = await supabase
+        .from('processos_oab')
+        .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+        .eq('id', protocolo.processoOabId)
+        .single();
+      setCasoVinculadoData(data || null);
+    } else {
+      setCasoVinculadoData(null);
+    }
   };
 
   const toggleDeadlineCompletion = async (deadlineId: string, currentStatus: boolean) => {
@@ -720,6 +735,29 @@ export function ProjectProtocoloContent({
                             <span className="text-sm">{tag.tagged_user?.full_name}</span>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Caso Vinculado */}
+                  {casoVinculadoData && (
+                    <div className="border rounded-lg p-3 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Scale className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-medium">Caso Vinculado</Label>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        {casoVinculadoData.numero_cnj && (
+                          <p><strong>CNJ:</strong> {casoVinculadoData.numero_cnj}</p>
+                        )}
+                        {casoVinculadoData.parte_ativa && (
+                          <p><strong>Autor:</strong> {casoVinculadoData.parte_ativa}</p>
+                        )}
+                        {casoVinculadoData.parte_passiva && (
+                          <p><strong>Réu:</strong> {casoVinculadoData.parte_passiva}</p>
+                        )}
+                        {casoVinculadoData.tribunal && (
+                          <p><strong>Tribunal:</strong> {casoVinculadoData.tribunal}</p>
+                        )}
                       </div>
                     </div>
                   )}

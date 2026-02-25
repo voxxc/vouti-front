@@ -47,6 +47,12 @@ export interface Deadline {
   
   // Origem: Protocolo/Etapa
   protocoloOrigem?: ProtocoloOrigem;
+  
+  // Caso vinculado (quando o prazo vem de um Processo/Protocolo que está vinculado a um Caso)
+  casoVinculado?: ProcessoOrigem;
+  
+  // Protocolo vinculado (quando o prazo vem de um Caso que está vinculado a um Processo/Protocolo)
+  protocoloVinculado?: ProtocoloOrigem & { protocoloId?: string };
 }
 
 export interface DeadlineFormData {
