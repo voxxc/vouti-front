@@ -4555,6 +4555,45 @@ export type Database = {
           },
         ]
       }
+      project_carteira_protocolos: {
+        Row: {
+          carteira_id: string
+          created_at: string | null
+          id: string
+          ordem: number | null
+          project_protocolo_id: string
+        }
+        Insert: {
+          carteira_id: string
+          created_at?: string | null
+          id?: string
+          ordem?: number | null
+          project_protocolo_id: string
+        }
+        Update: {
+          carteira_id?: string
+          created_at?: string | null
+          id?: string
+          ordem?: number | null
+          project_protocolo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_carteira_protocolos_carteira_id_fkey"
+            columns: ["carteira_id"]
+            isOneToOne: false
+            referencedRelation: "project_carteiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_carteira_protocolos_project_protocolo_id_fkey"
+            columns: ["project_protocolo_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_carteiras: {
         Row: {
           cor: string | null
