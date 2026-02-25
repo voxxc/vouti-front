@@ -183,7 +183,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           ),
           protocolo_etapa:project_protocolo_etapas (
             id, nome,
-            protocolo:project_protocolos (nome, project_id)
+            protocolo:project_protocolos (id, nome, project_id, processo_oab_id)
           )
         `)
         .eq('module', module)
@@ -194,44 +194,101 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         return;
       }
 
-      const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
-        id: deadline.id,
-        title: deadline.title,
-        description: deadline.description || '',
-        date: safeParseDate(deadline.date),
-        projectId: deadline.project_id,
-        projectName: deadline.projects?.name || 'Projeto não encontrado',
-        clientName: deadline.projects?.client || 'Cliente não encontrado',
-        completed: deadline.completed,
-        advogadoResponsavel: deadline.advogado ? {
-          userId: deadline.advogado.user_id,
-          name: deadline.advogado.full_name,
-          avatar: deadline.advogado.avatar_url
-        } : undefined,
-        taggedUsers: (deadline.deadline_tags || [])
-          .filter((tag: any) => tag.tagged_user)
-          .map((tag: any) => ({
-            userId: tag.tagged_user?.user_id,
-            name: tag.tagged_user?.full_name || 'Usuário',
-            avatar: tag.tagged_user?.avatar_url
-          })),
-        processoOabId: deadline.processo_oab_id || undefined,
-        createdAt: safeParseTimestamp(deadline.created_at),
-        updatedAt: safeParseTimestamp(deadline.updated_at),
-        processoOrigem: deadline.processo_oab ? {
-          id: deadline.processo_oab.id,
-          numeroCnj: deadline.processo_oab.numero_cnj,
-          parteAtiva: deadline.processo_oab.parte_ativa,
-          partePassiva: deadline.processo_oab.parte_passiva,
-          tribunal: deadline.processo_oab.tribunal
-        } : undefined,
-        protocoloOrigem: deadline.protocolo_etapa ? {
-          etapaId: deadline.protocolo_etapa.id,
-          etapaNome: deadline.protocolo_etapa.nome,
-          protocoloNome: deadline.protocolo_etapa.protocolo?.nome,
-          projectId: deadline.protocolo_etapa.protocolo?.project_id
-        } : undefined
-      }));
+      // Collect processo_oab_ids from protocolos (for deadlines that come from a protocolo but need the linked caso)
+      const processoOabIdsFromProtocolos = new Set<string>();
+      // Collect processo_oab_ids from deadlines that have caso but no protocolo (to find linked protocolo)
+      const processoOabIdsFromCasos = new Set<string>();
+
+      (data || []).forEach((d: any) => {
+        const protocoloProcessoOabId = d.protocolo_etapa?.protocolo?.processo_oab_id;
+        if (protocoloProcessoOabId) {
+          processoOabIdsFromProtocolos.add(protocoloProcessoOabId);
+        }
+        if (d.processo_oab_id && !d.protocolo_etapa_id) {
+          processoOabIdsFromCasos.add(d.processo_oab_id);
+        }
+      });
+
+      // Batch fetch: casos vinculados (from protocolo's processo_oab_id)
+      let casosMap: Record<string, any> = {};
+      if (processoOabIdsFromProtocolos.size > 0) {
+        const { data: casos } = await supabase
+          .from('processos_oab')
+          .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+          .in('id', Array.from(processoOabIdsFromProtocolos));
+        (casos || []).forEach(c => { casosMap[c.id] = c; });
+      }
+
+      // Batch fetch: protocolos vinculados (from caso's processo_oab_id)
+      let protocolosMap: Record<string, any> = {};
+      if (processoOabIdsFromCasos.size > 0) {
+        const { data: prots } = await supabase
+          .from('project_protocolos')
+          .select('id, nome, project_id, processo_oab_id')
+          .in('processo_oab_id', Array.from(processoOabIdsFromCasos));
+        (prots || []).forEach(p => {
+          if (p.processo_oab_id) protocolosMap[p.processo_oab_id] = p;
+        });
+      }
+
+      const mappedDeadlines: Deadline[] = (data || []).map(deadline => {
+        const protocoloProcessoOabId = deadline.protocolo_etapa?.protocolo?.processo_oab_id;
+        const casoFromProtocolo = protocoloProcessoOabId ? casosMap[protocoloProcessoOabId] : null;
+        const protocoloFromCaso = deadline.processo_oab_id && !deadline.protocolo_etapa_id
+          ? protocolosMap[deadline.processo_oab_id] : null;
+
+        return {
+          id: deadline.id,
+          title: deadline.title,
+          description: deadline.description || '',
+          date: safeParseDate(deadline.date),
+          projectId: deadline.project_id,
+          projectName: deadline.projects?.name || 'Projeto não encontrado',
+          clientName: deadline.projects?.client || 'Cliente não encontrado',
+          completed: deadline.completed,
+          advogadoResponsavel: deadline.advogado ? {
+            userId: deadline.advogado.user_id,
+            name: deadline.advogado.full_name,
+            avatar: deadline.advogado.avatar_url
+          } : undefined,
+          taggedUsers: (deadline.deadline_tags || [])
+            .filter((tag: any) => tag.tagged_user)
+            .map((tag: any) => ({
+              userId: tag.tagged_user?.user_id,
+              name: tag.tagged_user?.full_name || 'Usuário',
+              avatar: tag.tagged_user?.avatar_url
+            })),
+          processoOabId: deadline.processo_oab_id || undefined,
+          createdAt: safeParseTimestamp(deadline.created_at),
+          updatedAt: safeParseTimestamp(deadline.updated_at),
+          processoOrigem: deadline.processo_oab ? {
+            id: deadline.processo_oab.id,
+            numeroCnj: deadline.processo_oab.numero_cnj,
+            parteAtiva: deadline.processo_oab.parte_ativa,
+            partePassiva: deadline.processo_oab.parte_passiva,
+            tribunal: deadline.processo_oab.tribunal
+          } : undefined,
+          protocoloOrigem: deadline.protocolo_etapa ? {
+            etapaId: deadline.protocolo_etapa.id,
+            etapaNome: deadline.protocolo_etapa.nome,
+            protocoloNome: deadline.protocolo_etapa.protocolo?.nome,
+            projectId: deadline.protocolo_etapa.protocolo?.project_id
+          } : undefined,
+          casoVinculado: casoFromProtocolo ? {
+            id: casoFromProtocolo.id,
+            numeroCnj: casoFromProtocolo.numero_cnj,
+            parteAtiva: casoFromProtocolo.parte_ativa,
+            partePassiva: casoFromProtocolo.parte_passiva,
+            tribunal: casoFromProtocolo.tribunal
+          } : undefined,
+          protocoloVinculado: protocoloFromCaso ? {
+            etapaId: '',
+            protocoloNome: protocoloFromCaso.nome,
+            projectId: protocoloFromCaso.project_id,
+            protocoloId: protocoloFromCaso.id
+          } : undefined
+        };
+      });
 
       setDeadlines(mappedDeadlines);
     } catch (error) {
@@ -1086,6 +1143,80 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                             onClick={() => {
                               setIsDetailDialogOpen(false);
                               navigate(`/project/${selectedDeadline.protocoloOrigem?.projectId}`);
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Ver Projeto
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Caso Vinculado (prazo vem de protocolo que tem caso) */}
+                  {selectedDeadline.casoVinculado && (
+                    <div className="border rounded-lg p-3 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Scale className="h-4 w-4 text-primary" />
+                        <label className="text-sm font-medium">Caso Vinculado</label>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        {selectedDeadline.casoVinculado.numeroCnj && (
+                          <p><strong>CNJ:</strong> {selectedDeadline.casoVinculado.numeroCnj}</p>
+                        )}
+                        {selectedDeadline.casoVinculado.parteAtiva && (
+                          <p><strong>Autor:</strong> {selectedDeadline.casoVinculado.parteAtiva}</p>
+                        )}
+                        {selectedDeadline.casoVinculado.partePassiva && (
+                          <p><strong>Réu:</strong> {selectedDeadline.casoVinculado.partePassiva}</p>
+                        )}
+                        {selectedDeadline.casoVinculado.tribunal && (
+                          <p><strong>Tribunal:</strong> {selectedDeadline.casoVinculado.tribunal}</p>
+                        )}
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="p-0 h-auto text-primary"
+                          onClick={async () => {
+                            const processoId = selectedDeadline.casoVinculado?.id;
+                            if (!processoId) return;
+                            const { data } = await supabase
+                              .from('processos_oab')
+                              .select('*')
+                              .eq('id', processoId)
+                              .single();
+                            if (data) {
+                              setSelectedProcessoOAB(data as unknown as ProcessoOAB);
+                              setProcessoDrawerOpen(true);
+                            }
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Ver Caso
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Protocolo Vinculado (prazo vem de caso que tem protocolo) */}
+                  {selectedDeadline.protocoloVinculado && (
+                    <div className="border rounded-lg p-3 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <label className="text-sm font-medium">Processo Vinculado</label>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        {selectedDeadline.protocoloVinculado.protocoloNome && (
+                          <p><strong>Processo:</strong> {selectedDeadline.protocoloVinculado.protocoloNome}</p>
+                        )}
+                        {selectedDeadline.protocoloVinculado.projectId && (
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="p-0 h-auto text-primary"
+                            onClick={() => {
+                              setIsDetailDialogOpen(false);
+                              navigate(`/project/${selectedDeadline.protocoloVinculado?.projectId}`);
                             }}
                           >
                             <ExternalLink className="h-3 w-3 mr-1" />
