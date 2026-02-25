@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Bell, Scale, Building2, RefreshCw, ClipboardCheck } from "lucide-react";
+import { FileText, Bell, Scale, FileStack, RefreshCw, ClipboardCheck } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
 import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
@@ -84,14 +84,14 @@ const Controladoria = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Push-Docs (CNPJs)</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium">Push-Docs (Documentos)</CardTitle>
+              <FileStack className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               {showSkeleton ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
-                <div className="text-2xl font-bold">{metrics.totalCNPJs}</div>
+                <div className="text-2xl font-bold">{metrics.totalPushDocs}</div>
               )}
             </CardContent>
           </Card>
@@ -105,7 +105,7 @@ const Controladoria = () => {
               {showSkeleton ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
-                <div className="text-2xl font-bold">{metrics.cnpjsMonitorados}</div>
+                <div className="text-2xl font-bold">{metrics.pushDocsMonitorados}</div>
               )}
             </CardContent>
           </Card>
@@ -122,7 +122,7 @@ const Controladoria = () => {
               OABs
             </TabsTrigger>
             <TabsTrigger value="push-doc">
-              <Building2 className="mr-2 h-4 w-4" />
+              <FileStack className="mr-2 h-4 w-4" />
               Push-Doc
             </TabsTrigger>
           </TabsList>

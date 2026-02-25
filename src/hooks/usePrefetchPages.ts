@@ -119,16 +119,16 @@ const prefetchControladoriaDataInternal = async (
   await queryClient.prefetchQuery({
     queryKey: ['controladoria-metrics', tenantId],
     queryFn: async () => {
-      const [processosRes, oabsRes, cnpjsRes] = await Promise.all([
+      const [processosRes, oabsRes, pushDocsRes] = await Promise.all([
         supabase.from('processos_oab').select('id', { count: 'exact', head: true }),
         supabase.from('oabs_cadastradas').select('id'),
-        supabase.from('cnpjs_cadastrados').select('id', { count: 'exact', head: true })
+        supabase.from('push_docs_cadastrados').select('id', { count: 'exact', head: true }).neq('tracking_status', 'deletado')
       ]);
 
       return {
         totalProcessos: processosRes.count || 0,
         totalOABs: oabsRes.data?.length || 0,
-        totalCNPJs: cnpjsRes.count || 0
+        totalPushDocs: pushDocsRes.count || 0
       };
     },
     staleTime: 5 * 60 * 1000

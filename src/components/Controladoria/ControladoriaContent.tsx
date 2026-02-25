@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Bell, Scale, Building2, RefreshCw } from "lucide-react";
+import { FileText, Bell, Scale, FileStack, RefreshCw } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { CNPJManager } from "@/components/Controladoria/CNPJManager";
 import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
@@ -82,14 +82,14 @@ export const ControladoriaContent = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium">Push-Docs (CNPJs)</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-medium">Push-Docs (Documentos)</CardTitle>
+            <FileStack className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {showSkeleton ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{metrics.totalCNPJs}</div>
+              <div className="text-2xl font-bold">{metrics.totalPushDocs}</div>
             )}
           </CardContent>
         </Card>
@@ -103,7 +103,7 @@ export const ControladoriaContent = () => {
             {showSkeleton ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{metrics.cnpjsMonitorados}</div>
+              <div className="text-2xl font-bold">{metrics.pushDocsMonitorados}</div>
             )}
           </CardContent>
         </Card>
