@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   GripVertical,
   Briefcase,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
@@ -75,6 +76,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const [isCarteiraDialogOpen, setIsCarteiraDialogOpen] = useState(false);
   const [novaCarteiraNome, setNovaCarteiraNome] = useState('');
   const [novaCarteiraCor, setNovaCarteiraCor] = useState('#6366f1');
+  const [editandoCarteira, setEditandoCarteira] = useState<any | null>(null);
 
   const { tenantId } = useTenantId();
   const { toast } = useToast();
@@ -138,6 +140,24 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
         });
       if (error) throw error;
       toast({ title: 'Carteira criada' });
+      setNovaCarteiraNome('');
+      setIsCarteiraDialogOpen(false);
+      loadCarteiras();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleEditarCarteira = async () => {
+    if (!editandoCarteira || !novaCarteiraNome.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('project_carteiras')
+        .update({ nome: novaCarteiraNome.trim(), cor: novaCarteiraCor })
+        .eq('id', editandoCarteira.id);
+      if (error) throw error;
+      toast({ title: 'Carteira atualizada' });
+      setEditandoCarteira(null);
       setNovaCarteiraNome('');
       setIsCarteiraDialogOpen(false);
       loadCarteiras();
@@ -477,14 +497,30 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                             {protocolosNaCarteira.length}
                           </Badge>
                           {!isLocked && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={(e) => { e.stopPropagation(); handleDeletarCarteira(carteira.id); }}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditandoCarteira(carteira);
+                                  setNovaCarteiraNome(carteira.nome);
+                                  setNovaCarteiraCor(carteira.cor || '#6366f1');
+                                  setIsCarteiraDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => { e.stopPropagation(); handleDeletarCarteira(carteira.id); }}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </>
                           )}
                           <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         </button>
@@ -527,10 +563,13 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
       />
 
       {/* Dialog Criar Carteira */}
-      <Dialog open={isCarteiraDialogOpen} onOpenChange={setIsCarteiraDialogOpen}>
+      <Dialog open={isCarteiraDialogOpen} onOpenChange={(open) => {
+        setIsCarteiraDialogOpen(open);
+        if (!open) { setEditandoCarteira(null); setNovaCarteiraNome(''); setNovaCarteiraCor('#6366f1'); }
+      }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Nova Carteira</DialogTitle>
+            <DialogTitle>{editandoCarteira ? 'Editar Carteira' : 'Nova Carteira'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -551,8 +590,10 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsCarteiraDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCriarCarteira} disabled={!novaCarteiraNome.trim()}>Criar</Button>
+              <Button variant="outline" onClick={() => { setIsCarteiraDialogOpen(false); setEditandoCarteira(null); }}>Cancelar</Button>
+              <Button onClick={editandoCarteira ? handleEditarCarteira : handleCriarCarteira} disabled={!novaCarteiraNome.trim()}>
+                {editandoCarteira ? 'Salvar' : 'Criar'}
+              </Button>
             </div>
           </div>
         </DialogContent>
