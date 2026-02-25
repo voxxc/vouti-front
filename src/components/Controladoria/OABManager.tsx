@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Plus, RefreshCw, Trash2, Scale, Search, FileInput } from 'lucide-react';
 import { EditarAdvogadoModal } from './EditarAdvogadoModal';
 import { ImportarProcessoCNJDialog } from './ImportarProcessoCNJDialog';
@@ -274,50 +275,66 @@ export const OABManager = () => {
         </div>
       ) : (
         <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 flex-shrink-0">
-            <TabsList className="h-auto p-1">
-              {oabs.map((oab) => (
-                <TabsTrigger
+          <div className="flex items-center gap-6 border-b overflow-x-auto flex-shrink-0">
+            {oabs.map((oab) => {
+              const isActive = (activeTab || oabs[0]?.id) === oab.id;
+              return (
+                <button
                   key={oab.id}
-                  value={oab.id}
-                  className="flex items-center gap-2 px-3 py-2"
+                  onClick={() => setActiveTab(oab.id)}
+                  className={cn(
+                    "relative flex items-center gap-2 pb-2 text-sm font-medium transition-colors hover:text-foreground cursor-pointer whitespace-nowrap",
+                    isActive ? "text-foreground" : "text-muted-foreground"
+                  )}
                 >
-                  <span className="font-medium">
-                    {oab.oab_numero}/{oab.oab_uf}
-                  </span>
+                  <span>{oab.oab_numero}/{oab.oab_uf}</span>
                   {oab.total_processos > 0 && (
                     <Badge variant="secondary" className="text-xs">
                       {oab.total_processos}
                     </Badge>
                   )}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
               {/* Toolbar da OAB */}
-              <div className="flex flex-col gap-3 mb-4 p-3 bg-muted/30 rounded-lg flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <p className="font-medium">
-                          OAB {oab.oab_numero}/{oab.oab_uf}
-                        </p>
-                        {oab.nome_advogado && (
-                          <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
-                        )}
-                      </div>
-                      <EditarAdvogadoModal oab={oab} onUpdate={fetchOABs} />
+              <div className="flex items-center justify-between py-2 mb-4 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <p className="font-medium">
+                        OAB {oab.oab_numero}/{oab.oab_uf}
+                      </p>
+                      {oab.nome_advogado && (
+                        <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
+                      )}
                     </div>
-                    {oab.ultima_sincronizacao && (
-                      <Badge variant="outline" className="text-xs">
-                        Ultima sync: {new Date(oab.ultima_sincronizacao).toLocaleDateString('pt-BR')}
-                      </Badge>
-                    )}
+                    <EditarAdvogadoModal oab={oab} onUpdate={fetchOABs} />
                   </div>
+                  {oab.ultima_sincronizacao && (
+                    <Badge variant="outline" className="text-xs">
+                      Ultima sync: {new Date(oab.ultima_sincronizacao).toLocaleDateString('pt-BR')}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {canImportCNJ && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenImportCNJ(oab)}
+                      className="text-xs"
+                    >
+                      <FileInput className="w-4 h-4 mr-1" />
+                      Importar CNJ
+                    </Button>
+                  )}
                   {isAdmin && (
                     <Button
                       variant="ghost"
@@ -329,21 +346,6 @@ export const OABManager = () => {
                     </Button>
                   )}
                 </div>
-
-                {/* Botao Importar Processo - Admin ou Controller */}
-                {canImportCNJ && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenImportCNJ(oab)}
-                      className="text-xs"
-                    >
-                      <FileInput className="w-4 h-4 mr-2" />
-                      Importar Processo por CNJ
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {/* Lista de Processos */}

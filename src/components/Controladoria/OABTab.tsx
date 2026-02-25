@@ -315,7 +315,7 @@ const InstanciaSection = ({
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
       <CollapsibleTrigger asChild>
         <button 
-          className={`w-full flex items-center gap-2 p-3 rounded-lg border ${corBg} ${corBorder} hover:opacity-90 transition-opacity`}
+          className={`w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity`}
         >
           <span className={corText}>{icon}</span>
           <span className={`font-semibold ${corText}`}>{titulo}</span>
