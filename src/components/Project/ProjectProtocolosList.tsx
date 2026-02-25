@@ -490,9 +490,9 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                   return (
                     <Collapsible key={carteira.id} defaultOpen className="space-y-2 mt-4">
                       <CollapsibleTrigger asChild>
-                        <button className="w-full flex items-center gap-2 p-3 rounded-lg border bg-muted/30 hover:opacity-90 transition-opacity">
+                        <button className="w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity">
                           <Briefcase className="w-4 h-4" style={{ color: carteira.cor }} />
-                          <span className="font-semibold text-sm">{carteira.nome}</span>
+                          <span className="font-semibold text-sm hover:underline cursor-pointer">{carteira.nome}</span>
                           <Badge variant="secondary" className="ml-auto mr-2">
                             {protocolosNaCarteira.length}
                           </Badge>
