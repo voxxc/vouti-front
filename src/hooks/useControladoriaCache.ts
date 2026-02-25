@@ -11,8 +11,8 @@ interface ControladoriaMetrics {
   totalProcessos: number;
   totalOABs: number;
   monitorados: number;
-  totalCNPJs: number;
-  cnpjsMonitorados: number;
+  totalPushDocs: number;
+  pushDocsMonitorados: number;
 }
 
 interface ControladoriaCache {
@@ -35,8 +35,8 @@ const defaultMetrics: ControladoriaMetrics = {
   totalProcessos: 0,
   totalOABs: 0,
   monitorados: 0,
-  totalCNPJs: 0,
-  cnpjsMonitorados: 0
+  totalPushDocs: 0,
+  pushDocsMonitorados: 0
 };
 
 // Função para carregar cache do localStorage
@@ -73,22 +73,22 @@ const fetchMetricsOptimized = async (): Promise<ControladoriaMetrics> => {
     { count: totalProcessos },
     { count: totalOABs },
     { count: monitorados },
-    { count: totalCNPJs },
-    { count: cnpjsMonitorados }
+    { count: totalPushDocs },
+    { count: pushDocsMonitorados }
   ] = await Promise.all([
     supabase.from('processos_oab').select('*', { count: 'exact', head: true }),
     supabase.from('oabs_cadastradas').select('*', { count: 'exact', head: true }),
     supabase.from('processos_oab').select('*', { count: 'exact', head: true }).eq('monitoramento_ativo', true),
-    supabase.from('cnpjs_cadastrados').select('*', { count: 'exact', head: true }),
-    supabase.from('processos_cnpj').select('*', { count: 'exact', head: true }).eq('monitoramento_ativo', true)
+    supabase.from('push_docs_cadastrados').select('*', { count: 'exact', head: true }).neq('tracking_status', 'deletado'),
+    supabase.from('push_docs_cadastrados').select('*', { count: 'exact', head: true }).eq('tracking_status', 'ativo')
   ]);
 
   return {
     totalProcessos: totalProcessos || 0,
     totalOABs: totalOABs || 0,
     monitorados: monitorados || 0,
-    totalCNPJs: totalCNPJs || 0,
-    cnpjsMonitorados: cnpjsMonitorados || 0
+    totalPushDocs: totalPushDocs || 0,
+    pushDocsMonitorados: pushDocsMonitorados || 0
   };
 };
 
