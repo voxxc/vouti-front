@@ -1,55 +1,57 @@
 
 
-## Carteiras minimalistas no Workspace
+## Controladoria — OABs e Instâncias minimalistas
 
-### Mudança
+### Mudanças
 
-Arquivo: `src/components/Project/ProjectProtocolosList.tsx` (linhas 491-527)
+**Dois arquivos, dois ajustes:**
 
-Trocar o estilo "card" do header da carteira (atualmente `rounded-lg border bg-muted/30 p-3`) por um layout minimalista:
+---
 
-**Antes (card):**
-```
-┌──────────────────────────────────────┐
-│ 📁 Urgentes              (2) ✏️ 🗑 ▼ │  ← borda, fundo, padding
-└──────────────────────────────────────┘
-│ border-l colorida
-│  PROCESSO A
-│  PROCESSO B
-```
+### 1. `src/components/Controladoria/OABManager.tsx` — Tabs de OAB e Toolbar
 
-**Depois (minimalista):**
-```
-📁 Urgentes (2)            ✏️ 🗑 ▼     ← sem borda/fundo, nome clicável
-│ border-l colorida
-│  PROCESSO A
-│  PROCESSO B
+**Tabs (linhas 277-296):** Trocar o `TabsList` + `TabsTrigger` (estilo botão com fundo) por um menu de texto clicável com underline, igual ao padrão do `ControladoriaContent.tsx` (Central / OABs / Push-Doc):
+
+```text
+Antes:  [ 92124/SP ]  [ 45678/RJ ]    ← botões com fundo
+Depois:  92124/SP    45678/RJ           ← texto clicável, underline na ativa
 ```
 
-### Detalhes técnicos
+Substituir `TabsList`/`TabsTrigger` por botões simples com `cn()` e a linha `bg-primary` de 0.5 abaixo, dentro de um `flex gap-6 border-b`. Manter o `Badge` com contagem ao lado do nome.
 
-Na linha 493, o `<button>` do `CollapsibleTrigger` atualmente tem:
-```
-className="w-full flex items-center gap-2 p-3 rounded-lg border bg-muted/30 hover:opacity-90 transition-opacity"
+**Toolbar da OAB (linhas 301-347):** Remover o estilo card (`p-3 bg-muted/30 rounded-lg`), deixar como um layout inline simples — apenas `flex items-center justify-between py-2`. Os botões de ação (editar, excluir, importar CNJ) ficam na mesma linha, sem borda/fundo.
+
+---
+
+### 2. `src/components/Controladoria/OABTab.tsx` — Seções de Instância
+
+**`InstanciaSection` (linhas 316-327):** Trocar o estilo card do `CollapsibleTrigger`:
+
+```text
+Antes:  ┌─────────────────────────────────┐
+        │ 📄 1ª Instância     (12)     ▼  │  ← border, bg, rounded, p-3
+        └─────────────────────────────────┘
+
+Depois:  📄 1ª Instância (12)          ▼    ← sem borda/fundo, nome clicável
 ```
 
-Substituir por:
+Na linha 318, substituir:
 ```
-className="w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity"
+className={`w-full flex items-center gap-2 p-3 rounded-lg border ${corBg} ${corBorder} hover:opacity-90 transition-opacity`}
 ```
-
-Remover `p-3`, `rounded-lg`, `border`, `bg-muted/30`. Manter apenas um padding vertical leve (`py-2`) e o hover sutil.
-
-O nome da carteira (linha 495 `<span>`) ganha estilo clicável:
+Por:
 ```
-className="font-semibold text-sm hover:underline cursor-pointer"
+className={`w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity`}
 ```
 
-A linha colorida lateral (`border-l-2` na linha 534) permanece como está — o usuário gostou dela.
+Remover `p-3`, `rounded-lg`, `border`, `${corBg}`, `${corBorder}`. Manter o texto colorido (`${corText}`), o badge e o chevron. A `border-l-2` colorida nos processos abaixo permanece.
 
-### Arquivo afetado
+---
+
+### Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/Project/ProjectProtocolosList.tsx` | Remover estilo card do header da carteira, tornar nome visualmente clicável |
+| `src/components/Controladoria/OABManager.tsx` | Tabs → texto clicável com underline; Toolbar → sem estilo card |
+| `src/components/Controladoria/OABTab.tsx` | `InstanciaSection` header → sem estilo card, minimalista |
 
