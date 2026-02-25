@@ -1,57 +1,42 @@
 
 
-## Controladoria — OABs e Instâncias minimalistas
+## Corrigir Push-Docs: informativo e métricas para CPF, CNPJ e OAB
+
+O card e as métricas da Controladoria tratam Push-Docs como se fosse apenas CNPJ. O sistema suporta CPF, CNPJ e OAB via `push_docs_cadastrados`. Preciso corrigir os labels e as queries.
 
 ### Mudanças
 
-**Dois arquivos, dois ajustes:**
+**1. `src/hooks/useControladoriaCache.ts`**
 
----
+- Renomear campos da interface `ControladoriaMetrics`:
+  - `totalCNPJs` → `totalPushDocs`
+  - `cnpjsMonitorados` → `pushDocsMonitorados`
+- Atualizar as queries (linhas 82-83): trocar `cnpjs_cadastrados` e `processos_cnpj` por `push_docs_cadastrados`, filtrando `tracking_status != 'deletado'` para total e `tracking_status = 'ativo'` para monitorados.
+- Atualizar valores default e retorno.
 
-### 1. `src/components/Controladoria/OABManager.tsx` — Tabs de OAB e Toolbar
+**2. `src/components/Controladoria/ControladoriaContent.tsx`**
 
-**Tabs (linhas 277-296):** Trocar o `TabsList` + `TabsTrigger` (estilo botão com fundo) por um menu de texto clicável com underline, igual ao padrão do `ControladoriaContent.tsx` (Central / OABs / Push-Doc):
+- Linha 85: `"Push-Docs (CNPJs)"` → `"Push-Docs (Documentos)"`
+- Linha 86: Trocar ícone `Building2` por `FileStack` (mais genérico)
+- Linha 92: `metrics.totalCNPJs` → `metrics.totalPushDocs`
+- Linha 106: `metrics.cnpjsMonitorados` → `metrics.pushDocsMonitorados`
 
-```text
-Antes:  [ 92124/SP ]  [ 45678/RJ ]    ← botões com fundo
-Depois:  92124/SP    45678/RJ           ← texto clicável, underline na ativa
-```
+**3. `src/pages/Controladoria.tsx`**
 
-Substituir `TabsList`/`TabsTrigger` por botões simples com `cn()` e a linha `bg-primary` de 0.5 abaixo, dentro de um `flex gap-6 border-b`. Manter o `Badge` com contagem ao lado do nome.
+- Linha 87: `"Push-Docs (CNPJs)"` → `"Push-Docs (Documentos)"`
+- Linha 94: `metrics.totalCNPJs` → `metrics.totalPushDocs`
+- Linha 108: `metrics.cnpjsMonitorados` → `metrics.pushDocsMonitorados`
 
-**Toolbar da OAB (linhas 301-347):** Remover o estilo card (`p-3 bg-muted/30 rounded-lg`), deixar como um layout inline simples — apenas `flex items-center justify-between py-2`. Os botões de ação (editar, excluir, importar CNJ) ficam na mesma linha, sem borda/fundo.
+**4. `src/hooks/usePrefetchPages.ts`**
 
----
-
-### 2. `src/components/Controladoria/OABTab.tsx` — Seções de Instância
-
-**`InstanciaSection` (linhas 316-327):** Trocar o estilo card do `CollapsibleTrigger`:
-
-```text
-Antes:  ┌─────────────────────────────────┐
-        │ 📄 1ª Instância     (12)     ▼  │  ← border, bg, rounded, p-3
-        └─────────────────────────────────┘
-
-Depois:  📄 1ª Instância (12)          ▼    ← sem borda/fundo, nome clicável
-```
-
-Na linha 318, substituir:
-```
-className={`w-full flex items-center gap-2 p-3 rounded-lg border ${corBg} ${corBorder} hover:opacity-90 transition-opacity`}
-```
-Por:
-```
-className={`w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity`}
-```
-
-Remover `p-3`, `rounded-lg`, `border`, `${corBg}`, `${corBorder}`. Manter o texto colorido (`${corText}`), o badge e o chevron. A `border-l-2` colorida nos processos abaixo permanece.
-
----
+- Atualizar referência `totalCNPJs` → `totalPushDocs` e a query correspondente.
 
 ### Arquivos afetados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/Controladoria/OABManager.tsx` | Tabs → texto clicável com underline; Toolbar → sem estilo card |
-| `src/components/Controladoria/OABTab.tsx` | `InstanciaSection` header → sem estilo card, minimalista |
+| `src/hooks/useControladoriaCache.ts` | Renomear campos, corrigir queries para `push_docs_cadastrados` |
+| `src/components/Controladoria/ControladoriaContent.tsx` | Label e ícone do card, referências de métricas |
+| `src/pages/Controladoria.tsx` | Label do card, referências de métricas |
+| `src/hooks/usePrefetchPages.ts` | Referência de métricas |
 
