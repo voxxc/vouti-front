@@ -6,7 +6,7 @@ import { ConversationList } from "../components/ConversationList";
 import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
-import { normalizePhone } from "@/utils/phoneUtils";
+import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
 
 interface AllConversationsItem extends WhatsAppConversation {
   agentId?: string;
@@ -104,7 +104,7 @@ export const WhatsAppAllConversations = () => {
           conversationMap.set(normalizedNumber, {
             id: msg.id,
             contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(number) || number,
-            contactNumber: number,
+            contactNumber: normalizedNumber,
             lastMessage: msg.message_text || "",
             lastMessageTime: msg.created_at,
             unreadCount: 0,
@@ -127,11 +127,19 @@ export const WhatsAppAllConversations = () => {
     if (!tenantId && !isSuperAdmin) return;
 
     try {
+      const normalized = normalizePhone(contactNumber);
+      const variant = getPhoneVariant(normalized);
+      
       let query = supabase
         .from("whatsapp_messages")
         .select("*")
-        .eq("from_number", contactNumber)
         .order("created_at", { ascending: true });
+
+      if (variant) {
+        query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
+      } else {
+        query = query.eq("from_number", normalized);
+      }
 
       if (tenantId) {
         query = query.eq("tenant_id", tenantId);
