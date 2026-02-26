@@ -344,13 +344,162 @@ serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    console.log(`[whatsapp-process-queue] Completed: ${processed} processed, ${sent} sent, ${failed} failed`);
+    console.log(`[whatsapp-process-queue] Queue completed: ${processed} processed, ${sent} sent, ${failed} failed`);
+
+    // ========== CAMPAIGN MESSAGES PROCESSING ==========
+    let campaignSent = 0;
+    let campaignFailed = 0;
+
+    try {
+      const { data: campaignMessages, error: campaignFetchError } = await supabase
+        .from('whatsapp_campaign_messages')
+        .select('*, whatsapp_campaigns!inner(agent_id, tenant_id, status)')
+        .eq('status', 'pending')
+        .eq('whatsapp_campaigns.status', 'running')
+        .lte('scheduled_at', new Date().toISOString())
+        .order('scheduled_at', { ascending: true })
+        .limit(50);
+
+      if (campaignFetchError) {
+        console.error('[whatsapp-process-queue] Error fetching campaign messages:', campaignFetchError);
+      } else if (campaignMessages && campaignMessages.length > 0) {
+        console.log(`[whatsapp-process-queue] Found ${campaignMessages.length} pending campaign messages`);
+
+        const instanceCache = new Map<string, any>();
+
+        for (const msg of campaignMessages) {
+          const campaign = msg.whatsapp_campaigns as any;
+          const agentId = campaign.agent_id;
+          const tenantId = campaign.tenant_id;
+
+          // Get instance (cached per agent)
+          if (!instanceCache.has(agentId)) {
+            const { data: inst } = await supabase
+              .from('whatsapp_instances')
+              .select('instance_name, zapi_instance_id, zapi_instance_token, zapi_client_token, user_id, agent_id')
+              .eq('agent_id', agentId)
+              .eq('connection_status', 'connected')
+              .limit(1)
+              .maybeSingle();
+            instanceCache.set(agentId, inst);
+          }
+
+          const instance = instanceCache.get(agentId);
+          if (!instance) {
+            await supabase
+              .from('whatsapp_campaign_messages')
+              .update({ status: 'failed', error_message: 'No connected instance' })
+              .eq('id', msg.id);
+            campaignFailed++;
+            continue;
+          }
+
+          const zapiId = instance.zapi_instance_id || Deno.env.get('Z_API_INSTANCE_ID');
+          const zapiToken = instance.zapi_instance_token || Deno.env.get('Z_API_TOKEN');
+
+          if (!zapiId || !zapiToken) {
+            await supabase
+              .from('whatsapp_campaign_messages')
+              .update({ status: 'failed', error_message: 'Missing Z-API credentials' })
+              .eq('id', msg.id);
+            campaignFailed++;
+            continue;
+          }
+
+          const formattedPhone = formatPhoneNumber(msg.phone);
+          const sendUrl = `https://api.z-api.io/instances/${zapiId}/token/${zapiToken}/send-text`;
+          const zapiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (instance.zapi_client_token) zapiHeaders['Client-Token'] = instance.zapi_client_token;
+
+          try {
+            const resp = await fetch(sendUrl, {
+              method: 'POST',
+              headers: zapiHeaders,
+              body: JSON.stringify({ phone: formattedPhone, message: msg.message }),
+            });
+
+            const data = await resp.json();
+
+            if (resp.ok && (data.messageId || data.id || data.zaapId)) {
+              await supabase
+                .from('whatsapp_campaign_messages')
+                .update({ status: 'sent', sent_at: new Date().toISOString() })
+                .eq('id', msg.id);
+
+              // Save to inbox
+              await supabase.from('whatsapp_messages').insert({
+                instance_name: instance.instance_name,
+                message_id: data.messageId || data.id || data.zaapId || `campaign_${Date.now()}`,
+                from_number: formattedPhone,
+                to_number: formattedPhone,
+                message_text: msg.message,
+                direction: 'outgoing',
+                user_id: instance.user_id,
+                tenant_id: tenantId,
+                agent_id: instance.agent_id,
+              });
+
+              campaignSent++;
+              console.log(`[whatsapp-process-queue] ✅ Campaign msg sent to ${formattedPhone}`);
+            } else {
+              await supabase
+                .from('whatsapp_campaign_messages')
+                .update({ status: 'failed', error_message: data.message || 'Z-API error' })
+                .eq('id', msg.id);
+              campaignFailed++;
+            }
+          } catch (err) {
+            await supabase
+              .from('whatsapp_campaign_messages')
+              .update({ status: 'failed', error_message: err instanceof Error ? err.message : 'Network error' })
+              .eq('id', msg.id);
+            campaignFailed++;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        // Update campaign counters
+        const campaignIds = [...new Set(campaignMessages.map(m => m.campaign_id))];
+        for (const cid of campaignIds) {
+          const { data: counts } = await supabase
+            .from('whatsapp_campaign_messages')
+            .select('status')
+            .eq('campaign_id', cid);
+
+          if (counts) {
+            const sentCount = counts.filter(c => c.status === 'sent').length;
+            const failedCount = counts.filter(c => c.status === 'failed').length;
+            const pendingCount = counts.filter(c => c.status === 'pending').length;
+
+            await supabase
+              .from('whatsapp_campaigns')
+              .update({
+                sent_count: sentCount,
+                failed_count: failedCount,
+                status: pendingCount === 0 ? 'completed' : 'running',
+              })
+              .eq('id', cid);
+          }
+        }
+
+        console.log(`[whatsapp-process-queue] Campaigns: ${campaignSent} sent, ${campaignFailed} failed`);
+      } else {
+        console.log('[whatsapp-process-queue] No pending campaign messages');
+      }
+    } catch (campaignError) {
+      console.error('[whatsapp-process-queue] Campaign processing error:', campaignError);
+    }
+
+    console.log(`[whatsapp-process-queue] All done. Queue: ${sent}/${processed}, Campaigns: ${campaignSent}/${campaignSent + campaignFailed}`);
 
     return new Response(JSON.stringify({
       success: true,
       processed,
       sent,
-      failed
+      failed,
+      campaignSent,
+      campaignFailed
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
