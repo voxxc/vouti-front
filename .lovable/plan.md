@@ -1,42 +1,55 @@
 
 
-## Corrigir Push-Docs: informativo e métricas para CPF, CNPJ e OAB
+## Corrigir mistura de conversas no CRM
 
-O card e as métricas da Controladoria tratam Push-Docs como se fosse apenas CNPJ. O sistema suporta CPF, CNPJ e OAB via `push_docs_cadastrados`. Preciso corrigir os labels e as queries.
+### Problema raiz
 
-### Mudanças
+Há **3 bugs de normalização de telefone** que fazem mensagens de um contato aparecerem na conversa de outro:
 
-**1. `src/hooks/useControladoriaCache.ts`**
+---
 
-- Renomear campos da interface `ControladoriaMetrics`:
-  - `totalCNPJs` → `totalPushDocs`
-  - `cnpjsMonitorados` → `pushDocsMonitorados`
-- Atualizar as queries (linhas 82-83): trocar `cnpjs_cadastrados` e `processos_cnpj` por `push_docs_cadastrados`, filtrando `tracking_status != 'deletado'` para total e `tracking_status = 'ativo'` para monitorados.
-- Atualizar valores default e retorno.
+### Bug 1 — `WhatsAppAllConversations` armazena `contactNumber` cru (não normalizado)
 
-**2. `src/components/Controladoria/ControladoriaContent.tsx`**
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx`, linha 107
 
-- Linha 85: `"Push-Docs (CNPJs)"` → `"Push-Docs (Documentos)"`
-- Linha 86: Trocar ícone `Building2` por `FileStack` (mais genérico)
-- Linha 92: `metrics.totalCNPJs` → `metrics.totalPushDocs`
-- Linha 106: `metrics.cnpjsMonitorados` → `metrics.pushDocsMonitorados`
+O agrupamento usa `normalizedNumber` como chave do Map, mas armazena o `number` **bruto** (do DB) como `contactNumber`. Quando `loadMessages` é chamado com esse número bruto, a query `.eq("from_number", contactNumber)` busca apenas uma variante, podendo carregar mensagens erradas ou incompletas.
 
-**3. `src/pages/Controladoria.tsx`**
+**Correção:** Trocar `contactNumber: number` por `contactNumber: normalizedNumber` na linha 107.
 
-- Linha 87: `"Push-Docs (CNPJs)"` → `"Push-Docs (Documentos)"`
-- Linha 94: `metrics.totalCNPJs` → `metrics.totalPushDocs`
-- Linha 108: `metrics.cnpjsMonitorados` → `metrics.pushDocsMonitorados`
+---
 
-**4. `src/hooks/usePrefetchPages.ts`**
+### Bug 2 — `WhatsAppAllConversations.loadMessages` não usa variantes de telefone
 
-- Atualizar referência `totalCNPJs` → `totalPushDocs` e a query correspondente.
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx`, linhas 130-134
 
-### Arquivos afetados
+A query usa `.eq("from_number", contactNumber)` sem considerar variantes (com/sem nono dígito). O Inbox já faz isso corretamente com `getPhoneVariant` + `.or()`.
 
-| Arquivo | Mudança |
-|---|---|
-| `src/hooks/useControladoriaCache.ts` | Renomear campos, corrigir queries para `push_docs_cadastrados` |
-| `src/components/Controladoria/ControladoriaContent.tsx` | Label e ícone do card, referências de métricas |
-| `src/pages/Controladoria.tsx` | Label do card, referências de métricas |
-| `src/hooks/usePrefetchPages.ts` | Referência de métricas |
+**Correção:** Normalizar o `contactNumber`, gerar variante, e usar `.or()` quando variante existir — mesmo padrão do `WhatsAppInbox.loadMessages` (linhas 355-382).
+
+---
+
+### Bug 3 — `WhatsAppInbox` real-time não normaliza `from_number`
+
+**Arquivo:** `src/components/WhatsApp/sections/WhatsAppInbox.tsx`, linha 177
+
+```js
+if (newMsg.from_number === selectedConversation.contactNumber)
+```
+
+Comparação direta sem normalizar. Se o DB tiver "5511912345678" e o `contactNumber` for "11912345678" (ou vice-versa), mensagens de outro contato podem entrar na conversa errada, ou mensagens corretas não aparecem.
+
+**Correção:** Usar `normalizePhone()` em ambos os lados:
+```js
+if (normalizePhone(newMsg.from_number) === normalizePhone(selectedConversation.contactNumber))
+```
+
+---
+
+### Resumo de mudanças
+
+| Arquivo | Linha(s) | Correção |
+|---|---|---|
+| `WhatsAppAllConversations.tsx` | 107 | `contactNumber: normalizedNumber` |
+| `WhatsAppAllConversations.tsx` | 130-134 | Usar `normalizePhone` + `getPhoneVariant` + `.or()` |
+| `WhatsAppInbox.tsx` | 177 | `normalizePhone()` na comparação real-time |
 
