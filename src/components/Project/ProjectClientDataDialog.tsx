@@ -38,6 +38,7 @@ interface ProjectClientDataDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   clienteId?: string | null;
+  readOnly?: boolean;
   onClienteLinked: (clienteId: string | null) => void;
 }
 
@@ -46,6 +47,7 @@ export const ProjectClientDataDialog = ({
   onOpenChange,
   projectId,
   clienteId,
+  readOnly,
   onClienteLinked
 }: ProjectClientDataDialogProps) => {
   const { fetchClientes } = useClientes();
@@ -136,53 +138,59 @@ export const ProjectClientDataDialog = ({
         </DialogHeader>
 
         {!clienteId || !selectedCliente ? (
-          // MODO: Selecionar cliente para vincular
-          <div className="space-y-4">
-            <Label>Selecione o cliente para vincular ao projeto</Label>
-            <Popover open={comboOpen} onOpenChange={setComboOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={comboOpen}
-                  className="w-full justify-between"
-                >
-                  {selectedCliente
-                    ? selectedCliente.nome_pessoa_fisica || selectedCliente.nome_pessoa_juridica
-                    : "Buscar cliente..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar cliente..." />
-                  <CommandList>
-                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {clientes.map((cliente) => (
-                        <CommandItem
-                          key={cliente.id}
-                          value={cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || ''}
-                          onSelect={() => {
-                            handleVincularCliente(cliente.id);
-                            setComboOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedCliente?.id === cliente.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+          readOnly ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <p>Nenhum cliente vinculado a este projeto.</p>
+            </div>
+          ) : (
+            // MODO: Selecionar cliente para vincular
+            <div className="space-y-4">
+              <Label>Selecione o cliente para vincular ao projeto</Label>
+              <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedCliente
+                      ? selectedCliente.nome_pessoa_fisica || selectedCliente.nome_pessoa_juridica
+                      : "Buscar cliente..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Buscar cliente..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {clientes.map((cliente) => (
+                          <CommandItem
+                            key={cliente.id}
+                            value={cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica || ''}
+                            onSelect={() => {
+                              handleVincularCliente(cliente.id);
+                              setComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedCliente?.id === cliente.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {cliente.nome_pessoa_fisica || cliente.nome_pessoa_juridica}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )
         ) : (
           // MODO: Visualizar dados do cliente vinculado
           <div className="space-y-6">
@@ -192,16 +200,18 @@ export const ProjectClientDataDialog = ({
               readOnly={true}
             />
 
-            <div className="flex justify-end pt-4 border-t">
-              <Button 
-                variant="destructive" 
-                onClick={() => setShowUnlinkAlert(true)}
-                className="gap-2"
-              >
-                <Unlink size={16} />
-                Desvincular Cliente
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex justify-end pt-4 border-t">
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setShowUnlinkAlert(true)}
+                  className="gap-2"
+                >
+                  <Unlink size={16} />
+                  Desvincular Cliente
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>
