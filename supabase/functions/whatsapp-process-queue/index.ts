@@ -55,13 +55,7 @@ serve(async (req) => {
 
     if (!pendingMessages || pendingMessages.length === 0) {
       console.log('[whatsapp-process-queue] No pending messages to process');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        processed: 0,
-        message: 'No pending messages' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Continue to campaign processing below
     }
 
     console.log(`[whatsapp-process-queue] Found ${pendingMessages.length} pending messages`);
