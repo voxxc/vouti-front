@@ -1,39 +1,34 @@
 
 
-## Adicionar Editar e Apagar campanha
+## Bug: Early return impede processamento de campanhas
 
-### Mudanças em `src/components/WhatsApp/sections/WhatsAppCampaigns.tsx`
+### Causa raiz
 
-**1. Novo state para edição**
-- `editingCampaign: Campaign | null` — quando set, abre o dialog em modo edição
-- Reutilizar o mesmo dialog (isOpen) para criar e editar
+Na `whatsapp-process-queue/index.ts`, linhas 56-65: quando não há mensagens na fila regular (`whatsapp_pending_messages`), a função faz `return` imediatamente. O bloco de campanhas (linha 349+) **nunca é executado**.
 
-**2. Função `handleEdit(campaign)`**
-- Preenche o form com os dados da campanha (name, messageTemplate, selectedAgentId, selectedColumnId, batchSize, intervalMinutes)
-- Seta `editingCampaign` e abre o dialog
+### Correção
 
-**3. Função `handleUpdate()`**
-- Atualiza `whatsapp_campaigns` com os campos editáveis: `name`, `message_template`, `batch_size`, `interval_minutes`
-- Não permite trocar agente/coluna (pois as mensagens já foram geradas para aqueles contatos)
-- Toast de sucesso e reload
+Remover o `return` early da condição "no pending messages" e substituir por apenas um log, permitindo que a execução continue até o bloco de campanhas.
 
-**4. Função `handleDelete(campaign)`**
-- Confirmação via `AlertDialog`
-- Deleta `whatsapp_campaign_messages` onde `campaign_id = id`
-- Deleta `whatsapp_campaigns` onde `id = id`
-- Toast e reload
+**Arquivo:** `supabase/functions/whatsapp-process-queue/index.ts`
 
-**5. UI — botões na card de cada campanha**
-- Adicionar ícones `Pencil` e `Trash2` ao lado do play/pause
-- `Pencil` chama `handleEdit`
-- `Trash2` abre AlertDialog de confirmação
+Linhas 56-65: trocar o `return new Response(...)` por apenas um `console.log`, mantendo o fluxo para o bloco de campanhas abaixo.
 
-**6. Dialog title dinâmico**
-- Se `editingCampaign`: título "Editar Campanha", botão "Salvar Alterações"
-- Se não: título "Criar Campanha", botão "Criar e Iniciar Campanha"
-- Agente e Coluna ficam disabled em modo edição
+```typescript
+// ANTES (retorna e nunca chega nas campanhas):
+if (!pendingMessages || pendingMessages.length === 0) {
+  console.log('[whatsapp-process-queue] No pending messages to process');
+  return new Response(JSON.stringify({ ... }));  // ← BUG
+}
 
-### Imports adicionais
-- `AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger` de `@/components/ui/alert-dialog`
-- `Pencil, Trash2` de `lucide-react`
+// DEPOIS (continua para processar campanhas):
+if (!pendingMessages || pendingMessages.length === 0) {
+  console.log('[whatsapp-process-queue] No pending messages to process');
+  // Não retorna - continua para processar campanhas
+}
+```
+
+O bloco `for (const msg of pendingMessages)` já não executará se o array estiver vazio, então não precisa de nenhuma outra mudança.
+
+Mover a resposta final para incluir contadores de campanhas no resultado.
 
