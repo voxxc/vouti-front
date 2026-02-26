@@ -81,8 +81,10 @@ const ProjectView = ({
 
   // Verificar se usuário é admin (usando prop currentUser.role em vez de query)
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (currentUser?.role === 'admin' || currentUser?.role === 'controller') {
       setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
     }
   }, [currentUser?.role]);
 
@@ -1078,14 +1080,12 @@ const ProjectView = ({
               Participantes
             </button>
 
-            {isAdmin && (
-              <button 
-                onClick={() => setIsClientDataOpen(true)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Dados
-              </button>
-            )}
+            <button 
+              onClick={() => setIsClientDataOpen(true)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Dados
+            </button>
 
             {isAdmin && (
               <button 
@@ -1381,6 +1381,7 @@ const ProjectView = ({
           onOpenChange={setIsClientDataOpen}
           projectId={project.id}
           clienteId={project.clienteId}
+          readOnly={!isAdmin}
           onClienteLinked={(clienteId) => {
             onUpdateProject({
               ...project,

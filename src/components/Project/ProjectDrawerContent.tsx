@@ -17,7 +17,7 @@ interface ProjectDrawerContentProps {
 }
 
 export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDrawerContentProps) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   
   // State
@@ -31,7 +31,7 @@ export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDraw
     id: user.id,
     email: user.email || '',
     name: user.user_metadata?.full_name || user.email || '',
-    role: 'advogado' as const,
+    role: (userRole as any) || 'advogado',
     createdAt: new Date(),
     updatedAt: new Date()
   } : undefined;
