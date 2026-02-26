@@ -174,7 +174,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         (payload) => {
           const newMsg = payload.new as any;
           
-          if (newMsg.from_number === selectedConversation.contactNumber) {
+          if (normalizePhone(newMsg.from_number) === normalizePhone(selectedConversation.contactNumber)) {
             const rawData = newMsg.raw_data as any;
             const formattedMsg: WhatsAppMessage = {
               id: newMsg.id,
