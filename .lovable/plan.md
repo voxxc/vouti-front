@@ -1,33 +1,39 @@
 
 
-## Integrar processamento de campanhas no process-queue existente
+## Adicionar Editar e Apagar campanha
 
-### Problema
+### Mudanças em `src/components/WhatsApp/sections/WhatsAppCampaigns.tsx`
 
-A Edge Function `whatsapp-process-campaigns` existe mas **nunca é invocada** — zero logs, zero chamadas. O cron job para ela nunca foi criado. A campanha está `paused` com todas as mensagens `cancelled`.
+**1. Novo state para edição**
+- `editingCampaign: Campaign | null` — quando set, abre o dialog em modo edição
+- Reutilizar o mesmo dialog (isOpen) para criar e editar
 
-### Solução
+**2. Função `handleEdit(campaign)`**
+- Preenche o form com os dados da campanha (name, messageTemplate, selectedAgentId, selectedColumnId, batchSize, intervalMinutes)
+- Seta `editingCampaign` e abre o dialog
 
-Em vez de criar outro cron job (que requer SQL manual), vou integrar o processamento de campanhas **dentro do `whatsapp-process-queue`**, que já tem cron rodando a cada minuto.
+**3. Função `handleUpdate()`**
+- Atualiza `whatsapp_campaigns` com os campos editáveis: `name`, `message_template`, `batch_size`, `interval_minutes`
+- Não permite trocar agente/coluna (pois as mensagens já foram geradas para aqueles contatos)
+- Toast de sucesso e reload
 
-### Mudanças
+**4. Função `handleDelete(campaign)`**
+- Confirmação via `AlertDialog`
+- Deleta `whatsapp_campaign_messages` onde `campaign_id = id`
+- Deleta `whatsapp_campaigns` onde `id = id`
+- Toast e reload
 
-**Arquivo:** `supabase/functions/whatsapp-process-queue/index.ts`
+**5. UI — botões na card de cada campanha**
+- Adicionar ícones `Pencil` e `Trash2` ao lado do play/pause
+- `Pencil` chama `handleEdit`
+- `Trash2` abre AlertDialog de confirmação
 
-Após processar as mensagens da fila normal (`whatsapp_pending_messages`), adicionar um bloco que:
+**6. Dialog title dinâmico**
+- Se `editingCampaign`: título "Editar Campanha", botão "Salvar Alterações"
+- Se não: título "Criar Campanha", botão "Criar e Iniciar Campanha"
+- Agente e Coluna ficam disabled em modo edição
 
-1. Busca mensagens pendentes de `whatsapp_campaign_messages` com `status = 'pending'` e `scheduled_at <= now()`, join com `whatsapp_campaigns` onde `status = 'running'`
-2. Para cada mensagem, resolve a instância Z-API pelo `agent_id` da campanha
-3. Envia via Z-API (mesmo padrão já existente)
-4. Atualiza status da mensagem para `sent` ou `failed`
-5. Atualiza contadores da campanha (`sent_count`, `failed_count`)
-6. Marca campanha como `completed` quando não houver mais mensagens pendentes
-
-Isso reaproveita toda a lógica de envio, credenciais e formatação de telefone que já existe na função.
-
-### Arquivo afetado
-
-| Arquivo | Mudança |
-|---|---|
-| `supabase/functions/whatsapp-process-queue/index.ts` | Adicionar bloco de processamento de campanhas ao final da função |
+### Imports adicionais
+- `AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger` de `@/components/ui/alert-dialog`
+- `Pencil, Trash2` de `lucide-react`
 
