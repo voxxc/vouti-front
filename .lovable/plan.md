@@ -1,44 +1,33 @@
 
 
-## Problema: Campanha em massa nunca é processada
+## Integrar processamento de campanhas no process-queue existente
 
-### Causa raiz
+### Problema
 
-A Edge Function `whatsapp-process-campaigns` **nunca é invocada**. Existe um cron job (`pg_cron`) para `whatsapp-process-queue` (a cada minuto), mas **nenhum cron para `whatsapp-process-campaigns`**. A função está deployada mas ninguém a chama.
+A Edge Function `whatsapp-process-campaigns` existe mas **nunca é invocada** — zero logs, zero chamadas. O cron job para ela nunca foi criado. A campanha está `paused` com todas as mensagens `cancelled`.
 
-Além disso, a campanha atual (id `3475ba7a`) está com status `paused` e todas as 11 mensagens estão com status `cancelled` — resultado de ter sido pausada manualmente. Mesmo que o cron existisse, não processaria nada nesse estado.
+### Solução
 
-### Correções
+Em vez de criar outro cron job (que requer SQL manual), vou integrar o processamento de campanhas **dentro do `whatsapp-process-queue`**, que já tem cron rodando a cada minuto.
 
-**1. Criar cron job para `whatsapp-process-campaigns`** (SQL migration)
+### Mudanças
 
-Adicionar um `pg_cron` job que invoque a função a cada minuto, igual ao padrão do `whatsapp-process-queue`:
+**Arquivo:** `supabase/functions/whatsapp-process-queue/index.ts`
 
-```sql
-SELECT cron.schedule(
-  'whatsapp-process-campaigns-every-minute',
-  '* * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/whatsapp-process-campaigns',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer <anon_key>'
-    ),
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
-```
+Após processar as mensagens da fila normal (`whatsapp_pending_messages`), adicionar um bloco que:
 
-**2. Corrigir o `supabase.rpc('', {})` inútil** na Edge Function (linha 114)
+1. Busca mensagens pendentes de `whatsapp_campaign_messages` com `status = 'pending'` e `scheduled_at <= now()`, join com `whatsapp_campaigns` onde `status = 'running'`
+2. Para cada mensagem, resolve a instância Z-API pelo `agent_id` da campanha
+3. Envia via Z-API (mesmo padrão já existente)
+4. Atualiza status da mensagem para `sent` ou `failed`
+5. Atualiza contadores da campanha (`sent_count`, `failed_count`)
+6. Marca campanha como `completed` quando não houver mais mensagens pendentes
 
-Essa chamada `supabase.rpc('', {})` não faz nada e gera um erro silencioso. Remover essa linha.
+Isso reaproveita toda a lógica de envio, credenciais e formatação de telefone que já existe na função.
 
-### Arquivos afetados
+### Arquivo afetado
 
-| Arquivo / Recurso | Mudança |
+| Arquivo | Mudança |
 |---|---|
-| SQL Migration (pg_cron) | Criar cron job para invocar `whatsapp-process-campaigns` a cada minuto |
-| `supabase/functions/whatsapp-process-campaigns/index.ts` | Remover `supabase.rpc('', {}).catch(() => {})` (linha 114) |
+| `supabase/functions/whatsapp-process-queue/index.ts` | Adicionar bloco de processamento de campanhas ao final da função |
 
