@@ -42,6 +42,159 @@ interface AgendaContentProps {
   module?: string;
 }
 
+// Componente de abas para Origem/Vinculado no detalhamento de prazo
+function OriginTabs({
+  hasVinculado,
+  origemLabel,
+  vinculadoLabel,
+  selectedDeadline,
+  onViewProcesso,
+  onNavigateProject,
+}: {
+  hasVinculado: boolean;
+  origemLabel: string;
+  vinculadoLabel: string;
+  selectedDeadline: Deadline;
+  onViewProcesso: (id: string) => void;
+  onNavigateProject: (id: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'origem' | 'vinculado'>('origem');
+
+  return (
+    <div className="space-y-3">
+      {/* Tab buttons */}
+      <div className="flex gap-6 border-b">
+        <button
+          onClick={() => setActiveTab('origem')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeTab === 'origem'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {origemLabel}
+          {activeTab === 'origem' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+        {hasVinculado && (
+          <button
+            onClick={() => setActiveTab('vinculado')}
+            className={cn(
+              "pb-2 text-sm font-medium transition-colors relative",
+              activeTab === 'vinculado'
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {vinculadoLabel}
+            {activeTab === 'vinculado' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Tab content */}
+      <div className="text-sm space-y-1">
+        {activeTab === 'origem' && selectedDeadline.processoOrigem && (
+          <>
+            {selectedDeadline.processoOrigem.numeroCnj && (
+              <p><strong>CNJ:</strong> {selectedDeadline.processoOrigem.numeroCnj}</p>
+            )}
+            {selectedDeadline.processoOrigem.parteAtiva && (
+              <p><strong>Autor:</strong> {selectedDeadline.processoOrigem.parteAtiva}</p>
+            )}
+            {selectedDeadline.processoOrigem.partePassiva && (
+              <p><strong>Réu:</strong> {selectedDeadline.processoOrigem.partePassiva}</p>
+            )}
+            {selectedDeadline.processoOrigem.tribunal && (
+              <p><strong>Tribunal:</strong> {selectedDeadline.processoOrigem.tribunal}</p>
+            )}
+            <Button
+              variant="link"
+              size="sm"
+              className="p-0 h-auto text-primary"
+              onClick={() => onViewProcesso(selectedDeadline.processoOrigem!.id)}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Ver Processo Completo
+            </Button>
+          </>
+        )}
+
+        {activeTab === 'origem' && selectedDeadline.protocoloOrigem && (
+          <>
+            {selectedDeadline.protocoloOrigem.protocoloNome && (
+              <p><strong>Processo:</strong> {selectedDeadline.protocoloOrigem.protocoloNome}</p>
+            )}
+            {selectedDeadline.protocoloOrigem.etapaNome && (
+              <p><strong>Etapa:</strong> {selectedDeadline.protocoloOrigem.etapaNome}</p>
+            )}
+            {selectedDeadline.protocoloOrigem.projectId && (
+              <Button
+                variant="link"
+                size="sm"
+                className="p-0 h-auto text-primary"
+                onClick={() => onNavigateProject(selectedDeadline.protocoloOrigem!.projectId!)}
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Ver Projeto
+              </Button>
+            )}
+          </>
+        )}
+
+        {activeTab === 'vinculado' && selectedDeadline.casoVinculado && (
+          <>
+            {selectedDeadline.casoVinculado.numeroCnj && (
+              <p><strong>CNJ:</strong> {selectedDeadline.casoVinculado.numeroCnj}</p>
+            )}
+            {selectedDeadline.casoVinculado.parteAtiva && (
+              <p><strong>Autor:</strong> {selectedDeadline.casoVinculado.parteAtiva}</p>
+            )}
+            {selectedDeadline.casoVinculado.partePassiva && (
+              <p><strong>Réu:</strong> {selectedDeadline.casoVinculado.partePassiva}</p>
+            )}
+            {selectedDeadline.casoVinculado.tribunal && (
+              <p><strong>Tribunal:</strong> {selectedDeadline.casoVinculado.tribunal}</p>
+            )}
+            <Button
+              variant="link"
+              size="sm"
+              className="p-0 h-auto text-primary"
+              onClick={() => onViewProcesso(selectedDeadline.casoVinculado!.id)}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Ver Caso
+            </Button>
+          </>
+        )}
+
+        {activeTab === 'vinculado' && selectedDeadline.protocoloVinculado && (
+          <>
+            {selectedDeadline.protocoloVinculado.protocoloNome && (
+              <p><strong>Processo:</strong> {selectedDeadline.protocoloVinculado.protocoloNome}</p>
+            )}
+            {selectedDeadline.protocoloVinculado.projectId && (
+              <Button
+                variant="link"
+                size="sm"
+                className="p-0 h-auto text-primary"
+                onClick={() => onNavigateProject(selectedDeadline.protocoloVinculado!.projectId!)}
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Ver Projeto
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -1076,156 +1229,36 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     </div>
                   )}
                   
-                  {/* Origem: Processo Judicial */}
-                  {selectedDeadline.processoOrigem && (
-                    <div className="border rounded-lg p-3 bg-muted/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Scale className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium">Processo Judicial</label>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        {selectedDeadline.processoOrigem.numeroCnj && (
-                          <p><strong>CNJ:</strong> {selectedDeadline.processoOrigem.numeroCnj}</p>
-                        )}
-                        {selectedDeadline.processoOrigem.parteAtiva && (
-                          <p><strong>Autor:</strong> {selectedDeadline.processoOrigem.parteAtiva}</p>
-                        )}
-                        {selectedDeadline.processoOrigem.partePassiva && (
-                          <p><strong>Réu:</strong> {selectedDeadline.processoOrigem.partePassiva}</p>
-                        )}
-                        {selectedDeadline.processoOrigem.tribunal && (
-                          <p><strong>Tribunal:</strong> {selectedDeadline.processoOrigem.tribunal}</p>
-                        )}
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          className="p-0 h-auto text-primary"
-                          onClick={async () => {
-                            const processoId = selectedDeadline.processoOrigem?.id;
-                            if (!processoId) return;
-                            const { data } = await supabase
-                              .from('processos_oab')
-                              .select('*')
-                              .eq('id', processoId)
-                              .single();
-                            if (data) {
-                              setSelectedProcessoOAB(data as unknown as ProcessoOAB);
-                              setProcessoDrawerOpen(true);
-                            }
-                          }}
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Ver Processo Completo
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Origem: Processo/Etapa */}
-                  {selectedDeadline.protocoloOrigem && (
-                    <div className="border rounded-lg p-3 bg-muted/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium">Processo de Origem</label>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        {selectedDeadline.protocoloOrigem.protocoloNome && (
-                          <p><strong>Processo:</strong> {selectedDeadline.protocoloOrigem.protocoloNome}</p>
-                        )}
-                        {selectedDeadline.protocoloOrigem.etapaNome && (
-                          <p><strong>Etapa:</strong> {selectedDeadline.protocoloOrigem.etapaNome}</p>
-                        )}
-                        {selectedDeadline.protocoloOrigem.projectId && (
-                          <Button 
-                            variant="link" 
-                            size="sm" 
-                            className="p-0 h-auto text-primary"
-                            onClick={() => {
-                              setIsDetailDialogOpen(false);
-                              navigate(`/project/${selectedDeadline.protocoloOrigem?.projectId}`);
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Ver Projeto
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Caso Vinculado (prazo vem de protocolo que tem caso) */}
-                  {selectedDeadline.casoVinculado && (
-                    <div className="border rounded-lg p-3 bg-primary/5">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Scale className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium">Caso Vinculado</label>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        {selectedDeadline.casoVinculado.numeroCnj && (
-                          <p><strong>CNJ:</strong> {selectedDeadline.casoVinculado.numeroCnj}</p>
-                        )}
-                        {selectedDeadline.casoVinculado.parteAtiva && (
-                          <p><strong>Autor:</strong> {selectedDeadline.casoVinculado.parteAtiva}</p>
-                        )}
-                        {selectedDeadline.casoVinculado.partePassiva && (
-                          <p><strong>Réu:</strong> {selectedDeadline.casoVinculado.partePassiva}</p>
-                        )}
-                        {selectedDeadline.casoVinculado.tribunal && (
-                          <p><strong>Tribunal:</strong> {selectedDeadline.casoVinculado.tribunal}</p>
-                        )}
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          className="p-0 h-auto text-primary"
-                          onClick={async () => {
-                            const processoId = selectedDeadline.casoVinculado?.id;
-                            if (!processoId) return;
-                            const { data } = await supabase
-                              .from('processos_oab')
-                              .select('*')
-                              .eq('id', processoId)
-                              .single();
-                            if (data) {
-                              setSelectedProcessoOAB(data as unknown as ProcessoOAB);
-                              setProcessoDrawerOpen(true);
-                            }
-                          }}
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Ver Caso
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Protocolo Vinculado (prazo vem de caso que tem protocolo) */}
-                  {selectedDeadline.protocoloVinculado && (
-                    <div className="border rounded-lg p-3 bg-primary/5">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium">Processo Vinculado</label>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        {selectedDeadline.protocoloVinculado.protocoloNome && (
-                          <p><strong>Processo:</strong> {selectedDeadline.protocoloVinculado.protocoloNome}</p>
-                        )}
-                        {selectedDeadline.protocoloVinculado.projectId && (
-                          <Button 
-                            variant="link" 
-                            size="sm" 
-                            className="p-0 h-auto text-primary"
-                            onClick={() => {
-                              setIsDetailDialogOpen(false);
-                              navigate(`/project/${selectedDeadline.protocoloVinculado?.projectId}`);
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Ver Projeto
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  {/* Origem e Vinculado - Abas estilo Extras */}
+                  {(selectedDeadline.processoOrigem || selectedDeadline.protocoloOrigem) && (() => {
+                    const hasVinculado = !!(selectedDeadline.casoVinculado || selectedDeadline.protocoloVinculado);
+                    const origemLabel = selectedDeadline.processoOrigem ? "Processo Judicial" : "Processo de Origem";
+                    const vinculadoLabel = selectedDeadline.casoVinculado ? "Caso Vinculado" : "Processo Vinculado";
+                    
+                    return (
+                      <OriginTabs
+                        hasVinculado={hasVinculado}
+                        origemLabel={origemLabel}
+                        vinculadoLabel={vinculadoLabel}
+                        selectedDeadline={selectedDeadline}
+                        onViewProcesso={async (processoId: string) => {
+                          const { data } = await supabase
+                            .from('processos_oab')
+                            .select('*')
+                            .eq('id', processoId)
+                            .single();
+                          if (data) {
+                            setSelectedProcessoOAB(data as unknown as ProcessoOAB);
+                            setProcessoDrawerOpen(true);
+                          }
+                        }}
+                        onNavigateProject={(projectId: string) => {
+                          setIsDetailDialogOpen(false);
+                          navigate(`/project/${projectId}`);
+                        }}
+                      />
+                    );
+                  })()}
                   
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
