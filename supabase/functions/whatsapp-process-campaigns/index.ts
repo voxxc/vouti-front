@@ -111,7 +111,6 @@ serve(async (req) => {
             .eq('id', msg.id);
 
           // Update campaign counters
-          await supabase.rpc('', {}).catch(() => {});
           await supabase
             .from('whatsapp_campaigns')
             .update({ sent_count: (campaign as any).sent_count ? (campaign as any).sent_count + 1 : 1 })
