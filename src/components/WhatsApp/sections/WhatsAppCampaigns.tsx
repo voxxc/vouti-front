@@ -21,7 +21,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Megaphone, Plus, Play, Pause, Users, Clock, CheckCircle2, XCircle, Variable } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Megaphone, Plus, Play, Pause, Users, Clock, CheckCircle2, XCircle, Variable, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
@@ -60,6 +70,8 @@ export const WhatsAppCampaigns = () => {
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
 
   // Form state
   const [name, setName] = useState("");
@@ -116,6 +128,91 @@ export const WhatsAppCampaigns = () => {
     setMessageTemplate((prev) => prev + "{{nome}}");
   };
 
+  const resetForm = () => {
+    setName("");
+    setMessageTemplate("");
+    setSelectedAgentId("");
+    setSelectedColumnId("");
+    setBatchSize(10);
+    setIntervalMinutes(4);
+    setScheduledStartAt("");
+    setEditingCampaign(null);
+  };
+
+  const handleOpenCreate = () => {
+    resetForm();
+    setIsOpen(true);
+  };
+
+  const handleEdit = (campaign: Campaign) => {
+    setEditingCampaign(campaign);
+    setName(campaign.name);
+    setMessageTemplate(campaign.message_template);
+    setSelectedAgentId(campaign.agent_id);
+    setSelectedColumnId(campaign.target_column_id);
+    setBatchSize(campaign.batch_size);
+    setIntervalMinutes(campaign.interval_minutes);
+    setScheduledStartAt("");
+    setIsOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingCampaign || !name || !messageTemplate) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("whatsapp_campaigns")
+        .update({
+          name,
+          message_template: messageTemplate,
+          batch_size: batchSize,
+          interval_minutes: intervalMinutes,
+        })
+        .eq("id", editingCampaign.id);
+
+      if (error) throw error;
+
+      toast.success("Campanha atualizada com sucesso!");
+      setIsOpen(false);
+      resetForm();
+      loadCampaigns();
+    } catch (error) {
+      console.error("Erro ao atualizar campanha:", error);
+      toast.error("Erro ao atualizar campanha");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingCampaign) return;
+
+    try {
+      await supabase
+        .from("whatsapp_campaign_messages")
+        .delete()
+        .eq("campaign_id", deletingCampaign.id);
+
+      const { error } = await supabase
+        .from("whatsapp_campaigns")
+        .delete()
+        .eq("id", deletingCampaign.id);
+
+      if (error) throw error;
+
+      toast.success("Campanha apagada com sucesso!");
+      setDeletingCampaign(null);
+      loadCampaigns();
+    } catch (error) {
+      console.error("Erro ao apagar campanha:", error);
+      toast.error("Erro ao apagar campanha");
+    }
+  };
+
   const handleCreate = async () => {
     if (!name || !messageTemplate || !selectedAgentId || !selectedColumnId) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -127,7 +224,6 @@ export const WhatsAppCampaigns = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
 
-      // 1. Get contacts from the selected kanban column
       const { data: kanbanCards } = await supabase
         .from("whatsapp_conversation_kanban")
         .select("phone")
@@ -142,7 +238,6 @@ export const WhatsAppCampaigns = () => {
 
       const phones = kanbanCards.map((c) => c.phone);
 
-      // 2. Resolve contact names
       const { data: contacts } = await supabase
         .from("whatsapp_contacts")
         .select("phone, name")
@@ -151,7 +246,6 @@ export const WhatsAppCampaigns = () => {
       const nameMap = new Map<string, string>();
       contacts?.forEach((c) => nameMap.set(c.phone, c.name));
 
-      // 3. Create campaign
       const campaignData: any = {
         tenant_id: tenantId,
         agent_id: selectedAgentId,
@@ -176,7 +270,6 @@ export const WhatsAppCampaigns = () => {
 
       if (campError || !campaign) throw campError;
 
-      // 4. Create scheduled messages in batches
       const startTime = scheduledStartAt ? new Date(scheduledStartAt) : new Date();
       const messages = phones.map((phone, index) => {
         const batchIndex = Math.floor(index / batchSize);
@@ -216,14 +309,12 @@ export const WhatsAppCampaigns = () => {
     const newStatus = campaign.status === "running" ? "paused" : "running";
 
     if (newStatus === "paused") {
-      // Cancel pending messages
       await supabase
         .from("whatsapp_campaign_messages")
         .update({ status: "cancelled" })
         .eq("campaign_id", campaign.id)
         .eq("status", "pending");
     } else {
-      // Reschedule cancelled messages
       const { data: cancelled } = await supabase
         .from("whatsapp_campaign_messages")
         .select("id")
@@ -252,16 +343,6 @@ export const WhatsAppCampaigns = () => {
     loadCampaigns();
   };
 
-  const resetForm = () => {
-    setName("");
-    setMessageTemplate("");
-    setSelectedAgentId("");
-    setSelectedColumnId("");
-    setBatchSize(10);
-    setIntervalMinutes(4);
-    setScheduledStartAt("");
-  };
-
   const getStatusBadge = (status: string) => {
     const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
       draft: { label: "Rascunho", variant: "outline" },
@@ -273,6 +354,11 @@ export const WhatsAppCampaigns = () => {
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
+  const handleDialogClose = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) resetForm();
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -281,16 +367,16 @@ export const WhatsAppCampaigns = () => {
           <h2 className="text-xl font-semibold">Campanhas em Massa</h2>
         </div>
 
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleOpenCreate}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Campanha
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Criar Campanha</DialogTitle>
+              <DialogTitle>{editingCampaign ? "Editar Campanha" : "Criar Campanha"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -300,7 +386,7 @@ export const WhatsAppCampaigns = () => {
 
               <div>
                 <Label>Agente</Label>
-                <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                <Select value={selectedAgentId} onValueChange={setSelectedAgentId} disabled={!!editingCampaign}>
                   <SelectTrigger><SelectValue placeholder="Selecione o agente" /></SelectTrigger>
                   <SelectContent>
                     {agents.map((a) => (
@@ -313,7 +399,7 @@ export const WhatsAppCampaigns = () => {
               {columns.length > 0 && (
                 <div>
                   <Label>Coluna do Kanban</Label>
-                  <Select value={selectedColumnId} onValueChange={setSelectedColumnId}>
+                  <Select value={selectedColumnId} onValueChange={setSelectedColumnId} disabled={!!editingCampaign}>
                     <SelectTrigger><SelectValue placeholder="Selecione a coluna" /></SelectTrigger>
                     <SelectContent>
                       {columns.map((c) => (
@@ -356,23 +442,49 @@ export const WhatsAppCampaigns = () => {
                 </div>
               </div>
 
-              <div>
-                <Label>Horário de início (opcional)</Label>
-                <Input 
-                  type="datetime-local" 
-                  value={scheduledStartAt} 
-                  onChange={(e) => setScheduledStartAt(e.target.value)} 
-                />
-                <p className="text-xs text-muted-foreground mt-1">Se não definido, a campanha inicia imediatamente.</p>
-              </div>
+              {!editingCampaign && (
+                <div>
+                  <Label>Horário de início (opcional)</Label>
+                  <Input 
+                    type="datetime-local" 
+                    value={scheduledStartAt} 
+                    onChange={(e) => setScheduledStartAt(e.target.value)} 
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Se não definido, a campanha inicia imediatamente.</p>
+                </div>
+              )}
 
-              <Button onClick={handleCreate} disabled={loading} className="w-full">
-                {loading ? "Criando..." : "Criar e Iniciar Campanha"}
+              <Button
+                onClick={editingCampaign ? handleUpdate : handleCreate}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading
+                  ? (editingCampaign ? "Salvando..." : "Criando...")
+                  : (editingCampaign ? "Salvar Alterações" : "Criar e Iniciar Campanha")}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deletingCampaign} onOpenChange={(open) => !open && setDeletingCampaign(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar campanha</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja apagar a campanha "{deletingCampaign?.name}"? Todas as mensagens associadas serão removidas. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Campaign List */}
       <ScrollArea className="h-[calc(100vh-200px)]">
@@ -395,8 +507,16 @@ export const WhatsAppCampaigns = () => {
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">{campaign.name}</CardTitle>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         {getStatusBadge(campaign.status)}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEdit(campaign)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         {(campaign.status === "running" || campaign.status === "paused") && (
                           <Button
                             variant="ghost"
@@ -411,6 +531,14 @@ export const WhatsAppCampaigns = () => {
                             )}
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeletingCampaign(campaign)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
