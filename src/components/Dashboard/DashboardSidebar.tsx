@@ -197,7 +197,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
       >
         {/* Logo */}
         <div className={cn(
-          "px-4 py-3 border-b border-border flex items-center min-h-[57px]",
+          "px-4 py-3 border-b border-border flex items-center",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
         <Link 
