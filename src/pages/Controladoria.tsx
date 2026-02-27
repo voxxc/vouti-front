@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Bell, Scale, FileStack, RefreshCw, ClipboardCheck } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
-import { CNPJManager } from "@/components/Controladoria/CNPJManager";
+import { PushDocsManager } from "@/components/Controladoria/PushDocsManager";
 import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
@@ -146,7 +146,7 @@ const Controladoria = () => {
           <TabsContent value="push-doc">
             <Card>
               <CardContent className="pt-6">
-                <CNPJManager />
+                <PushDocsManager />
               </CardContent>
             </Card>
           </TabsContent>

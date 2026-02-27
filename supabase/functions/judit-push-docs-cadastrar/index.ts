@@ -47,7 +47,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se é super admin
+    const body: CadastrarRequest = await req.json();
+    const { tenantId, tipoDocumento, documento, descricao, recurrence = 1 } = body;
+
+    // Verificar se é super admin OU admin do tenant
     const { data: superAdmin } = await supabaseAuth
       .from('super_admins')
       .select('id')
@@ -55,14 +58,35 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!superAdmin) {
-      return new Response(
-        JSON.stringify({ error: 'Acesso restrito a super admins' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      // Verificar se é admin do tenant
+      const { data: userProfile } = await supabaseAuth
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    const body: CadastrarRequest = await req.json();
-    const { tenantId, tipoDocumento, documento, descricao, recurrence = 1 } = body;
+      if (!userProfile || userProfile.tenant_id !== tenantId) {
+        return new Response(
+          JSON.stringify({ error: 'Usuário não pertence a este tenant' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: adminRole } = await supabaseAuth
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (!adminRole) {
+        return new Response(
+          JSON.stringify({ error: 'Acesso restrito a administradores' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     if (!tenantId || !tipoDocumento || !documento) {
       return new Response(
