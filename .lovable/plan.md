@@ -1,21 +1,34 @@
 
 
-## Redesign visual das origens no detalhamento de prazo
+## Reformulação da seção Push-Docs na Controladoria
 
-### Conceito
+### Situação atual
+- A aba "Push-Doc" na página Controladoria renderiza `CNPJManager`, que usa a tabela `cnpjs_cadastrados` e só suporta CNPJ
+- Já existe o hook `useTenantPushDocs` que opera na tabela `push_docs_cadastrados` e suporta CPF, CNPJ e OAB
+- Já existe o `TenantPushDocsDialog` (Super Admin) com UI de abas CPF/CNPJ/OAB — serve como referência visual
 
-Substituir os blocos/cards atuais (processoOrigem, protocoloOrigem, casoVinculado, protocoloVinculado) por uma navegação em abas estilo Extras — nomes clicáveis com underline, onde o primeiro é sempre a origem e o segundo é o vinculado.
+### Plano
 
-### Mudança em `src/components/Agenda/AgendaContent.tsx`
+**1. Criar componente `src/components/Controladoria/PushDocsManager.tsx`**
+- Componente novo que substitui `CNPJManager` na aba Push-Doc
+- Usa `useTenantPushDocs(tenantId)` do hook existente (obtendo tenantId do `useAuth`)
+- Layout com 3 sub-abas: CPF (User icon), CNPJ (Building2 icon), OAB (Scale icon) — com contadores
+- Botão "Cadastrar" contextual por aba ativa
+- Cada documento listado em card com: documento formatado, descrição, status badge, botões pausar/reativar/deletar
+- Seção inferior: "Processos Recebidos" com listagem dos `push_docs_processos`
+- Dialogs: cadastrar novo documento, confirmar exclusão
+- Respeitar permissão admin (só admin cadastra/remove)
 
-**Linhas ~1079-1230**: Substituir os 4 blocos independentes por:
+**2. Atualizar `src/pages/Controladoria.tsx`**
+- Trocar import de `CNPJManager` por `PushDocsManager`
+- Na aba `push-doc`, renderizar `<PushDocsManager />` em vez de `<CNPJManager />`
 
-1. **State local**: `originTab: 'origem' | 'vinculado'` (default `'origem'`)
-2. **Barra de abas** com botões texto estilo TabButton do Extras:
-   - Primeiro botão: nome da origem (ex: "Processo Judicial" ou "Processo de Origem") — sempre visível se existir
-   - Segundo botão: nome do vinculado (ex: "Caso Vinculado" ou "Processo Vinculado") — só aparece se existir
-   - Estilo: `text-sm font-medium`, underline primário no ativo, `text-muted-foreground` no inativo
-3. **Conteúdo condicional**: renderiza os detalhes (CNJ, partes, tribunal, botão "Ver") conforme a aba selecionada
+**3. Sem mudanças de banco/edge functions**
+- O hook `useTenantPushDocs` e as edge functions `judit-push-docs-cadastrar`, `judit-push-docs-toggle` já suportam CPF/CNPJ/OAB
+- A edge function `judit-push-docs-cadastrar` exige super_admin — será necessário ajustar para permitir admins do tenant também
 
-Isso mantém toda a lógica existente de onClick (abrir drawer do caso, navegar para projeto), apenas reorganiza visualmente.
+**4. Ajustar edge function `judit-push-docs-cadastrar`**
+- Remover verificação exclusiva de `super_admins`
+- Permitir que usuários com role `admin` no tenant também cadastrem documentos
+- Validar que o tenantId do request corresponde ao tenant do usuário
 
