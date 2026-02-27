@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import CloudIcon from "@/components/CloudIcon";
+import LogoVouti from "@/components/LogoVouti";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -236,15 +236,8 @@ const Auth = () => {
       <div className="w-full lg:w-2/5 flex items-center justify-center p-4 lg:pr-16">
         <div className="w-full max-w-md animate-slide-in-left">
           {/* Mobile: Logo aparece acima do card */}
-          <div className="lg:hidden text-center mb-6">
-            <CloudIcon className="w-16 h-12 mx-auto mb-4 animate-float" />
-            <span className="text-3xl font-bold tracking-wider block mb-3">
-              <span className="bg-gradient-to-r from-gray-600 via-gray-800 to-blue-600 dark:from-gray-300 dark:via-white dark:to-blue-400 bg-clip-text text-transparent">VOUTI</span>
-              <span className="text-red-500">.</span>
-            </span>
-            <p className="text-sm font-medium tracking-wide text-muted-foreground">
-              O melhor lugar de trabalho é <span className="text-primary">aqui</span>.
-            </p>
+          <div className="lg:hidden flex justify-center mb-6">
+            <LogoVouti size="lg" />
           </div>
 
 
