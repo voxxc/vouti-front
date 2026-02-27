@@ -213,7 +213,7 @@ const Auth = () => {
       }} />
         
         {/* Overlay suave para melhorar legibilidade */}
-        <div className="absolute inset-0 bg-black/35" />
+        <div className="absolute inset-0 bg-black/10" />
         
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
