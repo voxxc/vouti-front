@@ -217,7 +217,7 @@ const Auth = () => {
         
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
-          <LogoVouti size="lg" className="[&>span:first-child]:text-white" />
+          <LogoVouti size="lg" className="[&>span:first-child]:text-black" />
           <p className="text-sm md:text-base font-medium tracking-wide text-white/90 mt-2">
             O melhor lugar de trabalho é <span className="text-white font-semibold">aqui</span>.
           </p>
