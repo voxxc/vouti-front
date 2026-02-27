@@ -226,6 +226,7 @@ export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDraw
             onUpdateProject={handleUpdateProject}
             onBack={handleBackToMain}
             onLogout={() => {}}
+            embedded
           />
         </div>
       </div>

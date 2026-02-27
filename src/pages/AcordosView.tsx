@@ -20,11 +20,12 @@ interface AcordosViewProps {
   onBack: () => void;
   project: Project;
   onUpdateProject: (project: Project) => void;
+  embedded?: boolean;
 }
 
 // Removed interface AcordoTask - using Task directly
 
-const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosViewProps) => {
+const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = false }: AcordosViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedColumnName, setSelectedColumnName] = useState<string>("");
@@ -376,8 +377,7 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
     onUpdateProject(updatedProject);
   };
 
-  return (
-    <DashboardLayout>
+  const content = (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -504,6 +504,13 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject }: AcordosView
           projectName={project.name}
         />
       </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <DashboardLayout>
+      {content}
     </DashboardLayout>
   );
 };
