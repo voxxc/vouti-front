@@ -218,8 +218,8 @@ const Auth = () => {
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
           <LogoVouti size="lg" className="[&>span:first-child]:text-black" />
-          <p className="text-sm md:text-base font-medium tracking-wide text-black/90 mt-2">
-            O melhor lugar de trabalho é <span className="text-black font-semibold">aqui</span>.
+          <p className="text-sm md:text-base font-medium tracking-wide text-white mt-2" style={{ textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' }}>
+            O melhor lugar de trabalho é <span className="font-semibold">aqui</span>.
           </p>
         </div>
       </div>
