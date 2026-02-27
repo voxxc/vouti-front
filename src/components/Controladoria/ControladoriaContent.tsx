@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Bell, Scale, FileStack, RefreshCw } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
-import { CNPJManager } from "@/components/Controladoria/CNPJManager";
+import { PushDocsManager } from "@/components/Controladoria/PushDocsManager";
 import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -149,7 +149,7 @@ export const ControladoriaContent = () => {
         {activeTab === 'push-doc' && (
           <Card className="flex-1 min-h-0 flex flex-col">
             <CardContent className="pt-6 h-full flex flex-col">
-              <CNPJManager />
+              <PushDocsManager />
             </CardContent>
           </Card>
         )}

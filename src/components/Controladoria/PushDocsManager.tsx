@@ -54,6 +54,7 @@ export const PushDocsManager = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   // Form state
+  const [tipoDocDialog, setTipoDocDialog] = useState<TipoDocumento>('cpf');
   const [documento, setDocumento] = useState('');
   const [descricao, setDescricao] = useState('');
   const [recurrence, setRecurrence] = useState(1);
@@ -77,9 +78,17 @@ export const PushDocsManager = () => {
     oab: pushDocs.filter(pd => pd.tipo_documento === 'oab').length,
   };
 
+  const openCadastrarDialog = () => {
+    setTipoDocDialog(activeTab);
+    setDocumento('');
+    setDescricao('');
+    setRecurrence(1);
+    setShowCadastrar(true);
+  };
+
   const handleCadastrar = async () => {
     const success = await cadastrarPushDoc({
-      tipoDocumento: activeTab,
+      tipoDocumento: tipoDocDialog,
       documento,
       descricao: descricao || undefined,
       recurrence,
@@ -169,9 +178,9 @@ export const PushDocsManager = () => {
             </TabsList>
 
             {isAdmin && (
-              <Button size="sm" onClick={() => setShowCadastrar(true)} className="gap-2">
+              <Button size="sm" onClick={openCadastrarDialog} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Cadastrar {activeTab.toUpperCase()}
+                Adicionar Termo
               </Button>
             )}
           </div>
@@ -187,15 +196,15 @@ export const PushDocsManager = () => {
                       ? `Cadastre um ${tipo.toUpperCase()} para monitorar novos processos`
                       : 'Solicite ao administrador o cadastro de documentos'}
                   </p>
-                  {isAdmin && (
+                   {isAdmin && (
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="mt-4 gap-2"
-                      onClick={() => setShowCadastrar(true)}
+                      onClick={openCadastrarDialog}
                     >
                       <Plus className="h-4 w-4" />
-                      Cadastrar primeiro {tipo.toUpperCase()}
+                      Adicionar Termo
                     </Button>
                   )}
                 </div>
@@ -263,16 +272,35 @@ export const PushDocsManager = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {getTabIcon(activeTab)}
-              Cadastrar {activeTab.toUpperCase()} para Monitoramento
+              <FileStack className="h-5 w-5" />
+              Adicionar Termo para Monitoramento
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>{activeTab.toUpperCase()} *</Label>
+              <Label>Tipo de Documento *</Label>
+              <div className="flex gap-2">
+                {(['cpf', 'cnpj', 'oab'] as TipoDocumento[]).map((tipo) => (
+                  <Button
+                    key={tipo}
+                    type="button"
+                    variant={tipoDocDialog === tipo ? 'default' : 'outline'}
+                    size="sm"
+                    className="gap-2 flex-1"
+                    onClick={() => { setTipoDocDialog(tipo); setDocumento(''); }}
+                  >
+                    {getTabIcon(tipo)}
+                    {tipo.toUpperCase()}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{tipoDocDialog.toUpperCase()} *</Label>
               <Input
-                placeholder={getPlaceholder(activeTab)}
+                placeholder={getPlaceholder(tipoDocDialog)}
                 value={documento}
                 onChange={(e) => setDocumento(e.target.value)}
               />
@@ -281,7 +309,7 @@ export const PushDocsManager = () => {
             <div className="space-y-2">
               <Label>Descrição (opcional)</Label>
               <Input
-                placeholder={activeTab === 'oab' ? 'Nome do advogado' : activeTab === 'cnpj' ? 'Razão social' : 'Nome da pessoa'}
+                placeholder={tipoDocDialog === 'oab' ? 'Nome do advogado' : tipoDocDialog === 'cnpj' ? 'Razão social' : 'Nome da pessoa'}
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
               />

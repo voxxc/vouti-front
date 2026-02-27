@@ -131,12 +131,18 @@ Deno.serve(async (req) => {
       searchKey = documentoLimpo;
     }
 
-    // Webhook URL
-    const webhookUrl = `${supabaseUrl}/functions/v1/judit-webhook-push-docs`;
 
     console.log(`[push-docs-cadastrar] Cadastrando ${tipoDocumento}: ${searchKey} para tenant ${tenantId}`);
 
-    // Chamar Judit API para criar tracking
+    // Formatar search_key conforme documentação Judit
+    let formattedSearchKey = searchKey;
+    if (tipoDocumento === 'cpf' && searchKey.length === 11) {
+      formattedSearchKey = `${searchKey.slice(0,3)}.${searchKey.slice(3,6)}.${searchKey.slice(6,9)}-${searchKey.slice(9)}`;
+    } else if (tipoDocumento === 'cnpj' && searchKey.length === 14) {
+      formattedSearchKey = `${searchKey.slice(0,2)}.${searchKey.slice(2,5)}.${searchKey.slice(5,8)}/${searchKey.slice(8,12)}-${searchKey.slice(12)}`;
+    }
+
+    // Chamar Judit API para criar tracking (sem webhook - configurado na conta Judit)
     const juditResponse = await fetch('https://tracking.prod.judit.io/tracking', {
       method: 'POST',
       headers: {
@@ -147,10 +153,7 @@ Deno.serve(async (req) => {
         recurrence: recurrence,
         search: {
           search_type: searchType,
-          search_key: searchKey,
-        },
-        webhook: {
-          url: webhookUrl,
+          search_key: formattedSearchKey,
         },
       }),
     });
@@ -162,7 +165,7 @@ Deno.serve(async (req) => {
       throw new Error(juditData.message || juditData.error || 'Erro na API Judit');
     }
 
-    const trackingId = juditData.id || juditData.tracking_id;
+    const trackingId = juditData.tracking_id || juditData.id;
 
     // Inserir ou atualizar no banco
     if (existente) {
