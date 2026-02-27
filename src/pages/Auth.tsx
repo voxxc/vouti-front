@@ -217,18 +217,7 @@ const Auth = () => {
         
         {/* Conteúdo posicionado no topo esquerdo */}
         <div className="relative z-10 flex flex-col items-start text-left px-10 pt-12">
-          {/* Logo */}
-          <div className="mb-2 flex flex-col items-start">
-            <span className="text-5xl md:text-7xl font-bold tracking-wider">
-              <span className="bg-gradient-to-r from-white via-white to-blue-300 bg-clip-text text-transparent">VOUTI</span>
-              <span className="text-red-500">.</span>
-            </span>
-          </div>
-          
-          {/* Slogan */}
-          <p className="text-sm md:text-base font-medium tracking-wide text-white/90">
-            O melhor lugar de trabalho é <span className="text-white font-semibold">aqui</span>.
-          </p>
+          <LogoVouti size="lg" className="[&>span:first-child]:text-white" />
         </div>
       </div>
 
