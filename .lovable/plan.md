@@ -1,15 +1,12 @@
 
 
-## Usar a imagem PNG como logo Solvenza
+## Imagem escurecida na tela de Auth
 
-### Alterações
+### Causa
+Linha 216: existe um overlay `<div className="absolute inset-0 bg-black/35" />` sobre a imagem de fundo, que aplica 35% de preto por cima.
 
-1. **Copiar** `user-uploads://Design_sem_nome.png` para `src/assets/logo-solvenza.png`
-2. **Reescrever `src/components/LogoSolvenza.tsx`**: substituir todo o SVG por um `<img>` importado, mantendo props `size` e `className`
-   - `sm`: height 48px
-   - `md`: height 72px
-   - `lg`: height 100px
-
-### Arquivo afetado
-- `src/components/LogoSolvenza.tsx`
+### Correção
+**`src/pages/Auth.tsx`** (linha 216)
+- Reduzir ou remover o overlay. Como o logo agora é preto e o slogan é branco, podemos reduzir para `bg-black/15` (overlay bem sutil) ou remover completamente (`bg-black/0` ou deletar a div).
+- Recomendo reduzir para `bg-black/10` para manter leve legibilidade do slogan branco sem escurecer demais a foto.
 
