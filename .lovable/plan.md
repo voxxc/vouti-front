@@ -1,15 +1,12 @@
 
 
-## Trocar foto de fundo da tela de Auth
+## Imagem escurecida na tela de Auth
 
-### O que será feito
-Gerar uma nova imagem de escritório com conceito diferente usando AI (Nano banana pro para maior qualidade) e substituir o arquivo `src/assets/auth-office-bg.jpg`.
+### Causa
+Linha 216: existe um overlay `<div className="absolute inset-0 bg-black/35" />` sobre a imagem de fundo, que aplica 35% de preto por cima.
 
-### Ideia da nova imagem
-Um escritório moderno e minimalista com luz natural entrando por janelas grandes, mesa de trabalho clean com notebook, planta decorativa, tons neutros e acolhedores — transmitindo profissionalismo e conforto.
-
-### Passos
-1. Gerar nova imagem via `google/gemini-3-pro-image-preview` com prompt de escritório moderno
-2. Salvar como `src/assets/auth-office-bg.jpg` (substituindo o atual)
-3. Nenhuma mudança de código necessária — o import já aponta para esse arquivo
+### Correção
+**`src/pages/Auth.tsx`** (linha 216)
+- Reduzir ou remover o overlay. Como o logo agora é preto e o slogan é branco, podemos reduzir para `bg-black/15` (overlay bem sutil) ou remover completamente (`bg-black/0` ou deletar a div).
+- Recomendo reduzir para `bg-black/10` para manter leve legibilidade do slogan branco sem escurecer demais a foto.
 
