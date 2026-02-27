@@ -5,15 +5,15 @@ interface LogoSolvenzaProps {
 
 const LogoSolvenza = ({ className = "", size = "md" }: LogoSolvenzaProps) => {
   const textSizes = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-lg"
+    sm: "text-base",
+    md: "text-xl",
+    lg: "text-4xl"
   };
 
   const grupoSizes = {
-    sm: "text-[5px]",
-    md: "text-[6px]",
-    lg: "text-[8px]"
+    sm: "text-[10px]",
+    md: "text-xs",
+    lg: "text-base"
   };
 
   return (
