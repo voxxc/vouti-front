@@ -4,19 +4,21 @@ import { FileText, Bell, Scale, FileStack, RefreshCw } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { PushDocsManager } from "@/components/Controladoria/PushDocsManager";
 import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
+import { GeralTab } from "@/components/Controladoria/GeralTab";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-type TabValue = 'central' | 'minhas-oabs' | 'push-doc';
+type TabValue = 'geral' | 'central' | 'minhas-oabs' | 'push-doc';
 
 export const ControladoriaContent = () => {
   const { metrics, loading, isCacheLoaded, isRefreshing } = useControladoriaCache();
-  const [activeTab, setActiveTab] = useState<TabValue>('central');
+  const [activeTab, setActiveTab] = useState<TabValue>('geral');
 
   const showSkeleton = loading && !isCacheLoaded;
 
   const tabs: { value: TabValue; label: string }[] = [
+    { value: 'geral', label: 'Geral' },
     { value: 'central', label: 'Central' },
     { value: 'minhas-oabs', label: 'OABs' },
     { value: 'push-doc', label: 'Push-Doc' },
@@ -129,6 +131,14 @@ export const ControladoriaContent = () => {
             </button>
           ))}
         </div>
+
+        {activeTab === 'geral' && (
+          <Card className="flex-1 min-h-0 flex flex-col">
+            <CardContent className="pt-6 h-full flex flex-col">
+              <GeralTab />
+            </CardContent>
+          </Card>
+        )}
 
         {activeTab === 'central' && (
           <Card className="flex-1 min-h-0 flex flex-col">
