@@ -1,18 +1,28 @@
 
 
-## Plan: Fix Sidebar/Header Border Alignment
+## Plano: Criar aba "Geral" na Controladoria
 
-**Problem**: The sidebar logo area border-bottom and the main header border-bottom don't align because their content has different heights, even though both use `py-3`.
+### O que vai acontecer
 
-**Solution**: Set an explicit matching height on both containers so borders align perfectly.
+Uma nova aba chamada **"Geral"** será adicionada como primeira aba na Controladoria. Ela mostra **todos os processos de todas as OABs cadastradas numa lista única**, sem repetição. Clicar em "Detalhes" abre o mesmo painel completo (criar prazo, tarefa, editar, etc.).
 
-### Changes
+### Arquivos envolvidos
 
-1. **`src/components/Dashboard/DashboardSidebar.tsx`** (line 200):
-   - Change `"px-4 py-3 border-b border-border flex items-center"` to `"px-4 border-b border-border flex items-center h-[49px]"`
-   - Use fixed height instead of padding to guarantee alignment
+#### 1. Novo arquivo: `src/hooks/useAllProcessosOAB.ts`
+- Busca todos os processos da tabela `processos_oab` do tenant
+- Faz join com `oabs_cadastradas` para saber de qual OAB cada processo veio
+- Deduplica por `numero_cnj` (se mesmo CNJ em duas OABs, prioriza o monitorado)
+- Busca contagem de andamentos não lidos via RPC `get_andamentos_nao_lidos_por_processo`
+- Expõe funções de toggle monitoramento, exclusão e refresh
 
-2. **`src/components/Dashboard/DashboardLayout.tsx`** (line 247):
-   - Change the header's inner div from `"flex items-center justify-between px-6 py-3"` to `"flex items-center justify-between px-6 h-[49px]"`
-   - Both containers now share the exact same `h-[49px]`, ensuring their border-bottom lines are perfectly aligned
+#### 2. Novo arquivo: `src/components/Controladoria/GeralTab.tsx`
+- Reutiliza a mesma lógica visual do `OABTab.tsx` (busca, filtro por UF, agrupamento por instância, cards)
+- Cada card mostra um badge com a OAB de origem (ex: "12345/SP")
+- Ao clicar "Detalhes", abre `ProcessoOABDetalhes` passando a `oab` correta — todas as funcionalidades (prazo, tarefa, editar) funcionam normalmente
+
+#### 3. Modificar: `src/components/Controladoria/ControladoriaContent.tsx`
+- Adicionar `'geral'` ao tipo `TabValue`
+- Inserir "Geral" como primeira aba na lista
+- Definir `'geral'` como aba padrão
+- Renderizar `<GeralTab />` quando selecionada
 
