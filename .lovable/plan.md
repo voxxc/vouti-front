@@ -1,23 +1,26 @@
 
 
-## Plano: Paginação server-side + otimização da aba Geral
+## Diagnóstico
 
-### Problema
-A query carrega todos os andamentos via join pesado, causando timeout e toast vermelho.
+### Busca não funciona
+A barra de pesquisa filtra **apenas os 20 processos da página atual** (client-side), não busca no banco. Com paginação server-side, o termo digitado nunca encontra processos que estão em outras páginas. A busca precisa ser movida para o servidor.
 
-### Mudanças
+### Paginação verbosa
+Os controles de paginação atuais usam componentes `PaginationPrevious`/`PaginationNext` com texto "Previous"/"Next", duplicados em topo e rodapé.
 
-#### 1. `src/hooks/useAllProcessosOAB.ts`
-- **Remover** o join `processos_oab_andamentos!left(id, lida)` da query
-- **Adicionar** chamada à RPC `get_andamentos_nao_lidos_por_processo(p_tenant_id)` para contagem eficiente
-- **Paginação server-side**: adicionar estados `page` (default 0) e `pageSize` (20), usar `.range()` com `{ count: 'exact' }` para obter total
-- **Expor** `page`, `setPage`, `totalCount`, `pageSize` no retorno do hook
-- Remover canal realtime de andamentos (desnecessário na listagem)
+---
 
-#### 2. `src/components/Controladoria/GeralTab.tsx`
-- **Topo**: adicionar controle de paginação acima dos filtros — indicador "Página X de Y" com botões Anterior/Próximo
-- **Rodapé**: adicionar o mesmo controle de paginação abaixo da lista de processos
-- Usar os componentes `Pagination` existentes do shadcn (`Pagination`, `PaginationContent`, `PaginationItem`, `PaginationPrevious`, `PaginationNext`)
-- Resetar `page` para 0 quando filtro ou busca mudar
-- Mostrar total de processos no indicador
+## Plano
+
+### 1. `src/hooks/useAllProcessosOAB.ts` — Busca server-side
+- Adicionar estado `searchTerm` no hook
+- Na query principal, quando `searchTerm` existir, adicionar `.or()` filtrando por `numero_cnj`, `parte_ativa`, `parte_passiva`, `tribunal_sigla`
+- Incluir `searchTerm` nas dependências do `fetchProcessos`
+- Expor `searchTerm` e `setSearchTerm` no retorno do hook
+
+### 2. `src/components/Controladoria/GeralTab.tsx` — Busca + paginação minimalista
+- Remover o filtro local `termoBusca` e usar `searchTerm`/`setSearchTerm` do hook
+- Aplicar debounce de ~400ms antes de setar o termo (evitar queries a cada tecla)
+- Substituir os dois blocos de paginação por **um único controle minimalista acima do filtro**: apenas `← Página 1 de 5 (100 processos) →` com ícones de seta
+- Remover a paginação do rodapé
 
