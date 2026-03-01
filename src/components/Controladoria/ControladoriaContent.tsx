@@ -12,13 +12,13 @@ type TabValue = 'central' | 'minhas-oabs' | 'push-doc';
 
 export const ControladoriaContent = () => {
   const { metrics, loading, isCacheLoaded, isRefreshing } = useControladoriaCache();
-  const [activeTab, setActiveTab] = useState<TabValue>('minhas-oabs');
+  const [activeTab, setActiveTab] = useState<TabValue>('central');
 
   const showSkeleton = loading && !isCacheLoaded;
 
   const tabs: { value: TabValue; label: string }[] = [
-    { value: 'minhas-oabs', label: 'OABs' },
     { value: 'central', label: 'Central' },
+    { value: 'minhas-oabs', label: 'OABs' },
     { value: 'push-doc', label: 'Push-Doc' },
   ];
 
