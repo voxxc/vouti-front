@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { useOABs, useProcessosOAB, OABCadastrada, ProcessoOAB } from '@/hooks/useOABs';
 import { OABTab } from './OABTab';
+import { GeralTab } from './GeralTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
 import { Progress } from '@/components/ui/progress';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
@@ -71,7 +72,7 @@ export const OABManager = () => {
   const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
   const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, isRunning: false });
-  const [activeTab, setActiveTab] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('geral');
   
   // Form state
   const [oabNumero, setOabNumero] = useState('');
@@ -274,10 +275,23 @@ export const OABManager = () => {
         )}
         </div>
       ) : (
-        <Tabs value={activeTab || oabs[0]?.id} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <div className="flex items-center gap-6 border-b overflow-x-auto flex-shrink-0">
+            {/* Aba Geral */}
+            <button
+              onClick={() => setActiveTab('geral')}
+              className={cn(
+                "relative flex items-center gap-2 pb-2 text-sm font-medium transition-colors hover:text-foreground cursor-pointer whitespace-nowrap",
+                activeTab === 'geral' ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <span>Geral</span>
+              {activeTab === 'geral' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
             {oabs.map((oab) => {
-              const isActive = (activeTab || oabs[0]?.id) === oab.id;
+              const isActive = activeTab === oab.id;
               return (
                 <button
                   key={oab.id}
@@ -300,6 +314,10 @@ export const OABManager = () => {
               );
             })}
           </div>
+
+          <TabsContent value="geral" className="mt-4 flex-1">
+            <GeralTab />
+          </TabsContent>
 
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
