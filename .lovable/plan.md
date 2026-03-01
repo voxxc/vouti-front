@@ -1,23 +1,10 @@
 
 
-## Plano: Mover aba "Geral" para dentro do OABManager
+## Plano: Corrigir ordem das abas na Controladoria
 
-### O que muda
+Trocar a ordem no array `tabs` em `ControladoriaContent.tsx` de `[OABs, Central, Push-Doc]` para `[Central, OABs, Push-Doc]`, e definir `'central'` como aba padrão.
 
-A aba "Geral" sai do nível superior da Controladoria e passa a ser a **primeira sub-aba dentro de OABs**, antes das abas individuais de cada OAB (ex: Geral | 12345/SP | 67890/RJ).
-
-### Mudanças
-
-#### 1. `src/components/Controladoria/OABManager.tsx`
-- Adicionar um botão "Geral" como primeira aba nas sub-tabs (antes das OABs individuais), usando um valor especial como `'geral'`
-- Quando `activeTab === 'geral'`, renderizar `<GeralTab />` no conteúdo
-- Definir `'geral'` como valor padrão do `activeTab` (ao invés da primeira OAB)
-
-#### 2. `src/components/Controladoria/ControladoriaContent.tsx`
-- Remover `'geral'` do `TabValue` de nível superior
-- Remover a renderização do `<GeralTab />` nesse nível
-- Remover o import do `GeralTab`
-
-#### 3. `src/components/Controladoria/GeralTab.tsx`
-- Sem alterações — continua funcionando como está
+### Mudança em `src/components/Controladoria/ControladoriaContent.tsx`
+- Reordenar o array `tabs` para: Central → OABs → Push-Doc
+- Alterar o estado inicial de `activeTab` de `'minhas-oabs'` para `'central'`
 
