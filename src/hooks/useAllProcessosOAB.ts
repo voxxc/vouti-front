@@ -20,6 +20,7 @@ export const useAllProcessosOAB = () => {
   const [carregandoDetalhes, setCarregandoDetalhes] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -33,13 +34,21 @@ export const useAllProcessosOAB = () => {
       const to = from + PAGE_SIZE - 1;
 
       // Main query WITHOUT heavy andamentos join, with pagination
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('processos_oab')
         .select(`
           *,
           oabs_cadastradas!inner(id, oab_numero, oab_uf, nome_advogado, email_advogado, telefone_advogado, endereco_advogado, cidade_advogado, cep_advogado, logo_url, ordem, ultima_sincronizacao, total_processos, ultimo_request_id, request_id_data, created_at)
         `, { count: 'exact' })
-        .eq('tenant_id', tenantId)
+        .eq('tenant_id', tenantId);
+
+      // Server-side search
+      if (searchTerm.trim()) {
+        const termo = `%${searchTerm.trim()}%`;
+        query = query.or(`numero_cnj.ilike.${termo},parte_ativa.ilike.${termo},parte_passiva.ilike.${termo},tribunal_sigla.ilike.${termo}`);
+      }
+
+      const { data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -91,7 +100,7 @@ export const useAllProcessosOAB = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, toast, page]);
+  }, [tenantId, toast, page, searchTerm]);
 
   useEffect(() => {
     fetchProcessos();
@@ -197,6 +206,8 @@ export const useAllProcessosOAB = () => {
     setPage,
     totalCount,
     pageSize: PAGE_SIZE,
+    searchTerm,
+    setSearchTerm,
     fetchProcessos,
     carregarDetalhes,
     toggleMonitoramento,
