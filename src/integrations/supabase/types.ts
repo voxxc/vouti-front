@@ -8520,6 +8520,7 @@ export type Database = {
         Returns: {
           nao_lidos: number
           processo_oab_id: string
+          ultima_movimentacao: string
         }[]
       }
       get_dashboard_processos_count: { Args: never; Returns: number }

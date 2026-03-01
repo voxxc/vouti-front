@@ -334,7 +334,13 @@ export const GeralTab = () => {
     let resultado = processos;
 
     if (filtroUF === 'nao-lidos') {
-      resultado = resultado.filter(p => (p.andamentos_nao_lidos || 0) > 0);
+      resultado = resultado
+        .filter(p => (p.andamentos_nao_lidos || 0) > 0)
+        .sort((a, b) => {
+          const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
+          const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
+          return dateB - dateA;
+        });
     } else if (filtroUF === 'monitorados') {
       resultado = resultado.filter(p => p.monitoramento_ativo);
     } else if (filtroUF.startsWith('oab:')) {

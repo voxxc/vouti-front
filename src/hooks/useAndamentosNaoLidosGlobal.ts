@@ -12,6 +12,7 @@ export interface ProcessoComNaoLidos {
   oab_id: string;
   capa_completa: any;
   andamentos_nao_lidos: number;
+  ultima_movimentacao: string | null;
   oab: {
     id: string;
     oab_numero: string;
@@ -78,10 +79,13 @@ export const useAndamentosNaoLidosGlobal = () => {
         return;
       }
 
-      // Build lookup map: processo_oab_id -> nao_lidos count
-      const naoLidosMap = new Map<string, number>();
+      // Build lookup map: processo_oab_id -> { nao_lidos, ultima_movimentacao }
+      const naoLidosMap = new Map<string, { nao_lidos: number; ultima_movimentacao: string | null }>();
       (naoLidosData || []).forEach((row: any) => {
-        naoLidosMap.set(row.processo_oab_id, row.nao_lidos);
+        naoLidosMap.set(row.processo_oab_id, {
+          nao_lidos: row.nao_lidos,
+          ultima_movimentacao: row.ultima_movimentacao
+        });
       });
 
       // Extract unique OABs for filter dropdown
@@ -99,7 +103,8 @@ export const useAndamentosNaoLidosGlobal = () => {
             });
           }
 
-          const naoLidos = naoLidosMap.get(p.id) || 0;
+          const info = naoLidosMap.get(p.id);
+          const naoLidos = info?.nao_lidos || 0;
 
           return {
             id: p.id,
@@ -111,6 +116,7 @@ export const useAndamentosNaoLidosGlobal = () => {
             oab_id: p.oab_id,
             capa_completa: p.capa_completa,
             andamentos_nao_lidos: naoLidos,
+            ultima_movimentacao: info?.ultima_movimentacao || null,
             oab: oabData ? {
               id: oabData.id,
               oab_numero: oabData.oab_numero,
@@ -120,7 +126,11 @@ export const useAndamentosNaoLidosGlobal = () => {
           } as ProcessoComNaoLidos;
         })
         .filter((p: ProcessoComNaoLidos) => p.andamentos_nao_lidos > 0 && p.oab)
-        .sort((a: ProcessoComNaoLidos, b: ProcessoComNaoLidos) => b.andamentos_nao_lidos - a.andamentos_nao_lidos);
+        .sort((a: ProcessoComNaoLidos, b: ProcessoComNaoLidos) => {
+          const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
+          const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
+          return dateB - dateA;
+        });
 
       setProcessos(processosComNaoLidos);
       setOabs(Array.from(oabsMap.values()));
@@ -149,24 +159,31 @@ export const useAndamentosNaoLidosGlobal = () => {
           table: 'processos_oab_andamentos'
         },
         async (payload) => {
-          const processoOabId = payload.new.processo_oab_id;
+           const processoOabId = payload.new.processo_oab_id;
           
           const { data, error } = await supabase
             .from('processos_oab_andamentos')
-            .select('id')
+            .select('id, data_movimentacao')
             .eq('processo_oab_id', processoOabId)
             .eq('lida', false);
 
           if (!error) {
             const newCount = data?.length || 0;
+            const maxDate = data && data.length > 0
+              ? data.reduce((max, r) => r.data_movimentacao > max ? r.data_movimentacao : max, data[0].data_movimentacao)
+              : null;
             
             setProcessos(prev => {
               const updated = prev.map(p => 
                 p.id === processoOabId 
-                  ? { ...p, andamentos_nao_lidos: newCount }
+                  ? { ...p, andamentos_nao_lidos: newCount, ultima_movimentacao: maxDate }
                   : p
               ).filter(p => p.andamentos_nao_lidos > 0)
-                .sort((a, b) => b.andamentos_nao_lidos - a.andamentos_nao_lidos);
+                .sort((a, b) => {
+                  const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
+                  const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
+                  return dateB - dateA;
+                });
               
               setTotalNaoLidos(updated.reduce((acc, p) => acc + p.andamentos_nao_lidos, 0));
               
