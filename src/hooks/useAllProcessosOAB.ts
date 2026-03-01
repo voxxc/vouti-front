@@ -10,6 +10,7 @@ export interface ProcessoOABComOAB extends ProcessoOAB {
   oab_uf: string;
   nome_advogado: string | null;
   oab_data?: OABCadastrada;
+  ultima_movimentacao?: string | null;
 }
 
 const PAGE_SIZE = 20;
@@ -58,9 +59,12 @@ export const useAllProcessosOAB = () => {
       const { data: naoLidosData } = await supabase
         .rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId });
 
-      const naoLidosMap = new Map<string, number>();
+      const naoLidosMap = new Map<string, { nao_lidos: number; ultima_movimentacao: string | null }>();
       (naoLidosData || []).forEach((r: any) => {
-        naoLidosMap.set(r.processo_oab_id, r.nao_lidos);
+        naoLidosMap.set(r.processo_oab_id, {
+          nao_lidos: r.nao_lidos,
+          ultima_movimentacao: r.ultima_movimentacao
+        });
       });
 
       // Deduplicate by numero_cnj
@@ -69,9 +73,11 @@ export const useAllProcessosOAB = () => {
       (data || []).forEach((p: any) => {
         const { oabs_cadastradas, ...processo } = p;
 
+        const info = naoLidosMap.get(processo.id);
         const processoComOAB: ProcessoOABComOAB = {
           ...processo,
-          andamentos_nao_lidos: naoLidosMap.get(processo.id) || 0,
+          andamentos_nao_lidos: info?.nao_lidos || 0,
+          ultima_movimentacao: info?.ultima_movimentacao || null,
           oab_numero: oabs_cadastradas?.oab_numero || '',
           oab_uf: oabs_cadastradas?.oab_uf || '',
           nome_advogado: oabs_cadastradas?.nome_advogado || null,
