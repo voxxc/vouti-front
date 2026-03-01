@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Eye, Bell, Loader2, FileText, BookOpen, BookUp, FileQuestion,
-  ChevronDown, Link2, Trash2, Search, X, Filter
+  ChevronDown, Link2, Trash2, Search, X, Filter, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +16,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext,
-} from "@/components/ui/pagination";
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
@@ -71,12 +68,11 @@ const agruparPorInstancia = (processos: ProcessoOABComOAB[]): ProcessosAgrupados
   return { primeiraInstancia, segundaInstancia, semInstancia };
 };
 
-// Pagination controls component
+// Minimalist pagination controls
 const PaginationControls = ({
   page,
   totalPages,
   totalCount,
-  pageSize,
   onPrev,
   onNext,
 }: {
@@ -87,30 +83,32 @@ const PaginationControls = ({
   onPrev: () => void;
   onNext: () => void;
 }) => {
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1 && totalCount <= 0) return null;
 
   return (
-    <Pagination>
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            onClick={onPrev}
-            className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-          />
-        </PaginationItem>
-        <PaginationItem>
-          <span className="text-sm text-muted-foreground px-3">
-            Página {page + 1} de {totalPages} ({totalCount} processos)
-          </span>
-        </PaginationItem>
-        <PaginationItem>
-          <PaginationNext
-            onClick={onNext}
-            className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
+    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        onClick={onPrev}
+        disabled={page === 0}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span>
+        Página {page + 1} de {totalPages || 1} ({totalCount} processos)
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        onClick={onNext}
+        disabled={page >= totalPages - 1}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
   );
 };
 
@@ -265,6 +263,8 @@ export const GeralTab = () => {
     setPage,
     totalCount,
     pageSize,
+    searchTerm,
+    setSearchTerm,
     fetchProcessos,
     carregarDetalhes,
     toggleMonitoramento,
@@ -278,14 +278,32 @@ export const GeralTab = () => {
   const [filtroUF, setFiltroUF] = useState<string>('todos');
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOABComOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
-  const [termoBusca, setTermoBusca] = useState('');
+  const [inputBusca, setInputBusca] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced search
+  const handleSearchChange = useCallback((value: string) => {
+    setInputBusca(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchTerm(value);
+      setPage(0);
+    }, 400);
+  }, [setSearchTerm, setPage]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [filtroUF, termoBusca, setPage]);
+  }, [filtroUF, setPage]);
 
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
@@ -326,20 +344,8 @@ export const GeralTab = () => {
       resultado = resultado.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
     }
 
-    if (termoBusca.trim()) {
-      const termo = termoBusca.toLowerCase().trim();
-      resultado = resultado.filter(p =>
-        p.numero_cnj?.toLowerCase().includes(termo) ||
-        p.parte_ativa?.toLowerCase().includes(termo) ||
-        p.parte_passiva?.toLowerCase().includes(termo) ||
-        p.tribunal_sigla?.toLowerCase().includes(termo) ||
-        p.oab_numero?.toLowerCase().includes(termo) ||
-        p.nome_advogado?.toLowerCase().includes(termo)
-      );
-    }
-
     return resultado;
-  }, [processos, filtroUF, termoBusca]);
+  }, [processos, filtroUF]);
 
   const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
 
@@ -456,13 +462,13 @@ export const GeralTab = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por CNJ, partes, tribunal ou OAB..."
-            value={termoBusca}
-            onChange={(e) => setTermoBusca(e.target.value)}
+            placeholder="Buscar por CNJ, partes ou tribunal..."
+            value={inputBusca}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9 pr-9"
           />
-          {termoBusca && (
-            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setTermoBusca('')}>
+          {inputBusca && (
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => { handleSearchChange(''); }}>
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -509,17 +515,6 @@ export const GeralTab = () => {
         </div>
       </div>
 
-      {/* Bottom pagination */}
-      <div className="flex-shrink-0">
-        <PaginationControls
-          page={page}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          pageSize={pageSize}
-          onPrev={handlePrevPage}
-          onNext={handleNextPage}
-        />
-      </div>
 
       {/* Detail drawer */}
       <ProcessoOABDetalhes
