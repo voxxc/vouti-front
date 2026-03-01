@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Eye, Bell, Loader2, FileText, BookOpen, BookUp, FileQuestion,
-  ChevronDown, Link2, Users, AlertCircle, Trash2, Search, X, Filter
+  ChevronDown, Link2, Trash2, Search, X, Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext,
+} from "@/components/ui/pagination";
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
@@ -68,7 +71,50 @@ const agruparPorInstancia = (processos: ProcessoOABComOAB[]): ProcessosAgrupados
   return { primeiraInstancia, segundaInstancia, semInstancia };
 };
 
-// Card component for Geral tab (no drag-drop, shows OAB badge)
+// Pagination controls component
+const PaginationControls = ({
+  page,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPrev,
+  onNext,
+}: {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+  onPrev: () => void;
+  onNext: () => void;
+}) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <Pagination>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            onClick={onPrev}
+            className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+          />
+        </PaginationItem>
+        <PaginationItem>
+          <span className="text-sm text-muted-foreground px-3">
+            Página {page + 1} de {totalPages} ({totalCount} processos)
+          </span>
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationNext
+            onClick={onNext}
+            className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+};
+
+// Card component for Geral tab
 const GeralProcessoCard = ({
   processo,
   onVerDetalhes,
@@ -215,6 +261,10 @@ export const GeralTab = () => {
     processos,
     loading,
     carregandoDetalhes,
+    page,
+    setPage,
+    totalCount,
+    pageSize,
     fetchProcessos,
     carregarDetalhes,
     toggleMonitoramento,
@@ -230,6 +280,13 @@ export const GeralTab = () => {
   const [excluindo, setExcluindo] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
 
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [filtroUF, termoBusca, setPage]);
+
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
 
@@ -244,7 +301,6 @@ export const GeralTab = () => {
       .map(([uf, count]) => ({ uf, count }));
   }, [processos]);
 
-  // OABs for filter
   const oabsDisponiveis = useMemo(() => {
     const oabMap = new Map<string, number>();
     processos.forEach(p => {
@@ -308,10 +364,12 @@ export const GeralTab = () => {
     setProcessoParaExcluir(null);
   };
 
-  // Build OAB object for the detail drawer
+  const handlePrevPage = () => { if (page > 0) setPage(page - 1); };
+  const handleNextPage = () => { if (page < totalPages - 1) setPage(page + 1); };
+
   const selectedOAB: OABCadastrada | undefined = selectedProcesso?.oab_data;
 
-  if (loading) {
+  if (loading && processos.length === 0) {
     return (
       <div className="h-full flex items-center justify-center py-8">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -319,7 +377,7 @@ export const GeralTab = () => {
     );
   }
 
-  if (processos.length === 0) {
+  if (!loading && processos.length === 0 && page === 0) {
     return (
       <div className="h-full text-center py-8 border rounded-lg bg-muted/20">
         <FileText className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
@@ -333,6 +391,18 @@ export const GeralTab = () => {
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      {/* Top pagination */}
+      <div className="flex-shrink-0">
+        <PaginationControls
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPrev={handlePrevPage}
+          onNext={handleNextPage}
+        />
+      </div>
+
       {/* Filters */}
       <div className="flex-shrink-0 space-y-3">
         <div className="flex items-center gap-3">
@@ -342,7 +412,7 @@ export const GeralTab = () => {
               <SelectValue placeholder="Filtrar" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos ({processos.length})</SelectItem>
+              <SelectItem value="todos">Todos ({totalCount})</SelectItem>
               {naoLidosCount > 0 && (
                 <SelectItem value="nao-lidos">
                   <span className="flex items-center gap-2">
@@ -376,6 +446,10 @@ export const GeralTab = () => {
             <Badge variant="secondary">
               {processosFiltrados.length} {processosFiltrados.length === 1 ? 'processo' : 'processos'}
             </Badge>
+          )}
+
+          {loading && (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           )}
         </div>
 
@@ -433,6 +507,18 @@ export const GeralTab = () => {
             />
           )}
         </div>
+      </div>
+
+      {/* Bottom pagination */}
+      <div className="flex-shrink-0">
+        <PaginationControls
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPrev={handlePrevPage}
+          onNext={handleNextPage}
+        />
       </div>
 
       {/* Detail drawer */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,10 +12,14 @@ export interface ProcessoOABComOAB extends ProcessoOAB {
   oab_data?: OABCadastrada;
 }
 
+const PAGE_SIZE = 20;
+
 export const useAllProcessosOAB = () => {
   const [processos, setProcessos] = useState<ProcessoOABComOAB[]>([]);
   const [loading, setLoading] = useState(false);
   const [carregandoDetalhes, setCarregandoDetalhes] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -25,29 +29,40 @@ export const useAllProcessosOAB = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Main query WITHOUT heavy andamentos join, with pagination
+      const { data, error, count } = await supabase
         .from('processos_oab')
         .select(`
           *,
-          processos_oab_andamentos!left(id, lida),
           oabs_cadastradas!inner(id, oab_numero, oab_uf, nome_advogado, email_advogado, telefone_advogado, endereco_advogado, cidade_advogado, cep_advogado, logo_url, ordem, ultima_sincronizacao, total_processos, ultimo_request_id, request_id_data, created_at)
-        `)
+        `, { count: 'exact' })
         .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
-      // Process and deduplicate by numero_cnj
+      // Efficient unread counts via RPC
+      const { data: naoLidosData } = await supabase
+        .rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId });
+
+      const naoLidosMap = new Map<string, number>();
+      (naoLidosData || []).forEach((r: any) => {
+        naoLidosMap.set(r.processo_oab_id, r.nao_lidos);
+      });
+
+      // Deduplicate by numero_cnj
       const cnjMap = new Map<string, ProcessoOABComOAB>();
 
       (data || []).forEach((p: any) => {
-        const andamentos = p.processos_oab_andamentos || [];
-        const naoLidos = andamentos.filter((a: any) => a.lida === false).length;
-        const { processos_oab_andamentos, oabs_cadastradas, ...processo } = p;
+        const { oabs_cadastradas, ...processo } = p;
 
         const processoComOAB: ProcessoOABComOAB = {
           ...processo,
-          andamentos_nao_lidos: naoLidos,
+          andamentos_nao_lidos: naoLidosMap.get(processo.id) || 0,
           oab_numero: oabs_cadastradas?.oab_numero || '',
           oab_uf: oabs_cadastradas?.oab_uf || '',
           nome_advogado: oabs_cadastradas?.nome_advogado || null,
@@ -58,7 +73,6 @@ export const useAllProcessosOAB = () => {
         if (!existing) {
           cnjMap.set(processo.numero_cnj, processoComOAB);
         } else {
-          // Prioritize monitored
           if (processoComOAB.monitoramento_ativo && !existing.monitoramento_ativo) {
             cnjMap.set(processo.numero_cnj, processoComOAB);
           }
@@ -66,6 +80,7 @@ export const useAllProcessosOAB = () => {
       });
 
       setProcessos(Array.from(cnjMap.values()));
+      setTotalCount(count || 0);
     } catch (error: any) {
       console.error('[useAllProcessosOAB] Erro:', error);
       toast({
@@ -76,49 +91,11 @@ export const useAllProcessosOAB = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, toast]);
+  }, [tenantId, toast, page]);
 
   useEffect(() => {
     fetchProcessos();
   }, [fetchProcessos]);
-
-  // Real-time for unread counts
-  const processosRef = useRef<ProcessoOABComOAB[]>([]);
-  processosRef.current = processos;
-
-  useEffect(() => {
-    if (!tenantId) return;
-
-    const channel = supabase
-      .channel(`all-processos-andamentos-${tenantId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'processos_oab_andamentos' },
-        async (payload) => {
-          const processoId = (payload.new as any)?.processo_oab_id || (payload.old as any)?.processo_oab_id;
-          if (!processoId) return;
-
-          const processoExiste = processosRef.current.some(p => p.id === processoId);
-          if (!processoExiste) return;
-
-          const { count } = await supabase
-            .from('processos_oab_andamentos')
-            .select('*', { count: 'exact', head: true })
-            .eq('processo_oab_id', processoId)
-            .eq('lida', false);
-
-          setProcessos(prev =>
-            prev.map(p => p.id === processoId
-              ? { ...p, andamentos_nao_lidos: count || 0 }
-              : p
-            )
-          );
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [tenantId]);
 
   const carregarDetalhes = async (processoId: string, _numeroCnj: string, _oabId?: string) => {
     setProcessos(prev =>
@@ -216,6 +193,10 @@ export const useAllProcessosOAB = () => {
     processos,
     loading,
     carregandoDetalhes,
+    page,
+    setPage,
+    totalCount,
+    pageSize: PAGE_SIZE,
     fetchProcessos,
     carregarDetalhes,
     toggleMonitoramento,
