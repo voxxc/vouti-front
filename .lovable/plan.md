@@ -1,28 +1,23 @@
 
 
-## Plano: Criar aba "Geral" na Controladoria
+## Plano: Mover aba "Geral" para dentro do OABManager
 
-### O que vai acontecer
+### O que muda
 
-Uma nova aba chamada **"Geral"** será adicionada como primeira aba na Controladoria. Ela mostra **todos os processos de todas as OABs cadastradas numa lista única**, sem repetição. Clicar em "Detalhes" abre o mesmo painel completo (criar prazo, tarefa, editar, etc.).
+A aba "Geral" sai do nível superior da Controladoria e passa a ser a **primeira sub-aba dentro de OABs**, antes das abas individuais de cada OAB (ex: Geral | 12345/SP | 67890/RJ).
 
-### Arquivos envolvidos
+### Mudanças
 
-#### 1. Novo arquivo: `src/hooks/useAllProcessosOAB.ts`
-- Busca todos os processos da tabela `processos_oab` do tenant
-- Faz join com `oabs_cadastradas` para saber de qual OAB cada processo veio
-- Deduplica por `numero_cnj` (se mesmo CNJ em duas OABs, prioriza o monitorado)
-- Busca contagem de andamentos não lidos via RPC `get_andamentos_nao_lidos_por_processo`
-- Expõe funções de toggle monitoramento, exclusão e refresh
+#### 1. `src/components/Controladoria/OABManager.tsx`
+- Adicionar um botão "Geral" como primeira aba nas sub-tabs (antes das OABs individuais), usando um valor especial como `'geral'`
+- Quando `activeTab === 'geral'`, renderizar `<GeralTab />` no conteúdo
+- Definir `'geral'` como valor padrão do `activeTab` (ao invés da primeira OAB)
 
-#### 2. Novo arquivo: `src/components/Controladoria/GeralTab.tsx`
-- Reutiliza a mesma lógica visual do `OABTab.tsx` (busca, filtro por UF, agrupamento por instância, cards)
-- Cada card mostra um badge com a OAB de origem (ex: "12345/SP")
-- Ao clicar "Detalhes", abre `ProcessoOABDetalhes` passando a `oab` correta — todas as funcionalidades (prazo, tarefa, editar) funcionam normalmente
+#### 2. `src/components/Controladoria/ControladoriaContent.tsx`
+- Remover `'geral'` do `TabValue` de nível superior
+- Remover a renderização do `<GeralTab />` nesse nível
+- Remover o import do `GeralTab`
 
-#### 3. Modificar: `src/components/Controladoria/ControladoriaContent.tsx`
-- Adicionar `'geral'` ao tipo `TabValue`
-- Inserir "Geral" como primeira aba na lista
-- Definir `'geral'` como aba padrão
-- Renderizar `<GeralTab />` quando selecionada
+#### 3. `src/components/Controladoria/GeralTab.tsx`
+- Sem alterações — continua funcionando como está
 
