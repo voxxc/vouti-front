@@ -1,43 +1,34 @@
 
 
-## Diagnóstico: Erro 504 (Gateway Timeout)
+## Diagnóstico: Erro "Não autenticado" ao criar usuário
 
-Todos os POSTs recentes para `judit-sync-monitorados` retornam **504** com ~150 segundos de execução. A função tenta processar **186 processos monitorados** em uma única chamada, excedendo o limite de 150s das Edge Functions do Supabase.
+Os logs da Edge Function `create-user` mostram repetidamente:
 
-Para cada processo, a função faz 2 chamadas HTTP à Judit API (tracking + responses) + queries ao banco. Com 186 processos em batches de 10, são ~19 batches sequenciais, cada um fazendo 20+ requests HTTP paralelos. Isso ultrapassa o timeout.
+```
+AuthSessionMissingError: Auth session missing!
+Error in create-user function: Error: Não autenticado
+```
+
+**Causa:** O token de autenticação enviado na requisição é inválido ou inexistente. O `supabase.functions.invoke` envia automaticamente o token da sessão ativa. Se o usuário não está logado (ou a sessão expirou), o token enviado é o `anon key`, que não é um token de usuário valido, fazendo `getUser(token)` falhar.
+
+Na sessão atual, você está na rota `/` (landing page), ou seja, **sem sessão autenticada**. Para criar usuários, é necessário estar logado como admin dentro de um tenant (ex: `/solvenza/dashboard`).
+
+**Adicionalmente**, a Edge Function importa `@supabase/supabase-js@2.58.0` (versão antiga). Atualizar para a mesma versão do projeto (`2.80.0`) evita inconsistências.
 
 ## Plano de Correção
 
-### Abordagem: Processamento por tenant com paginação
+### 1. Melhorar validação do token na Edge Function
+**Arquivo:** `supabase/functions/create-user/index.ts`
 
-Modificar `supabase/functions/judit-sync-monitorados/index.ts` para:
+- Atualizar import para `@supabase/supabase-js@2` (latest)
+- Antes de chamar `getUser(token)`, verificar se o token não é vazio ou igual ao anon key
+- Retornar mensagem de erro mais clara: "Faça login como administrador antes de criar usuários"
 
-1. **Aceitar parâmetros de paginação** (`offset`, `limit`) no body da requisição, com limite padrão de 30 processos por chamada
-2. **Retornar flag `has_more`** indicando se há mais processos a processar
-3. **Reduzir batch size** de 10 para 5 para evitar rate limiting
+### 2. Melhorar tratamento de erro no frontend
+**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
 
-### Frontend: Loop automático de sync
+- Verificar se existe sessão ativa antes de chamar a Edge Function
+- Se não houver sessão, mostrar toast com mensagem orientando o login
 
-Modificar `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` para:
-
-1. **Chamar a função em loop** — cada chamada processa 30 processos, ao receber `has_more: true`, dispara automaticamente a próxima chamada com `offset` incrementado
-2. **Acumular resultados** progressivamente no state
-3. **Mostrar progresso** durante a sincronização (ex: "Processando 30/186...")
-4. **Tratar erro parcial** — se uma chamada falha, os resultados anteriores são preservados
-
-### Detalhes técnicos
-
-**Edge Function** — novas props no body:
-```ts
-{ tenant_id?, offset?: number, limit?: number }
-```
-Retorno inclui: `{ ...results, has_more: boolean, next_offset: number }`
-
-**Frontend** — mutation recursiva:
-```ts
-// Loop: chama sync com offset crescente até has_more === false
-// Acumula resultados parciais em state para feedback imediato
-```
-
-Essa abordagem garante que cada chamada processe no máximo 30 processos (~30-40s), bem dentro do limite de 150s.
+Essas mudanças são preventivas. O problema principal é garantir que o usuário esteja logado ao tentar criar um novo usuário.
 
