@@ -255,6 +255,18 @@ export function UserManagementDrawer({
 
     setLoading(true);
     try {
+      // Verificar sessão ativa
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Erro", description: "Faça login como administrador antes de criar usuários.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      // Refresh token para garantir validade
+      await supabase.auth.refreshSession();
+      const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: createFormData.email,
@@ -263,6 +275,9 @@ export function UserManagementDrawer({
           role: createFormData.role,
           additional_roles: createFormData.additionalPermissions,
           tenant_id: tenantId
+        },
+        headers: {
+          Authorization: `Bearer ${refreshedSession?.access_token}`
         }
       });
 
