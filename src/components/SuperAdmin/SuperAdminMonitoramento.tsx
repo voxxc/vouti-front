@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { 
   RefreshCw, AlertCircle, CheckCircle2, Activity, Loader2, XCircle, MinusCircle, 
   Copy, Search, Download, FileText, Clock 
@@ -49,11 +50,16 @@ interface TenantResult {
 
 interface SyncResult {
   total_processos: number;
+  processos_neste_batch?: number;
   processos_verificados: number;
   processos_atualizados: number;
   novos_andamentos: number;
   erros: string[];
   por_tenant: TenantResult[];
+  has_more?: boolean;
+  next_offset?: number;
+  offset?: number;
+  limit?: number;
 }
 
 interface ProcessoMonitorado {
@@ -77,6 +83,9 @@ export function SuperAdminMonitoramento() {
   const [showOnlyUpdated, setShowOnlyUpdated] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [searchCnj, setSearchCnj] = useState('');
+  const [syncProgress, setSyncProgress] = useState<{ processed: number; total: number } | null>(null);
+  const [accumulatedResult, setAccumulatedResult] = useState<SyncResult | null>(null);
+  const abortRef = useRef(false);
   const queryClient = useQueryClient();
 
   // Fetch tenants for filter
@@ -154,50 +163,109 @@ export function SuperAdminMonitoramento() {
     return acc;
   }, {} as Record<string, ProcessoMonitorado[]>);
 
-  // Sync mutation (all processes)
+  // Helper to merge batch results into accumulated result
+  const mergeSyncResults = useCallback((accumulated: SyncResult | null, batch: SyncResult): SyncResult => {
+    if (!accumulated) {
+      return { ...batch };
+    }
+    // Merge tenant results
+    const tenantMap = new Map<string, TenantResult>();
+    for (const t of accumulated.por_tenant) {
+      tenantMap.set(t.tenant_id, { ...t });
+    }
+    for (const t of batch.por_tenant) {
+      const existing = tenantMap.get(t.tenant_id);
+      if (existing) {
+        existing.processos_verificados += t.processos_verificados;
+        existing.processos_atualizados += t.processos_atualizados;
+        existing.novos_andamentos += t.novos_andamentos;
+        existing.processos_detalhes = [...existing.processos_detalhes, ...t.processos_detalhes];
+      } else {
+        tenantMap.set(t.tenant_id, { ...t });
+      }
+    }
+    return {
+      total_processos: batch.total_processos,
+      processos_verificados: accumulated.processos_verificados + batch.processos_verificados,
+      processos_atualizados: accumulated.processos_atualizados + batch.processos_atualizados,
+      novos_andamentos: accumulated.novos_andamentos + batch.novos_andamentos,
+      erros: [...accumulated.erros, ...batch.erros],
+      por_tenant: Array.from(tenantMap.values()).sort((a, b) => a.tenant_name.localeCompare(b.tenant_name)),
+      has_more: batch.has_more,
+      next_offset: batch.next_offset,
+    };
+  }, []);
+
+  // Sync mutation with paginated loop
   const syncMutation = useMutation({
     mutationFn: async (): Promise<SyncResult> => {
       const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-
-      if (refreshError) {
-        throw new Error('Sessão expirada. Faça login novamente.');
-      }
-
+      if (refreshError) throw new Error('Sessão expirada. Faça login novamente.');
       const accessToken = refreshed.session?.access_token;
-      if (!accessToken) {
-        throw new Error('Not authenticated');
-      }
+      if (!accessToken) throw new Error('Not authenticated');
 
-      const body = selectedTenant !== 'all' ? { tenant_id: selectedTenant } : {};
+      abortRef.current = false;
+      setAccumulatedResult(null);
+      setSyncProgress(null);
 
-      const response = await fetch(
-        `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/judit-sync-monitorados`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(body),
+      let offset = 0;
+      const limit = 30;
+      let accumulated: SyncResult | null = null;
+
+      while (true) {
+        if (abortRef.current) break;
+
+        const body: any = { offset, limit };
+        if (selectedTenant !== 'all') body.tenant_id = selectedTenant;
+
+        const response = await fetch(
+          `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/judit-sync-monitorados`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(body),
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          // If we already have partial results, preserve them
+          if (accumulated) {
+            accumulated.erros.push(`Batch offset ${offset}: ${error.error || 'Falha'}`);
+            break;
+          }
+          throw new Error(error.error || 'Sync failed');
         }
-      );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Sync failed');
+        const batch: SyncResult = await response.json();
+        accumulated = mergeSyncResults(accumulated, batch);
+        
+        // Update progress
+        const processed = Math.min(offset + limit, batch.total_processos);
+        setSyncProgress({ processed, total: batch.total_processos });
+        setAccumulatedResult({ ...accumulated });
+
+        if (!batch.has_more) break;
+        offset = batch.next_offset || offset + limit;
       }
 
-      return await response.json();
+      setSyncProgress(null);
+      return accumulated!;
     },
     onSuccess: (data) => {
       toast({
         title: 'Sincronização concluída',
         description: `${data.processos_verificados} processos verificados, ${data.novos_andamentos} novos andamentos`,
       });
+      setAccumulatedResult(data);
       queryClient.invalidateQueries({ queryKey: ['super-admin-processos-monitorados'] });
       setActiveTab('resultado');
     },
     onError: (error: Error) => {
+      setSyncProgress(null);
       toast({
         title: 'Erro na sincronização',
         description: error.message,
@@ -284,18 +352,47 @@ export function SuperAdminMonitoramento() {
           </Select>
 
           <Button
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
+            onClick={() => {
+              if (syncMutation.isPending) {
+                abortRef.current = true;
+              } else {
+                syncMutation.mutate();
+              }
+            }}
           >
             {syncMutation.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
-            Sincronizar Todos
+            {syncMutation.isPending ? 'Cancelar' : 'Sincronizar Todos'}
           </Button>
         </div>
       </div>
+
+      {/* Progress Bar */}
+      {(syncProgress || syncMutation.isPending) && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">
+                {syncProgress 
+                  ? `Processando ${Math.min(syncProgress.processed, syncProgress.total)}/${syncProgress.total} processos...`
+                  : 'Iniciando sincronização...'}
+              </span>
+              {accumulatedResult && (
+                <span className="text-sm text-muted-foreground">
+                  {accumulatedResult.novos_andamentos} novos andamentos encontrados
+                </span>
+              )}
+            </div>
+            <Progress 
+              value={syncProgress ? (syncProgress.processed / syncProgress.total) * 100 : 0} 
+              className="h-2"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -369,7 +466,7 @@ export function SuperAdminMonitoramento() {
             <FileText className="h-4 w-4" />
             Processos Monitorados
           </TabsTrigger>
-          {syncMutation.data && (
+          {accumulatedResult && (
             <TabsTrigger value="resultado" className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Último Resultado
@@ -509,7 +606,6 @@ export function SuperAdminMonitoramento() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  // Copiar todos os IDs
                                   const ids = {
                                     cnj: processo.numero_cnj,
                                     tracking_id: processo.tracking_id,
@@ -548,7 +644,7 @@ export function SuperAdminMonitoramento() {
         </TabsContent>
 
         {/* Sync Result Tab */}
-        {syncMutation.data && (
+        {accumulatedResult && (
           <TabsContent value="resultado" className="mt-4">
             <Card>
               <CardHeader>
@@ -559,7 +655,7 @@ export function SuperAdminMonitoramento() {
                       Resultado da Sincronização
                     </CardTitle>
                     <CardDescription>
-                      {syncMutation.data.por_tenant.length} tenant(s) processado(s)
+                      {accumulatedResult.por_tenant.length} tenant(s) processado(s)
                     </CardDescription>
                   </div>
                   <Button
@@ -575,32 +671,32 @@ export function SuperAdminMonitoramento() {
                 {/* Global Summary */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold">{syncMutation.data.total_processos}</div>
+                    <div className="text-2xl font-bold">{accumulatedResult.total_processos}</div>
                     <div className="text-xs text-muted-foreground">Total</div>
                   </div>
                   <div className="text-center p-3 bg-muted rounded-lg">
-                    <div className="text-2xl font-bold">{syncMutation.data.processos_verificados}</div>
+                    <div className="text-2xl font-bold">{accumulatedResult.processos_verificados}</div>
                     <div className="text-xs text-muted-foreground">Verificados</div>
                   </div>
                   <div className="text-center p-3 bg-green-500/10 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
-                      {syncMutation.data.processos_atualizados}
+                      {accumulatedResult.processos_atualizados}
                     </div>
                     <div className="text-xs text-muted-foreground">Atualizados</div>
                   </div>
                   <div className="text-center p-3 bg-blue-500/10 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
-                      {syncMutation.data.novos_andamentos}
+                      {accumulatedResult.novos_andamentos}
                     </div>
                     <div className="text-xs text-muted-foreground">Novos Andamentos</div>
                   </div>
                 </div>
 
                 {/* Tenant Tabs for Results */}
-                {syncMutation.data.por_tenant.length > 0 && (
-                  <Tabs defaultValue={syncMutation.data.por_tenant[0]?.tenant_id} className="w-full">
+                {accumulatedResult.por_tenant.length > 0 && (
+                  <Tabs defaultValue={accumulatedResult.por_tenant[0]?.tenant_id} className="w-full">
                     <TabsList className="w-full flex flex-wrap h-auto gap-1 justify-start bg-muted/50 p-1">
-                      {syncMutation.data.por_tenant.map((tenant) => (
+                      {accumulatedResult.por_tenant.map((tenant) => (
                         <TabsTrigger 
                           key={tenant.tenant_id} 
                           value={tenant.tenant_id}
@@ -616,7 +712,7 @@ export function SuperAdminMonitoramento() {
                       ))}
                     </TabsList>
 
-                    {syncMutation.data.por_tenant.map((tenant) => (
+                    {accumulatedResult.por_tenant.map((tenant) => (
                       <TabsContent key={tenant.tenant_id} value={tenant.tenant_id} className="mt-4">
                         <div className="mb-4">
                           <h3 className="text-lg font-semibold">{tenant.tenant_name}</h3>
@@ -679,13 +775,13 @@ export function SuperAdminMonitoramento() {
                 )}
 
                 {/* Errors */}
-                {syncMutation.data.erros.length > 0 && (
+                {accumulatedResult.erros.length > 0 && (
                   <div className="mt-4">
                     <h4 className="font-medium text-destructive mb-2">
-                      Erros ({syncMutation.data.erros.length})
+                      Erros ({accumulatedResult.erros.length})
                     </h4>
                     <ScrollArea className="h-32 rounded border p-2">
-                      {syncMutation.data.erros.map((erro, idx) => (
+                      {accumulatedResult.erros.map((erro, idx) => (
                         <div key={idx} className="text-sm text-destructive py-1 border-b last:border-b-0">
                           {erro}
                         </div>
