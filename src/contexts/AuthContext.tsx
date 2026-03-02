@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
-type UserRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' | 'estagiario';
+type UserRole = 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' | 'estagiario' | 'perito';
 
 interface AuthContextType {
   user: User | null;
@@ -156,7 +156,8 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
           'reunioes': 3,
           'agenda': 2,
           'advogado': 1,
-          'estagiario': 0
+          'estagiario': 0,
+          'perito': -1
         };
 
         const highestRole = roleData.reduce((prev, current) => {

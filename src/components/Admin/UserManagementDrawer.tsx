@@ -41,6 +41,7 @@ const ROLE_OPTIONS = [
   { value: 'financeiro', label: 'Financeiro' },
   { value: 'controller', label: 'Controller' },
   { value: 'agenda', label: 'Agenda' },
+  { value: 'perito', label: 'Perito' },
   { value: 'admin', label: 'Administrador' },
 ];
 
@@ -313,7 +314,9 @@ export function UserManagementDrawer({
       financeiro: 'Financeiro',
       controller: 'Controller',
       agenda: 'Agenda',
-      reunioes: 'Reuniões'
+      reunioes: 'Reuniões',
+      estagiario: 'Estagiário(a)',
+      perito: 'Perito'
     };
     return labels[role] || role;
   };

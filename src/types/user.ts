@@ -3,7 +3,7 @@ export interface User {
   email: string;
   name: string;
   avatar?: string;
-  role: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' | 'estagiario';
+  role: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' | 'estagiario' | 'perito';
   personalInfo?: {
     phone?: string;
     department?: string;

@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       throw new Error('Este domínio de email é reservado para outro sistema')
     }
 
-    const validRoles = ['admin', 'advogado', 'comercial', 'financeiro', 'controller', 'agenda', 'reunioes', 'estagiario']
+    const validRoles = ['admin', 'advogado', 'comercial', 'financeiro', 'controller', 'agenda', 'reunioes', 'estagiario', 'perito']
     if (!validRoles.includes(role)) {
       throw new Error('Perfil inválido')
     }

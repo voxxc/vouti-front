@@ -303,6 +303,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
       case 'advogado': return 'bg-blue-100 text-blue-700';
       case 'comercial': return 'bg-green-100 text-green-700';
       case 'financeiro': return 'bg-yellow-100 text-yellow-700';
+      case 'perito': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -314,6 +315,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
       case 'comercial': return 'Comercial';
       case 'financeiro': return 'Financeiro';
       case 'estagiario': return 'Estagiário(a)';
+      case 'perito': return 'Perito';
       default: return role;
     }
   };

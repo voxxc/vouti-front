@@ -53,6 +53,10 @@ export default function AdminRoles() {
               <p className="font-medium">⚪ Estagiário(a)</p>
               <p className="text-sm text-muted-foreground">Mesmas permissões do Advogado, ideal para estagiários do escritório</p>
             </div>
+            <div>
+              <p className="font-medium">⚪ Perito</p>
+              <p className="text-sm text-muted-foreground">Acesso a Projetos, Agenda e Extras</p>
+            </div>
           </CardContent>
         </Card>
 
