@@ -122,7 +122,8 @@ const DashboardLayout = ({
         'comercial': 3,
         'agenda': 2,
         'advogado': 1,
-        'estagiario': 0
+        'estagiario': 0,
+        'perito': -1
       };
 
       const mappedUsers = profilesData.map((p: any) => {

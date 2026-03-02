@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, UserCog, Loader2 } from 'lucide-react';
 
-type AppRole = 'admin' | 'controller' | 'advogado' | 'comercial' | 'financeiro' | 'estagiario';
+type AppRole = 'admin' | 'controller' | 'advogado' | 'comercial' | 'financeiro' | 'estagiario' | 'perito';
 
 interface UserWithRoles {
   id: string;
@@ -23,6 +23,7 @@ const roleLabels: Record<AppRole, string> = {
   comercial: 'Comercial',
   financeiro: 'Financeiro',
   estagiario: 'Estagiário(a)',
+  perito: 'Perito',
 };
 
 const roleVariants: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
@@ -32,6 +33,7 @@ const roleVariants: Record<string, 'default' | 'destructive' | 'outline' | 'seco
   comercial: 'secondary',
   financeiro: 'secondary',
   estagiario: 'outline',
+  perito: 'outline',
 };
 
 export default function RoleManagement() {

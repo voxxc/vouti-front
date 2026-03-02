@@ -8650,6 +8650,7 @@ export type Database = {
         | "agenda"
         | "reunioes"
         | "estagiario"
+        | "perito"
       batink_entry_type_v2:
         | "entrada"
         | "pausa"
@@ -8823,6 +8824,7 @@ export const Constants = {
         "agenda",
         "reunioes",
         "estagiario",
+        "perito",
       ],
       batink_entry_type_v2: [
         "entrada",
