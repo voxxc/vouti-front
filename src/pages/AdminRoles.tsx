@@ -49,6 +49,10 @@ export default function AdminRoles() {
               <p className="font-medium">⚪ Agenda</p>
               <p className="text-sm text-muted-foreground">Acesso exclusivo à seção de Reuniões para gerenciamento de agenda</p>
             </div>
+            <div>
+              <p className="font-medium">⚪ Estagiário(a)</p>
+              <p className="text-sm text-muted-foreground">Mesmas permissões do Advogado, ideal para estagiários do escritório</p>
+            </div>
           </CardContent>
         </Card>
 
