@@ -156,12 +156,13 @@ serve(async (req) => {
       });
     }
 
-    // Optional: sync specific tenant only
+    // Parse body with pagination params
     const body = await req.json().catch(() => ({}));
     const tenantId = body.tenant_id;
+    const offset = body.offset || 0;
+    const limit = body.limit || 30;
 
-    console.log(`[SYNC] Starting sync${tenantId ? ` for tenant ${tenantId}` : ' for ALL tenants'}`);
-
+    console.log(`[SYNC] Starting sync${tenantId ? ` for tenant ${tenantId}` : ' for ALL tenants'} (offset: ${offset}, limit: ${limit})`);
     // Fetch all tenants first for name mapping
     const { data: allTenants } = await supabase
       .from('tenants')
@@ -182,6 +183,26 @@ serve(async (req) => {
       query = query.eq('tenant_id', tenantId);
     }
 
+    // First get total count
+    let countQuery = supabase
+      .from('processos_oab')
+      .select('id', { count: 'exact', head: true })
+      .eq('monitoramento_ativo', true)
+      .not('tracking_id', 'is', null);
+
+    if (tenantId) {
+      countQuery = countQuery.eq('tenant_id', tenantId);
+    }
+
+    const { count: totalCount, error: countError } = await countQuery;
+
+    if (countError) {
+      console.error('[SYNC] Error counting processes:', countError);
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
     const { data: processos, error: processosError } = await query;
 
     if (processosError) {
@@ -192,18 +213,27 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[SYNC] Found ${processos?.length || 0} monitored processes`);
+    const total = totalCount || 0;
+    const hasMore = offset + limit < total;
+    const nextOffset = offset + limit;
+
+    console.log(`[SYNC] Found ${processos?.length || 0} processes in this batch (total: ${total}, hasMore: ${hasMore})`);
 
     // Initialize results structure
     const resultsByTenant = new Map<string, TenantResult>();
     
     const results = {
-      total_processos: processos?.length || 0,
+      total_processos: total,
+      processos_neste_batch: processos?.length || 0,
       processos_verificados: 0,
       processos_atualizados: 0,
       novos_andamentos: 0,
       erros: [] as string[],
       por_tenant: [] as TenantResult[],
+      has_more: hasMore,
+      next_offset: nextOffset,
+      offset,
+      limit,
     };
 
     if (!processos || processos.length === 0) {
@@ -411,8 +441,8 @@ serve(async (req) => {
       }
     }
 
-    // Process in parallel batches of 10
-    const BATCH_SIZE = 10;
+    // Process in parallel batches of 5
+    const BATCH_SIZE = 5;
     const batches = chunkArray(processos, BATCH_SIZE);
     
     console.log(`[SYNC] Processing ${processos.length} processes in ${batches.length} batches of ${BATCH_SIZE}`);
