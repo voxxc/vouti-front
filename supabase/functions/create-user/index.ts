@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,17 +25,24 @@ Deno.serve(async (req) => {
 
     // Get the requesting user's token
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Sem autorização')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('Faça login como administrador antes de criar usuários')
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Reject if token is empty or is the anon key
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+    if (!token || token === anonKey) {
+      throw new Error('Sessão inválida. Faça login novamente como administrador.')
     }
 
     // Verify the requesting user is authenticated
-    const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
     
     if (authError || !user) {
       console.error('Auth error:', authError)
-      throw new Error('Não autenticado')
+      throw new Error('Sessão expirada ou inválida. Faça login novamente.')
     }
 
     // Check if the requesting user is an admin
