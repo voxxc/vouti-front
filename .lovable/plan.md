@@ -1,34 +1,36 @@
 
 
-## Diagnóstico: Erro "Não autenticado" ao criar usuário
+## Novo Perfil: Estagiário(a)
 
-Os logs da Edge Function `create-user` mostram repetidamente:
+O perfil `estagiario` terá as mesmas permissões e visões do `advogado`, apenas com nome de exibição diferente.
 
-```
-AuthSessionMissingError: Auth session missing!
-Error in create-user function: Error: Não autenticado
-```
+### Alterações necessárias
 
-**Causa:** O token de autenticação enviado na requisição é inválido ou inexistente. O `supabase.functions.invoke` envia automaticamente o token da sessão ativa. Se o usuário não está logado (ou a sessão expirou), o token enviado é o `anon key`, que não é um token de usuário valido, fazendo `getUser(token)` falhar.
+**1. Banco de dados — Migração SQL**
+- Adicionar `'estagiario'` ao enum `app_role`
+- Adicionar `'estagiario'` à prioridade nas funções `get_users_with_roles` e `get_users_with_roles_by_tenant` (prioridade 0, abaixo de advogado)
 
-Na sessão atual, você está na rota `/` (landing page), ou seja, **sem sessão autenticada**. Para criar usuários, é necessário estar logado como admin dentro de um tenant (ex: `/solvenza/dashboard`).
+**2. Edge Functions — validRoles**
+- `supabase/functions/create-user/index.ts` — adicionar `'estagiario'` ao array `validRoles`
+- `supabase/functions/admin-set-user-roles/index.ts` — adicionar `'estagiario'` ao array `validRoles`
 
-**Adicionalmente**, a Edge Function importa `@supabase/supabase-js@2.58.0` (versão antiga). Atualizar para a mesma versão do projeto (`2.80.0`) evita inconsistências.
+**3. Frontend — Tipo UserRole**
+- `src/types/user.ts` — adicionar `'estagiario'` ao union type `role`
+- `src/contexts/AuthContext.tsx` — adicionar `'estagiario'` ao type `UserRole` e ao `rolePriority` (prioridade 0)
 
-## Plano de Correção
+**4. Frontend — Sidebar (mesmas permissões do advogado)**
+- `src/components/Dashboard/DashboardSidebar.tsx` — adicionar `'estagiario'` em todas as seções onde `'advogado'` aparece no `sectionRoleMap`
 
-### 1. Melhorar validação do token na Edge Function
-**Arquivo:** `supabase/functions/create-user/index.ts`
+**5. Frontend — Dashboard metrics**
+- `src/components/Dashboard/RoleMetricsPanel.tsx` — adicionar case `'estagiario'` apontando para `AdvogadoMetrics`
+- `src/components/Dashboard/DashboardLayout.tsx` — adicionar `'estagiario'` ao `rolePriority`
 
-- Atualizar import para `@supabase/supabase-js@2` (latest)
-- Antes de chamar `getUser(token)`, verificar se o token não é vazio ou igual ao anon key
-- Retornar mensagem de erro mais clara: "Faça login como administrador antes de criar usuários"
+**6. Frontend — UI de gerenciamento de roles**
+- `src/components/Admin/RoleManagement.tsx` — adicionar `estagiario: 'Estagiário(a)'` ao `roleLabels` e tipo `AppRole`
+- `src/components/Admin/UserManagementDrawer.tsx` — adicionar ao `ROLE_OPTIONS` e labels
+- `src/pages/AdminRoles.tsx` — adicionar descrição do perfil Estagiário(a) na lista explicativa
+- `src/components/Project/ProjectParticipants.tsx` — adicionar label e cor para `estagiario`
 
-### 2. Melhorar tratamento de erro no frontend
-**Arquivo:** `src/components/Admin/UserManagementDrawer.tsx`
-
-- Verificar se existe sessão ativa antes de chamar a Edge Function
-- Se não houver sessão, mostrar toast com mensagem orientando o login
-
-Essas mudanças são preventivas. O problema principal é garantir que o usuário esteja logado ao tentar criar um novo usuário.
+**7. Frontend — Outras referências**
+- `src/pages/Dashboard.tsx` — adicionar `'estagiario'` ao union type do `currentUserRole`
 
