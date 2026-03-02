@@ -114,7 +114,7 @@ const Dashboard = () => {
     }
   };
 
-  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' = (userRole as any) || 'advogado';
+  const currentUserRole: 'admin' | 'advogado' | 'comercial' | 'financeiro' | 'controller' | 'agenda' | 'reunioes' | 'estagiario' = (userRole as any) || 'advogado';
 
   // Get current user's name from auth metadata or systemUsers (whichever loads first)
   const currentUserName = useMemo(() => {

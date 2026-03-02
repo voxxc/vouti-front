@@ -167,7 +167,7 @@ serve(async (req) => {
     }
 
     // Validate roles
-    const validRoles = ['admin', 'advogado', 'comercial', 'financeiro', 'controller', 'agenda', 'reunioes'];
+    const validRoles = ['admin', 'advogado', 'comercial', 'financeiro', 'controller', 'agenda', 'reunioes', 'estagiario'];
     
     if (!validRoles.includes(finalPrimaryRole)) {
       return new Response(

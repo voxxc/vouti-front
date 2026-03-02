@@ -36,6 +36,7 @@ const ADDITIONAL_PERMISSIONS = [
 
 const ROLE_OPTIONS = [
   { value: 'advogado', label: 'Advogado' },
+  { value: 'estagiario', label: 'Estagiário(a)' },
   { value: 'comercial', label: 'Comercial' },
   { value: 'financeiro', label: 'Financeiro' },
   { value: 'controller', label: 'Controller' },

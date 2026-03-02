@@ -313,6 +313,7 @@ const ProjectParticipants = ({ isOpen, onClose, projectId, projectName }: Projec
       case 'advogado': return 'Advogado';
       case 'comercial': return 'Comercial';
       case 'financeiro': return 'Financeiro';
+      case 'estagiario': return 'Estagiário(a)';
       default: return role;
     }
   };
