@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 interface TarefasTabProps {
   processo: ProcessoOAB;
@@ -512,13 +513,31 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
                     </datalist>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="data">Data de Execucao</Label>
-                    <Input
-                      id="data"
-                      type="date"
-                      value={dataExecucao}
-                      onChange={(e) => setDataExecucao(e.target.value)}
-                    />
+                    <Label>Data de Execução</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dataExecucao && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dataExecucao ? format(parseLocalDate(dataExecucao), 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione a data'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={dataExecucao ? parseLocalDate(dataExecucao) : undefined}
+                          onSelect={(date) => setDataExecucao(date ? format(date, 'yyyy-MM-dd') : '')}
+                          locale={ptBR}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -746,13 +765,31 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
                 </datalist>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-data">Data de Execucao</Label>
-                <Input
-                  id="edit-data"
-                  type="date"
-                  value={editDataExecucao}
-                  onChange={(e) => setEditDataExecucao(e.target.value)}
-                />
+                <Label>Data de Execução</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editDataExecucao && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {editDataExecucao ? format(parseLocalDate(editDataExecucao), 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione a data'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={editDataExecucao ? parseLocalDate(editDataExecucao) : undefined}
+                      onSelect={(date) => setEditDataExecucao(date ? format(date, 'yyyy-MM-dd') : '')}
+                      locale={ptBR}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
