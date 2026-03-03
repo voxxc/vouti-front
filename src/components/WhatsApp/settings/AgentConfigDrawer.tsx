@@ -90,10 +90,15 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
         setIsConnected(false);
       }
       
-      // Verificar status real na Z-API ao abrir (mesmo sem credenciais no form)
-      setTimeout(() => {
-        checkConnectionStatusOnLoad();
-      }, 300);
+      // Verificar status real na Z-API ao abrir — passa credenciais direto para evitar closure stale
+      const loadedId = data ? extractInstanceId(data.instance_name || "") : "";
+      const loadedToken = data ? extractInstanceToken(data.zapi_token || "") : "";
+      const loadedConfigId = data?.id;
+      if (loadedId && loadedToken) {
+        setTimeout(() => {
+          checkConnectionStatusOnLoad(loadedId, loadedToken, "", loadedConfigId);
+        }, 300);
+      }
     } catch (error) {
       console.error("Erro ao carregar config:", error);
     } finally {
@@ -101,16 +106,18 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
     }
   };
 
-  // Verificação de status ao abrir o drawer (usa fallback das env vars)
-  const checkConnectionStatusOnLoad = async () => {
+  // Verificação de status ao abrir o drawer — recebe credenciais como parâmetro para evitar stale closure
+  const checkConnectionStatusOnLoad = async (instanceId: string, instanceToken: string, clientToken: string, configId?: string) => {
+    if (!instanceId || !instanceToken) return; // Sem credenciais, não verifica (evita fallback para env vars globais)
+    
     setIsCheckingStatus(true);
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'status',
-          zapi_instance_id: config.zapi_instance_id || undefined,
-          zapi_instance_token: config.zapi_instance_token || undefined,
-          zapi_client_token: config.zapi_client_token || undefined,
+          zapi_instance_id: instanceId,
+          zapi_instance_token: instanceToken,
+          zapi_client_token: clientToken || undefined,
         }
       });
 
@@ -121,11 +128,11 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
         const connected = result.data?.connected === true;
         setIsConnected(connected);
         
-        if (config.id) {
+        if (configId) {
           await supabase
             .from("whatsapp_instances")
             .update({ connection_status: connected ? "connected" : "disconnected" })
-            .eq("id", config.id);
+            .eq("id", configId);
           onAgentUpdated();
         }
       }
@@ -264,6 +271,10 @@ export const AgentConfigDrawer = ({ agent, open, onOpenChange, onAgentUpdated }:
   };
 
   const handleConnect = async () => {
+    if (!config.zapi_instance_id || !config.zapi_instance_token) {
+      toast.error("Preencha o ID e Token da instância antes de conectar");
+      return;
+    }
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
