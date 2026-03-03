@@ -94,7 +94,7 @@ export function CreateDeadlineDialog({
           user_id: user.id,
           title: title.trim(),
           description: description.trim() || null,
-          date: date.toISOString().split('T')[0],
+          date: format(date, 'yyyy-MM-dd'),
           project_id: protocolo.project_id,
           advogado_responsavel_id: selectedAdvogado,
           tenant_id: tenantId,
