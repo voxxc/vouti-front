@@ -1,38 +1,29 @@
 
+## Diagnóstico: Loop de Token Refresh causando 429 Rate Limit
 
-## Novo Perfil: Perito
+### Problema
+Os logs de auth mostram **dezenas de token refresh em 1-2 segundos** para a usuária `izabelitabeatriz@icloud.com`, resultando em erros `429: Request rate limit reached`. Isso indica um loop de refresh que impede o carregamento correto do tenant.
 
-O perfil `perito` terá acesso a **Agenda**, **Projetos** e **Extras**. Seguirá o mesmo padrão do `estagiario` — adicionado ao enum e replicado em todos os pontos necessários.
+### Causas identificadas no `AuthContext.tsx`
 
-### Alterações
+1. **Chamada duplicada de `fetchUserRoleAndTenant`**: Tanto o `onAuthStateChange` quanto o `getSession()` disparam a mesma função ao montar, gerando queries duplicadas.
 
-**1. Banco de dados — SQL Migration**
-- Adicionar `'perito'` ao enum `app_role`
-- Atualizar funções `get_users_with_roles` e `get_users_with_roles_by_tenant` com prioridade para `perito` (ex: prioridade 0, junto com estagiario, ou -1)
+2. **Prefetch pós-login cria QueryClient descartável**: O `signIn` cria `new QueryClient()` a cada login — esse cache é descartado imediatamente, desperdiçando queries e potencialmente causando chamadas extras ao Supabase.
 
-**2. Edge Functions**
-- `supabase/functions/create-user/index.ts` — adicionar `'perito'` ao `validRoles`
-- `supabase/functions/admin-set-user-roles/index.ts` — adicionar `'perito'` ao `validRoles`
+3. **Sem debounce/deduplicação**: Cada evento `TOKEN_REFRESHED` do Supabase dispara `fetchUserRoleAndTenant` novamente, multiplicando as queries.
 
-**3. Frontend — Tipos e Auth**
-- `src/types/user.ts` — adicionar `'perito'` ao union type `role`
-- `src/contexts/AuthContext.tsx` — adicionar `'perito'` ao type `UserRole` e `rolePriority` (prioridade -1)
-- `src/pages/Dashboard.tsx` linha 42 — adicionar `'perito'` ao cast do role
+### Plano de correção
 
-**4. Sidebar — Permissões específicas**
-- `src/components/Dashboard/DashboardSidebar.tsx` — adicionar `'perito'` nas seções:
-  - `projetos` ✅
-  - `agenda` ✅
-  - (NÃO em controladoria, financeiro, clientes, documentos, reuniões)
-- `extras` já é visível para todos
+**1. AuthContext — Deduplicar fetchUserRoleAndTenant**
+- Adicionar uma flag `fetchingRef` (useRef) para evitar chamadas simultâneas
+- No `onAuthStateChange`, só chamar `fetchUserRoleAndTenant` para eventos `SIGNED_IN` e `TOKEN_REFRESHED` (ignorar outros)
+- No `getSession`, só chamar se o listener ainda não processou
 
-**5. Dashboard Metrics**
-- `src/components/Dashboard/RoleMetricsPanel.tsx` — adicionar case `'perito'` apontando para `AdvogadoMetrics`
-- `src/components/Dashboard/DashboardLayout.tsx` — adicionar `'perito': -1` ao `rolePriority`
+**2. AuthContext — Corrigir prefetch pós-login**
+- Remover `new QueryClient()` dentro do `signIn` — usar import do queryClient global do `App.tsx` ou simplesmente não fazer prefetch dentro do AuthContext (deixar os componentes fazerem ao montar)
 
-**6. UI de gerenciamento**
-- `src/components/Admin/UserManagementDrawer.tsx` — adicionar `{ value: 'perito', label: 'Perito' }` ao `ROLE_OPTIONS`
-- `src/components/Admin/RoleManagement.tsx` — adicionar ao `AppRole`, `roleLabels` e `roleVariants`
-- `src/pages/AdminRoles.tsx` — adicionar descrição do Perito
-- `src/components/Project/ProjectParticipants.tsx` — adicionar label e cor para `'perito'`
+**3. AuthContext — Evitar re-fetch em TOKEN_REFRESHED**
+- No `onAuthStateChange`, para evento `TOKEN_REFRESHED` apenas atualizar session/user sem chamar `fetchUserRoleAndTenant` novamente (os roles não mudam entre refreshes)
 
+### Arquivos alterados
+- `src/contexts/AuthContext.tsx` — deduplicação, guard no listener, remoção do prefetch com QueryClient descartável
