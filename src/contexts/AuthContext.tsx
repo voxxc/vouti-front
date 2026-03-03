@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
@@ -40,36 +40,47 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  
+  // Deduplication refs
+  const fetchingRef = useRef(false);
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+  const initialSessionHandledRef = useRef(false);
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[AuthContext] onAuthStateChange event:', event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Buscar role e tenant do usuário quando autenticado
         if (session?.user) {
-          setTimeout(() => {
+          // Only fetch roles on SIGNED_IN — TOKEN_REFRESHED doesn't change roles
+          if (event === 'SIGNED_IN') {
+            initialSessionHandledRef.current = true;
             fetchUserRoleAndTenant(session.user.id);
-          }, 0);
+          }
+          // For TOKEN_REFRESHED, just update session/user (already done above)
         } else {
           setUserRole(null);
           setUserRoles([]);
           setTenantId(null);
+          lastFetchedUserIdRef.current = null;
         }
       }
     );
 
-    // THEN check for existing session
+    // THEN check for existing session (only if listener hasn't handled it yet)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      if (!initialSessionHandledRef.current) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
 
-      if (session?.user) {
-        fetchUserRoleAndTenant(session.user.id);
+        if (session?.user) {
+          fetchUserRoleAndTenant(session.user.id);
+        }
       }
     });
 
@@ -78,6 +89,13 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
 
   // Optimized: Parallel queries for faster loading
   const fetchUserRoleAndTenant = async (userId: string) => {
+    // Deduplicate: skip if already fetching or already fetched for this user
+    if (fetchingRef.current || lastFetchedUserIdRef.current === userId) {
+      console.log('[AuthContext] Skipping duplicate fetch for user:', userId);
+      return;
+    }
+    fetchingRef.current = true;
+    
     try {
       console.log('[AuthContext] Fetching role for user:', userId);
       
@@ -169,10 +187,14 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
         console.log('[AuthContext] Highest role selected:', highestRole.role);
         setUserRole(highestRole.role as UserRole);
       }
+      
+      lastFetchedUserIdRef.current = userId;
     } catch (error) {
       console.error('[AuthContext] Critical error in fetchUserRoleAndTenant:', error);
       setUserRole('advogado');
       setTenantId(null);
+    } finally {
+      fetchingRef.current = false;
     }
   };
 
@@ -181,36 +203,6 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
       email,
       password
     });
-    
-    // Pré-carregar dados em background após login bem-sucedido
-    if (!error && data.user) {
-      setTimeout(async () => {
-        try {
-          // Buscar tenant_id do usuário
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('tenant_id')
-            .eq('user_id', data.user.id)
-            .single();
-          
-          if (profile?.tenant_id) {
-            // Importar e executar prefetch de todas as páginas principais
-            const { prefetchAllPagesAfterLogin } = await import('@/hooks/usePrefetchPages');
-            const { QueryClient } = await import('@tanstack/react-query');
-            
-            // Usar o queryClient global (será substituído pelo contexto quando disponível)
-            const queryClient = new QueryClient();
-            await prefetchAllPagesAfterLogin(queryClient, profile.tenant_id, data.user.id);
-          }
-          
-          // Controladoria (cache local)
-          const { prefetchControladoriaData } = await import('@/hooks/useControladoriaCache');
-          prefetchControladoriaData();
-        } catch (err) {
-          console.error('[AuthContext] Prefetch error:', err);
-        }
-      }, 100);
-    }
     
     return { error };
   };
