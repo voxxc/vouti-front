@@ -88,9 +88,11 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         setIsConnected(false);
       }
       
-      // Verificar status real na Z-API ao abrir (mesmo sem credenciais no form)
+      // Verificar status real na Z-API ao abrir — passa credenciais direto para evitar stale closure
+      const dbInstanceId = extractInstanceId(data?.instance_name || "");
+      const dbInstanceToken = extractInstanceToken(data?.zapi_token || "");
       setTimeout(() => {
-        checkConnectionStatusOnLoad();
+        checkConnectionStatusOnLoad(dbInstanceId, dbInstanceToken, data?.id);
       }, 300);
     } catch (error) {
       console.error("Erro ao carregar config:", error);
@@ -100,15 +102,14 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
   };
 
   // Verificação de status ao abrir o drawer (usa fallback das env vars)
-  const checkConnectionStatusOnLoad = async () => {
+  const checkConnectionStatusOnLoad = async (instanceId?: string, instanceToken?: string, configId?: string) => {
     setIsCheckingStatus(true);
     try {
       const response = await supabase.functions.invoke('whatsapp-zapi-action', {
         body: {
           action: 'status',
-          zapi_instance_id: config.zapi_instance_id || undefined,
-          zapi_instance_token: config.zapi_instance_token || undefined,
-          zapi_client_token: config.zapi_client_token || undefined,
+          zapi_instance_id: instanceId || undefined,
+          zapi_instance_token: instanceToken || undefined,
         }
       });
 
@@ -119,11 +120,11 @@ export const SuperAdminAgentConfigDrawer = ({ agent, open, onOpenChange, onAgent
         const connected = result.data?.connected === true;
         setIsConnected(connected);
         
-        if (config.id) {
+        if (configId) {
           await supabase
             .from("whatsapp_instances")
             .update({ connection_status: connected ? "connected" : "disconnected" })
-            .eq("id", config.id);
+            .eq("id", configId);
           onAgentUpdated();
         }
       }
