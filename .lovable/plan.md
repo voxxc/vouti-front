@@ -1,34 +1,34 @@
 
 
-## Diagnóstico: QR Code não abre no tenant De Morais
+## Problema: `crm.vouti.co/` abre a homepage
 
-### Causa Raiz
-No `AgentConfigDrawer.tsx`, a função `checkConnectionStatusOnLoad` é chamada com `setTimeout(300ms)` dentro de `loadInstanceConfig`, mas utiliza a variável de estado `config` da closure — que ainda contém valores **vazios** (o `setConfig` ainda não foi re-renderizado). Isso faz a edge function cair no fallback das variáveis de ambiente globais (`Z_API_URL`, `Z_API_TOKEN`), verificando o status de uma instância **diferente** da do agente.
+### Diagnóstico
 
-Se a instância global estiver desconectada, o problema não se manifesta. Mas se estiver em outro estado, pode marcar `isConnected = true` incorretamente — **escondendo o botão de QR Code**.
+No `App.tsx` (linha 301), a detecção do domínio CRM é:
+```typescript
+const isCrmDomain = window.location.hostname === 'crm.vouti.co';
+```
 
-Mesmo quando `isConnected` fica `false`, a verificação de status com credenciais erradas pode causar comportamento inconsistente.
+Isso é uma comparação **exata**. Se o browser resolver para algo diferente (ex: redirecionamento DNS para `vouti.co`, ou o hostname chegar como `www.crm.vouti.co`), a condição falha e o app renderiza as rotas normais — mostrando a `HomePage` na rota `/`.
+
+Além disso, mesmo quando o domínio bate, a rota CRM tem outro problema: o `<CrmLogin />` na rota `/` não recebe o parâmetro `:tenant` via URL, então `useParams()` retorna `tenant = undefined`, e o componente mostra "CRM não encontrado".
 
 ### Correção
 
-**Arquivo: `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`**
+**1. `src/App.tsx` — Tornar a detecção de domínio mais robusta:**
+- Usar `.endsWith('crm.vouti.co')` ou `.includes('crm.vouti.co')` em vez de igualdade exata, para cobrir variações como `www.crm.vouti.co`
 
-1. **Passar as credenciais carregadas diretamente para `checkConnectionStatusOnLoad`** em vez de depender do state `config` (que é stale no closure):
-   - Alterar a assinatura para receber `instanceId`, `instanceToken`, `clientToken` como parâmetros
-   - Na chamada dentro de `loadInstanceConfig`, passar os valores extraídos do `data` do banco
-   - Se não houver credenciais salvas (agente sem config), **pular a verificação de status** para evitar fallback
+**2. `src/App.tsx` — Adicionar rotas com tenant no bloco CRM:**
+- Adicionar rotas `/:tenant/auth` e `/:tenant` para que o CRM standalone funcione com slugs de tenant na URL (padrão atual: `crm.vouti.co/volkov`)
+- A rota `/` sem tenant deve redirecionar para uma página informando que é necessário informar o tenant, ou exibir um formulário de seleção
 
-2. **Garantir que `handleConnect` não dispare se não tiver credenciais**:
-   - Adicionar validação para exibir toast se `config.zapi_instance_id` ou `config.zapi_instance_token` estiverem vazios
+**3. `src/pages/CrmLogin.tsx` — Fallback quando tenant é undefined:**
+- Se `tenant` for `undefined` (acesso direto a `crm.vouti.co/`), mostrar uma tela pedindo o slug do tenant ou uma mensagem orientativa, em vez de tentar validar `undefined`
 
-### Mudança principal (pseudocódigo)
-```typescript
-// De:
-checkConnectionStatusOnLoad() // usa config do closure (vazio)
-
-// Para:
-checkConnectionStatusOnLoad(extractedId, extractedToken, "")
-// Função recebe credenciais como parâmetro, não depende do state
-// Se ambos forem vazios, retorna sem fazer request
+### Estrutura de rotas CRM proposta
+```
+crm.vouti.co/              → Tela orientativa ("informe seu tenant")
+crm.vouti.co/:tenant/auth  → CrmLogin (com tenant)
+crm.vouti.co/:tenant       → CrmApp (com tenant)
 ```
 
