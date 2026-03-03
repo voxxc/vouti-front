@@ -1,26 +1,36 @@
 
 
-## Correção: QR Code não exibe no WhatsAppAgentsSettings
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Causa Raiz
-Em `WhatsAppAgentsSettings.tsx` (linha 1050), o `src` da imagem do QR Code faz:
-```tsx
-<img src={`data:image/png;base64,${qrCode}`} />
-```
-Porém a Z-API já retorna o valor com o prefixo `data:image/png;base64,`. Resultado: o `src` fica `data:image/png;base64,data:image/png;base64,iVBOR...` — **duplicado**, e a imagem não renderiza.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-O `AgentConfigDrawer.tsx` e `SuperAdminAgentConfigDrawer.tsx` já têm a correção correta com verificação `.startsWith('data:image/')`.
+### Implementação
 
-### Correção
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-**1. `src/components/WhatsApp/settings/WhatsAppAgentsSettings.tsx` (linha 1050)**
-- Substituir o `src` fixo por verificação condicional:
-```tsx
-<img src={qrCode.startsWith('data:image/') ? qrCode : `data:image/png;base64,${qrCode}`} />
-```
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**2. `src/components/SuperAdmin/WhatsApp/SuperAdminAgentConfigDrawer.tsx` (linhas 92-94, 103-113)**
-- Corrigir o bug de stale closure no `checkConnectionStatusOnLoad` (mesmo fix aplicado anteriormente no `AgentConfigDrawer`):
-  - Receber credenciais como parâmetros diretos em vez de usar `config` do state
-  - Passar valores do banco diretamente no `loadInstanceConfig`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
