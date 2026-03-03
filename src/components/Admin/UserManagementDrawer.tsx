@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Plus, Search, Pencil, CheckCircle2 } from "lucide-react";
+import { Users, Plus, Search, Pencil, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { User } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,87 @@ export function UserManagementDrawer({
   const { tenantId } = useTenantId();
   const { podeAdicionarUsuario } = usePlanoLimites();
 
+  // State for 2FA wallet management
+  const [tenantWallets, setTenantWallets] = useState<Array<{ id: string; name: string }>>([]);
+  const [userWalletViewerIds, setUserWalletViewerIds] = useState<Set<string>>(new Set());
+  const [walletsLoading, setWalletsLoading] = useState(false);
+  const [togglingWalletId, setTogglingWalletId] = useState<string | null>(null);
+
+  const isEditingAdminOrController = editFormData.role === 'admin' || editFormData.role === 'controller' ||
+    editFormData.additionalPermissions.includes('controller');
+
+  // Fetch wallets when edit dialog opens
+  useEffect(() => {
+    if (!isEditOpen || !editingUser || !editUserTenantId || isEditingAdminOrController) {
+      setTenantWallets([]);
+      setUserWalletViewerIds(new Set());
+      return;
+    }
+
+    const fetchWallets = async () => {
+      setWalletsLoading(true);
+      try {
+        const [walletsRes, viewersRes] = await Promise.all([
+          supabase
+            .from('totp_wallets')
+            .select('id, name')
+            .eq('tenant_id', editUserTenantId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('totp_wallet_viewers')
+            .select('wallet_id')
+            .eq('user_id', editingUser.id)
+            .eq('tenant_id', editUserTenantId)
+        ]);
+
+        setTenantWallets(walletsRes.data || []);
+        setUserWalletViewerIds(new Set((viewersRes.data || []).map(v => v.wallet_id)));
+      } catch (error) {
+        console.error('Error fetching wallets:', error);
+      } finally {
+        setWalletsLoading(false);
+      }
+    };
+
+    fetchWallets();
+  }, [isEditOpen, editingUser?.id, editUserTenantId, isEditingAdminOrController]);
+
+  const handleWalletToggle = async (walletId: string) => {
+    if (!editingUser || !editUserTenantId) return;
+    setTogglingWalletId(walletId);
+
+    const isCurrentlyGranted = userWalletViewerIds.has(walletId);
+
+    try {
+      if (isCurrentlyGranted) {
+        const { error } = await supabase
+          .from('totp_wallet_viewers')
+          .delete()
+          .eq('wallet_id', walletId)
+          .eq('user_id', editingUser.id)
+          .eq('tenant_id', editUserTenantId);
+        if (error) throw error;
+        setUserWalletViewerIds(prev => { const next = new Set(prev); next.delete(walletId); return next; });
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from('totp_wallet_viewers')
+          .insert({
+            wallet_id: walletId,
+            user_id: editingUser.id,
+            tenant_id: editUserTenantId,
+            granted_by: user?.id || null
+          });
+        if (error) throw error;
+        setUserWalletViewerIds(prev => new Set(prev).add(walletId));
+      }
+    } catch (error) {
+      console.error('Error toggling wallet access:', error);
+      toast({ title: "Erro", description: "Erro ao alterar acesso à carteira", variant: "destructive" });
+    } finally {
+      setTogglingWalletId(null);
+    }
+  };
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
     const query = searchQuery.toLowerCase();
@@ -536,6 +617,50 @@ export function UserManagementDrawer({
                 </div>
               )}
             </div>
+
+            {/* Carteiras 2FA */}
+            {!isEditingAdminOrController && tenantWallets.length > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5" />
+                    Carteiras 2FA
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Selecione quais carteiras TOTP este usuário poderá visualizar. Salva instantaneamente.
+                  </p>
+                </div>
+
+                {walletsLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Carregando carteiras...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {tenantWallets.map((wallet) => (
+                      <div key={wallet.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`wallet-${wallet.id}`}
+                          checked={userWalletViewerIds.has(wallet.id)}
+                          disabled={togglingWalletId === wallet.id}
+                          onCheckedChange={() => handleWalletToggle(wallet.id)}
+                        />
+                        <Label
+                          htmlFor={`wallet-${wallet.id}`}
+                          className="text-sm font-normal cursor-pointer flex items-center gap-1.5"
+                        >
+                          {wallet.name}
+                          {togglingWalletId === wallet.id && (
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          )}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Botão Salvar */}
             <Button type="submit" className="w-full" disabled={loading}>
