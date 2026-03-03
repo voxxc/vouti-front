@@ -1047,7 +1047,7 @@ export const WhatsAppAgentsSettings = () => {
                               {qrCode && (
                                 <div className="text-center space-y-3">
                                   <p className="text-sm text-muted-foreground">Escaneie com seu WhatsApp:</p>
-                                  <img src={`data:image/png;base64,${qrCode}`} alt="QR Code" className="mx-auto max-w-[250px] rounded-lg border" />
+                                  <img src={qrCode.startsWith('data:image/') ? qrCode : `data:image/png;base64,${qrCode}`} alt="QR Code" className="mx-auto max-w-[250px] rounded-lg border" />
                                   {isPolling && <p className="text-xs text-muted-foreground animate-pulse">Aguardando conexão...</p>}
                                   <Button variant="ghost" size="sm" onClick={handleCancelQR}>Cancelar</Button>
                                 </div>
