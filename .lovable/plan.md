@@ -1,23 +1,34 @@
 
 
-## Mini Calendário nos campos de data (Criação/Edição de Tarefa)
+## Diagnóstico: QR Code não abre no tenant De Morais
 
-### Problema
-Nos dialogs de **criar tarefa** e **editar tarefa** dentro da aba Tarefas do caso, o campo de data usa `<Input type="date">` nativo do browser, que é inconsistente e pouco intuitivo. O modal de "Criar Prazo na Agenda" já usa o mini calendário (Popover + Calendar) corretamente.
+### Causa Raiz
+No `AgentConfigDrawer.tsx`, a função `checkConnectionStatusOnLoad` é chamada com `setTimeout(300ms)` dentro de `loadInstanceConfig`, mas utiliza a variável de estado `config` da closure — que ainda contém valores **vazios** (o `setConfig` ainda não foi re-renderizado). Isso faz a edge function cair no fallback das variáveis de ambiente globais (`Z_API_URL`, `Z_API_TOKEN`), verificando o status de uma instância **diferente** da do agente.
 
-### Solução
-Substituir os dois `<Input type="date">` por componentes `Popover` + `Calendar` (mesmo padrão já usado no modal de prazo do mesmo arquivo).
+Se a instância global estiver desconectada, o problema não se manifesta. Mas se estiver em outro estado, pode marcar `isConnected = true` incorretamente — **escondendo o botão de QR Code**.
 
-### Alterações em `src/components/Controladoria/TarefasTab.tsx`
+Mesmo quando `isConnected` fica `false`, a verificação de status com credenciais erradas pode causar comportamento inconsistente.
 
-**1. Dialog de Criar Tarefa (linhas 514-522)**
-- Trocar `<Input type="date">` por `Popover` + `PopoverTrigger` (Button) + `PopoverContent` + `Calendar`
-- Converter `dataExecucao` (string `YYYY-MM-DD`) para `Date` ao exibir no Calendar, e converter de volta para string ao selecionar
-- Usar `parseLocalDate()` para conversão segura
+### Correção
 
-**2. Dialog de Editar Tarefa (linhas 748-756)**
-- Mesma substituição: trocar `<Input type="date">` pelo mini calendário
-- Converter `editDataExecucao` (string) ↔ `Date` da mesma forma
+**Arquivo: `src/components/WhatsApp/settings/AgentConfigDrawer.tsx`**
 
-Ambos seguirão o padrão visual já existente no modal de "Criar Prazo na Agenda" (linha 837+), mantendo consistência visual.
+1. **Passar as credenciais carregadas diretamente para `checkConnectionStatusOnLoad`** em vez de depender do state `config` (que é stale no closure):
+   - Alterar a assinatura para receber `instanceId`, `instanceToken`, `clientToken` como parâmetros
+   - Na chamada dentro de `loadInstanceConfig`, passar os valores extraídos do `data` do banco
+   - Se não houver credenciais salvas (agente sem config), **pular a verificação de status** para evitar fallback
+
+2. **Garantir que `handleConnect` não dispare se não tiver credenciais**:
+   - Adicionar validação para exibir toast se `config.zapi_instance_id` ou `config.zapi_instance_token` estiverem vazios
+
+### Mudança principal (pseudocódigo)
+```typescript
+// De:
+checkConnectionStatusOnLoad() // usa config do closure (vazio)
+
+// Para:
+checkConnectionStatusOnLoad(extractedId, extractedToken, "")
+// Função recebe credenciais como parâmetro, não depende do state
+// Se ambos forem vazios, retorna sem fazer request
+```
 
