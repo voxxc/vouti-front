@@ -1,0 +1,1 @@
+INSERT INTO totp_wallet_viewers (wallet_id, user_id, tenant_id, granted_by) VALUES ('b3ff4a92-99a7-4c49-8d2e-807d1a39611d', 'f606daed-f354-4f54-9701-a6fe70221639', '27492091-e05d-46a8-9ee8-b3b47ec894e4', 'f606daed-f354-4f54-9701-a6fe70221639');
