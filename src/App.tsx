@@ -79,6 +79,15 @@ import {
 } from "@/components/Routing/LegacyRedirects";
 import "./App.css";
 
+// Minimal suspense fallback for lazy-loaded pages
+const PageFallback = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="animate-pulse">
+      <Logo size="lg" />
+    </div>
+  </div>
+);
+
 // Optimized: Minimal loading state with logo pulse instead of 1.2s artificial delay
 const TenantProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
@@ -309,12 +318,13 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <BrowserRouter>
+            <Suspense fallback={<PageFallback />}>
             <Routes>
-              <Route path="/:tenant/auth" element={<CrmLogin />} />
               <Route path="/:tenant" element={<CrmApp />} />
               <Route path="/" element={<CrmLanding />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
             <Toaster />
           </BrowserRouter>
         </TooltipProvider>
@@ -326,6 +336,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
+          <Suspense fallback={<PageFallback />}>
           <Routes>
             {/* Homepage - Always dark mode, isolated from ThemeProvider */}
             <Route path="/" element={<HomePage />} />
