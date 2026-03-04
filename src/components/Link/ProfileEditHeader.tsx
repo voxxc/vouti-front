@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { LinkProfile } from "@/types/link";
 import { AvatarCropDialog } from "./AvatarCropDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 interface ProfileEditHeaderProps {
   profile: LinkProfile;
