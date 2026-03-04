@@ -35,14 +35,14 @@ const LinkAuth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signInUsername || !signInPassword) {
+    if (!signInEmail || !signInPassword) {
       toast.error("Preencha todos os campos");
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await signIn(signInUsername, signInPassword);
+      const { error } = await signIn(signInEmail, signInPassword);
       
       if (error) {
         toast.error(error.message || "Erro ao fazer login");
@@ -62,8 +62,8 @@ const LinkAuth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signUpUsername || !signUpPassword) {
-      toast.error("Preencha todos os campos");
+    if (!signUpEmail || !signUpUsername || !signUpPassword) {
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
@@ -79,14 +79,14 @@ const LinkAuth = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await signUp(signUpUsername, signUpPassword, signUpFullName);
+      const { error } = await signUp(signUpEmail, signUpUsername, signUpPassword, signUpFullName);
       
       if (error) {
         toast.error(error.message || "Erro ao criar conta");
       } else {
         
         // Auto-login após cadastro bem-sucedido
-        const { error: signInError } = await signIn(signUpUsername, signUpPassword);
+        const { error: signInError } = await signIn(signUpEmail, signUpPassword);
         
         if (signInError) {
           toast.error("Conta criada, mas erro ao fazer login. Tente fazer login manualmente.");
@@ -137,13 +137,13 @@ const LinkAuth = () => {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-username">Username</Label>
+                  <Label htmlFor="signin-email">Email</Label>
                   <Input
-                    id="signin-username"
-                    type="text"
-                    placeholder="seu_username"
-                    value={signInUsername}
-                    onChange={(e) => setSignInUsername(e.target.value)}
+                    id="signin-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
                     disabled={isLoading}
                     required
                   />
@@ -169,7 +169,19 @@ const LinkAuth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-username">Username</Label>
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={signUpEmail}
+                    onChange={(e) => setSignUpEmail(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-username">Username (para URL pública)</Label>
                   <Input
                     id="signup-username"
                     type="text"
