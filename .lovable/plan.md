@@ -1,48 +1,36 @@
 
 
-## Plano: Cor e tamanho do @username customizáveis
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
 ### Objetivo
-Adicionar no ThemeCustomizer controles para definir a cor e o tamanho da fonte do `@username` exibido na página pública e no preview.
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Alterações
+### Implementação
 
-**1. Migration SQL** — Novas colunas em `link_profiles`
-- `username_color` (text, nullable) — cor do @username (fallback: usa `button_text_color`)
-- `username_font_size` (text, default `'xl'`) — tamanho: `sm`, `base`, `lg`, `xl`, `2xl`, `3xl`
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-**2. `src/types/link.ts`** — Adicionar campos
-- `username_color: string | null`
-- `username_font_size: string`
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**3. `src/components/Link/ThemeCustomizer.tsx`** — Nova seção "Username"
-- Color picker para cor do @username
-- Seletor visual de tamanho com opções (P, M, G, GG, XG) mapeando para os valores de font-size
-- Preview em tempo real via `updateAndPreview`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**4. `src/components/Link/MobilePreview.tsx`** — Aplicar estilo
-- No `<h1>` do @username (linha 39), usar `profile.username_color` como cor (fallback `btnStyle.color`) e mapear `username_font_size` para classes Tailwind (`text-sm`, `text-base`, `text-lg`, `text-xl`, `text-2xl`, `text-3xl`)
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**5. `src/pages/LinkPublicProfile.tsx`** — Mesma lógica
-- No `<h1>` do @username (linha 102), aplicar cor e tamanho dinâmicos
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### Mapeamento de tamanhos
-| Valor DB | Label | Classe Tailwind |
-|----------|-------|-----------------|
-| `sm` | P | `text-sm` |
-| `base` | M | `text-base` |
-| `lg` | G | `text-lg` |
-| `xl` | GG | `text-xl` |
-| `2xl` | XG | `text-2xl` |
-| `3xl` | XXG | `text-3xl` |
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### Arquivos
-| Arquivo | Mudança |
-|---------|---------|
-| SQL migration | `username_color`, `username_font_size` |
-| `src/types/link.ts` | Novos campos |
-| `ThemeCustomizer.tsx` | Seção "Username" com color picker + seletor de tamanho |
-| `MobilePreview.tsx` | Estilo dinâmico no @username |
-| `LinkPublicProfile.tsx` | Estilo dinâmico no @username |
-| `linkThemeUtils.ts` | Helper `getUsernameStyle(profile)` |
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

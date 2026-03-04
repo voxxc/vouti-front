@@ -31,6 +31,15 @@ const DIRECTIONS = [
   { value: "to-l", label: "←", icon: ArrowLeft, desc: "Dir → Esq" },
 ];
 
+const FONT_SIZES = [
+  { value: "sm", label: "P" },
+  { value: "base", label: "M" },
+  { value: "lg", label: "G" },
+  { value: "xl", label: "GG" },
+  { value: "2xl", label: "XG" },
+  { value: "3xl", label: "XXG" },
+];
+
 export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [bgColor1, setBgColor1] = useState(profile.bg_color_1 || "#FFFFFF");
   const [bgColor2, setBgColor2] = useState(profile.bg_color_2 || "");
@@ -38,6 +47,8 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [direction, setDirection] = useState(profile.bg_gradient_direction || "to-b");
   const [buttonColor, setButtonColor] = useState(profile.button_color || "#1e293b");
   const [buttonTextColor, setButtonTextColor] = useState(profile.button_text_color || "#ffffff");
+  const [usernameColor, setUsernameColor] = useState(profile.username_color || profile.button_text_color || "#1e293b");
+  const [usernameFontSize, setUsernameFontSize] = useState(profile.username_font_size || "xl");
   const [saving, setSaving] = useState(false);
 
   const handleLiveUpdate = (updates: Partial<{
@@ -71,6 +82,8 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         bg_gradient_direction: direction,
         button_color: buttonColor,
         button_text_color: buttonTextColor,
+        username_color: usernameColor,
+        username_font_size: usernameFontSize,
       });
       toast.success("Tema salvo com sucesso!");
     } catch {
@@ -87,6 +100,8 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
       bg_gradient_direction: direction,
       button_color: buttonColor,
       button_text_color: buttonTextColor,
+      username_color: usernameColor,
+      username_font_size: usernameFontSize,
       [field]: value,
     };
     handleLiveUpdate(updates);
@@ -196,6 +211,51 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
               </div>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Username Style */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Estilo do @Username</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Label className="min-w-[100px]">Cor</Label>
+            <input
+              type="color"
+              value={usernameColor}
+              onChange={(e) => {
+                setUsernameColor(e.target.value);
+                updateAndPreview("username_color", e.target.value);
+              }}
+              className="w-12 h-10 rounded cursor-pointer border border-border"
+            />
+            <span className="text-sm text-muted-foreground font-mono">{usernameColor}</span>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Tamanho</Label>
+            <div className="flex gap-2">
+              {FONT_SIZES.map((size) => (
+                <button
+                  key={size.value}
+                  onClick={() => {
+                    setUsernameFontSize(size.value);
+                    updateAndPreview("username_font_size", size.value);
+                  }}
+                  className={cn(
+                    "px-4 py-2 rounded-xl border transition-all font-medium",
+                    usernameFontSize === size.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {size.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
-import { getProfileBackground, getButtonStyle } from "@/lib/linkThemeUtils";
+import { getProfileBackground, getButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
 
 interface MobilePreviewProps {
   profile: LinkProfile;
@@ -16,6 +16,7 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
 
   const bgStyle = getProfileBackground(profile);
   const btnStyle = getButtonStyle(profile);
+  const usernameStyle = getUsernameStyle(profile);
 
   return (
     <div className="sticky top-6">
@@ -36,7 +37,7 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
                 </AvatarFallback>
               </Avatar>
 
-              <h1 className="text-lg font-bold tracking-tight" style={{ color: btnStyle.color }}>
+              <h1 className={`${usernameStyle.className} font-bold tracking-tight`} style={{ color: usernameStyle.color }}>
                 @{profile.username}
               </h1>
 

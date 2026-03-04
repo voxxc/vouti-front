@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2 } from "lucide-react";
-import { getProfileBackground, getButtonStyle } from "@/lib/linkThemeUtils";
+import { getProfileBackground, getButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
@@ -85,7 +85,7 @@ const LinkPublicProfile = () => {
 
   const bgStyle = getProfileBackground(profile);
   const btnStyle = getButtonStyle(profile);
-  // Use button text color for text elements on the background
+  const usernameStyle = getUsernameStyle(profile);
   const textColor = profile.button_text_color || "#1e293b";
 
   return (
@@ -99,7 +99,7 @@ const LinkPublicProfile = () => {
           </AvatarFallback>
         </Avatar>
 
-        <h1 className="text-xl font-bold" style={{ color: textColor }}>
+        <h1 className={`${usernameStyle.className} font-bold`} style={{ color: usernameStyle.color }}>
           @{profile.username}
         </h1>
 
