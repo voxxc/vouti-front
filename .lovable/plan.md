@@ -1,51 +1,36 @@
 
 
-## Plano: Página pública do Link-in-Bio em `/:username`
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
 ### Objetivo
-Permitir que terceiros acessem o perfil público de links em `vouti.co/danieldemorais` (ou `vouti.lovable.app/danieldemorais`).
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Análise de conflito de rotas
-- Todas as rotas tenant existentes têm **dois ou mais segmentos** (`/:tenant/auth`, `/:tenant/dashboard`, etc.)
-- Uma rota `/:username` (segmento único) **não conflita** desde que seja declarada **depois** das rotas estáticas (`/`, `/install`, `/linkbio`, etc.)
-- React Router resolve pela ordem: rotas estáticas primeiro, depois dinâmicas
+### Implementação
 
-### Alterações
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-**1. Criar `src/pages/LinkPublicProfile.tsx`** — Nova página pública
-- Recebe `:username` da URL via `useParams`
-- Busca `link_profiles` pelo username (query pública, sem auth)
-- Busca `link_items` ativos do profile
-- Renderiza o perfil estilo Linktree (reutiliza visual do `ProfilePreview`/`MobilePreview`)
-- Registra cliques nos links (incrementa `clicks` via RPC ou update)
-- Exibe 404 se username não encontrado
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**2. Atualizar `src/App.tsx`** — Adicionar rota
-- Adicionar `<Route path="/:username" element={<LinkPublicProfile />} />` **antes** do catch-all `*` e **depois** de todas as rotas estáticas e `/:tenant/*`
-- Sem wrapper de auth (página pública)
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**3. SQL Migration** — RLS para acesso público
-- Adicionar policy `SELECT` na tabela `link_profiles` para `anon` (where `true` ou filtrado)
-- Adicionar policy `SELECT` na tabela `link_items` para `anon` (links ativos)
-- Adicionar policy `UPDATE` na tabela `link_items` para `anon` apenas no campo `clicks` (ou usar edge function)
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**4. Atualizar `MobilePreview` e `LinkDashboard`**
-- Mostrar a URL pública correta (`vouti.co/{username}`) no preview e settings
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### Fluxo
-```text
-Visitante acessa vouti.co/danieldemorais
-  → React Router match /:username
-  → LinkPublicProfile busca profile + links
-  → Renderiza página pública estilo Linktree
-  → Clique em link → incrementa clicks + redirect
-```
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### Arquivos
-| Arquivo | Mudança |
-|---------|---------|
-| `src/pages/LinkPublicProfile.tsx` | **Novo** — página pública |
-| `src/App.tsx` | Rota `/:username` |
-| SQL migration | RLS anon para `link_profiles` e `link_items` |
-| `src/pages/LinkDashboard.tsx` | URL pública no settings |
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

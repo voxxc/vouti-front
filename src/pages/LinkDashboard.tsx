@@ -514,7 +514,7 @@ const LinkDashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">URL do Perfil</p>
-                    <p className="font-medium">vlink.bio/{profile?.username}</p>
+                    <p className="font-medium">vouti.co/{profile?.username}</p>
                   </div>
                 </CardContent>
               </Card>

@@ -50,6 +50,7 @@ import MetalAdminUsers from "@/pages/MetalAdminUsers";
 import MetalReports from "@/pages/MetalReports";
 import LinkAuth from "@/pages/LinkAuth";
 import LinkDashboard from "@/pages/LinkDashboard";
+import LinkPublicProfile from "@/pages/LinkPublicProfile";
 import BatinkLanding from "@/pages/BatinkLanding";
 import BatinkAuth from "@/pages/BatinkAuth";
 import BatinkDashboard from "@/pages/BatinkDashboard";
@@ -638,6 +639,9 @@ function App() {
             <Route path="/super-admin/crm" element={<SuperAdminWhatsApp />} />
             {/* Legacy redirect */}
             <Route path="/super-admin/bot" element={<Navigate to="/super-admin/crm" replace />} />
+            
+            {/* Public Link-in-Bio Profile */}
+            <Route path="/:username" element={<LinkPublicProfile />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

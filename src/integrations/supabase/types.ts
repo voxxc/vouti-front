@@ -8610,6 +8610,7 @@ export type Database = {
           has_access: boolean
         }[]
       }
+      increment_link_clicks: { Args: { p_link_id: string }; Returns: undefined }
       is_admin_in_same_tenant: {
         Args: { _target_user_id: string }
         Returns: boolean
