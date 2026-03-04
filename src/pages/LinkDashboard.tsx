@@ -252,7 +252,7 @@ const LinkDashboard = () => {
                 />
 
                 {/* Profile Edit Header */}
-                <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
+                <ProfileEditHeader profile={localProfile!} onSave={handleSaveProfile} />
 
                 {/* Add Button */}
                 <Button 
@@ -314,7 +314,7 @@ const LinkDashboard = () => {
 
               {/* Right Side - Mobile Preview */}
               <div className="lg:col-span-1">
-                <MobilePreview profile={profile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} />
               </div>
             </div>
           )}
@@ -333,7 +333,7 @@ const LinkDashboard = () => {
                 </div>
 
                 {/* Profile Edit Header */}
-                <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
+                <ProfileEditHeader profile={localProfile!} onSave={handleSaveProfile} />
 
                 {/* Add Button */}
                 <Button 
@@ -393,7 +393,7 @@ const LinkDashboard = () => {
 
               {/* Right Side - Mobile Preview */}
               <div className="lg:col-span-1">
-                <MobilePreview profile={profile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} />
               </div>
             </div>
           )}
@@ -495,7 +495,7 @@ const LinkDashboard = () => {
           {/* Preview Tab */}
           {activeTab === "preview" && (
             <div className="max-w-md mx-auto">
-              <ProfilePreview profile={profile!} links={links.filter(l => l.is_active)} />
+              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} />
             </div>
           )}
 
@@ -538,7 +538,7 @@ const LinkDashboard = () => {
       />
 
       <EditProfileDialog
-        profile={profile!}
+        profile={localProfile!}
         open={editProfileDialog}
         onOpenChange={setEditProfileDialog}
         onSave={handleSaveProfile}
