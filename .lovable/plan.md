@@ -1,36 +1,51 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Plano: Migrar Auth do Link-in-Bio para Email + Senha Normal
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### Problema Atual
+O sistema usa um hack: converte `username` → `username@vlink.bio` para criar contas no Supabase Auth. Isso causa problemas quando usuários são criados com emails reais (ex: `danieldemorais@vouti.co`), pois o login tenta `danieldemorais@vlink.bio` e falha.
 
-### Implementação
+### Solução
+Mudar o formulário de login/cadastro para usar **email real + username + senha**. O username continua sendo usado para a URL pública do perfil, mas a autenticação usa o email real.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### Alterações
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+**1. `src/pages/LinkAuth.tsx`** — Formulário
+- **Login**: trocar campo "Username" por "Email" (type=email)
+- **Cadastro**: adicionar campo "Email" (obrigatório) + manter "Username" (obrigatório, para URL pública) + "Nome" + "Senha"
+- Ajustar validações
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+**2. `src/contexts/LinkAuthContext.tsx`** — Lógica de auth
+- `signIn(email, password)` — usar email direto, sem converter para `@vlink.bio`
+- `signUp(email, username, password, fullName?)` — usar email real, passar username nos metadados
+- Atualizar interface `LinkAuthContextType` para refletir os novos parâmetros
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+**3. Trigger `handle_new_link_user`** — Migração SQL
+- Atualmente extrai username do email (`split_part(NEW.email, '@', 1)`). Precisa mudar para pegar do `raw_user_meta_data->>'username'`
+- Atualizar a condição do trigger: em vez de filtrar por `@vouti.bio` / `@vlink.bio`, usar um metadata flag (ex: `raw_user_meta_data->>'app' = 'linkbio'`)
+- Atualizar `handle_new_user` para ignorar usuários com esse metadata flag
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+**4. Corrigir usuário `danieldemorais`**
+- O user `8eda80fa-0319-4791-923e-551052282e62` já existe com email `danieldemorais@vouti.co` e já tem `link_profiles` criado com username `danieldemorais`. Funcionará automaticamente com a nova lógica (login com email real).
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### Fluxo após correção
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+```text
+Cadastro: email real + username + senha
+  → Supabase Auth cria user com email real
+  → Trigger lê username do metadata
+  → Cria link_profiles com username
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Login: email real + senha
+  → Supabase Auth valida direto
+  → Carrega link_profiles pelo user_id
+```
+
+### Resumo de arquivos
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/LinkAuth.tsx` | Campos email + username no form |
+| `src/contexts/LinkAuthContext.tsx` | signIn/signUp com email real |
+| Migração SQL | Trigger `handle_new_link_user` usa metadata |
+| Migração SQL | Trigger `handle_new_user` ignora por metadata |
 
