@@ -8,9 +8,7 @@ interface MobilePreviewProps {
 }
 
 export const MobilePreview = ({ profile, links, collections }: MobilePreviewProps) => {
-  const initials = profile.full_name
-    ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
-    : profile.username.substring(0, 2).toUpperCase();
+  const initials = profile.username.substring(0, 2).toUpperCase();
 
   const activeLinks = links.filter(link => link.is_active).sort((a, b) => a.position - b.position);
   const activeCollections = collections.filter(c => c.is_active).sort((a, b) => a.position - b.position);
@@ -39,15 +37,10 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
                 </AvatarFallback>
               </Avatar>
 
-              {/* Name */}
-              {profile.full_name && (
-                <h1 className="text-lg font-bold text-[hsl(var(--vlink-dark))] tracking-tight">
-                  {profile.full_name}
-                </h1>
-              )}
-
               {/* Username */}
-              <p className="text-sm text-[hsl(var(--vlink-neutral))] -mt-2">@{profile.username}</p>
+              <h1 className="text-lg font-bold text-[hsl(var(--vlink-dark))] tracking-tight">
+                @{profile.username}
+              </h1>
 
               {/* Bio */}
               {profile.bio && (

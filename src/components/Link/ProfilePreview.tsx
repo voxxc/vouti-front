@@ -10,12 +10,7 @@ interface ProfilePreviewProps {
 
 export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
   const activeLinks = links.filter(link => link.is_active);
-  const initials = profile.full_name
-    ?.split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || profile.username.slice(0, 2).toUpperCase();
+  const initials = profile.username.slice(0, 2).toUpperCase();
 
   return (
     <Card className="overflow-hidden">
@@ -38,12 +33,8 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
             </Avatar>
             
             <h2 className="text-2xl font-bold text-[hsl(var(--vlink-dark))] mb-1">
-              {profile.full_name || `@${profile.username}`}
+              @{profile.username}
             </h2>
-            
-            {profile.full_name && (
-              <p className="text-[hsl(var(--vlink-neutral))] text-sm">@{profile.username}</p>
-            )}
             
             {profile.bio && (
               <p className="text-[hsl(var(--vlink-neutral))] mt-3 text-sm max-w-xs mx-auto">

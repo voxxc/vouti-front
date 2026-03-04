@@ -78,12 +78,7 @@ const LinkPublicProfile = () => {
     return <NotFound />;
   }
 
-  const initials = profile.full_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || profile.username.slice(0, 2).toUpperCase();
+  const initials = profile.username.slice(0, 2).toUpperCase();
 
   const uncollectedLinks = links.filter((l) => !l.collection_id);
   const getCollectionLinks = (collectionId: string) =>
@@ -101,12 +96,8 @@ const LinkPublicProfile = () => {
         </Avatar>
 
         <h1 className="text-xl font-bold text-slate-900">
-          {profile.full_name || `@${profile.username}`}
+          @{profile.username}
         </h1>
-
-        {profile.full_name && (
-          <p className="text-slate-500 text-sm mt-0.5">@{profile.username}</p>
-        )}
 
         {profile.bio && (
           <p className="text-slate-500 text-sm mt-2 max-w-xs mx-auto">{profile.bio}</p>
