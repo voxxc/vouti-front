@@ -47,7 +47,7 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
               )}
 
               {unCollectedLinks.length > 0 && (
-                <div className="w-full space-y-3 mt-4">
+                <div className="w-full space-y-3 mt-8">
                   {unCollectedLinks.map((link) => (
                     <a
                       key={link.id}

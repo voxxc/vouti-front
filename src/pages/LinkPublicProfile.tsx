@@ -91,7 +91,7 @@ const LinkPublicProfile = () => {
   return (
     <div className="min-h-screen flex flex-col items-center" style={bgStyle}>
       {/* Profile Header */}
-      <div className="w-full max-w-md mx-auto pt-12 pb-4 px-6 text-center">
+      <div className="w-full max-w-md mx-auto pt-12 pb-8 px-6 text-center">
         <Avatar className="h-24 w-24 mx-auto mb-4">
           <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
           <AvatarFallback className="text-2xl bg-slate-800 text-white">
@@ -111,7 +111,7 @@ const LinkPublicProfile = () => {
       </div>
 
       {/* Links */}
-      <div className="w-full max-w-md mx-auto px-6 pb-12 space-y-3">
+      <div className="w-full max-w-md mx-auto px-6 pt-4 pb-12 space-y-3">
         {uncollectedLinks.map((link) => (
           <button
             key={link.id}

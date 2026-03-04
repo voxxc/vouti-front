@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Camera, Plus } from "lucide-react";
+import { Camera, Plus, Save } from "lucide-react";
+import { toast } from "sonner";
 import { LinkProfile } from "@/types/link";
 import { AvatarCropDialog } from "./AvatarCropDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -136,6 +137,20 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
           Adicionar
         </Button>
       </div>
+
+      {/* Save Button */}
+      {bio !== (profile.bio || "") && (
+        <Button
+          className="w-full"
+          onClick={async () => {
+            await onSave({ bio });
+            toast.success("Alterações salvas!");
+          }}
+        >
+          <Save className="w-4 h-4 mr-2" />
+          Salvar alterações
+        </Button>
+      )}
 
       {/* Avatar Crop Dialog */}
       <AvatarCropDialog
