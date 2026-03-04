@@ -27,7 +27,7 @@ const LinkAuth = () => {
 
   useEffect(() => {
     if (user) {
-      navigate("/link-dashboard");
+      navigate("/linkbio/dashboard");
     }
   }, [user, navigate]);
 
@@ -48,7 +48,7 @@ const LinkAuth = () => {
       } else {
         setShowTransition(true);
         setTimeout(() => {
-          navigate("/link-dashboard");
+          navigate("/linkbio/dashboard");
         }, 500);
       }
     } catch (error) {
@@ -92,7 +92,7 @@ const LinkAuth = () => {
         } else {
           setShowTransition(true);
           setTimeout(() => {
-            navigate("/link-dashboard");
+            navigate("/linkbio/dashboard");
           }, 500);
         }
       }

@@ -108,7 +108,7 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       // Convert username to email format for Supabase Auth
       const email = `${username}@vlink.bio`;
-      const redirectUrl = `${window.location.origin}/link-dashboard`;
+      const redirectUrl = `${window.location.origin}/linkbio/dashboard`;
 
       const { error } = await supabase.auth.signUp({
         email,

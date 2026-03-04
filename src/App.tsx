@@ -220,7 +220,7 @@ const LinkProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user) {
-    return <Navigate to="/link-auth" replace />;
+    return <Navigate to="/linkbio" replace />;
   }
   
   return <>{children}</>;
@@ -234,7 +234,7 @@ const LinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (user) {
-    return <Navigate to="/link-dashboard" replace />;
+    return <Navigate to="/linkbio/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -540,14 +540,14 @@ function App() {
             {/* ============================================== */}
             
             {/* Vouti.bio Routes - Isolated Link in Bio System */}
-            <Route path="/link-auth" element={
+            <Route path="/linkbio" element={
               <LinkAuthProvider>
                 <LinkPublicRoute>
                   <LinkAuth />
                 </LinkPublicRoute>
               </LinkAuthProvider>
             } />
-            <Route path="/link-dashboard" element={
+            <Route path="/linkbio/dashboard" element={
               <LinkAuthProvider>
                 <ThemeProvider>
                   <LinkProtectedRoute>
@@ -556,6 +556,9 @@ function App() {
                 </ThemeProvider>
               </LinkAuthProvider>
             } />
+            {/* Legacy link-bio redirects */}
+            <Route path="/link-auth" element={<Navigate to="/linkbio" replace />} />
+            <Route path="/link-dashboard" element={<Navigate to="/linkbio/dashboard" replace />} />
             
             {/* MetalSystem Routes - Completely separate from Mora */}
             <Route path="/metal-auth" element={
