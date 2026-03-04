@@ -13,6 +13,8 @@ export interface LinkProfile {
   bg_gradient_direction: string;
   button_color: string;
   button_text_color: string;
+  username_color: string | null;
+  username_font_size: string;
   created_at: string;
   updated_at: string;
 }

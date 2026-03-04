@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
-import { getProfileBackground, getButtonStyle } from "@/lib/linkThemeUtils";
+import { getProfileBackground, getButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
 
 interface MobilePreviewProps {
   profile: LinkProfile;

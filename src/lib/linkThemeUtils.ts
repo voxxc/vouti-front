@@ -24,3 +24,18 @@ export function getButtonStyle(profile: LinkProfile): React.CSSProperties {
     color: profile.button_text_color || "#ffffff",
   };
 }
+
+const FONT_SIZE_MAP: Record<string, string> = {
+  sm: "text-sm",
+  base: "text-base",
+  lg: "text-lg",
+  xl: "text-xl",
+  "2xl": "text-2xl",
+  "3xl": "text-3xl",
+};
+
+export function getUsernameStyle(profile: LinkProfile): { color: string; className: string } {
+  const color = profile.username_color || profile.button_text_color || "#1e293b";
+  const className = FONT_SIZE_MAP[profile.username_font_size || "xl"] || "text-xl";
+  return { color, className };
+}
