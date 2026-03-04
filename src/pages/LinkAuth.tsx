@@ -17,10 +17,11 @@ const LinkAuth = () => {
   const [showTransition, setShowTransition] = useState(false);
 
   // Sign in states
-  const [signInUsername, setSignInUsername] = useState("");
+  const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
   // Sign up states
+  const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpUsername, setSignUpUsername] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpFullName, setSignUpFullName] = useState("");

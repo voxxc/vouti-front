@@ -9,8 +9,8 @@ interface LinkAuthContextType {
   profile: LinkProfile | null;
   isAdmin: boolean;
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ error?: any }>;
-  signUp: (username: string, password: string, fullName?: string) => Promise<{ error?: any }>;
+  signIn: (email: string, password: string) => Promise<{ error?: any }>;
+  signUp: (email: string, username: string, password: string, fullName?: string) => Promise<{ error?: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -88,11 +88,8 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const signIn = async (username: string, password: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
-      // Convert username to email format for Supabase Auth
-      const email = `${username}@vlink.bio`;
-
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -104,10 +101,8 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const signUp = async (username: string, password: string, fullName?: string) => {
+  const signUp = async (email: string, username: string, password: string, fullName?: string) => {
     try {
-      // Convert username to email format for Supabase Auth
-      const email = `${username}@vlink.bio`;
       const redirectUrl = `${window.location.origin}/linkbio/dashboard`;
 
       const { error } = await supabase.auth.signUp({
@@ -118,6 +113,7 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           data: {
             full_name: fullName,
             username: username,
+            app: 'linkbio',
           },
         },
       });
