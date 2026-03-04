@@ -1,37 +1,36 @@
 
 
-## Diagnóstico: Por que a página pública está lenta
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-A página `/:username` carrega lentamente por **2 motivos principais**, nenhum deles relacionado às queries do banco (que são apenas 3, com índices corretos):
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Problema 1: Bundle monolítico (principal)
-O `App.tsx` importa **todas as 60+ páginas** de forma estática (sem lazy loading). Um visitante anônimo acessando `vouti.co/danieldemorais` precisa baixar e parsear o JavaScript de Dashboard, CRM, WhatsApp, Controladoria, Financial, etc — tudo antes de renderizar qualquer coisa.
+### Implementação
 
-### Problema 2: Inicialização de auth desnecessária
-O Supabase client está configurado com `persistSession: true` e `autoRefreshToken: true`. Para visitantes anônimos da página pública, isso ainda tenta ler localStorage e verificar sessão, adicionando latência desnecessária.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
----
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Solução
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**1. Lazy loading das páginas no App.tsx**
-- Converter todos os imports de páginas para `React.lazy()` + `Suspense`
-- A página `LinkPublicProfile` será carregada isoladamente, resultando num bundle mínimo
-- Impacto estimado: redução de 80%+ no tamanho do JS carregado para visitantes públicos
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**2. Supabase client leve para páginas públicas**
-- Criar `src/integrations/supabase/publicClient.ts` — um client Supabase sem persistência de sessão (`persistSession: false`, `autoRefreshToken: false`)
-- Usar esse client no `LinkPublicProfile.tsx` em vez do client padrão
-- Elimina a tentativa de restaurar sessão auth para visitantes anônimos
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-**3. Query única (otimização extra)**
-- Substituir as 3 queries separadas (profile → links + collections) por uma única query que busca o profile com links e collections via join, reduzindo de 2 roundtrips para 1
-- Na prática: buscar profile primeiro, depois links+collections em paralelo (já está assim), mas podemos ao menos eliminar a serialização profile→resto
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### Arquivos a editar
-| Arquivo | Mudança |
-|---------|---------|
-| `src/integrations/supabase/publicClient.ts` | **Novo** — client leve sem auth |
-| `src/pages/LinkPublicProfile.tsx` | Usar publicClient em vez de supabase |
-| `src/App.tsx` | Converter imports para `React.lazy()` com `Suspense` |
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

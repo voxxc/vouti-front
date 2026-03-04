@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2 } from "lucide-react";
@@ -21,7 +21,7 @@ const LinkPublicProfile = () => {
 
   const loadProfile = async (uname: string) => {
     try {
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabasePublic
         .from("link_profiles")
         .select("*")
         .eq("username", uname)
@@ -37,13 +37,13 @@ const LinkPublicProfile = () => {
       setProfile(profileData as LinkProfile);
 
       const [linksRes, collectionsRes] = await Promise.all([
-        supabase
+        supabasePublic
           .from("link_items")
           .select("*")
           .eq("profile_id", profileData.id)
           .eq("is_active", true)
           .order("position"),
-        supabase
+        supabasePublic
           .from("link_collections")
           .select("*")
           .eq("profile_id", profileData.id)
@@ -62,7 +62,7 @@ const LinkPublicProfile = () => {
   };
 
   const handleLinkClick = async (link: LinkItem) => {
-    supabase.rpc("increment_link_clicks", { p_link_id: link.id }).then();
+    supabasePublic.rpc("increment_link_clicks", { p_link_id: link.id }).then();
     window.open(link.url, "_blank", "noopener,noreferrer");
   };
 
