@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LinkItem } from "@/types/link";
 import {
   Dialog,
@@ -25,6 +25,14 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
   const [url, setUrl] = useState(link?.url || "");
   const [isActive, setIsActive] = useState(link?.is_active ?? true);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(link?.title || "");
+      setUrl(link?.url || "");
+      setIsActive(link?.is_active ?? true);
+    }
+  }, [open, link]);
 
   const handleSave = async () => {
     if (!title.trim() || !url.trim()) return;

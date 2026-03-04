@@ -1,28 +1,36 @@
 
 
-## Plano: 3 correções no Link-in-Bio
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### 1. Aumentar espaço entre foto/bio e botões (Preview + Página Pública)
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-**`MobilePreview.tsx`**: O bloco de links começa com `mt-4` (linha 50). Trocar para `mt-8` para dar mais respiro.
+### Implementação
 
-**`LinkPublicProfile.tsx`**: O container de links (linha 114) começa logo após o header que tem `pb-4`. Aumentar o `pb` do header para `pb-8` e adicionar `pt-4` no container de links.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### 2. Corrigir botão "Add" (EditLinkDialog)
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-O problema é que o `EditLinkDialog` usa `useState` com valores iniciais de `link`, mas esses inicializadores só rodam na montagem. Quando o dialog fecha e reabre para um novo link, os states mantêm valores antigos.
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**Correção em `EditLinkDialog.tsx`**: Adicionar um `useEffect` que sincroniza `title`, `url` e `isActive` sempre que `link` ou `open` mudar, garantindo que ao abrir para adicionar (link=null), os campos fiquem vazios.
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-### 3. Botão "Salvar" na aba "Editar Perfil"
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-**`ProfileEditHeader.tsx`**: Atualmente a bio salva no `onBlur` automaticamente, sem feedback claro. Adicionar um botão "Salvar alterações" visível no final do componente que chama `onSave({ bio })` e mostra um toast de confirmação. O botão só fica habilitado quando há mudanças pendentes (bio diferente do valor original).
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### Arquivos a editar
-| Arquivo | Mudança |
-|---------|---------|
-| `MobilePreview.tsx` | Aumentar `mt-4` → `mt-8` nos links |
-| `LinkPublicProfile.tsx` | Aumentar espaço entre perfil e links |
-| `EditLinkDialog.tsx` | Adicionar `useEffect` para resetar campos ao abrir |
-| `ProfileEditHeader.tsx` | Adicionar botão "Salvar alterações" com estado dirty |
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
