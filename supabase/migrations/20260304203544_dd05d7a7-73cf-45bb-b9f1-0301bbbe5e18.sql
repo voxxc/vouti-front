@@ -1,0 +1,1 @@
+ALTER TABLE public.link_profiles ADD COLUMN IF NOT EXISTS username_color text, ADD COLUMN IF NOT EXISTS username_font_size text DEFAULT 'xl';
