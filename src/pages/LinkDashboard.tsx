@@ -12,6 +12,7 @@ import { EditLinkDialog } from "@/components/Link/EditLinkDialog";
 import { EditProfileDialog } from "@/components/Link/EditProfileDialog";
 import { ProfilePreview } from "@/components/Link/ProfilePreview";
 import { ProfileEditHeader } from "@/components/Link/ProfileEditHeader";
+import { ThemeCustomizer } from "@/components/Link/ThemeCustomizer";
 import { MobilePreview } from "@/components/Link/MobilePreview";
 import { CollectionCard } from "@/components/Link/CollectionCard";
 import { AddCollectionDialog } from "@/components/Link/AddCollectionDialog";
@@ -400,28 +401,19 @@ const LinkDashboard = () => {
 
           {/* Customize Tab */}
           {activeTab === "customize" && (
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-3xl font-bold">Customize</h1>
-                <p className="text-muted-foreground mt-1">
-                  Personalize a aparência do seu perfil
-                </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div>
+                  <h1 className="text-3xl font-bold">Customize</h1>
+                  <p className="text-muted-foreground mt-1">
+                    Personalize a aparência do seu perfil
+                  </p>
+                </div>
+                <ThemeCustomizer profile={localProfile!} onSave={handleSaveProfile} />
               </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Perfil</CardTitle>
-                  <CardDescription>
-                    Atualize suas informações de perfil
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button onClick={() => setEditProfileDialog(true)}>
-                    <Palette className="h-4 w-4 mr-2" />
-                    Editar Perfil
-                  </Button>
-                </CardContent>
-              </Card>
+              <div className="lg:col-span-1">
+                <MobilePreview profile={localProfile!} links={links} collections={collections} />
+              </div>
             </div>
           )}
 
