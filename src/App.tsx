@@ -659,6 +659,7 @@ function App() {
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           <Toaster />
         </BrowserRouter>
       </TooltipProvider>
