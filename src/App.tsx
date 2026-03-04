@@ -9,7 +9,7 @@ import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { NavigationLoadingProvider } from "@/contexts/NavigationLoadingContext";
 import { NavigationLoadingOverlay } from "@/components/Common/NavigationLoadingOverlay";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,53 +20,55 @@ const queryClient = new QueryClient({
     },
   },
 });
-import Auth from "@/pages/Auth";
-import ResetPassword from "@/pages/ResetPassword";
-import Dashboard from "@/pages/Dashboard";
-import Projects from "@/pages/Projects";
-import ProjectViewWrapper from "@/pages/ProjectViewWrapper";
-import Agenda from "@/pages/Agenda";
-import CRM from "@/pages/CRM";
-import WhatsApp from "@/pages/WhatsApp";
-import ClienteCadastro from "@/pages/ClienteCadastro";
-import AcordosViewWrapper from "@/pages/AcordosViewWrapper";
-import Financial from "@/pages/Financial";
-import Controladoria from "@/pages/Controladoria";
-import ControladoriaNovoProcesso from "@/pages/ControladoriaNovoProcesso";
-import ControladoriaProcessoDetalhes from "@/pages/ControladoriaProcessoDetalhes";
-import Reunioes from "@/pages/Reunioes";
-import ReuniaoClientes from "@/pages/ReuniaoClientes";
-import ReuniaoMetricas from "@/pages/ReuniaoMetricas";
-import ReuniaoRelatorios from "@/pages/ReuniaoRelatorios";
 
-import AdminReuniaoStatus from "@/pages/AdminReuniaoStatus";
-import AdminBackendCode from "@/pages/AdminBackendCode";
-import HomePage from "@/pages/HomePage";
-import LandingPage1 from "@/pages/LandingPage1";
-import LandingPage2 from "@/pages/LandingPage2";
-import MetalAuth from "@/pages/MetalAuth";
-import MetalDashboard from "@/pages/MetalDashboard";
-import MetalAdminUsers from "@/pages/MetalAdminUsers";
-import MetalReports from "@/pages/MetalReports";
-import LinkAuth from "@/pages/LinkAuth";
-import LinkDashboard from "@/pages/LinkDashboard";
-import LinkPublicProfile from "@/pages/LinkPublicProfile";
-import BatinkLanding from "@/pages/BatinkLanding";
-import BatinkAuth from "@/pages/BatinkAuth";
-import BatinkDashboard from "@/pages/BatinkDashboard";
-import BatinkAdmin from "@/pages/BatinkAdmin";
-import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
-import VeridictoLanding from "@/pages/VeridictoLanding";
-import SuperAdmin from "@/pages/SuperAdmin";
-import SuperAdminWhatsApp from "@/pages/SuperAdminWhatsApp";
-import NotFound from "@/pages/NotFound";
-import Install from "@/pages/Install";
-import Documentos from "@/pages/Documentos";
-import DocumentoEditar from "@/pages/DocumentoEditar";
+// Lazy-loaded pages — each page is code-split into its own chunk
+const Auth = lazy(() => import("@/pages/Auth"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Projects = lazy(() => import("@/pages/Projects"));
+const ProjectViewWrapper = lazy(() => import("@/pages/ProjectViewWrapper"));
+const Agenda = lazy(() => import("@/pages/Agenda"));
+const CRM = lazy(() => import("@/pages/CRM"));
+const WhatsApp = lazy(() => import("@/pages/WhatsApp"));
+const ClienteCadastro = lazy(() => import("@/pages/ClienteCadastro"));
+const AcordosViewWrapper = lazy(() => import("@/pages/AcordosViewWrapper"));
+const Financial = lazy(() => import("@/pages/Financial"));
+const Controladoria = lazy(() => import("@/pages/Controladoria"));
+const ControladoriaNovoProcesso = lazy(() => import("@/pages/ControladoriaNovoProcesso"));
+const ControladoriaProcessoDetalhes = lazy(() => import("@/pages/ControladoriaProcessoDetalhes"));
+const Reunioes = lazy(() => import("@/pages/Reunioes"));
+const ReuniaoClientes = lazy(() => import("@/pages/ReuniaoClientes"));
+const ReuniaoMetricas = lazy(() => import("@/pages/ReuniaoMetricas"));
+const ReuniaoRelatorios = lazy(() => import("@/pages/ReuniaoRelatorios"));
+const AdminReuniaoStatus = lazy(() => import("@/pages/AdminReuniaoStatus"));
+const AdminBackendCode = lazy(() => import("@/pages/AdminBackendCode"));
+const HomePage = lazy(() => import("@/pages/HomePage"));
+const LandingPage1 = lazy(() => import("@/pages/LandingPage1"));
+const LandingPage2 = lazy(() => import("@/pages/LandingPage2"));
+const MetalAuth = lazy(() => import("@/pages/MetalAuth"));
+const MetalDashboard = lazy(() => import("@/pages/MetalDashboard"));
+const MetalAdminUsers = lazy(() => import("@/pages/MetalAdminUsers"));
+const MetalReports = lazy(() => import("@/pages/MetalReports"));
+const LinkAuth = lazy(() => import("@/pages/LinkAuth"));
+const LinkDashboard = lazy(() => import("@/pages/LinkDashboard"));
+const LinkPublicProfile = lazy(() => import("@/pages/LinkPublicProfile"));
+const BatinkLanding = lazy(() => import("@/pages/BatinkLanding"));
+const BatinkAuth = lazy(() => import("@/pages/BatinkAuth"));
+const BatinkDashboard = lazy(() => import("@/pages/BatinkDashboard"));
+const BatinkAdmin = lazy(() => import("@/pages/BatinkAdmin"));
+const VeridictoLanding = lazy(() => import("@/pages/VeridictoLanding"));
+const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
+const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Install = lazy(() => import("@/pages/Install"));
+const Documentos = lazy(() => import("@/pages/Documentos"));
+const DocumentoEditar = lazy(() => import("@/pages/DocumentoEditar"));
+const CrmLogin = lazy(() => import("@/pages/CrmLogin"));
+const CrmApp = lazy(() => import("@/pages/CrmApp"));
+const CrmLanding = lazy(() => import("@/pages/CrmLanding"));
+
 import Logo from "@/components/Logo";
-import CrmLogin from "@/pages/CrmLogin";
-import CrmApp from "@/pages/CrmApp";
-import CrmLanding from "@/pages/CrmLanding";
+import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
 import { 
   LegacyProjectRedirect, 
   LegacyProjectAcordosRedirect, 
