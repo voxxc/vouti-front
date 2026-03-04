@@ -1,36 +1,48 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Plano: Redesign Visual do Link-in-Bio (estilo Linktree)
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### Referência
+A imagem mostra um link-in-bio minimalista: fundo claro/branco, foto circular sem moldura, @username em destaque, botões escuros (dark cards) com texto centralizado e menu de 3 pontos.
 
-### Implementação
+### Mudanças
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**1. Paleta de cores** (`src/index.css`)
+- Ajustar variáveis vlink para tons mais neutros/minimalistas em vez do roxo vibrante atual
+- O tema público será: fundo branco/claro, botões escuros (slate/charcoal), texto clean
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+**2. MobilePreview (`src/components/Link/MobilePreview.tsx`)**
+- Remover glow/gradiente no avatar (sem moldura colorida)
+- Fundo branco limpo, sem gradientes
+- Botões: dark cards (bg-slate-800/900), texto branco, cantos arredondados grandes, sem borda outline
+- Footer simplificado
+- Remover efeitos de pulse/animação excessivos
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+**3. ProfileEditHeader (`src/components/Link/ProfileEditHeader.tsx`)**
+- Ao clicar na foto: abrir file input para upload de avatar
+- Criar dialog de crop/zoom da foto antes de salvar
+- Sem moldura/glow no avatar (círculo limpo)
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+**4. Upload de Avatar — Storage**
+- Criar bucket `link-avatars` via SQL migration (público, com RLS)
+- Criar componente `AvatarCropDialog` com zoom slider e preview circular
+- Ao salvar: upload para bucket, salvar URL no `link_profiles.avatar_url`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+**5. ProfilePreview (`src/components/Link/ProfilePreview.tsx`)**
+- Mesmo estilo visual: fundo claro, botões escuros, sem moldura na foto
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+**6. Criação de botões/links melhorada**
+- O `EditLinkDialog` já existe — garantir que funcione bem
+- No preview, botões devem ser dark cards como na referência
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Arquivos a alterar
+| Arquivo | Mudança |
+|---------|---------|
+| `src/index.css` | Ajustar cores vlink |
+| `src/components/Link/MobilePreview.tsx` | Redesign estilo Linktree |
+| `src/components/Link/ProfilePreview.tsx` | Mesmo redesign |
+| `src/components/Link/ProfileEditHeader.tsx` | Upload de foto clicável + sem moldura |
+| `src/components/Link/AvatarCropDialog.tsx` | **Novo** — dialog de crop/zoom |
+| `src/components/Link/LinkCard.tsx` | Visual dark card no preview |
+| SQL migration | Bucket `link-avatars` + RLS policies |
 
