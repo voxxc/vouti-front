@@ -214,6 +214,51 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         </CardContent>
       </Card>
 
+      {/* Username Style */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Estilo do @Username</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Label className="min-w-[100px]">Cor</Label>
+            <input
+              type="color"
+              value={usernameColor}
+              onChange={(e) => {
+                setUsernameColor(e.target.value);
+                updateAndPreview("username_color", e.target.value);
+              }}
+              className="w-12 h-10 rounded cursor-pointer border border-border"
+            />
+            <span className="text-sm text-muted-foreground font-mono">{usernameColor}</span>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Tamanho</Label>
+            <div className="flex gap-2">
+              {FONT_SIZES.map((size) => (
+                <button
+                  key={size.value}
+                  onClick={() => {
+                    setUsernameFontSize(size.value);
+                    updateAndPreview("username_font_size", size.value);
+                  }}
+                  className={cn(
+                    "px-4 py-2 rounded-xl border transition-all font-medium",
+                    usernameFontSize === size.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {size.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Button Colors */}
       <Card>
         <CardHeader>
