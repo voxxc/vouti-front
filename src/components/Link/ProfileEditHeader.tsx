@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Camera, Plus } from "lucide-react";
 import { LinkProfile } from "@/types/link";
+import { AvatarCropDialog } from "./AvatarCropDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ProfileEditHeaderProps {
   profile: LinkProfile;
@@ -16,6 +19,9 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
   const [bio, setBio] = useState(profile.bio || "");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initials = profile.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -35,22 +41,79 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
     setIsEditingBio(false);
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Selecione um arquivo de imagem");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("A imagem deve ter no máximo 5MB");
+        return;
+      }
+      setSelectedFile(file);
+      setCropDialogOpen(true);
+    }
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleAvatarSave = async (croppedBlob: Blob) => {
+    try {
+      const fileName = `${profile.user_id}/avatar-${Date.now()}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("link-avatars")
+        .upload(fileName, croppedBlob, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("link-avatars")
+        .getPublicUrl(fileName);
+
+      await onSave({ avatar_url: urlData.publicUrl });
+      toast.success("Foto atualizada!");
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error("Erro ao salvar a foto");
+    }
+  };
+
   return (
     <div className="space-y-3 p-4 bg-card rounded-lg border">
-      {/* Avatar */}
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {/* Avatar - clickable for upload */}
       <div className="flex justify-center">
-        <div className="relative group">
-          <Avatar className="h-16 w-16">
-            <AvatarImage src={profile.avatar_url || undefined} />
-            <AvatarFallback className="text-lg bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] text-white">
+        <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+          <Avatar className="h-20 w-20 border-0 shadow-none">
+            <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+            <AvatarFallback className="text-xl bg-[hsl(var(--vlink-dark))] text-white">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <button className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <Camera className="w-5 h-5 text-white" />
-          </button>
+          </div>
         </div>
       </div>
+      <p className="text-xs text-center text-muted-foreground">Clique para alterar a foto</p>
 
       {/* Name */}
       <div className="space-y-2">
@@ -99,15 +162,19 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
       {/* Social Icons */}
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium text-muted-foreground">Redes Sociais</label>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8"
-        >
+        <Button variant="ghost" size="sm" className="h-8">
           <Plus className="w-3 h-3 mr-1" />
           Adicionar
         </Button>
       </div>
+
+      {/* Avatar Crop Dialog */}
+      <AvatarCropDialog
+        open={cropDialogOpen}
+        onClose={() => setCropDialogOpen(false)}
+        imageFile={selectedFile}
+        onSave={handleAvatarSave}
+      />
     </div>
   );
 };

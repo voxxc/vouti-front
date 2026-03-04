@@ -1,7 +1,6 @@
 import { LinkProfile, LinkItem } from "@/types/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Link2, ExternalLink } from "lucide-react";
 
 interface ProfilePreviewProps {
@@ -28,36 +27,33 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
       </CardHeader>
       
       <CardContent className="p-6">
-        <div 
-          className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg"
-          style={{ backgroundColor: profile.theme_color }}
-        >
+        <div className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg bg-white">
           {/* Header */}
-          <div className="p-8 text-center bg-gradient-to-b from-black/20 to-transparent">
-            <Avatar className="h-24 w-24 mx-auto mb-4 border-4 border-white/20">
-              <AvatarImage src={profile.avatar_url || undefined} />
-              <AvatarFallback className="text-2xl bg-white/10 text-white">
+          <div className="p-8 text-center">
+            <Avatar className="h-24 w-24 mx-auto mb-4 border-0 shadow-none">
+              <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+              <AvatarFallback className="text-2xl bg-[hsl(var(--vlink-dark))] text-white">
                 {initials}
               </AvatarFallback>
             </Avatar>
             
-            <h2 className="text-2xl font-bold text-white mb-1">
+            <h2 className="text-2xl font-bold text-[hsl(var(--vlink-dark))] mb-1">
               {profile.full_name || `@${profile.username}`}
             </h2>
             
             {profile.full_name && (
-              <p className="text-white/80 text-sm">@{profile.username}</p>
+              <p className="text-[hsl(var(--vlink-neutral))] text-sm">@{profile.username}</p>
             )}
             
             {profile.bio && (
-              <p className="text-white/90 mt-3 text-sm max-w-xs mx-auto">
+              <p className="text-[hsl(var(--vlink-neutral))] mt-3 text-sm max-w-xs mx-auto">
                 {profile.bio}
               </p>
             )}
           </div>
 
-          {/* Links */}
-          <div className="p-6 space-y-3 bg-white/95 backdrop-blur-sm">
+          {/* Links - dark cards */}
+          <div className="px-6 pb-6 space-y-3">
             {activeLinks.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Link2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
@@ -65,26 +61,21 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
               </div>
             ) : (
               activeLinks.map((link) => (
-                <Button
+                <div
                   key={link.id}
-                  variant="outline"
-                  className="w-full justify-between h-auto py-4 px-5 text-left hover:scale-[1.02] transition-transform"
-                  style={{
-                    borderColor: profile.theme_color,
-                    color: profile.theme_color,
-                  }}
+                  className="w-full py-4 px-5 text-center font-medium text-white bg-[hsl(var(--vlink-dark))] rounded-xl flex items-center justify-between"
                 >
-                  <span className="font-medium">{link.title}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                </Button>
+                  <span className="flex-1 text-center">{link.title}</span>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0 opacity-60" />
+                </div>
               ))
             )}
           </div>
 
           {/* Footer */}
-          <div className="p-4 text-center bg-muted/50 border-t">
-            <p className="text-xs text-muted-foreground">
-              vlink.bio/{profile.username}
+          <div className="p-4 text-center border-t border-border/50">
+            <p className="text-xs text-[hsl(var(--vlink-neutral))]">
+              <span className="font-semibold">Vouti</span>
             </p>
           </div>
         </div>

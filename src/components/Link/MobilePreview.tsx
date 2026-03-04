@@ -1,7 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
-import { Card } from "@/components/ui/card";
 
 interface MobilePreviewProps {
   profile: LinkProfile;
@@ -16,8 +14,6 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
 
   const activeLinks = links.filter(link => link.is_active).sort((a, b) => a.position - b.position);
   const activeCollections = collections.filter(c => c.is_active).sort((a, b) => a.position - b.position);
-
-  // Links sem coleção
   const unCollectedLinks = activeLinks.filter(link => !link.collection_id);
 
   return (
@@ -26,121 +22,93 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
         <p className="text-sm font-medium text-muted-foreground mb-6">Preview ao Vivo</p>
         
         {/* Mobile Mockup */}
-        <div className="relative w-[320px] h-[640px] bg-gradient-to-br from-background via-background to-muted/20 border-[12px] border-sidebar-border rounded-[3rem] shadow-elegant overflow-hidden">
+        <div className="relative w-[320px] h-[640px] bg-[hsl(var(--vlink-light))] border-[12px] border-foreground/10 rounded-[3rem] shadow-xl overflow-hidden">
           {/* Notch */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-7 bg-sidebar-border rounded-b-3xl z-10 shadow-sm">
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-muted rounded-full" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-7 bg-foreground/10 rounded-b-3xl z-10">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-foreground/20 rounded-full" />
           </div>
           
-          {/* Screen Glow Effect */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[hsl(var(--vlink-purple))]/5 via-transparent to-transparent pointer-events-none" />
-          
           {/* Content */}
-          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide bg-gradient-to-b from-background/95 to-background">
-            <div className="flex flex-col items-center space-y-5 animate-fade-in">
-              {/* Avatar */}
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] rounded-full opacity-75 blur group-hover:opacity-100 transition-opacity" />
-                <Avatar className="h-24 w-24 relative border-4 border-background shadow-lg">
-                  <AvatarImage src={profile.avatar_url || undefined} />
-                  <AvatarFallback className="text-2xl bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] text-white font-semibold">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
+          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide bg-white">
+            <div className="flex flex-col items-center space-y-4">
+              {/* Avatar - clean circle, no glow */}
+              <Avatar className="h-24 w-24 border-0 shadow-none">
+                <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+                <AvatarFallback className="text-2xl bg-[hsl(var(--vlink-dark))] text-white font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
 
               {/* Name */}
               {profile.full_name && (
-                <h1 className="text-xl font-bold text-foreground tracking-tight">
+                <h1 className="text-lg font-bold text-[hsl(var(--vlink-dark))] tracking-tight">
                   {profile.full_name}
                 </h1>
               )}
 
               {/* Username */}
-              <p className="text-sm font-medium text-muted-foreground -mt-2">@{profile.username}</p>
+              <p className="text-sm text-[hsl(var(--vlink-neutral))] -mt-2">@{profile.username}</p>
 
               {/* Bio */}
               {profile.bio && (
-                <p className="text-sm text-center text-foreground/80 max-w-xs whitespace-pre-wrap leading-relaxed px-2">
+                <p className="text-sm text-center text-[hsl(var(--vlink-neutral))] max-w-xs whitespace-pre-wrap leading-relaxed px-2">
                   {profile.bio}
                 </p>
               )}
 
-              {/* Links sem coleção */}
+              {/* Links sem coleção - dark cards */}
               {unCollectedLinks.length > 0 && (
-                <div className="w-full space-y-3 mt-6">
-                  {unCollectedLinks.map((link, index) => (
-                    <div
+                <div className="w-full space-y-3 mt-4">
+                  {unCollectedLinks.map((link) => (
+                    <a
                       key={link.id}
-                      className="animate-fade-in"
-                      style={{ animationDelay: `${index * 50}ms` }}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full py-4 px-5 text-center font-medium text-white bg-[hsl(var(--vlink-dark))] hover:bg-[hsl(var(--vlink-dark-hover))] rounded-xl transition-colors"
                     >
-                      <Button
-                        variant="outline"
-                        className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vlink-purple))]/50 group"
-                        asChild
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
-                          <span className="truncate font-medium">{link.title}</span>
-                        </div>
-                      </Button>
-                    </div>
+                      {link.title}
+                    </a>
                   ))}
                 </div>
               )}
 
               {/* Coleções */}
-              {activeCollections.map((collection, collectionIndex) => {
+              {activeCollections.map((collection) => {
                 const collectionLinks = activeLinks.filter(
                   link => link.collection_id === collection.id
                 );
-                
                 if (collectionLinks.length === 0) return null;
 
                 return (
-                  <div 
-                    key={collection.id} 
-                    className="w-full space-y-3 mt-8 animate-fade-in"
-                    style={{ animationDelay: `${(collectionIndex + unCollectedLinks.length) * 50}ms` }}
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
-                      <h2 className="text-xs font-bold text-foreground/70 uppercase tracking-wider px-2">
+                  <div key={collection.id} className="w-full space-y-3 mt-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-px flex-1 bg-border" />
+                      <h2 className="text-xs font-bold text-[hsl(var(--vlink-neutral))] uppercase tracking-wider px-2">
                         {collection.title}
                       </h2>
-                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+                      <div className="h-px flex-1 bg-border" />
                     </div>
-                    {collectionLinks.map((link, linkIndex) => (
-                      <div
+                    {collectionLinks.map((link) => (
+                      <a
                         key={link.id}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${(collectionIndex + unCollectedLinks.length + linkIndex) * 50}ms` }}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full py-4 px-5 text-center font-medium text-white bg-[hsl(var(--vlink-dark))] hover:bg-[hsl(var(--vlink-dark-hover))] rounded-xl transition-colors"
                       >
-                        <Button
-                          variant="outline"
-                          className="w-full h-auto py-4 px-5 justify-start hover:scale-[1.02] hover:shadow-md transition-all duration-200 bg-card/50 backdrop-blur-sm border-2 hover:border-[hsl(var(--vlink-purple))]/50 group"
-                          asChild
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] opacity-60 group-hover:opacity-100 transition-opacity" />
-                            <span className="truncate font-medium">{link.title}</span>
-                          </div>
-                        </Button>
-                      </div>
+                        {link.title}
+                      </a>
                     ))}
                   </div>
                 );
               })}
 
               {/* Footer */}
-              <div className="mt-12 mb-6 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[hsl(var(--vlink-purple))]/10 to-[hsl(var(--vlink-purple-light))]/10 border border-[hsl(var(--vlink-purple))]/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] animate-pulse" />
-                  <p className="text-xs text-muted-foreground">
-                    Junte-se a <span className="font-semibold text-foreground">{profile.username}</span> no <span className="font-bold bg-gradient-to-r from-[hsl(var(--vlink-purple))] to-[hsl(var(--vlink-purple-light))] bg-clip-text text-transparent">Vouti</span>
-                  </p>
-                </div>
+              <div className="mt-10 mb-4 text-center">
+                <p className="text-xs text-[hsl(var(--vlink-neutral))]">
+                  <span className="font-semibold">Vouti</span>
+                </p>
               </div>
             </div>
           </div>
