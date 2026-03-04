@@ -1,43 +1,36 @@
 
 
-## Plano: Migrar rotas do Link-in-Bio para `/linkbio` e corrigir acesso do danieldemorais
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### 1. Corrigir build error do PWA
-O bundle JS (10.2 MB) excede o limite de cache do PWA (5 MB). Aumentar `maximumFileSizeToCacheInBytes` para `11 * 1024 * 1024` em `vite.config.ts`.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### 2. Reestruturar rotas para `/linkbio/...`
-Alterar todas as rotas do sistema Link-in-Bio:
-- `/link-auth` → `/linkbio`  (página de auth)
-- `/link-dashboard` → `/linkbio/dashboard`
+### Implementação
 
-**Arquivos a alterar:**
-- `src/App.tsx` — rotas e guards (`LinkProtectedRoute`, `LinkPublicRoute`)
-- `src/pages/LinkAuth.tsx` — navegação para dashboard
-- `src/contexts/LinkAuthContext.tsx` — `emailRedirectTo` no signup
-- `src/pages/LandingPage1.tsx`, `LandingPage2.tsx`, `BatinkLanding.tsx` — código secreto `vlink`
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### 3. Corrigir acesso do `danieldemorais`
-O usuário foi criado com email `danieldemorais@vouti.co` mas o login converte username para `username@vlink.bio`. Precisa atualizar o email na tabela `auth.users` via SQL Editor ou Edge Function.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**Opção recomendada:** Executar via SQL Editor no Supabase Dashboard:
-```sql
--- Atualizar email do usuário para o formato correto
-UPDATE auth.users SET email = 'danieldemorais@vlink.bio' WHERE id = '8eda80fa-0319-4791-923e-551052282e62';
-```
-*(Não posso executar isso via migration pois é schema `auth` reservado — ação manual no Dashboard.)*
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### 4. Adicionar redirect legado
-Redirecionar `/link-auth` → `/linkbio` e `/link-dashboard` → `/linkbio/dashboard` para não quebrar links existentes.
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-### Resumo de alterações
-| Arquivo | Mudança |
-|---------|---------|
-| `vite.config.ts` | Aumentar limite PWA cache |
-| `src/App.tsx` | Rotas `/linkbio` + `/linkbio/dashboard` + redirects legados |
-| `src/pages/LinkAuth.tsx` | Navegação → `/linkbio/dashboard` |
-| `src/contexts/LinkAuthContext.tsx` | `emailRedirectTo` → `/linkbio/dashboard` |
-| `src/pages/LandingPage1.tsx` | Código secreto → `/linkbio` |
-| `src/pages/LandingPage2.tsx` | Código secreto → `/linkbio` |
-| `src/pages/BatinkLanding.tsx` | Código secreto → `/linkbio` |
-| **Manual (Dashboard)** | Atualizar email do `danieldemorais` em `auth.users` |
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

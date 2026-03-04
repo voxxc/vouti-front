@@ -108,7 +108,7 @@ const LandingPage2 = () => {
       absoluteNavigate('/metal-auth');
     } else if (code === 'vlink') {
       await supabase.auth.signOut();
-      absoluteNavigate('/link-auth');
+      absoluteNavigate('/linkbio');
     } else if (code === 'adm1nvouti') {
       absoluteNavigate('/super-admin');
     } else if (code === 'batink') {

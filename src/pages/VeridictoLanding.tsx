@@ -73,7 +73,7 @@ const VeridictoLanding = () => {
         navigate('/metal-auth');
       } else if (code === 'vlink') {
         await supabase.auth.signOut();
-        navigate('/link-auth');
+        navigate('/linkbio');
       } else if (code === 'adm1nvouti') {
         navigate('/super-admin');
       } else if (code === 'batink') {

@@ -111,7 +111,7 @@ const HomePage = () => {
         navigate('/metal-auth');
       } else if (code === 'vlink') {
         await supabase.auth.signOut();
-        navigate('/link-auth');
+        navigate('/linkbio');
       } else if (code === 'adm1nvouti') {
         await supabase.auth.signOut();
         navigate('/super-admin');
