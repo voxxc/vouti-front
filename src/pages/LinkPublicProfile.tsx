@@ -111,10 +111,9 @@ const LinkPublicProfile = () => {
           <button
             key={link.id}
             onClick={() => handleLinkClick(link)}
-            className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between transition-colors"
+            className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
           >
-            <span className="flex-1 text-center">{link.title}</span>
-            <ExternalLink className="h-4 w-4 flex-shrink-0 opacity-60" />
+            {link.title}
           </button>
         ))}
 
@@ -131,10 +130,9 @@ const LinkPublicProfile = () => {
                 <button
                   key={link.id}
                   onClick={() => handleLinkClick(link)}
-                  className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between transition-colors"
+                  className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
                 >
-                  <span className="flex-1 text-center">{link.title}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0 opacity-60" />
+                  {link.title}
                 </button>
               ))}
             </div>
