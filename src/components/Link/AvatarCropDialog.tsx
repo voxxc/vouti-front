@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,24 +24,31 @@ export const AvatarCropDialog = ({ open, onClose, imageFile, onSave }: AvatarCro
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isSaving, setIsSaving] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
-  // Load image when file changes
-  useState(() => {
-    if (imageFile) {
-      const url = URL.createObjectURL(imageFile);
-      setImageUrl(url);
-      const img = new Image();
-      img.onload = () => {
-        imageRef.current = img;
-        setZoom(1);
-        setPosition({ x: 0, y: 0 });
-      };
-      img.src = url;
-      return () => URL.revokeObjectURL(url);
+  // Load image when file changes or dialog opens
+  useEffect(() => {
+    if (!open || !imageFile) {
+      setImageUrl(null);
+      imageRef.current = null;
+      return;
     }
-  });
+
+    const url = URL.createObjectURL(imageFile);
+    setImageUrl(url);
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+
+    const img = new Image();
+    img.onload = () => {
+      imageRef.current = img;
+    };
+    img.src = url;
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [imageFile, open]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setIsDragging(true);
@@ -96,7 +103,6 @@ export const AvatarCropDialog = ({ open, onClose, imageFile, onSave }: AvatarCro
       const previewSize = 256;
       const scale = size / previewSize;
 
-      // Calculate draw parameters matching preview
       const imgAspect = img.width / img.height;
       let drawW: number, drawH: number;
       if (imgAspect > 1) {
@@ -140,7 +146,6 @@ export const AvatarCropDialog = ({ open, onClose, imageFile, onSave }: AvatarCro
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
-          {/* Preview circle */}
           <div
             className="w-64 h-64 rounded-full overflow-hidden bg-muted cursor-move relative select-none"
             onMouseDown={handleMouseDown}
@@ -166,7 +171,6 @@ export const AvatarCropDialog = ({ open, onClose, imageFile, onSave }: AvatarCro
             />
           </div>
 
-          {/* Zoom control */}
           <div className="flex items-center gap-3 w-full max-w-xs">
             <ZoomOut className="w-4 h-4 text-muted-foreground" />
             <Slider

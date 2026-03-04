@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Camera, Plus } from "lucide-react";
@@ -15,24 +14,13 @@ interface ProfileEditHeaderProps {
 }
 
 export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) => {
-  const [fullName, setFullName] = useState(profile.full_name || "");
   const [bio, setBio] = useState(profile.bio || "");
-  const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const initials = profile.full_name
-    ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
-    : profile.username.substring(0, 2).toUpperCase();
-
-  const handleSaveName = async () => {
-    if (fullName !== profile.full_name) {
-      await onSave({ full_name: fullName });
-    }
-    setIsEditingName(false);
-  };
+  const initials = profile.username.substring(0, 2).toUpperCase();
 
   const handleSaveBio = async () => {
     if (bio !== profile.bio) {
@@ -59,7 +47,6 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
       setSelectedFile(file);
       setCropDialogOpen(true);
     }
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -90,7 +77,6 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
 
   return (
     <div className="space-y-3 p-4 bg-card rounded-lg border">
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -99,7 +85,7 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
         className="hidden"
       />
 
-      {/* Avatar - clickable for upload */}
+      {/* Avatar */}
       <div className="flex justify-center">
         <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
           <Avatar className="h-20 w-20 border-0 shadow-none">
@@ -115,26 +101,9 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
       </div>
       <p className="text-xs text-center text-muted-foreground">Clique para alterar a foto</p>
 
-      {/* Name */}
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-muted-foreground">Nome</label>
-        {isEditingName ? (
-          <Input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            onBlur={handleSaveName}
-            onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-            autoFocus
-            placeholder="Seu nome"
-          />
-        ) : (
-          <div
-            onClick={() => setIsEditingName(true)}
-            className="p-2 rounded-md hover:bg-muted cursor-pointer"
-          >
-            <p className="text-foreground">{fullName || "Adicionar nome"}</p>
-          </div>
-        )}
+      {/* Username (read-only) */}
+      <div className="text-center">
+        <p className="text-sm font-semibold text-foreground">@{profile.username}</p>
       </div>
 
       {/* Bio */}
