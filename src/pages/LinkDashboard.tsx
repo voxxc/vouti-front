@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 const LinkDashboard = () => {
   const { profile, isAdmin, signOut } = useLinkAuth();
+  const [localProfile, setLocalProfile] = useState<LinkProfile | null>(profile);
   const [activeTab, setActiveTab] = useState("home");
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [collections, setCollections] = useState<LinkCollection[]>([]);
@@ -29,6 +30,11 @@ const LinkDashboard = () => {
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
   const [addCollectionDialog, setAddCollectionDialog] = useState(false);
+
+  // Sync localProfile when context profile changes
+  useEffect(() => {
+    if (profile) setLocalProfile(profile);
+  }, [profile]);
 
   useEffect(() => {
     if (profile) {

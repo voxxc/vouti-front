@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ExternalLink, Link2 } from "lucide-react";
+import { Link2 } from "lucide-react";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
