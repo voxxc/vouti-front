@@ -2372,7 +2372,12 @@ export type Database = {
       link_profiles: {
         Row: {
           avatar_url: string | null
+          bg_color_1: string
+          bg_color_2: string | null
+          bg_gradient_direction: string
           bio: string | null
+          button_color: string
+          button_text_color: string
           created_at: string | null
           full_name: string | null
           id: string
@@ -2383,7 +2388,12 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bg_color_1?: string
+          bg_color_2?: string | null
+          bg_gradient_direction?: string
           bio?: string | null
+          button_color?: string
+          button_text_color?: string
           created_at?: string | null
           full_name?: string | null
           id?: string
@@ -2394,7 +2404,12 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bg_color_1?: string
+          bg_color_2?: string | null
+          bg_gradient_direction?: string
           bio?: string | null
+          button_color?: string
+          button_text_color?: string
           created_at?: string | null
           full_name?: string | null
           id?: string

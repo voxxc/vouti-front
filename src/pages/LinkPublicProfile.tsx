@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2 } from "lucide-react";
+import { getProfileBackground, getButtonStyle } from "@/lib/linkThemeUtils";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
@@ -61,7 +62,6 @@ const LinkPublicProfile = () => {
   };
 
   const handleLinkClick = async (link: LinkItem) => {
-    // Fire and forget click tracking
     supabase.rpc("increment_link_clicks", { p_link_id: link.id }).then();
     window.open(link.url, "_blank", "noopener,noreferrer");
   };
@@ -79,13 +79,17 @@ const LinkPublicProfile = () => {
   }
 
   const initials = profile.username.slice(0, 2).toUpperCase();
-
   const uncollectedLinks = links.filter((l) => !l.collection_id);
   const getCollectionLinks = (collectionId: string) =>
     links.filter((l) => l.collection_id === collectionId);
 
+  const bgStyle = getProfileBackground(profile);
+  const btnStyle = getButtonStyle(profile);
+  // Use button text color for text elements on the background
+  const textColor = profile.button_text_color || "#1e293b";
+
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center">
+    <div className="min-h-screen flex flex-col items-center" style={bgStyle}>
       {/* Profile Header */}
       <div className="w-full max-w-md mx-auto pt-12 pb-4 px-6 text-center">
         <Avatar className="h-24 w-24 mx-auto mb-4">
@@ -95,42 +99,44 @@ const LinkPublicProfile = () => {
           </AvatarFallback>
         </Avatar>
 
-        <h1 className="text-xl font-bold text-slate-900">
+        <h1 className="text-xl font-bold" style={{ color: textColor }}>
           @{profile.username}
         </h1>
 
         {profile.bio && (
-          <p className="text-slate-500 text-sm mt-2 max-w-xs mx-auto">{profile.bio}</p>
+          <p className="text-sm mt-2 max-w-xs mx-auto opacity-70" style={{ color: textColor }}>
+            {profile.bio}
+          </p>
         )}
       </div>
 
       {/* Links */}
       <div className="w-full max-w-md mx-auto px-6 pb-12 space-y-3">
-        {/* Uncollected links */}
         {uncollectedLinks.map((link) => (
           <button
             key={link.id}
             onClick={() => handleLinkClick(link)}
-            className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
+            className="w-full py-4 px-5 text-center font-medium rounded-2xl transition-opacity hover:opacity-90"
+            style={btnStyle}
           >
             {link.title}
           </button>
         ))}
 
-        {/* Collections */}
         {collections.map((collection) => {
           const collLinks = getCollectionLinks(collection.id);
           if (collLinks.length === 0) return null;
           return (
             <div key={collection.id} className="space-y-3">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider text-center pt-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-center pt-2 opacity-60" style={{ color: textColor }}>
                 {collection.title}
               </p>
               {collLinks.map((link) => (
                 <button
                   key={link.id}
                   onClick={() => handleLinkClick(link)}
-                  className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
+                  className="w-full py-4 px-5 text-center font-medium rounded-2xl transition-opacity hover:opacity-90"
+                  style={btnStyle}
                 >
                   {link.title}
                 </button>
@@ -140,7 +146,7 @@ const LinkPublicProfile = () => {
         })}
 
         {links.length === 0 && (
-          <div className="text-center py-12 text-slate-400">
+          <div className="text-center py-12 opacity-40" style={{ color: textColor }}>
             <Link2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Nenhum link disponível</p>
           </div>
@@ -149,7 +155,7 @@ const LinkPublicProfile = () => {
 
       {/* Footer */}
       <div className="mt-auto pb-6 text-center">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs opacity-50" style={{ color: textColor }}>
           <span className="font-semibold">Vouti</span>
         </p>
       </div>

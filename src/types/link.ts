@@ -8,6 +8,11 @@ export interface LinkProfile {
   bio: string | null;
   avatar_url: string | null;
   theme_color: string;
+  bg_color_1: string;
+  bg_color_2: string | null;
+  bg_gradient_direction: string;
+  button_color: string;
+  button_text_color: string;
   created_at: string;
   updated_at: string;
 }
