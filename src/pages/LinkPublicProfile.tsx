@@ -85,7 +85,7 @@ const LinkPublicProfile = () => {
 
   const bgStyle = getProfileBackground(profile);
   const btnStyle = getButtonStyle(profile);
-  // Use button text color for text elements on the background
+  const usernameStyle = getUsernameStyle(profile);
   const textColor = profile.button_text_color || "#1e293b";
 
   return (
@@ -99,7 +99,7 @@ const LinkPublicProfile = () => {
           </AvatarFallback>
         </Avatar>
 
-        <h1 className="text-xl font-bold" style={{ color: textColor }}>
+        <h1 className={`${usernameStyle.className} font-bold`} style={{ color: usernameStyle.color }}>
           @{profile.username}
         </h1>
 
