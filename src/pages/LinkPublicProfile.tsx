@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ExternalLink, Link2 } from "lucide-react";
+import { Link2 } from "lucide-react";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
@@ -111,10 +111,9 @@ const LinkPublicProfile = () => {
           <button
             key={link.id}
             onClick={() => handleLinkClick(link)}
-            className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between transition-colors"
+            className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
           >
-            <span className="flex-1 text-center">{link.title}</span>
-            <ExternalLink className="h-4 w-4 flex-shrink-0 opacity-60" />
+            {link.title}
           </button>
         ))}
 
@@ -131,10 +130,9 @@ const LinkPublicProfile = () => {
                 <button
                   key={link.id}
                   onClick={() => handleLinkClick(link)}
-                  className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between transition-colors"
+                  className="w-full py-4 px-5 text-center font-medium text-white bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
                 >
-                  <span className="flex-1 text-center">{link.title}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0 opacity-60" />
+                  {link.title}
                 </button>
               ))}
             </div>

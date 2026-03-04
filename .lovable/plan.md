@@ -1,38 +1,36 @@
 
 
-## Plano: Atualização imediata do perfil + remoção do ícone ExternalLink
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problemas identificados
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-1. **Alterações não refletem no preview**: O `profile` vem do `LinkAuthContext` e não é atualizado localmente após salvar. O `handleSaveProfile` salva no banco mas o `profile` do contexto não muda até recarregar a página.
+### Implementação
 
-2. **Foto não aparece imediatamente**: Após upload do avatar, o `avatar_url` é salvo no banco mas o preview continua com a foto antiga pelo mesmo motivo acima.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-3. **Ícone ExternalLink nos botões**: Na página pública (`LinkPublicProfile.tsx`), cada botão de link tem um ícone `<ExternalLink>` que não é necessário.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Alterações
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**1. `src/pages/LinkDashboard.tsx`** — Estado local do perfil
-- Criar estado local `localProfile` inicializado com `profile` do contexto
-- No `handleSaveProfile`, após salvar no banco, atualizar `localProfile` imediatamente com os dados novos (merge)
-- Passar `localProfile` para `ProfileEditHeader`, `MobilePreview`, `ProfilePreview` etc. em vez de `profile`
-- Sincronizar `localProfile` quando `profile` do contexto mudar
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**2. `src/components/Link/ProfileEditHeader.tsx`** — Atualizar avatar localmente
-- Após upload do avatar com sucesso, chamar `onSave({ avatar_url })` que já vai atualizar o estado local no dashboard
-- O avatar aparece imediatamente no preview porque o estado local muda
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-**3. `src/pages/LinkPublicProfile.tsx`** — Remover ícone
-- Remover import de `ExternalLink`
-- Remover `<ExternalLink>` dos botões de link (linhas 117, 137)
-- Simplificar layout do botão (remover `flex items-center justify-between`, manter só `text-center`)
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-**4. `src/components/Link/MobilePreview.tsx`** — Verificar consistência
-- Confirmar que não tem ícone ExternalLink (já não tem, ok)
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-### Arquivos
-| Arquivo | Mudança |
-|---------|---------|
-| `LinkDashboard.tsx` | Estado local `localProfile` para refletir mudanças em tempo real |
-| `LinkPublicProfile.tsx` | Remover ícone `ExternalLink` dos botões |
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

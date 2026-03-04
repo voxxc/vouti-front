@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 const LinkDashboard = () => {
   const { profile, isAdmin, signOut } = useLinkAuth();
+  const [localProfile, setLocalProfile] = useState<LinkProfile | null>(profile);
   const [activeTab, setActiveTab] = useState("home");
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [collections, setCollections] = useState<LinkCollection[]>([]);
@@ -29,6 +30,11 @@ const LinkDashboard = () => {
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
   const [addCollectionDialog, setAddCollectionDialog] = useState(false);
+
+  // Sync localProfile when context profile changes
+  useEffect(() => {
+    if (profile) setLocalProfile(profile);
+  }, [profile]);
 
   useEffect(() => {
     if (profile) {
@@ -149,8 +155,8 @@ const LinkDashboard = () => {
 
       if (error) throw error;
       
-      // Atualizar profile localmente para preview em tempo real
-      await loadData();
+      // Atualizar localProfile imediatamente para preview em tempo real
+      setLocalProfile(prev => prev ? { ...prev, ...profileData } : prev);
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Erro ao salvar perfil');
@@ -246,7 +252,7 @@ const LinkDashboard = () => {
                 />
 
                 {/* Profile Edit Header */}
-                <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
+                <ProfileEditHeader profile={localProfile!} onSave={handleSaveProfile} />
 
                 {/* Add Button */}
                 <Button 
@@ -308,7 +314,7 @@ const LinkDashboard = () => {
 
               {/* Right Side - Mobile Preview */}
               <div className="lg:col-span-1">
-                <MobilePreview profile={profile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} />
               </div>
             </div>
           )}
@@ -327,7 +333,7 @@ const LinkDashboard = () => {
                 </div>
 
                 {/* Profile Edit Header */}
-                <ProfileEditHeader profile={profile!} onSave={handleSaveProfile} />
+                <ProfileEditHeader profile={localProfile!} onSave={handleSaveProfile} />
 
                 {/* Add Button */}
                 <Button 
@@ -387,7 +393,7 @@ const LinkDashboard = () => {
 
               {/* Right Side - Mobile Preview */}
               <div className="lg:col-span-1">
-                <MobilePreview profile={profile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} />
               </div>
             </div>
           )}
@@ -489,7 +495,7 @@ const LinkDashboard = () => {
           {/* Preview Tab */}
           {activeTab === "preview" && (
             <div className="max-w-md mx-auto">
-              <ProfilePreview profile={profile!} links={links.filter(l => l.is_active)} />
+              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} />
             </div>
           )}
 
@@ -532,7 +538,7 @@ const LinkDashboard = () => {
       />
 
       <EditProfileDialog
-        profile={profile!}
+        profile={localProfile!}
         open={editProfileDialog}
         onOpenChange={setEditProfileDialog}
         onSave={handleSaveProfile}
