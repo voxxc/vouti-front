@@ -31,6 +31,15 @@ const DIRECTIONS = [
   { value: "to-l", label: "←", icon: ArrowLeft, desc: "Dir → Esq" },
 ];
 
+const FONT_SIZES = [
+  { value: "sm", label: "P" },
+  { value: "base", label: "M" },
+  { value: "lg", label: "G" },
+  { value: "xl", label: "GG" },
+  { value: "2xl", label: "XG" },
+  { value: "3xl", label: "XXG" },
+];
+
 export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [bgColor1, setBgColor1] = useState(profile.bg_color_1 || "#FFFFFF");
   const [bgColor2, setBgColor2] = useState(profile.bg_color_2 || "");
@@ -38,6 +47,8 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [direction, setDirection] = useState(profile.bg_gradient_direction || "to-b");
   const [buttonColor, setButtonColor] = useState(profile.button_color || "#1e293b");
   const [buttonTextColor, setButtonTextColor] = useState(profile.button_text_color || "#ffffff");
+  const [usernameColor, setUsernameColor] = useState(profile.username_color || profile.button_text_color || "#1e293b");
+  const [usernameFontSize, setUsernameFontSize] = useState(profile.username_font_size || "xl");
   const [saving, setSaving] = useState(false);
 
   const handleLiveUpdate = (updates: Partial<{
@@ -71,6 +82,8 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         bg_gradient_direction: direction,
         button_color: buttonColor,
         button_text_color: buttonTextColor,
+        username_color: usernameColor,
+        username_font_size: usernameFontSize,
       });
       toast.success("Tema salvo com sucesso!");
     } catch {
@@ -87,6 +100,8 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
       bg_gradient_direction: direction,
       button_color: buttonColor,
       button_text_color: buttonTextColor,
+      username_color: usernameColor,
+      username_font_size: usernameFontSize,
       [field]: value,
     };
     handleLiveUpdate(updates);
