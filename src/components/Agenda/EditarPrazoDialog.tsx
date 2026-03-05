@@ -59,7 +59,7 @@ export const EditarPrazoDialog = ({
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const responsavelChanged = advogadoId !== originalAdvogadoId && originalAdvogadoId !== null;
+  const responsavelChanged = advogadoId !== originalAdvogadoId;
 
   // Carregar dados quando o dialog abrir
   useEffect(() => {
