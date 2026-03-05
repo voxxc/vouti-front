@@ -1,36 +1,38 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Plano: Motivo da troca de responsável no prazo
 
 ### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+Quando o usuário trocar o responsável ao editar um prazo, exibir um campo de texto para informar o motivo. Ao salvar, registrar um comentário automático detalhado com nomes antigo/novo e o motivo.
 
-### Implementação
+### Alterações em `src/components/Agenda/EditarPrazoDialog.tsx`
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**1. Novo state para motivo**
+- `motivoTroca` (string) — texto do motivo
+- `originalAdvogadoId` (string | null) — guarda o ID original ao abrir o dialog
+- Detectar troca: `advogadoId !== originalAdvogadoId`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+**2. Campo condicional no formulário**
+- Após o `AdvogadoSelector`, se `advogadoId !== originalAdvogadoId && originalAdvogadoId !== null`, renderizar um `Textarea` com label "Motivo da alteração" e placeholder "Informe o motivo da troca de responsável..."
+- Animação suave com `overflow-hidden` + `max-height` transition
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+**3. Comentário automático detalhado no `handleSave`**
+- Quando o responsável mudar, buscar os nomes (antigo e novo) via query a `profiles`
+- Buscar também o nome de quem está fazendo a alteração (user atual)
+- Gerar comentário separado e rico:
+  ```
+  🔄 Responsável do prazo alterado
+  Alterado por: [nome do editor]
+  De: [nome antigo] → Para: [nome novo]
+  Motivo: [texto digitado]
+  ```
+- Este comentário é inserido via `deadline_comentarios` (mesmo mecanismo já existente)
+- Remover a linha genérica `Responsável alterado` do array `changes` para evitar duplicidade
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### Arquivos a editar
+| Arquivo | Mudança |
+|---------|---------|
+| `EditarPrazoDialog.tsx` | States, campo condicional, lógica de comentário com nomes |
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Nenhuma alteração de banco necessária — usa a tabela `deadline_comentarios` e `profiles` já existentes.
 
