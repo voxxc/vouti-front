@@ -54,8 +54,12 @@ export const EditarPrazoDialog = ({
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [advogadoId, setAdvogadoId] = useState<string | null>(null);
+  const [originalAdvogadoId, setOriginalAdvogadoId] = useState<string | null>(null);
+  const [motivoTroca, setMotivoTroca] = useState('');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const responsavelChanged = advogadoId !== originalAdvogadoId && originalAdvogadoId !== null;
 
   // Carregar dados quando o dialog abrir
   useEffect(() => {
@@ -63,7 +67,10 @@ export const EditarPrazoDialog = ({
       setTitle(deadline.title || '');
       setDescription(deadline.description || '');
       setDate(deadline.date);
-      setAdvogadoId(deadline.advogadoResponsavel?.userId || null);
+      const initialAdvogado = deadline.advogadoResponsavel?.userId || null;
+      setAdvogadoId(initialAdvogado);
+      setOriginalAdvogadoId(initialAdvogado);
+      setMotivoTroca('');
       setTaggedUsers(deadline.taggedUsers?.map(u => u.userId) || []);
     }
   }, [deadline, open]);
@@ -107,7 +114,7 @@ export const EditarPrazoDialog = ({
       if (format(date, 'yyyy-MM-dd') !== format(deadline.date, 'yyyy-MM-dd')) {
         changes.push(`Data: ${format(deadline.date, 'dd/MM/yyyy')} → ${format(date, 'dd/MM/yyyy')}`);
       }
-      if (advogadoId !== deadline.advogadoResponsavel?.userId) changes.push(`Responsável alterado`);
+      // Não incluir "Responsável alterado" genérico — será tratado separadamente
 
       // 1. Atualizar deadline
       const { error: updateError } = await supabase
@@ -141,7 +148,7 @@ export const EditarPrazoDialog = ({
           .insert(tags);
       }
 
-      // 3. Registrar comentário de alteração (se houve mudanças)
+      // 3. Registrar comentário de alteração (se houve mudanças genéricas)
       if (changes.length > 0) {
         await supabase
           .from('deadline_comentarios')
@@ -149,6 +156,36 @@ export const EditarPrazoDialog = ({
             deadline_id: deadline.id,
             user_id: user.id,
             comentario: `✏️ Prazo editado:\n${changes.join('\n')}`,
+            tenant_id: tenantId
+          });
+      }
+
+      // 4. Registrar comentário detalhado de troca de responsável
+      if (responsavelChanged && advogadoId) {
+        // Buscar nomes em paralelo
+        const [editorRes, antigoRes, novoRes] = await Promise.all([
+          supabase.from('profiles').select('full_name').eq('user_id', user.id).single(),
+          originalAdvogadoId
+            ? supabase.from('profiles').select('full_name').eq('user_id', originalAdvogadoId).single()
+            : Promise.resolve({ data: null }),
+          supabase.from('profiles').select('full_name').eq('user_id', advogadoId).single(),
+        ]);
+
+        const nomeEditor = editorRes.data?.full_name || 'Usuário';
+        const nomeAntigo = antigoRes.data?.full_name || 'Não definido';
+        const nomeNovo = novoRes.data?.full_name || 'Não definido';
+
+        let comentarioTroca = `🔄 Responsável do prazo alterado\nAlterado por: ${nomeEditor}\nDe: ${nomeAntigo} → Para: ${nomeNovo}`;
+        if (motivoTroca.trim()) {
+          comentarioTroca += `\nMotivo: ${motivoTroca.trim()}`;
+        }
+
+        await supabase
+          .from('deadline_comentarios')
+          .insert({
+            deadline_id: deadline.id,
+            user_id: user.id,
+            comentario: comentarioTroca,
             tenant_id: tenantId
           });
       }
@@ -237,6 +274,20 @@ export const EditarPrazoDialog = ({
               onChange={setAdvogadoId}
             />
           </div>
+
+          {responsavelChanged && (
+            <div className="overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <label className="text-sm font-medium text-accent-foreground">
+                Motivo da alteração de responsável
+              </label>
+              <Textarea
+                value={motivoTroca}
+                onChange={(e) => setMotivoTroca(e.target.value)}
+                placeholder="Informe o motivo da troca de responsável..."
+                className="mt-1 min-h-[60px]"
+              />
+            </div>
+          )}
 
           <div>
             <UserTagSelector
