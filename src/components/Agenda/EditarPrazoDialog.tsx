@@ -54,8 +54,12 @@ export const EditarPrazoDialog = ({
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [advogadoId, setAdvogadoId] = useState<string | null>(null);
+  const [originalAdvogadoId, setOriginalAdvogadoId] = useState<string | null>(null);
+  const [motivoTroca, setMotivoTroca] = useState('');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const responsavelChanged = advogadoId !== originalAdvogadoId && originalAdvogadoId !== null;
 
   // Carregar dados quando o dialog abrir
   useEffect(() => {
@@ -63,7 +67,10 @@ export const EditarPrazoDialog = ({
       setTitle(deadline.title || '');
       setDescription(deadline.description || '');
       setDate(deadline.date);
-      setAdvogadoId(deadline.advogadoResponsavel?.userId || null);
+      const initialAdvogado = deadline.advogadoResponsavel?.userId || null;
+      setAdvogadoId(initialAdvogado);
+      setOriginalAdvogadoId(initialAdvogado);
+      setMotivoTroca('');
       setTaggedUsers(deadline.taggedUsers?.map(u => u.userId) || []);
     }
   }, [deadline, open]);
