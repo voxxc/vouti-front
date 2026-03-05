@@ -277,14 +277,14 @@ export const EditarPrazoDialog = ({
 
           {responsavelChanged && (
             <div className="overflow-hidden animate-in slide-in-from-top-2 duration-200">
-              <label className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              <label className="text-sm font-medium text-accent-foreground">
                 Motivo da alteração de responsável
               </label>
               <Textarea
                 value={motivoTroca}
                 onChange={(e) => setMotivoTroca(e.target.value)}
                 placeholder="Informe o motivo da troca de responsável..."
-                className="mt-1 min-h-[60px] border-amber-300 dark:border-amber-600 focus-visible:ring-amber-400"
+                className="mt-1 min-h-[60px]"
               />
             </div>
           )}
