@@ -1,36 +1,30 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Diagnóstico
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+O código do campo "Motivo da alteração" **já está implementado** no `EditarPrazoDialog.tsx` (linhas 278-290). Porém, ele só aparece quando **as duas condições** são verdadeiras:
 
-### Implementação
+1. `advogadoId !== originalAdvogadoId` — o responsável foi trocado
+2. `originalAdvogadoId !== null` — o prazo **já tinha** um responsável antes
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**Problema**: Se o prazo não tem responsável atribuído (campo vazio), `originalAdvogadoId` fica `null`, e o campo de motivo **nunca aparece** — nem ao selecionar um responsável pela primeira vez, nem ao trocar.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### Solução
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Alterar a condição na linha 62 para mostrar o campo sempre que o responsável mudar, independente de ter um anterior ou não:
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+```typescript
+// De:
+const responsavelChanged = advogadoId !== originalAdvogadoId && originalAdvogadoId !== null;
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+// Para:
+const responsavelChanged = advogadoId !== originalAdvogadoId;
+```
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+Isso garante que o campo de motivo apareça em qualquer cenário de alteração do responsável.
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Arquivo
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/Agenda/EditarPrazoDialog.tsx` | Remover `&& originalAdvogadoId !== null` da condição |
 
