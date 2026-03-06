@@ -1,36 +1,24 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Revisão das Alterações — Tudo Implementado Corretamente
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### 1. "Ver Projeto" abrindo em nova aba ✓
+O `onNavigateProject` na linha 1255-1257 do `AgendaContent.tsx` usa `window.open(url, '_blank')`, abrindo corretamente em nova aba. O ícone `ExternalLink` já indica visualmente esse comportamento.
 
-### Implementação
+### 2. Drawer não resetar ao trocar de aba do navegador ✓
+O `AuthContext.tsx` (linhas 54-57) faz `return` imediato quando o evento é `TOKEN_REFRESHED`, impedindo que `setSession`/`setUser`/`setLoading` sejam chamados desnecessariamente. Isso evita re-renders em cascata que resetavam drawers abertos.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### 3. Webhook filtrando grupos e newsletters ✓
+O `whatsapp-webhook/index.ts` (linha 267) verifica `data.isGroup === true || data.isNewsletter === true` no início de `handleIncomingMessage`, ignorando mensagens de grupo antes de qualquer processamento.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 4. Polling reativo (não fixo) na Inbox ✓
+- `WhatsAppInbox.tsx` (linha 149): o handler Realtime filtra `@g.us` e números > 15 chars antes de chamar `loadConversations(false)` — polling reativo só para mensagens pessoais
+- `SuperAdminWhatsAppInbox.tsx`: sem `setInterval` restante — apenas Realtime subscription
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### 5. Deduplicação no webhook ✓
+O webhook checa `message_id` antes de inserir, evitando duplicatas por retries do Z-API.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+---
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+**Conclusão**: Todas as alterações foram aplicadas corretamente. Não há nada pendente para corrigir.
 
