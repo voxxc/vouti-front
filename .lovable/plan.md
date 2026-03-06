@@ -1,31 +1,36 @@
 
 
-## Plano: Compactar gráfico de prazos na mesma linha dos cards
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema
-O `PrazosDistributionChart` está renderizado fora do grid dos cards, ocupando uma linha inteira abaixo. O usuário quer que fique na mesma direção/linha dos outros cards.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Solução
+### Implementação
 
-**AdminMetrics.tsx**
-- Mover `<PrazosDistributionChart>` para dentro do grid existente (linha 135, `grid-cols-3`)
-- Expandir o grid para `lg:grid-cols-4` para acomodar o gráfico como um 4o card
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-**AdvogadoMetrics.tsx**
-- Mover `<PrazosDistributionChart>` para dentro do grid (linha 77, `grid-cols-2`)
-- Expandir para `lg:grid-cols-3`
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**PrazosDistributionChart.tsx**
-- Compactar o layout: reduzir altura do pie chart de 200px para ~150px, raios menores
-- Filtros empilhados verticalmente para caber num card estreito
-- Legenda mais compacta com números inline
-- Remover o estado vazio grande, usar texto menor
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### Arquivos
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-| Arquivo | Ação |
-|---------|------|
-| `PrazosDistributionChart.tsx` | Compactar layout para caber num card |
-| `AdminMetrics.tsx` | Mover chart para dentro do grid |
-| `AdvogadoMetrics.tsx` | Mover chart para dentro do grid |
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
