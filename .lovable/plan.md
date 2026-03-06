@@ -1,36 +1,61 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Fechar Dialog com duplo clique fora
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### O que será feito
+
+Adicionar um handler de `onDoubleClick` no `DialogOverlay` que fecha o dialog. O single click continua bloqueado (comportamento atual via `onInteractOutside: preventDefault`), mas o double click no overlay (área escura) fecha o dialog.
 
 ### Implementação
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**`src/components/ui/dialog.tsx`**
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+O `DialogOverlay` precisa receber um `onDoubleClick` que dispara o close. Como o Overlay não tem acesso direto ao `onOpenChange`, a solução é mover o overlay para dentro do `DialogContent` e adicionar o handler lá:
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+```typescript
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay onDoubleClick={(e) => {
+      // Find and click the close button to close the dialog
+      const closeBtn = (e.currentTarget.nextElementSibling as HTMLElement)
+        ?.querySelector('[data-radix-collection-item]') 
+      // Simpler: use document to find the close button
+      const dialog = document.querySelector('[data-state="open"][role="dialog"]');
+      if (dialog) {
+        const close = dialog.querySelector('button[class*="absolute right-4"]') as HTMLElement;
+        close?.click();
+      }
+    }} />
+    ...
+```
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Na verdade, a abordagem mais limpa: usar `DialogPrimitive.Close` de forma programática não é ideal. A melhor abordagem é fazer o Overlay disparar um evento customizado e usar a API do Radix. A forma mais simples e robusta:
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+- Envolver o overlay com um `div` que detecta `onDoubleClick` e chama `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))` — simulando ESC, que o Radix já trata.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+**Abordagem final (mais limpa):**
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+No `DialogOverlay`, adicionar `onDoubleClick` que simula a tecla Escape:
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+```typescript
+<DialogPrimitive.Overlay
+  ref={ref}
+  onDoubleClick={() => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  }}
+  className={cn(...)}
+  {...props}
+/>
+```
+
+Isso é elegante porque reutiliza o mecanismo de fechamento que o Radix já implementa para ESC.
+
+### Arquivo
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/ui/dialog.tsx` | Adicionar `onDoubleClick` no Overlay que simula ESC |
 
