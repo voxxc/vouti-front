@@ -1,55 +1,36 @@
 
 
-## Corrigir dropdown da Busca Rápida ficando atrás do drawer
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema raiz
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-O componente que aparece no screenshot é o `ProjectQuickSearch` (no header), não o `CRMQuickSearch`. O header tem `z-30`, e o dropdown de resultados está posicionado dentro dele com `z-50`. Porém, o Sheet (drawer) é renderizado via Portal diretamente no body com `z-50`. Como o dropdown está dentro do contexto de empilhamento do header (`z-30`), seu z-index efetivo nunca ultrapassa 30 — ficando atrás do drawer.
+### Implementação
 
-### Solução
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-Renderizar o dropdown de resultados do `ProjectQuickSearch` usando um **Portal** (via React `createPortal`), posicionando-o diretamente no body. Assim ele escapa do stacking context do header e o `z-[60]` funciona de verdade.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Alterações
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`src/components/Search/ProjectQuickSearch.tsx`**
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-1. Importar `createPortal` de `react-dom`
-2. Calcular a posição do dropdown com base no `getBoundingClientRect()` do input
-3. Renderizar o dropdown via `createPortal(…, document.body)` com posição `fixed` e `z-[60]`
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-```tsx
-// Adicionar state para posição
-const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-// Ao abrir, calcular posição do input
-useEffect(() => {
-  if (open && inputRef.current) {
-    const rect = inputRef.current.getBoundingClientRect();
-    setDropdownPos({ top: rect.bottom + 4, left: rect.left });
-  }
-}, [open, searchTerm]);
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-// Renderizar dropdown via portal
-{open && filteredProjects.length > 0 && createPortal(
-  <div
-    ref={dropdownRef}
-    className="fixed w-64 z-[60] bg-popover border border-border rounded-md shadow-lg"
-    style={{ top: dropdownPos.top, left: dropdownPos.left }}
-  >
-    <Command>…</Command>
-  </div>,
-  document.body
-)}
-```
-
-4. Atualizar o click-outside handler para incluir o `dropdownRef`
-
-Mesma correção deve ser aplicada ao `CRMQuickSearch` se sofrer do mesmo problema.
-
-### Arquivos
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/Search/ProjectQuickSearch.tsx` | Renderizar dropdown via Portal com posição fixed |
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

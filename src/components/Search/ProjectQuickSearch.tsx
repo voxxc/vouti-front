@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
@@ -28,6 +29,8 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   const { tenantId } = useTenantId();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
   // Função para carregar projetos com filtro de permissão
   const loadProjects = async () => {
@@ -93,7 +96,11 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   // Fechar ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -101,6 +108,14 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Calcular posição do dropdown
+  useEffect(() => {
+    if (open && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [open, searchTerm]);
 
   // Filtrar projetos localmente
   const filteredProjects = projects.filter(p => 
@@ -147,9 +162,13 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
         />
       </div>
       
-      {/* Dropdown de resultados */}
-      {open && filteredProjects.length > 0 && (
-        <div className="absolute top-full left-0 mt-1 w-64 z-50 bg-popover border border-border rounded-md shadow-lg">
+      {/* Dropdown de resultados via Portal */}
+      {open && filteredProjects.length > 0 && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed w-64 z-[60] bg-popover border border-border rounded-md shadow-lg"
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+        >
           <Command>
             <CommandList>
               <CommandGroup>
@@ -170,7 +189,8 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
               </CommandGroup>
             </CommandList>
           </Command>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
