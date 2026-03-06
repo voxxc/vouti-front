@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from './UserTagSelector';
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 
 interface Deadline {
   id: string;
@@ -57,6 +58,7 @@ export const EditarPrazoDialog = ({
   const [originalAdvogadoId, setOriginalAdvogadoId] = useState<string | null>(null);
   const [motivoTroca, setMotivoTroca] = useState('');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [originalTaggedUsers, setOriginalTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const responsavelChanged = advogadoId !== originalAdvogadoId;
@@ -71,7 +73,9 @@ export const EditarPrazoDialog = ({
       setAdvogadoId(initialAdvogado);
       setOriginalAdvogadoId(initialAdvogado);
       setMotivoTroca('');
-      setTaggedUsers(deadline.taggedUsers?.map(u => u.userId) || []);
+      const initialTagged = deadline.taggedUsers?.map(u => u.userId) || [];
+      setTaggedUsers(initialTagged);
+      setOriginalTaggedUsers(initialTagged);
     }
   }, [deadline, open]);
 
@@ -148,6 +152,18 @@ export const EditarPrazoDialog = ({
           .insert(tags);
       }
 
+      // 2b. Notificar novos usuários tagueados
+      const newlyTagged = taggedUsers.filter(id => !originalTaggedUsers.includes(id));
+      if (newlyTagged.length > 0) {
+        await notifyDeadlineTagged(
+          deadline.id,
+          title.trim(),
+          newlyTagged,
+          user.id,
+          tenantId
+        );
+      }
+
       // 3. Registrar comentário de alteração (se houve mudanças genéricas)
       if (changes.length > 0) {
         await supabase
@@ -188,6 +204,14 @@ export const EditarPrazoDialog = ({
             comentario: comentarioTroca,
             tenant_id: tenantId
           });
+        // Notificar novo responsável
+        await notifyDeadlineAssigned(
+          deadline.id,
+          title.trim(),
+          advogadoId,
+          user.id,
+          tenantId
+        );
       }
 
       toast({

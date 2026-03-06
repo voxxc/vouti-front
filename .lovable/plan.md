@@ -1,27 +1,36 @@
 
 
-## Diagnóstico: Notificações não enviadas ao editar prazo
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema
-No `EditarPrazoDialog.tsx`, ao salvar edições:
-- Tags são atualizadas (delete antigas + insert novas) nas linhas 133-149
-- Responsável é atualizado na linha 126
-- **Nenhuma notificação é disparada** — não há chamada a `notifyDeadlineTagged` nem `notifyDeadlineAssigned`
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-A função `notifyDeadlineTagged` só é chamada no `CreateDeadlineDialog.tsx` (criação), nunca na edição.
+### Implementação
 
-### Solução
-Adicionar no `handleSave` do `EditarPrazoDialog.tsx`, após atualizar tags e responsável:
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-1. **Novos usuários tagueados**: Comparar tags anteriores vs novas, notificar apenas os recém-adicionados via `notifyDeadlineTagged`
-2. **Novo responsável**: Se o responsável mudou, notificar o novo via `notifyDeadlineAssigned`
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Alterações
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`src/components/Agenda/EditarPrazoDialog.tsx`**
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-- Importar `notifyDeadlineAssigned` e `notifyDeadlineTagged` de `@/utils/notificationHelpers`
-- Guardar os IDs originais dos tagged users para comparação
-- Após atualizar tags (linha ~149), calcular novos tagged users e chamar `notifyDeadlineTagged` para os recém-adicionados
-- Após detectar troca de responsável (linha ~164), chamar `notifyDeadlineAssigned` para o novo responsável
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
