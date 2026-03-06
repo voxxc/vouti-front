@@ -40,23 +40,80 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
 
+  const deadlineSelect = `
+    id, title, description, date, completed, concluido_em,
+    advogado:profiles!deadlines_advogado_responsavel_id_fkey(user_id, full_name, avatar_url),
+    projects(name, client)
+  `;
+
   const fetchPrazos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // Query 1: deadlines diretos do caso
+    const { data: directData, error: directError } = await supabase
       .from('deadlines')
-      .select(`
-        id, title, description, date, completed, concluido_em,
-        advogado:profiles!deadlines_advogado_responsavel_id_fkey(user_id, full_name, avatar_url),
-        projects(name, client)
-      `)
+      .select(deadlineSelect)
       .eq('processo_oab_id', processoOabId)
       .order('date', { ascending: true });
 
-    if (error) {
-      console.error('[PrazosCasoTab] Error:', error);
-    } else {
-      setPrazos((data as any) || []);
+    if (directError) {
+      console.error('[PrazosCasoTab] Direct query error:', directError);
     }
+
+    const directPrazos: PrazoCaso[] = ((directData as any) || []).map((p: any) => ({
+      ...p,
+      origem: 'caso' as const,
+    }));
+
+    // Query 2: buscar etapas de protocolos vinculados ao caso
+    const { data: etapas, error: etapasError } = await supabase
+      .from('project_protocolo_etapas')
+      .select('id, nome, protocolo:project_protocolos!inner(id, nome, processo_oab_id)')
+      .eq('protocolo.processo_oab_id', processoOabId);
+
+    if (etapasError) {
+      console.error('[PrazosCasoTab] Etapas query error:', etapasError);
+    }
+
+    let protocolPrazos: PrazoCaso[] = [];
+    const etapasList = (etapas as any) || [];
+
+    if (etapasList.length > 0) {
+      const etapaIds = etapasList.map((e: any) => e.id);
+      const etapaMap = new Map(etapasList.map((e: any) => [e.id, e]));
+
+      const { data: protData, error: protError } = await supabase
+        .from('deadlines')
+        .select(deadlineSelect + ', protocolo_etapa_id')
+        .in('protocolo_etapa_id', etapaIds)
+        .order('date', { ascending: true });
+
+      if (protError) {
+        console.error('[PrazosCasoTab] Protocol deadlines error:', protError);
+      }
+
+      protocolPrazos = ((protData as any) || []).map((p: any) => {
+        const etapa = etapaMap.get(p.protocolo_etapa_id) as any;
+        return {
+          ...p,
+          origem: 'protocolo' as const,
+          origemNome: etapa ? `${etapa.protocolo?.nome || 'Protocolo'} › ${etapa.nome}` : 'Etapa',
+        };
+      });
+    }
+
+    // Merge + deduplica por id
+    const allMap = new Map<string, PrazoCaso>();
+    directPrazos.forEach(p => allMap.set(p.id, p));
+    protocolPrazos.forEach(p => {
+      if (!allMap.has(p.id)) allMap.set(p.id, p);
+    });
+
+    const merged = Array.from(allMap.values()).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    setPrazos(merged);
     setLoading(false);
   };
 
