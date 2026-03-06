@@ -146,16 +146,14 @@ serve(async (req) => {
       }
     }
 
-    // Montar payload para API Judit
+    // Montar payload para API Judit com response_type "entity" para dados cadastrais
     const payload: any = {
       search: {
         search_type,
         search_key: formattedSearchKey,
+        response_type: 'entity',
       }
     };
-
-    // Nota: a API Judit rejeita `search.response_type` neste endpoint.
-    // Portanto, não enviamos `response_type` em nenhum tipo de busca.
 
     // Adicionar opções extras (padrão da API funcional usa underscore)
     if (on_demand) {
