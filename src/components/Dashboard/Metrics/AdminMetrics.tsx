@@ -205,7 +205,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        <PrazosDistributionChart tenantId={tenantId} />
       </div>
 
       {/* Painel de Tarefas e Prazos do Usuário */}
