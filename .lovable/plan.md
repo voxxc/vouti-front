@@ -1,35 +1,36 @@
 
 
-## Plano: Polling Reativo + Filtro de Grupos no Webhook
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema
-1. O usuário quer que o polling de conversas seja **reativo** (disparado quando chega mensagem), não um intervalo fixo de 15-20s
-2. O webhook não filtra mensagens de grupo — elas poluem a caixa de entrada
-3. Não há deduplicação por `message_id` no webhook
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Mudanças
+### Implementação
 
-#### A. `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
-O Realtime subscription (linha 136-155) já detecta INSERTs. Basta garantir que o `loadConversations(false)` seja chamado silenciosamente quando chegar uma mensagem pessoal. **Remover qualquer polling por intervalo fixo**, se existir. O handler atual na linha 146-148 já faz isso — apenas precisa:
-- Filtrar mensagens de grupo no handler Realtime (ignorar `from_number` contendo `@g.us` ou com mais de 15 dígitos)
-- Normalizar `from_number` no handler de mensagens da conversa selecionada (já feito na linha 177)
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-#### B. `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`
-- **Remover os dois `setInterval` de polling** (linhas ~190-197 e ~200-208) — são intervalos fixos de 2s
-- Manter apenas o Realtime subscription que já existe, que já chama `loadConversations(false)` ao receber INSERT
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-#### C. `supabase/functions/whatsapp-webhook/index.ts`
-No início de `handleIncomingMessage` (linha 265), adicionar:
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-1. **Filtrar grupos**: checar `data.isGroup === true` ou `data.isNewsletter === true` → return early
-2. **Filtrar por `@g.us`**: se `rawPhone` contiver `@g.us`, ignorar
-3. **Deduplicação por `message_id`**: antes de inserir, checar se `messageId` já existe na tabela → se sim, ignorar
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-### Arquivos
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Filtrar grupos + deduplicação |
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Filtrar grupos no Realtime handler |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx` | Remover polling por intervalo fixo (2s) |
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

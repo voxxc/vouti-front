@@ -263,7 +263,33 @@ function detectMediaInfo(data: any): { messageType: string; mediaUrl: string | n
 }
 
 async function handleIncomingMessage(data: any) {
+  // === FILTRAR MENSAGENS DE GRUPO E NEWSLETTER ===
+  if (data.isGroup === true || data.isNewsletter === true) {
+    console.log('Ignoring group/newsletter message');
+    return;
+  }
+  
   const { instanceId, phone: rawPhone, messageId, text, chatName, momment, fromMe } = data;
+
+  // Filtrar por identificador de grupo (@g.us)
+  if (rawPhone && rawPhone.includes('@g.us')) {
+    console.log('Ignoring group message (@g.us)');
+    return;
+  }
+  
+  // === DEDUPLICAÇÃO POR message_id ===
+  if (messageId) {
+    const { data: existing } = await supabase
+      .from('whatsapp_messages')
+      .select('id')
+      .eq('message_id', messageId)
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      console.log('Duplicate message_id, skipping:', messageId);
+      return;
+    }
+  }
   
   let resolvedPhone = rawPhone;
   if (rawPhone && isLidNumber(rawPhone)) {
