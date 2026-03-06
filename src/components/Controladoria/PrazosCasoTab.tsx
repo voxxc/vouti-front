@@ -27,6 +27,9 @@ interface PrazoCaso {
     full_name: string;
     avatar_url: string | null;
   } | null;
+  criador: {
+    full_name: string;
+  } | null;
   projects: {
     name: string;
     client: string | null;
@@ -43,6 +46,7 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   const deadlineSelect = `
     id, title, description, date, completed, concluido_em,
     advogado:profiles!deadlines_advogado_responsavel_id_fkey(user_id, full_name, avatar_url),
+    criador:profiles!deadlines_user_id_fkey(full_name),
     projects(name, client)
   `;
 
@@ -217,6 +221,11 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
                 </Avatar>
                 <span className="text-xs text-muted-foreground">{prazo.advogado.full_name}</span>
               </div>
+            )}
+            {prazo.criador && (
+              <p className="text-[11px] text-muted-foreground/70 mt-1 ml-6">
+                Criado por {prazo.criador.full_name}
+              </p>
             )}
           </div>
           <Switch
