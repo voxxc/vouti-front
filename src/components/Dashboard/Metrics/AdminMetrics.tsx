@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FolderKanban, UserCheck, TrendingUp, Eye, ShieldAlert, FileText } from "lucide-react";
+import { Users, FolderKanban, Eye, ShieldAlert, FileText } from "lucide-react";
 import { getFullGreeting } from "@/utils/greetingHelper";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
@@ -11,6 +11,7 @@ import { TasksMetrics } from "../TasksMetrics";
 import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
+import PrazosDistributionChart from "../PrazosDistributionChart";
 import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
@@ -138,7 +139,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* 1. Total de Projetos */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -170,7 +171,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
             <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            {/* Mini-barras visuais */}
             <div className="flex items-end gap-1.5 h-10 mb-3">
               <div 
                 className="bg-blue-500 rounded-t w-4 transition-all duration-500" 
@@ -193,8 +193,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
                 title={`Concluídos: ${metrics?.protocolosConcluidos || 0}`}
               />
             </div>
-            
-            {/* Legenda compacta */}
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-blue-500" />
@@ -215,31 +213,9 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
             </div>
           </CardContent>
         </Card>
-
-        {/* 4. Leads no CRM */}
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Leads no CRM</CardTitle>
-            <UserCheck className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalLeads || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Em captação</p>
-          </CardContent>
-        </Card>
-
-        {/* 5. Taxa de Conversão */}
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarPorcentagem(metrics?.conversionRate || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Leads convertidos</p>
-          </CardContent>
-        </Card>
       </div>
+
+      <PrazosDistributionChart tenantId={tenantId} />
 
       {/* Painel de Tarefas e Prazos do Usuário */}
       <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={() => setAgendaDrawerOpen(true)} />

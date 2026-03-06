@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderKanban, Calendar, CheckCircle2, Clock } from "lucide-react";
+import { FolderKanban, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getFullGreeting } from "@/utils/greetingHelper";
+import { useTenantId } from "@/hooks/useTenantId";
+import PrazosDistributionChart from "../PrazosDistributionChart";
 
 interface AdvogadoMetricsProps {
   userId: string;
