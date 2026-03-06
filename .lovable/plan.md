@@ -1,36 +1,25 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Corrigir z-index do dropdown de Busca Rápida
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### Problema
 
-### Implementação
+O dropdown de resultados do `CRMQuickSearch` usa `z-50`, que é o mesmo z-index do `SheetContent` (drawer do projeto). Como o drawer é renderizado depois no DOM, ele fica por cima do dropdown.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### Correção
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+**`src/components/WhatsApp/components/CRMQuickSearch.tsx`**
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Aumentar o z-index do dropdown de resultados de `z-50` para `z-[100]`, garantindo que fique acima de qualquer Sheet/drawer aberto.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Linha 131:
+```typescript
+// De:
+<div className="absolute top-full left-0 mt-1 w-64 z-50 bg-popover ...">
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+// Para:
+<div className="absolute top-full left-0 mt-1 w-64 z-[100] bg-popover ...">
+```
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Apenas 1 linha alterada em 1 arquivo.
 
