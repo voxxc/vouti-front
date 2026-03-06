@@ -152,6 +152,18 @@ export const EditarPrazoDialog = ({
           .insert(tags);
       }
 
+      // 2b. Notificar novos usuários tagueados
+      const newlyTagged = taggedUsers.filter(id => !originalTaggedUsers.includes(id));
+      if (newlyTagged.length > 0) {
+        await notifyDeadlineTagged(
+          deadline.id,
+          title.trim(),
+          newlyTagged,
+          user.id,
+          tenantId
+        );
+      }
+
       // 3. Registrar comentário de alteração (se houve mudanças genéricas)
       if (changes.length > 0) {
         await supabase
