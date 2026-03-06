@@ -1,36 +1,70 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Diagnóstico: Drawer ainda reseta ao trocar de aba
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### Causa raiz
 
-### Implementação
+O problema tem **duas camadas** que ainda não foram resolvidas:
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+1. **Tab Discarding do navegador**: Chrome/Edge descartam abas inativas para economizar memória. Quando o usuário volta, a página faz um **reload completo** — todo o estado React é perdido, incluindo `activeDrawer`. Como é `useState(null)`, o drawer volta fechado.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+2. **Re-renders silenciosos**: Mesmo sem discard, o `loadUsers` sempre chama `setUsers(mappedUsers)` com um **novo array reference** (mesmo dados iguais). Isso causa re-render do DashboardLayout e de todos os drawers filhos, que recebem novas referências de `onOpenChange` (arrow functions inline), potencialmente causando re-animação do Sheet.
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### Correções
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+#### 1. `DashboardLayout.tsx` — Persistir `activeDrawer` em `sessionStorage`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+Substituir `useState<ActiveDrawer>(null)` por um estado que lê/escreve em `sessionStorage`:
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+```typescript
+const [activeDrawer, setActiveDrawerState] = useState<ActiveDrawer>(() => {
+  const saved = sessionStorage.getItem('vouti-active-drawer');
+  return saved ? (saved as ActiveDrawer) : null;
+});
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+const setActiveDrawer = (drawer: ActiveDrawer) => {
+  setActiveDrawerState(drawer);
+  if (drawer) {
+    sessionStorage.setItem('vouti-active-drawer', drawer);
+  } else {
+    sessionStorage.removeItem('vouti-active-drawer');
+  }
+};
+```
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Isso garante que mesmo com reload completo (tab discard), o drawer reabre automaticamente.
+
+#### 2. `DashboardLayout.tsx` — Evitar `setUsers` desnecessário
+
+No `loadUsers`, comparar dados antes de setar:
+
+```typescript
+if (isMounted) {
+  setUsers(prev => {
+    if (JSON.stringify(prev.map(u => u.id)) === JSON.stringify(mappedUsers.map(u => u.id))) {
+      return prev; // Mesma referência = zero re-render
+    }
+    return mappedUsers;
+  });
+  setUsersLoading(false);
+}
+```
+
+#### 3. `DashboardLayout.tsx` — Memoizar `onOpenChange` dos drawers
+
+Usar `useCallback` para as funções `onOpenChange` dos drawers em vez de arrow functions inline:
+
+```typescript
+const handleDrawerClose = useCallback((open: boolean) => {
+  if (!open) setActiveDrawer(null);
+}, []);
+```
+
+E passar `handleDrawerClose` para todos os drawers em vez de `(open) => !open && setActiveDrawer(null)`.
+
+### Arquivos
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/Dashboard/DashboardLayout.tsx` | sessionStorage + comparação de users + memoização |
 
