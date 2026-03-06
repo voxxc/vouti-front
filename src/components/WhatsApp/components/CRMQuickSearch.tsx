@@ -128,7 +128,7 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
       </div>
       
       {open && filteredProjects.length > 0 && (
-        <div className="absolute top-full left-0 mt-1 w-64 z-50 bg-popover border border-border rounded-md shadow-lg">
+        <div className="absolute top-full left-0 mt-1 w-64 z-[60] bg-popover border border-border rounded-md shadow-lg">
           <Command>
             <CommandList>
               <CommandGroup>
