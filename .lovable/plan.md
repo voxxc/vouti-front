@@ -1,25 +1,36 @@
 
 
-## Diagnóstico: Busca Geral retornando apenas processos
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema identificado
-A edge function `judit-buscar-dados-cadastrais` **não envia** o parâmetro `response_type` na requisição à Judit. De acordo com a documentação da API:
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-- **Sem `response_type`** → padrão é `lawsuit` (retorna processos judiciais)
-- **Com `response_type: "entity"`** → retorna dados cadastrais (nome, nome da mãe, telefone, endereços, contatos)
+### Implementação
 
-O código tem um comentário dizendo que "a API Judit rejeita response_type neste endpoint", mas a documentação de consumo confirma que `entity` é um valor válido para dados cadastrais.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### Solução
-Adicionar `response_type: "entity"` ao payload enviado para a API Judit na edge function `judit-buscar-dados-cadastrais`.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Alterações
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`supabase/functions/judit-buscar-dados-cadastrais/index.ts`**
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-1. No payload principal (linha ~149-154): adicionar `response_type: "entity"` ao objeto `search`
-2. Na função `fetchEntityDetails` (linha ~32-38): adicionar `response_type: "entity"` ao payload de enriquecimento
-3. Remover o comentário que diz que a API rejeita `response_type`
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-Isso fará a API retornar os dados cadastrais completos (nome da mãe, telefone, endereço, etc.) em vez de apenas listar processos.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
