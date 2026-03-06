@@ -143,8 +143,11 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           table: 'whatsapp_messages',
           filter: `tenant_id=eq.${tenantId}`
         },
-        () => {
-          loadConversations();
+        (payload) => {
+          const newMsg = payload.new as any;
+          // Ignorar mensagens de grupo — só polling reativo para mensagens pessoais
+          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
+          loadConversations(false);
           loadTickets();
         }
       )

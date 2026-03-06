@@ -57,8 +57,9 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
           table: 'whatsapp_messages'
         },
         (payload) => {
-          // Verificar se é mensagem sem tenant_id (Super Admin)
           const newMsg = payload.new as any;
+          // Ignorar mensagens de grupo
+          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
           if (newMsg.tenant_id === null) {
             loadConversations(false);
           }
