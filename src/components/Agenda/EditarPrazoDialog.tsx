@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from './UserTagSelector';
+import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 
 interface Deadline {
   id: string;
