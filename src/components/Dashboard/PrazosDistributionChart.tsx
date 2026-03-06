@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,8 @@ const COLORS = {
 const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => {
   const [period, setPeriod] = useState("30");
   const [selectedUser, setSelectedUser] = useState("all");
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
 
   const { data: users } = useQuery({
     queryKey: ["tenant-users-for-chart"],
@@ -82,44 +84,73 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
   });
 
   const total = chartData?.reduce((sum, d) => sum + d.value, 0) || 0;
+  const periodLabel = PERIOD_OPTIONS.find((o) => o.value === period)?.label || "30 dias";
+  const selectedUserObj = users?.find((u: any) => u.user_id === selectedUser);
+  const userLabel = selectedUser === "all" ? "Todos" : (selectedUserObj?.full_name || selectedUserObj?.email || "Usuário");
 
   return (
     <Card className="bg-card hover:shadow-elegant transition-shadow">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 flex-wrap">
           <PieChartIcon className="h-4 w-4 text-primary" />
           <CardTitle className="text-sm font-medium">Prazos</CardTitle>
+          <span className="text-muted-foreground text-[10px]">·</span>
+          <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
+            <PopoverTrigger asChild>
+              <button className="text-[10px] text-primary hover:underline cursor-pointer bg-transparent border-none p-0 font-medium">
+                {periodLabel}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-1" align="start">
+              <div className="flex flex-col">
+                {PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`text-xs px-3 py-1.5 text-left rounded hover:bg-accent transition-colors ${
+                      period === opt.value ? "text-primary font-semibold" : "text-foreground"
+                    }`}
+                    onClick={() => { setPeriod(opt.value); setPeriodOpen(false); }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <span className="text-muted-foreground text-[10px]">·</span>
+          <Popover open={userOpen} onOpenChange={setUserOpen}>
+            <PopoverTrigger asChild>
+              <button className="text-[10px] text-primary hover:underline cursor-pointer bg-transparent border-none p-0 font-medium max-w-[60px] truncate">
+                {userLabel}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-1 max-h-48 overflow-y-auto" align="start">
+              <div className="flex flex-col">
+                <button
+                  className={`text-xs px-3 py-1.5 text-left rounded hover:bg-accent transition-colors ${
+                    selectedUser === "all" ? "text-primary font-semibold" : "text-foreground"
+                  }`}
+                  onClick={() => { setSelectedUser("all"); setUserOpen(false); }}
+                >
+                  Todos
+                </button>
+                {users?.map((u: any) => (
+                  <button
+                    key={u.user_id}
+                    className={`text-xs px-3 py-1.5 text-left rounded hover:bg-accent transition-colors truncate ${
+                      selectedUser === u.user_id ? "text-primary font-semibold" : "text-foreground"
+                    }`}
+                    onClick={() => { setSelectedUser(u.user_id); setUserOpen(false); }}
+                  >
+                    {u.full_name || u.email}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="flex gap-1.5">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="h-7 text-[10px] px-2 flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PERIOD_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedUser} onValueChange={setSelectedUser}>
-            <SelectTrigger className="h-7 text-[10px] px-2 flex-1">
-              <SelectValue placeholder="Usuário" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {users?.map((u: any) => (
-                <SelectItem key={u.user_id} value={u.user_id}>
-                  {u.full_name || u.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {isLoading ? (
           <Skeleton className="h-[120px] w-full" />
         ) : total === 0 ? (
@@ -151,6 +182,13 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "6px",
                       fontSize: "11px",
+                      color: "hsl(var(--card-foreground))",
+                    }}
+                    itemStyle={{
+                      color: "hsl(var(--card-foreground))",
+                    }}
+                    labelStyle={{
+                      color: "hsl(var(--card-foreground))",
                     }}
                   />
                 </PieChart>
