@@ -132,7 +132,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Total de Projetos */}
         <Card className="bg-card hover:shadow-elegant transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -207,8 +207,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
           </CardContent>
         </Card>
       </div>
-
-      <PrazosDistributionChart tenantId={tenantId} />
 
       {/* Painel de Tarefas e Prazos do Usuário */}
       <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={() => setAgendaDrawerOpen(true)} />
