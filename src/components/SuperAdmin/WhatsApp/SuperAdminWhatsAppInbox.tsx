@@ -230,29 +230,7 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
     }
   }, []);
 
-  // Polling automático para atualizar conversas a cada 2 segundos
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      loadConversations(false);
-    }, 2000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [loadConversations]);
-
-  // Polling automático para atualizar mensagens da conversa ativa a cada 2 segundos
-  useEffect(() => {
-    if (!selectedConversation) return;
-
-    const intervalId = setInterval(() => {
-      loadMessages(selectedConversation.contactNumber);
-    }, 2000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [selectedConversation, loadMessages]);
+  // Polling removido — Realtime (postgres_changes) já atualiza reativamente ao receber mensagens
 
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {

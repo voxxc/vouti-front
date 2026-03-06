@@ -174,6 +174,9 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         (payload) => {
           const newMsg = payload.new as any;
           
+          // Ignorar mensagens de grupo
+          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
+          
           if (normalizePhone(newMsg.from_number) === normalizePhone(selectedConversation.contactNumber)) {
             const rawData = newMsg.raw_data as any;
             const formattedMsg: WhatsAppMessage = {
