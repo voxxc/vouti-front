@@ -1,68 +1,36 @@
 
 
-## Diagnóstico: O problema ainda persiste
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Causa raiz
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-O filtro atual no `AuthContext.tsx` bloqueia `TOKEN_REFRESHED` e `SIGNED_IN` duplicados, mas **outros eventos passam**. O Supabase dispara eventos adicionais ao reconectar a aba (ex: `USER_UPDATED`, `MFA_CHALLENGE_VERIFIED`, ou até re-emissão genérica). Qualquer evento não filtrado executa:
+### Implementação
 
-```typescript
-setSession(session);        // nova referência de objeto
-setUser(session?.user);     // nova referência de objeto
-```
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-Mesmo com dados idênticos, React trata como mudança de estado → re-render cascata → drawer "refresha".
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-Além disso, `getSession()` (linha 85) tem um race condition: se o `SIGNED_IN` duplicado for ignorado (nosso filtro), `initialSessionHandledRef` nunca fica `true` para esse caso, e `getSession()` pode rodar depois e setar estado novamente.
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### Correção definitiva
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-#### `src/contexts/AuthContext.tsx`
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-Mudar a lógica para: **se já temos um user com o mesmo ID, nunca atualizar `setSession`/`setUser`/`setLoading`**, independente do tipo de evento. Apenas processar se o user ID mudou ou se é logout.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-```typescript
-(event, session) => {
-  // Ignorar token refresh
-  if (event === 'TOKEN_REFRESHED') return;
-  
-  const currentUserId = lastFetchedUserIdRef.current;
-  const incomingUserId = session?.user?.id ?? null;
-  
-  // Se o user não mudou (mesmo ID ou ambos null), ignorar completamente
-  if (incomingUserId && incomingUserId === currentUserId) {
-    console.log('[AuthContext] Ignoring event for same user:', event);
-    return;
-  }
-  
-  // Daqui para baixo: login novo, logout, ou troca de user
-  console.log('[AuthContext] Processing auth event:', event);
-  setSession(session);
-  setUser(session?.user ?? null);
-  setLoading(false);
-  // ... rest of logic
-}
-```
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-E no `getSession()`:
-
-```typescript
-supabase.auth.getSession().then(({ data: { session } }) => {
-  // Só processar se ainda não temos user carregado
-  if (!initialSessionHandledRef.current && !lastFetchedUserIdRef.current) {
-    setSession(session);
-    setUser(session?.user ?? null);
-    setLoading(false);
-    if (session?.user) {
-      fetchUserRoleAndTenant(session.user.id);
-    }
-  }
-});
-```
-
-### Resumo
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/contexts/AuthContext.tsx` | Ignorar TODOS os eventos auth se user ID não mudou, não apenas SIGNED_IN |
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

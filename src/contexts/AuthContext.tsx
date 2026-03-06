@@ -55,14 +55,16 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
           return;
         }
 
-        // Skip duplicate SIGNED_IN for same user (tab focus reconnection)
-        if (event === 'SIGNED_IN' && session?.user?.id && 
-            session.user.id === lastFetchedUserIdRef.current) {
-          console.log('[AuthContext] Skipping duplicate SIGNED_IN for same user');
+        const currentUserId = lastFetchedUserIdRef.current;
+        const incomingUserId = session?.user?.id ?? null;
+
+        // If user hasn't changed, skip ALL state updates to prevent re-render cascade
+        if (incomingUserId && incomingUserId === currentUserId) {
+          console.log('[AuthContext] Ignoring event for same user:', event);
           return;
         }
 
-        console.log('[AuthContext] onAuthStateChange event:', event);
+        console.log('[AuthContext] Processing auth event:', event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -83,7 +85,8 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
 
     // THEN check for existing session (only if listener hasn't handled it yet)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!initialSessionHandledRef.current) {
+      // Only process if no user has been loaded yet (prevents race condition)
+      if (!initialSessionHandledRef.current && !lastFetchedUserIdRef.current) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
