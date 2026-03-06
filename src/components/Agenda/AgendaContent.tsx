@@ -1253,8 +1253,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                           }
                         }}
                         onNavigateProject={(projectId: string) => {
-                          setIsDetailDialogOpen(false);
-                          navigate(`/project/${projectId}`);
+                          window.open(`/project/${projectId}`, '_blank');
                         }}
                       />
                     );
