@@ -58,6 +58,7 @@ export const EditarPrazoDialog = ({
   const [originalAdvogadoId, setOriginalAdvogadoId] = useState<string | null>(null);
   const [motivoTroca, setMotivoTroca] = useState('');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [originalTaggedUsers, setOriginalTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const responsavelChanged = advogadoId !== originalAdvogadoId;
