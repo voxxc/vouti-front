@@ -1,24 +1,62 @@
 
 
-## Revisão das Alterações — Tudo Implementado Corretamente
+## Diagnóstico: Drawer reseta ao trocar de aba
 
-### 1. "Ver Projeto" abrindo em nova aba ✓
-O `onNavigateProject` na linha 1255-1257 do `AgendaContent.tsx` usa `window.open(url, '_blank')`, abrindo corretamente em nova aba. O ícone `ExternalLink` já indica visualmente esse comportamento.
+### Causa raiz
 
-### 2. Drawer não resetar ao trocar de aba do navegador ✓
-O `AuthContext.tsx` (linhas 54-57) faz `return` imediato quando o evento é `TOKEN_REFRESHED`, impedindo que `setSession`/`setUser`/`setLoading` sejam chamados desnecessariamente. Isso evita re-renders em cascata que resetavam drawers abertos.
+O problema está em `DashboardLayout.tsx` (linhas 79-177). O canal Realtime `profiles-changes` é criado **dentro** de `loadUsers()`, e o callback do canal chama `loadUsers()` novamente. Isso causa:
 
-### 3. Webhook filtrando grupos e newsletters ✓
-O `whatsapp-webhook/index.ts` (linha 267) verifica `data.isGroup === true || data.isNewsletter === true` no início de `handleIncomingMessage`, ignorando mensagens de grupo antes de qualquer processamento.
+1. Cada chamada a `loadUsers()` cria um **novo** canal sem remover o anterior (o cleanup `return` na linha 171 nunca é executado pelo `useEffect`)
+2. Canais se acumulam infinitamente
+3. Quando o usuário volta à aba, o Supabase Realtime **reconecta** todos os canais acumulados, disparando callbacks
+4. `loadUsers()` chama `setUsersLoading(true)` (linha 86), causando re-render completo do layout
+5. Esse re-render cascata nos drawers filhos causa o "refresh" visível
 
-### 4. Polling reativo (não fixo) na Inbox ✓
-- `WhatsAppInbox.tsx` (linha 149): o handler Realtime filtra `@g.us` e números > 15 chars antes de chamar `loadConversations(false)` — polling reativo só para mensagens pessoais
-- `SuperAdminWhatsAppInbox.tsx`: sem `setInterval` restante — apenas Realtime subscription
+### Correções
 
-### 5. Deduplicação no webhook ✓
-O webhook checa `message_id` antes de inserir, evitando duplicatas por retries do Z-API.
+#### `src/components/Dashboard/DashboardLayout.tsx`
 
----
+1. **Extrair `loadUsers` para fora do useEffect** como função estável (via `useCallback`)
+2. **Mover a subscription do canal para fora de `loadUsers`**, diretamente no `useEffect`, com cleanup adequado
+3. **Não setar `usersLoading(true)` em recarregamentos** — só na primeira carga. Isso evita flash de loading nos re-renders silenciosos
 
-**Conclusão**: Todas as alterações foram aplicadas corretamente. Não há nada pendente para corrigir.
+```text
+ANTES (bugado):
+useEffect(() => {
+  const loadUsers = async () => {
+    setUsersLoading(true);        // ← causa re-render
+    // ... fetch ...
+    const channel = supabase      // ← canal DENTRO de loadUsers
+      .channel('profiles-changes')
+      .on(...)
+      .subscribe();               // ← nunca cleanup
+    return () => removeChannel(); // ← return ignorado
+  };
+  loadUsers();
+}, [tenantId]);
+
+DEPOIS (corrigido):
+useEffect(() => {
+  let isMounted = true;
+  const loadUsers = async (silent = false) => {
+    if (!silent) setUsersLoading(true);
+    // ... fetch ...
+    if (isMounted) { setUsers(...); setUsersLoading(false); }
+  };
+
+  loadUsers(false);               // carga inicial com loading
+
+  const channel = supabase        // canal FORA de loadUsers
+    .channel('profiles-changes')
+    .on('postgres_changes', ..., () => loadUsers(true))  // silent
+    .subscribe();
+
+  return () => {
+    isMounted = false;
+    supabase.removeChannel(channel);  // cleanup correto
+  };
+}, [tenantId]);
+```
+
+Resultado: ao trocar de aba, o canal reconecta mas não dispara re-render visível, e o drawer permanece intacto.
 
