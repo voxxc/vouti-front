@@ -50,9 +50,15 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // Skip TOKEN_REFRESHED if user hasn't changed — prevents unnecessary re-renders
+        // Skip TOKEN_REFRESHED — prevents unnecessary re-renders
         if (event === 'TOKEN_REFRESHED') {
-          // Only update session reference silently, no state changes that trigger re-renders
+          return;
+        }
+
+        // Skip duplicate SIGNED_IN for same user (tab focus reconnection)
+        if (event === 'SIGNED_IN' && session?.user?.id && 
+            session.user.id === lastFetchedUserIdRef.current) {
+          console.log('[AuthContext] Skipping duplicate SIGNED_IN for same user');
           return;
         }
 
