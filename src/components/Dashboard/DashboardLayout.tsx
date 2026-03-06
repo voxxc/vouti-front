@@ -77,13 +77,15 @@ const DashboardLayout = ({
   };
 
   useEffect(() => {
-    const loadUsers = async () => {
-      if (!tenantId) {
-        setUsersLoading(false);
-        return;
-      }
-      
-      setUsersLoading(true);
+    if (!tenantId) {
+      setUsersLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadUsers = async (silent = false) => {
+      if (!silent) setUsersLoading(true);
       
       // Carregar profiles e roles em paralelo
       const [profilesResult, rolesResult] = await Promise.all([
@@ -96,6 +98,8 @@ const DashboardLayout = ({
           .select('user_id, role, tenant_id')
           .eq('tenant_id', tenantId)
       ]);
+
+      if (!isMounted) return;
 
       if (profilesResult.error) {
         console.error('DashboardLayout - Error loading profiles:', profilesResult.error);
@@ -150,30 +154,29 @@ const DashboardLayout = ({
         };
       });
 
-      setUsers(mappedUsers);
-      setUsersLoading(false);
-
-      const channel = supabase
-        .channel('profiles-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'profiles'
-          },
-          () => {
-            loadUsers();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      if (isMounted) {
+        setUsers(mappedUsers);
+        setUsersLoading(false);
+      }
     };
-    
-    loadUsers();
+
+    // Carga inicial com loading visível
+    loadUsers(false);
+
+    // Canal Realtime FORA de loadUsers, com cleanup adequado
+    const channel = supabase
+      .channel('profiles-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => loadUsers(true) // silent: sem setUsersLoading(true)
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
   }, [tenantId]);
 
   // Determine if we're in a loading state
