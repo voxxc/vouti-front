@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
@@ -65,8 +65,24 @@ const DashboardLayout = ({
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   
-  // Estado central para o drawer ativo - NOVA ARQUITETURA
-  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+  // Estado central para o drawer ativo - persistido em sessionStorage
+  const [activeDrawer, setActiveDrawerState] = useState<ActiveDrawer>(() => {
+    try {
+      const saved = sessionStorage.getItem('vouti-active-drawer');
+      return saved ? (saved as ActiveDrawer) : null;
+    } catch { return null; }
+  });
+
+  const setActiveDrawer = useCallback((drawer: ActiveDrawer) => {
+    setActiveDrawerState(drawer);
+    try {
+      if (drawer) {
+        sessionStorage.setItem('vouti-active-drawer', drawer);
+      } else {
+        sessionStorage.removeItem('vouti-active-drawer');
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -155,7 +171,11 @@ const DashboardLayout = ({
       });
 
       if (isMounted) {
-        setUsers(mappedUsers);
+        setUsers(prev => {
+          const prevIds = prev.map(u => u.id).join(',');
+          const newIds = mappedUsers.map((u: any) => u.id).join(',');
+          return prevIds === newIds ? prev : mappedUsers;
+        });
         setUsersLoading(false);
       }
     };
@@ -223,9 +243,14 @@ const DashboardLayout = ({
   };
 
   // Handler para mudança de drawer do sidebar
-  const handleDrawerChange = (drawer: ActiveDrawer) => {
+  const handleDrawerChange = useCallback((drawer: ActiveDrawer) => {
     setActiveDrawer(drawer);
-  };
+  }, [setActiveDrawer]);
+
+  // Memoized handler para fechar drawers
+  const handleDrawerClose = useCallback((open: boolean) => {
+    if (!open) setActiveDrawer(null);
+  }, [setActiveDrawer]);
 
   return (
     <>
@@ -337,44 +362,44 @@ const DashboardLayout = ({
       {/* Drawers de seções - agora gerenciados aqui no layout */}
       <ProjectsDrawer 
         open={activeDrawer === 'projetos'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)}
+        onOpenChange={handleDrawerClose}
         onSelectProject={handleQuickProjectSelect}
       />
       <ControladoriaDrawer 
         open={activeDrawer === 'controladoria'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <CRMDrawer 
         open={activeDrawer === 'clientes'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <FinancialDrawer 
         open={activeDrawer === 'financeiro'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <ReunioesDrawer 
         open={activeDrawer === 'reunioes'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <AgendaDrawer 
         open={activeDrawer === 'agenda'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <DocumentosDrawer 
         open={activeDrawer === 'documentos'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <WhatsAppDrawer 
         open={activeDrawer === 'whatsapp'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <ExtrasDrawer 
         open={activeDrawer === 'extras'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
       <PublicacoesDrawer 
         open={activeDrawer === 'publicacoes'} 
-        onOpenChange={(open) => !open && setActiveDrawer(null)} 
+        onOpenChange={handleDrawerClose} 
       />
     </>
   );
