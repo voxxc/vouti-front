@@ -204,6 +204,14 @@ export const EditarPrazoDialog = ({
             comentario: comentarioTroca,
             tenant_id: tenantId
           });
+        // Notificar novo responsável
+        await notifyDeadlineAssigned(
+          deadline.id,
+          title.trim(),
+          advogadoId,
+          user.id,
+          tenantId
+        );
       }
 
       toast({
