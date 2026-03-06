@@ -1,36 +1,54 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Diagnóstico Definitivo: Drawer reseta ao trocar de aba
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### Causa raiz real
 
-### Implementação
+Os logs mostram claramente:
+```
+15:26:57 [AuthContext] onAuthStateChange event: SIGNED_IN
+15:27:51 [AuthContext] onAuthStateChange event: SIGNED_IN
+```
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+O Supabase dispara eventos `SIGNED_IN` duplicados quando a aba recupera foco (reconexão do GoTrue). Bloqueamos `TOKEN_REFRESHED`, mas **`SIGNED_IN` ainda passa** e executa:
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+```typescript
+setSession(session);      // ← nova referência de objeto
+setUser(session?.user);   // ← nova referência de objeto  
+setLoading(false);        // ← dispara re-render
+```
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Isso cascateia: `useAuth()` retorna novos objetos → `DashboardLayout` re-renderiza → todos os drawers filhos re-renderizam → Sheet re-anima (o "refresh" visível).
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### Correção
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+#### `src/contexts/AuthContext.tsx`
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+No handler de `onAuthStateChange`, para eventos `SIGNED_IN`, verificar se o usuário já está autenticado com o mesmo ID. Se sim, **ignorar** — não chamar `setSession`/`setUser`/`setLoading`:
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+```typescript
+(event, session) => {
+  if (event === 'TOKEN_REFRESHED') return;
+  
+  // Skip duplicate SIGNED_IN for same user (tab focus reconnection)
+  if (event === 'SIGNED_IN' && session?.user?.id && 
+      session.user.id === lastFetchedUserIdRef.current) {
+    console.log('[AuthContext] Skipping duplicate SIGNED_IN for same user');
+    return;
+  }
+  
+  // ... rest of existing logic
+}
+```
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Isso é seguro porque:
+- O login real já foi processado na primeira vez
+- A role e tenant já estão carregados (deduplication via `lastFetchedUserIdRef`)
+- A sessão do Supabase se atualiza internamente sem precisar do React state
+
+### Arquivos
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/contexts/AuthContext.tsx` | Ignorar `SIGNED_IN` duplicados para mesmo usuário |
 
