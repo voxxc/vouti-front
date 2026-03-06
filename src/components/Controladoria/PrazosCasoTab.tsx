@@ -31,6 +31,8 @@ interface PrazoCaso {
     name: string;
     client: string | null;
   } | null;
+  origem?: 'caso' | 'protocolo';
+  origemNome?: string;
 }
 
 export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
