@@ -33,7 +33,8 @@ async function fetchEntityDetails(
     search: {
       search_type: docType,
       search_key: formattedDoc,
-      on_demand: true
+      on_demand: true,
+      response_type: 'entity'
     }
   };
 
