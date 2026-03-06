@@ -1,36 +1,51 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Plano: Gráfico de Pizza de Prazos no Dashboard (Admin + Controller)
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### Resumo
+Substituir o card "Leads no CRM" (Admin) e os cards "Tarefas Ativas" + "Taxa de Conclusão" (Controller) por um novo componente de gráfico de pizza mostrando distribuição de prazos (total, concluídos, atrasados, pendentes), com filtros de período e usuário.
 
-### Implementação
+### Novo Componente: `PrazosDistributionChart.tsx`
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+Componente reutilizável que:
+- Busca `deadlines` do tenant com filtro de data e opcionalmente por usuário (via `user_id`, `advogado_responsavel_id` ou `deadline_tags`)
+- Classifica prazos em: **Concluídos** (completed=true), **Atrasados** (date < hoje e completed=false), **Pendentes** (date >= hoje e completed=false)
+- Renderiza `PieChart` do Recharts com as 3 categorias
+- Filtros:
+  - **Período**: Select com opções "7 dias", "15 dias", "1 mês", "2 meses"
+  - **Usuário**: Select com lista de usuários do tenant (via `get_users_with_roles`) + opção "Todos"
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### Alterações em `AdminMetrics.tsx`
+- Remover o card "Leads no CRM" (linhas 219-229) e "Taxa de Conversão" (linhas 231-241)
+- No lugar, inserir o `PrazosDistributionChart` ocupando as 2 colunas restantes (ou abaixo dos KPIs como card separado tipo `col-span-2`)
+- Remover query de `leads_captacao` e `conversionRate` do `queryFn`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### Alterações em `AdvogadoMetrics.tsx` (usado pelo Controller)
+- Remover os 2 cards: "Tarefas Ativas" (linhas 124-133) e "Taxa de Conclusão" (linhas 135-144)
+- Mudar grid de 4 para 2 colunas nos KPIs
+- Adicionar `PrazosDistributionChart` abaixo dos KPIs restantes
+- Remover queries de `tasks` do `queryFn`
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### Estrutura do componente
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+```text
+┌─────────────────────────────────────────────┐
+│ Distribuição de Prazos                      │
+│ [Período ▼]  [Usuário ▼]                   │
+│                                             │
+│         ┌─────────┐                         │
+│        /  Pie     \    ● Concluídos (verde) │
+│       |  Chart     |   ● Atrasados (verm.)  │
+│        \          /    ● Pendentes (azul)    │
+│         └─────────┘                         │
+└─────────────────────────────────────────────┘
+```
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### Arquivos
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+| Arquivo | Ação |
+|---------|------|
+| `src/components/Dashboard/PrazosDistributionChart.tsx` | Criar novo componente |
+| `src/components/Dashboard/Metrics/AdminMetrics.tsx` | Remover cards Leads/Conversão, adicionar gráfico |
+| `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` | Remover cards Tarefas/Conclusão, adicionar gráfico |
 
