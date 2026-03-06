@@ -34,9 +34,8 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const [projectsRes, leadsRes, processosCountRes, protocolosRes] = await Promise.all([
+      const [projectsRes, processosCountRes, protocolosRes] = await Promise.all([
         supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal'),
-        supabase.from('leads_captacao').select('id, status', { count: 'exact' }).eq('tenant_id', tenantId),
         supabase.rpc('get_dashboard_processos_count'),
         supabase.from('project_protocolos').select(`
           id, 
@@ -45,10 +44,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
           etapas:project_protocolo_etapas(id, status)
         `)
       ]);
-
-      const totalLeads = leadsRes.count || 0;
-      const convertedLeads = leadsRes.data?.filter(lead => lead.status === 'convertido').length || 0;
-      const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
       // Calcular métricas de protocolos
       const protocolos = (protocolosRes.data || []) as Array<{
@@ -77,11 +72,13 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
       return {
         totalProjects: projectsRes.count || 0,
-        totalLeads: totalLeads,
         totalProcessos: (processosCountRes.data as number | null) || 0,
-        conversionRate: parseFloat(conversionRate.toFixed(1)),
         totalProtocolos,
         protocolosPendentes,
+        protocolosEmAndamento,
+        protocolosAtrasados,
+        protocolosConcluidos
+      };
         protocolosEmAndamento,
         protocolosAtrasados,
         protocolosConcluidos
