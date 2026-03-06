@@ -198,6 +198,11 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
               <Badge variant="outline" className="text-xs px-1.5 py-0">
                 {status.label}
               </Badge>
+              {prazo.origem === 'protocolo' && prazo.origemNome && (
+                <Badge variant="secondary" className="text-xs px-1.5 py-0 max-w-[160px] truncate">
+                  {prazo.origemNome}
+                </Badge>
+              )}
             </div>
             {prazo.description && (
               <p className="text-xs text-muted-foreground mt-1 ml-6 line-clamp-2">{prazo.description}</p>
