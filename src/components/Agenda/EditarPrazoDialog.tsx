@@ -73,7 +73,9 @@ export const EditarPrazoDialog = ({
       setAdvogadoId(initialAdvogado);
       setOriginalAdvogadoId(initialAdvogado);
       setMotivoTroca('');
-      setTaggedUsers(deadline.taggedUsers?.map(u => u.userId) || []);
+      const initialTagged = deadline.taggedUsers?.map(u => u.userId) || [];
+      setTaggedUsers(initialTagged);
+      setOriginalTaggedUsers(initialTagged);
     }
   }, [deadline, open]);
 
