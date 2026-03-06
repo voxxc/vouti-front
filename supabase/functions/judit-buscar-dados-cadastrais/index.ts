@@ -33,8 +33,7 @@ async function fetchEntityDetails(
     search: {
       search_type: docType,
       search_key: formattedDoc,
-      on_demand: true,
-      response_type: 'entity'
+      on_demand: true
     }
   };
 
@@ -146,12 +145,11 @@ serve(async (req) => {
       }
     }
 
-    // Montar payload para API Judit com response_type "entity" para dados cadastrais
+    // Montar payload para API Judit (response_type não é aceito neste endpoint)
     const payload: any = {
       search: {
         search_type,
         search_key: formattedSearchKey,
-        response_type: 'entity',
       }
     };
 
