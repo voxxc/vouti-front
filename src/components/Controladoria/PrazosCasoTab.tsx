@@ -39,7 +39,7 @@ interface PrazoCaso {
   origemNome?: string;
 }
 
-export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
+export const PrazosCasoTab = ({ processoOabId, isActive }: PrazosCasoTabProps) => {
   const [prazos, setPrazos] = useState<PrazoCaso[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
