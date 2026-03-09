@@ -17,6 +17,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import DashboardSidebar, { ActiveDrawer } from "./DashboardSidebar";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 
 // Drawers
@@ -274,7 +275,7 @@ const DashboardLayout = ({
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Header - Sticky */}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-          <div className="flex items-center justify-between px-6 h-[49px]">
+          <div className="flex items-center justify-between px-3 md:px-6 h-[49px]">
             {/* Left side - TOTP e Quick search */}
             <div className="hidden md:flex items-center gap-2">
               <ProjectQuickSearch 
@@ -282,7 +283,7 @@ const DashboardLayout = ({
                 onSelectProject={handleQuickProjectSelect}
               />
             </div>
-            <div className="w-10 md:hidden" />
+            <div className="md:hidden" />
             
             {/* Right Side - Tools */}
             <div className="flex items-center gap-3 ml-auto">
@@ -336,7 +337,7 @@ const DashboardLayout = ({
         </div>
 
         {/* Main Content - Dashboard sempre renderizado */}
-        <main className="flex-1 container max-w-7xl mx-auto px-6 py-8 relative z-10">
+        <main className="flex-1 container max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-8 pb-20 md:pb-8 relative z-10">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -400,6 +401,13 @@ const DashboardLayout = ({
       <PublicacoesDrawer 
         open={activeDrawer === 'publicacoes'} 
         onOpenChange={handleDrawerClose} 
+      />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        activeDrawer={activeDrawer}
+        onDrawerChange={handleDrawerChange}
+        onDashboardClick={() => setActiveDrawer(null)}
       />
     </>
   );
