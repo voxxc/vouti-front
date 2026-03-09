@@ -1,57 +1,36 @@
 
-# Fix: Lista de Conversas não atualiza visualmente
 
-## Problema Identificado
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-O código de `WhatsAppAllConversations.tsx` está com dois bugs críticos:
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-1. **Contador de não-lidas sempre 0** — Linha 111 define `unreadCount: 0` hardcoded, ignorando completamente mensagens não lidas
-2. **Lista não ordenada** — Após construir o Map de conversas, não há `.sort()` por `lastMessageTime` — conversas novas não sobem para o topo
+### Implementação
 
-O `WhatsAppInbox.tsx` já funciona corretamente (tem unreadMap + sort), mas `AllConversations` está quebrado.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-## Solução
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Corrigir `WhatsAppAllConversations.tsx`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-Adicionar lógica idêntica ao `WhatsAppInbox.tsx`:
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-```tsx
-// ANTES (quebrado)
-conversationMap.set(normalizedNumber, {
-  ...
-  unreadCount: 0, // ← sempre 0
-});
-setConversations(Array.from(conversationMap.values())); // ← sem sort
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-// DEPOIS (corrigido)
-const unreadMap = new Map<string, number>();
-(messagesResult.data).forEach((msg) => {
-  if (msg.direction === 'received' && msg.is_read === false) {
-    unreadMap.set(normalizedNumber, (unreadMap.get(normalizedNumber) || 0) + 1);
-  }
-  if (!conversationMap.has(normalizedNumber)) {
-    conversationMap.set(normalizedNumber, {
-      ...
-      unreadCount: 0, // ← valor inicial
-    });
-  }
-});
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-// Aplicar contadores
-unreadMap.forEach((count, phone) => {
-  const conv = conversationMap.get(phone);
-  if (conv) conv.unreadCount = count;
-});
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-// Ordenar por mais recente
-const sorted = Array.from(conversationMap.values())
-  .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
-setConversations(sorted);
-```
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
-## Arquivos
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx` | Adicionar contagem de não-lidas + sort por timestamp |
