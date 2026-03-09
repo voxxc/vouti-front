@@ -1,36 +1,49 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Diagnóstico
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+Investiguei profundamente o fluxo. Os dados estão no banco (com `protocolo_etapa_id` e `processo_oab_id` corretos). O event listener `deadline-created` está registrado. Porém, identifico **dois problemas**:
 
-### Implementação
+1. **Tabs não-controlado**: O `<Tabs defaultValue="resumo">` no `ProjectProtocoloContent` é **uncontrolled** — não tem `onValueChange`. Quando o usuário clica na aba "Prazos", nenhum código executa — Radix apenas mostra o conteúdo. Se o fetch do listener falhou ou teve timing ruim, não há segunda chance.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+2. **Closure stale possível**: O `fetchPrazosVinculados` capturado no event listener pode estar stale se `protocolo?.etapas` mudou entre renders sem o effect re-registrar.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+## Solução
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Tornar as Tabs **controladas** e chamar `fetchPrazosVinculados` explicitamente ao mudar para a aba "prazos":
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### `ProjectProtocoloContent.tsx`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+1. Adicionar estado `const [activeTab, setActiveTab] = useState('resumo')`
+2. Converter `<Tabs defaultValue="resumo">` para `<Tabs value={activeTab} onValueChange={setActiveTab}>`
+3. No `onValueChange`, quando `val === 'prazos'`, chamar `fetchPrazosVinculados()`
+4. Envolver `fetchPrazosVinculados` em `useCallback` para evitar closures stale
+5. Manter o event listener `deadline-created` como segurança adicional
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+```typescript
+const fetchPrazosVinculados = useCallback(async () => {
+  if (!protocolo?.etapas?.length) return;
+  setLoadingPrazos(true);
+  const etapaIds = protocolo.etapas.map(e => e.id);
+  const { data, error } = await supabase
+    .from('deadlines')
+    .select(...)
+    .in('protocolo_etapa_id', etapaIds)
+    .order('created_at', { ascending: false });
+  if (!error) setPrazosVinculados(data || []);
+  setLoadingPrazos(false);
+}, [protocolo?.etapas]);
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+// Tabs controlado
+<Tabs value={activeTab} onValueChange={(val) => {
+  setActiveTab(val);
+  if (val === 'prazos') fetchPrazosVinculados();
+}}>
+```
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+| Arquivo | Mudança |
+|---------|---------|
+| `ProjectProtocoloContent.tsx` | Tabs controlado + fetch ao clicar em "Prazos" + useCallback no fetch |
+
+Uma alteração. Um arquivo. Agora clicar na aba "Prazos" **sempre** busca os dados frescos do banco.
 
