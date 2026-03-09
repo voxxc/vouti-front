@@ -367,15 +367,19 @@ async function handleIncomingMessage(data: any) {
 
       // ✅ Emitir sinal de sincronização para mensagem do Commander
       if (!commanderMsgError) {
-        await supabase
-          .from('whatsapp_sync_signals')
-          .insert({
-            tenant_id: effectiveTenantId,
-            signal_type: 'commander_message',
-            phone: phone,
-            agent_id: instance.agent_id
-          })
-          .catch(err => console.error('Failed to emit commander sync signal:', err));
+        try {
+          const { error: syncErr } = await supabase
+            .from('whatsapp_sync_signals')
+            .insert({
+              tenant_id: effectiveTenantId,
+              signal_type: 'commander_message',
+              phone: phone,
+              agent_id: instance.agent_id
+            });
+          if (syncErr) console.error('Commander sync signal error:', syncErr.message);
+        } catch (e) {
+          console.error('Commander sync signal exception:', e);
+        }
       }
 
       // 2. Invocar edge function whatsapp-commander (com audioUrl se for áudio)
@@ -466,15 +470,19 @@ async function handleIncomingMessage(data: any) {
       console.error('Error saving outgoing phone message');
     } else {
       // ✅ Emitir sinal de sincronização para mensagem outgoing
-      await supabase
-        .from('whatsapp_sync_signals')
-        .insert({
-          tenant_id: effectiveTenantId,
-          signal_type: 'message_sent',
-          phone: phone,
-          agent_id: effectiveAgentId
-        })
-        .catch(err => console.error('Failed to emit outgoing sync signal:', err));
+      try {
+        const { error: syncErr } = await supabase
+          .from('whatsapp_sync_signals')
+          .insert({
+            tenant_id: effectiveTenantId,
+            signal_type: 'message_sent',
+            phone: phone,
+            agent_id: effectiveAgentId
+          });
+        if (syncErr) console.error('Outgoing sync signal error:', syncErr.message);
+      } catch (e) {
+        console.error('Outgoing sync signal exception:', e);
+      }
     }
     return;
   }
@@ -501,16 +509,20 @@ async function handleIncomingMessage(data: any) {
     return;
   }
 
-  // ✅ NOVO: Emitir sinal de sincronização para ativar polling no frontend
-  await supabase
-    .from('whatsapp_sync_signals')
-    .insert({
-      tenant_id: effectiveTenantId,
-      signal_type: 'message_received',
-      phone: phone,
-      agent_id: effectiveAgentId
-    })
-    .catch(err => console.error('Failed to emit sync signal:', err));
+  // ✅ Emitir sinal de sincronização para Realtime no frontend
+  try {
+    const { error: syncErr } = await supabase
+      .from('whatsapp_sync_signals')
+      .insert({
+        tenant_id: effectiveTenantId,
+        signal_type: 'message_received',
+        phone: phone,
+        agent_id: effectiveAgentId
+      });
+    if (syncErr) console.error('Sync signal error:', syncErr.message);
+  } catch (e) {
+    console.error('Sync signal exception:', e);
+  }
 
   const aiHandled = await handleAIResponse(
     phone, 
