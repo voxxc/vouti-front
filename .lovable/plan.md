@@ -1,33 +1,36 @@
 
 
-## Problema Real
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-Todas as correções anteriores foram feitas no componente **errado** (`PrazosCasoTab` / `ProcessoOABDetalhes`). O que o usuário vê na screenshot ("Nenhum prazo vinculado às etapas") vem de **`ProjectProtocoloContent.tsx`** -- a aba Prazos dentro do protocolo no **Project drawer**.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Este componente:
-1. Busca prazos em `fetchPrazosVinculados()` apenas no mount (via `useEffect` com `protocolo?.etapas`)
-2. **Nunca escuta** o evento `deadline-created`
-3. Portanto, ao criar um prazo e fechar o dialog, a lista permanece vazia até o drawer ser reaberto
+### Implementação
 
-## Solução
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-Adicionar um listener para o evento `deadline-created` em `ProjectProtocoloContent.tsx` que re-executa `fetchPrazosVinculados()`.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Alteração em `src/components/Project/ProjectProtocoloContent.tsx`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-Adicionar um `useEffect` logo após o useEffect existente (linha ~169):
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-```typescript
-useEffect(() => {
-  const handler = () => {
-    fetchPrazosVinculados();
-  };
-  window.addEventListener('deadline-created', handler);
-  return () => window.removeEventListener('deadline-created', handler);
-}, [protocolo?.etapas]);
-```
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-Isso faz com que, ao criar um prazo no `CreateDeadlineDialog` (que já dispara `window.dispatchEvent(new CustomEvent('deadline-created'))`), a lista seja re-buscada automaticamente.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-Uma alteração. Um arquivo. Sem complexidade adicional.
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
