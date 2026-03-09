@@ -283,13 +283,17 @@ export const ProcessoOABDetalhes = ({
     }
   }, [processo]);
 
-  // Resetar modo edição ao fechar drawer
+  // Resetar modo edição ao fechar drawer + setar contexto do processo
   useEffect(() => {
+    if (open && processo) {
+      (window as any).__currentProcessoOabId = processo.id;
+    }
     if (!open) {
       setEditandoResumo(false);
       setEditandoPartes(false);
+      delete (window as any).__currentProcessoOabId;
     }
-  }, [open]);
+  }, [open, processo]);
 
   // Buscar user id atual
   useEffect(() => {
