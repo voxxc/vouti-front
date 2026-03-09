@@ -387,39 +387,11 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         });
       }
 
-      // Collect workspace_ids from protocolos and processos for batch fetch
+      // Collect workspace_ids for batch fetch (direct from deadline.workspace_id)
       const workspaceIds = new Set<string>();
       (data || []).forEach((d: any) => {
-        const wsFromProtocolo = d.protocolo_etapa?.protocolo?.workspace_id;
-        if (wsFromProtocolo) workspaceIds.add(wsFromProtocolo);
+        if (d.workspace_id) workspaceIds.add(d.workspace_id);
       });
-      // Also from protocolos vinculados
-      Object.values(protocolosMap).forEach((p: any) => {
-        if (p.workspace_id) workspaceIds.add(p.workspace_id);
-      });
-
-      // For deadlines with processo_oab_id but no protocolo_etapa_id, check project_processos
-      const processoOabIdsNeedingWorkspace = new Set<string>();
-      (data || []).forEach((d: any) => {
-        if (d.processo_oab_id && !d.protocolo_etapa_id && !protocolosMap[d.processo_oab_id]) {
-          processoOabIdsNeedingWorkspace.add(d.processo_oab_id);
-        }
-      });
-
-      let processoWorkspaceMap: Record<string, string> = {};
-      if (processoOabIdsNeedingWorkspace.size > 0) {
-        const { data: projProcessos } = await supabase
-          .from('project_processos')
-          .select('processo_oab_id, workspace_id')
-          .in('processo_oab_id', Array.from(processoOabIdsNeedingWorkspace))
-          .not('workspace_id', 'is', null);
-        (projProcessos || []).forEach((pp: any) => {
-          if (pp.workspace_id) {
-            processoWorkspaceMap[pp.processo_oab_id] = pp.workspace_id;
-            workspaceIds.add(pp.workspace_id);
-          }
-        });
-      }
 
       // Batch fetch workspace names
       let workspaceNameMap: Record<string, string> = {};
