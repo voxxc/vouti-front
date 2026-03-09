@@ -97,9 +97,10 @@
                name: tag.tagged_user?.full_name || 'Usuário',
                avatar: tag.tagged_user?.avatar_url
              })),
-           createdAt: safeParseTimestamp(deadline.created_at),
-           updatedAt: safeParseTimestamp(deadline.updated_at)
-         }));
+            createdAt: safeParseTimestamp(deadline.created_at),
+            updatedAt: safeParseTimestamp(deadline.updated_at),
+            workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined
+          }));
  
          setDeadlines(mappedDeadlines);
        } catch (error) {
