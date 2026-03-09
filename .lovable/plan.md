@@ -1,36 +1,56 @@
 
+# Fix: Sincronização WhatsApp em Tempo Real
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Raiz dos Problemas
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+### 1. Hook Recriado em Loop (console logs confirmam)
+O `useWhatsAppSync` tem callbacks no array de dependências (`onConversationUpdate`, `onMessageUpdate`, `onCommanderActivity`). Essas são funções inline em `WhatsAppInbox.tsx` — recriadas a cada render. Resultado: a subscription Realtime é destruída e recriada continuamente, nunca ficando estável o suficiente para receber sinais.
 
-### Implementação
+### 2. Realtime bloqueado sem RLS
+A tabela `whatsapp_sync_signals` não tem policy de `SELECT` para usuários autenticados. O Supabase Realtime exige `SELECT` permission para enviar `postgres_changes` ao frontend. Sem a policy, nenhum evento chega.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### 3. Canal com nome fixo = conflito
+Múltiplos componentes (`WhatsAppInbox`, `WhatsAppAllConversations`, `WhatsAppKanban`, `WhatsAppLabelConversations`) usam o mesmo canal `'whatsapp-sync-signals'`. O Supabase reutiliza/conflita canais com o mesmo nome.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+## Solução
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### Fix 1 — RLS Policy (migração SQL)
+```sql
+CREATE POLICY "Authenticated users can read sync signals for their tenant"
+ON public.whatsapp_sync_signals
+FOR SELECT
+TO authenticated
+USING (
+  tenant_id = get_user_tenant_id()
+);
+```
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### Fix 2 — Hook: guardar callbacks em refs
+Substituir o array de dependências para usar `useRef` nas callbacks, evitando recriação da subscription:
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+```ts
+// Em vez de passar callbacks no useEffect deps:
+const onConversationUpdateRef = useRef(onConversationUpdate);
+const onMessageUpdateRef = useRef(onMessageUpdate);
+// etc.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+useEffect(() => {
+  onConversationUpdateRef.current = onConversationUpdate;
+  onMessageUpdateRef.current = onMessageUpdate;
+  // etc.
+}); // sem deps — sempre sincroniza
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+useEffect(() => {
+  // subscription estável — sem callbacks no array de deps
+}, [tenantId, enabled]); // deps mínimas
+```
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Fix 3 — Canal único por tenant
+Usar nome de canal único com tenant: `'whatsapp-sync-' + tenantId` para evitar conflitos entre múltiplas instâncias do hook.
 
+## Arquivos
+
+| Arquivo | Mudança |
+|---------|---------|
+| Migration SQL | Adicionar RLS `SELECT` policy na tabela `whatsapp_sync_signals` |
+| `src/hooks/useWhatsAppSync.ts` | Usar refs para callbacks, canal único por tenant |
