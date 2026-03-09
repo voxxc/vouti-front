@@ -402,6 +402,13 @@ const DashboardLayout = ({
         open={activeDrawer === 'publicacoes'} 
         onOpenChange={handleDrawerClose} 
       />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        activeDrawer={activeDrawer}
+        onDrawerChange={handleDrawerChange}
+        onDashboardClick={() => setActiveDrawer(null)}
+      />
     </>
   );
 };
