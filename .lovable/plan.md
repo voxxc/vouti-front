@@ -1,41 +1,36 @@
 
 
-## Refresh único após criação de prazo (sem polling contínuo)
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema
-O polling a cada 5s é desnecessário e desperdiça queries. O que o usuário quer é: **após criar um prazo, a aba Prazos atualiza automaticamente 1 vez**.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Solução
-Usar um **CustomEvent** do browser como bridge entre os componentes:
+### Implementação
 
-1. **`CreateDeadlineDialog.tsx`** — após criar o prazo com sucesso, dispara `window.dispatchEvent(new CustomEvent('deadline-created'))`
-2. **`PrazosCasoTab.tsx`** — escuta esse evento e faz um `fetchPrazos(true)` (refresh silencioso). Remove o polling de 5s.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### Alterações
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**`src/components/Project/CreateDeadlineDialog.tsx`** (1 linha)
-- Após `toast({ title: 'Prazo criado com sucesso!' })`, adicionar:
-  `window.dispatchEvent(new CustomEvent('deadline-created'));`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`src/components/Controladoria/PrazosCasoTab.tsx`**
-- Remover o `useEffect` do polling de 5s (linhas 128-135)
-- Adicionar `useEffect` que escuta o evento `deadline-created` e chama `fetchPrazos(true)`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-```typescript
-useEffect(() => {
-  const handler = () => fetchPrazos(true);
-  window.addEventListener('deadline-created', handler);
-  return () => window.removeEventListener('deadline-created', handler);
-}, [fetchPrazos]);
-```
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### Resultado
-- Zero polling contínuo
-- Atualização instantânea após criação
-- Comunicação leve entre componentes sem prop drilling
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-| Arquivo | Mudança |
-|---------|---------|
-| `CreateDeadlineDialog.tsx` | Disparar evento `deadline-created` |
-| `PrazosCasoTab.tsx` | Escutar evento e refresh 1x, remover polling 5s |
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
