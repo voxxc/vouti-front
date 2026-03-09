@@ -192,7 +192,7 @@ export const WhatsAppAllConversations = () => {
     enabled: !!((tenantId && !isSuperAdmin) || isSuperAdmin)
   });
 
-  // Load messages when conversation is selected
+  // Carrega mensagens quando conversa é selecionada
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation.contactNumber);
