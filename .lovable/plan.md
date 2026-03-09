@@ -1,36 +1,34 @@
 
+# Fix Mobile Topbar: Horizontal Scroll Issue
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Problem
+The topbar in `DashboardLayout.tsx` has multiple buttons/icons on the right side that overflow the screen width on mobile, forcing users to scroll horizontally.
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Root Cause
+- Line 289: `<div className="flex items-center gap-3 ml-auto">` contains 6+ elements (TOTP, Search, Messages, Notifications, Theme, Logout)
+- `gap-3` (12px) between items adds up
+- No `overflow-hidden` on parent container
+- Empty spacer div on mobile (`<div className="md:hidden" />`) doesn't help balance
 
-### Implementação
+## Solution
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**File: `src/components/Dashboard/DashboardLayout.tsx`**
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+1. **Add `overflow-x-hidden` to main wrapper** (line 266)
+2. **Reduce gap on mobile** — Change `gap-3` to `gap-1.5 md:gap-3`
+3. **Shrink button sizes on mobile** — Use `h-8 w-8` on mobile, `h-9 w-9` on desktop
+4. **Hide less-essential icons on mobile** — Hide TOTP button on mobile (`hidden sm:flex`)
+5. **Make header container prevent overflow** — Add `overflow-hidden min-w-0`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### Changes:
+```
+Line 266: Add overflow-x-hidden
+Line 278: Add overflow-hidden to header flex container
+Line 289: Change gap-3 to gap-1.5 md:gap-3
+Line 290-298: Hide TOTP on mobile (hidden sm:inline-flex)
+```
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
-
+**Expected Result:**
+- No horizontal scroll on mobile
+- All essential buttons visible
+- TOTP (less used) hidden on mobile, accessible via bottom nav "Mais"
