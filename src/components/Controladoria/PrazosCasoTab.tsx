@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 interface PrazosCasoTabProps {
   processoOabId: string;
-  isActive?: boolean;
+  refreshKey?: number;
 }
 
 interface PrazoCaso {
