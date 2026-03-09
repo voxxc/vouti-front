@@ -1355,7 +1355,7 @@ export const ProcessoOABDetalhes = ({
 
             {/* Prazos */}
             <TabsContent value="prazos" className="mt-4">
-              <PrazosCasoTab processoOabId={processo.id} refreshKey={prazosRefreshKey} />
+              <PrazosCasoTab key={prazosRefreshKey} processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}
