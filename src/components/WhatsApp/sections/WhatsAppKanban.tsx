@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
