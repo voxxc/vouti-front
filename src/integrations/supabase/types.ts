@@ -8414,6 +8414,41 @@ export type Database = {
           },
         ]
       }
+      whatsapp_sync_signals: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          phone: string
+          signal_type: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          phone: string
+          signal_type?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          phone?: string
+          signal_type?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_sync_signals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_teams: {
         Row: {
           created_at: string | null
@@ -8509,6 +8544,7 @@ export type Database = {
         }
         Returns: string
       }
+      cleanup_old_sync_signals: { Args: never; Returns: undefined }
       create_default_kanban_columns: {
         Args: { p_agent_id: string; p_tenant_id?: string }
         Returns: undefined
