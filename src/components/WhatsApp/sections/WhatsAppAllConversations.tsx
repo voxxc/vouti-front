@@ -171,7 +171,7 @@ export const WhatsAppAllConversations = () => {
     }
   }, [tenantId, isSuperAdmin]);
 
-  // Initial load
+  // Carrega conversações iniciais
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
