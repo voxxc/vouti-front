@@ -149,56 +149,16 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     enabled: !!tenantId && myAgentId !== undefined
   });
 
-  // Effect para carregar mensagens e subscription real-time da conversa selecionada
+  // Carrega conversações iniciais
+  useEffect(() => {
+    if (!tenantId || myAgentId === undefined) return;
+    loadConversations();
+  }, [tenantId, myAgentId]);
+
+  // Carrega mensagens quando conversa é selecionada
   useEffect(() => {
     if (!selectedConversation || !tenantId) return;
-
     loadMessages(selectedConversation.contactNumber);
-
-    const messagesChannel = supabase
-      .channel(`whatsapp-messages-${selectedConversation.contactNumber}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          const newMsg = payload.new as any;
-          
-          // Ignorar mensagens de grupo
-          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
-          
-          if (normalizePhone(newMsg.from_number) === normalizePhone(selectedConversation.contactNumber)) {
-            const rawData = newMsg.raw_data as any;
-            const formattedMsg: WhatsAppMessage = {
-              id: newMsg.id,
-              messageText: newMsg.message_text || "",
-              direction: newMsg.direction === "outgoing" ? "outgoing" : "incoming",
-              timestamp: newMsg.created_at,
-              isFromMe: newMsg.direction === "outgoing",
-              messageType: (newMsg.message_type as WhatsAppMessage['messageType']) || "text",
-              mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
-            };
-            
-            setMessages(prev => {
-              // Remove optimistic message if real outgoing arrived
-              const withoutOptimistic = newMsg.direction === 'outgoing'
-                ? prev.filter(m => !m.id.startsWith('optimistic_') || m.messageText !== formattedMsg.messageText)
-                : prev;
-              if (withoutOptimistic.some(m => m.id === formattedMsg.id)) return withoutOptimistic;
-              return [...withoutOptimistic, formattedMsg];
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messagesChannel);
-    };
   }, [selectedConversation, tenantId]);
 
   const loadConversations = useCallback(async (showLoading = true) => {
