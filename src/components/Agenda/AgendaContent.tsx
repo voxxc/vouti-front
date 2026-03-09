@@ -486,7 +486,16 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             protocoloNome: protocoloFromCaso.nome,
             projectId: protocoloFromCaso.project_id,
             protocoloId: protocoloFromCaso.id
-          } : undefined
+          } : undefined,
+          workspaceName: (() => {
+            const wsFromProtocolo = deadline.protocolo_etapa?.protocolo?.workspace_id;
+            if (wsFromProtocolo) return workspaceNameMap[wsFromProtocolo];
+            if (protocoloFromCaso?.workspace_id) return workspaceNameMap[protocoloFromCaso.workspace_id];
+            if (deadline.processo_oab_id && processoWorkspaceMap[deadline.processo_oab_id]) {
+              return workspaceNameMap[processoWorkspaceMap[deadline.processo_oab_id]];
+            }
+            return undefined;
+          })()
         };
       });
 
