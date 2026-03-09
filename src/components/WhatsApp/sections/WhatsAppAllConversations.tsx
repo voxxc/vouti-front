@@ -199,32 +199,6 @@ export const WhatsAppAllConversations = () => {
     }
   }, [selectedConversation, loadMessages]);
 
-  // Realtime para mensagens da conversa selecionada
-  useEffect(() => {
-    if (!selectedConversation || (!tenantId && !isSuperAdmin)) return;
-
-    const filter = tenantId 
-      ? `tenant_id=eq.${tenantId}` 
-      : `tenant_id=is.null`;
-
-    const channel = supabase
-      .channel('all-conv-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter
-        },
-        () => loadMessages(selectedConversation.contactNumber)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedConversation, tenantId, isSuperAdmin, loadMessages]);
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation) return;
