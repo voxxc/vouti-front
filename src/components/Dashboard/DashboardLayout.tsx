@@ -283,7 +283,7 @@ const DashboardLayout = ({
                 onSelectProject={handleQuickProjectSelect}
               />
             </div>
-            <div className="w-10 md:hidden" />
+            <div className="md:hidden" />
             
             {/* Right Side - Tools */}
             <div className="flex items-center gap-3 ml-auto">
