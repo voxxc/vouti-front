@@ -106,82 +106,99 @@ export const CNPJTab = ({ cnpjId }: CNPJTabProps) => {
     return (
       <Card
         key={processo.id}
-        className="cursor-pointer hover:bg-accent/50 transition-colors"
+        className="p-4 md:p-5 cursor-pointer hover:shadow-md transition-shadow hover:bg-accent/50"
         onClick={() => setSelectedProcesso(processo)}
       >
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-mono text-sm font-medium">
-                  {processo.numeroCnj}
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  {uf}
-                </Badge>
-                {processo.andamentosNaoLidos && processo.andamentosNaoLidos > 0 && (
-                  <Badge variant="destructive" className="text-xs">
-                    {processo.andamentosNaoLidos} novo(s)
-                  </Badge>
-                )}
-              </div>
-
-              <div className="text-sm text-muted-foreground mb-1">
+        <div className="flex flex-col gap-3">
+          {/* Linha 1: CNJ */}
+          <span className="font-mono text-base md:text-lg font-semibold">
+            {processo.numeroCnj}
+          </span>
+          
+          {/* Linha 2: Badges */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <Badge variant="outline" className="text-xs">
+              {uf}
+            </Badge>
+            {processo.andamentosNaoLidos && processo.andamentosNaoLidos > 0 && (
+              <Badge variant="destructive" className="text-xs">
+                {processo.andamentosNaoLidos} novo(s)
+              </Badge>
+            )}
+            {processo.monitoramentoAtivo ? (
+              <Badge variant="default" className="flex items-center gap-1 bg-green-600 text-xs">
+                <Bell className="h-3 w-3" />
+                Monitorado
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                <BellOff className="h-3 w-3" />
+                Inativo
+              </Badge>
+            )}
+          </div>
+          
+          {/* Linha 3: Partes */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="text-sm text-muted-foreground truncate cursor-default">
                 {processo.parteAtiva && processo.partePassiva ? (
                   <span>
-                    {processo.parteAtiva.substring(0, 40)}
-                    {processo.parteAtiva.length > 40 ? '...' : ''} X{' '}
-                    {processo.partePassiva.substring(0, 40)}
-                    {processo.partePassiva.length > 40 ? '...' : ''}
+                    {processo.parteAtiva} X {processo.partePassiva}
                   </span>
                 ) : (
-                  <span className="italic">Partes nao informadas</span>
+                  <span className="italic">Partes não informadas</span>
                 )}
               </div>
-
-              {processo.tribunal && (
-                <div className="text-xs text-muted-foreground">
-                  {processo.tribunal}
-                </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {processo.parteAtiva && processo.partePassiva ? (
+                <span>
+                  {processo.parteAtiva} X {processo.partePassiva}
+                </span>
+              ) : (
+                <span className="italic">Partes não informadas</span>
               )}
+            </TooltipContent>
+          </Tooltip>
 
+          {/* Linha 4: Tribunal + Actions */}
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex flex-col gap-1">
+              {processo.tribunal && (
+                <Badge variant="outline" className="text-xs w-fit">
+                  {processo.tribunal}
+                </Badge>
+              )}
               {processo.valorCausa && (
-                <div className="text-xs text-muted-foreground mt-1">
+                <div className="text-xs text-muted-foreground">
                   Valor: {formatValor(processo.valorCausa)}
                 </div>
               )}
             </div>
-
-            <div className="flex flex-col items-end gap-2">
-              {processo.monitoramentoAtivo ? (
-                <Badge variant="default" className="flex items-center gap-1">
-                  <Bell className="h-3 w-3" />
-                  Monitorado
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <BellOff className="h-3 w-3" />
-                  Inativo
-                </Badge>
-              )}
-
+            
+            <div>
               {processo.linkTribunal && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(processo.linkTribunal!, '_blank');
-                  }}
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  Tribunal
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(processo.linkTribunal!, '_blank');
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ver no Tribunal</TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
     );
   };

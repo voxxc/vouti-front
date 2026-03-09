@@ -30,46 +30,57 @@ export const ProcessoOABCard = ({ processo, onImportar, onVerDetalhes }: Process
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-1">
-            <CardTitle className="text-lg font-semibold">
+      <div className="p-4 md:p-5 pb-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-base md:text-lg font-semibold font-mono">
               {processo.numero_cnj}
-            </CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant={parteBadge.variant}>
-                {parteBadge.label}
-              </Badge>
-              <Badge variant="outline">
-                {processo.tribunal_acronym || processo.tribunal}
-              </Badge>
-              {processo.status_processual && (
-                <Badge variant="outline" className="bg-muted">
-                  {processo.status_processual}
-                </Badge>
-              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onVerDetalhes}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Detalhes</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onImportar}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Importar</TooltipContent>
+              </Tooltip>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onVerDetalhes}
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              Detalhes
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onImportar}
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Importar
-            </Button>
+          
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant={parteBadge.variant} className="text-xs">
+              {parteBadge.label}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {processo.tribunal_acronym || processo.tribunal}
+            </Badge>
+            {processo.status_processual && (
+              <Badge variant="outline" className="bg-muted text-xs">
+                {processo.status_processual}
+              </Badge>
+            )}
           </div>
         </div>
-      </CardHeader>
+      </div>
 
       <CardContent className="space-y-3">
         {/* Informações adicionais */}

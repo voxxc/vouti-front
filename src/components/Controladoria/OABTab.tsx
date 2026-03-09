@@ -164,113 +164,125 @@ const ProcessoCard = ({
         <Card
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`p-3 transition-shadow ${
+          {...provided.dragHandleProps}
+          className={`p-4 md:p-5 hover:shadow-md transition-shadow ${
             snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''
           }`}
         >
-            <div className="flex items-center gap-2 md:gap-3 w-full overflow-hidden pr-1 md:pr-2">
-            {/* Drag Handle - hidden on mobile */}
-            <div
-              {...provided.dragHandleProps}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded hidden md:block"
-            >
-              <GripVertical className="w-4 h-4 text-muted-foreground" />
+          <div className="flex flex-col gap-3">
+            {/* Linha 1: CNJ */}
+            <div className="flex items-start justify-between">
+              <span className="font-mono text-base md:text-lg font-semibold">
+                {processo.numero_cnj}
+              </span>
             </div>
 
-            {/* Processo Info */}
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-1.5 md:gap-2 mb-1 flex-wrap">
-                <span className="font-mono text-xs md:text-sm font-medium break-all md:truncate">
-                  {processo.numero_cnj}
-                </span>
-                {isCompartilhado && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help">
-                        <Users className="w-4 h-4 text-purple-500" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        Compartilhado com: {outrosAdvogados.map(a => a.advogadoNome || a.oabNumero).join(', ')}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                {processo.monitoramento_ativo && (
-                  <Badge variant="default" className="text-xs bg-green-600">
-                    <Bell className="w-3 h-3 mr-1" />
-                    Monitorado
-                  </Badge>
-                )}
-                {(processo.andamentos_nao_lidos || 0) > 0 && (
-                  <Badge variant="destructive" className="text-xs">
-                    {processo.andamentos_nao_lidos} novos
-                  </Badge>
-                )}
-                {temIntimacaoUrgente && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant="destructive" className="text-xs animate-pulse gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        Intimacao
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">Este processo tem intimacoes urgentes pendentes</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                {temRecursoVinculado && (
-                  <Badge variant="outline" className="text-xs border-purple-500 text-purple-600">
-                    <Link2 className="w-3 h-3 mr-1" />
-                    {processosRelacionados.length} recurso(s)
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground truncate max-w-full">
-                {processo.parte_ativa || 'Autor nao identificado'} 
-                {' vs '}
-                {processo.parte_passiva || 'Reu nao identificado'}
-              </p>
-              {processo.tribunal_sigla && (
-                <Badge variant="outline" className="text-xs mt-1">
-                  {processo.tribunal_sigla}
+            {/* Linha 2: Badges */}
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {isCompartilhado && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="text-xs border-purple-500 text-purple-600 cursor-help gap-1">
+                      <Users className="w-3 h-3" />
+                      Compartilhado
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">
+                      Compartilhado com: {outrosAdvogados.map(a => a.advogadoNome || a.oabNumero).join(', ')}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {processo.monitoramento_ativo && (
+                <Badge variant="default" className="text-xs bg-green-600">
+                  <Bell className="w-3 h-3 mr-1" />
+                  Monitorado
+                </Badge>
+              )}
+              {(processo.andamentos_nao_lidos || 0) > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {processo.andamentos_nao_lidos} novos
+                </Badge>
+              )}
+              {temIntimacaoUrgente && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="destructive" className="text-xs animate-pulse gap-1 cursor-help">
+                      <AlertCircle className="w-3 h-3" />
+                      Intimação
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Este processo tem intimações urgentes pendentes</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {temRecursoVinculado && (
+                <Badge variant="outline" className="text-xs border-purple-500 text-purple-600">
+                  <Link2 className="w-3 h-3 mr-1" />
+                  {processosRelacionados.length} recurso(s)
                 </Badge>
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-0.5 md:gap-1 shrink-0 ml-1 md:ml-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => onExcluir(processo)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Excluir processo</TooltipContent>
-              </Tooltip>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 md:h-8 px-2 md:px-3"
-                onClick={() => onVerDetalhes(processo)}
-                disabled={carregandoDetalhes === processo.id}
-              >
-                {carregandoDetalhes === processo.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4 md:mr-1" />
-                    <span className="hidden md:inline">Detalhes</span>
-                  </>
+            {/* Linha 3: Partes */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="text-sm text-muted-foreground truncate cursor-default">
+                  {processo.parte_ativa || 'Autor não identificado'} 
+                  {' vs '}
+                  {processo.parte_passiva || 'Réu não identificado'}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{processo.parte_ativa || 'Autor não identificado'} vs {processo.parte_passiva || 'Réu não identificado'}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Linha 4: Tribunal + Actions */}
+            <div className="flex items-center justify-between mt-1">
+              <div>
+                {processo.tribunal_sigla && (
+                  <Badge variant="outline" className="text-xs">
+                    {processo.tribunal_sigla}
+                  </Badge>
                 )}
-              </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => onExcluir(processo)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir processo</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground"
+                      onClick={() => onVerDetalhes(processo)}
+                      disabled={carregandoDetalhes === processo.id}
+                    >
+                      {carregandoDetalhes === processo.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ver detalhes</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           </div>
         </Card>
