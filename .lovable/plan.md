@@ -1,32 +1,36 @@
 
 
-# Exibir Workspace nos Detalhes do Prazo
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema
-Os detalhes do prazo não mostram a qual workspace ele pertence. Em tenants como Solvenza, onde projetos têm múltiplos workspaces, é essencial saber de qual workspace vem o prazo.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-## Abordagem
+### Implementação
 
-A tabela `deadlines` não tem `workspace_id` diretamente, mas o workspace pode ser resolvido por duas vias:
-- Via `protocolo_etapa_id` → `project_protocolo_etapas` → `project_protocolos.workspace_id` → `project_workspaces.nome`
-- Via `processo_oab_id` → `project_processos.workspace_id` → `project_workspaces.nome`
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### Mudanças
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**1. `src/types/agenda.ts`** — Adicionar campo `workspaceName?: string` ao tipo `Deadline`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**2. `src/components/Agenda/AgendaContent.tsx`** — No `fetchDeadlinesAsync`:
-- Expandir o select do `protocolo_etapa` para incluir `protocolo:project_protocolos(id, nome, project_id, processo_oab_id, workspace_id)`
-- Coletar todos os `workspace_id`s encontrados (de protocolos e de processos)
-- Para processos diretos (`processo_oab_id` sem `protocolo_etapa_id`), buscar `project_processos` para obter o `workspace_id`
-- Batch fetch em `project_workspaces` com os IDs coletados para obter os nomes
-- Mapear `workspaceName` no objeto `Deadline`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**3. `src/components/Agenda/AgendaContent.tsx`** — No dialog de detalhes (linha ~1220):
-- Adicionar campo "Workspace" ao lado de "Projeto" no grid, exibindo `selectedDeadline.workspaceName` quando disponível
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/types/agenda.ts` | Adicionar `workspaceName?: string` ao `Deadline` |
-| `src/components/Agenda/AgendaContent.tsx` | Resolver workspace via protocolos/processos + exibir no dialog |
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

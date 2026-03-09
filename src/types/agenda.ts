@@ -53,6 +53,9 @@ export interface Deadline {
   
   // Protocolo vinculado (quando o prazo vem de um Caso que está vinculado a um Processo/Protocolo)
   protocoloVinculado?: ProtocoloOrigem & { protocoloId?: string };
+  
+  // Workspace de origem (resolvido via protocolo ou processo)
+  workspaceName?: string;
 }
 
 export interface DeadlineFormData {
