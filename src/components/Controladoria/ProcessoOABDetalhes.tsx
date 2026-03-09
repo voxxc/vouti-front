@@ -206,6 +206,16 @@ export const ProcessoOABDetalhes = ({
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
+  const [prazosRefreshKey, setPrazosRefreshKey] = useState(0);
+
+  // Listener para evento de deadline criado
+  useEffect(() => {
+    const handler = () => {
+      if (activeTab === 'prazos') setPrazosRefreshKey(k => k + 1);
+    };
+    window.addEventListener('deadline-created', handler);
+    return () => window.removeEventListener('deadline-created', handler);
+  }, [activeTab]);
 
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
@@ -540,7 +550,10 @@ export const ProcessoOABDetalhes = ({
           </AlertDialog>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+          <Tabs value={activeTab} onValueChange={(val) => {
+              setActiveTab(val);
+              if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
+            }} className="flex-1">
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
@@ -1338,7 +1351,7 @@ export const ProcessoOABDetalhes = ({
 
             {/* Prazos */}
             <TabsContent value="prazos" className="mt-4">
-              <PrazosCasoTab processoOabId={processo.id} isActive={activeTab === 'prazos'} />
+              <PrazosCasoTab processoOabId={processo.id} refreshKey={prazosRefreshKey} />
             </TabsContent>
 
             {/* Tarefas */}

@@ -1,51 +1,36 @@
 
 
-## Diagnóstico
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-O `isActive` booleano só dispara o `useEffect` quando muda de `false` para `true`. Se o usuário já estava na aba "Prazos" ou se o valor não muda (ex: clicou na mesma aba), o efeito **não re-executa**.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Além disso, o `CreateDeadlineDialog` é aberto via `EtapaModal` (que aparece como Dialog sobreposto). Quando o dialog fecha, o `activeTab` continua sendo `"prazos"` — o `isActive` nunca mudou, logo o `fetchPrazos` nunca é chamado de novo.
+### Implementação
 
-## Solução: `refreshKey` numérico
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-Trocar a prop `isActive` por um **counter** que incrementa cada vez que a aba "prazos" é selecionada. Assim, mesmo clicando na mesma aba, o efeito dispara.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Alterações
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`ProcessoOABDetalhes.tsx`**
-- Adicionar estado `const [prazosRefreshKey, setPrazosRefreshKey] = useState(0)`
-- No `onValueChange`, incrementar o key quando for "prazos":
-```typescript
-onValueChange={(val) => {
-  setActiveTab(val);
-  if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
-}}
-```
-- Também incrementar após evento `deadline-created` (para quando cria no dialog e depois clica):
-```typescript
-useEffect(() => {
-  const handler = () => {
-    if (activeTab === 'prazos') setPrazosRefreshKey(k => k + 1);
-  };
-  window.addEventListener('deadline-created', handler);
-  return () => window.removeEventListener('deadline-created', handler);
-}, [activeTab]);
-```
-- Prop: `<PrazosCasoTab processoOabId={processo.id} refreshKey={prazosRefreshKey} />`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**`PrazosCasoTab.tsx`**
-- Trocar prop `isActive?: boolean` por `refreshKey?: number`
-- useEffect simples:
-```typescript
-useEffect(() => {
-  if (refreshKey !== undefined && refreshKey > 0) {
-    fetchPrazos(true);
-  }
-}, [refreshKey, fetchPrazos]);
-```
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-| Arquivo | Mudança |
-|---------|---------|
-| `ProcessoOABDetalhes.tsx` | `prazosRefreshKey` state + incrementar no `onValueChange` e no evento `deadline-created` |
-| `PrazosCasoTab.tsx` | Trocar `isActive` por `refreshKey` numérico |
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
