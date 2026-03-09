@@ -26,8 +26,8 @@ export const ControladoriaContent = () => {
     <div className="h-full flex flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Controladoria</h1>
-          <p className="text-muted-foreground mt-2">Gestão e Controle de Processos Judiciais</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Controladoria</h1>
+          <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">Gestão e Controle de Processos Judiciais</p>
         </div>
         {isRefreshing && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
