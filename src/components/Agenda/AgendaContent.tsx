@@ -907,7 +907,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-green-700"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
               onClick={() => setConfirmCompleteDeadlineId(deadline.id)}
             >
               <CheckCircle2 className="h-4 w-4" />
