@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -143,7 +143,7 @@ export function ProjectProtocoloContent({
     protocolo?.processoOabId
   );
 
-  const fetchPrazosVinculados = async () => {
+  const fetchPrazosVinculados = useCallback(async () => {
     if (!protocolo?.etapas?.length) return;
     
     setLoadingPrazos(true);
@@ -162,11 +162,11 @@ export function ProjectProtocoloContent({
     
     if (!error) setPrazosVinculados(data || []);
     setLoadingPrazos(false);
-  };
+  }, [protocolo?.etapas]);
 
   useEffect(() => {
     fetchPrazosVinculados();
-  }, [protocolo?.etapas]);
+  }, [fetchPrazosVinculados]);
 
   useEffect(() => {
     const handler = () => {
@@ -174,7 +174,7 @@ export function ProjectProtocoloContent({
     };
     window.addEventListener('deadline-created', handler);
     return () => window.removeEventListener('deadline-created', handler);
-  }, [protocolo?.etapas]);
+  }, [fetchPrazosVinculados]);
 
   const fetchTarefasProcesso = async () => {
     if (!protocolo?.processoOabId) {
@@ -342,7 +342,7 @@ export function ProjectProtocoloContent({
         )}
       </div>
 
-      <Tabs defaultValue="resumo" className="flex-1 flex flex-col overflow-hidden">
+      <Tabs defaultValue="resumo" className="flex-1 flex flex-col overflow-hidden" onValueChange={(val) => { if (val === 'prazos') fetchPrazosVinculados(); }}>
         <TabsList className="w-full h-auto bg-transparent p-0 justify-start gap-6 border-b shrink-0">
           <TabsTrigger value="resumo" className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground">
             Resumo
