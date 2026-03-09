@@ -37,7 +37,7 @@ export const ControladoriaContent = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">Total de Processos</CardTitle>

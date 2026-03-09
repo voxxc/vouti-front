@@ -852,13 +852,13 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
     return (
       <div
-        className="border rounded-lg p-3 hover:bg-muted/30 transition-colors cursor-pointer flex items-center gap-3"
+        className="border rounded-lg p-2.5 md:p-3 hover:bg-muted/30 transition-colors cursor-pointer flex items-center gap-2 md:gap-3"
         onClick={() => openDeadlineDetails(deadline)}
       >
         {/* Status dot */}
         <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", statusColor)} />
         
-        {/* Title + project */}
+        {/* Title + project + date on mobile */}
         <div className="flex-1 min-w-0">
           <p className={cn(
             "text-sm font-medium truncate",
@@ -878,18 +878,22 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                 </Avatar>
               </div>
             )}
+            {/* Date inline on mobile */}
+            <span className="text-xs text-muted-foreground whitespace-nowrap md:hidden">
+              · {safeFormatDate(deadline.date, "dd/MM")}
+            </span>
           </div>
         </div>
 
-        {/* Date */}
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {/* Date - hidden on mobile (shown inline above) */}
+        <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:block">
           {safeFormatDate(deadline.date)}
         </span>
 
-        {/* Status badge */}
+        {/* Status badge - hidden on mobile */}
         <Badge 
           variant={deadline.completed ? "default" : isOverdue ? "destructive" : "secondary"}
-          className="text-xs shrink-0"
+          className="text-xs shrink-0 hidden md:inline-flex"
         >
           {deadline.completed ? "Concluído" : isOverdue ? "Vencido" : "Pendente"}
         </Badge>
