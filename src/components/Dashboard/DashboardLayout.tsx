@@ -17,6 +17,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useAvisosPendentes } from "@/hooks/useAvisosPendentes";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import DashboardSidebar, { ActiveDrawer } from "./DashboardSidebar";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 
 // Drawers
