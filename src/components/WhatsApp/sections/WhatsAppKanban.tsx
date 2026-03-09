@@ -278,34 +278,20 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
     }
   }, [agentId, agentName]);
 
-  // Realtime para kanban e mensagens
-  useEffect(() => {
-    const channel = supabase
-      .channel(`kanban-${agentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'whatsapp_conversation_kanban',
-        },
-        () => silentRefresh()
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-        },
-        () => silentRefresh()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [agentId, silentRefresh]);
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 Kanban: Sync signal received, refreshing data');
+      silentRefresh();
+    },
+    onMessageUpdate: () => {
+      // Atualiza todas as mensagens do kanban
+      console.log('📨 Kanban: Message update, refreshing');
+      silentRefresh();
+    },
+    agentId: agentId,
+    enabled: !!agentId && !isDraggingRef.current
+  });
 
   // Handle card click -> navigate to inbox
   const handleCardClick = (card: KanbanCard) => {
