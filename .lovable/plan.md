@@ -1,36 +1,47 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: Workspace ainda não aparece nos detalhes do prazo
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Diagnóstico
 
-### Implementação
+A coluna `workspace_id` existe e o código de exibição está correto (linha 1255-1260 do AgendaContent). O problema: **34 de 216 prazos ainda têm `workspace_id = NULL`** porque o backfill anterior não cobriu todos os casos:
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+- **29 prazos** com `processo_oab_id` mas o processo não está em `project_processos` (sem vínculo workspace)
+- **2 prazos** com `protocolo_etapa_id` mas cujo backfill falhou
+- **3 prazos** sem processo, sem etapa, sem projeto (órfãos)
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+## Solução
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### 1. Migration SQL — Backfill mais amplo
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Para os 29 prazos com `processo_oab_id` sem entrada em `project_processos`, resolver via `project_id` → workspace default do projeto:
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+```sql
+-- Prazos com project_id mas sem workspace_id: usar workspace default
+UPDATE deadlines d
+SET workspace_id = pw.id
+FROM project_workspaces pw
+WHERE d.project_id = pw.project_id
+  AND pw.is_default = TRUE
+  AND d.workspace_id IS NULL;
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+-- Prazos sem project_id: tentar resolver via processo_oab → project_processos → workspace
+UPDATE deadlines d
+SET workspace_id = pp.workspace_id
+FROM project_processos pp
+WHERE d.processo_oab_id = pp.processo_oab_id
+  AND d.workspace_id IS NULL
+  AND pp.workspace_id IS NOT NULL;
+```
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### 2. Fallback no código — Resolver em runtime para prazos sem workspace_id
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+No `AgendaContent.tsx`, para deadlines que AINDA não tenham `workspace_id` após backfill, tentar resolver via `protocolo_etapa.protocolo.workspace_id` como fallback no mapeamento.
+
+### Arquivos
+
+| Arquivo | Mudança |
+|---------|---------|
+| Nova migration SQL | Backfill mais amplo |
+| `src/components/Agenda/AgendaContent.tsx` | Fallback: usar workspace do protocolo se `workspace_id` é null |
 
