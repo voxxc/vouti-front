@@ -168,19 +168,19 @@ const ProcessoCard = ({
             snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''
           }`}
         >
-            <div className="flex items-center gap-3 w-full overflow-hidden pr-2">
-            {/* Drag Handle */}
+            <div className="flex items-center gap-2 md:gap-3 w-full overflow-hidden pr-1 md:pr-2">
+            {/* Drag Handle - hidden on mobile */}
             <div
               {...provided.dragHandleProps}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded hidden md:block"
             >
               <GripVertical className="w-4 h-4 text-muted-foreground" />
             </div>
 
             {/* Processo Info */}
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="font-mono text-sm font-medium truncate">
+              <div className="flex items-center gap-1.5 md:gap-2 mb-1 flex-wrap">
+                <span className="font-mono text-xs md:text-sm font-medium break-all md:truncate">
                   {processo.numero_cnj}
                 </span>
                 {isCompartilhado && (
