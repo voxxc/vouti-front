@@ -7,6 +7,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 
 interface AllConversationsItem extends WhatsAppConversation {
   agentId?: string;
