@@ -339,7 +339,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           ),
           protocolo_etapa:project_protocolo_etapas (
             id, nome,
-            protocolo:project_protocolos (id, nome, project_id, processo_oab_id)
+            protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id)
           )
         `)
         .eq('module', module)
