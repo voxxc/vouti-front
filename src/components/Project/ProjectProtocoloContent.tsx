@@ -143,7 +143,7 @@ export function ProjectProtocoloContent({
     protocolo?.processoOabId
   );
 
-  const fetchPrazosVinculados = async () => {
+  const fetchPrazosVinculados = useCallback(async () => {
     if (!protocolo?.etapas?.length) return;
     
     setLoadingPrazos(true);
@@ -162,11 +162,11 @@ export function ProjectProtocoloContent({
     
     if (!error) setPrazosVinculados(data || []);
     setLoadingPrazos(false);
-  };
+  }, [protocolo?.etapas]);
 
   useEffect(() => {
     fetchPrazosVinculados();
-  }, [protocolo?.etapas]);
+  }, [fetchPrazosVinculados]);
 
   useEffect(() => {
     const handler = () => {
@@ -174,7 +174,7 @@ export function ProjectProtocoloContent({
     };
     window.addEventListener('deadline-created', handler);
     return () => window.removeEventListener('deadline-created', handler);
-  }, [protocolo?.etapas]);
+  }, [fetchPrazosVinculados]);
 
   const fetchTarefasProcesso = async () => {
     if (!protocolo?.processoOabId) {
