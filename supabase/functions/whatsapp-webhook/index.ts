@@ -451,6 +451,17 @@ async function handleIncomingMessage(data: any) {
     
     if (outErr) {
       console.error('Error saving outgoing phone message');
+    } else {
+      // ✅ Emitir sinal de sincronização para mensagem outgoing
+      await supabase
+        .from('whatsapp_sync_signals')
+        .insert({
+          tenant_id: effectiveTenantId,
+          signal_type: 'message_sent',
+          phone: phone,
+          agent_id: effectiveAgentId
+        })
+        .catch(err => console.error('Failed to emit outgoing sync signal:', err));
     }
     return;
   }
