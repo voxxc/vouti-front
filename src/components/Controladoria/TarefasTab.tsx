@@ -223,6 +223,17 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
       // Se marcou para criar prazo automaticamente
       if (criarPrazoAutomatico && tenantId && userId) {
         try {
+          // Resolve workspace_id via project_processos
+          let resolvedWorkspaceId: string | null = null;
+          const { data: projProc } = await supabase
+            .from('project_processos')
+            .select('workspace_id')
+            .eq('processo_oab_id', processo.id)
+            .not('workspace_id', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          resolvedWorkspaceId = projProc?.workspace_id || null;
+
           // 1. Criar deadline
           const { data: deadline, error } = await supabase
             .from('deadlines')
@@ -232,9 +243,10 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
               title: titulo.trim(),
               description: descricao.trim() || observacoes.trim() || null,
               date: dataExecucao,
-              project_id: novaTarefaProjetoId || null, // Agora opcional
+              project_id: novaTarefaProjetoId || null,
               processo_oab_id: processo.id,
               advogado_responsavel_id: novaTarefaResponsavelId,
+              workspace_id: resolvedWorkspaceId,
             })
             .select('id')
             .single();
@@ -362,6 +374,17 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
 
     setSubmittingPrazo(true);
     try {
+      // Resolve workspace_id via project_processos
+      let resolvedWorkspaceId: string | null = null;
+      const { data: projProc } = await supabase
+        .from('project_processos')
+        .select('workspace_id')
+        .eq('processo_oab_id', processo.id)
+        .not('workspace_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+      resolvedWorkspaceId = projProc?.workspace_id || null;
+
       // 1. Criar deadline e retornar ID
       const { data, error } = await supabase
         .from('deadlines')
@@ -371,9 +394,10 @@ export const TarefasTab = ({ processo, oab }: TarefasTabProps) => {
           title: prazoTitulo.trim(),
           description: prazoDescricao.trim() || null,
           date: format(prazoData, 'yyyy-MM-dd'),
-          project_id: prazoProjetoId || null, // Agora opcional
+          project_id: prazoProjetoId || null,
           processo_oab_id: processo.id,
           advogado_responsavel_id: prazoResponsavelId,
+          workspace_id: resolvedWorkspaceId,
         })
         .select('id')
         .single();

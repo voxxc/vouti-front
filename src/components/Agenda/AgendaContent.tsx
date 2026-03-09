@@ -387,39 +387,11 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         });
       }
 
-      // Collect workspace_ids from protocolos and processos for batch fetch
+      // Collect workspace_ids for batch fetch (direct from deadline.workspace_id)
       const workspaceIds = new Set<string>();
       (data || []).forEach((d: any) => {
-        const wsFromProtocolo = d.protocolo_etapa?.protocolo?.workspace_id;
-        if (wsFromProtocolo) workspaceIds.add(wsFromProtocolo);
+        if (d.workspace_id) workspaceIds.add(d.workspace_id);
       });
-      // Also from protocolos vinculados
-      Object.values(protocolosMap).forEach((p: any) => {
-        if (p.workspace_id) workspaceIds.add(p.workspace_id);
-      });
-
-      // For deadlines with processo_oab_id but no protocolo_etapa_id, check project_processos
-      const processoOabIdsNeedingWorkspace = new Set<string>();
-      (data || []).forEach((d: any) => {
-        if (d.processo_oab_id && !d.protocolo_etapa_id && !protocolosMap[d.processo_oab_id]) {
-          processoOabIdsNeedingWorkspace.add(d.processo_oab_id);
-        }
-      });
-
-      let processoWorkspaceMap: Record<string, string> = {};
-      if (processoOabIdsNeedingWorkspace.size > 0) {
-        const { data: projProcessos } = await supabase
-          .from('project_processos')
-          .select('processo_oab_id, workspace_id')
-          .in('processo_oab_id', Array.from(processoOabIdsNeedingWorkspace))
-          .not('workspace_id', 'is', null);
-        (projProcessos || []).forEach((pp: any) => {
-          if (pp.workspace_id) {
-            processoWorkspaceMap[pp.processo_oab_id] = pp.workspace_id;
-            workspaceIds.add(pp.workspace_id);
-          }
-        });
-      }
 
       // Batch fetch workspace names
       let workspaceNameMap: Record<string, string> = {};
@@ -487,15 +459,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             projectId: protocoloFromCaso.project_id,
             protocoloId: protocoloFromCaso.id
           } : undefined,
-          workspaceName: (() => {
-            const wsFromProtocolo = deadline.protocolo_etapa?.protocolo?.workspace_id;
-            if (wsFromProtocolo) return workspaceNameMap[wsFromProtocolo];
-            if (protocoloFromCaso?.workspace_id) return workspaceNameMap[protocoloFromCaso.workspace_id];
-            if (deadline.processo_oab_id && processoWorkspaceMap[deadline.processo_oab_id]) {
-              return workspaceNameMap[processoWorkspaceMap[deadline.processo_oab_id]];
-            }
-            return undefined;
-          })()
+          workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined
         };
       });
 
@@ -612,6 +576,18 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
     }
 
     try {
+      // Resolve default workspace for the selected project
+      let resolvedWorkspaceId: string | null = null;
+      if (formData.projectId) {
+        const { data: defaultWs } = await supabase
+          .from('project_workspaces')
+          .select('id')
+          .eq('project_id', formData.projectId)
+          .eq('is_default', true)
+          .maybeSingle();
+        resolvedWorkspaceId = defaultWs?.id || null;
+      }
+
       const { data, error } = await supabase
         .from('deadlines')
         .insert({
@@ -622,7 +598,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           date: format(formData.date, 'yyyy-MM-dd'),
           project_id: formData.projectId || null,
           advogado_responsavel_id: selectedAdvogado,
-          module
+          module,
+          workspace_id: resolvedWorkspaceId
         })
         .select()
         .single();

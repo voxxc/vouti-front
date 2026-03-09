@@ -61,15 +61,30 @@
            return;
          }
  
-         const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
-           id: deadline.id,
-           title: deadline.title,
-           description: deadline.description || '',
-           date: safeParseDate(deadline.date),
-           projectId: deadline.project_id,
-           projectName: deadline.projects?.name || 'Projeto não encontrado',
-           clientName: deadline.projects?.client || 'Cliente não encontrado',
-           completed: deadline.completed,
+          // Collect workspace_ids for batch fetch
+          const workspaceIds = new Set<string>();
+          (data || []).forEach((d: any) => {
+            if (d.workspace_id) workspaceIds.add(d.workspace_id);
+          });
+
+          let workspaceNameMap: Record<string, string> = {};
+          if (workspaceIds.size > 0) {
+            const { data: wsData } = await supabase
+              .from('project_workspaces')
+              .select('id, nome')
+              .in('id', Array.from(workspaceIds));
+            (wsData || []).forEach((ws: any) => { workspaceNameMap[ws.id] = ws.nome; });
+          }
+
+          const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
+            id: deadline.id,
+            title: deadline.title,
+            description: deadline.description || '',
+            date: safeParseDate(deadline.date),
+            projectId: deadline.project_id,
+            projectName: deadline.projects?.name || 'Projeto não encontrado',
+            clientName: deadline.projects?.client || 'Cliente não encontrado',
+            completed: deadline.completed,
            advogadoResponsavel: deadline.advogado ? {
              userId: deadline.advogado.user_id,
              name: deadline.advogado.full_name,
@@ -82,9 +97,10 @@
                name: tag.tagged_user?.full_name || 'Usuário',
                avatar: tag.tagged_user?.avatar_url
              })),
-           createdAt: safeParseTimestamp(deadline.created_at),
-           updatedAt: safeParseTimestamp(deadline.updated_at)
-         }));
+            createdAt: safeParseTimestamp(deadline.created_at),
+            updatedAt: safeParseTimestamp(deadline.updated_at),
+            workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined
+          }));
  
          setDeadlines(mappedDeadlines);
        } catch (error) {
