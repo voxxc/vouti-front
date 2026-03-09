@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useProcessosCNPJ, ProcessoCNPJ } from '@/hooks/useCNPJs';
 import { ProcessoCNPJDetalhes } from './ProcessoCNPJDetalhes';
 
