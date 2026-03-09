@@ -329,9 +329,39 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
   }, [tenantId, myAgentId]);
 
-  // Polling removido — Realtime (postgres_changes) já está implementado neste componente
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 Sync signal: Updating conversations');
+      loadConversations(false);
+      loadTickets();
+    },
+    onMessageUpdate: (phone: string) => {
+      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+        console.log('📨 Sync signal: Updating messages for current conversation');
+        loadMessages(selectedConversation.contactNumber);
+      }
+    },
+    onCommanderActivity: (phone: string) => {
+      console.log('🤖 Commander activity detected for phone:', phone?.slice(-4));
+    },
+    agentId: myAgentId,
+    enabled: !!tenantId && myAgentId !== undefined
+  });
 
-  const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
+  // Carrega conversações iniciais
+  useEffect(() => {
+    if (!tenantId || myAgentId === undefined) return;
+    loadConversations();
+  }, [tenantId, myAgentId, loadConversations]);
+
+  // Carrega mensagens quando conversa é selecionada
+  useEffect(() => {
+    if (!selectedConversation || !tenantId) return;
+    loadMessages(selectedConversation.contactNumber);
+  }, [selectedConversation, tenantId, loadMessages]);
+
+  // Polling removido — atualização acionada por sinal do webhook
     if (!selectedConversation || !tenantId) return;
 
     try {
