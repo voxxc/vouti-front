@@ -1,36 +1,36 @@
 
 
-## Problema raiz
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-O Radix `TabsContent` **não desmonta** o componente quando você troca de aba — ele apenas esconde via CSS. Então `PrazosCasoTab` monta uma vez e o `useEffect` com `fetchPrazos` nunca roda de novo ao clicar na aba "Prazos".
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-## Solução: Tabs controlada + refetch ao clicar em "Prazos"
+### Implementação
 
-Converter o `<Tabs defaultValue="resumo">` para controlado (`value` + `onValueChange`) no `ProcessoOABDetalhes.tsx`. Quando a aba ativa mudar para `"prazos"`, disparar um evento ou passar uma prop que force o refetch.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### Alterações
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**`src/components/Controladoria/ProcessoOABDetalhes.tsx`**
-- Adicionar estado `const [activeTab, setActiveTab] = useState("resumo")`
-- Trocar `<Tabs defaultValue="resumo">` por `<Tabs value={activeTab} onValueChange={setActiveTab}>`
-- Passar `activeTab` como prop para `PrazosCasoTab`: `<PrazosCasoTab processoOabId={processo.id} isActive={activeTab === "prazos"} />`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`src/components/Controladoria/PrazosCasoTab.tsx`**
-- Aceitar nova prop `isActive?: boolean`
-- Adicionar `useEffect` que faz `fetchPrazos(true)` quando `isActive` muda para `true`:
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-```typescript
-useEffect(() => {
-  if (isActive) {
-    fetchPrazos(true);
-  }
-}, [isActive, fetchPrazos]);
-```
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-Assim, toda vez que o usuário clicar na aba "Prazos", os dados são buscados do zero — sem polling, sem sessionStorage, sem eventos customizados.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-| Arquivo | Mudança |
-|---------|---------|
-| `ProcessoOABDetalhes.tsx` | Tabs controlada, passar `isActive` prop |
-| `PrazosCasoTab.tsx` | Refetch quando `isActive` vira `true` |
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

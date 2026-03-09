@@ -205,6 +205,7 @@ export const ProcessoOABDetalhes = ({
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
+  const [activeTab, setActiveTab] = useState("resumo");
 
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
@@ -539,7 +540,7 @@ export const ProcessoOABDetalhes = ({
           </AlertDialog>
 
           {/* Tabs */}
-          <Tabs defaultValue="resumo" className="flex-1">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
@@ -1337,7 +1338,7 @@ export const ProcessoOABDetalhes = ({
 
             {/* Prazos */}
             <TabsContent value="prazos" className="mt-4">
-              <PrazosCasoTab processoOabId={processo.id} />
+              <PrazosCasoTab processoOabId={processo.id} isActive={activeTab === 'prazos'} />
             </TabsContent>
 
             {/* Tarefas */}

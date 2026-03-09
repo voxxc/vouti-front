@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 interface PrazosCasoTabProps {
   processoOabId: string;
+  isActive?: boolean;
 }
 
 interface PrazoCaso {
@@ -38,7 +39,7 @@ interface PrazoCaso {
   origemNome?: string;
 }
 
-export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
+export const PrazosCasoTab = ({ processoOabId, isActive }: PrazosCasoTabProps) => {
   const [prazos, setPrazos] = useState<PrazoCaso[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -130,15 +131,12 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Refresh when deadline-created event fires (component already mounted)
+  // Refetch when tab becomes active
   useEffect(() => {
-    const handler = () => {
-      sessionStorage.removeItem('deadline-created-at');
+    if (isActive) {
       fetchPrazos(true);
-    };
-    window.addEventListener('deadline-created', handler);
-    return () => window.removeEventListener('deadline-created', handler);
-  }, [fetchPrazos]);
+    }
+  }, [isActive, fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
