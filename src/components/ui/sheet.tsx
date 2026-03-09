@@ -40,11 +40,11 @@ const sheetVariants = cva(
         right:
           "inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       inset:
-       "top-0 md:top-[57px] md:left-[224px] left-0 right-0 bottom-0 md:bottom-0 w-auto h-auto border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
+       "top-0 md:top-[57px] md:left-[224px] left-0 right-0 bottom-[56px] md:bottom-0 w-auto h-auto border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
        "left-offset":
-        "top-[57px] bottom-0 md:left-[224px] left-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
+        "top-[57px] bottom-[56px] md:bottom-0 md:left-[224px] left-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
        "right-offset":
-        "top-[57px] bottom-0 right-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
+        "top-[57px] bottom-[56px] md:bottom-0 right-0 h-auto w-96 border-l data-[state=closed]:animate-drawer-out data-[state=open]:animate-drawer-in",
       },
     },
     defaultVariants: {
