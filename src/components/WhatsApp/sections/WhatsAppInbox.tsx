@@ -128,38 +128,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     if (myAgentId) loadTickets();
   }, [myAgentId, loadTickets]);
 
-  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
-  useWhatsAppSync({
-    onConversationUpdate: () => {
-      console.log('📨 Sync signal: Updating conversations');
-      loadConversations(false);
-      loadTickets();
-    },
-    onMessageUpdate: (phone: string) => {
-      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
-        console.log('📨 Sync signal: Updating messages for current conversation');
-        loadMessages(selectedConversation.contactNumber);
-      }
-    },
-    onCommanderActivity: (phone: string) => {
-      console.log('🤖 Commander activity detected for phone:', phone?.slice(-4));
-      // Pode mostrar notificação ou atualização específica do Commander
-    },
-    agentId: myAgentId,
-    enabled: !!tenantId && myAgentId !== undefined
-  });
-
-  // Carrega conversações iniciais
-  useEffect(() => {
-    if (!tenantId || myAgentId === undefined) return;
-    loadConversations();
-  }, [tenantId, myAgentId]);
-
-  // Carrega mensagens quando conversa é selecionada
-  useEffect(() => {
-    if (!selectedConversation || !tenantId) return;
-    loadMessages(selectedConversation.contactNumber);
-  }, [selectedConversation, tenantId]);
 
   const loadConversations = useCallback(async (showLoading = true) => {
     if (!tenantId || myAgentId === undefined) return;
