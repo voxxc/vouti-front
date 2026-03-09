@@ -477,6 +477,17 @@ async function handleIncomingMessage(data: any) {
     return;
   }
 
+  // ✅ NOVO: Emitir sinal de sincronização para ativar polling no frontend
+  await supabase
+    .from('whatsapp_sync_signals')
+    .insert({
+      tenant_id: effectiveTenantId,
+      signal_type: 'message_received',
+      phone: phone,
+      agent_id: effectiveAgentId
+    })
+    .catch(err => console.error('Failed to emit sync signal:', err));
+
   const aiHandled = await handleAIResponse(
     phone, 
     text?.message || '', 
