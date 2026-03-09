@@ -1,36 +1,83 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: Exibir Workspace nos Detalhes do Prazo
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Diagnóstico
 
-### Implementação
+A lógica atual tenta resolver o workspace **indiretamente** (via `protocolo_etapa` → `protocolo.workspace_id` ou via `processo_oab_id` → `project_processos.workspace_id`). Isso falha em dois cenários comuns:
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+1. **Prazos criados manualmente** (sem protocolo nem processo) — não têm nenhum caminho para resolver o workspace
+2. **Prazos de processos** que não estão vinculados a `project_processos` — a query retorna vazio
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+A tabela `deadlines` **não tem coluna `workspace_id`**. Esse é o problema raiz.
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+## Solução
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### 1. SQL Migration — Adicionar `workspace_id` à tabela `deadlines`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+```sql
+ALTER TABLE deadlines ADD COLUMN workspace_id UUID REFERENCES project_workspaces(id);
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+-- Backfill: prazos com protocolo_etapa_id
+UPDATE deadlines d
+SET workspace_id = pp.workspace_id
+FROM project_protocolo_etapas pe
+JOIN project_protocolos pp ON pp.id = pe.protocolo_id
+WHERE d.protocolo_etapa_id = pe.id
+  AND d.workspace_id IS NULL
+  AND pp.workspace_id IS NOT NULL;
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+-- Backfill: prazos com processo_oab_id (sem protocolo)
+UPDATE deadlines d
+SET workspace_id = ppr.workspace_id
+FROM project_processos ppr
+WHERE d.processo_oab_id = ppr.processo_oab_id
+  AND d.protocolo_etapa_id IS NULL
+  AND d.workspace_id IS NULL
+  AND ppr.workspace_id IS NOT NULL;
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+-- Backfill: prazos restantes com project_id → workspace default
+UPDATE deadlines d
+SET workspace_id = pw.id
+FROM project_workspaces pw
+WHERE d.project_id = pw.project_id
+  AND pw.is_default = TRUE
+  AND d.workspace_id IS NULL;
+```
+
+### 2. `AgendaContent.tsx` — Simplificar resolução do workspace
+
+Substituir toda a lógica indireta (batch fetches de processoWorkspaceMap, workspaceIds, etc.) por um join direto:
+
+```
+workspace:project_workspaces!deadlines_workspace_id_fkey (id, nome)
+```
+
+E no mapeamento:
+```ts
+workspaceName: deadline.workspace?.nome || undefined
+```
+
+### 3. Pontos de criação — Salvar `workspace_id` ao criar prazos
+
+| Arquivo | Contexto |
+|---------|----------|
+| `AgendaContent.tsx` | Criar com workspace default do projeto selecionado |
+| `TarefasTab.tsx` | Já tem `processo_oab_id`, resolver workspace via `project_processos` |
+| `TaskTarefasTab.tsx` | Tem `projectId` + `workspaceId` no contexto do componente |
+| `IntimacaoCard.tsx` | Resolver via `project_processos` |
+| `judit-webhook-oab/index.ts` | Resolver via `project_processos` |
+
+### Arquivos a alterar
+
+| Arquivo | Mudança |
+|---------|---------|
+| Nova migration SQL | Adicionar coluna + backfill |
+| `src/components/Agenda/AgendaContent.tsx` | Join direto + salvar workspace_id na criação |
+| `src/components/Controladoria/TarefasTab.tsx` | Salvar workspace_id |
+| `src/components/Project/TaskTarefasTab.tsx` | Salvar workspace_id |
+| `src/components/Controladoria/IntimacaoCard.tsx` | Salvar workspace_id |
+| `supabase/functions/judit-webhook-oab/index.ts` | Salvar workspace_id |
+| `src/hooks/useAgendaData.ts` | Adicionar join do workspace |
+| `src/types/agenda.ts` | Já tem `workspaceName` — sem mudança |
 
