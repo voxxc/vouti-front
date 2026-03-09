@@ -934,12 +934,12 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   return (
     <div className="space-y-4">
       {/* User Filter + Search + New button */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div className="flex-1 space-y-3">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Visualizando prazos de:</label>
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap hidden md:block">Visualizando prazos de:</label>
             <Select value={selectedUserFilter} onValueChange={setSelectedUserFilter}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full md:w-64">
                 <SelectValue placeholder="Selecionar usuário" />
               </SelectTrigger>
               <SelectContent>
@@ -950,7 +950,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="relative max-w-md">
+          <div className="relative max-w-full md:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Buscar prazos..."
@@ -962,7 +962,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2 w-full md:w-auto">
               <Plus size={16} />
               Novo Prazo
             </Button>
