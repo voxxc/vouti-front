@@ -244,6 +244,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   // Collapsible section state
   const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | null>(null);
 
+  // Mobile calendar toggle
+  const [showMobileCalendar, setShowMobileCalendar] = useState(false);
+
   const openEditDialog = (deadline: Deadline) => {
     setEditDeadline(deadline);
     setIsEditDialogOpen(true);
