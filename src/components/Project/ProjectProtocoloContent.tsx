@@ -168,6 +168,14 @@ export function ProjectProtocoloContent({
     fetchPrazosVinculados();
   }, [protocolo?.etapas]);
 
+  useEffect(() => {
+    const handler = () => {
+      fetchPrazosVinculados();
+    };
+    window.addEventListener('deadline-created', handler);
+    return () => window.removeEventListener('deadline-created', handler);
+  }, [protocolo?.etapas]);
+
   const fetchTarefasProcesso = async () => {
     if (!protocolo?.processoOabId) {
       setTarefasProcesso([]);
