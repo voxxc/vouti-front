@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -243,6 +243,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
   // Collapsible section state
   const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | null>(null);
+
+  // Mobile calendar toggle
+  const [showMobileCalendar, setShowMobileCalendar] = useState(false);
 
   const openEditDialog = (deadline: Deadline) => {
     setEditDeadline(deadline);
@@ -904,7 +907,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-green-600"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
               onClick={() => setConfirmCompleteDeadlineId(deadline.id)}
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -1042,7 +1045,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       {/* Two-column layout: Calendar + List */}
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-        {/* Calendar - Left (hidden on mobile, toggle to show) */}
+        {/* Calendar - Left: hidden on mobile (toggle), visible md+ */}
         <div className="hidden md:block lg:w-[670px] xl:w-[750px] shrink-0">
           <div className="border rounded-lg p-4 bg-card">
             <AgendaCalendar
@@ -1055,6 +1058,31 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
         {/* Minimalist List - Right */}
         <div className="flex-1 space-y-4">
+
+          {/* Mobile calendar toggle */}
+          <div className="md:hidden">
+            <button
+              className="flex items-center gap-2 text-sm font-medium text-primary py-1 w-full"
+              onClick={() => setShowMobileCalendar(v => !v)}
+            >
+              <CalendarIcon className="h-4 w-4" />
+              {showMobileCalendar ? "Ocultar calendário" : "Ver calendário"}
+              <ChevronDown className={cn("h-4 w-4 transition-transform ml-auto", showMobileCalendar && "rotate-180")} />
+            </button>
+            {showMobileCalendar && (
+              <div className="border rounded-lg p-3 bg-card mt-2 mb-1">
+                <AgendaCalendar
+                  selectedDate={selectedDate}
+                  onSelectDate={(date) => {
+                    setSelectedDate(date);
+                    setShowMobileCalendar(false);
+                  }}
+                  deadlines={filteredDeadlines}
+                  compact
+                />
+              </div>
+            )}
+          </div>
           {/* Overdue Section - always visible */}
           {(() => {
             const overdue = getOverdueDeadlines();
