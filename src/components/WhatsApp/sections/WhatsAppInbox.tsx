@@ -220,7 +220,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         if (conv) conv.unreadCount = count;
       });
 
-      const convList = Array.from(conversationMap.values());
+      const convList = Array.from(conversationMap.values())
+        .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
       setConversations(convList);
 
       if (myAgentId && convList.length > 0) {

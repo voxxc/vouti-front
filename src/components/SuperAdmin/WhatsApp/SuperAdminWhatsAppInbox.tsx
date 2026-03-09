@@ -181,7 +181,9 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
         if (conv) conv.unreadCount = count;
       });
 
-      setConversations(Array.from(conversationMap.values()));
+      const sorted = Array.from(conversationMap.values())
+        .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+      setConversations(sorted);
     } catch (error) {
       console.error("Erro ao carregar conversas:", error);
     } finally {

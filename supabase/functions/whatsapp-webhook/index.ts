@@ -367,15 +367,19 @@ async function handleIncomingMessage(data: any) {
 
       // ✅ Emitir sinal de sincronização para mensagem do Commander
       if (!commanderMsgError) {
-        await supabase
-          .from('whatsapp_sync_signals')
-          .insert({
-            tenant_id: effectiveTenantId,
-            signal_type: 'commander_message',
-            phone: phone,
-            agent_id: instance.agent_id
-          })
-          .catch(err => console.error('Failed to emit commander sync signal:', err));
+        try {
+          const { error: syncErr } = await supabase
+            .from('whatsapp_sync_signals')
+            .insert({
+              tenant_id: effectiveTenantId,
+              signal_type: 'commander_message',
+              phone: phone,
+              agent_id: instance.agent_id
+            });
+          if (syncErr) console.error('Commander sync signal error:', syncErr.message);
+        } catch (e) {
+          console.error('Commander sync signal exception:', e);
+        }
       }
 
       // 2. Invocar edge function whatsapp-commander (com audioUrl se for áudio)
