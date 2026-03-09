@@ -362,6 +362,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   }, [selectedConversation, tenantId, loadMessages]);
 
   // Polling removido — atualização acionada por sinal do webhook
+
+  const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation || !tenantId) return;
 
     try {
@@ -375,15 +377,15 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         if (agentData) freshAgentName = agentData.name;
       }
 
-      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+      const { error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
           messageType: messageType || "text",
           mediaUrl: mediaUrl || undefined,
           agentName: freshAgentName || undefined,
-          agentId: myAgentId || undefined
-        }
+          agentId: myAgentId || undefined,
+        },
       });
 
       if (error) throw error;
