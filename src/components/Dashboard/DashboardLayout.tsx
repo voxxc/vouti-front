@@ -275,7 +275,7 @@ const DashboardLayout = ({
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Header - Sticky */}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-          <div className="flex items-center justify-between px-6 h-[49px]">
+          <div className="flex items-center justify-between px-3 md:px-6 h-[49px]">
             {/* Left side - TOTP e Quick search */}
             <div className="hidden md:flex items-center gap-2">
               <ProjectQuickSearch 
