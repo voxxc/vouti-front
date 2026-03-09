@@ -72,7 +72,7 @@ export function CreateDeadlineDialog({
       // Get project_id from protocolo
       const { data: protocolo, error: protocoloError } = await supabase
         .from('project_protocolos')
-        .select('project_id')
+        .select('project_id, processo_oab_id')
         .eq('id', protocoloId)
         .single();
 
