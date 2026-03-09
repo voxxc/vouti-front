@@ -87,6 +87,26 @@ export function CreateDeadlineDialog({
 
       const tenantId = profile?.tenant_id;
 
+      // Resolve workspace_id from protocolo
+      let resolvedWorkspaceId: string | null = null;
+      const { data: protocoloFull } = await supabase
+        .from('project_protocolos')
+        .select('workspace_id')
+        .eq('id', protocoloId)
+        .maybeSingle();
+      resolvedWorkspaceId = protocoloFull?.workspace_id || null;
+
+      // If no workspace from protocolo, get default workspace for the project
+      if (!resolvedWorkspaceId && protocolo.project_id) {
+        const { data: defaultWs } = await supabase
+          .from('project_workspaces')
+          .select('id')
+          .eq('project_id', protocolo.project_id)
+          .eq('is_default', true)
+          .maybeSingle();
+        resolvedWorkspaceId = defaultWs?.id || null;
+      }
+
       // Create deadline with protocolo_etapa_id for traceability
       const { data: deadlineData, error: deadlineError } = await supabase
         .from('deadlines')
@@ -99,7 +119,8 @@ export function CreateDeadlineDialog({
           advogado_responsavel_id: selectedAdvogado,
           tenant_id: tenantId,
           protocolo_etapa_id: etapaId,
-          processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null
+          processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null,
+          workspace_id: resolvedWorkspaceId
         })
         .select()
         .single();
