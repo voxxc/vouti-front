@@ -151,6 +151,7 @@ export function CreateDeadlineDialog({
       });
 
       toast({ title: 'Prazo criado com sucesso!' });
+      window.dispatchEvent(new CustomEvent('deadline-created'));
       onOpenChange(false);
       
       // Reset form

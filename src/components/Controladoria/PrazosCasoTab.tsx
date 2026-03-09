@@ -125,13 +125,11 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Polling silencioso a cada 5s
+  // Refresh ao criar prazo
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchPrazos(true);
-    }, 5000);
-
-    return () => clearInterval(interval);
+    const handler = () => fetchPrazos(true);
+    window.addEventListener('deadline-created', handler);
+    return () => window.removeEventListener('deadline-created', handler);
   }, [fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
