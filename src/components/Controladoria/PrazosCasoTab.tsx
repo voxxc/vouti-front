@@ -50,8 +50,8 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     projects(name, client)
   `;
 
-  const fetchPrazos = async () => {
-    setLoading(true);
+  const fetchPrazos = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
 
     // Query 1: deadlines diretos do caso
     const { data: directData, error: directError } = await supabase
@@ -118,8 +118,8 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     );
 
     setPrazos(merged);
-    setLoading(false);
-  };
+    if (!silent) setLoading(false);
+  }, [processoOabId]);
 
   useEffect(() => {
     fetchPrazos();
