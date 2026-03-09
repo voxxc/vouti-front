@@ -1,36 +1,25 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Solução: sessionStorage flag + fetch on mount
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+O problema é simples: `PrazosCasoTab` está dentro de `TabsContent value="prazos"` e só monta quando o usuário clica nessa aba. Quando o prazo é criado, o componente está desmontado e não escuta o evento.
 
-### Implementação
+### Alterações
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**`CreateDeadlineDialog.tsx`**
+- Além do evento, gravar `sessionStorage.setItem('deadline-created-at', Date.now().toString())`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+**`PrazosCasoTab.tsx`**  
+- No mount (`useEffect` inicial), checar se existe a flag `deadline-created-at` no sessionStorage com timestamp < 30s
+- Se sim, fazer `fetchPrazos()` (já faz no mount, mas a flag garante dados frescos) e limpar a flag
+- Manter o event listener como fallback para quando o componente já está montado
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Isso cobre os dois cenários:
+1. **Aba Prazos aberta** → evento funciona direto
+2. **Aba Prazos fechada, usuário clica depois** → componente remonta, detecta a flag, busca dados novos
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+| Arquivo | Mudança |
+|---------|---------|
+| `CreateDeadlineDialog.tsx` | Adicionar `sessionStorage.setItem` |
+| `PrazosCasoTab.tsx` | Checar flag no mount + limpar |
 
