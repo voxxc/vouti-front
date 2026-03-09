@@ -263,7 +263,7 @@ const DashboardLayout = ({
         />
       )}
       
-      <div className="min-h-screen bg-background flex w-full">
+      <div className="min-h-screen bg-background flex w-full overflow-x-hidden">
       {/* Sidebar - agora controlado */}
       <DashboardSidebar 
         currentPage={currentPage} 
@@ -272,11 +272,11 @@ const DashboardLayout = ({
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Header - Sticky */}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-          <div className="flex items-center justify-between px-3 md:px-6 h-[49px]">
-            {/* Left side - TOTP e Quick search */}
+          <div className="flex items-center justify-between px-3 md:px-6 h-[49px] overflow-hidden min-w-0">
+            {/* Left side - Quick search (desktop only) */}
             <div className="hidden md:flex items-center gap-2">
               <ProjectQuickSearch 
                 tenantPath={tenantPath} 
@@ -286,15 +286,15 @@ const DashboardLayout = ({
             <div className="md:hidden" />
             
             {/* Right Side - Tools */}
-            <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
               <Button 
                 variant="ghost" 
                 size="icon"
                 onClick={() => setTotpSheetOpen(true)}
                 title="Autenticador 2FA"
-                className="h-9 w-9"
+                className="hidden sm:inline-flex h-8 w-8 md:h-9 md:w-9"
               >
-                <Clock className="h-5 w-5" />
+                <Clock className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
               <GlobalSearch projects={projects} />
               {currentUser && (
