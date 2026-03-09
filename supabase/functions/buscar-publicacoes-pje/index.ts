@@ -685,35 +685,76 @@ Deno.serve(async (req) => {
 
           const results = await Promise.allSettled(
             batch.map(async (sigla) => {
-              // Build URL with name and/or OAB params
-              let url = `https://comunica.pje.jus.br/consulta?siglaTribunal=${sigla}`
+              // Build URL for the JSON API (comunicaapi.pje.jus.br)
+              let apiUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacoes`
+                + `?siglaTribunal=${sigla}`
                 + `&dataDisponibilizacaoInicio=${formatDate(dataInicio)}`
                 + `&dataDisponibilizacaoFim=${formatDate(dataFim)}`;
 
-              if (nome) url += `&nomeAdvogado=${encodeURIComponent(nome)}`;
-              if (oabNumero) url += `&oab=${oabNumero}`;
-              if (oabUf) url += `&ufOab=${oabUf}`;
+              if (oabNumero) apiUrl += `&numeroOab=${oabNumero}`;
+              if (oabUf) apiUrl += `&ufOab=${oabUf.toLowerCase()}`;
+              if (nome && !oabNumero) apiUrl += `&nomeAdvogado=${encodeURIComponent(nome)}`;
 
-              console.log(`pje_scraper_oab: fetching ${url}`);
+              console.log(`pje_scraper_oab: fetching API ${apiUrl}`);
 
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 15000);
+              const timeoutId = setTimeout(() => controller.abort(), 20000);
 
               try {
-                const response = await fetch(url, {
-                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                const response = await fetch(apiUrl, {
+                  headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  },
                   signal: controller.signal,
                 });
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
-                  console.error(`pje_scraper_oab: HTTP ${response.status} for ${sigla}`);
+                  const errBody = await response.text().catch(() => '');
+                  console.error(`pje_scraper_oab: API HTTP ${response.status} for ${sigla}: ${errBody.substring(0, 200)}`);
+                  
+                  // Fallback to HTML scraping if API blocked
+                  if (response.status === 403 || response.status === 503) {
+                    console.log(`pje_scraper_oab: API blocked, trying HTML fallback for ${sigla}`);
+                    let htmlUrl = `https://comunica.pje.jus.br/consulta?siglaTribunal=${sigla}`
+                      + `&dataDisponibilizacaoInicio=${formatDate(dataInicio)}`
+                      + `&dataDisponibilizacaoFim=${formatDate(dataFim)}`;
+                    if (oabNumero) htmlUrl += `&numeroOab=${oabNumero}`;
+                    if (oabUf) htmlUrl += `&ufOab=${oabUf.toLowerCase()}`;
+                    
+                    const htmlRes = await fetch(htmlUrl, {
+                      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                    });
+                    if (htmlRes.ok) {
+                      const html = await htmlRes.text();
+                      const pubs = parsePublicacoesPjeOab(html, sigla, mon);
+                      if (pubs.length > 0) {
+                        const { data: inserted, error: insertErr } = await supabaseAdmin
+                          .from('publicacoes')
+                          .upsert(pubs, { onConflict: 'tenant_id,monitoramento_id,numero_processo,data_disponibilizacao,diario_sigla', ignoreDuplicates: true })
+                          .select('id');
+                        if (insertErr) console.error(`pje_scraper_oab: fallback insert error:`, insertErr.message);
+                        return { found: pubs.length, inserted: inserted?.length || 0 };
+                      }
+                    }
+                  }
                   return { found: 0, inserted: 0 };
                 }
 
-                const html = await response.text();
-                // Reuse existing parser but adapt for OAB search (no specific process number)
-                const pubs = parsePublicacoesPjeOab(html, sigla, mon);
+                const contentType = response.headers.get('content-type') || '';
+                let pubs: any[] = [];
+
+                if (contentType.includes('json')) {
+                  const jsonData = await response.json();
+                  console.log(`pje_scraper_oab: got JSON for ${sigla}, type: ${typeof jsonData}, isArray: ${Array.isArray(jsonData)}`);
+                  pubs = parsePublicacoesApiJson(jsonData, sigla, mon);
+                } else {
+                  // Fallback: HTML response
+                  const html = await response.text();
+                  console.log(`pje_scraper_oab: got HTML for ${sigla} (${html.length} chars)`);
+                  pubs = parsePublicacoesPjeOab(html, sigla, mon);
+                }
 
                 if (pubs.length === 0) return { found: 0, inserted: 0 };
 
