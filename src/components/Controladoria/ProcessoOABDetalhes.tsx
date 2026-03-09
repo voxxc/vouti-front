@@ -206,6 +206,16 @@ export const ProcessoOABDetalhes = ({
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
+  const [prazosRefreshKey, setPrazosRefreshKey] = useState(0);
+
+  // Listener para evento de deadline criado
+  useEffect(() => {
+    const handler = () => {
+      if (activeTab === 'prazos') setPrazosRefreshKey(k => k + 1);
+    };
+    window.addEventListener('deadline-created', handler);
+    return () => window.removeEventListener('deadline-created', handler);
+  }, [activeTab]);
 
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
