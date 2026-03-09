@@ -1037,9 +1037,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       </div>
 
       {/* Two-column layout: Calendar + List */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Calendar - Left */}
-        <div className="lg:w-[670px] xl:w-[750px] shrink-0">
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+        {/* Calendar - Left (hidden on mobile, toggle to show) */}
+        <div className="hidden md:block lg:w-[670px] xl:w-[750px] shrink-0">
           <div className="border rounded-lg p-4 bg-card">
             <AgendaCalendar
               selectedDate={selectedDate}
