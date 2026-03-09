@@ -131,15 +131,12 @@ export const PrazosCasoTab = ({ processoOabId, isActive }: PrazosCasoTabProps) =
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Refresh when deadline-created event fires (component already mounted)
+  // Refetch when tab becomes active
   useEffect(() => {
-    const handler = () => {
-      sessionStorage.removeItem('deadline-created-at');
+    if (isActive) {
       fetchPrazos(true);
-    };
-    window.addEventListener('deadline-created', handler);
-    return () => window.removeEventListener('deadline-created', handler);
-  }, [fetchPrazos]);
+    }
+  }, [isActive, fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
