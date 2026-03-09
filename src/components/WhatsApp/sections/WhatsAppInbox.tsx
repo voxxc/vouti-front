@@ -6,6 +6,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { Inbox, UserPlus } from "lucide-react";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { toast } from "sonner";
 
 export interface WhatsAppConversation {
@@ -127,88 +128,6 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     if (myAgentId) loadTickets();
   }, [myAgentId, loadTickets]);
 
-  // Effect para carregar conversas e subscription real-time
-  useEffect(() => {
-    if (!tenantId || myAgentId === undefined) return;
-
-    loadConversations();
-
-    const conversationsChannel = supabase
-      .channel('whatsapp-conversations')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          const newMsg = payload.new as any;
-          // Ignorar mensagens de grupo — só polling reativo para mensagens pessoais
-          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
-          loadConversations(false);
-          loadTickets();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(conversationsChannel);
-    };
-  }, [tenantId, myAgentId]);
-
-  // Effect para carregar mensagens e subscription real-time da conversa selecionada
-  useEffect(() => {
-    if (!selectedConversation || !tenantId) return;
-
-    loadMessages(selectedConversation.contactNumber);
-
-    const messagesChannel = supabase
-      .channel(`whatsapp-messages-${selectedConversation.contactNumber}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          const newMsg = payload.new as any;
-          
-          // Ignorar mensagens de grupo
-          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
-          
-          if (normalizePhone(newMsg.from_number) === normalizePhone(selectedConversation.contactNumber)) {
-            const rawData = newMsg.raw_data as any;
-            const formattedMsg: WhatsAppMessage = {
-              id: newMsg.id,
-              messageText: newMsg.message_text || "",
-              direction: newMsg.direction === "outgoing" ? "outgoing" : "incoming",
-              timestamp: newMsg.created_at,
-              isFromMe: newMsg.direction === "outgoing",
-              messageType: (newMsg.message_type as WhatsAppMessage['messageType']) || "text",
-              mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
-            };
-            
-            setMessages(prev => {
-              // Remove optimistic message if real outgoing arrived
-              const withoutOptimistic = newMsg.direction === 'outgoing'
-                ? prev.filter(m => !m.id.startsWith('optimistic_') || m.messageText !== formattedMsg.messageText)
-                : prev;
-              if (withoutOptimistic.some(m => m.id === formattedMsg.id)) return withoutOptimistic;
-              return [...withoutOptimistic, formattedMsg];
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messagesChannel);
-    };
-  }, [selectedConversation, tenantId]);
 
   const loadConversations = useCallback(async (showLoading = true) => {
     if (!tenantId || myAgentId === undefined) return;
@@ -410,7 +329,39 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     }
   }, [tenantId, myAgentId]);
 
-  // Polling removido — Realtime (postgres_changes) já está implementado neste componente
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 Sync signal: Updating conversations');
+      loadConversations(false);
+      loadTickets();
+    },
+    onMessageUpdate: (phone: string) => {
+      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+        console.log('📨 Sync signal: Updating messages for current conversation');
+        loadMessages(selectedConversation.contactNumber);
+      }
+    },
+    onCommanderActivity: (phone: string) => {
+      console.log('🤖 Commander activity detected for phone:', phone?.slice(-4));
+    },
+    agentId: myAgentId,
+    enabled: !!tenantId && myAgentId !== undefined
+  });
+
+  // Carrega conversações iniciais
+  useEffect(() => {
+    if (!tenantId || myAgentId === undefined) return;
+    loadConversations();
+  }, [tenantId, myAgentId, loadConversations]);
+
+  // Carrega mensagens quando conversa é selecionada
+  useEffect(() => {
+    if (!selectedConversation || !tenantId) return;
+    loadMessages(selectedConversation.contactNumber);
+  }, [selectedConversation, tenantId, loadMessages]);
+
+  // Polling removido — atualização acionada por sinal do webhook
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation || !tenantId) return;
@@ -426,15 +377,15 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         if (agentData) freshAgentName = agentData.name;
       }
 
-      const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+      const { error } = await supabase.functions.invoke("whatsapp-send-message", {
         body: {
           phone: selectedConversation.contactNumber,
           message: text,
           messageType: messageType || "text",
           mediaUrl: mediaUrl || undefined,
           agentName: freshAgentName || undefined,
-          agentId: myAgentId || undefined
-        }
+          agentId: myAgentId || undefined,
+        },
       });
 
       if (error) throw error;

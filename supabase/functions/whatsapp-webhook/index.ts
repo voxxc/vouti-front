@@ -348,7 +348,7 @@ async function handleIncomingMessage(data: any) {
       const audioUrl = mediaInfo.messageType === 'audio' ? mediaInfo.mediaUrl : null;
 
       // 1. SALVAR mensagem no banco (para aparecer no histórico da conversa)
-      await supabase
+      const { error: commanderMsgError } = await supabase
         .from('whatsapp_messages')
         .insert({
           instance_name: instanceId,
@@ -364,6 +364,19 @@ async function handleIncomingMessage(data: any) {
           timestamp: momment ? new Date(momment).toISOString() : new Date().toISOString(),
           is_read: false,
         });
+
+      // ✅ Emitir sinal de sincronização para mensagem do Commander
+      if (!commanderMsgError) {
+        await supabase
+          .from('whatsapp_sync_signals')
+          .insert({
+            tenant_id: effectiveTenantId,
+            signal_type: 'commander_message',
+            phone: phone,
+            agent_id: instance.agent_id
+          })
+          .catch(err => console.error('Failed to emit commander sync signal:', err));
+      }
 
       // 2. Invocar edge function whatsapp-commander (com audioUrl se for áudio)
       if (messageText || audioUrl) {
@@ -451,6 +464,17 @@ async function handleIncomingMessage(data: any) {
     
     if (outErr) {
       console.error('Error saving outgoing phone message');
+    } else {
+      // ✅ Emitir sinal de sincronização para mensagem outgoing
+      await supabase
+        .from('whatsapp_sync_signals')
+        .insert({
+          tenant_id: effectiveTenantId,
+          signal_type: 'message_sent',
+          phone: phone,
+          agent_id: effectiveAgentId
+        })
+        .catch(err => console.error('Failed to emit outgoing sync signal:', err));
     }
     return;
   }
@@ -476,6 +500,17 @@ async function handleIncomingMessage(data: any) {
     console.error('Error saving message');
     return;
   }
+
+  // ✅ NOVO: Emitir sinal de sincronização para ativar polling no frontend
+  await supabase
+    .from('whatsapp_sync_signals')
+    .insert({
+      tenant_id: effectiveTenantId,
+      signal_type: 'message_received',
+      phone: phone,
+      agent_id: effectiveAgentId
+    })
+    .catch(err => console.error('Failed to emit sync signal:', err));
 
   const aiHandled = await handleAIResponse(
     phone, 

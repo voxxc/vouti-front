@@ -7,6 +7,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 
 interface AllConversationsItem extends WhatsAppConversation {
   agentId?: string;
@@ -170,71 +171,34 @@ export const WhatsAppAllConversations = () => {
     }
   }, [tenantId, isSuperAdmin]);
 
-  // Initial load
+  // Carrega conversações iniciais
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  // Real-time subscription
-  useEffect(() => {
-    if (!tenantId && !isSuperAdmin) return;
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 All Conversations: Sync signal received, updating conversations');
+      loadConversations(false);
+    },
+    onMessageUpdate: (phone: string) => {
+      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+        console.log('📨 All Conversations: Updating messages for current conversation');
+        loadMessages(selectedConversation.contactNumber);
+      }
+    },
+    agentId: myAgentId,
+    enabled: !!((tenantId && !isSuperAdmin) || isSuperAdmin)
+  });
 
-    const filter = tenantId 
-      ? `tenant_id=eq.${tenantId}` 
-      : `tenant_id=is.null`;
-
-    const channel = supabase
-      .channel('all-conversations')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter
-        },
-        () => loadConversations(false)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, isSuperAdmin, loadConversations]);
-
-  // Load messages when conversation is selected
+  // Carrega mensagens quando conversa é selecionada
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation.contactNumber);
     }
   }, [selectedConversation, loadMessages]);
 
-  // Realtime para mensagens da conversa selecionada
-  useEffect(() => {
-    if (!selectedConversation || (!tenantId && !isSuperAdmin)) return;
-
-    const filter = tenantId 
-      ? `tenant_id=eq.${tenantId}` 
-      : `tenant_id=is.null`;
-
-    const channel = supabase
-      .channel('all-conv-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter
-        },
-        () => loadMessages(selectedConversation.contactNumber)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedConversation, tenantId, isSuperAdmin, loadMessages]);
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation) return;
