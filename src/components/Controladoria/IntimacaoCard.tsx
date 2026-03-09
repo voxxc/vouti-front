@@ -128,6 +128,17 @@ export const IntimacaoCard = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario nao autenticado');
 
+      // Resolve workspace_id via project_processos
+      let resolvedWorkspaceId: string | null = null;
+      const { data: projProc } = await supabase
+        .from('project_processos')
+        .select('workspace_id')
+        .eq('processo_oab_id', processoOabId)
+        .not('workspace_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+      resolvedWorkspaceId = projProc?.workspace_id || null;
+
       // Create deadline without project_id (linked by processo_oab_id)
       const { data: deadlineData, error } = await supabase
         .from('deadlines')
@@ -135,12 +146,13 @@ export const IntimacaoCard = ({
           title: prazoTitulo,
           description: prazoDescricao,
           date: prazoData,
-          project_id: null, // No project required for controladoria deadlines
+          project_id: null,
           processo_oab_id: processoOabId,
           advogado_responsavel_id: selectedAdvogado,
           user_id: user.id,
           tenant_id: tenantId,
           completed: false,
+          workspace_id: resolvedWorkspaceId,
         })
         .select()
         .single();

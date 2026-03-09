@@ -309,6 +309,18 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
     setPrazoSaving(true);
 
     try {
+      // Resolve default workspace
+      let resolvedWorkspaceId: string | null = null;
+      if (projectId) {
+        const { data: defaultWs } = await supabase
+          .from('project_workspaces')
+          .select('id')
+          .eq('project_id', projectId)
+          .eq('is_default', true)
+          .maybeSingle();
+        resolvedWorkspaceId = defaultWs?.id || null;
+      }
+
       // Criar deadline
       const { data: deadline, error } = await supabase
         .from('deadlines')
@@ -321,6 +333,7 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
           advogado_responsavel_id: prazoFormData.responsavelId,
           tenant_id: tenantId,
           completed: false,
+          workspace_id: resolvedWorkspaceId,
         })
         .select()
         .single();

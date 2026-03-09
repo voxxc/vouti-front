@@ -576,6 +576,18 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
     }
 
     try {
+      // Resolve default workspace for the selected project
+      let resolvedWorkspaceId: string | null = null;
+      if (formData.projectId) {
+        const { data: defaultWs } = await supabase
+          .from('project_workspaces')
+          .select('id')
+          .eq('project_id', formData.projectId)
+          .eq('is_default', true)
+          .maybeSingle();
+        resolvedWorkspaceId = defaultWs?.id || null;
+      }
+
       const { data, error } = await supabase
         .from('deadlines')
         .insert({
@@ -586,7 +598,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           date: format(formData.date, 'yyyy-MM-dd'),
           project_id: formData.projectId || null,
           advogado_responsavel_id: selectedAdvogado,
-          module
+          module,
+          workspace_id: resolvedWorkspaceId
         })
         .select()
         .single();
