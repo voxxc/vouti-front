@@ -550,7 +550,10 @@ export const ProcessoOABDetalhes = ({
           </AlertDialog>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+          <Tabs value={activeTab} onValueChange={(val) => {
+              setActiveTab(val);
+              if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
+            }} className="flex-1">
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" className="relative">
