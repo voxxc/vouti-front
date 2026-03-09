@@ -131,12 +131,12 @@ export const PrazosCasoTab = ({ processoOabId, refreshKey }: PrazosCasoTabProps)
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Refetch when tab becomes active
+  // Refetch when refreshKey changes (tab selected or deadline created)
   useEffect(() => {
-    if (isActive) {
+    if (refreshKey !== undefined && refreshKey > 0) {
       fetchPrazos(true);
     }
-  }, [isActive, fetchPrazos]);
+  }, [refreshKey, fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
