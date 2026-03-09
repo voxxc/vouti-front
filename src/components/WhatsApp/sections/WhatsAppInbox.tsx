@@ -128,36 +128,26 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
     if (myAgentId) loadTickets();
   }, [myAgentId, loadTickets]);
 
-  // Effect para carregar conversas e subscription real-time
-  useEffect(() => {
-    if (!tenantId || myAgentId === undefined) return;
-
-    loadConversations();
-
-    const conversationsChannel = supabase
-      .channel('whatsapp-conversations')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          const newMsg = payload.new as any;
-          // Ignorar mensagens de grupo — só polling reativo para mensagens pessoais
-          if (newMsg.from_number && (newMsg.from_number.includes('@g.us') || newMsg.from_number.length > 15)) return;
-          loadConversations(false);
-          loadTickets();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(conversationsChannel);
-    };
-  }, [tenantId, myAgentId]);
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 Sync signal: Updating conversations');
+      loadConversations(false);
+      loadTickets();
+    },
+    onMessageUpdate: (phone: string) => {
+      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+        console.log('📨 Sync signal: Updating messages for current conversation');
+        loadMessages(selectedConversation.contactNumber);
+      }
+    },
+    onCommanderActivity: (phone: string) => {
+      console.log('🤖 Commander activity detected for phone:', phone?.slice(-4));
+      // Pode mostrar notificação ou atualização específica do Commander
+    },
+    agentId: myAgentId,
+    enabled: !!tenantId && myAgentId !== undefined
+  });
 
   // Effect para carregar mensagens e subscription real-time da conversa selecionada
   useEffect(() => {
