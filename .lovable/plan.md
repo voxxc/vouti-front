@@ -1,42 +1,36 @@
 
 
-## Diagnóstico real (dados do banco)
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-Verifiquei o banco de dados. **Todos** os deadlines recentes têm `processo_oab_id = NULL`. Isso acontece porque os protocolos de onde eles são criados também não têm `processo_oab_id` preenchido. Assim, as duas queries do `PrazosCasoTab` (direta por `processo_oab_id` e via etapas de protocolo) retornam vazio — o problema **nunca foi o refresh**, é que a query não encontra nada.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Além disso, a lógica de refresh atual pode ter edge cases (Radix `onValueChange` não dispara ao clicar na aba já ativa).
+### Implementação
 
-## Solução em 2 partes
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### Parte 1: Forçar remount com `key` (garantia de refresh)
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-No `ProcessoOABDetalhes.tsx`, usar `key={prazosRefreshKey}` no `PrazosCasoTab`. Isso força React a **destruir e recriar** o componente, garantindo um fetch limpo sempre:
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-```tsx
-<PrazosCasoTab key={prazosRefreshKey} processoOabId={processo.id} />
-```
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-Remover a prop `refreshKey` e o useEffect correspondente no `PrazosCasoTab` (fica mais simples).
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### Parte 2: Propagar `processo_oab_id` do contexto do caso
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-No `ProcessoOABDetalhes.tsx`, ao disparar o evento `deadline-created`, incluir o `processoOabId` no detalhe. Mais importante: como o `CreateDeadlineDialog` busca `processo_oab_id` do protocolo (que pode ser null), precisamos de um fallback.
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-**Opção mais robusta**: quando o drawer do processo está aberto e o usuário cria um deadline dentro dele (via protocolo/etapa), o deadline DEVE receber o `processo_oab_id` do caso aberto. Mas o `CreateDeadlineDialog` não tem acesso a esse contexto.
-
-A solução mais simples: usar um `window` custom event com o `processo_oab_id` do caso atual, e no `CreateDeadlineDialog`, escutar esse contexto como fallback.
-
-**Na prática, alteração mínima:**
-
-1. **`ProcessoOABDetalhes.tsx`**: Setar `window.__currentProcessoOabId = processo.id` quando o drawer abre, limpar quando fecha.
-2. **`CreateDeadlineDialog.tsx`**: No insert, usar `processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null`.
-3. **`PrazosCasoTab.tsx`**: Simplificar removendo `refreshKey` prop (o `key` no pai faz o trabalho).
-
-### Alterações por arquivo
-
-| Arquivo | Mudança |
-|---------|---------|
-| `ProcessoOABDetalhes.tsx` | `key={prazosRefreshKey}` no PrazosCasoTab; setar `window.__currentProcessoOabId` ao abrir/fechar drawer |
-| `CreateDeadlineDialog.tsx` | Fallback para `window.__currentProcessoOabId` quando protocolo não tem `processo_oab_id` |
-| `PrazosCasoTab.tsx` | Remover prop `refreshKey` e useEffect associado (o key no pai já resolve) |
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

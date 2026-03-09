@@ -99,7 +99,7 @@ export function CreateDeadlineDialog({
           advogado_responsavel_id: selectedAdvogado,
           tenant_id: tenantId,
           protocolo_etapa_id: etapaId,
-          processo_oab_id: protocolo.processo_oab_id
+          processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null
         })
         .select()
         .single();

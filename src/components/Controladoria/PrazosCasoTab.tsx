@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 
 interface PrazosCasoTabProps {
   processoOabId: string;
-  refreshKey?: number;
 }
 
 interface PrazoCaso {
@@ -39,7 +38,7 @@ interface PrazoCaso {
   origemNome?: string;
 }
 
-export const PrazosCasoTab = ({ processoOabId, refreshKey }: PrazosCasoTabProps) => {
+export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   const [prazos, setPrazos] = useState<PrazoCaso[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -131,12 +130,6 @@ export const PrazosCasoTab = ({ processoOabId, refreshKey }: PrazosCasoTabProps)
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Refetch when refreshKey changes (tab selected or deadline created)
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      fetchPrazos(true);
-    }
-  }, [refreshKey, fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
