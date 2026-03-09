@@ -96,10 +96,16 @@ export const WhatsAppAllConversations = () => {
 
       // Group messages by normalized phone (no agent duplication)
       const conversationMap = new Map<string, AllConversationsItem>();
+      const unreadMap = new Map<string, number>();
       
       (messagesResult.data as any[] || []).forEach((msg: any) => {
         const number = msg.from_number;
         const normalizedNumber = normalizePhone(number);
+        
+        // Count unread incoming messages
+        if (msg.direction === 'received' && msg.is_read === false) {
+          unreadMap.set(normalizedNumber, (unreadMap.get(normalizedNumber) || 0) + 1);
+        }
         
         if (!conversationMap.has(normalizedNumber)) {
           conversationMap.set(normalizedNumber, {
@@ -115,7 +121,16 @@ export const WhatsAppAllConversations = () => {
         }
       });
 
-      setConversations(Array.from(conversationMap.values()));
+      // Apply unread counts
+      unreadMap.forEach((count, phone) => {
+        const conv = conversationMap.get(phone);
+        if (conv) conv.unreadCount = count;
+      });
+
+      // Sort by most recent message
+      const sorted = Array.from(conversationMap.values())
+        .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+      setConversations(sorted);
     } catch (error) {
       console.error("Erro ao carregar conversas:", error);
     } finally {
