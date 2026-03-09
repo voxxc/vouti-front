@@ -125,23 +125,14 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Realtime subscription para atualização automática
+  // Polling silencioso a cada 5s
   useEffect(() => {
-    const channel = supabase
-      .channel(`prazos-caso-${processoOabId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'deadlines'
-      }, () => {
-        fetchPrazos(true); // silent refresh
-      })
-      .subscribe();
+    const interval = setInterval(() => {
+      fetchPrazos(true);
+    }, 5000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [processoOabId, fetchPrazos]);
+    return () => clearInterval(interval);
+  }, [fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
