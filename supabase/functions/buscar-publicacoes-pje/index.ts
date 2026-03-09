@@ -266,6 +266,97 @@ function parsePublicacoesPjeOab(html: string, tribunal: string, mon: any): any[]
   return publicacoes;
 }
 
+// ===== Comunica API JSON Parser =====
+function parsePublicacoesApiJson(jsonData: any, sigla: string, mon: any): any[] {
+  const publicacoes: any[] = [];
+  const nomePesquisado = mon.nome || `OAB ${mon.oab_numero || ''}/${mon.oab_uf || ''}`;
+
+  // The API may return { items: [...] } or { comunicacoes: [...] } or be an array directly
+  let items: any[] = [];
+  if (Array.isArray(jsonData)) {
+    items = jsonData;
+  } else if (jsonData?.items && Array.isArray(jsonData.items)) {
+    items = jsonData.items;
+  } else if (jsonData?.comunicacoes && Array.isArray(jsonData.comunicacoes)) {
+    items = jsonData.comunicacoes;
+  } else if (jsonData?.content && Array.isArray(jsonData.content)) {
+    items = jsonData.content;
+  } else {
+    // Log the structure so we can adapt
+    console.log('comunica_api: unknown JSON structure, keys:', Object.keys(jsonData || {}));
+    // Try to find any array in the response
+    for (const key of Object.keys(jsonData || {})) {
+      if (Array.isArray(jsonData[key]) && jsonData[key].length > 0) {
+        console.log(`comunica_api: found array at key "${key}" with ${jsonData[key].length} items`);
+        items = jsonData[key];
+        break;
+      }
+    }
+  }
+
+  if (items.length > 0) {
+    console.log(`comunica_api: parsing ${items.length} items. Sample keys:`, Object.keys(items[0] || {}));
+  }
+
+  for (const item of items) {
+    // Flexible field mapping - adapt to whatever the API returns
+    const dataDisp = item.dataDisponibilizacao || item.data_disponibilizacao 
+      || item.dtDisponibilizacao || item.dataPublicacao || item.data || null;
+    
+    if (!dataDisp) continue;
+
+    // Normalize date to YYYY-MM-DD
+    let dataFormatted = dataDisp;
+    if (dataDisp.includes('/')) {
+      const parts = dataDisp.split('/');
+      if (parts.length === 3) {
+        dataFormatted = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    } else if (dataDisp.includes('T')) {
+      dataFormatted = dataDisp.split('T')[0];
+    }
+
+    const numeroProcesso = item.numeroProcesso || item.numero_processo 
+      || item.nrProcesso || item.processo || 'sem_numero';
+    
+    const orgao = item.orgao || item.nomeOrgao || item.orgaoJulgador || null;
+    const comarca = item.comarca || item.municipio || null;
+    
+    const tipoCom = item.tipoComunicacao || item.tipo || item.tipoDocumento || 'Intimação';
+    const tipo = tipoCom.toLowerCase().includes('citação') || tipoCom.toLowerCase().includes('citacao')
+      ? 'Citação' : 'Intimação';
+
+    // Content: try multiple fields
+    const conteudo = item.texto || item.conteudo || item.textoIntimacao 
+      || item.descricao || item.teor || item.mensagem || '';
+
+    const partes = item.partes || item.nomePartes || item.destinatario || null;
+    const linkAcesso = item.link || item.linkAcesso || item.url 
+      || `https://comunica.pje.jus.br/consulta?siglaTribunal=${sigla}&numeroProcesso=${numeroProcesso.replace(/\D/g, '')}`;
+
+    publicacoes.push({
+      tenant_id: mon.tenant_id,
+      monitoramento_id: mon.id,
+      data_disponibilizacao: dataFormatted,
+      data_publicacao: dataFormatted,
+      tipo,
+      numero_processo: numeroProcesso,
+      diario_sigla: sigla,
+      diario_nome: `PJe Comunicações - ${sigla}`,
+      comarca,
+      nome_pesquisado: nomePesquisado,
+      conteudo_completo: (typeof conteudo === 'string' ? conteudo : JSON.stringify(conteudo)).substring(0, 5000),
+      link_acesso: linkAcesso,
+      status: 'nao_tratada',
+      orgao,
+      responsavel: null,
+      partes: typeof partes === 'string' ? partes?.substring(0, 2000) : partes ? JSON.stringify(partes).substring(0, 2000) : null,
+    });
+  }
+
+  return publicacoes;
+}
+
 // ===== DataJud helpers (existing) =====
 async function buscarViaDataJud(tribunal: string, numeroProcesso: string): Promise<any> {
   const tribunalCode = TRIBUNAL_MAP[tribunal.toUpperCase()] || tribunal.toLowerCase();
