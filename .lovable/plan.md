@@ -1,36 +1,41 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: WhatsApp Real-time Sync + Conversation Ordering
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Root Causes Identified
 
-### Implementação
+### 1. Table Missing from Realtime Publication (MAIN CAUSE)
+The `whatsapp_sync_signals` table was created but **never added to `supabase_realtime` publication**. Without this, Supabase Realtime will NOT broadcast INSERT events to the frontend — the subscription sits idle forever.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### 2. Webhook "Error processing webhook" on some calls
+The webhook logs show alternating errors. The sync signal `.catch()` pattern doesn't properly handle Supabase client errors. Need to make the signal emission more robust.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 3. Conversations not reordering on new messages
+When new messages arrive, conversations need to bubble to the top of the list, show updated unread counts, and display the latest message preview.
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+## Solution
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### Fix 1 — Add table to Realtime publication (SQL Migration)
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE whatsapp_sync_signals;
+```
+This is the single line that makes everything work.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+### Fix 2 — Improve conversation ordering in `WhatsAppInbox.tsx`
+After `loadConversations` builds the conversation list, sort by `lastMessageTime` descending so the most recent conversation is always on top. Currently conversations are ordered by first occurrence in the message results, but need explicit sort.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### Fix 3 — Make `SuperAdminWhatsAppInbox.tsx` use the same pattern
+Add sorting and ensure the SuperAdmin inbox also reorders conversations on new messages.
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### Fix 4 — Improve sync signal error handling in webhook
+Replace `.catch()` with proper error handling to avoid silent failures and ensure the webhook doesn't crash.
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+## Files to Change
+
+| File | Change |
+|------|--------|
+| New SQL migration | `ALTER PUBLICATION supabase_realtime ADD TABLE whatsapp_sync_signals` |
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx` | Sort conversations by `lastMessageTime` desc after building list |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx` | Same sorting fix |
+| `supabase/functions/whatsapp-webhook/index.ts` | Robust sync signal emission with try/catch |
 
