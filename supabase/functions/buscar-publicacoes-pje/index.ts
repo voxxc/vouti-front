@@ -826,6 +826,61 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // === API TEST COMUNICA MODE ===
+    if (mode === 'api_test_comunica') {
+      const tribunal = body.tribunal || 'TJPR';
+      const oabNumero = body.oab_numero || '';
+      const oabUf = body.oab_uf || 'pr';
+      const dataFim = new Date();
+      const dataInicio = new Date();
+      dataInicio.setDate(dataInicio.getDate() - (body.dias || 30));
+      const fmtDate = (d: Date) => d.toISOString().split('T')[0];
+
+      let apiUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacoes`
+        + `?siglaTribunal=${tribunal}`
+        + `&dataDisponibilizacaoInicio=${fmtDate(dataInicio)}`
+        + `&dataDisponibilizacaoFim=${fmtDate(dataFim)}`;
+      if (oabNumero) apiUrl += `&numeroOab=${oabNumero}`;
+      if (oabUf) apiUrl += `&ufOab=${oabUf.toLowerCase()}`;
+
+      console.log(`api_test_comunica: fetching ${apiUrl}`);
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      const bodyText = await response.text();
+
+      let parsed: any = null;
+      let itemCount = 0;
+      try {
+        parsed = JSON.parse(bodyText);
+        // Try to find items count
+        if (Array.isArray(parsed)) itemCount = parsed.length;
+        else {
+          for (const key of Object.keys(parsed || {})) {
+            if (Array.isArray(parsed[key])) { itemCount = parsed[key].length; break; }
+          }
+        }
+      } catch { /* not JSON */ }
+
+      return new Response(JSON.stringify({
+        success: response.ok,
+        status: response.status,
+        content_type: contentType,
+        url_tested: apiUrl,
+        response_length: bodyText.length,
+        is_json: contentType.includes('json'),
+        item_count: itemCount,
+        top_level_keys: parsed ? Object.keys(parsed) : null,
+        sample: parsed ? JSON.stringify(parsed).substring(0, 2000) : bodyText.substring(0, 2000),
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // === N8N TEST MODE ===
     if (mode === 'n8n_test') {
       const tribunal = body.tribunal || 'TJPR';
