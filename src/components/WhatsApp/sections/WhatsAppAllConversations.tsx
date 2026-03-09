@@ -176,32 +176,21 @@ export const WhatsAppAllConversations = () => {
     loadConversations();
   }, [loadConversations]);
 
-  // Real-time subscription
-  useEffect(() => {
-    if (!tenantId && !isSuperAdmin) return;
-
-    const filter = tenantId 
-      ? `tenant_id=eq.${tenantId}` 
-      : `tenant_id=is.null`;
-
-    const channel = supabase
-      .channel('all-conversations')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter
-        },
-        () => loadConversations(false)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, isSuperAdmin, loadConversations]);
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 All Conversations: Sync signal received, updating conversations');
+      loadConversations(false);
+    },
+    onMessageUpdate: (phone: string) => {
+      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+        console.log('📨 All Conversations: Updating messages for current conversation');
+        loadMessages(selectedConversation.contactNumber);
+      }
+    },
+    agentId: myAgentId,
+    enabled: !!((tenantId && !isSuperAdmin) || isSuperAdmin)
+  });
 
   // Load messages when conversation is selected
   useEffect(() => {
