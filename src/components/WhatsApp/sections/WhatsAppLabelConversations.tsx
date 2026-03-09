@@ -163,33 +163,20 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
     }
   }, [selectedConversation, loadMessages]);
 
-  // Realtime para conversas e mensagens
-  useEffect(() => {
-    if (!tenantId) return;
-
-    const channel = supabase
-      .channel(`label-conv-${labelId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'whatsapp_messages',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        () => {
-          loadConversations(false);
-          if (selectedConversation) {
-            loadMessages(selectedConversation.contactNumber);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, labelId, loadConversations, selectedConversation, loadMessages]);
+  // ✅ NOVO: Sistema de sincronização baseado em sinais do webhook
+  useWhatsAppSync({
+    onConversationUpdate: () => {
+      console.log('📨 Label Conversations: Sync signal received, updating conversations');
+      loadConversations(false);
+    },
+    onMessageUpdate: (phone: string) => {
+      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+        console.log('📨 Label Conversations: Updating messages for current conversation');
+        loadMessages(selectedConversation.contactNumber);
+      }
+    },
+    enabled: !!tenantId
+  });
 
   const handleSendMessage = async (text: string, messageType?: string, mediaUrl?: string) => {
     if (!selectedConversation) return;
