@@ -380,11 +380,55 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       if (processoOabIdsFromCasos.size > 0) {
         const { data: prots } = await supabase
           .from('project_protocolos')
-          .select('id, nome, project_id, processo_oab_id')
+          .select('id, nome, project_id, processo_oab_id, workspace_id')
           .in('processo_oab_id', Array.from(processoOabIdsFromCasos));
         (prots || []).forEach(p => {
           if (p.processo_oab_id) protocolosMap[p.processo_oab_id] = p;
         });
+      }
+
+      // Collect workspace_ids from protocolos and processos for batch fetch
+      const workspaceIds = new Set<string>();
+      (data || []).forEach((d: any) => {
+        const wsFromProtocolo = d.protocolo_etapa?.protocolo?.workspace_id;
+        if (wsFromProtocolo) workspaceIds.add(wsFromProtocolo);
+      });
+      // Also from protocolos vinculados
+      Object.values(protocolosMap).forEach((p: any) => {
+        if (p.workspace_id) workspaceIds.add(p.workspace_id);
+      });
+
+      // For deadlines with processo_oab_id but no protocolo_etapa_id, check project_processos
+      const processoOabIdsNeedingWorkspace = new Set<string>();
+      (data || []).forEach((d: any) => {
+        if (d.processo_oab_id && !d.protocolo_etapa_id && !protocolosMap[d.processo_oab_id]) {
+          processoOabIdsNeedingWorkspace.add(d.processo_oab_id);
+        }
+      });
+
+      let processoWorkspaceMap: Record<string, string> = {};
+      if (processoOabIdsNeedingWorkspace.size > 0) {
+        const { data: projProcessos } = await supabase
+          .from('project_processos')
+          .select('processo_oab_id, workspace_id')
+          .in('processo_oab_id', Array.from(processoOabIdsNeedingWorkspace))
+          .not('workspace_id', 'is', null);
+        (projProcessos || []).forEach((pp: any) => {
+          if (pp.workspace_id) {
+            processoWorkspaceMap[pp.processo_oab_id] = pp.workspace_id;
+            workspaceIds.add(pp.workspace_id);
+          }
+        });
+      }
+
+      // Batch fetch workspace names
+      let workspaceNameMap: Record<string, string> = {};
+      if (workspaceIds.size > 0) {
+        const { data: wsData } = await supabase
+          .from('project_workspaces')
+          .select('id, nome')
+          .in('id', Array.from(workspaceIds));
+        (wsData || []).forEach((ws: any) => { workspaceNameMap[ws.id] = ws.nome; });
       }
 
       const mappedDeadlines: Deadline[] = (data || []).map(deadline => {
