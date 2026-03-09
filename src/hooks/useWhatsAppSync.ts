@@ -21,7 +21,7 @@ interface UseWhatsAppSyncOptions {
 
 /**
  * Hook para escutar sinais de sincronização do WhatsApp
- * Substitui o Realtime direto nas mensagens para maior confiabilidade
+ * Usa refs para callbacks — evita recriar subscription a cada render
  */
 export const useWhatsAppSync = ({
   onConversationUpdate,
@@ -32,14 +32,29 @@ export const useWhatsAppSync = ({
 }: UseWhatsAppSyncOptions) => {
   const { tenantId } = useTenantId();
   const lastSignalTime = useRef<number>(Date.now());
+  
+  // Refs para callbacks — evita dependências instáveis no useEffect
+  const onConversationUpdateRef = useRef(onConversationUpdate);
+  const onMessageUpdateRef = useRef(onMessageUpdate);
+  const onCommanderActivityRef = useRef(onCommanderActivity);
+  
+  // Sincronizar refs com props atuais (sem deps = roda a cada render)
+  useEffect(() => {
+    onConversationUpdateRef.current = onConversationUpdate;
+    onMessageUpdateRef.current = onMessageUpdate;
+    onCommanderActivityRef.current = onCommanderActivity;
+  });
 
   useEffect(() => {
     if (!enabled || !tenantId) return;
 
     console.log('🔄 WhatsApp Sync: Starting signal listener for tenant:', tenantId);
 
+    // Canal único por tenant para evitar conflitos entre componentes
+    const channelName = `whatsapp-sync-${tenantId}`;
+    
     const channel = supabase
-      .channel('whatsapp-sync-signals')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -64,20 +79,20 @@ export const useWhatsAppSync = ({
           switch (signal.signal_type) {
             case 'message_received':
               // Nova mensagem recebida - atualizar conversas e mensagens
-              onConversationUpdate?.();
-              onMessageUpdate?.(signal.phone);
+              onConversationUpdateRef.current?.();
+              onMessageUpdateRef.current?.(signal.phone);
               break;
               
             case 'message_sent':
               // Mensagem enviada (outgoing) - atualizar apenas mensagens 
-              onMessageUpdate?.(signal.phone);
+              onMessageUpdateRef.current?.(signal.phone);
               break;
               
             case 'commander_message':
               // Atividade do Commander - atualizar conversas e notificar
-              onConversationUpdate?.();
-              onMessageUpdate?.(signal.phone);
-              onCommanderActivity?.(signal.phone);
+              onConversationUpdateRef.current?.();
+              onMessageUpdateRef.current?.(signal.phone);
+              onCommanderActivityRef.current?.(signal.phone);
               break;
               
             default:
@@ -85,16 +100,17 @@ export const useWhatsAppSync = ({
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🔄 WhatsApp Sync: Subscription status:', status);
+      });
 
     return () => {
       console.log('🔄 WhatsApp Sync: Cleaning up signal listener');
       supabase.removeChannel(channel);
     };
-  }, [tenantId, enabled, onConversationUpdate, onMessageUpdate, onCommanderActivity, agentId]);
+  }, [tenantId, enabled]); // Apenas deps estáveis — callbacks via refs
 
   return {
-    // Pode retornar status/métodos se necessário no futuro
     isListening: enabled && !!tenantId
   };
 };
