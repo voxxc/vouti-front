@@ -1045,7 +1045,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       {/* Two-column layout: Calendar + List */}
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-        {/* Calendar - Left (hidden on mobile, toggle to show) */}
+        {/* Calendar - Left: hidden on mobile (toggle), visible md+ */}
         <div className="hidden md:block lg:w-[670px] xl:w-[750px] shrink-0">
           <div className="border rounded-lg p-4 bg-card">
             <AgendaCalendar
@@ -1058,6 +1058,31 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
         {/* Minimalist List - Right */}
         <div className="flex-1 space-y-4">
+
+          {/* Mobile calendar toggle */}
+          <div className="md:hidden">
+            <button
+              className="flex items-center gap-2 text-sm font-medium text-primary py-1 w-full"
+              onClick={() => setShowMobileCalendar(v => !v)}
+            >
+              <CalendarIcon className="h-4 w-4" />
+              {showMobileCalendar ? "Ocultar calendário" : "Ver calendário"}
+              <ChevronDown className={cn("h-4 w-4 transition-transform ml-auto", showMobileCalendar && "rotate-180")} />
+            </button>
+            {showMobileCalendar && (
+              <div className="border rounded-lg p-3 bg-card mt-2 mb-1">
+                <AgendaCalendar
+                  selectedDate={selectedDate}
+                  onSelectDate={(date) => {
+                    setSelectedDate(date);
+                    setShowMobileCalendar(false);
+                  }}
+                  deadlines={filteredDeadlines}
+                  compact
+                />
+              </div>
+            )}
+          </div>
           {/* Overdue Section - always visible */}
           {(() => {
             const overdue = getOverdueDeadlines();
