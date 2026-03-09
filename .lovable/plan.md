@@ -1,47 +1,36 @@
 
-## Atualização automática da aba Prazos após criação
 
-### Problema
-`CreateDeadlineDialog` está em `EtapaModal.tsx`, enquanto `PrazosCasoTab` está em `ProcessoOABDetalhes.tsx`. Não há comunicação entre eles — o prazo é criado mas a lista não atualiza.
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Solução
-Usar **Supabase Realtime** para detectar novos prazos automaticamente, seguindo o padrão já adotado no projeto (conforme memória `architecture/event-driven-real-time-standard`).
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Alterações
+### Implementação
 
-**`src/components/Controladoria/PrazosCasoTab.tsx`**
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-1. **Adicionar subscription Realtime** na tabela `deadlines`:
-   - Escutar eventos `INSERT` e `UPDATE`
-   - Quando detectar mudança, chamar `fetchPrazos()` silenciosamente
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-```typescript
-useEffect(() => {
-  const channel = supabase
-    .channel(`prazos-caso-${processoOabId}`)
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'deadlines'
-    }, () => {
-      fetchPrazos(); // refresh silencioso
-    })
-    .subscribe();
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-  return () => { supabase.removeChannel(channel); };
-}, [processoOabId]);
-```
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-2. **Extrair `fetchPrazos` para `useCallback`** para poder usar no subscription
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### Benefícios
-- Zero polling (eficiente)
-- Atualização instantânea ao criar/editar prazos
-- Funciona mesmo se o prazo for criado em outra aba/janela
-- Padrão já usado no projeto
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 1 arquivo alterado
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-| Arquivo | Mudança |
-|---------|---------|
-| `PrazosCasoTab.tsx` | Adicionar subscription Realtime para atualização automática |
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
+

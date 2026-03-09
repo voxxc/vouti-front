@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar, CheckCircle2, Clock, AlertTriangle, Loader2, User } from 'lucide-react';
@@ -50,8 +50,8 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     projects(name, client)
   `;
 
-  const fetchPrazos = async () => {
-    setLoading(true);
+  const fetchPrazos = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
 
     // Query 1: deadlines diretos do caso
     const { data: directData, error: directError } = await supabase
@@ -118,12 +118,30 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     );
 
     setPrazos(merged);
-    setLoading(false);
-  };
+    if (!silent) setLoading(false);
+  }, [processoOabId]);
 
   useEffect(() => {
     fetchPrazos();
-  }, [processoOabId]);
+  }, [fetchPrazos]);
+
+  // Realtime subscription para atualização automática
+  useEffect(() => {
+    const channel = supabase
+      .channel(`prazos-caso-${processoOabId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'deadlines'
+      }, () => {
+        fetchPrazos(true); // silent refresh
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [processoOabId, fetchPrazos]);
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
