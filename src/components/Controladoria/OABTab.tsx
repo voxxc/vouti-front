@@ -168,19 +168,19 @@ const ProcessoCard = ({
             snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''
           }`}
         >
-            <div className="flex items-center gap-3 w-full overflow-hidden pr-2">
-            {/* Drag Handle */}
+            <div className="flex items-center gap-2 md:gap-3 w-full overflow-hidden pr-1 md:pr-2">
+            {/* Drag Handle - hidden on mobile */}
             <div
               {...provided.dragHandleProps}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded hidden md:block"
             >
               <GripVertical className="w-4 h-4 text-muted-foreground" />
             </div>
 
             {/* Processo Info */}
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="font-mono text-sm font-medium truncate">
+              <div className="flex items-center gap-1.5 md:gap-2 mb-1 flex-wrap">
+                <span className="font-mono text-xs md:text-sm font-medium break-all md:truncate">
                   {processo.numero_cnj}
                 </span>
                 {isCompartilhado && (
@@ -241,16 +241,16 @@ const ProcessoCard = ({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 shrink-0 ml-2">
+            <div className="flex items-center gap-0.5 md:gap-1 shrink-0 ml-1 md:ml-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground hover:text-destructive"
                     onClick={() => onExcluir(processo)}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Excluir processo</TooltipContent>
@@ -258,6 +258,7 @@ const ProcessoCard = ({
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-7 md:h-8 px-2 md:px-3"
                 onClick={() => onVerDetalhes(processo)}
                 disabled={carregandoDetalhes === processo.id}
               >
@@ -265,8 +266,8 @@ const ProcessoCard = ({
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <Eye className="w-4 h-4 mr-1" />
-                    Detalhes
+                    <Eye className="w-4 h-4 md:mr-1" />
+                    <span className="hidden md:inline">Detalhes</span>
                   </>
                 )}
               </Button>

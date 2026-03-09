@@ -322,21 +322,21 @@ export const OABManager = () => {
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
               {/* Toolbar da OAB */}
-              <div className="flex items-center justify-between py-2 mb-4 flex-shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between py-2 mb-4 flex-shrink-0 gap-2">
+                <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium text-sm md:text-base">
                         OAB {oab.oab_numero}/{oab.oab_uf}
                       </p>
                       {oab.nome_advogado && (
-                        <p className="text-sm text-muted-foreground">{oab.nome_advogado}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">{oab.nome_advogado}</p>
                       )}
                     </div>
                     <EditarAdvogadoModal oab={oab} onUpdate={fetchOABs} />
                   </div>
                   {oab.ultima_sincronizacao && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs hidden md:inline-flex">
                       Ultima sync: {new Date(oab.ultima_sincronizacao).toLocaleDateString('pt-BR')}
                     </Badge>
                   )}
@@ -350,7 +350,8 @@ export const OABManager = () => {
                       className="text-xs"
                     >
                       <FileInput className="w-4 h-4 mr-1" />
-                      Importar CNJ
+                      <span className="hidden md:inline">Importar CNJ</span>
+                      <span className="md:hidden">CNJ</span>
                     </Button>
                   )}
                   {isAdmin && (

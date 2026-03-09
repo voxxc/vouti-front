@@ -26,8 +26,8 @@ export const ControladoriaContent = () => {
     <div className="h-full flex flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Controladoria</h1>
-          <p className="text-muted-foreground mt-2">Gestão e Controle de Processos Judiciais</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Controladoria</h1>
+          <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">Gestão e Controle de Processos Judiciais</p>
         </div>
         {isRefreshing && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -37,7 +37,7 @@ export const ControladoriaContent = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">Total de Processos</CardTitle>

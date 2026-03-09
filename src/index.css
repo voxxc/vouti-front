@@ -194,3 +194,12 @@ All colors MUST be HSL.
 .animate-showcase-float-3 {
   animation: showcase-float-3 3.8s ease-in-out infinite 0.8s;
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

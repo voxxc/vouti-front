@@ -558,9 +558,9 @@ export const ProcessoOABDetalhes = ({
               setActiveTab(val);
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
             }} className="flex-1">
-            <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="resumo">Resumo</TabsTrigger>
-              <TabsTrigger value="andamentos" className="relative">
+            <TabsList className="flex w-full overflow-x-auto no-scrollbar h-auto flex-wrap md:flex-nowrap gap-0.5 p-1">
+              <TabsTrigger value="resumo" className="text-xs md:text-sm px-2 md:px-3 py-1.5">Resumo</TabsTrigger>
+              <TabsTrigger value="andamentos" className="relative text-xs md:text-sm px-2 md:px-3 py-1.5">
                 Andamentos
                 {andamentosNaoLidos > 0 && (
                   <Badge variant="destructive" className="ml-1 text-xs px-1.5">
@@ -568,9 +568,10 @@ export const ProcessoOABDetalhes = ({
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="partes">Partes</TabsTrigger>
-              <TabsTrigger value="intimacoes" className="relative">
-                Intimacoes
+              <TabsTrigger value="partes" className="text-xs md:text-sm px-2 md:px-3 py-1.5">Partes</TabsTrigger>
+              <TabsTrigger value="intimacoes" className="relative text-xs md:text-sm px-2 md:px-3 py-1.5">
+                <span className="md:hidden">Intim.</span>
+                <span className="hidden md:inline">Intimacoes</span>
                 {intimacoesUrgentes > 0 ? (
                   <Badge variant="destructive" className="ml-1 text-xs px-1.5 animate-pulse">
                     {intimacoesUrgentes}
@@ -581,11 +582,11 @@ export const ProcessoOABDetalhes = ({
                   </Badge>
                 ) : null}
               </TabsTrigger>
-              <TabsTrigger value="prazos" className="relative">
+              <TabsTrigger value="prazos" className="relative text-xs md:text-sm px-2 md:px-3 py-1.5">
                 Prazos
               </TabsTrigger>
-              <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
-              <TabsTrigger value="vouti-ia">
+              <TabsTrigger value="tarefas" className="text-xs md:text-sm px-2 md:px-3 py-1.5">Tarefas</TabsTrigger>
+              <TabsTrigger value="vouti-ia" className="text-xs md:text-sm px-2 md:px-3 py-1.5">
                 <Bot className="w-3.5 h-3.5 mr-1" />
                 IA
               </TabsTrigger>

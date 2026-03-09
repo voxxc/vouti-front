@@ -852,13 +852,13 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
     return (
       <div
-        className="border rounded-lg p-3 hover:bg-muted/30 transition-colors cursor-pointer flex items-center gap-3"
+        className="border rounded-lg p-2.5 md:p-3 hover:bg-muted/30 transition-colors cursor-pointer flex items-center gap-2 md:gap-3"
         onClick={() => openDeadlineDetails(deadline)}
       >
         {/* Status dot */}
         <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", statusColor)} />
         
-        {/* Title + project */}
+        {/* Title + project + date on mobile */}
         <div className="flex-1 min-w-0">
           <p className={cn(
             "text-sm font-medium truncate",
@@ -878,18 +878,22 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                 </Avatar>
               </div>
             )}
+            {/* Date inline on mobile */}
+            <span className="text-xs text-muted-foreground whitespace-nowrap md:hidden">
+              · {safeFormatDate(deadline.date, "dd/MM")}
+            </span>
           </div>
         </div>
 
-        {/* Date */}
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {/* Date - hidden on mobile (shown inline above) */}
+        <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:block">
           {safeFormatDate(deadline.date)}
         </span>
 
-        {/* Status badge */}
+        {/* Status badge - hidden on mobile */}
         <Badge 
           variant={deadline.completed ? "default" : isOverdue ? "destructive" : "secondary"}
-          className="text-xs shrink-0"
+          className="text-xs shrink-0 hidden md:inline-flex"
         >
           {deadline.completed ? "Concluído" : isOverdue ? "Vencido" : "Pendente"}
         </Badge>
@@ -934,12 +938,12 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   return (
     <div className="space-y-4">
       {/* User Filter + Search + New button */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div className="flex-1 space-y-3">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Visualizando prazos de:</label>
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap hidden md:block">Visualizando prazos de:</label>
             <Select value={selectedUserFilter} onValueChange={setSelectedUserFilter}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full md:w-64">
                 <SelectValue placeholder="Selecionar usuário" />
               </SelectTrigger>
               <SelectContent>
@@ -950,7 +954,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="relative max-w-md">
+          <div className="relative max-w-full md:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Buscar prazos..."
@@ -962,7 +966,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2 w-full md:w-auto">
               <Plus size={16} />
               Novo Prazo
             </Button>
@@ -1037,9 +1041,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       </div>
 
       {/* Two-column layout: Calendar + List */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Calendar - Left */}
-        <div className="lg:w-[670px] xl:w-[750px] shrink-0">
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+        {/* Calendar - Left (hidden on mobile, toggle to show) */}
+        <div className="hidden md:block lg:w-[670px] xl:w-[750px] shrink-0">
           <div className="border rounded-lg p-4 bg-card">
             <AgendaCalendar
               selectedDate={selectedDate}
