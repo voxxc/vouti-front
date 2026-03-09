@@ -122,12 +122,20 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   }, [processoOabId]);
 
   useEffect(() => {
+    // Check if a deadline was recently created while this component was unmounted
+    const lastCreated = sessionStorage.getItem('deadline-created-at');
+    if (lastCreated && Date.now() - parseInt(lastCreated) < 30000) {
+      sessionStorage.removeItem('deadline-created-at');
+    }
     fetchPrazos();
   }, [fetchPrazos]);
 
-  // Refresh ao criar prazo
+  // Refresh when deadline-created event fires (component already mounted)
   useEffect(() => {
-    const handler = () => fetchPrazos(true);
+    const handler = () => {
+      sessionStorage.removeItem('deadline-created-at');
+      fetchPrazos(true);
+    };
     window.addEventListener('deadline-created', handler);
     return () => window.removeEventListener('deadline-created', handler);
   }, [fetchPrazos]);

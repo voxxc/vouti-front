@@ -151,6 +151,7 @@ export function CreateDeadlineDialog({
       });
 
       toast({ title: 'Prazo criado com sucesso!' });
+      sessionStorage.setItem('deadline-created-at', Date.now().toString());
       window.dispatchEvent(new CustomEvent('deadline-created'));
       onOpenChange(false);
       
