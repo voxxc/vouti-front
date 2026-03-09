@@ -501,16 +501,20 @@ async function handleIncomingMessage(data: any) {
     return;
   }
 
-  // ✅ NOVO: Emitir sinal de sincronização para ativar polling no frontend
-  await supabase
-    .from('whatsapp_sync_signals')
-    .insert({
-      tenant_id: effectiveTenantId,
-      signal_type: 'message_received',
-      phone: phone,
-      agent_id: effectiveAgentId
-    })
-    .catch(err => console.error('Failed to emit sync signal:', err));
+  // ✅ Emitir sinal de sincronização para Realtime no frontend
+  try {
+    const { error: syncErr } = await supabase
+      .from('whatsapp_sync_signals')
+      .insert({
+        tenant_id: effectiveTenantId,
+        signal_type: 'message_received',
+        phone: phone,
+        agent_id: effectiveAgentId
+      });
+    if (syncErr) console.error('Sync signal error:', syncErr.message);
+  } catch (e) {
+    console.error('Sync signal exception:', e);
+  }
 
   const aiHandled = await handleAIResponse(
     phone, 
