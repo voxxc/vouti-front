@@ -1275,6 +1275,12 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                       <p className="text-foreground">{selectedDeadline.projectName}</p>
                     </div>
                   </div>
+                  {selectedDeadline.workspaceName && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Workspace</label>
+                      <p className="text-foreground">{selectedDeadline.workspaceName}</p>
+                    </div>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Cliente</label>
                     <p className="text-foreground">{selectedDeadline.clientName}</p>
