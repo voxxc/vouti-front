@@ -28,12 +28,20 @@ const HomePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formSuccess, setFormSuccess] = useState(false);
   const [successName, setSuccessName] = useState('');
+  const [showMobileWelcome, setShowMobileWelcome] = useState(false);
+  const isMobile = useIsMobile();
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
     whatsapp: '',
     tamanho: ''
   });
+
+  useEffect(() => {
+    if (isMobile) {
+      setShowMobileWelcome(true);
+    }
+  }, [isMobile]);
 
   // Scroll animations
   const heroAnim = useScrollAnimation(0.1);
