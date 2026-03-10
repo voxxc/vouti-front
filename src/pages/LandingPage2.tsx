@@ -115,6 +115,9 @@ const LandingPage2 = () => {
       absoluteNavigate('/batink');
     } else if (code === 'veridicto') {
       absoluteNavigate('/veridicto');
+    } else if (code === 'spn') {
+      await supabase.auth.signOut();
+      absoluteNavigate('/spn/auth');
     }
     
     setShowEasterEgg(false);
