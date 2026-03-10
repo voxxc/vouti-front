@@ -49,7 +49,7 @@ export const SuperAdminAgentsSettings = () => {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     loadAgents();

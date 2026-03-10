@@ -19,7 +19,7 @@ export const NavigationLoadingProvider = ({ children }: { children: React.ReactN
   const [navigationId, setNavigationId] = useState(0);
   const navigate = useNavigate();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentNavIdRef = useRef(0);
 
   const startLoading = useCallback(() => {
