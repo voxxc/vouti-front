@@ -283,7 +283,21 @@ const BatinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Component that passes tenant.id to AuthProvider for super admin access
+const SpnProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useSpnAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
+  if (!user) return <Navigate to="/spn/auth" replace />;
+  return <>{children}</>;
+};
+
+const SpnPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useSpnAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
+  if (user) return <Navigate to="/spn/dashboard" replace />;
+  return <>{children}</>;
+};
+
+
 const TenantAwareAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { tenant } = useTenant();
   return (
