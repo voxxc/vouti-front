@@ -6104,6 +6104,657 @@ export type Database = {
           },
         ]
       }
+      spn_achievements: {
+        Row: {
+          condition_type: string
+          condition_value: number | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          condition_type: string
+          condition_value?: number | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          condition_type?: string
+          condition_value?: number | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      spn_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          parent_id: string | null
+          section_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          parent_id?: string | null
+          section_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          parent_id?: string | null
+          section_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "spn_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spn_comments_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "spn_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_daily_missions: {
+        Row: {
+          description: string | null
+          id: string
+          mission_type: string
+          name: string
+          points_reward: number | null
+          target_value: number | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          mission_type: string
+          name: string
+          points_reward?: number | null
+          target_value?: number | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          mission_type?: string
+          name?: string
+          points_reward?: number | null
+          target_value?: number | null
+        }
+        Relationships: []
+      }
+      spn_glossary: {
+        Row: {
+          audio_url: string | null
+          created_at: string | null
+          example: string | null
+          id: string
+          meaning: string
+          unit_id: string | null
+          word: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string | null
+          example?: string | null
+          id?: string
+          meaning: string
+          unit_id?: string | null
+          word: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string | null
+          example?: string | null
+          id?: string
+          meaning?: string
+          unit_id?: string | null
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_glossary_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_homework: {
+        Row: {
+          assigned_by: string
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          title: string
+          unit_id: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title: string
+          unit_id: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_homework_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_homework_submissions: {
+        Row: {
+          content: string | null
+          feedback: string | null
+          grade: number | null
+          homework_id: string
+          id: string
+          submitted_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          feedback?: string | null
+          grade?: number | null
+          homework_id: string
+          id?: string
+          submitted_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          feedback?: string | null
+          grade?: number | null
+          homework_id?: string
+          id?: string
+          submitted_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_homework_submissions_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "spn_homework"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_levels: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      spn_modules: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          level_id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level_id: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level_id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_modules_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "spn_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_points: {
+        Row: {
+          created_at: string | null
+          id: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          points?: number
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      spn_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      spn_progress: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          id: string
+          score: number | null
+          section_id: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          score?: number | null
+          section_id: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          score?: number | null
+          section_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_progress_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "spn_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_quiz_attempts: {
+        Row: {
+          answers: Json | null
+          completed_at: string | null
+          id: string
+          score: number | null
+          section_id: string
+          total_questions: number | null
+          user_id: string
+        }
+        Insert: {
+          answers?: Json | null
+          completed_at?: string | null
+          id?: string
+          score?: number | null
+          section_id: string
+          total_questions?: number | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json | null
+          completed_at?: string | null
+          id?: string
+          score?: number | null
+          section_id?: string
+          total_questions?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_quiz_attempts_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "spn_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_quiz_questions: {
+        Row: {
+          audio_url: string | null
+          correct_answer: string
+          id: string
+          options: Json | null
+          question: string
+          question_type: string
+          section_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          audio_url?: string | null
+          correct_answer: string
+          id?: string
+          options?: Json | null
+          question: string
+          question_type: string
+          section_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          audio_url?: string | null
+          correct_answer?: string
+          id?: string
+          options?: Json | null
+          question?: string
+          question_type?: string
+          section_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_quiz_questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "spn_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_sections: {
+        Row: {
+          content: Json | null
+          created_at: string | null
+          id: string
+          name: string
+          sort_order: number | null
+          type: string
+          unit_id: string
+        }
+        Insert: {
+          content?: Json | null
+          created_at?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+          type: string
+          unit_id: string
+        }
+        Update: {
+          content?: Json | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+          type?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_sections_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_streaks: {
+        Row: {
+          current_streak: number | null
+          id: string
+          last_activity_date: string | null
+          longest_streak: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          current_streak?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          current_streak?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      spn_student_levels: {
+        Row: {
+          assigned_at: string | null
+          id: string
+          level_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          id?: string
+          level_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          id?: string
+          level_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_student_levels_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "spn_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_units: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          module_id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          module_id: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          module_id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_units_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "spn_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "spn_achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_user_missions: {
+        Row: {
+          completed: boolean | null
+          current_value: number | null
+          id: string
+          mission_date: string | null
+          mission_id: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          current_value?: number | null
+          id?: string
+          mission_date?: string | null
+          mission_id: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          current_value?: number | null
+          id?: string
+          mission_date?: string | null
+          mission_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_user_missions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "spn_daily_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["spn_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["spn_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["spn_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       super_admins: {
         Row: {
           created_at: string | null
@@ -8667,6 +9318,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_spn_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["spn_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_whatsapp_bot_access: {
         Args: { _tenant_id: string; _user_email: string }
         Returns: {
@@ -8754,6 +9412,7 @@ export type Database = {
         | "conciliacao"
         | "sentenca"
         | "transito_julgado"
+      spn_role: "admin" | "teacher" | "student"
       user_role_type: "admin" | "advogado" | "comercial" | "financeiro"
       whatsapp_agent_role: "admin" | "atendente"
     }
@@ -8933,6 +9592,7 @@ export const Constants = {
         "sentenca",
         "transito_julgado",
       ],
+      spn_role: ["admin", "teacher", "student"],
       user_role_type: ["admin", "advogado", "comercial", "financeiro"],
       whatsapp_agent_role: ["admin", "atendente"],
     },
