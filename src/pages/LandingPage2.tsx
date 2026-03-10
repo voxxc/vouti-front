@@ -22,6 +22,8 @@ const LandingPage2 = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [easterEggInput, setEasterEggInput] = useState('');
   const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [showMobileDialog, setShowMobileDialog] = useState(false);
+  const [mobileDialogMode, setMobileDialogMode] = useState<'menu' | 'code'>('menu');
 
   const [counters, setCounters] = useState({ cases: 0, years: 0, clients: 0, success: 0 });
   const [hasAnimated, setHasAnimated] = useState(false);
