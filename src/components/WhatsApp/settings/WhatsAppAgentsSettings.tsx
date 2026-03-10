@@ -71,7 +71,7 @@ export const WhatsAppAgentsSettings = () => {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hasOwnAgent, setHasOwnAgent] = useState(true);
   const [isCreatingMyAgent, setIsCreatingMyAgent] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
