@@ -255,6 +255,43 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
 
+      {/* Mobile Welcome Dialog */}
+      <Dialog open={showMobileWelcome} onOpenChange={setShowMobileWelcome}>
+        <DialogContent className="w-[85vw] max-w-sm rounded-2xl bg-white border-gray-200 p-8">
+          <DialogHeader className="items-center text-center">
+            <span className="text-4xl font-black tracking-tight lowercase mb-2">
+              vouti<span className="text-[#E11D48]">.</span>
+            </span>
+            <DialogTitle className="text-base font-medium text-gray-500">
+              Como deseja continuar?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <Button
+              onClick={() => {
+                setShowMobileWelcome(false);
+                setShowEasterEgg(true);
+              }}
+              className="w-full h-14 bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] rounded-xl text-base font-semibold gap-3"
+            >
+              <Key className="w-5 h-5" />
+              Código
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMobileWelcome(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="w-full h-14 border-gray-300 text-[#0a0a0a] hover:bg-gray-50 rounded-xl text-base font-semibold gap-3"
+            >
+              <Eye className="w-5 h-5" />
+              Quero Conhecer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
