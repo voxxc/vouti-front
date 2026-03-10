@@ -390,7 +390,7 @@ const LandingPage2 = () => {
         </div>
       </footer>
 
-      {/* Easter Egg Modal */}
+      {/* Easter Egg Modal (Desktop) */}
       {showEasterEgg && (
         <div 
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
@@ -416,6 +416,71 @@ const LandingPage2 = () => {
               Acessar
             </Button>
           </form>
+        </div>
+      )}
+
+      {/* Mobile Access Dialog */}
+      {showMobileDialog && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-end justify-center z-50"
+          onClick={() => { setShowMobileDialog(false); setMobileDialogMode('menu'); }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#1a1a1a] border-t border-[#262626] w-full max-w-lg p-6 pb-8 animate-in slide-in-from-bottom duration-300"
+          >
+            {mobileDialogMode === 'menu' ? (
+              <div className="space-y-4">
+                <div className="w-12 h-1 bg-[#333] rounded-full mx-auto mb-6" />
+                <h3 className="text-[#fafafa] text-lg font-light text-center tracking-wide mb-6">
+                  Acessar Plataforma
+                </h3>
+                <Button
+                  onClick={() => setMobileDialogMode('code')}
+                  className="w-full bg-[#c4a052] text-[#0a0a0a] hover:bg-[#d4b062] rounded-none py-6 text-sm tracking-widest uppercase"
+                >
+                  Digite o Código
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowMobileDialog(false);
+                    scrollToSection('contato');
+                  }}
+                  className="w-full bg-transparent border border-[#c4a052] text-[#c4a052] hover:bg-[#c4a052] hover:text-[#0a0a0a] rounded-none py-6 text-sm tracking-widest uppercase transition-all duration-300"
+                >
+                  Quero Conhecer
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={(e) => { handleEasterEggSubmit(e); setShowMobileDialog(false); setMobileDialogMode('menu'); }} className="space-y-4">
+                <div className="w-12 h-1 bg-[#333] rounded-full mx-auto mb-6" />
+                <h3 className="text-[#fafafa] text-lg font-light text-center tracking-wide mb-6">
+                  Código de Acesso
+                </h3>
+                <Input
+                  type="password"
+                  placeholder="Digite seu código"
+                  value={easterEggInput}
+                  onChange={(e) => setEasterEggInput(e.target.value)}
+                  autoFocus
+                  className="bg-transparent border-[#262626] focus:border-[#c4a052] text-[#fafafa] placeholder:text-[#505050] rounded-none py-6"
+                />
+                <Button 
+                  type="submit"
+                  className="w-full bg-[#c4a052] text-[#0a0a0a] hover:bg-[#d4b062] rounded-none py-6 text-sm tracking-widest uppercase"
+                >
+                  Acessar
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setMobileDialogMode('menu')}
+                  className="w-full text-[#505050] text-xs tracking-widest uppercase pt-2"
+                >
+                  Voltar
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>
