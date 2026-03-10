@@ -166,6 +166,7 @@ export const SpnAuthProvider = ({ children }: { children: ReactNode }) => {
       user, session, profile, role,
       isAdmin: role === 'admin',
       isTeacher: role === 'teacher',
+      isSpnUser: !!profile,
       signIn, signUp, signOut, loading,
     }}>
       {children}
