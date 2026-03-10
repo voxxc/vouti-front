@@ -75,6 +75,9 @@ const BatinkLanding = () => {
         navigate('/batink');
       } else if (code === 'veridicto') {
         navigate('/veridicto');
+      } else if (code === 'spn') {
+        await supabase.auth.signOut();
+        navigate('/spn/auth');
       } else {
         setEasterEggInput('');
         setShowEasterEgg(false);
