@@ -7,8 +7,8 @@ const LogoSpn = ({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
         <span className="text-red-500">.</span>
         <span className="text-emerald-500">spn</span>
       </h1>
-      <p className="text-xs text-muted-foreground italic tracking-wide">
-        aqui você <span className="font-semibold text-emerald-500">speak now</span>!
+      <p className="text-xs italic tracking-wide">
+        <span className="text-foreground">aqui você </span><span className="font-semibold text-emerald-500">speak now</span><span className="text-foreground">!</span>
       </p>
     </div>
   );
