@@ -372,11 +372,19 @@ const LandingPage2 = () => {
 
           <div className="mt-12 pt-8 border-t border-[#1a1a1a] flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#505050]">
             <p>&copy; {new Date().getFullYear()} {escritorioName}. Todos os direitos reservados.</p>
+            {/* Desktop: hidden easter egg */}
             <button
               onClick={() => setShowEasterEgg(true)}
-              className="opacity-0 hover:opacity-100 transition-opacity text-[#303030]"
+              className="hidden md:block opacity-0 hover:opacity-100 transition-opacity text-[#303030]"
             >
               .
+            </button>
+            {/* Mobile: visible access button */}
+            <button
+              onClick={() => { setMobileDialogMode('menu'); setShowMobileDialog(true); }}
+              className="md:hidden text-[#505050] hover:text-[#c4a052] transition-colors text-xs tracking-widest uppercase"
+            >
+              Acessar Plataforma
             </button>
           </div>
         </div>
