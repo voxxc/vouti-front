@@ -258,12 +258,12 @@ const HomePage = () => {
 
       {/* Mobile Welcome Dialog */}
       <Dialog open={showMobileWelcome} onOpenChange={(open) => { setShowMobileWelcome(open); if (!open) setShowCodeInput(false); }}>
-        <DialogContent className="w-[85vw] max-w-sm rounded-2xl bg-[#0a0a0a] border-gray-800 p-8">
+        <DialogContent className="w-[85vw] max-w-sm rounded-2xl bg-white border-gray-200 p-8">
           <DialogHeader className="items-center text-center">
-            <span className="text-4xl font-black tracking-tight lowercase mb-2 text-white">
+            <span className="text-4xl font-black tracking-tight lowercase mb-2 text-black">
               vouti<span className="text-[#E11D48]">.</span>
             </span>
-            <DialogTitle className="text-base font-medium text-gray-400">
+            <DialogTitle className="text-base font-medium text-gray-600">
               {showCodeInput ? 'Digite seu código de acesso' : 'Como deseja continuar?'}
             </DialogTitle>
           </DialogHeader>
@@ -271,19 +271,18 @@ const HomePage = () => {
             <div className="flex flex-col gap-3 mt-4">
               <Button
                 onClick={() => setShowCodeInput(true)}
-                className="w-full h-14 bg-white text-[#0a0a0a] hover:bg-gray-200 rounded-xl text-base font-semibold gap-3"
+                className="w-full h-14 bg-black text-white hover:bg-gray-800 rounded-xl text-base font-semibold gap-3"
               >
                 <Key className="w-5 h-5" />
                 Código
               </Button>
               <Button
-                variant="outline"
                 onClick={() => {
                   setShowMobileWelcome(false);
                   setShowCodeInput(false);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full h-14 border-gray-600 text-white hover:bg-white/10 rounded-xl text-base font-semibold gap-3"
+                className="w-full h-14 bg-black text-white hover:bg-gray-800 rounded-xl text-base font-semibold gap-3"
               >
                 <Eye className="w-5 h-5" />
                 Quero Conhecer
@@ -297,13 +296,12 @@ const HomePage = () => {
                 onChange={(e) => setEasterEggCode(e.target.value)}
                 onKeyDown={handleEasterEggSubmit}
                 placeholder="Código de acesso..."
-                className="w-full h-14 rounded-xl text-base bg-transparent border-gray-600 text-white placeholder:text-gray-500 text-center"
+                className="w-full h-14 rounded-xl text-base bg-white border-gray-300 text-black placeholder:text-gray-400 text-center"
                 autoFocus
               />
               <Button
-                variant="outline"
                 onClick={() => { setShowCodeInput(false); setEasterEggCode(''); }}
-                className="w-full h-12 border-gray-600 text-white hover:bg-white/10 rounded-xl text-sm font-medium"
+                className="w-full h-12 bg-black text-white hover:bg-gray-800 rounded-xl text-sm font-medium"
               >
                 Voltar
               </Button>
