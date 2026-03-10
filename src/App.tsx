@@ -56,6 +56,8 @@ const BatinkLanding = lazy(() => import("@/pages/BatinkLanding"));
 const BatinkAuth = lazy(() => import("@/pages/BatinkAuth"));
 const BatinkDashboard = lazy(() => import("@/pages/BatinkDashboard"));
 const BatinkAdmin = lazy(() => import("@/pages/BatinkAdmin"));
+const SpnAuth = lazy(() => import("@/pages/SpnAuth"));
+const SpnDashboard = lazy(() => import("@/pages/SpnDashboard"));
 const VeridictoLanding = lazy(() => import("@/pages/VeridictoLanding"));
 const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
