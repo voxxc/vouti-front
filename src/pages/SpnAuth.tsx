@@ -35,8 +35,18 @@ const SpnAuth = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Left: Classroom Photo */}
+    <div className="min-h-screen flex bg-background relative">
+      {/* Mobile: Full-screen background image */}
+      <div className="lg:hidden fixed inset-0 z-0">
+        <img
+          src={classroomImg}
+          alt="English classroom with teacher"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-emerald-900/75" />
+      </div>
+
+      {/* Desktop: Left photo panel */}
       <div className="hidden lg:flex lg:w-[60%] relative overflow-hidden">
         <img
           src={classroomImg}
@@ -52,35 +62,39 @@ const SpnAuth = () => {
         </div>
       </div>
 
-      {/* Right: Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <Card className="w-full max-w-md border-0 shadow-none bg-transparent">
-          <CardContent className="p-0">
-            <div className="lg:hidden mb-8 flex justify-center">
-              <LogoSpn size="md" />
-            </div>
+      {/* Auth Form */}
+      <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
+        {/* Mobile branding */}
+        <div className="lg:hidden mb-6 flex flex-col items-center">
+          <LogoSpn size="md" />
+          <p className="mt-2 text-white/80 text-sm text-center max-w-xs leading-relaxed">
+            A plataforma moderna para aprender inglês.
+          </p>
+        </div>
 
+        <Card className="w-full max-w-md border-0 shadow-none lg:bg-transparent bg-white/10 backdrop-blur-xl lg:backdrop-blur-none">
+          <CardContent className="p-6 lg:p-0">
             <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Create Account</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6 lg:bg-muted bg-white/20">
+                <TabsTrigger value="signin" className="lg:text-foreground text-white data-[state=active]:text-foreground">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="lg:text-foreground text-white data-[state=active]:text-foreground">Create Account</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="lg:text-foreground text-white">Email</Label>
                     <Input id="email" type="email" value={email}
                       onChange={e => setEmail(e.target.value)} required
-                      placeholder="your@email.com" />
+                      placeholder="your@email.com" className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="lg:text-foreground text-white">Password</Label>
                     <Input id="password" type="password" value={password}
                       onChange={e => setPassword(e.target.value)} required
-                      placeholder="••••••••" />
+                      placeholder="••••••••" className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30" />
                   </div>
-                  {error && <p className="text-sm text-destructive">{error}</p>}
+                  {error && <p className="text-sm text-red-300 lg:text-destructive">{error}</p>}
                   <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
@@ -90,24 +104,24 @@ const SpnAuth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
+                    <Label htmlFor="fullName" className="lg:text-foreground text-white">Full Name</Label>
                     <Input id="fullName" value={fullName}
                       onChange={e => setFullName(e.target.value)} required
-                      placeholder="John Doe" />
+                      placeholder="John Doe" className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signupEmail">Email</Label>
+                    <Label htmlFor="signupEmail" className="lg:text-foreground text-white">Email</Label>
                     <Input id="signupEmail" type="email" value={email}
                       onChange={e => setEmail(e.target.value)} required
-                      placeholder="your@email.com" />
+                      placeholder="your@email.com" className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signupPassword">Password</Label>
+                    <Label htmlFor="signupPassword" className="lg:text-foreground text-white">Password</Label>
                     <Input id="signupPassword" type="password" value={password}
                       onChange={e => setPassword(e.target.value)} required
-                      placeholder="Min 6 characters" />
+                      placeholder="Min 6 characters" className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30" />
                   </div>
-                  {error && <p className="text-sm text-destructive">{error}</p>}
+                  {error && <p className="text-sm text-red-300 lg:text-destructive">{error}</p>}
                   <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
                     {loading ? 'Creating...' : 'Create Account'}
                   </Button>
