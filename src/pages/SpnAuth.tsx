@@ -43,11 +43,11 @@ const SpnAuth = () => {
           alt="English classroom with teacher"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/70 to-emerald-700/40 flex flex-col items-center justify-center p-12">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/70 to-emerald-700/40 flex flex-col items-start justify-start p-12 pt-16">
           <LogoSpn size="lg" />
-          <p className="mt-6 text-white/90 text-lg text-center max-w-md leading-relaxed">
-            The modern platform for learning English.<br />
-            Interactive, gamified, and effective.
+          <p className="mt-4 text-white/90 text-lg text-left max-w-md leading-relaxed">
+            A plataforma moderna para aprender inglês.<br />
+            Interativa, gamificada e eficaz.
           </p>
         </div>
       </div>
