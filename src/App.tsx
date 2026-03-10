@@ -56,6 +56,8 @@ const BatinkLanding = lazy(() => import("@/pages/BatinkLanding"));
 const BatinkAuth = lazy(() => import("@/pages/BatinkAuth"));
 const BatinkDashboard = lazy(() => import("@/pages/BatinkDashboard"));
 const BatinkAdmin = lazy(() => import("@/pages/BatinkAdmin"));
+const SpnAuth = lazy(() => import("@/pages/SpnAuth"));
+const SpnDashboard = lazy(() => import("@/pages/SpnDashboard"));
 const VeridictoLanding = lazy(() => import("@/pages/VeridictoLanding"));
 const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
@@ -69,6 +71,7 @@ const CrmLanding = lazy(() => import("@/pages/CrmLanding"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
+import { SpnAuthProvider, useSpnAuth } from "@/contexts/SpnAuthContext";
 import { 
   LegacyProjectRedirect, 
   LegacyProjectAcordosRedirect, 
@@ -280,7 +283,21 @@ const BatinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Component that passes tenant.id to AuthProvider for super admin access
+const SpnProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useSpnAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
+  if (!user) return <Navigate to="/spn/auth" replace />;
+  return <>{children}</>;
+};
+
+const SpnPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useSpnAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
+  if (user) return <Navigate to="/spn/dashboard" replace />;
+  return <>{children}</>;
+};
+
+
 const TenantAwareAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { tenant } = useTenant();
   return (
@@ -627,6 +644,23 @@ function App() {
                 </BatinkProtectedRoute>
               </BatinkAuthProvider>
             } />
+            
+            {/* SPN Routes - Isolated English Learning Platform */}
+            <Route path="/spn/auth" element={
+              <SpnAuthProvider>
+                <SpnPublicRoute>
+                  <SpnAuth />
+                </SpnPublicRoute>
+              </SpnAuthProvider>
+            } />
+            <Route path="/spn/dashboard" element={
+              <SpnAuthProvider>
+                <SpnProtectedRoute>
+                  <SpnDashboard />
+                </SpnProtectedRoute>
+              </SpnAuthProvider>
+            } />
+            <Route path="/spn" element={<Navigate to="/spn/auth" replace />} />
             
             {/* Veridicto Landing Page */}
             <Route path="/veridicto" element={<VeridictoLanding />} />
