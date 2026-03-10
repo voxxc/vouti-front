@@ -1,36 +1,27 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Mobile Background Image for SPN Auth
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+On mobile, the classroom photo is currently hidden (`hidden lg:flex`). The plan is to show it as a fixed full-screen background on mobile, with the form overlaid on top with a semi-transparent dark overlay for readability.
 
-### Implementação
+### Changes to `src/pages/SpnAuth.tsx`
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+1. Add a **full-screen background image** layer visible on mobile only (behind the form), with a dark overlay
+2. Keep the existing desktop split layout unchanged
+3. Make the mobile form card semi-transparent with a backdrop blur for a polished look
+4. Ensure the logo and slogan text on mobile remain white/readable against the background
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### Structure
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+```text
+Mobile:
+  └── Full-screen bg image (fixed)
+      └── Dark overlay
+          └── Logo + slogan (top)
+          └── Form card (centered, glass effect)
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Desktop (unchanged):
+  └── Left 60%: photo + overlay + branding
+  └── Right 40%: form
+```
 
