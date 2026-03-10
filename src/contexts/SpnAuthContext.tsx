@@ -22,6 +22,7 @@ interface SpnAuthContextType {
   role: SpnRole;
   isAdmin: boolean;
   isTeacher: boolean;
+  isSpnUser: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -73,7 +74,15 @@ export const SpnAuthProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', userId)
         .single();
 
-      if (profileData) setProfile(profileData as unknown as SpnProfile);
+      if (profileData) {
+        setProfile(profileData as unknown as SpnProfile);
+      } else {
+        // No SPN profile = not an SPN user
+        setProfile(null);
+        setRole('student');
+        setLoading(false);
+        return;
+      }
 
       // Check roles in priority: admin > teacher > student
       const { data: roles } = await supabase
@@ -157,6 +166,7 @@ export const SpnAuthProvider = ({ children }: { children: ReactNode }) => {
       user, session, profile, role,
       isAdmin: role === 'admin',
       isTeacher: role === 'teacher',
+      isSpnUser: !!profile,
       signIn, signUp, signOut, loading,
     }}>
       {children}

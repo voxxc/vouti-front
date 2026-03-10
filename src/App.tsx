@@ -284,16 +284,22 @@ const BatinkPublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const SpnProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useSpnAuth();
+  const { user, loading, isSpnUser, signOut } = useSpnAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
   if (!user) return <Navigate to="/spn/auth" replace />;
+  // User is authenticated but NOT an SPN user → block access
+  if (!isSpnUser) {
+    signOut();
+    return <Navigate to="/spn/auth" replace />;
+  }
   return <>{children}</>;
 };
 
 const SpnPublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useSpnAuth();
+  const { user, loading, isSpnUser } = useSpnAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
-  if (user) return <Navigate to="/spn/dashboard" replace />;
+  // Only redirect to dashboard if user is authenticated AND is an SPN user
+  if (user && isSpnUser) return <Navigate to="/spn/dashboard" replace />;
   return <>{children}</>;
 };
 
