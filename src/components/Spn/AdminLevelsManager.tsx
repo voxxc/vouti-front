@@ -46,13 +46,13 @@ const AdminLevelsManager = () => {
     let error;
 
     if (type === 'level') {
-      ({ error } = await supabase.from('spn_levels').insert({ name: newName, sort_order: levels.length }));
+      ({ error } = await supabase.from('spn_levels').insert({ name: newName, sort_order: levels.length } as any));
     } else if (type === 'module' && parentId) {
-      ({ error } = await supabase.from('spn_modules').insert({ name: newName, level_id: parentId, sort_order: modules.filter(m => m.level_id === parentId).length }));
+      ({ error } = await supabase.from('spn_modules').insert({ name: newName, level_id: parentId, sort_order: modules.filter(m => m.level_id === parentId).length } as any));
     } else if (type === 'unit' && parentId) {
-      ({ error } = await supabase.from('spn_units').insert({ name: newName, module_id: parentId, sort_order: units.filter(u => u.module_id === parentId).length }));
+      ({ error } = await supabase.from('spn_units').insert({ name: newName, module_id: parentId, sort_order: units.filter(u => u.module_id === parentId).length } as any));
     } else if (type === 'section' && parentId) {
-      ({ error } = await supabase.from('spn_sections').insert({ name: newName, unit_id: parentId, type: 'grammar', sort_order: sections.filter(s => s.unit_id === parentId).length }));
+      ({ error } = await supabase.from('spn_sections').insert({ name: newName, unit_id: parentId, type: 'grammar', sort_order: sections.filter(s => s.unit_id === parentId).length } as any));
     }
 
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
