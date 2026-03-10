@@ -29,6 +29,7 @@ const HomePage = () => {
   const [formSuccess, setFormSuccess] = useState(false);
   const [successName, setSuccessName] = useState('');
   const [showMobileWelcome, setShowMobileWelcome] = useState(false);
+  const [showCodeInput, setShowCodeInput] = useState(false);
   const isMobile = useIsMobile();
   const [formData, setFormData] = useState({
     nome: '',
