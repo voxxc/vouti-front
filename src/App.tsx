@@ -645,6 +645,23 @@ function App() {
               </BatinkAuthProvider>
             } />
             
+            {/* SPN Routes - Isolated English Learning Platform */}
+            <Route path="/spn/auth" element={
+              <SpnAuthProvider>
+                <SpnPublicRoute>
+                  <SpnAuth />
+                </SpnPublicRoute>
+              </SpnAuthProvider>
+            } />
+            <Route path="/spn/dashboard" element={
+              <SpnAuthProvider>
+                <SpnProtectedRoute>
+                  <SpnDashboard />
+                </SpnProtectedRoute>
+              </SpnAuthProvider>
+            } />
+            <Route path="/spn" element={<Navigate to="/spn/auth" replace />} />
+            
             {/* Veridicto Landing Page */}
             <Route path="/veridicto" element={<VeridictoLanding />} />
             
