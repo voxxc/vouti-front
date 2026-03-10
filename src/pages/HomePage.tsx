@@ -29,6 +29,7 @@ const HomePage = () => {
   const [formSuccess, setFormSuccess] = useState(false);
   const [successName, setSuccessName] = useState('');
   const [showMobileWelcome, setShowMobileWelcome] = useState(false);
+  const [showCodeInput, setShowCodeInput] = useState(false);
   const isMobile = useIsMobile();
   const [formData, setFormData] = useState({
     nome: '',
@@ -256,39 +257,58 @@ const HomePage = () => {
     <div className="min-h-screen bg-white text-[#0a0a0a] overflow-x-hidden">
 
       {/* Mobile Welcome Dialog */}
-      <Dialog open={showMobileWelcome} onOpenChange={setShowMobileWelcome}>
+      <Dialog open={showMobileWelcome} onOpenChange={(open) => { setShowMobileWelcome(open); if (!open) setShowCodeInput(false); }}>
         <DialogContent className="w-[85vw] max-w-sm rounded-2xl bg-white border-gray-200 p-8">
           <DialogHeader className="items-center text-center">
             <span className="text-4xl font-black tracking-tight lowercase mb-2">
               vouti<span className="text-[#E11D48]">.</span>
             </span>
             <DialogTitle className="text-base font-medium text-gray-500">
-              Como deseja continuar?
+              {showCodeInput ? 'Digite seu código de acesso' : 'Como deseja continuar?'}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-3 mt-4">
-            <Button
-              onClick={() => {
-                setShowMobileWelcome(false);
-                setShowEasterEgg(true);
-              }}
-              className="w-full h-14 bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] rounded-xl text-base font-semibold gap-3"
-            >
-              <Key className="w-5 h-5" />
-              Código
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowMobileWelcome(false);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="w-full h-14 border-gray-300 text-[#0a0a0a] hover:bg-gray-50 rounded-xl text-base font-semibold gap-3"
-            >
-              <Eye className="w-5 h-5" />
-              Quero Conhecer
-            </Button>
-          </div>
+          {!showCodeInput ? (
+            <div className="flex flex-col gap-3 mt-4">
+              <Button
+                onClick={() => setShowCodeInput(true)}
+                className="w-full h-14 bg-[#0a0a0a] text-white hover:bg-[#1a1a1a] rounded-xl text-base font-semibold gap-3"
+              >
+                <Key className="w-5 h-5" />
+                Código
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowMobileWelcome(false);
+                  setShowCodeInput(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full h-14 border-gray-300 text-[#0a0a0a] hover:bg-gray-50 rounded-xl text-base font-semibold gap-3"
+              >
+                <Eye className="w-5 h-5" />
+                Quero Conhecer
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 mt-4">
+              <Input
+                type="text"
+                value={easterEggCode}
+                onChange={(e) => setEasterEggCode(e.target.value)}
+                onKeyDown={handleEasterEggSubmit}
+                placeholder="Código de acesso..."
+                className="w-full h-14 rounded-xl text-base border-gray-300 text-[#0a0a0a] placeholder:text-gray-400 text-center"
+                autoFocus
+              />
+              <Button
+                variant="outline"
+                onClick={() => { setShowCodeInput(false); setEasterEggCode(''); }}
+                className="w-full h-12 border-gray-300 text-[#0a0a0a] hover:bg-gray-50 rounded-xl text-sm font-medium"
+              >
+                Voltar
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

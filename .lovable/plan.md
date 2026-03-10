@@ -1,15 +1,36 @@
 
 
-## Mostrar campo de código dentro do próprio Dialog
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-Ao clicar em "Código", em vez de fechar o dialog e abrir o input externo, o dialog muda de estado para mostrar um campo de input dentro dele mesmo.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Mudança em `src/pages/HomePage.tsx`
+### Implementação
 
-1. Adicionar estado `showCodeInput` (boolean, default false)
-2. No botão "Código", em vez de fechar o dialog, setar `setShowCodeInput(true)`
-3. No dialog, renderizar condicionalmente:
-   - Se `showCodeInput === false`: mostra os dois botões atuais
-   - Se `showCodeInput === true`: mostra o input de código com a mesma lógica do `handleEasterEggSubmit`, e um botão "Voltar" para retornar à tela anterior
-4. Ao fechar o dialog (onOpenChange), resetar `showCodeInput` para false
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
