@@ -71,6 +71,7 @@ const CrmLanding = lazy(() => import("@/pages/CrmLanding"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
+import { SpnAuthProvider, useSpnAuth } from "@/contexts/SpnAuthContext";
 import { 
   LegacyProjectRedirect, 
   LegacyProjectAcordosRedirect, 

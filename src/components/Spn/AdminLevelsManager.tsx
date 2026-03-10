@@ -60,7 +60,7 @@ const AdminLevelsManager = () => {
   };
 
   const deleteItem = async (table: string, id: string) => {
-    const { error } = await supabase.from(table).delete().eq('id', id);
+    const { error } = await supabase.from(table as any).delete().eq('id', id);
     if (!error) { toast({ title: 'Deleted' }); loadAll(); }
   };
 
