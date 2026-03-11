@@ -495,19 +495,29 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   };
 
   // ===== Computed Values =====
+  const matchesSearchFilter = (deadline: Deadline) =>
+    deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const isUserParticipant = (deadline: Deadline, userId: string) =>
+    deadline.advogadoResponsavel?.userId === userId ||
+    deadline.taggedUsers?.some(t => t.userId === userId) ||
+    deadline.createdByUserId === userId ||
+    deadline.completedByUserId === userId;
+
+  // For non-completed sections: filter by advogado/tagged only (original behavior)
   const filteredDeadlines = deadlines.filter(deadline => {
-    const matchesSearch = 
-      deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = matchesSearchFilter(deadline);
     const matchesUser = selectedUserFilter === "all" || 
       deadline.advogadoResponsavel?.userId === selectedUserFilter ||
       deadline.taggedUsers?.some(t => t.userId === selectedUserFilter);
-    
     return matchesSearch && matchesUser;
   });
+
+  // For completed section: use broader participation criteria
+  const searchFilteredDeadlines = deadlines.filter(matchesSearchFilter);
 
   const getDeadlinesForDate = (date: Date) => {
     return filteredDeadlines.filter(deadline => {
