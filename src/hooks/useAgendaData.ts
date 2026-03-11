@@ -76,35 +76,58 @@
             (wsData || []).forEach((ws: any) => { workspaceNameMap[ws.id] = ws.nome; });
           }
 
-          const mappedDeadlines: Deadline[] = (data || []).map(deadline => ({
-            id: deadline.id,
-            title: deadline.title,
-            description: deadline.description || '',
-            date: safeParseDate(deadline.date),
-            projectId: deadline.project_id,
-            projectName: deadline.projects?.name || 'Projeto não encontrado',
-            clientName: deadline.projects?.client || 'Cliente não encontrado',
-            completed: deadline.completed,
-           advogadoResponsavel: deadline.advogado ? {
-             userId: deadline.advogado.user_id,
-             name: deadline.advogado.full_name,
-             avatar: deadline.advogado.avatar_url
-           } : undefined,
-           taggedUsers: (deadline.deadline_tags || [])
-             .filter((tag: any) => tag.tagged_user)
-             .map((tag: any) => ({
-               userId: tag.tagged_user?.user_id,
-               name: tag.tagged_user?.full_name || 'Usuário',
-               avatar: tag.tagged_user?.avatar_url
-             })),
-            createdAt: safeParseTimestamp(deadline.created_at),
-            updatedAt: safeParseTimestamp(deadline.updated_at),
-           workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
-           createdByUserId: deadline.user_id || undefined,
-           completedByUserId: deadline.concluido_por || undefined
-          }));
- 
-         setDeadlines(mappedDeadlines);
+           // Collect project_ids where join returned NULL (RLS on projects blocked)
+           const missingProjectIds = new Set<string>();
+           (data || []).forEach((d: any) => {
+             if (d.project_id && !d.projects?.name) {
+               missingProjectIds.add(d.project_id);
+             }
+           });
+
+           // Fetch missing project names via security definer function
+           let projectInfoMap: Record<string, { name: string; client: string }> = {};
+           if (missingProjectIds.size > 0) {
+             const { data: projectData } = await supabase.rpc('get_project_basic_info', {
+               project_ids: Array.from(missingProjectIds)
+             });
+             (projectData || []).forEach((p: any) => {
+               projectInfoMap[p.id] = { name: p.name, client: p.client };
+             });
+           }
+
+           const mappedDeadlines: Deadline[] = (data || []).map(deadline => {
+             const projectFromJoin = deadline.projects?.name;
+             const fallback = deadline.project_id ? projectInfoMap[deadline.project_id] : null;
+             return {
+               id: deadline.id,
+               title: deadline.title,
+               description: deadline.description || '',
+               date: safeParseDate(deadline.date),
+               projectId: deadline.project_id,
+               projectName: projectFromJoin || fallback?.name || 'Projeto não encontrado',
+               clientName: deadline.projects?.client || fallback?.client || 'Cliente não encontrado',
+               completed: deadline.completed,
+               advogadoResponsavel: deadline.advogado ? {
+                 userId: deadline.advogado.user_id,
+                 name: deadline.advogado.full_name,
+                 avatar: deadline.advogado.avatar_url
+               } : undefined,
+               taggedUsers: (deadline.deadline_tags || [])
+                 .filter((tag: any) => tag.tagged_user)
+                 .map((tag: any) => ({
+                   userId: tag.tagged_user?.user_id,
+                   name: tag.tagged_user?.full_name || 'Usuário',
+                   avatar: tag.tagged_user?.avatar_url
+                 })),
+               createdAt: safeParseTimestamp(deadline.created_at),
+               updatedAt: safeParseTimestamp(deadline.updated_at),
+               workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
+               createdByUserId: deadline.user_id || undefined,
+               completedByUserId: deadline.concluido_por || undefined
+             };
+           });
+  
+          setDeadlines(mappedDeadlines);
        } catch (error) {
          console.error('[useAgendaData] Error:', error);
        } finally {

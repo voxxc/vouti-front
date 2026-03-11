@@ -1,55 +1,36 @@
 
 
-## Diagnóstico — 3 problemas encontrados
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### 1. Conclusão não persiste (UPDATE bloqueado por RLS)
-O prazo "CONFECÇÃO DE LAUDO PARA EMBARGOS À MONITÓRIA" está com `completed = false` no banco. Wesley é o `advogado_responsavel_id`, mas a policy de UPDATE exige `auth.uid() = user_id` (criador). Como Wesley não criou o prazo, o UPDATE é silenciosamente bloqueado pelo RLS — a conclusão e o comentário não foram salvos.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### 2. "Projeto não encontrado" nos concluídos do Wesley
-A query de deadlines faz join com `projects (name, client)`. A RLS de projects exige `is_project_member(id)` — Wesley não é membro/colaborador de vários projetos, então o join retorna NULL e aparece "Projeto não encontrado".
+### Implementação
 
-### 3. Comentário sumido
-Consequência direta do problema 1 — como o UPDATE foi bloqueado, o `comentario_conclusao` não foi gravado.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
----
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-## Correções
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### A. RLS: Expandir UPDATE policy de deadlines
-Permitir que `advogado_responsavel_id` e usuários tagged também possam atualizar o prazo (não apenas o criador).
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-```sql
-DROP POLICY "Users can update their deadlines in tenant" ON deadlines;
-CREATE POLICY "Users can update their deadlines in tenant"
-ON deadlines FOR UPDATE TO authenticated
-USING (
-  tenant_id IS NOT NULL
-  AND tenant_id = get_user_tenant_id()
-  AND (
-    auth.uid() = user_id
-    OR auth.uid() = advogado_responsavel_id
-    OR is_tagged_in_deadline(id, auth.uid())
-  )
-);
-```
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### B. DB Function: Buscar nome do projeto sem depender de RLS de projects
-Criar uma function `security definer` que retorna nome e cliente de um projeto pelo ID, para uso no fetch de deadlines.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-```sql
-CREATE OR REPLACE FUNCTION get_project_basic_info(project_ids uuid[])
-RETURNS TABLE(id uuid, name text, client text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT p.id, p.name, p.client
-  FROM projects p
-  WHERE p.id = ANY(project_ids)
-    AND p.tenant_id = get_user_tenant_id();
-$$;
-```
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-### C. Frontend: Usar a function para preencher nomes de projetos
-Após o fetch de deadlines, coletar `project_id`s cujo join retornou NULL e buscar via `rpc('get_project_basic_info')` para preencher `projectName` e `clientName`.
-
-### D. Dados: Marcar o prazo "CONFECÇÃO DE LAUDO..." como concluído
-Após a correção de RLS, o Wesley poderá concluir novamente. Mas como ele já tentou, podemos marcar diretamente no banco com o comentário (se o usuário preferir).
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
