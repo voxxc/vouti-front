@@ -9242,6 +9242,14 @@ export type Database = {
         }[]
       }
       get_dashboard_processos_count: { Args: never; Returns: number }
+      get_project_basic_info: {
+        Args: { project_ids: string[] }
+        Returns: {
+          client: string
+          id: string
+          name: string
+        }[]
+      }
       get_tenant_by_slug: {
         Args: { p_slug: string }
         Returns: {
