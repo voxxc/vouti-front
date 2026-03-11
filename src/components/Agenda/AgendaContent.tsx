@@ -459,7 +459,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             projectId: protocoloFromCaso.project_id,
             protocoloId: protocoloFromCaso.id
           } : undefined,
-          workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined
+          workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
+          createdByUserId: deadline.user_id || undefined,
+          completedByUserId: deadline.concluido_por || undefined
         };
       });
 
