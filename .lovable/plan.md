@@ -1,36 +1,49 @@
 
+Objetivo: fazer os prazos concluídos pelo Wesley voltarem a aparecer em **Agenda > Concluídos** de forma estável (sem sumir após reload).
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+1) Diagnóstico confirmado
+- Os dois prazos da Diuza estão com `completed = true` e `concluido_por = Wesley`.
+- Mesmo assim, eles não chegam/entram na lista por dois bloqueios:
+  - **RLS de `deadlines` (SELECT)** hoje só permite ver quando usuário é `user_id`, `advogado_responsavel_id` ou tagged.
+  - **Filtro de usuário no frontend (`AgendaContent`)** pré-filtra por responsável/tagged antes de montar “Concluídos”, descartando casos de `createdBy`/`completedBy`.
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+2) Implementação proposta (correção completa)
+- **Banco (migration SQL)**
+  - Ajustar policy `Users can view deadlines in tenant` para incluir:
+    - `concluido_por = auth.uid()`
+  - Manter `tenant_id = get_user_tenant_id()` intacto (sem quebrar isolamento multi-tenant).
 
-### Implementação
+- **Frontend (`src/components/Agenda/AgendaContent.tsx`)**
+  - Separar filtros:
+    - `searchFilteredDeadlines` (apenas busca por texto)
+    - `filteredDeadlines` (busca + filtro de usuário para seções não concluídas)
+  - Em `getCompletedDeadlines`, usar base de `searchFilteredDeadlines` e aplicar visibilidade por participação:
+    - responsável **ou** tagged **ou** criador (`createdByUserId`) **ou** concluidor (`completedByUserId`).
+  - Quando houver filtro por usuário selecionado, aplicar o mesmo critério expandido também para concluídos (não só responsável/tagged).
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+- **Backfill de consistência**
+  - Atualizar registros concluídos com `concluido_por` preenchido e `concluido_em` nulo (incluindo os 2 da Diuza), para manter consistência com outras telas/relatórios.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+3) Detalhes técnicos
+```text
+Fluxo após ajuste:
+deadlines (RLS inclui concluido_por)
+   -> AgendaContent fetch
+      -> searchFilteredDeadlines
+         -> getCompletedDeadlines(completed + critério expandido)
+```
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Critério expandido de participação em Concluídos:
+- advogado_responsavel_id == usuário
+- taggedUsers contém usuário
+- user_id == usuário
+- concluido_por == usuário
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
-
+4) Validação (E2E)
+- Logar como Wesley.
+- Abrir Agenda > Concluídos.
+- Confirmar que:
+  - “APRESENTAR EMBARGOS À EXECUÇÃO” aparece.
+  - “EMBARGOS À MONITÓRIA” aparece.
+- Trocar filtro “Visualizando prazos de” entre “Wesley” e “Todos os usuários” e confirmar que os dois continuam visíveis em Concluídos.
+- Recarregar a página e validar persistência.
