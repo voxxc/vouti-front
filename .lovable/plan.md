@@ -1,40 +1,36 @@
 
 
-## Corrigir prazos concluídos que somem da lista
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-### Problema identificado
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Quando um usuário não-admin conclui um prazo, o prazo desaparece da seção "Concluídos" se esse usuário não é o **advogado responsável** nem está **marcado** (tagged) no prazo.
+### Implementação
 
-O filtro atual em `getCompletedDeadlines` (linha 543-547 do `AgendaContent.tsx`):
-```typescript
-if (!isAdmin) {
-  completed = completed.filter(d => 
-    d.advogadoResponsavel?.userId === user?.id ||
-    d.taggedUsers?.some(t => t.userId === user?.id)
-  );
-}
-```
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-Não considera quem **criou** o prazo (`user_id`) nem quem **concluiu** (`concluido_por`).
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Solução
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-1. **`src/types/agenda.ts`** — Adicionar campos `createdByUserId` e `completedByUserId` ao tipo `Deadline`.
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-2. **`src/components/Agenda/AgendaContent.tsx`** — No mapeamento dos deadlines (linha ~412), incluir `createdByUserId: deadline.user_id` e `completedByUserId: deadline.concluido_por`.
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-3. **`src/components/Agenda/AgendaContent.tsx`** — No `getCompletedDeadlines`, expandir o filtro para non-admins incluindo criador e quem concluiu:
-```typescript
-if (!isAdmin) {
-  completed = completed.filter(d => 
-    d.advogadoResponsavel?.userId === user?.id ||
-    d.taggedUsers?.some(t => t.userId === user?.id) ||
-    d.createdByUserId === user?.id ||
-    d.completedByUserId === user?.id
-  );
-}
-```
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-4. **Mesma lógica** para o filtro de admin com `completedFilterUserId` (linhas 548-552).
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
