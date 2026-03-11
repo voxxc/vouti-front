@@ -44,6 +44,15 @@ const HomePage = () => {
     }
   }, [isMobile]);
 
+  useEffect(() => {
+    if (showMobileWelcome) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showMobileWelcome]);
+
   // Scroll animations
   const heroAnim = useScrollAnimation(0.1);
   const featuresAnim = useScrollAnimation(0.1);
