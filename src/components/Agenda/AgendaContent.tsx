@@ -495,19 +495,29 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   };
 
   // ===== Computed Values =====
+  const matchesSearchFilter = (deadline: Deadline) =>
+    deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const isUserParticipant = (deadline: Deadline, userId: string) =>
+    deadline.advogadoResponsavel?.userId === userId ||
+    deadline.taggedUsers?.some(t => t.userId === userId) ||
+    deadline.createdByUserId === userId ||
+    deadline.completedByUserId === userId;
+
+  // For non-completed sections: filter by advogado/tagged only (original behavior)
   const filteredDeadlines = deadlines.filter(deadline => {
-    const matchesSearch = 
-      deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = matchesSearchFilter(deadline);
     const matchesUser = selectedUserFilter === "all" || 
       deadline.advogadoResponsavel?.userId === selectedUserFilter ||
       deadline.taggedUsers?.some(t => t.userId === selectedUserFilter);
-    
     return matchesSearch && matchesUser;
   });
+
+  // For completed section: use broader participation criteria
+  const searchFilteredDeadlines = deadlines.filter(matchesSearchFilter);
 
   const getDeadlinesForDate = (date: Date) => {
     return filteredDeadlines.filter(deadline => {
@@ -540,22 +550,19 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   };
 
   const getCompletedDeadlines = () => {
-    let completed = filteredDeadlines.filter(d => d.completed);
-    
+    // Use searchFilteredDeadlines (broader base) instead of filteredDeadlines
+    let completed = searchFilteredDeadlines.filter(d => d.completed);
+
+    // Apply user-based participation filter for completed section
     if (!isAdmin) {
-      completed = completed.filter(d => 
-        d.advogadoResponsavel?.userId === user?.id ||
-        d.taggedUsers?.some(t => t.userId === user?.id) ||
-        d.createdByUserId === user?.id ||
-        d.completedByUserId === user?.id
-      );
+      completed = completed.filter(d => user?.id ? isUserParticipant(d, user.id) : false);
     } else if (completedFilterUserId && completedFilterUserId !== 'all') {
-      completed = completed.filter(d =>
-        d.advogadoResponsavel?.userId === completedFilterUserId ||
-        d.taggedUsers?.some(t => t.userId === completedFilterUserId) ||
-        d.createdByUserId === completedFilterUserId ||
-        d.completedByUserId === completedFilterUserId
-      );
+      completed = completed.filter(d => isUserParticipant(d, completedFilterUserId));
+    }
+
+    // Also respect the global user filter if set (but with expanded criteria)
+    if (selectedUserFilter !== "all") {
+      completed = completed.filter(d => isUserParticipant(d, selectedUserFilter));
     }
     
     return completed.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
