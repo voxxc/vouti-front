@@ -1,36 +1,41 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+## Diagnóstico: Prazo "APRESENTAR EMBARGOS À EXECUÇÃO" da Diuza
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+Encontrei o prazo no banco de dados:
+- **ID**: `3f57c526-12e0-4862-89b7-16257e5934de`
+- **Título**: APRESENTAR EMBARGOS À EXECUÇÃO
+- **Cliente**: DIUZA MARA BORGES
+- **Status**: `completed = true`
+- **Problema**: O campo `concluido_por` está **NULL**
 
-### Implementação
+Wesley (`51d47f3b`) não é o advogado responsável (é o Alan `158daf46`), não é o criador, e não está marcado (tagged). Como `concluido_por` está NULL, ele não aparece nos concluídos para o Wesley por nenhum dos critérios do filtro.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+Há também o prazo "EMBARGOS À MONITÓRIA" (`aefb9e4a`) da Diuza com o mesmo problema (completed=true, concluido_por=NULL).
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### Correções
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+**1. Correção de dados (SQL migration)**
+Atualizar os deadlines da Diuza que estão concluídos mas com `concluido_por` NULL, atribuindo o Wesley como quem concluiu.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+**2. Correção de código (`AgendaContent.tsx`)**
+Na atualização local do estado após conclusão (linha 759-763), o `completedByUserId` não é setado, fazendo o prazo sumir da lista imediatamente após conclusão até o próximo reload. Corrigir para incluir `completedByUserId: user?.id`.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+### Detalhes técnicos
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+```sql
+UPDATE deadlines 
+SET concluido_por = '51d47f3b-fbe6-4811-9817-a45040c1bdee'
+WHERE id IN ('3f57c526-12e0-4862-89b7-16257e5934de', 'aefb9e4a-3831-4cda-a245-1c8b64cdc490')
+AND completed = true AND concluido_por IS NULL;
+```
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+```typescript
+// Linha 759-763 do AgendaContent.tsx
+setDeadlines(deadlines.map(d =>
+  d.id === confirmCompleteDeadlineId
+    ? { ...d, completed: true, updatedAt: new Date(), completedByUserId: user?.id }
+    : d
+));
+```
 
