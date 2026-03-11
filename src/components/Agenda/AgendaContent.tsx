@@ -545,12 +545,16 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
     if (!isAdmin) {
       completed = completed.filter(d => 
         d.advogadoResponsavel?.userId === user?.id ||
-        d.taggedUsers?.some(t => t.userId === user?.id)
+        d.taggedUsers?.some(t => t.userId === user?.id) ||
+        d.createdByUserId === user?.id ||
+        d.completedByUserId === user?.id
       );
     } else if (completedFilterUserId && completedFilterUserId !== 'all') {
       completed = completed.filter(d =>
         d.advogadoResponsavel?.userId === completedFilterUserId ||
-        d.taggedUsers?.some(t => t.userId === completedFilterUserId)
+        d.taggedUsers?.some(t => t.userId === completedFilterUserId) ||
+        d.createdByUserId === completedFilterUserId ||
+        d.completedByUserId === completedFilterUserId
       );
     }
     
