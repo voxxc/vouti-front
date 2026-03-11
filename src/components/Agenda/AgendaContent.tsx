@@ -758,7 +758,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       setDeadlines(deadlines.map(d =>
         d.id === confirmCompleteDeadlineId
-          ? { ...d, completed: true, updatedAt: new Date() }
+          ? { ...d, completed: true, updatedAt: new Date(), completedByUserId: user?.id }
           : d
       ));
 
