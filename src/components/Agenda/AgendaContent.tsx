@@ -1547,12 +1547,48 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
               </p>
             )}
           </div>
+
+          {/* Subtarefa checkbox */}
+          <div className="border-t pt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="criar-subtarefa"
+                checked={criarSubtarefa}
+                onCheckedChange={(checked) => setCriarSubtarefa(checked === true)}
+              />
+              <label htmlFor="criar-subtarefa" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                <Flag className="h-4 w-4 text-orange-500" />
+                Criar subtarefa
+              </label>
+            </div>
+            {criarSubtarefa && (
+              <div className="mt-3 space-y-3 pl-6">
+                <div>
+                  <label className="text-sm font-medium">Descrição da subtarefa</label>
+                  <Textarea
+                    value={subtarefaDescricao}
+                    onChange={(e) => setSubtarefaDescricao(e.target.value)}
+                    placeholder="Descreva a subtarefa..."
+                    rows={2}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <AdvogadoSelector
+                    value={subtarefaUsuario}
+                    onChange={setSubtarefaUsuario}
+                    label="Atribuir para"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmComplete}
-              disabled={!comentarioConclusao.trim()}
+              disabled={!comentarioConclusao.trim() || (criarSubtarefa && (!subtarefaDescricao.trim() || !subtarefaUsuario))}
             >
               Confirmar Conclusão
             </AlertDialogAction>
