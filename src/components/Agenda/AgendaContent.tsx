@@ -648,7 +648,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           project_id: formData.projectId || null,
           advogado_responsavel_id: selectedAdvogado,
           module,
-          workspace_id: resolvedWorkspaceId
+          workspace_id: resolvedWorkspaceId,
+          processo_oab_id: selectedProcessoId || null,
+          protocolo_etapa_id: selectedEtapaId || null
         })
         .select()
         .single();
