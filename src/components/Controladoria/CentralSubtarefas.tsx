@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Calendar, Search, User, FileText, ExternalLink, MessageSquare, Flag } from "lucide-react";
+import { CheckCircle2, Calendar, Search, User, FileText, ExternalLink, MessageSquare, Flag, Briefcase, Scale } from "lucide-react";
 import { format, subDays, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
