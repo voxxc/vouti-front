@@ -1427,6 +1427,21 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     );
                   })()}
                   
+                  {selectedDeadline.createdByName && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Criado por</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={selectedDeadline.createdByAvatar} />
+                          <AvatarFallback className="text-xs">
+                            {selectedDeadline.createdByName?.charAt(0).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{selectedDeadline.createdByName}</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <Badge 
