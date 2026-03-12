@@ -54,6 +54,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [profilePics, setProfilePics] = useState<Record<string, string>>({});
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<ConversationTab>("open");
   const [tickets, setTickets] = useState<TicketInfo[]>([]);
   const [pendingMacro, setPendingMacro] = useState<any | null>(null);
