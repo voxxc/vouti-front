@@ -1,36 +1,51 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Adicionar seletores de Processo (OAB) e Etapa na criação de prazo pela Agenda
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## O que existe hoje
 
-### Implementação
+O diálogo "Criar Novo Prazo" na Agenda já possui: Título, Descrição, Responsável, Tags, Projeto (opcional) e Workspace (opcional). Faltam os campos de **Processo (Caso OAB)** e **Etapa (do protocolo)** para rastreabilidade completa.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## O que será feito
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### Novos campos no diálogo de criação (AgendaContent.tsx)
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Após o seletor de Workspace, adicionar dois novos campos encadeados:
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+1. **Processo / Caso (opcional)** — `Select` que lista os processos OAB vinculados ao projeto selecionado (via `project_processos` → `processos_oab`). Se nenhum projeto for selecionado, lista todos os processos do tenant. Salva em `processo_oab_id` na tabela `deadlines`.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+2. **Etapa (opcional)** — `Select` que lista as etapas dos protocolos vinculados ao processo selecionado (via `project_protocolos` → `project_protocolo_etapas`). Aparece somente se um processo estiver selecionado. Salva em `protocolo_etapa_id` na tabela `deadlines`.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### Fluxo de cascata
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+- Selecionar **Projeto** → carrega Workspaces + Processos do projeto
+- Selecionar **Processo** → carrega Etapas (via protocolos vinculados)
+- Limpar Projeto → limpa Workspace, Processo e Etapa
+- Limpar Processo → limpa Etapa
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Alterações no insert
+
+O `handleCreateDeadline` passará a incluir:
+- `processo_oab_id: selectedProcessoId || null`
+- `protocolo_etapa_id: selectedEtapaId || null`
+
+### Alterações no formData reset
+
+Após criação, limpar os novos estados.
+
+### Novos estados
+
+- `availableProcessos` — lista de processos carregados
+- `selectedProcessoId` — processo selecionado
+- `availableEtapas` — lista de etapas carregadas
+- `selectedEtapaId` — etapa selecionada
+
+### Tipo DeadlineFormData (src/types/agenda.ts)
+
+Adicionar campos opcionais `processoOabId` e `protocoloEtapaId`.
+
+### Arquivo alterado
+
+- `src/components/Agenda/AgendaContent.tsx` — estados, UI do diálogo, lógica de insert
+- `src/types/agenda.ts` — campos opcionais no DeadlineFormData
 
