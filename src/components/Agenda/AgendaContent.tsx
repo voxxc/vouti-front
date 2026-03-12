@@ -1195,55 +1195,45 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   </Select>
                 </div>
               )}
-              {availableProcessos.length > 0 && (
+              {availableProtocolos.length > 0 && (
                 <div>
-                  <label className="text-sm font-medium">Processo / Caso (opcional)</label>
+                  <label className="text-sm font-medium">Protocolo (opcional)</label>
                   <Select
-                    value={selectedProcessoId || "none"}
+                    value={selectedProtocoloId || "none"}
                     onValueChange={async (val) => {
-                      const procId = val === "none" ? "" : val;
-                      setSelectedProcessoId(procId);
+                      const protId = val === "none" ? "" : val;
+                      setSelectedProtocoloId(protId);
                       setSelectedEtapaId("");
                       setAvailableEtapas([]);
-                      if (procId) {
-                        // Load etapas from protocolos linked to this processo
-                        const { data: prots } = await supabase
-                          .from('project_protocolos')
+                      if (protId) {
+                        const { data: etapas } = await supabase
+                          .from('project_protocolo_etapas')
                           .select('id, nome')
-                          .eq('processo_oab_id', procId);
-                        if (prots && prots.length > 0) {
-                          const protIds = prots.map(p => p.id);
-                          const { data: etapas } = await supabase
-                            .from('project_protocolo_etapas')
-                            .select('id, nome, protocolo_id')
-                            .in('protocolo_id', protIds)
-                            .order('ordem');
-                          const protNameMap: Record<string, string> = {};
-                          prots.forEach(p => { protNameMap[p.id] = p.nome; });
-                          setAvailableEtapas((etapas || []).map(e => ({
-                            id: e.id,
-                            nome: e.nome,
-                            protocolo_nome: protNameMap[e.protocolo_id] || null
-                          })));
-                        }
+                          .eq('protocolo_id', protId)
+                          .order('ordem');
+                        setAvailableEtapas((etapas || []).map(e => ({
+                          id: e.id,
+                          nome: e.nome,
+                          protocolo_nome: null
+                        })));
                       }
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Sem processo" />
+                      <SelectValue placeholder="Sem protocolo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sem processo</SelectItem>
-                      {availableProcessos.map(p => (
+                      <SelectItem value="none">Sem protocolo</SelectItem>
+                      {availableProtocolos.map(p => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.numero_cnj || 'Sem CNJ'}{p.parte_ativa ? ` - ${p.parte_ativa}` : ''}
+                          {p.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-              {selectedProcessoId && availableEtapas.length > 0 && (
+              {selectedProtocoloId && availableEtapas.length > 0 && (
                 <div>
                   <label className="text-sm font-medium">Etapa (opcional)</label>
                   <Select
@@ -1257,7 +1247,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                       <SelectItem value="none">Sem etapa</SelectItem>
                       {availableEtapas.map(e => (
                         <SelectItem key={e.id} value={e.id}>
-                          {e.protocolo_nome ? `${e.protocolo_nome} › ` : ''}{e.nome}
+                          {e.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
