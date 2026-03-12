@@ -222,6 +222,13 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   const [completedFilterUserId, setCompletedFilterUserId] = useState<string | null>(null);
   const [confirmCompleteDeadlineId, setConfirmCompleteDeadlineId] = useState<string | null>(null);
   const [comentarioConclusao, setComentarioConclusao] = useState("");
+  const [criarSubtarefa, setCriarSubtarefa] = useState(false);
+  const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [subtarefaUsuario, setSubtarefaUsuario] = useState<string | null>(null);
+
+  // Project/workspace selection for creation
+  const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
+  const [availableWorkspaces, setAvailableWorkspaces] = useState<Array<{ id: string; nome: string }>>([]);
 
   // User filter (default: current user)
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>("all");
