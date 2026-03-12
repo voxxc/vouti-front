@@ -195,12 +195,12 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
   // Função estabilizada para carregar mensagens (paginado)
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantIsNull: true,
         skipAgentFilter: true,
       });
-      setMessages(formattedMessages);
+      setMessages(result.messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }
