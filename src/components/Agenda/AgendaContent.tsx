@@ -1125,6 +1125,10 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     const projectId = val === "none" ? "" : val;
                     setFormData({ ...formData, projectId, workspaceId: "" });
                     setAvailableWorkspaces([]);
+                    setAvailableProcessos([]);
+                    setSelectedProcessoId("");
+                    setAvailableEtapas([]);
+                    setSelectedEtapaId("");
                     if (projectId) {
                       const { data: ws } = await supabase
                         .from('project_workspaces')
@@ -1132,6 +1136,23 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                         .eq('project_id', projectId)
                         .order('is_default', { ascending: false });
                       setAvailableWorkspaces(ws || []);
+                      // Load processos linked to this project
+                      const { data: pp } = await supabase
+                        .from('project_processos')
+                        .select('processo_oab_id, processos_oab(id, numero_cnj, parte_ativa)')
+                        .eq('projeto_id', projectId);
+                      const procs = (pp || [])
+                        .map((p: any) => p.processos_oab)
+                        .filter(Boolean);
+                      setAvailableProcessos(procs);
+                    } else if (tenantId) {
+                      // No project selected: load all tenant processos
+                      const { data: allProcs } = await supabase
+                        .from('processos_oab')
+                        .select('id, numero_cnj, parte_ativa')
+                        .eq('tenant_id', tenantId)
+                        .order('numero_cnj');
+                      setAvailableProcessos(allProcs || []);
                     }
                   }}
                 >
