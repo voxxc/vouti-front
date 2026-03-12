@@ -15,7 +15,7 @@ import { ptBR } from "date-fns/locale";
 interface PrazosAbertosPanelProps {
   userId: string;
   maxItems?: number;
-  onOpenAgendaDrawer?: () => void;
+  onOpenAgendaDrawer?: (deadlineId?: string) => void;
 }
 
 interface PrazoAberto {
