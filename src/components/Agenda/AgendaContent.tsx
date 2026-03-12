@@ -229,8 +229,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   // Project/workspace/processo/etapa selection for creation
   const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
   const [availableWorkspaces, setAvailableWorkspaces] = useState<Array<{ id: string; nome: string }>>([]);
-  const [availableProcessos, setAvailableProcessos] = useState<Array<{ id: string; numero_cnj: string | null; parte_ativa: string | null }>>([]);
-  const [selectedProcessoId, setSelectedProcessoId] = useState<string>("");
+  const [availableProtocolos, setAvailableProtocolos] = useState<Array<{ id: string; nome: string; processo_oab_id?: string | null }>>([]);
+  const [selectedProtocoloId, setSelectedProtocoloId] = useState<string>("");
   const [availableEtapas, setAvailableEtapas] = useState<Array<{ id: string; nome: string; protocolo_nome: string | null }>>([]);
   const [selectedEtapaId, setSelectedEtapaId] = useState<string>("");
 
