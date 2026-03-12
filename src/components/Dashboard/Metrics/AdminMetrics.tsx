@@ -12,7 +12,7 @@ import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import PrazosDistributionChart from "../PrazosDistributionChart";
-import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
