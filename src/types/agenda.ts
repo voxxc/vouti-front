@@ -70,4 +70,6 @@ export interface DeadlineFormData {
   date: Date;
   projectId: string;
   workspaceId?: string;
+  processoOabId?: string;
+  protocoloEtapaId?: string;
 }
