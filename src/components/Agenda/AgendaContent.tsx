@@ -1187,8 +1187,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   </PopoverContent>
                 </Popover>
               </div>
-              <Button onClick={handleCreateDeadline} className="w-full">
-                Criar Prazo
+              <Button onClick={handleCreateDeadline} className="w-full" disabled={creatingDeadline}>
+                {creatingDeadline ? <Clock className="h-4 w-4 animate-spin mr-2" /> : null}
+                {creatingDeadline ? "Criando..." : "Criar Prazo"}
               </Button>
             </div>
           </DialogContent>

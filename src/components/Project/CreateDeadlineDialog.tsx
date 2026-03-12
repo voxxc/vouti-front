@@ -46,6 +46,7 @@ export function CreateDeadlineDialog({
   const { toast } = useToast();
 
   const handleCreate = async () => {
+    if (saving) return;
     if (!title.trim() || !date) {
       toast({
         title: 'Campos obrigatórios',
