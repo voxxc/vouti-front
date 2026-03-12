@@ -34,7 +34,7 @@ export function AgendaDrawer({ open, onOpenChange, initialDeadlineId }: AgendaDr
 
         {/* Content */}
         <div className="p-3 md:p-6 flex-1 overflow-y-auto">
-          <AgendaContent />
+          <AgendaContent initialDeadlineId={initialDeadlineId} />
         </div>
       </SheetContent>
     </Sheet>

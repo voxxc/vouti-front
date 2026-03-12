@@ -41,6 +41,7 @@ import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificati
 
 interface AgendaContentProps {
   module?: string;
+  initialDeadlineId?: string;
 }
 
 // Componente de abas para Origem/Vinculado no detalhamento de prazo

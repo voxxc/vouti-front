@@ -350,7 +350,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
               <div
                 key={prazo.id}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={onOpenAgendaDrawer || handleNavigateToAgenda}
+                onClick={() => onOpenAgendaDrawer ? onOpenAgendaDrawer(prazo.id) : handleNavigateToAgenda()}
               >
                 <div className="flex-shrink-0 mt-0.5">
                   {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? (
