@@ -1,26 +1,36 @@
 
 
-# Contador de subtarefas pendentes no header da coluna
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## O que muda
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-1. **Header da coluna (linha 358)**: Substituir o texto "Subtarefa" por um ícone de bandeira (`Flag`) + um badge com o total de subtarefas pendentes de todos os prazos visíveis. Exemplo: 🚩 `(5)` — onde 5 é a soma de subtarefas não concluídas.
+### Implementação
 
-2. **Célula da tabela (linhas 427-443)**: Reverter para o formato simples anterior — apenas o botão "Ver" com o ícone de bandeira, sem badge individual nem contador por linha.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-## Implementação
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**Arquivo: `src/components/Controladoria/CentralPrazosConcluidos.tsx`**
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-- **Linha 358 (header)**: Calcular `totalPendentes = filteredPrazos.reduce((acc, p) => acc + p.subtarefas.filter(s => !s.concluida).length, 0)` e renderizar:
-  ```
-  <Flag className="h-4 w-4 inline" />  (totalPendentes)
-  ```
-  Com cor laranja se > 0, verde se 0.
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-- **Linhas 427-443 (célula)**: Simplificar para apenas:
-  ```
-  prazo.subtarefas.length === 0 ? "-" : <Flag className="h-4 w-4" /> Ver
-  ```
-  Sem badges individuais.
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
