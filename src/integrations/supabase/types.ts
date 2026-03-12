@@ -1734,7 +1734,7 @@ export type Database = {
       }
       deadline_subtarefas: {
         Row: {
-          atribuido_a: string
+          atribuido_a: string | null
           concluida: boolean | null
           concluida_em: string | null
           created_at: string | null
@@ -1745,7 +1745,7 @@ export type Database = {
           tenant_id: string | null
         }
         Insert: {
-          atribuido_a: string
+          atribuido_a?: string | null
           concluida?: boolean | null
           concluida_em?: string | null
           created_at?: string | null
@@ -1756,7 +1756,7 @@ export type Database = {
           tenant_id?: string | null
         }
         Update: {
-          atribuido_a?: string
+          atribuido_a?: string | null
           concluida?: boolean | null
           concluida_em?: string | null
           created_at?: string | null

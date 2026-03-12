@@ -1,0 +1,1 @@
+ALTER TABLE public.deadline_subtarefas ALTER COLUMN atribuido_a DROP NOT NULL;
