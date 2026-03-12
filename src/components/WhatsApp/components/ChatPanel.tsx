@@ -29,6 +29,9 @@ interface ChatPanelProps {
   onClearMacro?: () => void;
   agentId?: string | null;
   tenantId?: string | null;
+  onLoadMore?: () => void;
+  hasMoreMessages?: boolean;
+  isLoadingMore?: boolean;
 }
 
 function detectMimeType(file: File): "image" | "audio" | "video" | "document" {
