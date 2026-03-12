@@ -25,6 +25,7 @@ interface AdminMetricsProps {
 
 const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+  const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
   const { tenantId } = useTenantId();
 
