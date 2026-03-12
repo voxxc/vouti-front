@@ -274,7 +274,7 @@ const DashboardLayout = ({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Header - Fixed */}
-        <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <header className="fixed top-0 right-0 left-0 md:left-16 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="flex items-center justify-between px-3 md:px-6 h-[49px] overflow-hidden min-w-0">
             {/* Left side - Quick search (desktop only) */}
             <div className="hidden md:flex items-center gap-2">
