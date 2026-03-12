@@ -1039,7 +1039,17 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             />
           </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (open && tenantId) {
+            supabase
+              .from('projects')
+              .select('id, name, client')
+              .eq('tenant_id', tenantId)
+              .order('name')
+              .then(({ data }) => setAvailableProjects(data || []));
+          }
+        }}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2 w-full md:w-auto">
               <Plus size={16} />
