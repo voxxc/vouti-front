@@ -1,36 +1,50 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Corrigir seletor de Processo/Etapa no cadastro de prazo
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problema
 
-### Implementação
+O seletor atual está rotulado "Processo / Caso" e puxa dados de `processos_oab` (que são **Casos judiciais**). O usuário quer selecionar **Protocolos** (fluxos internos da tabela `project_protocolos`) e depois suas **Etapas** (`project_protocolo_etapas`).
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Alterações em `AgendaContent.tsx`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 1. Renomear e trocar a fonte de dados do seletor
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+- **State**: Renomear `availableProcessos` → `availableProtocolos` com tipo `{ id: string; nome: string; processo_oab_id?: string | null }`
+- **State**: Renomear `selectedProcessoId` → `selectedProtocoloId`
+- **Label**: "Protocolo (opcional)" em vez de "Processo / Caso (opcional)"
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### 2. Carregar protocolos em vez de processos OAB
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+Quando um **Projeto** é selecionado:
+```
+project_protocolos WHERE project_id = projectId
+```
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+Sem projeto selecionado (se tenant_id disponível):
+```
+project_protocolos WHERE tenant_id = tenantId
+```
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### 3. Cascata: Protocolo → Etapa
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Ao selecionar um protocolo, buscar etapas diretamente:
+```
+project_protocolo_etapas WHERE protocolo_id = selectedProtocoloId ORDER BY ordem
+```
+
+Isso simplifica a lógica atual que buscava protocolos vinculados a um processo OAB.
+
+### 4. Insert do deadline
+
+- `protocolo_etapa_id`: continua sendo salvo (já existe)
+- `processo_oab_id`: resolver automaticamente a partir do protocolo selecionado (se o protocolo tiver `processo_oab_id`), sem necessidade de seletor separado
+
+### 5. Reset do formulário
+
+Ajustar os resets para usar os novos nomes de estado.
+
+### Arquivo alterado
+
+- `src/components/Agenda/AgendaContent.tsx`
 
