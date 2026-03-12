@@ -119,7 +119,7 @@ const MediaRenderer = ({ message }: { message: WhatsAppMessage }) => {
   );
 };
 
-export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, onArchiveTicket, onUnarchiveTicket, activeTab, selectedMacro, onClearMacro, agentId, tenantId }: ChatPanelProps) => {
+export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, onArchiveTicket, onUnarchiveTicket, activeTab, selectedMacro, onClearMacro, agentId, tenantId, onLoadMore, hasMoreMessages, isLoadingMore }: ChatPanelProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string; preview?: string } | null>(null);
