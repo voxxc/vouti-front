@@ -440,12 +440,15 @@ export const CentralPrazosConcluidos = () => {
                     <TableCell>
                       {prazo.subtarefas.length === 0 ? (
                         <span className="text-muted-foreground text-xs">-</span>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <Flag className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs">Ver</span>
-                        </div>
-                      )}
+                      ) : (() => {
+                        const pendentes = prazo.subtarefas.filter(s => !s.concluida).length;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <Flag className={`h-4 w-4 ${pendentes > 0 ? 'text-orange-500' : 'text-green-500'}`} />
+                            <span className="text-xs">Ver</span>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {prazo.projects && (
