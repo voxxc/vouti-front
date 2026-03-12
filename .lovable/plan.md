@@ -1,101 +1,36 @@
 
 
-# Revisão CRM /demorais — Conversas desaparecendo + Preview sem atualização
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Diagnóstico
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### Bug 1: Conversas aceitas desaparecem da aba "Abertas"
-**Causa raiz: Limite de 1000 linhas do Supabase.**
+### Implementação
 
-Daniel tem **11.717 mensagens** e **175 contatos**. A query em `loadConversations` busca mensagens com `ORDER BY created_at DESC` sem `.limit()`, mas o Supabase aplica automaticamente o limite padrão de 1000 linhas. Resultado: apenas conversas com mensagens recentes (top 1000) aparecem na lista.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-Dados concretos: dos 16 tickets "open" de Daniel, **14 têm sua mensagem mais recente além da posição 1000** — por isso somem da caixa de entrada.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### Bug 2: Preview da conversa não atualiza em tempo real
-**Causa raiz: sinal `message_sent` não dispara `onConversationUpdate`.**
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-No `useWhatsAppSync`, o case `message_sent` só chama `onMessageUpdate` (atualiza o chat aberto), mas NÃO chama `onConversationUpdate` (que recarregaria a lista de conversas com o novo `lastMessage`).
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
----
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-## Solução
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 1. RPC `get_agent_conversations` (nova migration)
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-Criar uma função SQL que retorna conversas agrupadas por telefone com a última mensagem e contagem de não lidas, sem limite de 1000 linhas:
-
-```sql
-CREATE OR REPLACE FUNCTION get_agent_conversations(
-  p_agent_id uuid, 
-  p_tenant_id uuid
-)
-RETURNS TABLE(
-  from_number text, 
-  last_message text, 
-  last_message_time timestamptz, 
-  unread_count bigint
-)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT DISTINCT ON (m.from_number)
-    m.from_number,
-    m.message_text,
-    m.created_at,
-    (SELECT count(*) FROM whatsapp_messages m2 
-     WHERE m2.from_number = m.from_number 
-     AND m2.agent_id = p_agent_id
-     AND m2.tenant_id = p_tenant_id
-     AND m2.direction = 'received' 
-     AND m2.is_read = false
-    )
-  FROM whatsapp_messages m
-  WHERE m.agent_id = p_agent_id 
-    AND m.tenant_id = p_tenant_id
-  ORDER BY m.from_number, m.created_at DESC;
-$$;
-```
-
-Também criar uma para "Todas as Conversas":
-
-```sql
-CREATE OR REPLACE FUNCTION get_tenant_conversations(p_tenant_id uuid)
--- mesma lógica sem filtro de agent_id
-```
-
-### 2. Refatorar `loadConversations` em `WhatsAppInbox.tsx`
-
-Substituir a query de mensagens brutas por chamada ao RPC:
-
-```ts
-const { data } = await supabase.rpc('get_agent_conversations', {
-  p_agent_id: myAgentId,
-  p_tenant_id: tenantId
-});
-```
-
-Mapear o resultado diretamente para `WhatsAppConversation[]`, cruzando com `whatsapp_contacts` para os nomes. Também incluir conversas do `whatsapp_conversation_access` (shared).
-
-### 3. Refatorar `loadConversations` em `WhatsAppAllConversations.tsx`
-
-Mesma abordagem com `get_tenant_conversations`.
-
-### 4. Corrigir `useWhatsAppSync.ts` — sinal `message_sent`
-
-Adicionar `onConversationUpdateRef.current?.()` ao case `message_sent`:
-
-```ts
-case 'message_sent':
-  onConversationUpdateRef.current?.(); // ← ADICIONAR
-  onMessageUpdateRef.current?.(signal.phone);
-  break;
-```
-
-Isso garante que a lista de conversas recarregue e o preview atualize quando uma mensagem é enviada.
-
-### Resumo dos arquivos alterados
-
-- **Nova migration SQL**: criar `get_agent_conversations` e `get_tenant_conversations`
-- **`src/components/WhatsApp/sections/WhatsAppInbox.tsx`**: refatorar `loadConversations` para usar RPC
-- **`src/components/WhatsApp/sections/WhatsAppAllConversations.tsx`**: refatorar `loadConversations` para usar RPC  
-- **`src/hooks/useWhatsAppSync.ts`**: adicionar `onConversationUpdate` ao case `message_sent`
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

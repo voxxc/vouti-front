@@ -60,32 +60,30 @@ export const WhatsAppAllConversations = () => {
     
     if (showLoading) setIsLoading(true);
     try {
-      let query = supabase
-        .from("whatsapp_messages")
-        .select(`
-          *,
-          whatsapp_agents!agent_id(id, name)
-        `)
-        .order("created_at", { ascending: false });
-
-      // Filter by tenant unless super admin
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
-      } else if (isSuperAdmin) {
-        query = query.is("tenant_id", null);
-      }
-
-      // Fetch contacts in parallel
+      // Fetch contacts in parallel with RPC
       const contactsQuery = tenantId
         ? supabase.from("whatsapp_contacts").select("phone, name").eq("tenant_id", tenantId)
         : null;
 
-      const [messagesResult, contactsResult] = await Promise.all([
-        query,
+      let rpcPromise;
+      if (tenantId) {
+        rpcPromise = supabase.rpc('get_tenant_conversations', { p_tenant_id: tenantId });
+      } else {
+        // Super admin without tenant — fallback to raw query (limited)
+        rpcPromise = supabase
+          .from("whatsapp_messages")
+          .select("from_number, message_text, created_at, agent_id, whatsapp_agents!agent_id(name)")
+          .is("tenant_id", null)
+          .order("created_at", { ascending: false })
+          .limit(500) as any;
+      }
+
+      const [rpcResult, contactsResult] = await Promise.all([
+        rpcPromise,
         contactsQuery || Promise.resolve({ data: [], error: null }),
       ]);
 
-      if (messagesResult.error) throw messagesResult.error;
+      if (rpcResult.error) throw rpcResult.error;
 
       // Build contact name map
       const contactNameMap = new Map<string, string>();
@@ -94,40 +92,45 @@ export const WhatsAppAllConversations = () => {
         contactNameMap.set(c.phone, c.name);
       });
 
-      // Group messages by normalized phone (no agent duplication)
+      // Map results to conversations
       const conversationMap = new Map<string, AllConversationsItem>();
-      const unreadMap = new Map<string, number>();
-      
-      (messagesResult.data as any[] || []).forEach((msg: any) => {
-        const number = msg.from_number;
-        const normalizedNumber = normalizePhone(number);
-        
-        // Count unread incoming messages
-        if (msg.direction === 'received' && msg.is_read === false) {
-          unreadMap.set(normalizedNumber, (unreadMap.get(normalizedNumber) || 0) + 1);
-        }
-        
-        if (!conversationMap.has(normalizedNumber)) {
-          conversationMap.set(normalizedNumber, {
-            id: msg.id,
-            contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(number) || number,
-            contactNumber: normalizedNumber,
-            lastMessage: msg.message_text || "",
-            lastMessageTime: msg.created_at,
-            unreadCount: 0,
-            agentId: msg.agent_id,
-            agentName: msg.whatsapp_agents?.name || "Sem agente",
-          });
-        }
-      });
 
-      // Apply unread counts
-      unreadMap.forEach((count, phone) => {
-        const conv = conversationMap.get(phone);
-        if (conv) conv.unreadCount = count;
-      });
+      if (tenantId) {
+        // RPC result — already grouped
+        (rpcResult.data || []).forEach((row: any) => {
+          const normalizedNumber = normalizePhone(row.from_number);
+          if (!conversationMap.has(normalizedNumber)) {
+            conversationMap.set(normalizedNumber, {
+              id: `conv-${normalizedNumber}`,
+              contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(row.from_number) || normalizedNumber,
+              contactNumber: normalizedNumber,
+              lastMessage: row.last_message || "",
+              lastMessageTime: row.last_message_time,
+              unreadCount: Number(row.unread_count) || 0,
+              agentId: row.agent_id,
+              agentName: row.agent_name || "Sem agente",
+            });
+          }
+        });
+      } else {
+        // Super admin fallback — group manually
+        (rpcResult.data || []).forEach((msg: any) => {
+          const normalizedNumber = normalizePhone(msg.from_number);
+          if (!conversationMap.has(normalizedNumber)) {
+            conversationMap.set(normalizedNumber, {
+              id: msg.id || `conv-${normalizedNumber}`,
+              contactName: contactNameMap.get(normalizedNumber) || normalizedNumber,
+              contactNumber: normalizedNumber,
+              lastMessage: msg.message_text || "",
+              lastMessageTime: msg.created_at,
+              unreadCount: 0,
+              agentId: msg.agent_id,
+              agentName: msg.whatsapp_agents?.name || "Sem agente",
+            });
+          }
+        });
+      }
 
-      // Sort by most recent message
       const sorted = Array.from(conversationMap.values())
         .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
       setConversations(sorted);

@@ -84,7 +84,8 @@ export const useWhatsAppSync = ({
               break;
               
             case 'message_sent':
-              // Mensagem enviada (outgoing) - atualizar apenas mensagens 
+              // Mensagem enviada (outgoing) - atualizar conversas e mensagens
+              onConversationUpdateRef.current?.();
               onMessageUpdateRef.current?.(signal.phone);
               break;
               
