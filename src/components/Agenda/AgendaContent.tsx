@@ -472,7 +472,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           } : undefined,
           workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
           createdByUserId: deadline.user_id || undefined,
-          completedByUserId: deadline.concluido_por || undefined
+          completedByUserId: deadline.concluido_por || undefined,
+          createdByName: deadline.creator?.full_name || undefined,
+          createdByAvatar: deadline.creator?.avatar_url || undefined
         };
       });
 
