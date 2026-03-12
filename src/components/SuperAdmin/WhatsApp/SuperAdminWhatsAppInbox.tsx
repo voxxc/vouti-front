@@ -191,42 +191,14 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
     }
   }, []);
 
-  // Função estabilizada para carregar mensagens
+  // Função estabilizada para carregar mensagens (paginado)
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
-      // Super Admin: buscar mensagens onde tenant_id IS NULL
-      // Buscar por ambos os formatos (com e sem 9) para retrocompatibilidade
-      const normalized = normalizePhone(contactNumber);
-      const variant = getPhoneVariant(normalized);
-      
-      let query = supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .is("tenant_id", null);
-      
-      if (variant) {
-        query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
-      } else {
-        query = query.eq("from_number", normalized);
-      }
-      
-      const { data, error } = await query.order("created_at", { ascending: true });
-
-      if (error) throw error;
-
-      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => {
-        const rawData = msg.raw_data as any;
-        return {
-          id: msg.id,
-          messageText: msg.message_text || "",
-          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
-          timestamp: msg.created_at,
-          isFromMe: msg.direction === "outgoing",
-          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
-          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
-        };
+      const formattedMessages = await loadAllMessages({
+        contactNumber,
+        tenantIsNull: true,
+        skipAgentFilter: true,
       });
-
       setMessages(formattedMessages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);

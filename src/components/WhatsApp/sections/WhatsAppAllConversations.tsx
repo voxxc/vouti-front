@@ -146,41 +146,11 @@ export const WhatsAppAllConversations = () => {
     if (!tenantId && !isSuperAdmin) return;
 
     try {
-      const normalized = normalizePhone(contactNumber);
-      const variant = getPhoneVariant(normalized);
-      
-      let query = supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      if (variant) {
-        query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
-      } else {
-        query = query.eq("from_number", normalized);
-      }
-
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
-      } else if (isSuperAdmin) {
-        query = query.is("tenant_id", null);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => {
-        const rawData = msg.raw_data as any;
-        return {
-          id: msg.id,
-          messageText: msg.message_text || "",
-          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
-          timestamp: msg.created_at,
-          isFromMe: msg.direction === "outgoing",
-          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
-          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
-        };
+      const formattedMessages = await loadAllMessages({
+        contactNumber,
+        tenantId,
+        tenantIsNull: isSuperAdmin && !tenantId,
+        skipAgentFilter: true,
       });
 
       setMessages(formattedMessages);
