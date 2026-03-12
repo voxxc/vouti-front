@@ -1,36 +1,42 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Abrir detalhes do prazo ao clicar no Dashboard
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Situação atual
 
-### Implementação
+No `PrazosAbertosPanel`, clicar em um prazo executa `onOpenAgendaDrawer` (abre o drawer da Agenda inteiro) ou navega para a página da Agenda. Não abre os detalhes daquele prazo específico.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Abordagem
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+Passar o ID do prazo clicado para o `AgendaDrawer` → `AgendaContent`, que ao carregar os deadlines, detecta o ID recebido e abre automaticamente o dialog de detalhes (`openDeadlineDetails`).
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### Alterações
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+**1. `AgendaDrawer.tsx`** — Aceitar prop opcional `initialDeadlineId?: string` e repassar para `AgendaContent`.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+**2. `AgendaContent.tsx`** — Aceitar prop opcional `initialDeadlineId?: string`. Após carregar os deadlines (`fetchDeadlinesAsync`), se o `initialDeadlineId` estiver definido, encontrar o deadline correspondente e chamar `openDeadlineDetails(deadline)` automaticamente (via `useEffect`).
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+**3. `PrazosAbertosPanel.tsx`** — Em vez de chamar `onOpenAgendaDrawer` direto, guardar o `prazo.id` clicado num state e chamar `onOpenAgendaDrawer(prazoId)`. Ajustar a interface `PrazosAbertosPanelProps` para `onOpenAgendaDrawer?: (deadlineId?: string) => void`.
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+**4. `AdminMetrics.tsx` e `AdvogadoMetrics.tsx`** — Ajustar o state para guardar o `deadlineId` selecionado e passá-lo ao `AgendaDrawer`:
+```
+const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+<PrazosAbertosPanel 
+  onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} 
+/>
+<AgendaDrawer 
+  open={agendaDrawerOpen} 
+  onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }}
+  initialDeadlineId={agendaDeadlineId}
+/>
+```
+
+### Arquivos alterados
+
+- `src/components/Agenda/AgendaDrawer.tsx`
+- `src/components/Agenda/AgendaContent.tsx`
+- `src/components/Dashboard/PrazosAbertosPanel.tsx`
+- `src/components/Dashboard/Metrics/AdminMetrics.tsx`
+- `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx`
 
