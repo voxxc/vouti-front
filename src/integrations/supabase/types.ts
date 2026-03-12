@@ -9284,6 +9284,16 @@ export type Database = {
         Args: { key: string; text_to_encrypt: string }
         Returns: string
       }
+      get_agent_conversations: {
+        Args: { p_agent_id: string; p_tenant_id: string }
+        Returns: {
+          agent_id: string
+          from_number: string
+          last_message: string
+          last_message_time: string
+          unread_count: number
+        }[]
+      }
       get_andamentos_nao_lidos_por_processo: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -9308,6 +9318,17 @@ export type Database = {
           is_active: boolean
           slug: string
           system_type_id: string
+        }[]
+      }
+      get_tenant_conversations: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          from_number: string
+          last_message: string
+          last_message_time: string
+          unread_count: number
         }[]
       }
       get_total_andamentos_nao_lidos: {
