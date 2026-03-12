@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderKanban, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
-import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getFullGreeting } from "@/utils/greetingHelper";
