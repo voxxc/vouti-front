@@ -701,6 +701,10 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       setFormData({ title: "", description: "", date: selectedDate, projectId: "", workspaceId: "" });
       setAvailableWorkspaces([]);
+      setAvailableProcessos([]);
+      setSelectedProcessoId("");
+      setAvailableEtapas([]);
+      setSelectedEtapaId("");
       setSelectedAdvogado(null);
       setTaggedUsers([]);
       setIsDialogOpen(false);
