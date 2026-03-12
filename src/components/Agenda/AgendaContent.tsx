@@ -1631,7 +1631,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             setComentarioConclusao("");
             setCriarSubtarefa(false);
             setSubtarefaDescricao("");
-            setSubtarefaUsuario(null);
+            
           }
         }}
       >
