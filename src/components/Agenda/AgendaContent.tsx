@@ -336,9 +336,6 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           advogado:profiles!deadlines_advogado_responsavel_id_fkey (
             user_id, full_name, avatar_url
           ),
-          creator:profiles!deadlines_user_id_fkey (
-            user_id, full_name, avatar_url
-          ),
           deadline_tags (
             tagged_user_id,
             tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
