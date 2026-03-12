@@ -6,9 +6,10 @@ import { AgendaContent } from "./AgendaContent";
 interface AgendaDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialDeadlineId?: string;
 }
 
-export function AgendaDrawer({ open, onOpenChange }: AgendaDrawerProps) {
+export function AgendaDrawer({ open, onOpenChange, initialDeadlineId }: AgendaDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
@@ -33,7 +34,7 @@ export function AgendaDrawer({ open, onOpenChange }: AgendaDrawerProps) {
 
         {/* Content */}
         <div className="p-3 md:p-6 flex-1 overflow-y-auto">
-          <AgendaContent />
+          <AgendaContent initialDeadlineId={initialDeadlineId} />
         </div>
       </SheetContent>
     </Sheet>

@@ -41,6 +41,7 @@ import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificati
 
 interface AgendaContentProps {
   module?: string;
+  initialDeadlineId?: string;
 }
 
 // Componente de abas para Origem/Vinculado no detalhamento de prazo
@@ -196,7 +197,7 @@ function OriginTabs({
   );
 }
 
-export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
+export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaContentProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
@@ -329,7 +330,17 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
     }
   }, [user, allUsers]);
 
-  // ===== Data Fetching =====
+  // Auto-open deadline details when initialDeadlineId is provided
+  useEffect(() => {
+    if (initialDeadlineId && deadlines.length > 0) {
+      const target = deadlines.find(d => d.id === initialDeadlineId);
+      if (target) {
+        openDeadlineDetails(target);
+      }
+    }
+  }, [initialDeadlineId, deadlines]);
+
+
   const fetchDeadlinesAsync = async () => {
     try {
       const { data, error } = await supabase

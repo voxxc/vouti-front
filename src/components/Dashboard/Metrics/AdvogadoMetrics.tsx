@@ -17,6 +17,7 @@ interface AdvogadoMetricsProps {
 
 const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+  const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { tenantId } = useTenantId();
 
   const { data: metrics, isLoading: loading } = useQuery({
@@ -100,8 +101,8 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
         <PrazosDistributionChart tenantId={tenantId} />
       </div>
 
-      <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={() => setAgendaDrawerOpen(true)} />
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
+      <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
+      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} initialDeadlineId={agendaDeadlineId} />
     </div>
   );
 };

@@ -25,6 +25,7 @@ interface AdminMetricsProps {
 
 const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+  const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
   const { tenantId } = useTenantId();
 
@@ -211,8 +212,8 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       </div>
 
       {/* Painel de Tarefas e Prazos do Usuário */}
-      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={() => setAgendaDrawerOpen(true)} />
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={setAgendaDrawerOpen} />
+      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
+      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} initialDeadlineId={agendaDeadlineId} />
 
       <ClienteAnalytics />
 
