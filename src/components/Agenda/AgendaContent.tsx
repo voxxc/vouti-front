@@ -1186,6 +1186,75 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   </Select>
                 </div>
               )}
+              {availableProcessos.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium">Processo / Caso (opcional)</label>
+                  <Select
+                    value={selectedProcessoId || "none"}
+                    onValueChange={async (val) => {
+                      const procId = val === "none" ? "" : val;
+                      setSelectedProcessoId(procId);
+                      setSelectedEtapaId("");
+                      setAvailableEtapas([]);
+                      if (procId) {
+                        // Load etapas from protocolos linked to this processo
+                        const { data: prots } = await supabase
+                          .from('project_protocolos')
+                          .select('id, nome')
+                          .eq('processo_oab_id', procId);
+                        if (prots && prots.length > 0) {
+                          const protIds = prots.map(p => p.id);
+                          const { data: etapas } = await supabase
+                            .from('project_protocolo_etapas')
+                            .select('id, nome, protocolo_id')
+                            .in('protocolo_id', protIds)
+                            .order('ordem');
+                          const protNameMap: Record<string, string> = {};
+                          prots.forEach(p => { protNameMap[p.id] = p.nome; });
+                          setAvailableEtapas((etapas || []).map(e => ({
+                            id: e.id,
+                            nome: e.nome,
+                            protocolo_nome: protNameMap[e.protocolo_id] || null
+                          })));
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sem processo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem processo</SelectItem>
+                      {availableProcessos.map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.numero_cnj || 'Sem CNJ'}{p.parte_ativa ? ` - ${p.parte_ativa}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {selectedProcessoId && availableEtapas.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium">Etapa (opcional)</label>
+                  <Select
+                    value={selectedEtapaId || "none"}
+                    onValueChange={(val) => setSelectedEtapaId(val === "none" ? "" : val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sem etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem etapa</SelectItem>
+                      {availableEtapas.map(e => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.protocolo_nome ? `${e.protocolo_nome} › ` : ''}{e.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium">Data</label>
                 <Popover>
