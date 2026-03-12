@@ -734,6 +734,38 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         onClearMacro={() => setPendingMacro(null)}
         agentId={myAgentId}
         tenantId={tenantId}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={async () => {
+          if (!selectedConversation || isLoadingMore || messages.length === 0) return;
+          setIsLoadingMore(true);
+          try {
+            const normalized = normalizePhone(selectedConversation.contactNumber);
+            let skipAgentFilter = false;
+            if (myAgentId) {
+              const { data: access } = await supabase
+                .from("whatsapp_conversation_access" as any)
+                .select("id")
+                .eq("agent_id", myAgentId)
+                .eq("phone", normalized)
+                .maybeSingle();
+              skipAgentFilter = !!access;
+            }
+            const result = await loadLatestMessages({
+              contactNumber: selectedConversation.contactNumber,
+              tenantId,
+              agentId: myAgentId || null,
+              skipAgentFilter,
+              beforeDate: messages[0].timestamp,
+            });
+            setMessages(prev => [...result.messages, ...prev]);
+            setHasMoreMessages(result.hasMore);
+          } catch (e) {
+            console.error("Erro ao carregar mais mensagens:", e);
+          } finally {
+            setIsLoadingMore(false);
+          }
+        }}
       />
 
       {selectedConversation && (
