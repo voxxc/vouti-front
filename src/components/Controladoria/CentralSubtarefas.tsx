@@ -150,6 +150,8 @@ export const CentralSubtarefas = () => {
           concluido_em,
           protocolo_etapa_id,
           project_id,
+          workspace_id,
+          processo_oab_id,
           advogado:profiles!deadlines_advogado_responsavel_id_fkey (
             user_id,
             full_name,
