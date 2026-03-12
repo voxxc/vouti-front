@@ -1,36 +1,42 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Nova aba "Subtarefas" na Central da Controladoria
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## O que muda
 
-### Implementação
+Adicionar uma terceira aba **"Subtarefas"** na `CentralControladoria`, ao lado de "Prazos Concluídos". Essa aba mostra apenas os prazos concluídos que possuem subtarefas. A aba terá um badge com a contagem de subtarefas pendentes (não concluídas), similar ao badge de "Andamentos Não Lidos". **Visível apenas para o tenant Solvenza.**
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Implementação
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 1. Novo componente: `CentralSubtarefas.tsx`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+- Reutilizar a lógica e interface de `CentralPrazosConcluidos`, mas filtrando apenas prazos que possuem `subtarefas.length > 0`.
+- Exibir a mesma tabela com filtros (período, usuário, busca), mas focada nos prazos com subtarefas.
+- Exportar a contagem total de subtarefas pendentes via callback/prop para uso no badge da aba.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### 2. Alterar `CentralControladoria.tsx`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+- Importar `useTenantNavigation` para obter o `tenantSlug`.
+- Adicionar tipo `'subtarefas'` ao `TabValue`.
+- Condicionar exibição da aba: `tenantSlug === 'solvenza'`.
+- Buscar contagem de subtarefas pendentes (query em `deadline_subtarefas` com `concluida = false` + join em `deadlines` com `completed = true` + `tenant_id`).
+- Renderizar badge laranja na aba com a contagem.
+- Renderizar `<CentralSubtarefas />` quando a aba estiver ativa.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### 3. Contagem do badge
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+```sql
+-- Query para badge
+SELECT COUNT(*) FROM deadline_subtarefas ds
+JOIN deadlines d ON d.id = ds.deadline_id
+WHERE d.tenant_id = :tenantId
+  AND d.completed = true
+  AND ds.concluida = false
+```
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+No frontend, usar `supabase.from('deadline_subtarefas').select('id, deadlines!inner(tenant_id, completed)', { count: 'exact' }).eq('deadlines.tenant_id', tenantId).eq('deadlines.completed', true).eq('concluida', false)`.
+
+### 4. Componente CentralSubtarefas
+
+Basicamente será o `CentralPrazosConcluidos` com o filtro adicional de `subtarefas.length > 0` aplicado nos resultados. Pode ser implementado como um wrapper ou componente separado que reutiliza a mesma lógica de fetch mas filtra no final.
 
