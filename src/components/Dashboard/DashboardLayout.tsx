@@ -337,7 +337,7 @@ const DashboardLayout = ({
         </div>
 
         {/* Main Content - Dashboard sempre renderizado */}
-        <main className="flex-1 container max-w-7xl mx-auto px-3 md:px-6 pt-[57px] pb-20 md:pb-8 relative z-10">
+        <main className="flex-1 container max-w-7xl mx-auto px-3 md:px-6 py-4 md:py-8 pb-20 md:pb-8 relative z-10">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
