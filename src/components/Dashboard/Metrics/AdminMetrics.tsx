@@ -12,7 +12,7 @@ import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
 import PrazosDistributionChart from "../PrazosDistributionChart";
-import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -213,7 +213,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
       {/* Painel de Tarefas e Prazos do Usuário */}
       <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} initialDeadlineId={agendaDeadlineId} />
+      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
 
       <ClienteAnalytics />
 

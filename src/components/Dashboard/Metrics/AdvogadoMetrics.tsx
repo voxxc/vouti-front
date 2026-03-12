@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderKanban, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PrazosAbertosPanel from "../PrazosAbertosPanel";
-import { AgendaDrawer } from "@/components/Agenda/AgendaDrawer";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getFullGreeting } from "@/utils/greetingHelper";
@@ -102,7 +102,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       </div>
 
       <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} initialDeadlineId={agendaDeadlineId} />
+      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
     </div>
   );
 };
