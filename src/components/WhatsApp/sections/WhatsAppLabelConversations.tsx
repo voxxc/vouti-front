@@ -7,6 +7,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 import { normalizePhone } from "@/utils/phoneUtils";
+import { loadAllMessages } from "@/utils/whatsappMessageLoader";
 import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { Loader2, Tag } from "lucide-react";
 
@@ -129,29 +130,12 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
   // Load messages for selected conversation
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
-      let query = supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .eq("from_number", contactNumber)
-        .order("created_at", { ascending: true });
-
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
-      }
-
-      const { data } = await query;
-      setMessages((data || []).map((msg) => {
-        const rawData = msg.raw_data as any;
-        return {
-          id: msg.id,
-          messageText: msg.message_text || "",
-          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
-          timestamp: msg.created_at,
-          isFromMe: msg.direction === "outgoing",
-          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
-          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
-        };
-      }));
+      const formattedMessages = await loadAllMessages({
+        contactNumber,
+        tenantId,
+        skipAgentFilter: true,
+      });
+      setMessages(formattedMessages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }

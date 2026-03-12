@@ -6,6 +6,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { Inbox, UserPlus } from "lucide-react";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { loadAllMessages } from "@/utils/whatsappMessageLoader";
 import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { toast } from "sonner";
 
@@ -276,9 +277,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
     try {
       const normalized = normalizePhone(contactNumber);
-      const variant = getPhoneVariant(normalized);
 
-      let hasSharedAccess = false;
+      let skipAgentFilter = false;
       if (myAgentId) {
         const { data: access } = await supabase
           .from("whatsapp_conversation_access" as any)
@@ -286,39 +286,14 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
           .eq("agent_id", myAgentId)
           .eq("phone", normalized)
           .maybeSingle();
-        hasSharedAccess = !!access;
+        skipAgentFilter = !!access;
       }
-      
-      let query = supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .eq("tenant_id", tenantId);
 
-      if (!hasSharedAccess && myAgentId) {
-        query = query.eq("agent_id", myAgentId);
-      }
-      
-      if (variant) {
-        query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
-      } else {
-        query = query.eq("from_number", normalized);
-      }
-      
-      const { data, error } = await query.order("created_at", { ascending: true });
-
-      if (error) throw error;
-
-      const formattedMessages: WhatsAppMessage[] = (data || []).map((msg) => {
-        const rawData = msg.raw_data as any;
-        return {
-          id: msg.id,
-          messageText: msg.message_text || "",
-          direction: msg.direction === "outgoing" ? "outgoing" as const : "incoming" as const,
-          timestamp: msg.created_at,
-          isFromMe: msg.direction === "outgoing",
-          messageType: (msg.message_type as WhatsAppMessage['messageType']) || "text",
-          mediaUrl: rawData?.image?.imageUrl || rawData?.audio?.audioUrl || rawData?.video?.videoUrl || rawData?.document?.documentUrl || undefined,
-        };
+      const formattedMessages = await loadAllMessages({
+        contactNumber,
+        tenantId,
+        agentId: myAgentId || null,
+        skipAgentFilter,
       });
 
       setMessages(formattedMessages);
