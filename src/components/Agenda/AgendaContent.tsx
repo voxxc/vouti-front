@@ -224,7 +224,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
-  const [subtarefaUsuario, setSubtarefaUsuario] = useState<string | null>(null);
+  
 
   // Project/workspace/processo/etapa selection for creation
   const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
