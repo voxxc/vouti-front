@@ -17,6 +17,7 @@ interface AdvogadoMetricsProps {
 
 const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
+  const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { tenantId } = useTenantId();
 
   const { data: metrics, isLoading: loading } = useQuery({
