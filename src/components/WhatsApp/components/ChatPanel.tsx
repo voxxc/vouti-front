@@ -422,6 +422,23 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
         backgroundRepeat: 'repeat',
       }}>
         <div className="space-y-1">
+          {hasMoreMessages && onLoadMore && (
+            <div className="flex justify-center my-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="text-xs"
+              >
+                {isLoadingMore ? (
+                  <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Carregando...</>
+                ) : (
+                  "Carregar mensagens anteriores"
+                )}
+              </Button>
+            </div>
+          )}
           {messages.map((message, index) => {
             const currentDateKey = getMessageDateKey(message.timestamp);
             const prevDateKey = index > 0 ? getMessageDateKey(messages[index - 1].timestamp) : null;
