@@ -411,6 +411,20 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         (wsData || []).forEach((ws: any) => { workspaceNameMap[ws.id] = ws.nome; });
       }
 
+      // Batch fetch creator profiles
+      const creatorIds = new Set<string>();
+      (data || []).forEach((d: any) => {
+        if (d.user_id) creatorIds.add(d.user_id);
+      });
+      let creatorMap: Record<string, { full_name: string; avatar_url: string | null }> = {};
+      if (creatorIds.size > 0) {
+        const { data: creators } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', Array.from(creatorIds));
+        (creators || []).forEach((c: any) => { creatorMap[c.user_id] = c; });
+      }
+
       const mappedDeadlines: Deadline[] = (data || []).map(deadline => {
         const protocoloProcessoOabId = deadline.protocolo_etapa?.protocolo?.processo_oab_id;
         const casoFromProtocolo = protocoloProcessoOabId ? casosMap[protocoloProcessoOabId] : null;
