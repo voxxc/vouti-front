@@ -60,6 +60,8 @@ export interface Deadline {
   // Quem criou e quem concluiu
   createdByUserId?: string;
   completedByUserId?: string;
+  createdByName?: string;
+  createdByAvatar?: string;
 }
 
 export interface DeadlineFormData {
@@ -67,4 +69,5 @@ export interface DeadlineFormData {
   description: string;
   date: Date;
   projectId: string;
+  workspaceId?: string;
 }

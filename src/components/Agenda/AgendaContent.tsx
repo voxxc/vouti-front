@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil, ChevronDown } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil, ChevronDown, Flag } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -221,6 +222,13 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   const [completedFilterUserId, setCompletedFilterUserId] = useState<string | null>(null);
   const [confirmCompleteDeadlineId, setConfirmCompleteDeadlineId] = useState<string | null>(null);
   const [comentarioConclusao, setComentarioConclusao] = useState("");
+  const [criarSubtarefa, setCriarSubtarefa] = useState(false);
+  const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [subtarefaUsuario, setSubtarefaUsuario] = useState<string | null>(null);
+
+  // Project/workspace selection for creation
+  const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
+  const [availableWorkspaces, setAvailableWorkspaces] = useState<Array<{ id: string; nome: string }>>([]);
 
   // User filter (default: current user)
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>("all");
@@ -403,6 +411,20 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         (wsData || []).forEach((ws: any) => { workspaceNameMap[ws.id] = ws.nome; });
       }
 
+      // Batch fetch creator profiles
+      const creatorIds = new Set<string>();
+      (data || []).forEach((d: any) => {
+        if (d.user_id) creatorIds.add(d.user_id);
+      });
+      let creatorMap: Record<string, { full_name: string; avatar_url: string | null }> = {};
+      if (creatorIds.size > 0) {
+        const { data: creators } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', Array.from(creatorIds));
+        (creators || []).forEach((c: any) => { creatorMap[c.user_id] = c; });
+      }
+
       const mappedDeadlines: Deadline[] = (data || []).map(deadline => {
         const protocoloProcessoOabId = deadline.protocolo_etapa?.protocolo?.processo_oab_id;
         const casoFromProtocolo = protocoloProcessoOabId ? casosMap[protocoloProcessoOabId] : null;
@@ -461,7 +483,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           } : undefined,
           workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
           createdByUserId: deadline.user_id || undefined,
-          completedByUserId: deadline.concluido_por || undefined
+          completedByUserId: deadline.concluido_por || undefined,
+          createdByName: deadline.user_id ? creatorMap[deadline.user_id]?.full_name : undefined,
+          createdByAvatar: deadline.user_id ? creatorMap[deadline.user_id]?.avatar_url || undefined : undefined
         };
       });
 
@@ -589,16 +613,20 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
     }
 
     try {
-      // Resolve default workspace for the selected project
+      // Use selected workspace or resolve default
       let resolvedWorkspaceId: string | null = null;
       if (formData.projectId) {
-        const { data: defaultWs } = await supabase
-          .from('project_workspaces')
-          .select('id')
-          .eq('project_id', formData.projectId)
-          .eq('is_default', true)
-          .maybeSingle();
-        resolvedWorkspaceId = defaultWs?.id || null;
+        if (formData.workspaceId) {
+          resolvedWorkspaceId = formData.workspaceId;
+        } else {
+          const { data: defaultWs } = await supabase
+            .from('project_workspaces')
+            .select('id')
+            .eq('project_id', formData.projectId)
+            .eq('is_default', true)
+            .maybeSingle();
+          resolvedWorkspaceId = defaultWs?.id || null;
+        }
       }
 
       const { data, error } = await supabase
@@ -661,7 +689,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       await fetchDeadlinesAsync();
 
-      setFormData({ title: "", description: "", date: selectedDate, projectId: "" });
+      setFormData({ title: "", description: "", date: selectedDate, projectId: "", workspaceId: "" });
+      setAvailableWorkspaces([]);
       setSelectedAdvogado(null);
       setTaggedUsers([]);
       setIsDialogOpen(false);
@@ -770,9 +799,25 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       ));
 
       await createClientHistory(deadline, 'deadline_completed');
+
+      // Create subtarefa if checkbox was marked
+      if (criarSubtarefa && subtarefaDescricao.trim() && subtarefaUsuario) {
+        await supabase
+          .from('deadline_subtarefas')
+          .insert({
+            deadline_id: confirmCompleteDeadlineId,
+            descricao: subtarefaDescricao.trim(),
+            atribuido_a: subtarefaUsuario,
+            criado_por: user?.id,
+            tenant_id: tenantId
+          });
+      }
       
       setConfirmCompleteDeadlineId(null);
       setComentarioConclusao("");
+      setCriarSubtarefa(false);
+      setSubtarefaDescricao("");
+      setSubtarefaUsuario(null);
       setIsDetailDialogOpen(false);
       
       toast({
@@ -1010,7 +1055,17 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             />
           </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (open && tenantId) {
+            supabase
+              .from('projects')
+              .select('id, name, client')
+              .eq('tenant_id', tenantId)
+              .order('name')
+              .then(({ data }) => setAvailableProjects(data || []));
+          }
+        }}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2 w-full md:w-auto">
               <Plus size={16} />
@@ -1052,6 +1107,54 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   excludeCurrentUser
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium">Projeto (opcional)</label>
+                <Select 
+                  value={formData.projectId || "none"} 
+                  onValueChange={async (val) => {
+                    const projectId = val === "none" ? "" : val;
+                    setFormData({ ...formData, projectId, workspaceId: "" });
+                    setAvailableWorkspaces([]);
+                    if (projectId) {
+                      const { data: ws } = await supabase
+                        .from('project_workspaces')
+                        .select('id, nome')
+                        .eq('project_id', projectId)
+                        .order('is_default', { ascending: false });
+                      setAvailableWorkspaces(ws || []);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sem projeto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem projeto</SelectItem>
+                    {availableProjects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} - {p.client}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.projectId && availableWorkspaces.length > 1 && (
+                <div>
+                  <label className="text-sm font-medium">Workspace (opcional)</label>
+                  <Select 
+                    value={formData.workspaceId || "default"} 
+                    onValueChange={(val) => setFormData({ ...formData, workspaceId: val === "default" ? "" : val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Workspace padrão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Workspace padrão</SelectItem>
+                      {availableWorkspaces.map(ws => (
+                        <SelectItem key={ws.id} value={ws.id}>{ws.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium">Data</label>
                 <Popover>
@@ -1340,6 +1443,21 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     );
                   })()}
                   
+                  {selectedDeadline.createdByName && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Criado por</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={selectedDeadline.createdByAvatar} />
+                          <AvatarFallback className="text-xs">
+                            {selectedDeadline.createdByName?.charAt(0).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{selectedDeadline.createdByName}</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <Badge 
@@ -1399,6 +1517,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           if (!open) {
             setConfirmCompleteDeadlineId(null);
             setComentarioConclusao("");
+            setCriarSubtarefa(false);
+            setSubtarefaDescricao("");
+            setSubtarefaUsuario(null);
           }
         }}
       >
@@ -1426,12 +1547,48 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
               </p>
             )}
           </div>
+
+          {/* Subtarefa checkbox */}
+          <div className="border-t pt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="criar-subtarefa"
+                checked={criarSubtarefa}
+                onCheckedChange={(checked) => setCriarSubtarefa(checked === true)}
+              />
+              <label htmlFor="criar-subtarefa" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                <Flag className="h-4 w-4 text-orange-500" />
+                Criar subtarefa
+              </label>
+            </div>
+            {criarSubtarefa && (
+              <div className="mt-3 space-y-3 pl-6">
+                <div>
+                  <label className="text-sm font-medium">Descrição da subtarefa</label>
+                  <Textarea
+                    value={subtarefaDescricao}
+                    onChange={(e) => setSubtarefaDescricao(e.target.value)}
+                    placeholder="Descreva a subtarefa..."
+                    rows={2}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Atribuir para</label>
+                  <AdvogadoSelector
+                    value={subtarefaUsuario}
+                    onChange={setSubtarefaUsuario}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmComplete}
-              disabled={!comentarioConclusao.trim()}
+              disabled={!comentarioConclusao.trim() || (criarSubtarefa && (!subtarefaDescricao.trim() || !subtarefaUsuario))}
             >
               Confirmar Conclusão
             </AlertDialogAction>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,12 +8,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Calendar, Search, User, FileText, ExternalLink, MessageSquare } from "lucide-react";
+import { CheckCircle2, Calendar, Search, User, FileText, ExternalLink, MessageSquare, Flag } from "lucide-react";
 import { format, subDays, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+
+interface Subtarefa {
+  id: string;
+  descricao: string;
+  concluida: boolean;
+  concluida_em: string | null;
+  created_at: string | null;
+  atribuido_a_profile: {
+    user_id: string;
+    full_name: string;
+    avatar_url: string | null;
+  } | null;
+  criado_por_profile: {
+    user_id: string;
+    full_name: string;
+    avatar_url: string | null;
+  } | null;
+}
 
 interface PrazoConcluido {
   id: string;
@@ -34,6 +52,11 @@ interface PrazoConcluido {
     full_name: string;
     avatar_url: string | null;
   } | null;
+  criador_profile: {
+    user_id: string;
+    full_name: string;
+    avatar_url: string | null;
+  } | null;
   projects: {
     id: string;
     name: string;
@@ -47,6 +70,7 @@ interface PrazoConcluido {
       nome: string;
     } | null;
   } | null;
+  subtarefas: Subtarefa[];
 }
 
 interface UserOption {
@@ -99,6 +123,7 @@ export const CentralPrazosConcluidos = () => {
           title,
           description,
           date,
+          user_id,
           comentario_conclusao,
           concluido_em,
           protocolo_etapa_id,
@@ -143,7 +168,65 @@ export const CentralPrazosConcluidos = () => {
         return;
       }
 
-      setPrazos((data as unknown as PrazoConcluido[]) || []);
+      // Batch fetch creator profiles
+      const creatorIds = new Set<string>();
+      (data || []).forEach((d: any) => {
+        if (d.user_id) creatorIds.add(d.user_id);
+      });
+      let creatorMap: Record<string, any> = {};
+      if (creatorIds.size > 0) {
+        const { data: creators } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', Array.from(creatorIds));
+        (creators || []).forEach((c: any) => { creatorMap[c.user_id] = c; });
+      }
+
+      // Batch fetch subtarefas for all deadline ids
+      const deadlineIds = (data || []).map((d: any) => d.id);
+      let subtarefasMap: Record<string, Subtarefa[]> = {};
+      if (deadlineIds.length > 0) {
+        const { data: subtarefasData } = await supabase
+          .from('deadline_subtarefas')
+          .select('id, deadline_id, descricao, concluida, concluida_em, created_at, atribuido_a, criado_por')
+          .in('deadline_id', deadlineIds);
+
+        // Batch fetch profiles for subtarefas
+        const subUserIds = new Set<string>();
+        (subtarefasData || []).forEach((s: any) => {
+          if (s.atribuido_a) subUserIds.add(s.atribuido_a);
+          if (s.criado_por) subUserIds.add(s.criado_por);
+        });
+        let subProfileMap: Record<string, any> = {};
+        if (subUserIds.size > 0) {
+          const { data: subProfiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, avatar_url')
+            .in('user_id', Array.from(subUserIds));
+          (subProfiles || []).forEach((p: any) => { subProfileMap[p.user_id] = p; });
+        }
+
+        (subtarefasData || []).forEach((s: any) => {
+          if (!subtarefasMap[s.deadline_id]) subtarefasMap[s.deadline_id] = [];
+          subtarefasMap[s.deadline_id].push({
+            id: s.id,
+            descricao: s.descricao,
+            concluida: s.concluida,
+            concluida_em: s.concluida_em,
+            created_at: s.created_at,
+            atribuido_a_profile: subProfileMap[s.atribuido_a] || null,
+            criado_por_profile: subProfileMap[s.criado_por] || null,
+          });
+        });
+      }
+
+      const mapped = (data || []).map((d: any) => ({
+        ...d,
+        criador_profile: d.user_id ? creatorMap[d.user_id] || null : null,
+        subtarefas: subtarefasMap[d.id] || [],
+      }));
+
+      setPrazos(mapped as unknown as PrazoConcluido[]);
     } finally {
       setLoading(false);
     }
@@ -179,6 +262,18 @@ export const CentralPrazosConcluidos = () => {
     if (prazo.projects?.id) {
       window.open(`/project/${prazo.projects.id}`, '_blank');
     }
+  };
+
+  const handleToggleSubtarefa = async (subtarefa: Subtarefa) => {
+    const newConcluida = !subtarefa.concluida;
+    await supabase
+      .from('deadline_subtarefas')
+      .update({
+        concluida: newConcluida,
+        concluida_em: newConcluida ? new Date().toISOString() : null,
+      })
+      .eq('id', subtarefa.id);
+    await fetchPrazos();
   };
 
   return (
@@ -260,6 +355,7 @@ export const CentralPrazosConcluidos = () => {
                   <TableHead>Responsável</TableHead>
                   <TableHead>Concluído por</TableHead>
                   <TableHead>Comentário</TableHead>
+                  <TableHead>Subtarefa</TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -321,6 +417,16 @@ export const CentralPrazosConcluidos = () => {
                       {prazo.comentario_conclusao ? (
                         <div className="flex items-center gap-1 text-green-600">
                           <MessageSquare className="h-4 w-4" />
+                          <span className="text-xs">Ver</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {prazo.subtarefas.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <Flag className={`h-4 w-4 ${prazo.subtarefas.some(s => !s.concluida) ? 'text-orange-500' : 'text-green-500'}`} />
                           <span className="text-xs">Ver</span>
                         </div>
                       ) : (
@@ -434,6 +540,22 @@ export const CentralPrazosConcluidos = () => {
                   )}
                 </div>
 
+                {/* Criado por */}
+                {selectedPrazo.criador_profile && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Criado por</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={selectedPrazo.criador_profile.avatar_url || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {selectedPrazo.criador_profile.full_name?.charAt(0) || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{selectedPrazo.criador_profile.full_name}</span>
+                    </div>
+                  </div>
+                )}
+
                 {selectedPrazo.comentario_conclusao && (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                     <label className="text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
@@ -443,6 +565,51 @@ export const CentralPrazosConcluidos = () => {
                     <p className="mt-2 text-foreground whitespace-pre-wrap">
                       {selectedPrazo.comentario_conclusao}
                     </p>
+                  </div>
+                )}
+
+                {/* Subtarefas */}
+                {selectedPrazo.subtarefas.length > 0 && (
+                  <div className="border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                    <label className="text-sm font-medium flex items-center gap-2 mb-3">
+                      <Flag className="h-4 w-4 text-orange-500" />
+                      Subtarefas
+                    </label>
+                    <div className="space-y-3">
+                      {selectedPrazo.subtarefas.map(sub => (
+                        <div key={sub.id} className="flex items-start gap-3 p-2 rounded bg-muted/50">
+                          <button
+                            onClick={() => handleToggleSubtarefa(sub)}
+                            className={`mt-0.5 h-4 w-4 rounded-sm border flex items-center justify-center shrink-0 ${sub.concluida ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground'}`}
+                          >
+                            {sub.concluida && <CheckCircle2 className="h-3 w-3" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${sub.concluida ? 'line-through text-muted-foreground' : ''}`}>
+                              {sub.descricao}
+                            </p>
+                            {sub.atribuido_a_profile && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <Avatar className="h-4 w-4">
+                                  <AvatarImage src={sub.atribuido_a_profile.avatar_url || undefined} />
+                                  <AvatarFallback className="text-[8px]">
+                                    {sub.atribuido_a_profile.full_name?.charAt(0) || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-muted-foreground">
+                                  Atribuído a: {sub.atribuido_a_profile.full_name}
+                                </span>
+                              </div>
+                            )}
+                            {sub.concluida && sub.concluida_em && (
+                              <span className="text-xs text-muted-foreground">
+                                Concluída em {formatDateTime(sub.concluida_em)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
