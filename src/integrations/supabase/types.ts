@@ -1732,6 +1732,57 @@ export type Database = {
           },
         ]
       }
+      deadline_subtarefas: {
+        Row: {
+          atribuido_a: string
+          concluida: boolean | null
+          concluida_em: string | null
+          created_at: string | null
+          criado_por: string
+          deadline_id: string
+          descricao: string
+          id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          atribuido_a: string
+          concluida?: boolean | null
+          concluida_em?: string | null
+          created_at?: string | null
+          criado_por: string
+          deadline_id: string
+          descricao: string
+          id?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          atribuido_a?: string
+          concluida?: boolean | null
+          concluida_em?: string | null
+          created_at?: string | null
+          criado_por?: string
+          deadline_id?: string
+          descricao?: string
+          id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadline_subtarefas_deadline_id_fkey"
+            columns: ["deadline_id"]
+            isOneToOne: false
+            referencedRelation: "deadlines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deadline_subtarefas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deadline_tags: {
         Row: {
           created_at: string | null
