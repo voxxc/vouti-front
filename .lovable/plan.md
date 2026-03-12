@@ -1,36 +1,24 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: Topbar fixa sem sobrepor o sidebar
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problema
+O header com `fixed left-0 md:left-16` está sobrepondo a logo do sidebar porque tem `z-50` (acima do sidebar `z-40`). Além disso, quando o sidebar está expandido (`w-56`), o `md:left-16` não acompanha.
 
-### Implementação
+## Solução
+Voltar para `sticky top-0` mas garantir que funcione adicionando `overflow-y-auto` no container pai. O `sticky` funciona quando o elemento pai tem overflow scrollável — o problema original era que o pai não tinha `overflow-y-auto`.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### Arquivo: `src/components/Dashboard/DashboardLayout.tsx`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+1. **Container pai** (linha 275): Trocar `min-h-screen` por `h-screen overflow-y-auto`
+   - `flex-1 flex flex-col h-screen min-w-0 overflow-y-auto`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+2. **Header** (linha 277): Voltar para `sticky top-0 z-30`
+   - `sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80`
+   - Remove `fixed`, `left-0`, `right-0`, `md:left-16`
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+3. **Main content** (linha 340): Remover `pt-[57px]` — não é mais necessário com sticky
+   - Voltar padding normal: `px-3 md:px-6 pb-20 md:pb-8 py-4 md:py-8`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Resultado: header fica dentro do fluxo do conteúdo, fixa ao topo ao rolar, sem sobrepor o sidebar.
 
