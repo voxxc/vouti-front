@@ -678,7 +678,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       await fetchDeadlinesAsync();
 
-      setFormData({ title: "", description: "", date: selectedDate, projectId: "" });
+      setFormData({ title: "", description: "", date: selectedDate, projectId: "", workspaceId: "" });
+      setAvailableWorkspaces([]);
       setSelectedAdvogado(null);
       setTaggedUsers([]);
       setIsDialogOpen(false);
