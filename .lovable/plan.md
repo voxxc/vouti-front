@@ -1,36 +1,18 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: Topbar desalinhada
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problema
+O header já está `fixed` mas o layout pode estar com padding/margin inconsistente. O `pt-[57px]` no main pode estar conflitando com o `py-4` que vem antes dele na mesma classe.
 
-### Implementação
+## Solução
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+**Arquivo: `src/components/Dashboard/DashboardLayout.tsx`**
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+1. **Main content (linha 340)**: Remover `py-4` e `md:py-8` duplicados que conflitam com `pt-[57px]`. Usar padding explícito:
+   - `pt-[57px] pb-20 md:pb-8 px-3 md:px-6` — sem `py-*` que sobrescreve o `pt`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+2. Manter o header como está: `fixed top-0 right-0 left-0 md:left-16 z-50`
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Mudança mínima — apenas corrigir a classe do `<main>` para evitar conflito de padding.
 
