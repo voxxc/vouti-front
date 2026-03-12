@@ -1,36 +1,36 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Completar detalhes na aba Subtarefas + Remover seletor de responsável na subtarefa
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Duas alterações
 
-### Implementação
+### 1. Remover "Atribuir para" da criação de subtarefa (`AgendaContent.tsx`)
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+- Remover o campo `AdvogadoSelector` do bloco de criação de subtarefa (linhas 1690-1696)
+- Remover o state `subtarefaUsuario` e suas referências
+- Remover a validação `!subtarefaUsuario` do `disabled` do botão (linha 1705)
+- No insert da subtarefa, não enviar `atribuido_a` (ou enviar null)
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 2. Completar o modal de detalhes na aba Subtarefas (`CentralSubtarefas.tsx`)
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+**Query**: Adicionar `workspace_id` e `processo_oab_id` ao select de deadlines.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+**Fetch extra** (batch após query principal):
+- Nomes dos workspaces via `project_workspaces` (ids coletados dos resultados)
+- Info dos processos via `processos_oab` (`numero_cnj`, `parte_ativa`, `parte_passiva`)
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+**Interface**: Adicionar ao tipo `PrazoConcluido`:
+- `workspace_id`, `processo_oab_id`
+- `workspaceName?`, `processoInfo?`
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+**Modal**: Adicionar entre "Projeto" e "Responsável":
+- **Workspace** (se existir)
+- **Processo / Caso** com número CNJ e partes (se existir)
+- **Protocolo Vinculado** — protocolo + etapa (já existe na query, falta exibir no modal)
+- **Criado por** — já mapeado como `criador_profile`, falta exibir no modal
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### Arquivos alterados
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+- `src/components/Agenda/AgendaContent.tsx` — remover seletor de responsável na subtarefa
+- `src/components/Controladoria/CentralSubtarefas.tsx` — query, fetch, interface e modal completo
 
