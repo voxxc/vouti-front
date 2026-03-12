@@ -559,6 +559,45 @@ export const CentralSubtarefas = () => {
                   </div>
                 )}
 
+                {selectedPrazo.workspaceName && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Briefcase className="h-3.5 w-3.5" />
+                      Workspace
+                    </label>
+                    <p className="text-foreground">{selectedPrazo.workspaceName}</p>
+                  </div>
+                )}
+
+                {selectedPrazo.processoInfo && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Scale className="h-3.5 w-3.5" />
+                      Processo / Caso
+                    </label>
+                    <p className="text-foreground text-sm">{selectedPrazo.processoInfo.numeroCnj}</p>
+                    {(selectedPrazo.processoInfo.parteAtiva || selectedPrazo.processoInfo.partePassiva) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {selectedPrazo.processoInfo.parteAtiva} x {selectedPrazo.processoInfo.partePassiva}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {selectedPrazo.protocolo_etapa && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      Protocolo / Etapa
+                    </label>
+                    <p className="text-foreground text-sm">
+                      {selectedPrazo.protocolo_etapa.protocolo?.nome}
+                      {' → '}
+                      {selectedPrazo.protocolo_etapa.nome}
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   {selectedPrazo.advogado && (
                     <div>
@@ -589,6 +628,21 @@ export const CentralSubtarefas = () => {
                     </div>
                   )}
                 </div>
+
+                {selectedPrazo.criador_profile && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Criado por</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={selectedPrazo.criador_profile.avatar_url || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {selectedPrazo.criador_profile.full_name?.charAt(0) || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{selectedPrazo.criador_profile.full_name}</span>
+                    </div>
+                  </div>
+                )}
 
                 {selectedPrazo.comentario_conclusao && (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
