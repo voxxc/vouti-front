@@ -224,7 +224,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
-  const [subtarefaUsuario, setSubtarefaUsuario] = useState<string | null>(null);
+  
 
   // Project/workspace/processo/etapa selection for creation
   const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
@@ -817,13 +817,12 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       await createClientHistory(deadline, 'deadline_completed');
 
       // Create subtarefa if checkbox was marked
-      if (criarSubtarefa && subtarefaDescricao.trim() && subtarefaUsuario) {
+      if (criarSubtarefa && subtarefaDescricao.trim()) {
         await supabase
           .from('deadline_subtarefas')
           .insert({
             deadline_id: confirmCompleteDeadlineId,
             descricao: subtarefaDescricao.trim(),
-            atribuido_a: subtarefaUsuario,
             criado_por: user?.id,
             tenant_id: tenantId
           });
@@ -833,7 +832,6 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       setComentarioConclusao("");
       setCriarSubtarefa(false);
       setSubtarefaDescricao("");
-      setSubtarefaUsuario(null);
       setIsDetailDialogOpen(false);
       
       toast({
@@ -1633,7 +1631,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             setComentarioConclusao("");
             setCriarSubtarefa(false);
             setSubtarefaDescricao("");
-            setSubtarefaUsuario(null);
+            
           }
         }}
       >
@@ -1687,13 +1685,6 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     className="mt-1"
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Atribuir para</label>
-                  <AdvogadoSelector
-                    value={subtarefaUsuario}
-                    onChange={setSubtarefaUsuario}
-                  />
-                </div>
               </div>
             )}
           </div>
@@ -1702,7 +1693,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmComplete}
-              disabled={!comentarioConclusao.trim() || (criarSubtarefa && (!subtarefaDescricao.trim() || !subtarefaUsuario))}
+              disabled={!comentarioConclusao.trim() || (criarSubtarefa && !subtarefaDescricao.trim())}
             >
               Confirmar Conclusão
             </AlertDialogAction>
