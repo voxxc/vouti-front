@@ -799,9 +799,25 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       ));
 
       await createClientHistory(deadline, 'deadline_completed');
+
+      // Create subtarefa if checkbox was marked
+      if (criarSubtarefa && subtarefaDescricao.trim() && subtarefaUsuario) {
+        await supabase
+          .from('deadline_subtarefas')
+          .insert({
+            deadline_id: confirmCompleteDeadlineId,
+            descricao: subtarefaDescricao.trim(),
+            atribuido_a: subtarefaUsuario,
+            criado_por: user?.id,
+            tenant_id: tenantId
+          });
+      }
       
       setConfirmCompleteDeadlineId(null);
       setComentarioConclusao("");
+      setCriarSubtarefa(false);
+      setSubtarefaDescricao("");
+      setSubtarefaUsuario(null);
       setIsDetailDialogOpen(false);
       
       toast({
