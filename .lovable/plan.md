@@ -1,36 +1,34 @@
 
+Objetivo: corrigir o CRM do tenant **/demorais** para que as conversas mostrem mensagens atuais sem precisar refresh.
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+Diagnóstico confirmado:
+- O problema principal está em `loadMessages` (Inbox/All/Label/SuperAdmin): as queries em `whatsapp_messages` usam `order("created_at", { ascending: true })` sem paginação.
+- O Supabase aplica limite padrão de **1000 linhas** por request.
+- Para a conversa da Laura (`5545999180026`) existem **3425** mensagens. A linha 1000 termina exatamente em **“Acabei de receber boleto da copel”**, por isso a UI para “ali” e parece desatualizada.
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+Plano de implementação:
+1. Criar um carregamento paginado de histórico de mensagens (sem limite de 1000)
+- Em vez de 1 query única, buscar em páginas com `.range(offset, offset + 999)` até retornar menos de 1000 itens.
+- Manter ordenação cronológica para não quebrar o ChatPanel.
+- Aplicar os mesmos filtros atuais (tenant, agent, shared access, variante de telefone).
 
-### Implementação
+2. Aplicar a correção em todos os pontos que carregam histórico
+- `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
+- `src/components/WhatsApp/sections/WhatsAppAllConversations.tsx`
+- `src/components/WhatsApp/sections/WhatsAppLabelConversations.tsx`
+- `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx`
+Assim, nenhuma tela de conversa ficará “presa” nas primeiras 1000 mensagens.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+3. Garantir atualização em tempo real sem regressão
+- Manter o fluxo atual de `useWhatsAppSync`.
+- Com a paginação, quando chegar sinal (`message_received`/`message_sent`), o recarregamento passará a refletir a mensagem real mais recente (sem exigir refresh da página).
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+4. Validação focada em /demorais
+- Abrir a conversa da Laura e confirmar que a última mensagem exibida é a mais recente do banco (não mais “acabei de receber boleto da copel”).
+- Enviar/receber nova mensagem e validar atualização automática no chat e no preview da lista.
+- Validar que conversas aceitas do Daniel continuam na aba correta (“Abertas”).
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
-
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
-
+Detalhes técnicos (resumo):
+- Causa raiz: limite default de 1000 registros do Supabase.
+- Estratégia: paginação por `range` + merge de páginas até completar o histórico.
+- Sem necessidade de migration SQL para este ajuste (apenas frontend).
