@@ -8,7 +8,7 @@ import {
   WhatsAppMessage 
 } from "@/components/WhatsApp/sections/WhatsAppInbox";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
-import { loadAllMessages } from "@/utils/whatsappMessageLoader";
+import { loadLatestMessages } from "@/utils/whatsappMessageLoader";
 
 interface SuperAdminWhatsAppInboxProps {
   initialConversationPhone?: string | null;

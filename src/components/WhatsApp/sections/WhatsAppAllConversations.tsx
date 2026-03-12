@@ -147,14 +147,14 @@ export const WhatsAppAllConversations = () => {
     if (!tenantId && !isSuperAdmin) return;
 
     try {
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantId,
         tenantIsNull: isSuperAdmin && !tenantId,
         skipAgentFilter: true,
       });
 
-      setMessages(formattedMessages);
+      setMessages(result.messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }

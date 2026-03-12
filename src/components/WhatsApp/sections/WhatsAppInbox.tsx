@@ -289,14 +289,15 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         skipAgentFilter = !!access;
       }
 
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantId,
         agentId: myAgentId || null,
         skipAgentFilter,
       });
 
-      setMessages(formattedMessages);
+      setMessages(result.messages);
+      setHasMoreMessages(result.hasMore);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }

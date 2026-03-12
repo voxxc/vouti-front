@@ -130,12 +130,12 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
   // Load messages for selected conversation
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantId,
         skipAgentFilter: true,
       });
-      setMessages(formattedMessages);
+      setMessages(result.messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }
