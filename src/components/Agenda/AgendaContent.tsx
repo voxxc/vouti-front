@@ -710,6 +710,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         description: "Erro inesperado ao criar prazo.",
         variant: "destructive",
       });
+    } finally {
+      setCreatingDeadline(false);
     }
   };
 
