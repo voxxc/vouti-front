@@ -649,7 +649,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           advogado_responsavel_id: selectedAdvogado,
           module,
           workspace_id: resolvedWorkspaceId,
-          processo_oab_id: selectedProcessoId || null,
+          processo_oab_id: selectedProtocoloId ? (availableProtocolos.find(p => p.id === selectedProtocoloId)?.processo_oab_id || null) : null,
           protocolo_etapa_id: selectedEtapaId || null
         })
         .select()
