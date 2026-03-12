@@ -593,7 +593,10 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   };
 
   // ===== Handlers =====
+  const [creatingDeadline, setCreatingDeadline] = useState(false);
+
   const handleCreateDeadline = async () => {
+    if (creatingDeadline) return;
     if (!formData.title.trim() || !user) {
       toast({
         title: "Campos obrigatórios",
@@ -612,6 +615,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       return;
     }
 
+    setCreatingDeadline(true);
     try {
       // Use selected workspace or resolve default
       let resolvedWorkspaceId: string | null = null;
@@ -706,6 +710,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
         description: "Erro inesperado ao criar prazo.",
         variant: "destructive",
       });
+    } finally {
+      setCreatingDeadline(false);
     }
   };
 
@@ -1181,8 +1187,9 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   </PopoverContent>
                 </Popover>
               </div>
-              <Button onClick={handleCreateDeadline} className="w-full">
-                Criar Prazo
+              <Button onClick={handleCreateDeadline} className="w-full" disabled={creatingDeadline}>
+                {creatingDeadline ? <Clock className="h-4 w-4 animate-spin mr-2" /> : null}
+                {creatingDeadline ? "Criando..." : "Criar Prazo"}
               </Button>
             </div>
           </DialogContent>
