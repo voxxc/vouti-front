@@ -65,7 +65,7 @@ export const WhatsAppAllConversations = () => {
         ? supabase.from("whatsapp_contacts").select("phone, name").eq("tenant_id", tenantId)
         : null;
 
-      let rpcPromise: Promise<any>;
+      let rpcPromise;
       if (tenantId) {
         rpcPromise = supabase.rpc('get_tenant_conversations', { p_tenant_id: tenantId });
       } else {
@@ -75,7 +75,7 @@ export const WhatsAppAllConversations = () => {
           .select("from_number, message_text, created_at, agent_id, whatsapp_agents!agent_id(name)")
           .is("tenant_id", null)
           .order("created_at", { ascending: false })
-          .limit(500);
+          .limit(500) as any;
       }
 
       const [rpcResult, contactsResult] = await Promise.all([
