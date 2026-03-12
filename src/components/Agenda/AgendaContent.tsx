@@ -197,7 +197,7 @@ function OriginTabs({
   );
 }
 
-export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
+export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaContentProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const { navigate } = useTenantNavigation();
