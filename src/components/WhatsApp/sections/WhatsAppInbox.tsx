@@ -6,6 +6,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { Inbox, UserPlus } from "lucide-react";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
+import { loadAllMessages } from "@/utils/whatsappMessageLoader";
 import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { toast } from "sonner";
 
