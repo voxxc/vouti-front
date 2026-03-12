@@ -1693,7 +1693,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmComplete}
-              disabled={!comentarioConclusao.trim() || (criarSubtarefa && (!subtarefaDescricao.trim() || !subtarefaUsuario))}
+              disabled={!comentarioConclusao.trim() || (criarSubtarefa && !subtarefaDescricao.trim())}
             >
               Confirmar Conclusão
             </AlertDialogAction>
