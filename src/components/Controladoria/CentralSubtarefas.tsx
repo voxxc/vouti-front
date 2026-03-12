@@ -244,10 +244,46 @@ export const CentralSubtarefas = () => {
         });
       }
 
+      // Batch fetch workspace names
+      const workspaceIds = new Set<string>();
+      (data || []).forEach((d: any) => {
+        if (d.workspace_id) workspaceIds.add(d.workspace_id);
+      });
+      let workspaceMap: Record<string, string> = {};
+      if (workspaceIds.size > 0) {
+        const { data: workspaces } = await supabase
+          .from('project_workspaces')
+          .select('id, name')
+          .in('id', Array.from(workspaceIds));
+        (workspaces || []).forEach((w: any) => { workspaceMap[w.id] = w.name; });
+      }
+
+      // Batch fetch processo info
+      const processoIds = new Set<string>();
+      (data || []).forEach((d: any) => {
+        if (d.processo_oab_id) processoIds.add(d.processo_oab_id);
+      });
+      let processoMap: Record<string, { numeroCnj: string; parteAtiva: string; partePassiva: string }> = {};
+      if (processoIds.size > 0) {
+        const { data: processos } = await supabase
+          .from('processos_oab')
+          .select('id, numero_cnj, parte_ativa, parte_passiva')
+          .in('id', Array.from(processoIds));
+        (processos || []).forEach((p: any) => {
+          processoMap[p.id] = {
+            numeroCnj: p.numero_cnj || '',
+            parteAtiva: p.parte_ativa || '',
+            partePassiva: p.parte_passiva || '',
+          };
+        });
+      }
+
       const mapped = (data || []).map((d: any) => ({
         ...d,
         criador_profile: d.user_id ? creatorMap[d.user_id] || null : null,
         subtarefas: subtarefasMap[d.id] || [],
+        workspaceName: d.workspace_id ? workspaceMap[d.workspace_id] : undefined,
+        processoInfo: d.processo_oab_id ? processoMap[d.processo_oab_id] : undefined,
       }));
 
       setPrazos(mapped as unknown as PrazoConcluido[]);
