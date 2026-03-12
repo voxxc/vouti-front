@@ -355,7 +355,21 @@ export const CentralPrazosConcluidos = () => {
                   <TableHead>Responsável</TableHead>
                   <TableHead>Concluído por</TableHead>
                   <TableHead>Comentário</TableHead>
-                  <TableHead>Subtarefa</TableHead>
+                  <TableHead>
+                    <div className="flex items-center gap-1.5">
+                      <Flag className="h-4 w-4" />
+                      {(() => {
+                        const totalPendentes = filteredPrazos.reduce((acc, p) => acc + p.subtarefas.filter(s => !s.concluida).length, 0);
+                        return totalPendentes > 0 ? (
+                          <span className="inline-flex items-center justify-center rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 text-[10px] font-semibold min-w-[18px] h-[18px] px-1">
+                            {totalPendentes}
+                          </span>
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        );
+                      })()}
+                    </div>
+                  </TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
