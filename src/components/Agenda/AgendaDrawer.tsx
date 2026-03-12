@@ -6,9 +6,10 @@ import { AgendaContent } from "./AgendaContent";
 interface AgendaDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialDeadlineId?: string;
 }
 
-export function AgendaDrawer({ open, onOpenChange }: AgendaDrawerProps) {
+export function AgendaDrawer({ open, onOpenChange, initialDeadlineId }: AgendaDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
