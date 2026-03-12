@@ -42,6 +42,8 @@ interface PrazoConcluido {
   concluido_em: string | null;
   protocolo_etapa_id: string | null;
   project_id: string | null;
+  workspace_id: string | null;
+  processo_oab_id: string | null;
   advogado: {
     user_id: string;
     full_name: string;
@@ -71,6 +73,12 @@ interface PrazoConcluido {
     } | null;
   } | null;
   subtarefas: Subtarefa[];
+  workspaceName?: string;
+  processoInfo?: {
+    numeroCnj: string;
+    parteAtiva: string;
+    partePassiva: string;
+  };
 }
 
 interface UserOption {
