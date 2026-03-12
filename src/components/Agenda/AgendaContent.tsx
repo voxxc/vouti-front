@@ -593,7 +593,10 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   };
 
   // ===== Handlers =====
+  const [creatingDeadline, setCreatingDeadline] = useState(false);
+
   const handleCreateDeadline = async () => {
+    if (creatingDeadline) return;
     if (!formData.title.trim() || !user) {
       toast({
         title: "Campos obrigatórios",
