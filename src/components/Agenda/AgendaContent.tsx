@@ -602,16 +602,20 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
     }
 
     try {
-      // Resolve default workspace for the selected project
+      // Use selected workspace or resolve default
       let resolvedWorkspaceId: string | null = null;
       if (formData.projectId) {
-        const { data: defaultWs } = await supabase
-          .from('project_workspaces')
-          .select('id')
-          .eq('project_id', formData.projectId)
-          .eq('is_default', true)
-          .maybeSingle();
-        resolvedWorkspaceId = defaultWs?.id || null;
+        if (formData.workspaceId) {
+          resolvedWorkspaceId = formData.workspaceId;
+        } else {
+          const { data: defaultWs } = await supabase
+            .from('project_workspaces')
+            .select('id')
+            .eq('project_id', formData.projectId)
+            .eq('is_default', true)
+            .maybeSingle();
+          resolvedWorkspaceId = defaultWs?.id || null;
+        }
       }
 
       const { data, error } = await supabase
