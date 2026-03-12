@@ -676,7 +676,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   });
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-w-0">
       <ConversationList
         conversations={enrichedConversations}
         selectedConversation={selectedConversation}

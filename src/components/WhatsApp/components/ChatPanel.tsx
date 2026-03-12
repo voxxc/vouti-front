@@ -371,7 +371,7 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="flex-1 flex flex-col bg-background min-w-0 overflow-hidden">
       {/* Chat Header */}
       <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card">
         <div className="flex items-center gap-3">

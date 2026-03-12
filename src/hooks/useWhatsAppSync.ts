@@ -45,12 +45,12 @@ export const useWhatsAppSync = ({
     onCommanderActivityRef.current = onCommanderActivity;
   });
 
+  // Realtime signal listener
   useEffect(() => {
     if (!enabled || !tenantId) return;
 
     console.log('🔄 WhatsApp Sync: Starting signal listener for tenant:', tenantId);
 
-    // Canal único por tenant para evitar conflitos entre componentes
     const channelName = `whatsapp-sync-${tenantId}`;
     
     const channel = supabase
@@ -67,7 +67,6 @@ export const useWhatsAppSync = ({
           const signal = payload.new as SyncSignal;
           const signalTime = new Date(signal.created_at).getTime();
           
-          // Evitar processar sinais duplicados/antigos
           if (signalTime <= lastSignalTime.current) {
             console.log('🔄 WhatsApp Sync: Ignoring old/duplicate signal');
             return;
@@ -78,24 +77,18 @@ export const useWhatsAppSync = ({
 
           switch (signal.signal_type) {
             case 'message_received':
-              // Nova mensagem recebida - atualizar conversas e mensagens
               onConversationUpdateRef.current?.();
               onMessageUpdateRef.current?.(signal.phone);
               break;
-              
             case 'message_sent':
-              // Mensagem enviada (outgoing) - atualizar conversas e mensagens
               onConversationUpdateRef.current?.();
               onMessageUpdateRef.current?.(signal.phone);
               break;
-              
             case 'commander_message':
-              // Atividade do Commander - atualizar conversas e notificar
               onConversationUpdateRef.current?.();
               onMessageUpdateRef.current?.(signal.phone);
               onCommanderActivityRef.current?.(signal.phone);
               break;
-              
             default:
               console.log('🔄 WhatsApp Sync: Unknown signal type:', signal.signal_type);
           }
@@ -109,7 +102,19 @@ export const useWhatsAppSync = ({
       console.log('🔄 WhatsApp Sync: Cleaning up signal listener');
       supabase.removeChannel(channel);
     };
-  }, [tenantId, enabled]); // Apenas deps estáveis — callbacks via refs
+  }, [tenantId, enabled]);
+
+  // Polling fallback (30s) — safety net for missed signals
+  useEffect(() => {
+    if (!enabled || !tenantId) return;
+
+    const interval = setInterval(() => {
+      console.log('🔄 WhatsApp Sync: Fallback polling tick');
+      onConversationUpdateRef.current?.();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [tenantId, enabled]);
 
   return {
     isListening: enabled && !!tenantId

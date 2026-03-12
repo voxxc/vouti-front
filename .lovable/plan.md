@@ -1,28 +1,36 @@
 
 
-# Correção: Layout quebrado + Conversas desatualizadas
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema 1: Layout desalinhado (mensagens cortadas)
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-O ChatPanel tem `className="flex-1 flex flex-col"` mas **não tem `min-w-0 overflow-hidden`**. Em flexbox, sem `min-w-0`, o item não encolhe abaixo do tamanho do conteúdo. Quando o ContactInfoPanel abre ao lado, o ChatPanel não reduz sua largura — o conteúdo vaza para fora da tela, cortando as mensagens verdes (outgoing).
+### Implementação
 
-**Correção:** Adicionar `min-w-0 overflow-hidden` ao div raiz do ChatPanel.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-## Problema 2: Conversas misturadas / preview desatualizado
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-O sistema de sinais via Realtime funciona, mas depende 100% de os sinais serem emitidos corretamente pelo webhook. Se um sinal falha, a UI fica parada até dar refresh. O usuário nota que "com polling era melhor".
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**Correção:** Adicionar um polling leve (a cada 30 segundos) como **fallback** ao sistema de sinais. Não substitui os sinais — complementa como rede de segurança. Isso garante que mesmo se um sinal se perder, a lista de conversas e o preview se atualizem.
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-## Arquivos alterados
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### 1. `src/components/WhatsApp/components/ChatPanel.tsx`
-- Linha 374: mudar de `flex-1 flex flex-col bg-background` para `flex-1 flex flex-col bg-background min-w-0 overflow-hidden`
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 2. `src/hooks/useWhatsAppSync.ts`
-- Adicionar polling de fallback (30s) que chama `onConversationUpdate` periodicamente
-- O polling é leve — apenas recarrega a lista de conversas, não as mensagens do chat aberto
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-### 3. `src/components/WhatsApp/sections/WhatsAppInbox.tsx`
-- Também adicionar `min-w-0` ao container flex do ConversationList para garantir que a lista de conversas não transborde
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
