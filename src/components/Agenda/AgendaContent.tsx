@@ -1082,6 +1082,54 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                 />
               </div>
               <div>
+                <label className="text-sm font-medium">Projeto (opcional)</label>
+                <Select 
+                  value={formData.projectId || "none"} 
+                  onValueChange={async (val) => {
+                    const projectId = val === "none" ? "" : val;
+                    setFormData({ ...formData, projectId, workspaceId: "" });
+                    setAvailableWorkspaces([]);
+                    if (projectId) {
+                      const { data: ws } = await supabase
+                        .from('project_workspaces')
+                        .select('id, nome')
+                        .eq('project_id', projectId)
+                        .order('is_default', { ascending: false });
+                      setAvailableWorkspaces(ws || []);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sem projeto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem projeto</SelectItem>
+                    {availableProjects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} - {p.client}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.projectId && availableWorkspaces.length > 1 && (
+                <div>
+                  <label className="text-sm font-medium">Workspace (opcional)</label>
+                  <Select 
+                    value={formData.workspaceId || "default"} 
+                    onValueChange={(val) => setFormData({ ...formData, workspaceId: val === "default" ? "" : val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Workspace padrão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Workspace padrão</SelectItem>
+                      {availableWorkspaces.map(ws => (
+                        <SelectItem key={ws.id} value={ws.id}>{ws.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+              <div>
                 <label className="text-sm font-medium">Data</label>
                 <Popover>
                   <PopoverTrigger asChild>
