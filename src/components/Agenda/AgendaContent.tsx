@@ -1136,8 +1136,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     const projectId = val === "none" ? "" : val;
                     setFormData({ ...formData, projectId, workspaceId: "" });
                     setAvailableWorkspaces([]);
-                    setAvailableProcessos([]);
-                    setSelectedProcessoId("");
+                    setAvailableProtocolos([]);
+                    setSelectedProtocoloId("");
                     setAvailableEtapas([]);
                     setSelectedEtapaId("");
                     if (projectId) {
@@ -1147,23 +1147,21 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                         .eq('project_id', projectId)
                         .order('is_default', { ascending: false });
                       setAvailableWorkspaces(ws || []);
-                      // Load processos linked to this project
-                      const { data: pp } = await supabase
-                        .from('project_processos')
-                        .select('processo_oab_id, processos_oab(id, numero_cnj, parte_ativa)')
-                        .eq('projeto_id', projectId);
-                      const procs = (pp || [])
-                        .map((p: any) => p.processos_oab)
-                        .filter(Boolean);
-                      setAvailableProcessos(procs);
+                      // Load protocolos linked to this project
+                      const { data: prots } = await supabase
+                        .from('project_protocolos')
+                        .select('id, nome, processo_oab_id')
+                        .eq('project_id', projectId)
+                        .order('nome');
+                      setAvailableProtocolos(prots || []);
                     } else if (tenantId) {
-                      // No project selected: load all tenant processos
-                      const { data: allProcs } = await supabase
-                        .from('processos_oab')
-                        .select('id, numero_cnj, parte_ativa')
+                      // No project selected: load all tenant protocolos
+                      const { data: allProts } = await supabase
+                        .from('project_protocolos')
+                        .select('id, nome, processo_oab_id')
                         .eq('tenant_id', tenantId)
-                        .order('numero_cnj');
-                      setAvailableProcessos(allProcs || []);
+                        .order('nome');
+                      setAvailableProtocolos(allProts || []);
                     }
                   }}
                 >
