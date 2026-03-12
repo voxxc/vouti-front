@@ -1128,7 +1128,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     </SelectContent>
                   </Select>
                 </div>
-              )
+              )}
               <div>
                 <label className="text-sm font-medium">Data</label>
                 <Popover>
