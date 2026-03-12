@@ -1080,6 +1080,13 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
               .eq('tenant_id', tenantId)
               .order('name')
               .then(({ data }) => setAvailableProjects(data || []));
+            // Load all tenant processos by default (no project filter)
+            supabase
+              .from('processos_oab')
+              .select('id, numero_cnj, parte_ativa')
+              .eq('tenant_id', tenantId)
+              .order('numero_cnj')
+              .then(({ data }) => setAvailableProcessos(data || []));
           }
         }}>
           <DialogTrigger asChild>
