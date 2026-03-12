@@ -330,7 +330,17 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
     }
   }, [user, allUsers]);
 
-  // ===== Data Fetching =====
+  // Auto-open deadline details when initialDeadlineId is provided
+  useEffect(() => {
+    if (initialDeadlineId && deadlines.length > 0) {
+      const target = deadlines.find(d => d.id === initialDeadlineId);
+      if (target) {
+        openDeadlineDetails(target);
+      }
+    }
+  }, [initialDeadlineId, deadlines]);
+
+
   const fetchDeadlinesAsync = async () => {
     try {
       const { data, error } = await supabase
