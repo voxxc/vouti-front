@@ -1574,10 +1574,10 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   />
                 </div>
                 <div>
+                  <label className="text-sm font-medium">Atribuir para</label>
                   <AdvogadoSelector
                     value={subtarefaUsuario}
                     onChange={setSubtarefaUsuario}
-                    label="Atribuir para"
                   />
                 </div>
               </div>
