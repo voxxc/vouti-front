@@ -34,6 +34,7 @@ function formatMessage(msg: WhatsAppMessageRaw): FormattedMessage {
 }
 
 const PAGE_SIZE = 1000;
+const LATEST_PAGE_SIZE = 200;
 
 interface LoadMessagesOptions {
   contactNumber: string;
@@ -43,6 +44,62 @@ interface LoadMessagesOptions {
   tenantIsNull?: boolean;
   /** If true, skips agent_id filter even when agentId is set */
   skipAgentFilter?: boolean;
+}
+
+/**
+ * Loads the latest N messages (default 200) for a conversation.
+ * Returns them in ascending order (oldest first) for display.
+ * Also returns hasMore flag indicating if older messages exist.
+ */
+export async function loadLatestMessages(
+  options: LoadMessagesOptions & { limit?: number; beforeDate?: string }
+): Promise<{ messages: FormattedMessage[]; hasMore: boolean }> {
+  const { contactNumber, tenantId, agentId, tenantIsNull, skipAgentFilter, limit = LATEST_PAGE_SIZE, beforeDate } = options;
+  const normalized = normalizePhone(contactNumber);
+  const variant = getPhoneVariant(normalized);
+
+  let query = supabase
+    .from("whatsapp_messages")
+    .select("id, message_text, direction, created_at, message_type, raw_data")
+    .order("created_at", { ascending: false })
+    .limit(limit + 1); // fetch one extra to detect hasMore
+
+  // Phone filter
+  if (variant) {
+    query = query.or(`from_number.eq.${normalized},from_number.eq.${variant}`);
+  } else {
+    query = query.eq("from_number", normalized);
+  }
+
+  // Before date filter (for pagination)
+  if (beforeDate) {
+    query = query.lt("created_at", beforeDate);
+  }
+
+  // Tenant filter
+  if (tenantIsNull) {
+    query = query.is("tenant_id", null);
+  } else if (tenantId) {
+    query = query.eq("tenant_id", tenantId);
+  }
+
+  // Agent filter
+  if (agentId && !skipAgentFilter) {
+    query = query.eq("agent_id", agentId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = (data || []) as WhatsAppMessageRaw[];
+  const hasMore = rows.length > limit;
+  const trimmed = hasMore ? rows.slice(0, limit) : rows;
+
+  // Reverse to ascending order for display
+  return {
+    messages: trimmed.reverse().map(formatMessage),
+    hasMore,
+  };
 }
 
 /**

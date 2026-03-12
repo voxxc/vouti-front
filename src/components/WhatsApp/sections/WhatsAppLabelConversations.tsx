@@ -7,7 +7,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 import { normalizePhone } from "@/utils/phoneUtils";
-import { loadAllMessages } from "@/utils/whatsappMessageLoader";
+import { loadLatestMessages } from "@/utils/whatsappMessageLoader";
 import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { Loader2, Tag } from "lucide-react";
 
@@ -130,12 +130,12 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
   // Load messages for selected conversation
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantId,
         skipAgentFilter: true,
       });
-      setMessages(formattedMessages);
+      setMessages(result.messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }

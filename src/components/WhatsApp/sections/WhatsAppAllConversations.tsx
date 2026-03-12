@@ -7,7 +7,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { WhatsAppConversation, WhatsAppMessage } from "./WhatsAppInbox";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
-import { loadAllMessages } from "@/utils/whatsappMessageLoader";
+import { loadLatestMessages } from "@/utils/whatsappMessageLoader";
 import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 
 interface AllConversationsItem extends WhatsAppConversation {
@@ -147,14 +147,14 @@ export const WhatsAppAllConversations = () => {
     if (!tenantId && !isSuperAdmin) return;
 
     try {
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantId,
         tenantIsNull: isSuperAdmin && !tenantId,
         skipAgentFilter: true,
       });
 
-      setMessages(formattedMessages);
+      setMessages(result.messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }

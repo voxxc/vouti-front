@@ -1,41 +1,36 @@
 
 
-# Fix: Mensagens enviadas não aparecem + Layout
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Diagnóstico
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-1. **Mensagens enviadas não aparecem**: O `loadAllMessages` carrega TODAS as 3432 mensagens da Laura em ordem ascendente (mais antiga → mais recente). São 4 páginas de requests. Se qualquer página falhar ou demorar, as mensagens mais recentes (incluindo as enviadas) ficam invisíveis. Além disso, renderizar 3432 elementos DOM causa lentidão.
+### Implementação
 
-2. **Layout**: O `scrollIntoView` dentro do Radix ScrollArea pode falhar com milhares de elementos, fazendo o auto-scroll não alcançar o final.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-3. **CHANNEL_ERROR**: O console mostra `CHANNEL_ERROR` no Realtime, então os sinais de sync não estão chegando.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-## Solução
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### 1. Inverter a estratégia de carregamento
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-Em vez de carregar TODAS as mensagens (ascendente), carregar apenas as **últimas 200 mensagens** (descendente, depois inverter para exibição):
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-**`src/utils/whatsappMessageLoader.ts`**:
-- Nova função `loadLatestMessages` que busca com `order("created_at", { ascending: false }).limit(200)`, depois inverte o array
-- Mantém `loadAllMessages` para quem precisar, mas os componentes passam a usar `loadLatestMessages`
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 2. Atualizar os 4 componentes
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-- **`WhatsAppInbox.tsx`**: Trocar `loadAllMessages` por `loadLatestMessages`
-- **`WhatsAppAllConversations.tsx`**: Idem
-- **`WhatsAppLabelConversations.tsx`**: Idem
-- **`SuperAdminWhatsAppInbox.tsx`**: Idem
-
-### 3. Botão "Carregar mais" no ChatPanel
-
-- Adicionar um botão no topo da área de mensagens para carregar mensagens mais antigas quando o usuário quiser
-- Prop `onLoadMore` + `hasMoreMessages` no ChatPanel
-
-### Resultado esperado
-
-- Conversa da Laura abre instantaneamente com as últimas 200 mensagens
-- Mensagens enviadas (outgoing) aparecem corretamente à direita
-- Auto-scroll funciona sem problemas
-- Botão para ver histórico mais antigo
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

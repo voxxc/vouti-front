@@ -8,7 +8,7 @@ import {
   WhatsAppMessage 
 } from "@/components/WhatsApp/sections/WhatsAppInbox";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
-import { loadAllMessages } from "@/utils/whatsappMessageLoader";
+import { loadLatestMessages } from "@/utils/whatsappMessageLoader";
 
 interface SuperAdminWhatsAppInboxProps {
   initialConversationPhone?: string | null;
@@ -195,12 +195,12 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
   // Função estabilizada para carregar mensagens (paginado)
   const loadMessages = useCallback(async (contactNumber: string) => {
     try {
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantIsNull: true,
         skipAgentFilter: true,
       });
-      setMessages(formattedMessages);
+      setMessages(result.messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }

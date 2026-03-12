@@ -29,6 +29,9 @@ interface ChatPanelProps {
   onClearMacro?: () => void;
   agentId?: string | null;
   tenantId?: string | null;
+  onLoadMore?: () => void;
+  hasMoreMessages?: boolean;
+  isLoadingMore?: boolean;
 }
 
 function detectMimeType(file: File): "image" | "audio" | "video" | "document" {
@@ -116,7 +119,7 @@ const MediaRenderer = ({ message }: { message: WhatsAppMessage }) => {
   );
 };
 
-export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, onArchiveTicket, onUnarchiveTicket, activeTab, selectedMacro, onClearMacro, agentId, tenantId }: ChatPanelProps) => {
+export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus, onAcceptTicket, onCloseTicket, onArchiveTicket, onUnarchiveTicket, activeTab, selectedMacro, onClearMacro, agentId, tenantId, onLoadMore, hasMoreMessages, isLoadingMore }: ChatPanelProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ file: File; type: string; preview?: string } | null>(null);
@@ -419,6 +422,23 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
         backgroundRepeat: 'repeat',
       }}>
         <div className="space-y-1">
+          {hasMoreMessages && onLoadMore && (
+            <div className="flex justify-center my-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="text-xs"
+              >
+                {isLoadingMore ? (
+                  <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Carregando...</>
+                ) : (
+                  "Carregar mensagens anteriores"
+                )}
+              </Button>
+            </div>
+          )}
           {messages.map((message, index) => {
             const currentDateKey = getMessageDateKey(message.timestamp);
             const prevDateKey = index > 0 ? getMessageDateKey(messages[index - 1].timestamp) : null;

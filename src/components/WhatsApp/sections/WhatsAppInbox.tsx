@@ -6,7 +6,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { ContactInfoPanel } from "../components/ContactInfoPanel";
 import { Inbox, UserPlus } from "lucide-react";
 import { normalizePhone, getPhoneVariant } from "@/utils/phoneUtils";
-import { loadAllMessages } from "@/utils/whatsappMessageLoader";
+import { loadLatestMessages } from "@/utils/whatsappMessageLoader";
 import { useWhatsAppSync } from "@/hooks/useWhatsAppSync";
 import { toast } from "sonner";
 
@@ -53,6 +53,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [profilePics, setProfilePics] = useState<Record<string, string>>({});
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<ConversationTab>("open");
   const [tickets, setTickets] = useState<TicketInfo[]>([]);
   const [pendingMacro, setPendingMacro] = useState<any | null>(null);
@@ -289,14 +291,15 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         skipAgentFilter = !!access;
       }
 
-      const formattedMessages = await loadAllMessages({
+      const result = await loadLatestMessages({
         contactNumber,
         tenantId,
         agentId: myAgentId || null,
         skipAgentFilter,
       });
 
-      setMessages(formattedMessages);
+      setMessages(result.messages);
+      setHasMoreMessages(result.hasMore);
     } catch (error) {
       console.error("Erro ao carregar mensagens:", error);
     }
@@ -731,6 +734,38 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         onClearMacro={() => setPendingMacro(null)}
         agentId={myAgentId}
         tenantId={tenantId}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={async () => {
+          if (!selectedConversation || isLoadingMore || messages.length === 0) return;
+          setIsLoadingMore(true);
+          try {
+            const normalized = normalizePhone(selectedConversation.contactNumber);
+            let skipAgentFilter = false;
+            if (myAgentId) {
+              const { data: access } = await supabase
+                .from("whatsapp_conversation_access" as any)
+                .select("id")
+                .eq("agent_id", myAgentId)
+                .eq("phone", normalized)
+                .maybeSingle();
+              skipAgentFilter = !!access;
+            }
+            const result = await loadLatestMessages({
+              contactNumber: selectedConversation.contactNumber,
+              tenantId,
+              agentId: myAgentId || null,
+              skipAgentFilter,
+              beforeDate: messages[0].timestamp,
+            });
+            setMessages(prev => [...result.messages, ...prev]);
+            setHasMoreMessages(result.hasMore);
+          } catch (e) {
+            console.error("Erro ao carregar mais mensagens:", e);
+          } finally {
+            setIsLoadingMore(false);
+          }
+        }}
       />
 
       {selectedConversation && (
