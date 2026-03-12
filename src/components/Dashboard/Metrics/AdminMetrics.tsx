@@ -213,7 +213,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
       {/* Painel de Tarefas e Prazos do Usuário */}
       <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} initialDeadlineId={agendaDeadlineId} />
+      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
 
       <ClienteAnalytics />
 

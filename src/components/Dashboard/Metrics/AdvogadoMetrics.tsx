@@ -102,7 +102,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       </div>
 
       <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
-      <AgendaDrawer open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} initialDeadlineId={agendaDeadlineId} />
+      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
     </div>
   );
 };
