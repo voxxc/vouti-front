@@ -274,7 +274,7 @@ const DashboardLayout = ({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Header - Fixed */}
-        <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <header className="fixed top-0 right-0 left-0 md:left-16 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="flex items-center justify-between px-3 md:px-6 h-[49px] overflow-hidden min-w-0">
             {/* Left side - Quick search (desktop only) */}
             <div className="hidden md:flex items-center gap-2">
@@ -337,7 +337,7 @@ const DashboardLayout = ({
         </div>
 
         {/* Main Content - Dashboard sempre renderizado */}
-        <main className="flex-1 container max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-8 pb-20 md:pb-8 relative z-10">
+        <main className="flex-1 container max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-8 pb-20 md:pb-8 relative z-10 pt-[57px]">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
