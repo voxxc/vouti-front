@@ -140,6 +140,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
         return;
       }
 
+      // Fetch shared access phones
       const { data: sharedAccess } = await supabase
         .from("whatsapp_conversation_access" as any)
         .select("phone")
@@ -147,78 +148,74 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
 
       const sharedPhones = new Set<string>((sharedAccess || []).map((a: any) => a.phone));
 
-      let messagesQuery = supabase
-        .from("whatsapp_messages")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("agent_id", myAgentId)
-        .order("created_at", { ascending: false });
-
-      const [messagesResult, contactsResult] = await Promise.all([
-        messagesQuery,
+      // Use RPC to get agent conversations (bypasses 1000-row limit)
+      const [rpcResult, contactsResult] = await Promise.all([
+        supabase.rpc('get_agent_conversations', {
+          p_agent_id: myAgentId,
+          p_tenant_id: tenantId
+        }),
         supabase
           .from("whatsapp_contacts")
           .select("phone, name")
           .eq("tenant_id", tenantId)
       ]);
 
-      let sharedMessages: any[] = [];
-      if (sharedPhones.size > 0) {
-        const phoneArray = Array.from(sharedPhones);
-        const orFilter = phoneArray.map(p => `from_number.eq.${p}`).join(",");
-        const { data: sharedData } = await supabase
-          .from("whatsapp_messages")
-          .select("*")
-          .eq("tenant_id", tenantId)
-          .or(orFilter)
-          .order("created_at", { ascending: false });
-        sharedMessages = sharedData || [];
-      }
+      if (rpcResult.error) throw rpcResult.error;
 
-      if (messagesResult.error) throw messagesResult.error;
-
+      // Build contact name map
       const contactNameMap = new Map<string, string>();
       contactsResult.data?.forEach(c => {
         contactNameMap.set(normalizePhone(c.phone), c.name);
         contactNameMap.set(c.phone, c.name);
       });
 
-      const allMessages = [...(messagesResult.data || [])];
-      const seenIds = new Set(allMessages.map(m => m.id));
-      sharedMessages.forEach(m => {
-        if (!seenIds.has(m.id)) {
-          allMessages.push(m);
-          seenIds.add(m.id);
-        }
-      });
-      allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
+      // Map RPC results to conversations
       const conversationMap = new Map<string, WhatsAppConversation>();
-      const unreadMap = new Map<string, number>();
-      
-      allMessages.forEach((msg) => {
-        const normalizedNumber = normalizePhone(msg.from_number);
-        
-        if (msg.direction === 'received' && msg.is_read === false) {
-          unreadMap.set(normalizedNumber, (unreadMap.get(normalizedNumber) || 0) + 1);
-        }
-        
+      (rpcResult.data || []).forEach((row: any) => {
+        const normalizedNumber = normalizePhone(row.from_number);
         if (!conversationMap.has(normalizedNumber)) {
           conversationMap.set(normalizedNumber, {
-            id: msg.id,
-            contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(msg.from_number) || normalizedNumber,
+            id: `conv-${normalizedNumber}`,
+            contactName: contactNameMap.get(normalizedNumber) || contactNameMap.get(row.from_number) || normalizedNumber,
             contactNumber: normalizedNumber,
-            lastMessage: msg.message_text || "",
-            lastMessageTime: msg.created_at,
-            unreadCount: 0,
+            lastMessage: row.last_message || "",
+            lastMessageTime: row.last_message_time,
+            unreadCount: Number(row.unread_count) || 0,
           });
         }
       });
 
-      unreadMap.forEach((count, phone) => {
-        const conv = conversationMap.get(phone);
-        if (conv) conv.unreadCount = count;
-      });
+      // Add shared conversations that may not be in agent's own messages
+      if (sharedPhones.size > 0) {
+        const phoneArray = Array.from(sharedPhones);
+        const missingPhones = phoneArray.filter(p => !conversationMap.has(normalizePhone(p)));
+        if (missingPhones.length > 0) {
+          const orFilter = missingPhones.map(p => `from_number.eq.${p}`).join(",");
+          const { data: sharedData } = await supabase
+            .from("whatsapp_messages")
+            .select("from_number, message_text, created_at")
+            .eq("tenant_id", tenantId)
+            .or(orFilter)
+            .order("created_at", { ascending: false });
+
+          // Group shared messages by phone (only first = latest)
+          const seenShared = new Set<string>();
+          (sharedData || []).forEach((msg: any) => {
+            const norm = normalizePhone(msg.from_number);
+            if (!seenShared.has(norm) && !conversationMap.has(norm)) {
+              seenShared.add(norm);
+              conversationMap.set(norm, {
+                id: `shared-${norm}`,
+                contactName: contactNameMap.get(norm) || norm,
+                contactNumber: norm,
+                lastMessage: msg.message_text || "",
+                lastMessageTime: msg.created_at,
+                unreadCount: 0,
+              });
+            }
+          });
+        }
+      }
 
       const convList = Array.from(conversationMap.values())
         .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
