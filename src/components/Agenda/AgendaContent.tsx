@@ -615,6 +615,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
       return;
     }
 
+    setCreatingDeadline(true);
     try {
       // Use selected workspace or resolve default
       let resolvedWorkspaceId: string | null = null;
