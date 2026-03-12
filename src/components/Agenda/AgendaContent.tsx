@@ -229,8 +229,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
   // Project/workspace/processo/etapa selection for creation
   const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
   const [availableWorkspaces, setAvailableWorkspaces] = useState<Array<{ id: string; nome: string }>>([]);
-  const [availableProcessos, setAvailableProcessos] = useState<Array<{ id: string; numero_cnj: string | null; parte_ativa: string | null }>>([]);
-  const [selectedProcessoId, setSelectedProcessoId] = useState<string>("");
+  const [availableProtocolos, setAvailableProtocolos] = useState<Array<{ id: string; nome: string; processo_oab_id?: string | null }>>([]);
+  const [selectedProtocoloId, setSelectedProtocoloId] = useState<string>("");
   const [availableEtapas, setAvailableEtapas] = useState<Array<{ id: string; nome: string; protocolo_nome: string | null }>>([]);
   const [selectedEtapaId, setSelectedEtapaId] = useState<string>("");
 
@@ -649,7 +649,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
           advogado_responsavel_id: selectedAdvogado,
           module,
           workspace_id: resolvedWorkspaceId,
-          processo_oab_id: selectedProcessoId || null,
+          processo_oab_id: selectedProtocoloId ? (availableProtocolos.find(p => p.id === selectedProtocoloId)?.processo_oab_id || null) : null,
           protocolo_etapa_id: selectedEtapaId || null
         })
         .select()
@@ -701,8 +701,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
 
       setFormData({ title: "", description: "", date: selectedDate, projectId: "", workspaceId: "" });
       setAvailableWorkspaces([]);
-      setAvailableProcessos([]);
-      setSelectedProcessoId("");
+      setAvailableProtocolos([]);
+      setSelectedProtocoloId("");
       setAvailableEtapas([]);
       setSelectedEtapaId("");
       setSelectedAdvogado(null);
@@ -1078,13 +1078,13 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
               .eq('tenant_id', tenantId)
               .order('name')
               .then(({ data }) => setAvailableProjects(data || []));
-            // Load all tenant processos by default (no project filter)
+            // Load all tenant protocolos by default (no project filter)
             supabase
-              .from('processos_oab')
-              .select('id, numero_cnj, parte_ativa')
+              .from('project_protocolos')
+              .select('id, nome, processo_oab_id')
               .eq('tenant_id', tenantId)
-              .order('numero_cnj')
-              .then(({ data }) => setAvailableProcessos(data || []));
+              .order('nome')
+              .then(({ data }) => setAvailableProtocolos(data || []));
           }
         }}>
           <DialogTrigger asChild>
@@ -1136,8 +1136,8 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                     const projectId = val === "none" ? "" : val;
                     setFormData({ ...formData, projectId, workspaceId: "" });
                     setAvailableWorkspaces([]);
-                    setAvailableProcessos([]);
-                    setSelectedProcessoId("");
+                    setAvailableProtocolos([]);
+                    setSelectedProtocoloId("");
                     setAvailableEtapas([]);
                     setSelectedEtapaId("");
                     if (projectId) {
@@ -1147,23 +1147,21 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                         .eq('project_id', projectId)
                         .order('is_default', { ascending: false });
                       setAvailableWorkspaces(ws || []);
-                      // Load processos linked to this project
-                      const { data: pp } = await supabase
-                        .from('project_processos')
-                        .select('processo_oab_id, processos_oab(id, numero_cnj, parte_ativa)')
-                        .eq('projeto_id', projectId);
-                      const procs = (pp || [])
-                        .map((p: any) => p.processos_oab)
-                        .filter(Boolean);
-                      setAvailableProcessos(procs);
+                      // Load protocolos linked to this project
+                      const { data: prots } = await supabase
+                        .from('project_protocolos')
+                        .select('id, nome, processo_oab_id')
+                        .eq('project_id', projectId)
+                        .order('nome');
+                      setAvailableProtocolos(prots || []);
                     } else if (tenantId) {
-                      // No project selected: load all tenant processos
-                      const { data: allProcs } = await supabase
-                        .from('processos_oab')
-                        .select('id, numero_cnj, parte_ativa')
+                      // No project selected: load all tenant protocolos
+                      const { data: allProts } = await supabase
+                        .from('project_protocolos')
+                        .select('id, nome, processo_oab_id')
                         .eq('tenant_id', tenantId)
-                        .order('numero_cnj');
-                      setAvailableProcessos(allProcs || []);
+                        .order('nome');
+                      setAvailableProtocolos(allProts || []);
                     }
                   }}
                 >
@@ -1197,55 +1195,45 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                   </Select>
                 </div>
               )}
-              {availableProcessos.length > 0 && (
+              {availableProtocolos.length > 0 && (
                 <div>
-                  <label className="text-sm font-medium">Processo / Caso (opcional)</label>
+                  <label className="text-sm font-medium">Protocolo (opcional)</label>
                   <Select
-                    value={selectedProcessoId || "none"}
+                    value={selectedProtocoloId || "none"}
                     onValueChange={async (val) => {
-                      const procId = val === "none" ? "" : val;
-                      setSelectedProcessoId(procId);
+                      const protId = val === "none" ? "" : val;
+                      setSelectedProtocoloId(protId);
                       setSelectedEtapaId("");
                       setAvailableEtapas([]);
-                      if (procId) {
-                        // Load etapas from protocolos linked to this processo
-                        const { data: prots } = await supabase
-                          .from('project_protocolos')
+                      if (protId) {
+                        const { data: etapas } = await supabase
+                          .from('project_protocolo_etapas')
                           .select('id, nome')
-                          .eq('processo_oab_id', procId);
-                        if (prots && prots.length > 0) {
-                          const protIds = prots.map(p => p.id);
-                          const { data: etapas } = await supabase
-                            .from('project_protocolo_etapas')
-                            .select('id, nome, protocolo_id')
-                            .in('protocolo_id', protIds)
-                            .order('ordem');
-                          const protNameMap: Record<string, string> = {};
-                          prots.forEach(p => { protNameMap[p.id] = p.nome; });
-                          setAvailableEtapas((etapas || []).map(e => ({
-                            id: e.id,
-                            nome: e.nome,
-                            protocolo_nome: protNameMap[e.protocolo_id] || null
-                          })));
-                        }
+                          .eq('protocolo_id', protId)
+                          .order('ordem');
+                        setAvailableEtapas((etapas || []).map(e => ({
+                          id: e.id,
+                          nome: e.nome,
+                          protocolo_nome: null
+                        })));
                       }
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Sem processo" />
+                      <SelectValue placeholder="Sem protocolo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sem processo</SelectItem>
-                      {availableProcessos.map(p => (
+                      <SelectItem value="none">Sem protocolo</SelectItem>
+                      {availableProtocolos.map(p => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.numero_cnj || 'Sem CNJ'}{p.parte_ativa ? ` - ${p.parte_ativa}` : ''}
+                          {p.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-              {selectedProcessoId && availableEtapas.length > 0 && (
+              {selectedProtocoloId && availableEtapas.length > 0 && (
                 <div>
                   <label className="text-sm font-medium">Etapa (opcional)</label>
                   <Select
@@ -1259,7 +1247,7 @@ export function AgendaContent({ module = 'legal' }: AgendaContentProps) {
                       <SelectItem value="none">Sem etapa</SelectItem>
                       {availableEtapas.map(e => (
                         <SelectItem key={e.id} value={e.id}>
-                          {e.protocolo_nome ? `${e.protocolo_nome} › ` : ''}{e.nome}
+                          {e.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
