@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, User, Building2, Loader2, MapPin, Phone, Mail, Users, AlertCircle, Calendar, Globe } from 'lucide-react';
+import { Search, User, Building2, Loader2, MapPin, Phone, Mail, Users, AlertCircle, Calendar, Globe, ShieldCheck, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -51,10 +51,16 @@ interface EntityData {
   nationality?: string;
   mother_name?: string;
   father_name?: string;
+  aka_names?: string[];
   trading_name?: string;
   legal_nature?: string;
   share_capital?: number;
   special_situation?: string;
+  revenue_service_active?: boolean;
+  head_office?: boolean;
+  size?: string;
+  revenue_update_date?: string;
+  opening_date?: string;
   addresses?: Address[];
   contacts?: Contact[];
   partners?: Partner[];
@@ -128,7 +134,6 @@ export function SuperAdminBuscaGeral() {
       }
 
       if (data.success && data.data) {
-        // Normalizar dados - pode vir como array ou objeto único
         const entities = Array.isArray(data.data) ? data.data : [data.data];
         setResults(entities);
         
@@ -184,7 +189,6 @@ export function SuperAdminBuscaGeral() {
   );
 
   const renderContact = (contact: Contact, index: number) => {
-    const isPhone = contact.type?.toLowerCase().includes('phone') || contact.type?.toLowerCase().includes('telefone');
     const isEmail = contact.type?.toLowerCase().includes('email') || contact.value?.includes('@');
     
     return (
@@ -209,7 +213,15 @@ export function SuperAdminBuscaGeral() {
               <CardDescription>CPF: {entity.document || 'Não informado'}</CardDescription>
             </div>
           </div>
-          <Badge>Pessoa Física</Badge>
+          <div className="flex items-center gap-2">
+            {entity.revenue_service_active !== undefined && (
+              <Badge variant={entity.revenue_service_active ? 'default' : 'destructive'} className="text-xs">
+                <ShieldCheck className="h-3 w-3 mr-1" />
+                {entity.revenue_service_active ? 'Regular' : 'Irregular'}
+              </Badge>
+            )}
+            <Badge>Pessoa Física</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -237,7 +249,27 @@ export function SuperAdminBuscaGeral() {
               <span className="font-medium">{entity.nationality}</span>
             </div>
           )}
+          {entity.revenue_update_date && (
+            <div>
+              <span className="text-muted-foreground">Atualização Receita</span>
+              <span className="font-medium block">{formatDate(entity.revenue_update_date)}</span>
+            </div>
+          )}
         </div>
+
+        {/* Nomes Alternativos */}
+        {entity.aka_names && entity.aka_names.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-sm font-medium flex items-center gap-1">
+              <Tag className="h-3 w-3" /> Nomes Alternativos
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {entity.aka_names.map((name, i) => (
+                <Badge key={i} variant="outline" className="text-xs">{name}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Filiação */}
         {(entity.mother_name || entity.father_name) && (
@@ -253,7 +285,6 @@ export function SuperAdminBuscaGeral() {
         )}
 
         <Accordion type="multiple" className="w-full">
-          {/* Endereços */}
           {entity.addresses && entity.addresses.length > 0 && (
             <AccordionItem value="addresses">
               <AccordionTrigger className="text-sm">
@@ -268,7 +299,6 @@ export function SuperAdminBuscaGeral() {
             </AccordionItem>
           )}
 
-          {/* Contatos */}
           {entity.contacts && entity.contacts.length > 0 && (
             <AccordionItem value="contacts">
               <AccordionTrigger className="text-sm">
@@ -300,12 +330,24 @@ export function SuperAdminBuscaGeral() {
               <CardDescription>CNPJ: {entity.document || 'Não informado'}</CardDescription>
             </div>
           </div>
-          <Badge variant="secondary">Pessoa Jurídica</Badge>
+          <div className="flex items-center gap-2">
+            {entity.revenue_service_active !== undefined && (
+              <Badge variant={entity.revenue_service_active ? 'default' : 'destructive'} className="text-xs">
+                <ShieldCheck className="h-3 w-3 mr-1" />
+                {entity.revenue_service_active ? 'Ativa' : 'Inativa'}
+              </Badge>
+            )}
+            {entity.head_office !== undefined && (
+              <Badge variant="outline" className="text-xs">
+                {entity.head_office ? 'Matriz' : 'Filial'}
+              </Badge>
+            )}
+            <Badge variant="secondary">Pessoa Jurídica</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Dados da Empresa */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           {entity.trading_name && (
             <div>
               <span className="text-muted-foreground">Nome Fantasia</span>
@@ -324,6 +366,24 @@ export function SuperAdminBuscaGeral() {
               <span className="font-medium block">{formatCurrency(entity.share_capital)}</span>
             </div>
           )}
+          {entity.size && (
+            <div>
+              <span className="text-muted-foreground">Porte</span>
+              <span className="font-medium block">{entity.size}</span>
+            </div>
+          )}
+          {entity.opening_date && (
+            <div>
+              <span className="text-muted-foreground">Data de Abertura</span>
+              <span className="font-medium block">{formatDate(entity.opening_date)}</span>
+            </div>
+          )}
+          {entity.revenue_update_date && (
+            <div>
+              <span className="text-muted-foreground">Atualização Receita</span>
+              <span className="font-medium block">{formatDate(entity.revenue_update_date)}</span>
+            </div>
+          )}
           {entity.special_situation && (
             <div>
               <span className="text-muted-foreground">Situação Especial</span>
@@ -333,7 +393,6 @@ export function SuperAdminBuscaGeral() {
         </div>
 
         <Accordion type="multiple" className="w-full">
-          {/* Sócios */}
           {entity.partners && entity.partners.length > 0 && (
             <AccordionItem value="partners">
               <AccordionTrigger className="text-sm">
@@ -360,7 +419,6 @@ export function SuperAdminBuscaGeral() {
             </AccordionItem>
           )}
 
-          {/* Atividades Econômicas */}
           {entity.economic_activities && entity.economic_activities.length > 0 && (
             <AccordionItem value="activities">
               <AccordionTrigger className="text-sm">
@@ -383,7 +441,6 @@ export function SuperAdminBuscaGeral() {
             </AccordionItem>
           )}
 
-          {/* Endereços */}
           {entity.addresses && entity.addresses.length > 0 && (
             <AccordionItem value="addresses">
               <AccordionTrigger className="text-sm">
@@ -398,7 +455,6 @@ export function SuperAdminBuscaGeral() {
             </AccordionItem>
           )}
 
-          {/* Contatos */}
           {entity.contacts && entity.contacts.length > 0 && (
             <AccordionItem value="contacts">
               <AccordionTrigger className="text-sm">
@@ -418,7 +474,6 @@ export function SuperAdminBuscaGeral() {
   );
 
   const renderEntityCard = (entity: EntityData, index: number) => {
-    // Determinar tipo baseado no documento ou tipo explícito
     const isCompany = entity.type === 'company' || 
       (entity.document && entity.document.replace(/\D/g, '').length === 14);
     
@@ -434,11 +489,9 @@ export function SuperAdminBuscaGeral() {
         </p>
       </div>
 
-      {/* Formulário de Busca */}
       <Card>
         <CardContent className="pt-6">
           <div className="grid gap-4 md:grid-cols-4">
-            {/* Tipo de Busca */}
             <div className="space-y-2">
               <Label htmlFor="search-type">Tipo de Busca</Label>
               <Select 
@@ -474,7 +527,6 @@ export function SuperAdminBuscaGeral() {
               </Select>
             </div>
 
-            {/* Campo de Busca */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="search-key">
                 {searchType === 'cpf' ? 'CPF' : searchType === 'cnpj' ? 'CNPJ' : 'Nome'}
@@ -492,7 +544,6 @@ export function SuperAdminBuscaGeral() {
               />
             </div>
 
-            {/* Botão Buscar */}
             <div className="flex items-end">
               <Button 
                 onClick={handleSearch} 
@@ -514,7 +565,6 @@ export function SuperAdminBuscaGeral() {
             </div>
           </div>
 
-          {/* Opções Extras */}
           <div className="flex flex-wrap gap-6 mt-4 pt-4 border-t">
             <div className="flex items-center space-x-2">
               <Checkbox 
@@ -543,7 +593,6 @@ export function SuperAdminBuscaGeral() {
         </CardContent>
       </Card>
 
-      {/* Aviso para busca por nome */}
       {searchType === 'name' && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -553,7 +602,6 @@ export function SuperAdminBuscaGeral() {
         </Alert>
       )}
 
-      {/* Resultados */}
       {searched && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">
