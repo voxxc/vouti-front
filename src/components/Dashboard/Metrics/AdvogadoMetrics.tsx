@@ -100,7 +100,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
           </CardContent>
         </Card>
 
-        <PrazosDistributionChart tenantId={tenantId} userRole={useAuthRole()} />
+        <PrazosDistributionChart tenantId={tenantId} userRole={userRole || undefined} />
       </div>
 
       <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />

@@ -29,6 +29,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
   const { tenantId } = useTenantId();
+  const { userRole } = useAuth();
 
   // Optimized: Use React Query with cache for faster subsequent loads
   const { data: metrics, isLoading: loading } = useQuery({
