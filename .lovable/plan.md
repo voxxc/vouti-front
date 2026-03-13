@@ -1,36 +1,45 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Categorização de Prazos Periciais por Tipo
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Situação Atual
+A tabela `deadlines` não possui coluna de tipo/categoria. Todos os prazos são tratados igualmente no gráfico pizza.
 
-### Implementação
+## Proposta
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### 1. Nova coluna no banco: `deadline_category`
+Migration para adicionar `deadline_category TEXT` na tabela `deadlines`. Valores possíveis:
+- Revisional, Embargos, Contestação, Exceção de Pré-executividade, Impugnação ao laudo pericial, Elaboração de quesitos, Liquidação de sentença, Cumprimento de Sentença, Laudo complementar, Outros
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 2. Novo gráfico: Barras horizontais empilhadas (Stacked Bar)
+O gráfico pizza atual mostra bem o total geral (concluído/atrasado/pendente), mas para **cruzar tipo × status**, o melhor formato é **barras horizontais empilhadas**:
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+```text
+Revisional       ██████████░░░░░░░████
+Embargos         ████░░████████
+Contestação      ██████████████░░
+Liquidação       ████░░░░
+...
+                 🟢 Concluídos  🔴 Atrasados  🔵 Pendentes
+```
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Cada barra = um tipo de prazo. Segmentos coloridos = status. Visualmente claro para comparar volume e saúde por categoria.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+### 3. Integração no card existente
+Adicionar uma **terceira vista** no toggle do `PrazosDistributionChart`:
+- `geral` → Pizza geral (atual)
+- `pericial` → Pizza pericial (atual)  
+- `categorias` → Barras empilhadas por tipo (novo)
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+A seta discreta alterna entre as 3 vistas ciclicamente. Título muda para "Por Categoria". Mesmos filtros de período e usuário.
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### 4. Formulário de criação de prazo
+Adicionar campo opcional `Categoria` (Select) no formulário de criação/edição de prazos, com as opções listadas. Default: sem categoria (aparece como "Outros" no gráfico).
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Arquivos a modificar
+- **Nova migration**: `ALTER TABLE deadlines ADD COLUMN deadline_category TEXT`
+- **`src/components/Dashboard/PrazosDistributionChart.tsx`**: terceira vista com `BarChart` horizontal empilhado do Recharts
+- **`src/types/agenda.ts`**: adicionar `deadlineCategory?: string` ao tipo `Deadline`
+- **`src/hooks/useAgendaData.ts`**: mapear o novo campo
+- **Formulário de criação de prazo** (componente que cria deadlines): adicionar Select de categoria
 
