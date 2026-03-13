@@ -39,22 +39,25 @@
  
      const fetchDeadlines = async () => {
        try {
-         const { data, error } = await supabase
-           .from('deadlines')
-           .select(`
-             *,
-             projects (name, client),
-             advogado:profiles!deadlines_advogado_responsavel_id_fkey (
-               user_id, full_name, avatar_url
-             ),
-             deadline_tags (
-               tagged_user_id,
-               tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
-                 user_id, full_name, avatar_url
-               )
-             )
-           `)
-           .order('date', { ascending: true });
+          const { data, error } = await supabase
+            .from('deadlines')
+            .select(`
+              *,
+              projects (name, client),
+              advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+                user_id, full_name, avatar_url
+              ),
+              concluido_por_profile:profiles!deadlines_concluido_por_fkey (
+                user_id, full_name, avatar_url
+              ),
+              deadline_tags (
+                tagged_user_id,
+                tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
+                  user_id, full_name, avatar_url
+                )
+              )
+            `)
+            .order('date', { ascending: true });
  
          if (error) {
            console.error('[useAgendaData] Error:', error);
