@@ -62,6 +62,12 @@ export interface Deadline {
   completedByUserId?: string;
   createdByName?: string;
   createdByAvatar?: string;
+  completedByName?: string;
+  completedByAvatar?: string;
+  
+  // Dados de conclusão
+  comentarioConclusao?: string;
+  concluidoEm?: Date;
   
   // Categoria do prazo (pericial)
   deadlineCategory?: string;

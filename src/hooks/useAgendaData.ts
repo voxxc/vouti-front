@@ -39,22 +39,25 @@
  
      const fetchDeadlines = async () => {
        try {
-         const { data, error } = await supabase
-           .from('deadlines')
-           .select(`
-             *,
-             projects (name, client),
-             advogado:profiles!deadlines_advogado_responsavel_id_fkey (
-               user_id, full_name, avatar_url
-             ),
-             deadline_tags (
-               tagged_user_id,
-               tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
-                 user_id, full_name, avatar_url
-               )
-             )
-           `)
-           .order('date', { ascending: true });
+          const { data, error } = await supabase
+            .from('deadlines')
+            .select(`
+              *,
+              projects (name, client),
+              advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+                user_id, full_name, avatar_url
+              ),
+              concluido_por_profile:profiles!deadlines_concluido_por_fkey (
+                user_id, full_name, avatar_url
+              ),
+              deadline_tags (
+                tagged_user_id,
+                tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
+                  user_id, full_name, avatar_url
+                )
+              )
+            `)
+            .order('date', { ascending: true });
  
          if (error) {
            console.error('[useAgendaData] Error:', error);
@@ -123,8 +126,12 @@
                updatedAt: safeParseTimestamp(deadline.updated_at),
                workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
                 createdByUserId: deadline.user_id || undefined,
-                completedByUserId: deadline.concluido_por || undefined,
-                deadlineCategory: deadline.deadline_category || undefined
+                 completedByUserId: deadline.concluido_por || undefined,
+                 completedByName: deadline.concluido_por_profile?.full_name || undefined,
+                 completedByAvatar: deadline.concluido_por_profile?.avatar_url || undefined,
+                 comentarioConclusao: deadline.comentario_conclusao || undefined,
+                 concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
+                 deadlineCategory: deadline.deadline_category || undefined
               };
            });
   

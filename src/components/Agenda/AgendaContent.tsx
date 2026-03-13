@@ -1466,8 +1466,13 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                 <DialogTitle>{selectedDeadline.title}</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={cn("grid w-full", selectedDeadline.completed ? "grid-cols-3" : "grid-cols-2")}>
                   <TabsTrigger value="info">Informações</TabsTrigger>
+                  {selectedDeadline.completed && (
+                    <TabsTrigger value="conclusao">
+                      <CheckCircle2 className="h-4 w-4 mr-2" /> Conclusão
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="comments">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Comentários
@@ -1621,6 +1626,36 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                     </AlertDialog>
                   </div>
                 </TabsContent>
+                {selectedDeadline.completed && (
+                  <TabsContent value="conclusao" className="space-y-4 mt-4">
+                    {selectedDeadline.comentarioConclusao ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Comentário de Conclusão</label>
+                        <p className="text-foreground mt-1 whitespace-pre-wrap">{selectedDeadline.comentarioConclusao}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Nenhum comentário de conclusão registrado.</p>
+                    )}
+                    {selectedDeadline.completedByName && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Concluído por</label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={selectedDeadline.completedByAvatar} />
+                            <AvatarFallback className="text-xs">{selectedDeadline.completedByName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                          </Avatar>
+                          <span>{selectedDeadline.completedByName}</span>
+                        </div>
+                      </div>
+                    )}
+                    {selectedDeadline.concluidoEm && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Data de Conclusão</label>
+                        <p className="text-foreground">{safeFormatDate(selectedDeadline.concluidoEm, "dd/MM/yyyy 'às' HH:mm")}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
                 <TabsContent value="comments" className="mt-4">
                   <DeadlineComentarios deadlineId={selectedDeadline.id} currentUserId={user?.id || ''} />
                 </TabsContent>

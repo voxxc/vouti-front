@@ -179,13 +179,33 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         if (ws) workspaceName = ws.nome;
       }
 
-      // Fetch creator profile
+      // Fetch creator and completer profiles in parallel
       let creatorName: string | undefined;
       let creatorAvatar: string | undefined;
+      let completedByName: string | undefined;
+      let completedByAvatar: string | undefined;
+      
+      const profilePromises: Promise<void>[] = [];
       if (d.user_id) {
-        const { data: creator } = await supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.user_id).single();
-        if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; }
+        profilePromises.push(
+          supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.user_id).single()
+            .then(({ data: creator }) => { if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; } }) as Promise<void>
+        );
       }
+      if (d.concluido_por && d.concluido_por !== d.user_id) {
+        profilePromises.push(
+          supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.concluido_por).single()
+            .then(({ data: completer }) => { if (completer) { completedByName = completer.full_name; completedByAvatar = completer.avatar_url || undefined; } }) as Promise<void>
+        );
+      } else if (d.concluido_por && d.concluido_por === d.user_id) {
+        // Same user, reuse after promise resolves
+        profilePromises.push(
+          Promise.resolve().then(() => { completedByName = creatorName; completedByAvatar = creatorAvatar; })
+        );
+      }
+      await Promise.all(profilePromises);
+      // If same user, values may not be set yet due to race, fix:
+      if (d.concluido_por === d.user_id) { completedByName = creatorName; completedByAvatar = creatorAvatar; }
 
       const mapped: Deadline = {
         id: d.id,
@@ -210,6 +230,10 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         completedByUserId: d.concluido_por || undefined,
         createdByName: creatorName,
         createdByAvatar: creatorAvatar,
+        completedByName,
+        completedByAvatar,
+        comentarioConclusao: d.comentario_conclusao || undefined,
+        concluidoEm: d.concluido_em ? safeParseTimestamp(d.concluido_em) : undefined,
       };
 
       setDeadline(mapped);
@@ -262,8 +286,13 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                 <DialogTitle>{deadline.title}</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={cn("grid w-full", deadline.completed ? "grid-cols-3" : "grid-cols-2")}>
                   <TabsTrigger value="info">Informações</TabsTrigger>
+                  {deadline.completed && (
+                    <TabsTrigger value="conclusao">
+                      <CheckCircle2 className="h-4 w-4 mr-2" /> Conclusão
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="comments">
                     <MessageSquare className="h-4 w-4 mr-2" /> Comentários
                   </TabsTrigger>
@@ -376,6 +405,36 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                     </AlertDialog>
                   </div>
                 </TabsContent>
+                {deadline.completed && (
+                  <TabsContent value="conclusao" className="space-y-4 mt-4">
+                    {deadline.comentarioConclusao ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Comentário de Conclusão</label>
+                        <p className="text-foreground mt-1 whitespace-pre-wrap">{deadline.comentarioConclusao}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Nenhum comentário de conclusão registrado.</p>
+                    )}
+                    {deadline.completedByName && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Concluído por</label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={deadline.completedByAvatar} />
+                            <AvatarFallback className="text-xs">{deadline.completedByName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                          </Avatar>
+                          <span>{deadline.completedByName}</span>
+                        </div>
+                      </div>
+                    )}
+                    {deadline.concluidoEm && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Data de Conclusão</label>
+                        <p className="text-foreground">{safeFormatDate(deadline.concluidoEm, "dd/MM/yyyy 'às' HH:mm")}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
                 <TabsContent value="comments" className="mt-4">
                   <DeadlineComentarios deadlineId={deadline.id} currentUserId={user?.id || ''} />
                 </TabsContent>
