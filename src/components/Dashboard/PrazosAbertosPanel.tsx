@@ -165,28 +165,28 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
         promises.push(
           supabase.from('projects').select('id, name, client').in('id', projectIds).then(({ data: d }) => {
             (d || []).forEach((p: any) => { projectsMap[p.id] = { name: p.name, client: p.client || '' }; });
-          })
+          }) as unknown as Promise<void>
         );
       }
       if (columnIds.length > 0) {
         promises.push(
           supabase.from('project_columns').select('id, name').in('id', columnIds).then(({ data: d }) => {
             (d || []).forEach((c: any) => { columnsMap[c.id] = c.name; });
-          })
+          }) as unknown as Promise<void>
         );
       }
       if (sectorIds.length > 0) {
         promises.push(
           supabase.from('project_sectors').select('id, name').in('id', sectorIds).then(({ data: d }) => {
             (d || []).forEach((s: any) => { sectorsMap[s.id] = s.name; });
-          })
+          }) as unknown as Promise<void>
         );
       }
       if (workspaceIds.length > 0) {
         promises.push(
           supabase.from('project_workspaces').select('id, nome').in('id', workspaceIds).then(({ data: d }) => {
             (d || []).forEach((w: any) => { workspacesMap[w.id] = w.nome; });
-          })
+          }) as unknown as Promise<void>
         );
       }
 
