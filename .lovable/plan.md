@@ -1,36 +1,43 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Correção: Notificações de menções em comentários não são criadas
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Causa raiz
 
-### Implementação
+A tabela `notifications` tem um **CHECK constraint** (`notifications_type_check`) que restringe os valores permitidos no campo `type`. O valor `'comment_mention'` **não está na lista permitida**:
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+```text
+Valores permitidos atualmente:
+  project_update, task_moved, task_created, mention, comment_added,
+  andamento_processo, deadline_assigned, deadline_tagged, project_added
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+Valores ausentes (usados no código):
+  comment_mention, conversation_transferred
+```
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Quando `useCommentMentions` tenta inserir uma notificação com `type: 'comment_mention'`, o Postgres rejeita o INSERT com erro de constraint, mas o código captura o erro silenciosamente (apenas `console.error`), então o `comment_mentions` é salvo mas a notificação nunca é criada.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Confirmado nos dados: existem 2 registros recentes em `comment_mentions` (17:55 e 17:58) mas zero notificações `comment_mention`.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+## Correção
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### 1. Migração SQL — Atualizar CHECK constraint
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+Remover o constraint antigo e recriar com todos os tipos usados no código:
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+```sql
+ALTER TABLE public.notifications DROP CONSTRAINT notifications_type_check;
+
+ALTER TABLE public.notifications ADD CONSTRAINT notifications_type_check
+  CHECK (type = ANY (ARRAY[
+    'project_update', 'task_moved', 'task_created', 'mention',
+    'comment_added', 'andamento_processo', 'deadline_assigned',
+    'deadline_tagged', 'project_added', 'comment_mention',
+    'conversation_transferred'
+  ]));
+```
+
+### 2. Nenhuma alteração de código necessária
+
+O código já está correto — `useCommentMentions` insere com `type: 'comment_mention'` e `NotificationCenter` já trata o ícone. Basta liberar o constraint no banco.
 
