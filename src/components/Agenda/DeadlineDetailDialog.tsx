@@ -179,13 +179,33 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         if (ws) workspaceName = ws.nome;
       }
 
-      // Fetch creator profile
+      // Fetch creator and completer profiles in parallel
       let creatorName: string | undefined;
       let creatorAvatar: string | undefined;
+      let completedByName: string | undefined;
+      let completedByAvatar: string | undefined;
+      
+      const profilePromises: Promise<any>[] = [];
       if (d.user_id) {
-        const { data: creator } = await supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.user_id).single();
-        if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; }
+        profilePromises.push(
+          supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.user_id).single()
+            .then(({ data: creator }) => { if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; } })
+        );
       }
+      if (d.concluido_por && d.concluido_por !== d.user_id) {
+        profilePromises.push(
+          supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.concluido_por).single()
+            .then(({ data: completer }) => { if (completer) { completedByName = completer.full_name; completedByAvatar = completer.avatar_url || undefined; } })
+        );
+      } else if (d.concluido_por && d.concluido_por === d.user_id) {
+        // Same user, reuse after promise resolves
+        profilePromises.push(
+          Promise.resolve().then(() => { completedByName = creatorName; completedByAvatar = creatorAvatar; })
+        );
+      }
+      await Promise.all(profilePromises);
+      // If same user, values may not be set yet due to race, fix:
+      if (d.concluido_por === d.user_id) { completedByName = creatorName; completedByAvatar = creatorAvatar; }
 
       const mapped: Deadline = {
         id: d.id,
