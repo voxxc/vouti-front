@@ -412,7 +412,7 @@ const DashboardLayout = ({
       <MobileBottomNav
         activeDrawer={activeDrawer}
         onDrawerChange={handleDrawerChange}
-        onDashboardClick={() => setActiveDrawer(null)}
+        onDashboardClick={() => handleDrawerChange(null)}
       />
     </>
   );
