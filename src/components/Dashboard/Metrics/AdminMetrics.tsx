@@ -17,6 +17,7 @@ import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AdminMetricsProps {
   userId: string;
