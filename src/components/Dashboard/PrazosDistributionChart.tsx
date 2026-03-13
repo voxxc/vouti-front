@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChartIcon } from "lucide-react";
+import { PieChartIcon, ChevronRight, Scale } from "lucide-react";
 
 interface PrazosDistributionChartProps {
   tenantId?: string;
+  userRole?: string;
 }
 
 const PERIOD_OPTIONS = [
@@ -24,11 +25,16 @@ const COLORS = {
   pendentes: "#3b82f6",
 };
 
-const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => {
+const TOGGLE_ROLES = ["admin", "controller", "perito"];
+
+const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChartProps) => {
+  const [view, setView] = useState<"geral" | "pericial">(userRole === "perito" ? "pericial" : "geral");
   const [period, setPeriod] = useState("30");
   const [selectedUser, setSelectedUser] = useState("all");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+
+  const canToggle = userRole && TOGGLE_ROLES.includes(userRole);
 
   const { data: users } = useQuery({
     queryKey: ["tenant-users-for-chart"],
@@ -39,8 +45,25 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
     staleTime: 10 * 60 * 1000,
   });
 
+  const peritoUserIds = useMemo(() => {
+    if (!users) return new Set<string>();
+    return new Set(
+      (users as any[])
+        .filter((u: any) => u.highest_role === "perito")
+        .map((u: any) => u.user_id)
+    );
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    if (view === "pericial") {
+      return (users as any[]).filter((u: any) => peritoUserIds.has(u.user_id));
+    }
+    return users as any[];
+  }, [users, view, peritoUserIds]);
+
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ["prazos-distribution", period, selectedUser, tenantId],
+    queryKey: ["prazos-distribution", period, selectedUser, tenantId, view],
     queryFn: async () => {
       const today = new Date();
       const startDate = new Date(today);
@@ -48,7 +71,7 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
 
       let query = supabase
         .from("deadlines")
-        .select("id, completed, date")
+        .select("id, completed, date, user_id, advogado_responsavel_id")
         .gte("date", startDate.toISOString().split("T")[0])
         .lte("date", today.toISOString().split("T")[0]);
 
@@ -62,12 +85,21 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
         return [];
       }
 
+      let filtered = data || [];
+
+      // In pericial view, only include deadlines from perito users
+      if (view === "pericial" && peritoUserIds.size > 0) {
+        filtered = filtered.filter(
+          (d) => peritoUserIds.has(d.user_id) || (d.advogado_responsavel_id && peritoUserIds.has(d.advogado_responsavel_id))
+        );
+      }
+
       const todayStr = today.toISOString().split("T")[0];
       let concluidos = 0;
       let atrasados = 0;
       let pendentes = 0;
 
-      (data || []).forEach((d) => {
+      filtered.forEach((d) => {
         if (d.completed) concluidos++;
         else if (d.date < todayStr) atrasados++;
         else pendentes++;
@@ -85,15 +117,24 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
 
   const total = chartData?.reduce((sum, d) => sum + d.value, 0) || 0;
   const periodLabel = PERIOD_OPTIONS.find((o) => o.value === period)?.label || "30 dias";
-  const selectedUserObj = users?.find((u: any) => u.user_id === selectedUser);
+  const selectedUserObj = filteredUsers?.find((u: any) => u.user_id === selectedUser);
   const userLabel = selectedUser === "all" ? "Todos" : (selectedUserObj?.full_name || selectedUserObj?.email || "Usuário");
+
+  const handleToggle = () => {
+    setView((v) => (v === "geral" ? "pericial" : "geral"));
+    setSelectedUser("all");
+  };
+
+  const isPericial = view === "pericial";
+  const ViewIcon = isPericial ? Scale : PieChartIcon;
+  const viewTitle = isPericial ? "Periciais" : "Prazos";
 
   return (
     <Card className="bg-card hover:shadow-elegant transition-shadow">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center gap-1 flex-wrap">
-          <PieChartIcon className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm font-medium">Prazos</CardTitle>
+        <div className="flex items-center gap-1 flex-wrap min-w-0 flex-1">
+          <ViewIcon className="h-4 w-4 text-primary shrink-0" />
+          <CardTitle className="text-sm font-medium">{viewTitle}</CardTitle>
           <span className="text-muted-foreground text-[10px]">·</span>
           <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
             <PopoverTrigger asChild>
@@ -134,7 +175,7 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
                 >
                   Todos
                 </button>
-                {users?.map((u: any) => (
+                {filteredUsers?.map((u: any) => (
                   <button
                     key={u.user_id}
                     className={`text-xs px-3 py-1.5 text-left rounded hover:bg-accent transition-colors truncate ${
@@ -149,6 +190,17 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
             </PopoverContent>
           </Popover>
         </div>
+        {canToggle && (
+          <button
+            onClick={handleToggle}
+            className="p-0.5 rounded hover:bg-accent transition-all duration-200 text-muted-foreground hover:text-primary shrink-0"
+            title={isPericial ? "Ver prazos gerais" : "Ver prazos periciais"}
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${isPericial ? "rotate-180" : ""}`}
+            />
+          </button>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {isLoading ? (
@@ -184,12 +236,8 @@ const PrazosDistributionChart = ({ tenantId }: PrazosDistributionChartProps) => 
                       fontSize: "11px",
                       color: "hsl(var(--card-foreground))",
                     }}
-                    itemStyle={{
-                      color: "hsl(var(--card-foreground))",
-                    }}
-                    labelStyle={{
-                      color: "hsl(var(--card-foreground))",
-                    }}
+                    itemStyle={{ color: "hsl(var(--card-foreground))" }}
+                    labelStyle={{ color: "hsl(var(--card-foreground))" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
