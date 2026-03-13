@@ -82,22 +82,16 @@ export const TenantMentionInput = ({
 
   // Extrair menções do texto
   const extractMentions = useCallback((text: string): string[] => {
-    // Usar variável local para evitar closure issues
     const currentUsers = users || [];
     if (!text || currentUsers.length === 0) return [];
     
-    const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
     const mentions: string[] = [];
-    let match;
-
-    while ((match = mentionRegex.exec(text)) !== null) {
-      const mentionName = match[1]?.trim();
-      if (!mentionName) continue;
-      
-      const user = currentUsers.find(
-        (u) => (u.full_name || '').toLowerCase() === mentionName.toLowerCase()
-      );
-      if (user) {
+    const lowerText = text.toLowerCase();
+    
+    for (const user of currentUsers) {
+      if (!user.full_name) continue;
+      const pattern = `@${user.full_name.toLowerCase()}`;
+      if (lowerText.includes(pattern)) {
         mentions.push(user.user_id);
       }
     }

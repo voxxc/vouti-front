@@ -1,53 +1,36 @@
 
 
-# Correção: Menções em comentários de prazos não geram notificações
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Causa raiz
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-O regex de extração de menções em `TenantMentionInput.tsx` está quebrado para nomes com espaço (maioria dos nomes):
+### Implementação
 
-```typescript
-const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
-```
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-O quantificador lazy `*?` para no **primeiro espaço** encontrado. Para `@João Silva`, captura apenas `"João"`, que nunca bate com `full_name = "João Silva"`. Resultado: `mentionedUserIds` fica sempre vazio → `saveMentions` nunca é chamado → nenhuma notificação é criada.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-## Correção
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### 1. `src/components/Common/TenantMentionInput.tsx` — Corrigir `extractMentions`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-Trocar a abordagem do regex. Em vez de tentar parsear com regex genérico, iterar sobre os usuários conhecidos e verificar se o texto contém `@NomeCompleto`:
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-```typescript
-const extractMentions = useCallback((text: string): string[] => {
-  if (!text || !users.length) return [];
-  const mentions: string[] = [];
-  for (const user of users) {
-    if (!user.full_name) continue;
-    const pattern = `@${user.full_name}`;
-    if (text.toLowerCase().includes(pattern.toLowerCase())) {
-      mentions.push(user.user_id);
-    }
-  }
-  return [...new Set(mentions)];
-}, [users]);
-```
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 2. `src/hooks/useCommentMentions.ts` — Remover `as any` desnecessário
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-A tabela `comment_mentions` já existe nos types. Remover os casts `as any` para melhor type-safety e detecção de erros.
-
-### 3. `src/components/Communication/NotificationCenter.tsx` — Adicionar ícone para `comment_mention`
-
-Adicionar case `comment_mention` no switch de ícones para exibir 💬 (ou 👤), garantindo que a notificação apareça com visual correto.
-
-### 4. `src/hooks/useNotifications.ts` — Incluir `comment_mention` no type union
-
-Adicionar `'comment_mention'` ao union type de `Notification['type']` para consistência.
-
-### Arquivos
-- `src/components/Common/TenantMentionInput.tsx` — corrigir extractMentions
-- `src/hooks/useCommentMentions.ts` — remover `as any`
-- `src/components/Communication/NotificationCenter.tsx` — ícone comment_mention
-- `src/hooks/useNotifications.ts` — type union
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
