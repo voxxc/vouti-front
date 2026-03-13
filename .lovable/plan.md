@@ -1,36 +1,29 @@
 
+Problema identificado:
+- O clique no “Dashboard” hoje limpa apenas `activeDrawer`.
+- Alguns drawers são controlados por outros estados (principalmente `projectDrawerOpen` no `DashboardLayout`), então “às vezes” o drawer continua aberto mesmo voltando para `/dashboard`.
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+Plano de correção:
+1) Centralizar o “reset de dashboard” no `DashboardLayout`
+- Criar um handler único para o clique de Dashboard que:
+  - `setActiveDrawer(null)`
+  - `setProjectDrawerOpen(false)`
+  - `setSelectedProjectId(null)` (para não reabrir detalhe antigo)
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+2) Garantir que todos os atalhos de Dashboard usem esse handler
+- Sidebar (já chama `onDrawerChange(null)`) passará por esse reset central no layout.
+- MobileBottomNav: trocar o callback atual (`setActiveDrawer(null)`) para o handler central, para fechar também o drawer de projeto.
 
-### Implementação
+3) Manter comportamento atual dos outros fechamentos
+- Fechar drawer por `X` continua como está (não muda UX lateral existente).
+- Ajuste focado no clique do Dashboard, como você pediu.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+Arquivos a ajustar:
+- `src/components/Dashboard/DashboardLayout.tsx`
+  - atualizar `handleDrawerChange` (quando `drawer === null`, fechar também `projectDrawerOpen` e limpar `selectedProjectId`)
+  - atualizar `onDashboardClick` do `MobileBottomNav` para usar o reset central
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
-
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
-
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
-
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
-
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
-
+Validação (rápida):
+- Abrir qualquer drawer de seção -> clicar Dashboard -> fecha.
+- Abrir Projetos, selecionar um projeto (abre `ProjectDrawer`) -> clicar Dashboard -> fecha tudo e mostra dashboard.
+- Repetir no mobile com bottom nav.
