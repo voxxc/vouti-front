@@ -286,8 +286,13 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                 <DialogTitle>{deadline.title}</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={cn("grid w-full", deadline.completed ? "grid-cols-3" : "grid-cols-2")}>
                   <TabsTrigger value="info">Informações</TabsTrigger>
+                  {deadline.completed && (
+                    <TabsTrigger value="conclusao">
+                      <CheckCircle2 className="h-4 w-4 mr-2" /> Conclusão
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="comments">
                     <MessageSquare className="h-4 w-4 mr-2" /> Comentários
                   </TabsTrigger>
