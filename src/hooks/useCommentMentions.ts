@@ -43,8 +43,8 @@ export const useCommentMentions = () => {
       }));
 
       const { error: mentionError } = await supabase
-        .from('comment_mentions' as any)
-        .insert(mentionInserts as any);
+        .from('comment_mentions')
+        .insert(mentionInserts);
 
       if (mentionError) {
         console.error('Erro ao salvar menções:', mentionError);
