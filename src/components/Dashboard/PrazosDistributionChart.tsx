@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChartIcon, ChevronRight, Scale } from "lucide-react";
+import { PieChartIcon, ChevronRight, Scale, BarChart3 } from "lucide-react";
 
 interface PrazosDistributionChartProps {
   tenantId?: string;
@@ -27,8 +27,25 @@ const COLORS = {
 
 const TOGGLE_ROLES = ["admin", "controller", "perito"];
 
+type ViewType = "geral" | "pericial" | "categorias";
+
+const DEADLINE_CATEGORIES = [
+  "Revisional",
+  "Embargos",
+  "Contestação",
+  "Exceção de Pré-executividade",
+  "Impugnação ao laudo pericial",
+  "Elaboração de quesitos",
+  "Liquidação de sentença",
+  "Cumprimento de Sentença",
+  "Laudo complementar",
+  "Outros",
+];
+
+const VIEW_CYCLE: ViewType[] = ["geral", "pericial", "categorias"];
+
 const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChartProps) => {
-  const [view, setView] = useState<"geral" | "pericial">(userRole === "perito" ? "pericial" : "geral");
+  const [view, setView] = useState<ViewType>(userRole === "perito" ? "pericial" : "geral");
   const [period, setPeriod] = useState("30");
   const [selectedUser, setSelectedUser] = useState("all");
   const [periodOpen, setPeriodOpen] = useState(false);
@@ -56,14 +73,15 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
-    if (view === "pericial") {
+    if (view === "pericial" || view === "categorias") {
       return (users as any[]).filter((u: any) => peritoUserIds.has(u.user_id));
     }
     return users as any[];
   }, [users, view, peritoUserIds]);
 
-  const { data: chartData, isLoading } = useQuery({
-    queryKey: ["prazos-distribution", period, selectedUser, tenantId, view],
+  // Fetch deadlines with category for all views
+  const { data: rawDeadlines, isLoading } = useQuery({
+    queryKey: ["prazos-distribution-raw", period, selectedUser, tenantId, view],
     queryFn: async () => {
       const today = new Date();
       const startDate = new Date(today);
@@ -71,7 +89,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
 
       let query = supabase
         .from("deadlines")
-        .select("id, completed, date, user_id, advogado_responsavel_id")
+        .select("id, completed, date, user_id, advogado_responsavel_id, deadline_category")
         .gte("date", startDate.toISOString().split("T")[0])
         .lte("date", today.toISOString().split("T")[0]);
 
@@ -87,47 +105,72 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
 
       let filtered = data || [];
 
-      // In pericial view, only include deadlines from perito users
-      if (view === "pericial" && peritoUserIds.size > 0) {
+      // In pericial/categorias view, only include deadlines from perito users
+      if ((view === "pericial" || view === "categorias") && peritoUserIds.size > 0) {
         filtered = filtered.filter(
           (d) => peritoUserIds.has(d.user_id) || (d.advogado_responsavel_id && peritoUserIds.has(d.advogado_responsavel_id))
         );
       }
 
-      const todayStr = today.toISOString().split("T")[0];
-      let concluidos = 0;
-      let atrasados = 0;
-      let pendentes = 0;
-
-      filtered.forEach((d) => {
-        if (d.completed) concluidos++;
-        else if (d.date < todayStr) atrasados++;
-        else pendentes++;
-      });
-
-      return [
-        { name: "Concluídos", value: concluidos, fill: COLORS.concluidos },
-        { name: "Atrasados", value: atrasados, fill: COLORS.atrasados },
-        { name: "Pendentes", value: pendentes, fill: COLORS.pendentes },
-      ];
+      return filtered;
     },
     staleTime: 3 * 60 * 1000,
     enabled: !!tenantId,
   });
 
-  const total = chartData?.reduce((sum, d) => sum + d.value, 0) || 0;
+  // Pie chart data (geral / pericial)
+  const pieData = useMemo(() => {
+    if (!rawDeadlines) return [];
+    const todayStr = new Date().toISOString().split("T")[0];
+    let concluidos = 0, atrasados = 0, pendentes = 0;
+
+    rawDeadlines.forEach((d) => {
+      if (d.completed) concluidos++;
+      else if (d.date < todayStr) atrasados++;
+      else pendentes++;
+    });
+
+    return [
+      { name: "Concluídos", value: concluidos, fill: COLORS.concluidos },
+      { name: "Atrasados", value: atrasados, fill: COLORS.atrasados },
+      { name: "Pendentes", value: pendentes, fill: COLORS.pendentes },
+    ];
+  }, [rawDeadlines]);
+
+  // Stacked bar data (categorias)
+  const categoryData = useMemo(() => {
+    if (!rawDeadlines) return [];
+    const todayStr = new Date().toISOString().split("T")[0];
+    const catMap: Record<string, { concluidos: number; atrasados: number; pendentes: number }> = {};
+
+    rawDeadlines.forEach((d) => {
+      const cat = d.deadline_category || "Outros";
+      if (!catMap[cat]) catMap[cat] = { concluidos: 0, atrasados: 0, pendentes: 0 };
+      if (d.completed) catMap[cat].concluidos++;
+      else if (d.date < todayStr) catMap[cat].atrasados++;
+      else catMap[cat].pendentes++;
+    });
+
+    // Sort by total descending
+    return Object.entries(catMap)
+      .map(([name, vals]) => ({ name, ...vals }))
+      .sort((a, b) => (b.concluidos + b.atrasados + b.pendentes) - (a.concluidos + a.atrasados + a.pendentes));
+  }, [rawDeadlines]);
+
+  const total = pieData.reduce((sum, d) => sum + d.value, 0);
   const periodLabel = PERIOD_OPTIONS.find((o) => o.value === period)?.label || "30 dias";
   const selectedUserObj = filteredUsers?.find((u: any) => u.user_id === selectedUser);
   const userLabel = selectedUser === "all" ? "Todos" : (selectedUserObj?.full_name || selectedUserObj?.email || "Usuário");
 
   const handleToggle = () => {
-    setView((v) => (v === "geral" ? "pericial" : "geral"));
+    const currentIndex = VIEW_CYCLE.indexOf(view);
+    const nextIndex = (currentIndex + 1) % VIEW_CYCLE.length;
+    setView(VIEW_CYCLE[nextIndex]);
     setSelectedUser("all");
   };
 
-  const isPericial = view === "pericial";
-  const ViewIcon = isPericial ? Scale : PieChartIcon;
-  const viewTitle = isPericial ? "Periciais" : "Prazos";
+  const ViewIcon = view === "categorias" ? BarChart3 : view === "pericial" ? Scale : PieChartIcon;
+  const viewTitle = view === "categorias" ? "Por Categoria" : view === "pericial" ? "Periciais" : "Prazos";
 
   return (
     <Card className="bg-card hover:shadow-elegant transition-shadow">
@@ -194,10 +237,10 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
           <button
             onClick={handleToggle}
             className="p-0.5 rounded hover:bg-accent transition-all duration-200 text-muted-foreground hover:text-primary shrink-0"
-            title={isPericial ? "Ver prazos gerais" : "Ver prazos periciais"}
+            title={view === "geral" ? "Ver prazos periciais" : view === "pericial" ? "Ver por categoria" : "Ver prazos gerais"}
           >
             <ChevronRight
-              className={`h-3.5 w-3.5 transition-transform duration-200 ${isPericial ? "rotate-180" : ""}`}
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${view === "categorias" ? "rotate-180" : view === "pericial" ? "rotate-90" : ""}`}
             />
           </button>
         )}
@@ -205,6 +248,58 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
       <CardContent className="space-y-2">
         {isLoading ? (
           <Skeleton className="h-[120px] w-full" />
+        ) : view === "categorias" ? (
+          // Stacked horizontal bar chart for categories
+          categoryData.length === 0 ? (
+            <div className="flex items-center justify-center h-[120px] text-muted-foreground text-xs">
+              Nenhum prazo categorizado
+            </div>
+          ) : (
+            <>
+              <div className="h-[140px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={categoryData} layout="vertical" margin={{ left: 0, right: 4, top: 0, bottom: 0 }}>
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={90}
+                      tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        color: "hsl(var(--card-foreground))",
+                      }}
+                      itemStyle={{ color: "hsl(var(--card-foreground))" }}
+                    />
+                    <Bar dataKey="concluidos" name="Concluídos" stackId="a" fill={COLORS.concluidos} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="atrasados" name="Atrasados" stackId="a" fill={COLORS.atrasados} />
+                    <Bar dataKey="pendentes" name="Pendentes" stackId="a" fill={COLORS.pendentes} radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-3 gap-1 text-[10px]">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.concluidos }} />
+                  <span className="text-muted-foreground">Concl.</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.atrasados }} />
+                  <span className="text-muted-foreground">Atras.</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.pendentes }} />
+                  <span className="text-muted-foreground">Pend.</span>
+                </div>
+              </div>
+            </>
+          )
         ) : total === 0 ? (
           <div className="flex items-center justify-center h-[120px] text-muted-foreground text-xs">
             Nenhum prazo no período
@@ -215,7 +310,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={chartData}
+                    data={pieData}
                     cx="50%"
                     cy="50%"
                     innerRadius={25}
@@ -223,7 +318,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {chartData?.map((entry, index) => (
+                    {pieData?.map((entry, index) => (
                       <Cell key={index} fill={entry.fill} />
                     ))}
                   </Pie>
@@ -245,15 +340,15 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
             <div className="grid grid-cols-3 gap-1 text-[10px]">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.concluidos }} />
-                <span className="text-muted-foreground">{chartData?.[0]?.value || 0}</span>
+                <span className="text-muted-foreground">{pieData?.[0]?.value || 0}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.atrasados }} />
-                <span className="text-muted-foreground">{chartData?.[1]?.value || 0}</span>
+                <span className="text-muted-foreground">{pieData?.[1]?.value || 0}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.pendentes }} />
-                <span className="text-muted-foreground">{chartData?.[2]?.value || 0}</span>
+                <span className="text-muted-foreground">{pieData?.[2]?.value || 0}</span>
               </div>
             </div>
           </>
@@ -263,4 +358,5 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
   );
 };
 
+export { DEADLINE_CATEGORIES };
 export default PrazosDistributionChart;
