@@ -255,7 +255,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const { toggleMonitoramento } = useToggleMonitoramento();
 
   // Collapsible section state
-  const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | null>(null);
+  const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | "overdue" | null>(null);
 
   // Mobile calendar toggle
   const [showMobileCalendar, setShowMobileCalendar] = useState(false);
