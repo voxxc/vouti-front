@@ -278,13 +278,19 @@ serve(async (req) => {
         console.log(`[Busca Cadastral] Polling ${attempt}/${maxAttempts}`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
-        const pollUrl = `${JUDIT_API_BASE}/responses?request_id=${juditData.request_id}&page=1&page_size=100`;
+        const pollUrl = `${JUDIT_REQUESTS_BASE}/responses?request_id=${juditData.request_id}&page=1&page_size=100`;
         const pollResponse = await fetch(pollUrl, {
           method: 'GET',
           headers: { 'api-key': JUDIT_API_KEY.trim() },
         });
 
-        const pollData = await pollResponse.json();
+        let pollData: any;
+        try {
+          pollData = await pollResponse.json();
+        } catch (e) {
+          console.error(`[Busca Cadastral] Polling parse error attempt ${attempt}:`, e.message);
+          continue;
+        }
 
         if (pollData.page_data && pollData.page_data.length > 0) {
           let rawEntities: any[];
