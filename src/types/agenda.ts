@@ -62,6 +62,9 @@ export interface Deadline {
   completedByUserId?: string;
   createdByName?: string;
   createdByAvatar?: string;
+  
+  // Categoria do prazo (pericial)
+  deadlineCategory?: string;
 }
 
 export interface DeadlineFormData {

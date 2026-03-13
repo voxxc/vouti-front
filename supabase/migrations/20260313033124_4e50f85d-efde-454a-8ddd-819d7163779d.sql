@@ -1,0 +1,1 @@
+ALTER TABLE public.deadlines ADD COLUMN deadline_category TEXT;

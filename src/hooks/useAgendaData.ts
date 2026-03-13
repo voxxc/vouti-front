@@ -122,9 +122,10 @@
                createdAt: safeParseTimestamp(deadline.created_at),
                updatedAt: safeParseTimestamp(deadline.updated_at),
                workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
-               createdByUserId: deadline.user_id || undefined,
-               completedByUserId: deadline.concluido_por || undefined
-             };
+                createdByUserId: deadline.user_id || undefined,
+                completedByUserId: deadline.concluido_por || undefined,
+                deadlineCategory: deadline.deadline_category || undefined
+              };
            });
   
           setDeadlines(mappedDeadlines);

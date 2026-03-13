@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DEADLINE_CATEGORIES } from '@/components/Dashboard/PrazosDistributionChart';
 
 interface CreateDeadlineDialogProps {
   open: boolean;
@@ -42,6 +44,7 @@ export function CreateDeadlineDialog({
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [category, setCategory] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -120,6 +123,7 @@ export function CreateDeadlineDialog({
           advogado_responsavel_id: selectedAdvogado,
           tenant_id: tenantId,
           protocolo_etapa_id: etapaId,
+          deadline_category: category || null,
           processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null,
           workspace_id: resolvedWorkspaceId
         })
@@ -184,6 +188,7 @@ export function CreateDeadlineDialog({
       setDate(undefined);
       setSelectedAdvogado(null);
       setTaggedUsers([]);
+      setCategory('');
     } catch (error) {
       console.error('Error creating deadline:', error);
       toast({
@@ -253,6 +258,20 @@ export function CreateDeadlineDialog({
               onChange={setTaggedUsers}
               excludeCurrentUser={false}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categoria</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a categoria (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {DEADLINE_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
