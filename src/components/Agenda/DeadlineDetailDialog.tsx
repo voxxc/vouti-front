@@ -185,17 +185,17 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       let completedByName: string | undefined;
       let completedByAvatar: string | undefined;
       
-      const profilePromises: Promise<any>[] = [];
+      const profilePromises: Promise<void>[] = [];
       if (d.user_id) {
         profilePromises.push(
           supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.user_id).single()
-            .then(({ data: creator }) => { if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; } })
+            .then(({ data: creator }) => { if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; } }) as Promise<void>
         );
       }
       if (d.concluido_por && d.concluido_por !== d.user_id) {
         profilePromises.push(
           supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.concluido_por).single()
-            .then(({ data: completer }) => { if (completer) { completedByName = completer.full_name; completedByAvatar = completer.avatar_url || undefined; } })
+            .then(({ data: completer }) => { if (completer) { completedByName = completer.full_name; completedByAvatar = completer.avatar_url || undefined; } }) as Promise<void>
         );
       } else if (d.concluido_por && d.concluido_por === d.user_id) {
         // Same user, reuse after promise resolves
