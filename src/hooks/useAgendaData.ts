@@ -123,8 +123,10 @@
                updatedAt: safeParseTimestamp(deadline.updated_at),
                workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
                 createdByUserId: deadline.user_id || undefined,
-                completedByUserId: deadline.concluido_por || undefined,
-                deadlineCategory: deadline.deadline_category || undefined
+                 completedByUserId: deadline.concluido_por || undefined,
+                 comentarioConclusao: deadline.comentario_conclusao || undefined,
+                 concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
+                 deadlineCategory: deadline.deadline_category || undefined
               };
            });
   

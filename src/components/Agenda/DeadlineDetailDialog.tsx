@@ -405,6 +405,36 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                     </AlertDialog>
                   </div>
                 </TabsContent>
+                {deadline.completed && (
+                  <TabsContent value="conclusao" className="space-y-4 mt-4">
+                    {deadline.comentarioConclusao ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Comentário de Conclusão</label>
+                        <p className="text-foreground mt-1 whitespace-pre-wrap">{deadline.comentarioConclusao}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Nenhum comentário de conclusão registrado.</p>
+                    )}
+                    {deadline.completedByName && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Concluído por</label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={deadline.completedByAvatar} />
+                            <AvatarFallback className="text-xs">{deadline.completedByName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                          </Avatar>
+                          <span>{deadline.completedByName}</span>
+                        </div>
+                      </div>
+                    )}
+                    {deadline.concluidoEm && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Data de Conclusão</label>
+                        <p className="text-foreground">{safeFormatDate(deadline.concluidoEm, "dd/MM/yyyy 'às' HH:mm")}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
                 <TabsContent value="comments" className="mt-4">
                   <DeadlineComentarios deadlineId={deadline.id} currentUserId={user?.id || ''} />
                 </TabsContent>
