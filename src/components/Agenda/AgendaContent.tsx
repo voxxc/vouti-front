@@ -255,7 +255,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const { toggleMonitoramento } = useToggleMonitoramento();
 
   // Collapsible section state
-  const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | null>(null);
+  const [activeSection, setActiveSection] = useState<"upcoming" | "completed" | "overdue" | null>(null);
 
   // Mobile calendar toggle
   const [showMobileCalendar, setShowMobileCalendar] = useState(false);
@@ -1340,27 +1340,10 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               </div>
             )}
           </div>
-          {/* Overdue Section - always visible */}
-          {(() => {
-            const overdue = getOverdueDeadlines();
-            return overdue.length > 0 ? (
-              <div>
-                <h4 className="text-sm font-semibold text-destructive mb-2 flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Vencidos ({overdue.length})
-                </h4>
-                <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
-                  {overdue.map((deadline) => (
-                    <DeadlineRow key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
-              </div>
-            ) : null;
-          })()}
 
           {/* Selected Date Section - always visible */}
           {(() => {
-            const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed && !safeIsPast(d.date));
+            const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed);
             return (
               <div>
                 <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
@@ -1387,10 +1370,24 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           {/* Collapsible sections - clickable text labels */}
           <div className="flex items-center gap-4 border-t pt-3">
             {(() => {
+              const overdue = getOverdueDeadlines().filter(d => !isSameDay(d.date, selectedDate));
               const upcoming = getUpcomingDeadlines().filter(d => !isSameDay(d.date, selectedDate));
               const completed = getCompletedDeadlines();
               return (
                 <>
+                  {overdue.length > 0 && (
+                    <span
+                      className={cn(
+                        "text-sm cursor-pointer transition-colors select-none",
+                        activeSection === "overdue"
+                          ? "font-semibold text-destructive"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      onClick={() => setActiveSection(activeSection === "overdue" ? null : "overdue")}
+                    >
+                      Vencidos ({overdue.length})
+                    </span>
+                  )}
                   {upcoming.length > 0 && (
                     <span
                       className={cn(
@@ -1421,6 +1418,18 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               );
             })()}
           </div>
+
+          {/* Expandable Overdue section */}
+          {activeSection === "overdue" && (() => {
+            const overdue = getOverdueDeadlines().filter(d => !isSameDay(d.date, selectedDate));
+            return overdue.length > 0 ? (
+              <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
+                {overdue.map((deadline) => (
+                  <DeadlineRow key={deadline.id} deadline={deadline} />
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           {/* Expandable Upcoming section */}
           {activeSection === "upcoming" && (() => {
