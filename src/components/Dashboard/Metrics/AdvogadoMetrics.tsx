@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getFullGreeting } from "@/utils/greetingHelper";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useAuth } from "@/contexts/AuthContext";
 import PrazosDistributionChart from "../PrazosDistributionChart";
 
 interface AdvogadoMetricsProps {
@@ -19,6 +20,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
   const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { tenantId } = useTenantId();
+  const { userRole } = useAuth();
 
   const { data: metrics, isLoading: loading } = useQuery({
     queryKey: ['advogado-metrics', userId],
@@ -98,7 +100,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
           </CardContent>
         </Card>
 
-        <PrazosDistributionChart tenantId={tenantId} />
+        <PrazosDistributionChart tenantId={tenantId} userRole={userRole || undefined} />
       </div>
 
       <PrazosAbertosPanel userId={userId} maxItems={10} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />

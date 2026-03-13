@@ -17,6 +17,7 @@ import { useDadosSensiveis } from "@/contexts/DadosSensiveisContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AdminMetricsProps {
   userId: string;
@@ -28,6 +29,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { dadosVisiveis, toggleDadosVisiveis, formatarNumero, formatarPorcentagem } = useDadosSensiveis();
   const { tenantId } = useTenantId();
+  const { userRole } = useAuth();
 
   // Optimized: Use React Query with cache for faster subsequent loads
   const { data: metrics, isLoading: loading } = useQuery({
@@ -208,7 +210,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
           </CardContent>
         </Card>
 
-        <PrazosDistributionChart tenantId={tenantId} />
+        <PrazosDistributionChart tenantId={tenantId} userRole={userRole} />
       </div>
 
       {/* Painel de Tarefas e Prazos do Usuário */}
