@@ -1,36 +1,42 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Aba "Conclusão" nos detalhes de prazo concluído
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## O que será feito
 
-### Implementação
+Adicionar uma aba "Conclusão" no menu underline (mesmo estilo do OriginTabs) dentro dos detalhes do prazo, visível **apenas quando o prazo está concluído**. A aba exibirá o comentário de conclusão, quem concluiu e quando.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Alterações
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 1. `src/types/agenda.ts` — Adicionar campos ao tipo `Deadline`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Adicionar:
+- `comentarioConclusao?: string`
+- `concluidoEm?: Date`
+- `completedByName?: string`
+- `completedByAvatar?: string`
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### 2. `src/hooks/useAgendaData.ts` — Mapear campos de conclusão
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+O `SELECT *` já traz `comentario_conclusao`, `concluido_em` e `concluido_por` do banco. Mapear esses campos para o tipo `Deadline`. Buscar o perfil de quem concluiu (`concluido_por`) junto com o criador.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### 3. `src/components/Agenda/DeadlineDetailDialog.tsx` — Mapear e exibir
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+- No `fetchDeadline`, mapear `comentario_conclusao`, `concluido_em` e buscar o perfil de `concluido_por` (nome + avatar).
+- Trocar as abas principais de `TabsList grid-cols-2` para `grid-cols-3` quando o prazo estiver concluído.
+- Adicionar `TabsTrigger value="conclusao"` com label "Conclusão" (só quando `deadline.completed`).
+- Adicionar `TabsContent value="conclusao"` exibindo:
+  - Comentário de conclusão
+  - Quem concluiu (avatar + nome)
+  - Data/hora da conclusão
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### 4. `src/components/Agenda/AgendaContent.tsx` — Mesma lógica
+
+Aplicar a mesma aba "Conclusão" no dialog inline do AgendaContent (linhas 1468-1627), com grid-cols dinâmico e conteúdo idêntico. Os dados de conclusão precisam ser buscados do banco quando o dialog abre (já que `useAgendaData` será atualizado para incluí-los).
+
+### Arquivos
+- `src/types/agenda.ts`
+- `src/hooks/useAgendaData.ts`
+- `src/components/Agenda/DeadlineDetailDialog.tsx`
+- `src/components/Agenda/AgendaContent.tsx`
 
