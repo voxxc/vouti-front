@@ -246,6 +246,11 @@ const DashboardLayout = ({
   // Handler para mudança de drawer do sidebar
   const handleDrawerChange = useCallback((drawer: ActiveDrawer) => {
     setActiveDrawer(drawer);
+    // Ao voltar para o dashboard, fechar também drawers independentes
+    if (drawer === null) {
+      setProjectDrawerOpen(false);
+      setSelectedProjectId(null);
+    }
   }, [setActiveDrawer]);
 
   // Memoized handler para fechar drawers
