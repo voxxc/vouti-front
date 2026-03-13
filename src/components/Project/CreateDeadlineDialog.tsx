@@ -44,6 +44,7 @@ export function CreateDeadlineDialog({
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [category, setCategory] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
