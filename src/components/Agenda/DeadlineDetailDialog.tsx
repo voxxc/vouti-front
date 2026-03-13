@@ -230,6 +230,10 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         completedByUserId: d.concluido_por || undefined,
         createdByName: creatorName,
         createdByAvatar: creatorAvatar,
+        completedByName,
+        completedByAvatar,
+        comentarioConclusao: d.comentario_conclusao || undefined,
+        concluidoEm: d.concluido_em ? safeParseTimestamp(d.concluido_em) : undefined,
       };
 
       setDeadline(mapped);
