@@ -1419,6 +1419,18 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             })()}
           </div>
 
+          {/* Expandable Overdue section */}
+          {activeSection === "overdue" && (() => {
+            const overdue = getOverdueDeadlines().filter(d => !isSameDay(d.date, selectedDate));
+            return overdue.length > 0 ? (
+              <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
+                {overdue.map((deadline) => (
+                  <DeadlineRow key={deadline.id} deadline={deadline} />
+                ))}
+              </div>
+            ) : null;
+          })()}
+
           {/* Expandable Upcoming section */}
           {activeSection === "upcoming" && (() => {
             const upcoming = getUpcomingDeadlines().filter(d => !isSameDay(d.date, selectedDate));
