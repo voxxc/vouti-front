@@ -1838,6 +1838,7 @@ export type Database = {
           concluido_por: string | null
           created_at: string
           date: string
+          deadline_category: string | null
           description: string | null
           id: string
           module: string | null
@@ -1858,6 +1859,7 @@ export type Database = {
           concluido_por?: string | null
           created_at?: string
           date: string
+          deadline_category?: string | null
           description?: string | null
           id?: string
           module?: string | null
@@ -1878,6 +1880,7 @@ export type Database = {
           concluido_por?: string | null
           created_at?: string
           date?: string
+          deadline_category?: string | null
           description?: string | null
           id?: string
           module?: string | null
