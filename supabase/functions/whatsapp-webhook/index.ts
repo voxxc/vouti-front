@@ -60,28 +60,6 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     }
   }
 
-  // 3.5 NOVO: Para fromMe=true, buscar conversa recebida recente na mesma instância
-  if (data.fromMe === true && data.instanceId) {
-    const { data: recentReceived } = await supabase
-      .from('whatsapp_messages')
-      .select('from_number')
-      .eq('instance_name', data.instanceId)
-      .eq('direction', 'received')
-      .not('from_number', 'like', 'lid_%')
-      .gt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: false })
-      .limit(10);
-    
-    if (recentReceived && recentReceived.length > 0) {
-      // Filtrar: apenas telefones brasileiros reais (12-13 dígitos) para excluir números de grupo (22+ dígitos)
-      const validPhone = recentReceived.find(m => isValidBrazilianPhone(m.from_number));
-      if (validPhone) {
-        console.log('Resolved fromMe LID via recent received message:', maskPhone(validPhone.from_number));
-        return validPhone.from_number;
-      }
-    }
-  }
-
   // 4. buscar por chatName na tabela de contatos
   if (data.chatName) {
     const { data: contact } = await supabase
@@ -93,12 +71,13 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     if (contact?.phone) {
       const normalized = normalizePhoneNumber(contact.phone);
       if (normalized.startsWith('55') && normalized.length >= 12) {
+        console.log('Resolved LID via contacts table chatName match:', maskPhone(normalized));
         return normalized;
       }
     }
   }
 
-  // 5. NOVO: buscar por chatName no histórico de mensagens recentes
+  // 5. buscar por chatName no histórico de mensagens recentes
   if (data.chatName && data.instanceId) {
     const { data: historyMatches } = await supabase
       .from('whatsapp_messages')
@@ -113,13 +92,14 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
       for (const m of historyMatches) {
         const rawChatName = (m.raw_data as any)?.chatName;
         if (rawChatName === data.chatName && isValidBrazilianPhone(m.from_number)) {
+          console.log('Resolved LID via message history chatName match:', maskPhone(m.from_number));
           return m.from_number;
         }
       }
     }
   }
 
-  // 6. Busca por LID no histórico (existente)
+  // 6. Busca por LID no histórico
   const lidOriginal = originalPhone.includes('@') ? originalPhone : `${originalPhone}@lid`;
   const lidClean = originalPhone.replace(/@.*$/, '');
   
@@ -133,10 +113,32 @@ async function resolvePhoneFromLid(data: any, originalPhone: string): Promise<st
     .maybeSingle();
 
   if (match?.from_number && !match.from_number.startsWith('lid_')) {
+    console.log('Resolved LID via historical LID match:', maskPhone(match.from_number));
     return match.from_number;
   }
 
-  // 7. Logging detalhado para diagnóstico
+  // 7. ÚLTIMO RECURSO: Para fromMe=true SEM chatName, buscar mensagem recebida recente
+  if (data.fromMe === true && data.instanceId && !data.chatName) {
+    const { data: recentReceived } = await supabase
+      .from('whatsapp_messages')
+      .select('from_number')
+      .eq('instance_name', data.instanceId)
+      .eq('direction', 'received')
+      .not('from_number', 'like', 'lid_%')
+      .gt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (recentReceived && recentReceived.length > 0) {
+      const validPhone = recentReceived.find(m => isValidBrazilianPhone(m.from_number));
+      if (validPhone) {
+        console.log('Resolved fromMe LID via recent received (last resort):', maskPhone(validPhone.from_number));
+        return validPhone.from_number;
+      }
+    }
+  }
+
+  // 8. Logging para diagnóstico
   console.warn('Could not resolve LID', JSON.stringify({
     originalPhone,
     chatId: data.chatId,
