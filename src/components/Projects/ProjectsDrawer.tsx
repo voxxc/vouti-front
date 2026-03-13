@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FolderOpen, Plus, Search, X, ChevronRight } from "lucide-react";
+import { FolderOpen, Plus, Search, X, ChevronRight, ExternalLink } from "lucide-react";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useProjectsOptimized, ProjectBasic } from "@/hooks/useProjectsOptimized";
 import { cn } from "@/lib/utils";

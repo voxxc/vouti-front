@@ -1,6 +1,8 @@
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { FolderOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FolderOpen, ExternalLink } from "lucide-react";
 import { ProjectDrawerContent } from "./ProjectDrawerContent";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 
 interface ProjectDrawerProps {
   open: boolean;
