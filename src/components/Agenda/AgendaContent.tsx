@@ -1370,10 +1370,24 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           {/* Collapsible sections - clickable text labels */}
           <div className="flex items-center gap-4 border-t pt-3">
             {(() => {
+              const overdue = getOverdueDeadlines().filter(d => !isSameDay(d.date, selectedDate));
               const upcoming = getUpcomingDeadlines().filter(d => !isSameDay(d.date, selectedDate));
               const completed = getCompletedDeadlines();
               return (
                 <>
+                  {overdue.length > 0 && (
+                    <span
+                      className={cn(
+                        "text-sm cursor-pointer transition-colors select-none",
+                        activeSection === "overdue"
+                          ? "font-semibold text-destructive"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      onClick={() => setActiveSection(activeSection === "overdue" ? null : "overdue")}
+                    >
+                      Vencidos ({overdue.length})
+                    </span>
+                  )}
                   {upcoming.length > 0 && (
                     <span
                       className={cn(
