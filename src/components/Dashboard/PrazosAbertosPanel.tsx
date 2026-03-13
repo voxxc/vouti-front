@@ -33,6 +33,9 @@ interface TarefaItem {
   dataExecucao: string | null;
   contexto: string;
   subContexto?: string;
+  workspaceName?: string;
+  columnName?: string;
+  sectorName?: string;
 }
 
 const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: PrazosAbertosPanelProps) => {
