@@ -20,6 +20,7 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   const [agendaDrawerOpen, setAgendaDrawerOpen] = useState(false);
   const [agendaDeadlineId, setAgendaDeadlineId] = useState<string | undefined>();
   const { tenantId } = useTenantId();
+  const { userRole } = useAuth();
 
   const { data: metrics, isLoading: loading } = useQuery({
     queryKey: ['advogado-metrics', userId],
