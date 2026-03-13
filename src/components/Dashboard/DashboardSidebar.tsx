@@ -209,24 +209,26 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
 
              // Dashboard - fecha qualquer drawer
              if (item.id === 'dashboard') {
-               return (
-                 <Button
-                   key={item.id}
-                   variant={isActive(item.id) ? "secondary" : "ghost"}
-                   onMouseEnter={() => handleMouseEnter(item.id)}
-                   onClick={handleDashboardClick}
-                   className={cn(
-                     "w-full justify-start gap-3 h-11",
-                     isCollapsed && "justify-center px-2",
-                     isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
-                   )}
-                   title={isCollapsed ? item.label : undefined}
-                 >
-                   <Icon size={20} />
-                   {!isCollapsed && <span>{item.label}</span>}
-                 </Button>
-               );
-             }
+                return (
+                  <Link
+                    key={item.id}
+                    to={dashboardPath}
+                    onMouseEnter={() => handleMouseEnter(item.id)}
+                    onClick={handleDashboardClick}
+                    className={cn(
+                      "flex items-center w-full gap-3 h-11 px-4 rounded-md text-sm font-medium transition-colors",
+                      isCollapsed && "justify-center px-2",
+                      isActive(item.id) 
+                        ? "bg-primary/10 text-primary hover:bg-primary/20" 
+                        : "text-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <Icon size={20} />
+                    {!isCollapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              }
 
              // Itens que abrem drawers
              if (drawerItems.includes(item.id)) {
