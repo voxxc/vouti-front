@@ -1343,7 +1343,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
           {/* Selected Date Section - always visible */}
           {(() => {
-            const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed && !safeIsPast(d.date));
+            const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed);
             return (
               <div>
                 <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
