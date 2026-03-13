@@ -1,36 +1,42 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Mover "Vencidos" para o menu e mostrar vencidos na data selecionada
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problema
 
-### Implementação
+1. **"Vencidos" é uma seção fixa separada** — deveria ser uma aba colapsável no mesmo menu underline que "Próximos" e "Concluídos".
+2. **Ao clicar em um dia passado, prazos vencidos daquele dia não aparecem na janela do dia.** A linha 1363 filtra: `getDeadlinesForDate(selectedDate).filter(d => !d.completed && !safeIsPast(d.date))` — exclui prazos vencidos (`safeIsPast`), então eles só aparecem na seção "Vencidos" global.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Alterações em `AgendaContent.tsx`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 1. Adicionar "overdue" ao `activeSection`
+Mudar o tipo de `"upcoming" | "completed" | null` para `"upcoming" | "completed" | "overdue" | null`.
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### 2. Remover a seção fixa "Vencidos" (linhas 1343-1359)
+Eliminar o bloco que renderiza vencidos como seção sempre visível.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### 3. Adicionar "Vencidos" ao menu underline (linhas 1388-1422)
+Inserir o botão "Vencidos (N)" ao lado de "Próximos" e "Concluídos" no mesmo estilo de texto clicável.
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+### 4. Adicionar seção expansível de Vencidos
+Renderizar a lista de vencidos quando `activeSection === "overdue"`, igual às outras seções.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### 5. Corrigir filtro da data selecionada (linha 1363)
+Mudar de:
+```ts
+getDeadlinesForDate(selectedDate).filter(d => !d.completed && !safeIsPast(d.date))
+```
+Para:
+```ts
+getDeadlinesForDate(selectedDate).filter(d => !d.completed)
+```
+Isso faz com que prazos vencidos daquela data específica apareçam na janela do dia (ex: clicar no dia 11 mostra os vencidos do dia 11).
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+Para evitar duplicação, os prazos que já aparecem na data selecionada serão excluídos da seção "Vencidos" global:
+```ts
+const overdue = getOverdueDeadlines().filter(d => !isSameDay(d.date, selectedDate));
+```
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+## Arquivo alterado
+- `src/components/Agenda/AgendaContent.tsx`
 
