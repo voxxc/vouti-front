@@ -136,8 +136,20 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
 
   const prevMessagesLengthRef = useRef(0);
 
+  // Scroll to bottom when conversation changes
   useEffect(() => {
-    if (messages.length > prevMessagesLengthRef.current) {
+    if (conversation) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      }, 50);
+    }
+    prevMessagesLengthRef.current = 0;
+  }, [conversation?.id]);
+
+  useEffect(() => {
+    if (messages.length > 0 && prevMessagesLengthRef.current === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    } else if (messages.length > prevMessagesLengthRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
     prevMessagesLengthRef.current = messages.length;

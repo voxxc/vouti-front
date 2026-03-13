@@ -52,9 +52,21 @@ export const CRMInternalChat = ({ open, onOpenChange }: CRMInternalChatProps) =>
 
   const conversation = selectedUser ? getUserMessages(selectedUser.user_id) : [];
 
-  // Auto-scroll only on new messages
+  // Scroll to bottom when selected user changes
   useEffect(() => {
-    if (conversation.length > prevLengthRef.current) {
+    if (selectedUser) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      }, 50);
+    }
+    prevLengthRef.current = 0;
+  }, [selectedUser?.user_id]);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (conversation.length > 0 && prevLengthRef.current === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    } else if (conversation.length > prevLengthRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
     prevLengthRef.current = conversation.length;
