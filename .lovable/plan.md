@@ -1,36 +1,31 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Correção: Mensagens outgoing atribuídas ao contato errado
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Causa raiz
+Na função `resolvePhoneFromLid` (webhook), o **passo 3.5** busca a mensagem recebida mais recente na instância e usa esse telefone como destino. Isso é fundamentalmente errado — se Laura mandou a última mensagem, qualquer mensagem outgoing vai para a conversa dela.
 
-### Implementação
+Os passos 4 e 5 (busca por `chatName`) são mais precisos mas ficam inalcançáveis porque o 3.5 retorna primeiro.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Correção
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### `supabase/functions/whatsapp-webhook/index.ts`
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Reordenar a resolução de LID para priorizar métodos precisos:
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+1. **chatId** (passo 1) — mantém
+2. **chatLid** (passo 2) — mantém  
+3. **campo "to"** (passo 3) — mantém
+4. **chatName em contatos** (antigo passo 4) — **sobe para antes do 3.5**
+5. **chatName no histórico** (antigo passo 5) — **sobe para antes do 3.5**
+6. **LID no histórico** (antigo passo 6) — sobe também
+7. **Fallback por mensagem recente** (antigo passo 3.5) — **desce para ÚLTIMO recurso**, e mesmo assim com melhoria: se houver `chatName`, tentar correlacionar em vez de pegar qualquer mensagem recente
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+Adicionalmente, o fallback (antigo 3.5) deve ser limitado: só usar se não houver `chatName` disponível, pois quando há chatName os passos 4/5 são mais confiáveis.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+### Nenhuma mudança no frontend
+O problema é 100% no webhook — a resolução de telefone está retornando o número errado.
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Arquivo a modificar
+- `supabase/functions/whatsapp-webhook/index.ts` — reordenar passos da função `resolvePhoneFromLid`
 
