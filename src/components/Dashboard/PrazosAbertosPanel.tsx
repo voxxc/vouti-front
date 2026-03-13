@@ -33,6 +33,9 @@ interface TarefaItem {
   dataExecucao: string | null;
   contexto: string;
   subContexto?: string;
+  workspaceName?: string;
+  columnName?: string;
+  sectorName?: string;
 }
 
 const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: PrazosAbertosPanelProps) => {
@@ -107,59 +110,100 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
     try {
       setLoadingAdmin(true);
 
-      // Query com tipagem explícita para evitar erro TS2589
       const { data, error } = await supabase
         .from('task_tarefas')
         .select('id, titulo, data_execucao, task_id')
         .eq('user_id', userId)
         .eq('tenant_id', tenantId!)
         .order('data_execucao', { ascending: true, nullsFirst: false })
-        .limit(maxItems) as { data: Array<{ id: string; titulo: string; data_execucao: string | null; task_id: string }> | null; error: any };
+        .limit(maxItems * 2) as { data: Array<{ id: string; titulo: string; data_execucao: string | null; task_id: string }> | null; error: any };
 
       if (error) throw error;
 
-      // Buscar informações das tasks separadamente
       const taskIds = (data || []).map(t => t.task_id).filter(Boolean);
-      const tasksMap: Record<string, { title: string; projectName: string; client: string }> = {};
+      const tasksMap: Record<string, { title: string; projectId: string; status: string; columnId: string | null; sectorId: string | null; workspaceId: string | null }> = {};
 
       if (taskIds.length > 0) {
         const { data: tasksData } = await supabase
           .from('tasks')
-          .select('id, title, project_id')
+          .select('id, title, project_id, status, column_id, sector_id, workspace_id')
           .in('id', taskIds);
 
-        const projectIds = (tasksData || []).map(t => t.project_id).filter(Boolean) as string[];
-        const projectsMap: Record<string, { name: string; client: string }> = {};
-
-        if (projectIds.length > 0) {
-          const { data: projectsData } = await supabase
-            .from('projects')
-            .select('id, name, client')
-            .in('id', projectIds);
-
-          (projectsData || []).forEach((p) => {
-            projectsMap[p.id] = { name: p.name, client: p.client || '' };
-          });
-        }
-
-        (tasksData || []).forEach((task) => {
-          const project = projectsMap[task.project_id] || { name: 'Sem projeto', client: '' };
+        (tasksData || []).forEach((task: any) => {
           tasksMap[task.id] = {
             title: task.title,
-            projectName: project.name || 'Sem projeto',
-            client: project.client || ''
+            projectId: task.project_id,
+            status: task.status,
+            columnId: task.column_id,
+            sectorId: task.sector_id,
+            workspaceId: task.workspace_id,
           };
         });
       }
 
-      const formattedTarefas: TarefaItem[] = (data || []).map((tarefa) => {
-        const taskInfo = tasksMap[tarefa.task_id] || { title: '', projectName: 'Sem projeto', client: '' };
+      // Filter out tasks from done cards
+      const activeTarefas = (data || []).filter(t => {
+        const taskInfo = tasksMap[t.task_id];
+        return taskInfo && taskInfo.status !== 'done';
+      });
+
+      // Collect IDs for context resolution
+      const projectIds = [...new Set(Object.values(tasksMap).map(t => t.projectId).filter(Boolean))] as string[];
+      const columnIds = [...new Set(Object.values(tasksMap).map(t => t.columnId).filter(Boolean))] as string[];
+      const sectorIds = [...new Set(Object.values(tasksMap).map(t => t.sectorId).filter(Boolean))] as string[];
+      const workspaceIds = [...new Set(Object.values(tasksMap).map(t => t.workspaceId).filter(Boolean))] as string[];
+
+      const projectsMap: Record<string, { name: string; client: string }> = {};
+      const columnsMap: Record<string, string> = {};
+      const sectorsMap: Record<string, string> = {};
+      const workspacesMap: Record<string, string> = {};
+
+      // Fetch all context in parallel
+      const promises: Promise<void>[] = [];
+
+      if (projectIds.length > 0) {
+        promises.push(
+          supabase.from('projects').select('id, name, client').in('id', projectIds).then(({ data: d }) => {
+            (d || []).forEach((p: any) => { projectsMap[p.id] = { name: p.name, client: p.client || '' }; });
+          }) as unknown as Promise<void>
+        );
+      }
+      if (columnIds.length > 0) {
+        promises.push(
+          supabase.from('project_columns').select('id, name').in('id', columnIds).then(({ data: d }) => {
+            (d || []).forEach((c: any) => { columnsMap[c.id] = c.name; });
+          }) as unknown as Promise<void>
+        );
+      }
+      if (sectorIds.length > 0) {
+        promises.push(
+          supabase.from('project_sectors').select('id, name').in('id', sectorIds).then(({ data: d }) => {
+            (d || []).forEach((s: any) => { sectorsMap[s.id] = s.name; });
+          }) as unknown as Promise<void>
+        );
+      }
+      if (workspaceIds.length > 0) {
+        promises.push(
+          supabase.from('project_workspaces').select('id, nome').in('id', workspaceIds).then(({ data: d }) => {
+            (d || []).forEach((w: any) => { workspacesMap[w.id] = w.nome; });
+          }) as unknown as Promise<void>
+        );
+      }
+
+      await Promise.all(promises);
+
+      const formattedTarefas: TarefaItem[] = activeTarefas.slice(0, maxItems).map((tarefa) => {
+        const taskInfo = tasksMap[tarefa.task_id];
+        const project = projectsMap[taskInfo?.projectId] || { name: 'Sem projeto', client: '' };
         return {
           id: tarefa.id,
           titulo: tarefa.titulo,
           dataExecucao: tarefa.data_execucao,
-          contexto: taskInfo.client || taskInfo.projectName || 'Sem projeto',
-          subContexto: taskInfo.title,
+          contexto: project.client || project.name || 'Sem projeto',
+          subContexto: taskInfo?.title,
+          workspaceName: taskInfo?.workspaceId ? workspacesMap[taskInfo.workspaceId] : undefined,
+          columnName: taskInfo?.columnId ? columnsMap[taskInfo.columnId] : undefined,
+          sectorName: taskInfo?.sectorId ? sectorsMap[taskInfo.sectorId] : undefined,
         };
       });
 
@@ -459,9 +503,14 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                   <p className="text-xs text-muted-foreground mt-1 truncate">
                     {tarefa.contexto}
                   </p>
+                  {(tarefa.workspaceName || tarefa.columnName) && (
+                    <p className="text-xs text-muted-foreground/80 truncate">
+                      {[tarefa.workspaceName, tarefa.sectorName, tarefa.columnName].filter(Boolean).join(' › ')}
+                    </p>
+                  )}
                   {tarefa.subContexto && (
                     <p className="text-xs text-muted-foreground/70 truncate">
-                      {tarefa.subContexto}
+                      📋 {tarefa.subContexto}
                     </p>
                   )}
                   {tarefa.dataExecucao && (
