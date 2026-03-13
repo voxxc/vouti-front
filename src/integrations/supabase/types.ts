@@ -9259,6 +9259,7 @@ export type Database = {
         }
         Returns: string
       }
+      classify_deadline_category: { Args: { p_title: string }; Returns: string }
       cleanup_old_sync_signals: { Args: never; Returns: undefined }
       create_default_kanban_columns: {
         Args: { p_agent_id: string; p_tenant_id?: string }

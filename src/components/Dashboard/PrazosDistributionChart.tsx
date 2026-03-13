@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +17,7 @@ const PERIOD_OPTIONS = [
   { value: "15", label: "15 dias" },
   { value: "30", label: "1 mês" },
   { value: "60", label: "2 meses" },
+  { value: "all", label: "Todos" },
 ];
 
 const COLORS = {
@@ -53,6 +54,20 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
 
   const canToggle = userRole && TOGGLE_ROLES.includes(userRole);
 
+  // Fetch perito user IDs directly from user_roles table
+  const { data: peritoUserIds } = useQuery({
+    queryKey: ["perito-user-ids", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "perito");
+      return new Set((data || []).map((r: any) => r.user_id));
+    },
+    staleTime: 10 * 60 * 1000,
+    enabled: !!tenantId,
+  });
+
   const { data: users } = useQuery({
     queryKey: ["tenant-users-for-chart"],
     queryFn: async () => {
@@ -62,36 +77,35 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
     staleTime: 10 * 60 * 1000,
   });
 
-  const peritoUserIds = useMemo(() => {
-    if (!users) return new Set<string>();
-    return new Set(
-      (users as any[])
-        .filter((u: any) => u.highest_role === "perito")
-        .map((u: any) => u.user_id)
-    );
-  }, [users]);
-
   const filteredUsers = useMemo(() => {
     if (!users) return [];
-    if (view === "pericial" || view === "categorias") {
+    if ((view === "pericial" || view === "categorias") && peritoUserIds) {
       return (users as any[]).filter((u: any) => peritoUserIds.has(u.user_id));
     }
     return users as any[];
   }, [users, view, peritoUserIds]);
 
-  // Fetch deadlines with category for all views
+  // Fetch deadlines with expanded date window (past + future)
   const { data: rawDeadlines, isLoading } = useQuery({
     queryKey: ["prazos-distribution-raw", period, selectedUser, tenantId, view],
     queryFn: async () => {
       const today = new Date();
-      const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - parseInt(period));
 
       let query = supabase
         .from("deadlines")
-        .select("id, completed, date, user_id, advogado_responsavel_id, deadline_category")
-        .gte("date", startDate.toISOString().split("T")[0])
-        .lte("date", today.toISOString().split("T")[0]);
+        .select("id, completed, date, user_id, advogado_responsavel_id, deadline_category");
+
+      if (period !== "all") {
+        const days = parseInt(period);
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - days);
+        const endDate = new Date(today);
+        endDate.setDate(endDate.getDate() + days);
+
+        query = query
+          .gte("date", startDate.toISOString().split("T")[0])
+          .lte("date", endDate.toISOString().split("T")[0]);
+      }
 
       if (selectedUser !== "all") {
         query = query.or(`user_id.eq.${selectedUser},advogado_responsavel_id.eq.${selectedUser}`);
@@ -106,7 +120,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
       let filtered = data || [];
 
       // In pericial/categorias view, only include deadlines from perito users
-      if ((view === "pericial" || view === "categorias") && peritoUserIds.size > 0) {
+      if ((view === "pericial" || view === "categorias") && peritoUserIds && peritoUserIds.size > 0) {
         filtered = filtered.filter(
           (d) => peritoUserIds.has(d.user_id) || (d.advogado_responsavel_id && peritoUserIds.has(d.advogado_responsavel_id))
         );
@@ -118,24 +132,25 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
     enabled: !!tenantId,
   });
 
-  // Pie chart data (geral / pericial)
-  const pieData = useMemo(() => {
-    if (!rawDeadlines) return [];
+  // Compute stats
+  const stats = useMemo(() => {
+    if (!rawDeadlines) return { concluidos: 0, atrasados: 0, pendentes: 0, total: 0 };
     const todayStr = new Date().toISOString().split("T")[0];
     let concluidos = 0, atrasados = 0, pendentes = 0;
-
     rawDeadlines.forEach((d) => {
       if (d.completed) concluidos++;
       else if (d.date < todayStr) atrasados++;
       else pendentes++;
     });
-
-    return [
-      { name: "Concluídos", value: concluidos, fill: COLORS.concluidos },
-      { name: "Atrasados", value: atrasados, fill: COLORS.atrasados },
-      { name: "Pendentes", value: pendentes, fill: COLORS.pendentes },
-    ];
+    return { concluidos, atrasados, pendentes, total: concluidos + atrasados + pendentes };
   }, [rawDeadlines]);
+
+  // Pie chart data
+  const pieData = useMemo(() => [
+    { name: "Concluídos", value: stats.concluidos, fill: COLORS.concluidos },
+    { name: "Atrasados", value: stats.atrasados, fill: COLORS.atrasados },
+    { name: "Pendentes", value: stats.pendentes, fill: COLORS.pendentes },
+  ], [stats]);
 
   // Stacked bar data (categorias)
   const categoryData = useMemo(() => {
@@ -151,13 +166,11 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
       else catMap[cat].pendentes++;
     });
 
-    // Sort by total descending
     return Object.entries(catMap)
       .map(([name, vals]) => ({ name, ...vals }))
       .sort((a, b) => (b.concluidos + b.atrasados + b.pendentes) - (a.concluidos + a.atrasados + a.pendentes));
   }, [rawDeadlines]);
 
-  const total = pieData.reduce((sum, d) => sum + d.value, 0);
   const periodLabel = PERIOD_OPTIONS.find((o) => o.value === period)?.label || "30 dias";
   const selectedUserObj = filteredUsers?.find((u: any) => u.user_id === selectedUser);
   const userLabel = selectedUser === "all" ? "Todos" : (selectedUserObj?.full_name || selectedUserObj?.email || "Usuário");
@@ -249,13 +262,30 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
         {isLoading ? (
           <Skeleton className="h-[120px] w-full" />
         ) : view === "categorias" ? (
-          // Stacked horizontal bar chart for categories
           categoryData.length === 0 ? (
             <div className="flex items-center justify-center h-[120px] text-muted-foreground text-xs">
               Nenhum prazo categorizado
             </div>
           ) : (
             <>
+              {/* Summary stats for categorias view */}
+              <div className="flex items-center justify-between text-[10px] px-0.5">
+                <span className="text-muted-foreground font-medium">{stats.total} prazos · {categoryData.length} categorias</span>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: COLORS.concluidos }} />
+                    <span className="text-muted-foreground">{stats.concluidos}</span>
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: COLORS.atrasados }} />
+                    <span className="text-muted-foreground">{stats.atrasados}</span>
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: COLORS.pendentes }} />
+                    <span className="text-muted-foreground">{stats.pendentes}</span>
+                  </span>
+                </div>
+              </div>
               <div className="h-[140px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={categoryData} layout="vertical" margin={{ left: 0, right: 4, top: 0, bottom: 0 }}>
@@ -300,7 +330,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
               </div>
             </>
           )
-        ) : total === 0 ? (
+        ) : stats.total === 0 ? (
           <div className="flex items-center justify-center h-[120px] text-muted-foreground text-xs">
             Nenhum prazo no período
           </div>
@@ -340,15 +370,15 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
             <div className="grid grid-cols-3 gap-1 text-[10px]">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.concluidos }} />
-                <span className="text-muted-foreground">{pieData?.[0]?.value || 0}</span>
+                <span className="text-muted-foreground">{stats.concluidos}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.atrasados }} />
-                <span className="text-muted-foreground">{pieData?.[1]?.value || 0}</span>
+                <span className="text-muted-foreground">{stats.atrasados}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.pendentes }} />
-                <span className="text-muted-foreground">{pieData?.[2]?.value || 0}</span>
+                <span className="text-muted-foreground">{stats.pendentes}</span>
               </div>
             </div>
           </>
