@@ -127,6 +127,8 @@
                workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
                 createdByUserId: deadline.user_id || undefined,
                  completedByUserId: deadline.concluido_por || undefined,
+                 completedByName: deadline.concluido_por_profile?.full_name || undefined,
+                 completedByAvatar: deadline.concluido_por_profile?.avatar_url || undefined,
                  comentarioConclusao: deadline.comentario_conclusao || undefined,
                  concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
                  deadlineCategory: deadline.deadline_category || undefined
