@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DEADLINE_CATEGORIES } from '@/components/Dashboard/PrazosDistributionChart';
 
 interface CreateDeadlineDialogProps {
   open: boolean;
