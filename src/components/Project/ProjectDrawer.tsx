@@ -11,6 +11,7 @@ interface ProjectDrawerProps {
 }
 
 export function ProjectDrawer({ open, onOpenChange, projectId }: ProjectDrawerProps) {
+  const { navigate } = useTenantNavigation();
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent 
