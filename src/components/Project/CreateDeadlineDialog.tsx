@@ -188,6 +188,7 @@ export function CreateDeadlineDialog({
       setDate(undefined);
       setSelectedAdvogado(null);
       setTaggedUsers([]);
+      setCategory('');
     } catch (error) {
       console.error('Error creating deadline:', error);
       toast({
