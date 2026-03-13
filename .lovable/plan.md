@@ -1,58 +1,36 @@
 
 
-# Reconfiguração da Busca Geral (Dados Cadastrais) conforme Documentação Judit
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema
-A edge function `judit-buscar-dados-cadastrais` usa o endpoint errado (`https://requests.prod.judit.io/requests`) e **não envia `response_type: "entity"`**, que é o campo obrigatório para consultas de dados cadastrais segundo a documentação oficial.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-## Correções conforme docs.judit.io
+### Implementação
 
-### 1. Edge Function `supabase/functions/judit-buscar-dados-cadastrais/index.ts`
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-**Endpoint**: Trocar de `https://requests.prod.judit.io/requests` para `https://lawsuits.prod.judit.io/requests/create`
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-**Payload**: Adicionar `response_type: "entity"` obrigatório no objeto `search`:
-```json
-{
-  "search": {
-    "search_type": "cpf",
-    "search_key": "999.999.999-99",
-    "response_type": "entity"
-  }
-}
-```
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**Opcionais conforme doc**:
-- `on_demand: true` — consulta em tempo real na Receita Federal (já existe, manter)
-- `reveal_partners_documents: true` — para CNPJ, revelar docs dos sócios (já existe, manter)
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**Polling**: O endpoint de polling (`/responses`) provavelmente também muda para `https://lawsuits.prod.judit.io/...` — verificar e ajustar. Manter a mesma lógica de retry.
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-**Enriquecimento por nome**: A chamada interna `fetchEntityDetails` também precisa usar o endpoint correto com `response_type: "entity"`.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 2. Frontend `src/components/SuperAdmin/SuperAdminBuscaGeral.tsx`
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-**Normalizar mapeamento dos campos da resposta** conforme o formato documentado:
-- `entity_type` → "person" ou "company" (já parcialmente mapeado, alinhar)
-- `main_document` → documento principal
-- `contacts[].contact_type` + `contacts[].description` (doc usa `description` e `contact_type`, frontend espera `value` e `type`)
-- `parents[].name` + `parents[].kinship` → filiação (mãe/pai)
-- `partners[].position` → qualificação do sócio (frontend usa `qualification`)
-- `branch_activities` → atividades econômicas (frontend usa `economic_activities`)
-- `social_name` → nome fantasia (frontend usa `trading_name`)
-- `legal_nature.name` → natureza jurídica (frontend usa string)
-- `special_status` → situação especial
-- `revenue_service_active` → status na Receita
-- `birth_date`, `gender`, `nationality` — já mapeados
-- `tags.revenue_update_date` — data de atualização na Receita (novo campo a exibir)
-- `head_office` — se é matriz (novo campo a exibir para CNPJ)
-- `size` — porte da empresa (novo)
-- `share_capital` — capital social (já existe)
-- `aka_names` — nomes alternativos (novo campo a exibir)
-
-A normalização será feita na edge function (transformar resposta Judit → formato padronizado) para manter o frontend limpo.
-
-### Arquivos a modificar
-- `supabase/functions/judit-buscar-dados-cadastrais/index.ts` — endpoint, payload, normalização
-- `src/components/SuperAdmin/SuperAdminBuscaGeral.tsx` — interfaces e rendering alinhados ao formato real da API
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
