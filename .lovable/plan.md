@@ -1,25 +1,36 @@
 
 
-# Corrigir fresta do drawer e adicionar botão para /projects
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Alterações
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-### 1. `src/components/ui/sheet.tsx` — Remover fresta (linha 43)
-Variante `inset`: remover `md:top-[57px]` e `md:left-[224px]` para cobrir tela toda.
+### Implementação
 
-```
-De: "top-0 md:top-[57px] md:left-[224px] left-0 right-0 bottom-[56px] md:bottom-0 ..."
-Para: "top-0 left-0 right-0 bottom-[56px] md:bottom-0 ..."
-```
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### 2. `src/components/Projects/ProjectsDrawer.tsx` — Botão "Ver todos os projetos"
-Já existe um botão "Ver todos os projetos" no final (navega para `/projects`). Vou adicionar também um botão com ícone `ExternalLink` no **header** do drawer, ao lado do título "Projetos", que navega para `/projects` e fecha o drawer. Assim fica acessível sem precisar rolar até o final.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### 3. `src/components/Project/ProjectDrawer.tsx` — Botão no header
-Adicionar botão com ícone `ExternalLink` no header do `ProjectDrawerContent` que navega para `/projects` usando `useTenantNavigation`.
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-## Arquivos alterados
-- `src/components/ui/sheet.tsx`
-- `src/components/Projects/ProjectsDrawer.tsx`
-- `src/components/Project/ProjectDrawer.tsx`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
