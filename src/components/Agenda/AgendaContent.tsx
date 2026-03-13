@@ -1340,23 +1340,6 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               </div>
             )}
           </div>
-          {/* Overdue Section - always visible */}
-          {(() => {
-            const overdue = getOverdueDeadlines();
-            return overdue.length > 0 ? (
-              <div>
-                <h4 className="text-sm font-semibold text-destructive mb-2 flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Vencidos ({overdue.length})
-                </h4>
-                <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
-                  {overdue.map((deadline) => (
-                    <DeadlineRow key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
-              </div>
-            ) : null;
-          })()}
 
           {/* Selected Date Section - always visible */}
           {(() => {
