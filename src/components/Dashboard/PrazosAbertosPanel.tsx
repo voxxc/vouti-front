@@ -503,9 +503,14 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                   <p className="text-xs text-muted-foreground mt-1 truncate">
                     {tarefa.contexto}
                   </p>
+                  {(tarefa.workspaceName || tarefa.columnName) && (
+                    <p className="text-xs text-muted-foreground/80 truncate">
+                      {[tarefa.workspaceName, tarefa.sectorName, tarefa.columnName].filter(Boolean).join(' › ')}
+                    </p>
+                  )}
                   {tarefa.subContexto && (
                     <p className="text-xs text-muted-foreground/70 truncate">
-                      {tarefa.subContexto}
+                      📋 {tarefa.subContexto}
                     </p>
                   )}
                   {tarefa.dataExecucao && (
