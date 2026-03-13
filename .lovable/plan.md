@@ -1,36 +1,52 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Gráfico de Prazos Periciais com Toggle no Card
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Conceito
+Adicionar ao card existente `PrazosDistributionChart` uma setinha discreta (ChevronRight/ChevronLeft) que alterna entre duas visões:
+- **Vista 1 (atual)**: "Prazos" -- todos os prazos, filtros de período e usuário
+- **Vista 2 (nova)**: "Prazos Periciais" -- apenas prazos de usuários com role `perito`, mesmos filtros de período e usuário (filtrado a peritos), mesma lógica de concluído/atrasado/pendente
 
-### Implementação
+Visibilidade: admin, controller, perito (verificado via role do usuário logado).
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Implementação
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 1. `src/components/Dashboard/PrazosDistributionChart.tsx`
+- Adicionar estado `view: 'geral' | 'pericial'` com toggle via seta discreta no header
+- Quando `view === 'pericial'`:
+  - Buscar lista de user_ids com role `perito` (da query `get_users_with_roles`, filtrando `highest_role === 'perito'`)
+  - Filtrar deadlines onde `user_id` ou `advogado_responsavel_id` pertence a um perito
+  - Filtro de usuário mostra apenas peritos
+  - Título muda para "Prazos Periciais"
+  - Ícone muda (ex: `Scale` do lucide)
+- Transição suave com CSS (`transition-opacity` ou slide)
+- Seta: `ChevronRight` no canto direito do header, rotaciona ao alternar
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### 2. Prop `userRole` no componente
+- Receber o role do usuário logado via prop
+- Só mostrar a seta de toggle se role for `admin`, `controller` ou `perito`
+- Se role for `perito`, iniciar direto na vista pericial
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+### 3. `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` (e outros painéis que usam o chart)
+- Passar a prop `userRole` para `PrazosDistributionChart`
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+### Sem mudanças no banco
+A filtragem será feita client-side cruzando os user_ids dos peritos (já disponíveis via `get_users_with_roles`) com os deadlines. Não precisa de migration.
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+### Fluxo visual
+```text
+┌─────────────────────────────────┐
+│ 🥧 Prazos · 1 mês · Todos  ➜  │  ← seta discreta
+│                                 │
+│       [Pie Chart Geral]        │
+│   ● 5  ● 2  ● 8               │
+└─────────────────────────────────┘
+         ↓ clique na seta
+┌─────────────────────────────────┐
+│ ⚖ Prazos Periciais · 1 mês ←  │
+│                                 │
+│     [Pie Chart Pericial]       │
+│   ● 3  ● 1  ● 4               │
+└─────────────────────────────────┘
+```
 
