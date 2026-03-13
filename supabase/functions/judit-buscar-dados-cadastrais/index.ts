@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const JUDIT_API_BASE = 'https://lawsuits.prod.judit.io';
+const JUDIT_REQUESTS_BASE = 'https://requests.prod.judit.io';
 
 interface BuscaCadastralRequest {
   search_type: 'cpf' | 'cnpj' | 'name';
