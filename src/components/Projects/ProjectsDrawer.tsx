@@ -91,9 +91,23 @@ export function ProjectsDrawer({ open, onOpenChange, onSelectProject }: Projects
         <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-primary/20 via-border to-primary/20 pointer-events-none" />
         <SheetTitle className="sr-only">Projetos</SheetTitle>
         
-        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
-          <FolderOpen className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">Projetos</span>
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-lg">Projetos</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => {
+              navigate("/projects");
+              onOpenChange(false);
+            }}
+            title="Gerenciar projetos"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
         </div>
 
         <ScrollArea className="flex-1">
