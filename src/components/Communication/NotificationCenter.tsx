@@ -61,6 +61,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       case 'mention':
         return <span className="text-lg">👤</span>;
       case 'comment_added':
+      case 'comment_mention':
         return <span className="text-lg">💬</span>;
       case 'project_added':
         return <FolderPlus className="h-5 w-5 text-green-600" />;

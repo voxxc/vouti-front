@@ -93,7 +93,7 @@ export const useCommentMentions = () => {
   const deleteMentions = async (commentType: CommentType, commentId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('comment_mentions' as any)
+        .from('comment_mentions')
         .delete()
         .eq('comment_type', commentType)
         .eq('comment_id', commentId);
