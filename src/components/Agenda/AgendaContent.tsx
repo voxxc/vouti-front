@@ -1466,8 +1466,13 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                 <DialogTitle>{selectedDeadline.title}</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={cn("grid w-full", selectedDeadline.completed ? "grid-cols-3" : "grid-cols-2")}>
                   <TabsTrigger value="info">Informações</TabsTrigger>
+                  {selectedDeadline.completed && (
+                    <TabsTrigger value="conclusao">
+                      <CheckCircle2 className="h-4 w-4 mr-2" /> Conclusão
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="comments">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Comentários
