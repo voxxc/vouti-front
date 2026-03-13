@@ -1,36 +1,41 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Correção: Scroll automático para mensagens recentes ao abrir conversa
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problema
+O `ChatPanel` só faz scroll para baixo quando **novas mensagens chegam** (`messages.length > prevMessagesLengthRef.current`). Quando uma conversa é aberta pela primeira vez, as mensagens são carregadas de uma vez e o scroll fica no topo (mensagens antigas).
 
-### Implementação
+## Correção
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+### `src/components/WhatsApp/components/ChatPanel.tsx`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+Adicionar um segundo `useEffect` que detecta **troca de conversa** (mudança de `conversation?.id`) e faz scroll imediato para o final:
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+```typescript
+// Scroll to bottom when conversation changes (opening a new chat)
+useEffect(() => {
+  if (conversation) {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }, 50);
+  }
+}, [conversation?.id]);
+```
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Também ajustar o useEffect existente para fazer scroll na **carga inicial** (quando `prevMessagesLengthRef.current === 0` e mensagens são carregadas):
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+```typescript
+useEffect(() => {
+  if (messages.length > 0 && prevMessagesLengthRef.current === 0) {
+    // Initial load — scroll instantly
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  } else if (messages.length > prevMessagesLengthRef.current) {
+    // New message arrived — smooth scroll
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+  prevMessagesLengthRef.current = messages.length;
+}, [messages]);
+```
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
-
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Mesma correção no `CRMInternalChat.tsx` para consistência.
 
