@@ -1,26 +1,25 @@
 
 
-# Corrigir fresta do drawer e adicionar botão "Abrir em página" no Projetos
-
-## Problema 1: Fresta no topo do drawer
-A variante `inset` do sheet tem `top-0 md:top-[57px]` — no desktop, começa 57px abaixo (altura da topbar), deixando a topbar visível. Para cobrir 100% da tela, mudar para `top-0` em todos os breakpoints.
-
-## Problema 2: Botão para abrir /projects no drawer de Projetos
-Adicionar um botão no header do ProjectDrawer que navega para a página completa de projetos.
+# Corrigir fresta do drawer e adicionar botão para /projects
 
 ## Alterações
 
-### 1. `src/components/ui/sheet.tsx` (linha 43)
-Mudar a variante `inset` de:
-```
-top-0 md:top-[57px] md:left-[224px] left-0 right-0 bottom-[56px] md:bottom-0
-```
-Para:
-```
-top-0 left-0 right-0 bottom-[56px] md:bottom-0
-```
-Remover `md:top-[57px]` e `md:left-[224px]` para que o drawer cubra toda a tela.
+### 1. `src/components/ui/sheet.tsx` — Remover fresta (linha 43)
+Variante `inset`: remover `md:top-[57px]` e `md:left-[224px]` para cobrir tela toda.
 
-### 2. `src/components/Project/ProjectDrawer.tsx`
-Adicionar um botão com ícone `ExternalLink` no header que usa `useTenantNavigation` para navegar para `/projects`, fechando o drawer ao clicar.
+```
+De: "top-0 md:top-[57px] md:left-[224px] left-0 right-0 bottom-[56px] md:bottom-0 ..."
+Para: "top-0 left-0 right-0 bottom-[56px] md:bottom-0 ..."
+```
+
+### 2. `src/components/Projects/ProjectsDrawer.tsx` — Botão "Ver todos os projetos"
+Já existe um botão "Ver todos os projetos" no final (navega para `/projects`). Vou adicionar também um botão com ícone `ExternalLink` no **header** do drawer, ao lado do título "Projetos", que navega para `/projects` e fecha o drawer. Assim fica acessível sem precisar rolar até o final.
+
+### 3. `src/components/Project/ProjectDrawer.tsx` — Botão no header
+Adicionar botão com ícone `ExternalLink` no header do `ProjectDrawerContent` que navega para `/projects` usando `useTenantNavigation`.
+
+## Arquivos alterados
+- `src/components/ui/sheet.tsx`
+- `src/components/Projects/ProjectsDrawer.tsx`
+- `src/components/Project/ProjectDrawer.tsx`
 
