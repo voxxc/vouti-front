@@ -56,6 +56,8 @@ export interface Deadline {
   
   // Workspace de origem (resolvido via protocolo ou processo)
   workspaceName?: string;
+  workspaceId?: string;
+  protocoloEtapaId?: string;
   
   // Quem criou e quem concluiu
   createdByUserId?: string;
