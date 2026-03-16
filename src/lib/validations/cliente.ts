@@ -113,7 +113,7 @@ export const clienteSchema = z.object({
   data_vencimento_final: z.string().optional(),
   vendedor: z.string().optional(),
   origem_rede_social: z.string().optional(),
-  origem_tipo: z.enum(['instagram', 'facebook', 'indicacao', 'outro']).optional(),
+  origem_tipo: z.enum(['instagram_organico', 'instagram_trafego', 'facebook_organico', 'facebook_trafego', 'indicacao', 'outro']).optional(),
   observacoes: z.string().optional(),
   classificacao: z.enum(['pf', 'pj']).default('pf').optional(),
   status_cliente: z.enum(['ativo', 'inativo', 'contrato_encerrado']).default('ativo').optional(),

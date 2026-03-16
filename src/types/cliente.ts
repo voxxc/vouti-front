@@ -65,7 +65,7 @@ export interface Cliente {
   data_vencimento_final?: string;
   vendedor?: string;
   origem_rede_social?: string;
-  origem_tipo?: 'instagram' | 'facebook' | 'indicacao' | 'outro';
+  origem_tipo?: 'instagram_organico' | 'instagram_trafego' | 'facebook_organico' | 'facebook_trafego' | 'indicacao' | 'outro';
   observacoes?: string;
   classificacao?: 'pf' | 'pj';
   status_cliente?: 'ativo' | 'inativo' | 'contrato_encerrado';

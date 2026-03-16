@@ -7,8 +7,12 @@ export interface ClienteAnalytics {
   distribuicaoIdades: IdadeData[];
   distribuicaoRegioes: RegiaoData[];
   distribuicaoClassificacao: ClassificacaoData[];
+  distribuicaoOrigens: OrigemData[];
+  distribuicaoValores: FaixaValorData[];
   valorTotalContratos: number;
   ticketMedio: number;
+  menorContrato: number;
+  maiorContrato: number;
 }
 
 export interface ProfissaoData {
@@ -32,6 +36,21 @@ export interface RegiaoData {
 
 export interface ClassificacaoData {
   tipo: 'pf' | 'pj';
+  count: number;
+  percentage: number;
+}
+
+export interface OrigemData {
+  origem: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface FaixaValorData {
+  faixa: string;
+  min: number;
+  max: number;
   count: number;
   percentage: number;
 }
