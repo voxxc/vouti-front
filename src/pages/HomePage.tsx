@@ -153,7 +153,8 @@ const PlanCarouselMobile = ({ plans, scrollToDemo }: { plans: PlanType[]; scroll
   );
 };
 
-  const HomePage = () => {
+const HomePage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggCode, setEasterEggCode] = useState('');
