@@ -323,6 +323,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
     }
   };
 
+  return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg">
