@@ -964,7 +964,57 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
     }
   };
 
-  // Inline DeadlineRow component for minimalist list
+  const handleReopenDeadline = async () => {
+    if (!reopenDeadlineId || !reopenMotivo.trim() || !user) return;
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .update({
+          completed: false,
+          concluido_por: null,
+          concluido_em: null,
+          comentario_conclusao: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reopenDeadlineId);
+
+      if (error) throw error;
+
+      // Get user name for comment
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      await supabase
+        .from('deadline_comentarios')
+        .insert({
+          deadline_id: reopenDeadlineId,
+          user_id: user.id,
+          comentario: `🔄 Prazo reaberto por ${profile?.full_name || 'Usuário'}\n\nMotivo: ${reopenMotivo.trim()}`,
+          tenant_id: tenantId
+        });
+
+      toast({
+        title: "Prazo reaberto",
+        description: "O prazo foi marcado como pendente novamente.",
+      });
+
+      setReopenDeadlineId(null);
+      setReopenMotivo("");
+      setIsDetailDialogOpen(false);
+      await fetchDeadlinesAsync();
+    } catch (error) {
+      console.error('Erro ao reabrir prazo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível reabrir o prazo.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const DeadlineRow = ({ deadline }: { deadline: Deadline }) => {
     const isOverdue = !deadline.completed && safeIsPast(deadline.date);
     const statusColor = deadline.completed 
