@@ -1922,6 +1922,48 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         </DialogContent>
       </Dialog>
 
+      {/* AlertDialog de reabertura de prazo */}
+      <AlertDialog 
+        open={!!reopenDeadlineId} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setReopenDeadlineId(null);
+            setReopenMotivo("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Reabrir Prazo
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Descreva o motivo para reabrir este prazo. O comentário será registrado no histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium">Motivo da reabertura *</label>
+            <Textarea
+              value={reopenMotivo}
+              onChange={(e) => setReopenMotivo(e.target.value)}
+              placeholder="Descreva o motivo para reabrir este prazo..."
+              rows={4}
+              className="mt-2"
+            />
+            {!reopenMotivo.trim() && (
+              <p className="text-xs text-muted-foreground mt-1">O motivo é obrigatório para reabrir o prazo.</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReopenDeadline} disabled={!reopenMotivo.trim()}>
+              Confirmar Reabertura
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Dialog de Edição de Prazo */}
       <EditarPrazoDialog
         deadline={editDeadline}
