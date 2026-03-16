@@ -536,10 +536,10 @@ export function ProjectProtocoloContent({
                               <Calendar className="h-4 w-4 text-muted-foreground" />
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{prazo.title}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                                <p className="text-xs text-muted-foreground">{format(parseLocalDate(prazo.date), "dd/MM/yyyy", { locale: ptBR })}</p>
                               </div>
-                              <Badge variant={isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "destructive" : "outline"}>
-                                {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "Atrasado" : isToday(new Date(prazo.date)) ? "Hoje" : "Pendente"}
+                              <Badge variant={isPast(parseLocalDate(prazo.date)) && !isToday(parseLocalDate(prazo.date)) ? "destructive" : "outline"}>
+                                {isPast(parseLocalDate(prazo.date)) && !isToday(parseLocalDate(prazo.date)) ? "Atrasado" : isToday(parseLocalDate(prazo.date)) ? "Hoje" : "Pendente"}
                               </Badge>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDeadlineDetails(prazo)}>
                                 <Info className="h-4 w-4" />
