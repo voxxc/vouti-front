@@ -271,8 +271,11 @@ export function useSuperAdmin() {
         
         // Defer the super admin check to avoid deadlock
         if (newSession) {
-          setTimeout(() => {
-            checkSuperAdmin();
+          setTimeout(async () => {
+            const isAdmin = await checkSuperAdmin();
+            if (isAdmin) {
+              await loadData();
+            }
           }, 0);
         } else {
           setIsSuperAdmin(false);

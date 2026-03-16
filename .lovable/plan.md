@@ -1,26 +1,36 @@
 
 
-# Fix: Dados não carregam no primeiro login do Super Admin
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema
-O `useEffect` inicial chama `loadData()` antes de haver sessão (dados voltam vazios por RLS). Quando o login acontece, o `onAuthStateChange` chama apenas `checkSuperAdmin()` mas nunca recarrega os dados.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-## Solução
-No callback do `onAuthStateChange`, após o `checkSuperAdmin()` confirmar que é super admin, chamar `loadData()` para recarregar `systemTypes` e `tenants` com a sessão autenticada.
+### Implementação
 
-## Arquivo a modificar
-**`src/hooks/useSuperAdmin.ts`** — linhas 272-279: dentro do `onAuthStateChange`, após `checkSuperAdmin()`, chamar `loadData()`.
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-```typescript
-if (newSession) {
-  setTimeout(async () => {
-    const isAdmin = await checkSuperAdmin();
-    if (isAdmin) {
-      await loadData();
-    }
-  }, 0);
-}
-```
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-Uma mudança de ~3 linhas. O `checkSuperAdmin` já retorna `boolean`, então basta usá-lo para decidir se carrega os dados.
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
