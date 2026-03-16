@@ -185,6 +185,12 @@ export const CentralControladoria = () => {
           <CentralSubtarefas />
         </div>
       )}
+
+      {activeTab === 'indicadores' && (
+        <div className="flex-1 min-h-0">
+          <ControladoriaIndicadores />
+        </div>
+      )}
     </div>
   );
 };
