@@ -1,54 +1,36 @@
 
 
-# Preços promocionais na HomePage
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## O que muda
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Nos 4 planos pagos (Essencial, Estrutura, Expansão, Enterprise), exibir um preço "DE" riscado (25% acima do valor real) e o valor atual como se fosse promocional. O plano Solo (FREE) fica igual.
+### Implementação
 
-| Plano | Preço "DE" (riscado) | Preço real |
-|-------|---------------------|------------|
-| Essencial | R$ 250 | R$ 200 |
-| Estrutura | R$ 500 | R$ 400 |
-| Expansão | R$ 750 | R$ 600 |
-| Enterprise | R$ 1.250 | R$ 1.000 |
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-## Mudanças — `src/pages/HomePage.tsx`
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### 1. Adicionar campo `originalPrice` nos planos pagos
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-```typescript
-{ name: 'Essencial', price: 200, originalPrice: 250, ... },
-{ name: 'Estrutura', price: 400, originalPrice: 500, ... },
-{ name: 'Expansão', price: 600, originalPrice: 750, ... },
-{ name: 'Enterprise', price: 1000, originalPrice: 1250, ... },
-```
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-### 2. Alterar bloco de exibição de preço (linhas 627-637)
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-Onde hoje exibe só o preço, adicionar:
-- Se `originalPrice` existe: linha riscada cinza com "DE R$ X" + preço real em destaque
-- Manter "FREE" para o plano Solo (sem `originalPrice`)
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-```tsx
-{plan.price === 0 ? (
-  <span className="text-3xl font-black text-[#E11D48]">FREE</span>
-) : (
-  <div className="flex flex-col">
-    {plan.originalPrice && (
-      <span className="text-sm text-gray-400 line-through">
-        De R$ {plan.originalPrice.toLocaleString('pt-BR')}
-      </span>
-    )}
-    <div>
-      <span className="text-3xl font-black text-[#0a0a0a]">
-        R$ {plan.price.toLocaleString('pt-BR')}
-      </span>
-      <span className="text-sm text-gray-500">/mês</span>
-    </div>
-  </div>
-)}
-```
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-Mudança concentrada em 1 arquivo, ~15 linhas.
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

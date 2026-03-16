@@ -217,6 +217,7 @@ const HomePage = () => {
     { 
       name: 'Essencial', 
       price: 200, 
+      originalPrice: 250,
       processes: 100, 
       usersLabel: '3 usuários',
       oabLabel: 'Até 2 OABs cadastradas',
@@ -227,6 +228,7 @@ const HomePage = () => {
     { 
       name: 'Estrutura', 
       price: 400, 
+      originalPrice: 500,
       processes: 200, 
       usersLabel: '10 usuários',
       oabLabel: 'Até 3 OABs cadastradas',
@@ -237,6 +239,7 @@ const HomePage = () => {
     { 
       name: 'Expansão', 
       price: 600, 
+      originalPrice: 750,
       processes: 400, 
       usersLabel: 'Usuários ilimitados',
       oabLabel: 'OABs personalizado',
@@ -247,6 +250,7 @@ const HomePage = () => {
     { 
       name: 'Enterprise', 
       price: 1000, 
+      originalPrice: 1250,
       processes: 800, 
       usersLabel: 'Usuários ilimitados',
       oabLabel: 'OABs personalizado',
@@ -628,12 +632,19 @@ const HomePage = () => {
                       {plan.price === 0 ? (
                         <span className="text-3xl font-black text-[#E11D48]">FREE</span>
                       ) : (
-                        <>
-                          <span className="text-3xl font-black text-[#0a0a0a]">
-                            R$ {plan.price.toLocaleString('pt-BR')}
-                          </span>
-                          <span className="text-sm text-gray-500">/mês</span>
-                        </>
+                        <div className="flex flex-col">
+                          {plan.originalPrice && (
+                            <span className="text-sm text-gray-400 line-through">
+                              De R$ {plan.originalPrice.toLocaleString('pt-BR')}
+                            </span>
+                          )}
+                          <div>
+                            <span className="text-3xl font-black text-[#0a0a0a]">
+                              R$ {plan.price.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-sm text-gray-500">/mês</span>
+                          </div>
+                        </div>
                       )}
                     </div>
 
