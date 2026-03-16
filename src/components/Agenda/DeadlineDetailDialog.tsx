@@ -105,6 +105,9 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [reopenDeadlineId, setReopenDeadlineId] = useState<string | null>(null);
+  const [reopenMotivo, setReopenMotivo] = useState("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const safeParseDate = (dateString: string | null | undefined): Date => {
     if (!dateString) return new Date();
