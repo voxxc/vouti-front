@@ -1,36 +1,38 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Corrigir datas com 1 dia a menos no Dashboard + Auditoria de prazos
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problema raiz
 
-### Implementação
+`PrazosAbertosPanel.tsx` usa `new Date("2026-03-17")` para parsear datas `YYYY-MM-DD`. JavaScript interpreta isso como UTC meia-noite, que no fuso do Brasil (UTC-3) vira `2026-03-16 21:00` — exibindo o dia anterior. O projeto já tem `parseLocalDate` em `src/lib/dateUtils.ts` que resolve isso, mas não está sendo usado no dashboard.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+A Agenda (`useAgendaData.ts`) já usa `parseISO(dateString + 'T12:00:00')` que evita o problema — por isso lá mostra dia 17 correto.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+## Alterações
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### 1. `src/components/Dashboard/PrazosAbertosPanel.tsx`
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Importar `parseLocalDate` de `@/lib/dateUtils` e substituir **todas** as ocorrências de `new Date(dateStr)` / `new Date(prazo.date)` / `new Date(tarefa.dataExecucao)` por `parseLocalDate(...)`:
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+- **Linha 280**: `new Date(dateStr)` → `parseLocalDate(dateStr)`
+- **Linha 400** (2x): `new Date(prazo.date)` → `parseLocalDate(prazo.date)`
+- **Linha 424**: `new Date(prazo.date)` → `parseLocalDate(prazo.date)`
+- **Linha 490** (2x): `new Date(tarefa.dataExecucao)` → `parseLocalDate(tarefa.dataExecucao)`
+- **Linha ~512**: `new Date(tarefa.dataExecucao)` → `parseLocalDate(tarefa.dataExecucao)` (format call)
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+Total: ~8 substituições de `new Date(string)` por `parseLocalDate(string)`.
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### 2. Auditoria global de timezone em prazos
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Buscar e corrigir o mesmo padrão (`new Date` com string de data `YYYY-MM-DD`) nos demais componentes que exibem datas de prazos:
+
+- `src/components/Controladoria/` — tabelas de prazos concluídos/abertos
+- `src/components/Agenda/` — componentes de exibição
+- `src/components/Project/` — abas de prazos em projetos
+
+Qualquer componente que receba `date: string` do Supabase (formato `YYYY-MM-DD`) e faça `new Date(date)` será corrigido para `parseLocalDate(date)`.
+
+### Arquivos
+- `src/components/Dashboard/PrazosAbertosPanel.tsx` (principal — fix imediato)
+- Outros arquivos identificados na auditoria (mesma correção padrão)
 
