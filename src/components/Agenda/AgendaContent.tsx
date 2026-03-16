@@ -1674,6 +1674,25 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                         Marcar como Concluído
                       </Button>
                     )}
+                    {selectedDeadline.completed && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => setReopenDeadlineId(selectedDeadline.id)}
+                        className="flex-1"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Marcar como Pendente
+                      </Button>
+                    )}
+                    {selectedDeadline.completed && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => openEditDialog(selectedDeadline)}
+                      >
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="icon">
