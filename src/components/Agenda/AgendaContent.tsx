@@ -1083,25 +1083,38 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               <CheckCircle2 className="h-4 w-4" />
             </Button>
           )}
-          {!deadline.completed && isAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar Prazo
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
-                  <CalendarClock className="h-4 w-4 mr-2" />
-                  Estender Prazo
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {deadline.completed ? (
+                <>
+                  <DropdownMenuItem onClick={() => setReopenDeadlineId(deadline.id)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Marcar como Pendente
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar Prazo
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar Prazo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
+                    <CalendarClock className="h-4 w-4 mr-2" />
+                    Estender Prazo
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     );
