@@ -249,6 +249,10 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editDeadline, setEditDeadline] = useState<Deadline | null>(null);
 
+  // Estados para reabrir prazo concluído
+  const [reopenDeadlineId, setReopenDeadlineId] = useState<string | null>(null);
+  const [reopenMotivo, setReopenMotivo] = useState("");
+
   // Estados para drawer do processo OAB
   const [processoDrawerOpen, setProcessoDrawerOpen] = useState(false);
   const [selectedProcessoOAB, setSelectedProcessoOAB] = useState<ProcessoOAB | null>(null);
