@@ -221,6 +221,18 @@ export const ClienteAnalytics = () => {
         </Card>
       </div>
 
+      {/* Gráfico de Origens + Faixas de Valor */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ClienteOrigensChart data={analytics.distribuicaoOrigens} dadosVisiveis={dadosVisiveis} />
+        <ClienteValoresCard
+          data={analytics.distribuicaoValores}
+          menorContrato={analytics.menorContrato}
+          maiorContrato={analytics.maiorContrato}
+          ticketMedio={analytics.ticketMedio}
+          dadosVisiveis={dadosVisiveis}
+          formatarValor={formatarValor}
+        />
+      </div>
       {/* Tabelas Detalhadas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top 5 Profissões */}
