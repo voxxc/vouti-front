@@ -55,6 +55,7 @@ export default function SuperAdmin() {
   const [selectedSystemType, setSelectedSystemType] = useState<SystemType | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [selectedAvisosSystemType, setSelectedAvisosSystemType] = useState<{ id: string; name: string } | null>(null);
+  const [mainTab, setMainTab] = useState("tenants");
 
   // Auth form states
   const [authLoading, setAuthLoading] = useState(false);
@@ -279,7 +280,7 @@ export default function SuperAdmin() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="tenants" className="space-y-6">
+        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
           <TabsList className="grid w-full max-w-7xl grid-cols-11">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
