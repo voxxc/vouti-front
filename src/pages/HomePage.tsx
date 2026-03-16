@@ -632,12 +632,19 @@ const HomePage = () => {
                       {plan.price === 0 ? (
                         <span className="text-3xl font-black text-[#E11D48]">FREE</span>
                       ) : (
-                        <>
-                          <span className="text-3xl font-black text-[#0a0a0a]">
-                            R$ {plan.price.toLocaleString('pt-BR')}
-                          </span>
-                          <span className="text-sm text-gray-500">/mês</span>
-                        </>
+                        <div className="flex flex-col">
+                          {plan.originalPrice && (
+                            <span className="text-sm text-gray-400 line-through">
+                              De R$ {plan.originalPrice.toLocaleString('pt-BR')}
+                            </span>
+                          )}
+                          <div>
+                            <span className="text-3xl font-black text-[#0a0a0a]">
+                              R$ {plan.price.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-sm text-gray-500">/mês</span>
+                          </div>
+                        </div>
                       )}
                     </div>
 
