@@ -4,6 +4,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { Users, Briefcase, MapPin, Calendar, DollarSign, TrendingUp } from 'lucide-react';
 import { useDadosSensiveis } from '@/contexts/DadosSensiveisContext';
+import { ClienteOrigensChart } from './ClienteOrigensChart';
+import { ClienteValoresCard } from './ClienteValoresCard';
 
 const COLORS_PROFISSOES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF6B9D'];
 const COLORS_IDADES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#6366F1'];
@@ -219,6 +221,18 @@ export const ClienteAnalytics = () => {
         </Card>
       </div>
 
+      {/* Gráfico de Origens + Faixas de Valor */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ClienteOrigensChart data={analytics.distribuicaoOrigens} dadosVisiveis={dadosVisiveis} />
+        <ClienteValoresCard
+          data={analytics.distribuicaoValores}
+          menorContrato={analytics.menorContrato}
+          maiorContrato={analytics.maiorContrato}
+          ticketMedio={analytics.ticketMedio}
+          dadosVisiveis={dadosVisiveis}
+          formatarValor={formatarValor}
+        />
+      </div>
       {/* Tabelas Detalhadas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top 5 Profissões */}

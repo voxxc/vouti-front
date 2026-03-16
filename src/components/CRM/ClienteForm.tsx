@@ -813,8 +813,10 @@ export const ClienteForm = ({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="instagram">Instagram</SelectItem>
-                <SelectItem value="facebook">Facebook</SelectItem>
+                <SelectItem value="instagram_organico">Instagram Orgânico</SelectItem>
+                <SelectItem value="instagram_trafego">Instagram Tráfego</SelectItem>
+                <SelectItem value="facebook_organico">Facebook Orgânico</SelectItem>
+                <SelectItem value="facebook_trafego">Facebook Tráfego</SelectItem>
                 <SelectItem value="indicacao">Indicação</SelectItem>
                 <SelectItem value="outro">Outro</SelectItem>
               </SelectContent>

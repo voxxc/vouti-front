@@ -1,70 +1,36 @@
 
 
-# Gráfico de Origens + Quadro de Faixas de Valores no Dashboard
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Resumo
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Duas adições ao dashboard de Analytics de Clientes:
+### Implementação
 
-1. **Gráfico de Origem dos Clientes** — Barras horizontais coloridas mostrando distribuição por origem (Instagram Orgânico, Instagram Tráfego, Facebook Orgânico, Facebook Tráfego, Indicação, Outro)
-2. **Quadro de Distribuição de Valores de Contrato** — Card estilizado em lista com faixas de valor, mostrando quantidade de clientes por faixa, média, menor e maior valor
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-## Alterações
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### 1. Expandir opções de origem
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-**`src/types/cliente.ts`** — Atualizar tipo `origem_tipo` para incluir as 6 opções:
-`'instagram_organico' | 'instagram_trafego' | 'facebook_organico' | 'facebook_trafego' | 'indicacao' | 'outro'`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**`src/lib/validations/cliente.ts`** — Atualizar enum zod com os 6 valores
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-**`src/components/CRM/ClienteForm.tsx`** — Atualizar SelectItems (6 opções)
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-**`src/components/CRM/ClienteDetails.tsx`** — Atualizar labels de exibição
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-### 2. Migração SQL — Converter dados existentes
-
-```sql
-UPDATE clientes SET origem_tipo = 'instagram_organico' WHERE origem_tipo = 'instagram';
-UPDATE clientes SET origem_tipo = 'facebook_organico' WHERE origem_tipo = 'facebook';
-```
-
-### 3. Adicionar dados de origem e faixas de valor ao analytics
-
-**`src/types/analytics.ts`** — Adicionar:
-- `OrigemData { origem: string; label: string; count: number; percentage: number }`
-- `FaixaValorData { faixa: string; min: number; max: number; count: number; percentage: number }`
-- Campos `distribuicaoOrigens`, `distribuicaoValores`, `menorContrato`, `maiorContrato` no `ClienteAnalytics`
-
-**`src/hooks/useClienteAnalytics.ts`** — Calcular:
-- Contagem por `origem_tipo` (agrupado)
-- Faixas de valor: R$0-1k, 1k-3k, 3k-5k, 5k-10k, 10k-20k, 20k-50k, 50k+
-- Menor e maior valor de contrato
-
-### 4. Criar componentes de gráfico
-
-**`src/components/Dashboard/ClienteOrigensChart.tsx`** (novo) — Gráfico de barras horizontais com Recharts, cores distintas por origem (tons de rosa/roxo para Instagram, azul para Facebook, verde para Indicação, cinza para Outro)
-
-**`src/components/Dashboard/ClienteValoresCard.tsx`** (novo) — Card com:
-- Header com ícone DollarSign
-- Lista estilizada de faixas de valor, cada item com barra de progresso proporcional, contagem e percentual
-- Footer com menor valor, maior valor e média
-
-### 5. Integrar no dashboard
-
-**`src/components/Dashboard/ClienteAnalytics.tsx`** — Adicionar uma nova row abaixo dos gráficos de pizza com grid `lg:grid-cols-2`:
-- Coluna 1: Gráfico de origens
-- Coluna 2: Quadro de faixas de valores
-
-### Arquivos modificados/criados
-- `src/types/cliente.ts`
-- `src/types/analytics.ts`
-- `src/lib/validations/cliente.ts`
-- `src/hooks/useClienteAnalytics.ts`
-- `src/components/CRM/ClienteForm.tsx`
-- `src/components/CRM/ClienteDetails.tsx`
-- `src/components/Dashboard/ClienteAnalytics.tsx`
-- `src/components/Dashboard/ClienteOrigensChart.tsx` (novo)
-- `src/components/Dashboard/ClienteValoresCard.tsx` (novo)
-- Migração SQL
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

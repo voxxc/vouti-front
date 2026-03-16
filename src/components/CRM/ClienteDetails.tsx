@@ -210,8 +210,10 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
                 label="Tipo de Origem" 
                 value={cliente.origem_tipo ? (
                   <Badge variant="outline">
-                    {cliente.origem_tipo === 'instagram' ? 'Instagram' :
-                     cliente.origem_tipo === 'facebook' ? 'Facebook' :
+                    {cliente.origem_tipo === 'instagram_organico' ? 'Instagram Orgânico' :
+                     cliente.origem_tipo === 'instagram_trafego' ? 'Instagram Tráfego' :
+                     cliente.origem_tipo === 'facebook_organico' ? 'Facebook Orgânico' :
+                     cliente.origem_tipo === 'facebook_trafego' ? 'Facebook Tráfego' :
                      cliente.origem_tipo === 'indicacao' ? 'Indicação' : 'Outro'}
                   </Badge>
                 ) : null} 
