@@ -278,7 +278,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
       );
     }
 
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
