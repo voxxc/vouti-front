@@ -1,36 +1,55 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Corrigir corte do badge "Popular" e adicionar abas de navegação no carrossel mobile
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problemas identificados
 
-### Implementação
+1. O badge "Popular" usa `absolute -top-3` mas o `CarouselContent` tem `overflow-hidden`, cortando o topo dos cards.
+2. Faltam abas flutuantes para navegar entre planos.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+## Mudanças — `src/pages/HomePage.tsx`
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+### 1. Corrigir corte do badge "Popular"
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+Adicionar `overflow-visible` no `CarouselContent` e `pt-4` para dar espaço ao badge:
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+```tsx
+<CarouselContent className="-ml-3 overflow-visible pt-4">
+```
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+E no wrapper do carousel, adicionar `overflow-hidden` no container externo apenas no eixo X:
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+```tsx
+<div className="overflow-x-clip">
+  <Carousel ...>
+```
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### 2. Adicionar abas flutuantes acima do carrossel
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Antes do `Carousel`, renderizar uma barra horizontal com os nomes dos planos como chips clicáveis. Ao clicar, o carrossel navega (`api.scrollTo(index)`). O chip ativo fica destacado:
+
+```tsx
+<div className="flex gap-2 justify-center mb-4 flex-wrap">
+  {plans.map((plan, i) => (
+    <button
+      key={i}
+      onClick={() => api?.scrollTo(i)}
+      className={cn(
+        "px-3 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm",
+        i === current
+          ? "bg-foreground text-background shadow-md scale-105"
+          : "bg-muted text-muted-foreground"
+      )}
+    >
+      {plan.name}
+    </button>
+  ))}
+</div>
+```
+
+### 3. Remover dots (substituídos pelas abas)
+
+Remover o bloco de dots indicators, já que as abas cumprem essa função.
+
+Todas as mudanças dentro de `PlanCarouselMobile` em `HomePage.tsx`. ~20 linhas alteradas.
 
