@@ -221,7 +221,9 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         processoOabId: d.processo_oab_id || undefined,
         createdAt: safeParseTimestamp(d.created_at),
         updatedAt: safeParseTimestamp(d.updated_at),
-        processoOrigem: d.processo_oab ? { id: d.processo_oab.id, numeroCnj: d.processo_oab.numero_cnj, parteAtiva: d.processo_oab.parte_ativa, partePassiva: d.processo_oab.parte_passiva, tribunal: d.processo_oab.tribunal } : undefined,
+        // Only show processoOrigem if it's genuinely linked (not leaked from __currentProcessoOabId)
+        // When deadline has protocolo_etapa_id, only show processo if the protocolo itself references that processo
+        processoOrigem: d.processo_oab && (!d.protocolo_etapa_id || protocoloProcessoOabId === d.processo_oab_id) ? { id: d.processo_oab.id, numeroCnj: d.processo_oab.numero_cnj, parteAtiva: d.processo_oab.parte_ativa, partePassiva: d.processo_oab.parte_passiva, tribunal: d.processo_oab.tribunal } : undefined,
         protocoloOrigem: d.protocolo_etapa ? { etapaId: d.protocolo_etapa.id, etapaNome: d.protocolo_etapa.nome, protocoloNome: d.protocolo_etapa.protocolo?.nome, projectId: d.protocolo_etapa.protocolo?.project_id } : undefined,
         casoVinculado: casoVinculado ? { id: casoVinculado.id, numeroCnj: casoVinculado.numero_cnj, parteAtiva: casoVinculado.parte_ativa, partePassiva: casoVinculado.parte_passiva, tribunal: casoVinculado.tribunal } : undefined,
         protocoloVinculado: protocoloVinculado ? { etapaId: '', protocoloNome: protocoloVinculado.nome, projectId: protocoloVinculado.project_id, protocoloId: protocoloVinculado.id } : undefined,
