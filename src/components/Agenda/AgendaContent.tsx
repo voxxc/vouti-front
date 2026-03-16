@@ -1565,7 +1565,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                           }
                         }}
                         onNavigateProject={(projectId: string) => {
-                          window.open(`/project/${projectId}`, '_blank');
+                          const base = tenantSlug ? `/${tenantSlug}` : '';
+                          window.open(`${base}/project/${projectId}?clearDrawer=true`, '_blank');
                         }}
                       />
                     );
