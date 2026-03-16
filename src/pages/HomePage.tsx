@@ -217,6 +217,7 @@ const HomePage = () => {
     { 
       name: 'Essencial', 
       price: 200, 
+      originalPrice: 250,
       processes: 100, 
       usersLabel: '3 usuários',
       oabLabel: 'Até 2 OABs cadastradas',
@@ -227,6 +228,7 @@ const HomePage = () => {
     { 
       name: 'Estrutura', 
       price: 400, 
+      originalPrice: 500,
       processes: 200, 
       usersLabel: '10 usuários',
       oabLabel: 'Até 3 OABs cadastradas',
@@ -237,6 +239,7 @@ const HomePage = () => {
     { 
       name: 'Expansão', 
       price: 600, 
+      originalPrice: 750,
       processes: 400, 
       usersLabel: 'Usuários ilimitados',
       oabLabel: 'OABs personalizado',
@@ -247,6 +250,7 @@ const HomePage = () => {
     { 
       name: 'Enterprise', 
       price: 1000, 
+      originalPrice: 1250,
       processes: 800, 
       usersLabel: 'Usuários ilimitados',
       oabLabel: 'OABs personalizado',
