@@ -280,7 +280,7 @@ export default function SuperAdmin() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="tenants" className="space-y-6">
+        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
           <TabsList className="grid w-full max-w-7xl grid-cols-11">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
