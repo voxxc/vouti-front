@@ -44,7 +44,7 @@ serve(async (req) => {
     }
 
     // Prefix with agent name if present
-    const finalMessage = message ? (agentName ? `*${agentName}*\n\n${message}` : message) : '';
+    const finalMessage = message ? (agentName ? `*${agentName}:*\n${message}` : message) : '';
 
     // Resolve tenant_id from JWT if available
     let tenantId: string | null = null;
