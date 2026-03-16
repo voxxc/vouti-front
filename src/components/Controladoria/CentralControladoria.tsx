@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { CentralPrazosConcluidos } from "./CentralPrazosConcluidos";
 import { CentralAndamentosNaoLidos } from "./CentralAndamentosNaoLidos";
 import { CentralSubtarefas } from "./CentralSubtarefas";
+import { ControladoriaIndicadores } from "./ControladoriaIndicadores";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
