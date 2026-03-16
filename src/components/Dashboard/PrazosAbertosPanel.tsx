@@ -11,6 +11,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { format, differenceInDays, isPast, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 interface PrazosAbertosPanelProps {
   userId: string;
@@ -277,7 +278,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
       );
     }
 
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -397,7 +398,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                 onClick={() => onOpenAgendaDrawer ? onOpenAgendaDrawer(prazo.id) : handleNavigateToAgenda()}
               >
                 <div className="flex-shrink-0 mt-0.5">
-                  {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? (
+                  {isPast(parseLocalDate(prazo.date)) && !isToday(parseLocalDate(prazo.date)) ? (
                     <AlertCircle className="h-5 w-5 text-destructive" />
                   ) : (
                     <Clock className="h-5 w-5 text-muted-foreground" />
@@ -421,7 +422,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                     {prazo.clientName}
                   </p>
                   <span className="text-xs text-muted-foreground/70">
-                    {format(new Date(prazo.date), "dd 'de' MMM", { locale: ptBR })}
+                    {format(parseLocalDate(prazo.date), "dd 'de' MMM", { locale: ptBR })}
                   </span>
                 </div>
               </div>
@@ -487,7 +488,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                 onClick={onCardClick}
               >
                 <div className="flex-shrink-0 mt-0.5">
-                  {tarefa.dataExecucao && isPast(new Date(tarefa.dataExecucao)) && !isToday(new Date(tarefa.dataExecucao)) ? (
+                  {tarefa.dataExecucao && isPast(parseLocalDate(tarefa.dataExecucao)) && !isToday(parseLocalDate(tarefa.dataExecucao)) ? (
                     <AlertCircle className="h-5 w-5 text-destructive" />
                   ) : (
                     <Clock className="h-5 w-5 text-muted-foreground" />
@@ -515,7 +516,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                   )}
                   {tarefa.dataExecucao && (
                     <span className="text-xs text-muted-foreground/70">
-                      {format(new Date(tarefa.dataExecucao), "dd 'de' MMM", { locale: ptBR })}
+                      {format(parseLocalDate(tarefa.dataExecucao), "dd 'de' MMM", { locale: ptBR })}
                     </span>
                   )}
                 </div>

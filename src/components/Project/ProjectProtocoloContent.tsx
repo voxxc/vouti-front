@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -52,7 +53,7 @@ import {
   Scale,
   ExternalLink
 } from 'lucide-react';
-import { isPast, isToday } from 'date-fns';
+
 import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
@@ -535,10 +536,10 @@ export function ProjectProtocoloContent({
                               <Calendar className="h-4 w-4 text-muted-foreground" />
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{prazo.title}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                                <p className="text-xs text-muted-foreground">{format(parseLocalDate(prazo.date), "dd/MM/yyyy", { locale: ptBR })}</p>
                               </div>
-                              <Badge variant={isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "destructive" : "outline"}>
-                                {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? "Atrasado" : isToday(new Date(prazo.date)) ? "Hoje" : "Pendente"}
+                              <Badge variant={isPast(parseLocalDate(prazo.date)) && !isToday(parseLocalDate(prazo.date)) ? "destructive" : "outline"}>
+                                {isPast(parseLocalDate(prazo.date)) && !isToday(parseLocalDate(prazo.date)) ? "Atrasado" : isToday(parseLocalDate(prazo.date)) ? "Hoje" : "Pendente"}
                               </Badge>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDeadlineDetails(prazo)}>
                                 <Info className="h-4 w-4" />
@@ -560,7 +561,7 @@ export function ProjectProtocoloContent({
                               <Calendar className="h-4 w-4 text-green-500" />
                               <div className="flex-1">
                                 <p className="text-sm font-medium line-through opacity-70">{prazo.title}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(prazo.date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                                <p className="text-xs text-muted-foreground">{format(parseLocalDate(prazo.date), "dd/MM/yyyy", { locale: ptBR })}</p>
                               </div>
                               <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Concluído</Badge>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDeadlineDetails(prazo)}>
@@ -705,7 +706,7 @@ export function ProjectProtocoloContent({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-muted-foreground text-xs uppercase">Data</Label>
-                      <p className="mt-1 font-medium">{format(new Date(selectedDeadline.date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                      <p className="mt-1 font-medium">{format(parseLocalDate(selectedDeadline.date), "dd/MM/yyyy", { locale: ptBR })}</p>
                     </div>
                     <div>
                       <Label className="text-muted-foreground text-xs uppercase">Projeto</Label>
@@ -772,8 +773,8 @@ export function ProjectProtocoloContent({
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase">Status</Label>
                     <div className="mt-1">
-                      <Badge variant={selectedDeadline.completed ? "default" : isPast(new Date(selectedDeadline.date)) && !isToday(new Date(selectedDeadline.date)) ? "destructive" : "secondary"} className={selectedDeadline.completed ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}>
-                        {selectedDeadline.completed ? "Concluído" : isPast(new Date(selectedDeadline.date)) && !isToday(new Date(selectedDeadline.date)) ? "Atrasado" : isToday(new Date(selectedDeadline.date)) ? "Hoje" : "Pendente"}
+                      <Badge variant={selectedDeadline.completed ? "default" : isPast(parseLocalDate(selectedDeadline.date)) && !isToday(parseLocalDate(selectedDeadline.date)) ? "destructive" : "secondary"} className={selectedDeadline.completed ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}>
+                        {selectedDeadline.completed ? "Concluído" : isPast(parseLocalDate(selectedDeadline.date)) && !isToday(parseLocalDate(selectedDeadline.date)) ? "Atrasado" : isToday(parseLocalDate(selectedDeadline.date)) ? "Hoje" : "Pendente"}
                       </Badge>
                     </div>
                   </div>

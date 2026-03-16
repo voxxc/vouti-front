@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Deadline } from "@/types/agenda";
+import { parseLocalDate } from "@/lib/dateUtils";
 import { 
   format, 
   startOfMonth, 
