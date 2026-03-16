@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Key, Loader2, ArrowRight, CheckCircle2, XCircle, Mail, Clock, MessageCircle, DollarSign, Users, FileText, Sparkles, LayoutDashboard, UserCheck, Eye } from 'lucide-react';
 import TestimonialsSection from '@/components/TestimonialsSection';
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import showcaseProcessos from '@/assets/showcase-processos.png';
 import logoVoutiHeader from '@/assets/logo-vouti-header.png';
 import showcaseFinanceiro from '@/assets/showcase-financeiro.png';
