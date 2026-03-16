@@ -398,7 +398,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                 onClick={() => onOpenAgendaDrawer ? onOpenAgendaDrawer(prazo.id) : handleNavigateToAgenda()}
               >
                 <div className="flex-shrink-0 mt-0.5">
-                  {isPast(new Date(prazo.date)) && !isToday(new Date(prazo.date)) ? (
+                  {isPast(parseLocalDate(prazo.date)) && !isToday(parseLocalDate(prazo.date)) ? (
                     <AlertCircle className="h-5 w-5 text-destructive" />
                   ) : (
                     <Clock className="h-5 w-5 text-muted-foreground" />
