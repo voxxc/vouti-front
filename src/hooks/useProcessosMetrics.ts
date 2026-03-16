@@ -57,7 +57,7 @@ const fetchProcessosMetrics = async (tenantId: string): Promise<ProcessosMetrics
 
   prazos.forEach(prazo => {
     if (!prazo.completed && prazo.date) {
-      const dueDate = new Date(prazo.date);
+      const dueDate = parseLocalDate(prazo.date);
       dueDate.setHours(0, 0, 0, 0);
       const diffDias = Math.ceil((dueDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDias < 0) processosAtrasados++;

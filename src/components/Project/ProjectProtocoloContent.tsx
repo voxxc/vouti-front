@@ -773,8 +773,8 @@ export function ProjectProtocoloContent({
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase">Status</Label>
                     <div className="mt-1">
-                      <Badge variant={selectedDeadline.completed ? "default" : isPast(new Date(selectedDeadline.date)) && !isToday(new Date(selectedDeadline.date)) ? "destructive" : "secondary"} className={selectedDeadline.completed ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}>
-                        {selectedDeadline.completed ? "Concluído" : isPast(new Date(selectedDeadline.date)) && !isToday(new Date(selectedDeadline.date)) ? "Atrasado" : isToday(new Date(selectedDeadline.date)) ? "Hoje" : "Pendente"}
+                      <Badge variant={selectedDeadline.completed ? "default" : isPast(parseLocalDate(selectedDeadline.date)) && !isToday(parseLocalDate(selectedDeadline.date)) ? "destructive" : "secondary"} className={selectedDeadline.completed ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}>
+                        {selectedDeadline.completed ? "Concluído" : isPast(parseLocalDate(selectedDeadline.date)) && !isToday(parseLocalDate(selectedDeadline.date)) ? "Atrasado" : isToday(parseLocalDate(selectedDeadline.date)) ? "Hoje" : "Pendente"}
                       </Badge>
                     </div>
                   </div>
