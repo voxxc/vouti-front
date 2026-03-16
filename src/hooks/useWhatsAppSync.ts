@@ -31,7 +31,7 @@ export const useWhatsAppSync = ({
   enabled = true
 }: UseWhatsAppSyncOptions) => {
   const { tenantId } = useTenantId();
-  const lastSignalTime = useRef<number>(Date.now());
+  const lastSignalTime = useRef<number>(0);
   
   // Refs para callbacks — evita dependências instáveis no useEffect
   const onConversationUpdateRef = useRef(onConversationUpdate);
@@ -111,6 +111,7 @@ export const useWhatsAppSync = ({
     const interval = setInterval(() => {
       console.log('🔄 WhatsApp Sync: Fallback polling tick');
       onConversationUpdateRef.current?.();
+      onMessageUpdateRef.current?.("");
     }, 30000);
 
     return () => clearInterval(interval);

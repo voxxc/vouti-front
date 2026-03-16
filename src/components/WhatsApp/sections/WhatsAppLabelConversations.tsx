@@ -154,7 +154,7 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
       loadConversations(false);
     },
     onMessageUpdate: (phone: string) => {
-      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+      if (selectedConversation && (!phone || normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber))) {
         console.log('📨 Label Conversations: Updating messages for current conversation');
         loadMessages(selectedConversation.contactNumber);
       }
