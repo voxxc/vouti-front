@@ -364,7 +364,10 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                         origemLabel={origemLabel}
                         vinculadoLabel={vinculadoLabel}
                         selectedDeadline={deadline}
-                        onNavigateProject={(projectId) => window.open(`/project/${projectId}`, '_blank')}
+                        onNavigateProject={(projectId) => {
+                          const base = tenantSlug ? `/${tenantSlug}` : '';
+                          window.open(`${base}/project/${projectId}?clearDrawer=true`, '_blank');
+                        }}
                       />
                     );
                   })()}
