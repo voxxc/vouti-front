@@ -439,6 +439,16 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
                       </Button>
                     )}
+                    {deadline.completed && (
+                      <Button variant="outline" onClick={() => setReopenDeadlineId(deadline.id)} className="flex-1">
+                        <RotateCcw className="h-4 w-4 mr-2" /> Marcar como Pendente
+                      </Button>
+                    )}
+                    {deadline.completed && (
+                      <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
