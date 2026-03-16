@@ -283,7 +283,46 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
     } catch { toast({ title: "Erro", description: "Erro inesperado ao concluir prazo.", variant: "destructive" }); }
   };
 
-  return (
+  const handleReopenDeadline = async () => {
+    if (!reopenDeadlineId || !reopenMotivo.trim() || !user || !deadline) return;
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .update({
+          completed: false,
+          concluido_por: null,
+          concluido_em: null,
+          comentario_conclusao: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reopenDeadlineId);
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      await supabase
+        .from('deadline_comentarios')
+        .insert({
+          deadline_id: reopenDeadlineId,
+          user_id: user.id,
+          comentario: `🔄 Prazo reaberto por ${profile?.full_name || 'Usuário'}\n\nMotivo: ${reopenMotivo.trim()}`,
+          tenant_id: tenantId
+        });
+
+      toast({ title: "Prazo reaberto", description: "O prazo foi marcado como pendente novamente." });
+      setReopenDeadlineId(null);
+      setReopenMotivo("");
+      setDeadline({ ...deadline, completed: false, completedByUserId: undefined, completedByName: undefined, completedByAvatar: undefined, comentarioConclusao: undefined, concluidoEm: undefined });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível reabrir o prazo.", variant: "destructive" });
+    }
+  };
+
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg">
