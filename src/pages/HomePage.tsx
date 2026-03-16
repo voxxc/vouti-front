@@ -20,8 +20,139 @@ import heroComputer from '@/assets/hero-computer.png';
 import showcaseWhatsapp from '@/assets/showcase-whatsapp-crm.png';
 import showcaseKanban from '@/assets/showcase-kanban.png';
 import showcaseProcessosList from '@/assets/showcase-processos-list.png';
+import { cn } from '@/lib/utils';
 
-const HomePage = () => {
+type PlanType = {
+  name: string;
+  price: number;
+  originalPrice?: number;
+  processes: number;
+  usersLabel: string;
+  oabLabel: string;
+  popular: boolean;
+  unlimitedProcesses: boolean;
+  hasCRM: boolean;
+};
+
+const PlanCard = ({ plan, scrollToDemo }: { plan: PlanType; scrollToDemo: () => void }) => (
+  <div
+    className={`relative rounded-xl p-6 border transition-all duration-300 hover:scale-[1.02] bg-background ${
+      plan.popular
+        ? 'border-foreground border-2 shadow-lg'
+        : 'border-border hover:border-muted-foreground'
+    }`}
+  >
+    {plan.popular && (
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+        <span className="px-3 py-1 text-xs font-bold bg-foreground text-background rounded-full">
+          Popular
+        </span>
+      </div>
+    )}
+    <div>
+      <h3 className="text-lg font-bold mb-3">{plan.name}</h3>
+      <div className="mb-4">
+        {plan.price === 0 ? (
+          <span className="text-3xl font-black text-[#E11D48]">FREE</span>
+        ) : (
+          <div className="flex flex-col">
+            {plan.originalPrice && (
+              <span className="text-sm text-muted-foreground line-through">
+                De R$ {plan.originalPrice.toLocaleString('pt-BR')}
+              </span>
+            )}
+            <div>
+              <span className="text-3xl font-black text-foreground">
+                R$ {plan.price.toLocaleString('pt-BR')}
+              </span>
+              <span className="text-sm text-muted-foreground">/mês</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="inline-block px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium mb-5">
+        {plan.usersLabel}
+      </div>
+      <ul className="space-y-2.5 mb-6">
+        <li className="flex items-start gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 className="w-4 h-4 text-[#E11D48] shrink-0 mt-0.5" />
+          Monitoramento de até {plan.processes} processos
+        </li>
+        <li className="flex items-start gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 className="w-4 h-4 text-[#E11D48] shrink-0 mt-0.5" />
+          {plan.oabLabel}
+        </li>
+        <li className="flex items-start gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 className="w-4 h-4 text-[#E11D48] shrink-0 mt-0.5" />
+          Kanban, Relatórios, Financeiro
+        </li>
+        <li className={`flex items-start gap-2 text-sm ${plan.hasCRM ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+          {plan.hasCRM ? (
+            <CheckCircle2 className="w-4 h-4 text-[#E11D48] shrink-0 mt-0.5" />
+          ) : (
+            <XCircle className="w-4 h-4 text-muted shrink-0 mt-0.5" />
+          )}
+          CRM + Landing Page
+        </li>
+        <li className={`flex items-start gap-2 text-sm ${plan.unlimitedProcesses ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+          {plan.unlimitedProcesses ? (
+            <CheckCircle2 className="w-4 h-4 text-[#E11D48] shrink-0 mt-0.5" />
+          ) : (
+            <XCircle className="w-4 h-4 text-muted shrink-0 mt-0.5" />
+          )}
+          Processos ilimitados
+        </li>
+      </ul>
+      <Button
+        onClick={scrollToDemo}
+        className={`w-full rounded-lg ${
+          plan.popular
+            ? 'bg-foreground text-background hover:bg-foreground/90'
+            : 'bg-background text-foreground border border-border hover:bg-muted'
+        }`}
+      >
+        Selecionar
+      </Button>
+    </div>
+  </div>
+);
+
+const PlanCarouselMobile = ({ plans, scrollToDemo }: { plans: PlanType[]; scrollToDemo: () => void }) => {
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    if (!api) return;
+    setCurrent(api.selectedScrollSnap());
+    api.on('select', () => setCurrent(api.selectedScrollSnap()));
+  }, [api]);
+
+  return (
+    <div>
+      <Carousel setApi={setApi} opts={{ align: 'start', loop: false }} className="w-full">
+        <CarouselContent className="-ml-3">
+          {plans.map((plan, i) => (
+            <CarouselItem key={i} className="pl-3 basis-[82%]">
+              <PlanCard plan={plan} scrollToDemo={scrollToDemo} />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+      </Carousel>
+      <div className="flex justify-center gap-1.5 mt-4">
+        {plans.map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              "w-2 h-2 rounded-full transition-colors",
+              i === current ? "bg-foreground" : "bg-muted-foreground/30"
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showEasterEgg, setShowEasterEgg] = useState(false);
