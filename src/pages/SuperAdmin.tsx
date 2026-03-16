@@ -55,6 +55,7 @@ export default function SuperAdmin() {
   const [selectedSystemType, setSelectedSystemType] = useState<SystemType | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [selectedAvisosSystemType, setSelectedAvisosSystemType] = useState<{ id: string; name: string } | null>(null);
+  const [mainTab, setMainTab] = useState("tenants");
 
   // Auth form states
   const [authLoading, setAuthLoading] = useState(false);
