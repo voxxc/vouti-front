@@ -1,28 +1,36 @@
 
 
-# Fix "Ver Projeto" opening with agenda drawer in new tab
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problem
-When clicking "Ver Projeto" from deadline details, the new browser tab inherits the `sessionStorage` state including `vouti-active-drawer: 'agenda'`, so the agenda drawer remains open and hides the project view. Additionally, the URL is missing the tenant slug prefix.
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-## Solution
+### Implementação
 
-### 1. Use tenant-aware URL + query param to clear drawer
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-In both `AgendaContent.tsx` and `DeadlineDetailDialog.tsx`, change the `window.open` calls to:
-- Include the tenant slug in the URL
-- Append `?clearDrawer=true` to signal the new tab should not show any drawer
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-### 2. Handle `clearDrawer` param in `DashboardLayout.tsx`
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-On mount, check for `?clearDrawer=true` in the URL. If present:
-- Clear `sessionStorage` `vouti-active-drawer`
-- Set `activeDrawer` to `null`
-- Remove the query param from the URL (clean up)
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-### Files to modify
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-- **`src/components/Agenda/AgendaContent.tsx`** (~line 1567-1568): Use `tenantSlug` to build URL and add `?clearDrawer=true`
-- **`src/components/Agenda/DeadlineDetailDialog.tsx`** (~line 365): Same fix
-- **`src/components/Dashboard/DashboardLayout.tsx`**: Add `useEffect` on mount to check for `clearDrawer` query param and reset drawer state
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
+
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

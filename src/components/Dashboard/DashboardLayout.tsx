@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
 import { AvisoBanner } from "@/components/Common/AvisoBanner";
@@ -56,6 +56,7 @@ const DashboardLayout = ({
 }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, signOut, loading: authLoading } = useAuth();
   const { tenantId, loading: tenantLoading } = useTenantId();
   const { isNavigating } = useNavigationLoading();
@@ -84,6 +85,16 @@ const DashboardLayout = ({
       }
     } catch { /* ignore */ }
   }, []);
+
+  // Clear drawer state when opening from external link (e.g., "Ver Projeto")
+  useEffect(() => {
+    if (searchParams.get('clearDrawer') === 'true') {
+      sessionStorage.removeItem('vouti-active-drawer');
+      setActiveDrawerState(null);
+      searchParams.delete('clearDrawer');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;

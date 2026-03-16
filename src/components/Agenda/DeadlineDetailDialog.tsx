@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
 
 interface DeadlineDetailDialogProps {
@@ -95,6 +96,7 @@ function OriginTabs({
 export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: DeadlineDetailDialogProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
+  const { tenantSlug } = useTenantNavigation();
   const { toast } = useToast();
   const [deadline, setDeadline] = useState<Deadline | null>(null);
   const [loading, setLoading] = useState(false);
@@ -362,7 +364,10 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                         origemLabel={origemLabel}
                         vinculadoLabel={vinculadoLabel}
                         selectedDeadline={deadline}
-                        onNavigateProject={(projectId) => window.open(`/project/${projectId}`, '_blank')}
+                        onNavigateProject={(projectId) => {
+                          const base = tenantSlug ? `/${tenantSlug}` : '';
+                          window.open(`${base}/project/${projectId}?clearDrawer=true`, '_blank');
+                        }}
                       />
                     );
                   })()}
