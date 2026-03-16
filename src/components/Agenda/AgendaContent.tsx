@@ -498,6 +498,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             protocoloId: protocoloFromCaso.id
           } : undefined,
           workspaceName: deadline.workspace_id ? workspaceNameMap[deadline.workspace_id] : undefined,
+          workspaceId: deadline.workspace_id || undefined,
+          protocoloEtapaId: deadline.protocolo_etapa_id || undefined,
           createdByUserId: deadline.user_id || undefined,
           completedByUserId: deadline.concluido_por || undefined,
           createdByName: deadline.user_id ? creatorMap[deadline.user_id]?.full_name : undefined,

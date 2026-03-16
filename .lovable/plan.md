@@ -1,53 +1,36 @@
 
 
-# Adicionar seletores de Projeto, Workspace, Protocolo e Etapa ao EditarPrazoDialog
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema atual
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-O dialog de edição de prazo (`EditarPrazoDialog`) só permite editar título, descrição, data, responsável e tags. Os campos de rastreabilidade (Projeto, Workspace, Protocolo, Etapa) só estão disponíveis na criação.
+### Implementação
 
-## Solução
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### 1. Expandir a interface `Deadline` do EditarPrazoDialog
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-Adicionar os campos necessários: `projectId`, `projectName`, `workspaceId`, `protocoloEtapaId` para que o dialog receba os dados atuais do prazo.
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-### 2. Modificar `EditarPrazoDialog.tsx`
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-Adicionar os mesmos seletores em cascata que existem no dialog de criação em `AgendaContent`:
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-- **Projeto** (Select com lista de projetos do tenant)
-- **Workspace** (Select condicional, aparece quando o projeto tem mais de 1 workspace)
-- **Protocolo** (Select, filtra por projeto se selecionado, senão mostra todos do tenant)
-- **Etapa** (Select condicional, aparece quando um protocolo é selecionado)
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-A lógica de cascata será idêntica à da criação:
-- Ao mudar projeto -> recarregar workspaces e protocolos
-- Ao mudar protocolo -> recarregar etapas
-- Campos pré-populados com os valores atuais do prazo
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-No `handleSave`, incluir os novos campos no update:
-```typescript
-project_id: selectedProjectId || null,
-workspace_id: resolvedWorkspaceId,
-protocolo_etapa_id: selectedEtapaId || null,
-processo_oab_id: protocoloProcessoOabId || null
-```
-
-Registrar alterações de projeto/protocolo no comentário de auditoria.
-
-### 3. Ajustar `AgendaContent.tsx`
-
-Passar os dados adicionais ao `editDeadline` para que o dialog consiga pré-popular. A raw data do deadline já contém `project_id`, `workspace_id`, `protocolo_etapa_id` — basta expor na interface.
-
-Expandir o estado do `editDeadline` para incluir esses campos na interface local.
-
-### 4. Expandir a interface `Deadline` em `types/agenda.ts`
-
-Adicionar campos opcionais `workspaceId` e `protocoloEtapaId` para transporte.
-
-### Arquivos a modificar
-- `src/components/Agenda/EditarPrazoDialog.tsx` — adicionar seletores e lógica de cascata
-- `src/components/Agenda/AgendaContent.tsx` — passar dados extras ao editDeadline
-- `src/types/agenda.ts` — adicionar `workspaceId` e `protocoloEtapaId`
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
