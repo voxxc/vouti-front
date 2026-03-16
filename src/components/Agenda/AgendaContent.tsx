@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil, ChevronDown, Flag } from "lucide-react";
+import { Search, Plus, Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, Trash2, UserCheck, MessageSquare, Scale, FileText, ExternalLink, MoreVertical, CalendarClock, Pencil, ChevronDown, Flag, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -248,6 +248,10 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   // Estados para modal de edição de prazo
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editDeadline, setEditDeadline] = useState<Deadline | null>(null);
+
+  // Estados para reabrir prazo concluído
+  const [reopenDeadlineId, setReopenDeadlineId] = useState<string | null>(null);
+  const [reopenMotivo, setReopenMotivo] = useState("");
 
   // Estados para drawer do processo OAB
   const [processoDrawerOpen, setProcessoDrawerOpen] = useState(false);
@@ -960,7 +964,57 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
     }
   };
 
-  // Inline DeadlineRow component for minimalist list
+  const handleReopenDeadline = async () => {
+    if (!reopenDeadlineId || !reopenMotivo.trim() || !user) return;
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .update({
+          completed: false,
+          concluido_por: null,
+          concluido_em: null,
+          comentario_conclusao: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reopenDeadlineId);
+
+      if (error) throw error;
+
+      // Get user name for comment
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      await supabase
+        .from('deadline_comentarios')
+        .insert({
+          deadline_id: reopenDeadlineId,
+          user_id: user.id,
+          comentario: `🔄 Prazo reaberto por ${profile?.full_name || 'Usuário'}\n\nMotivo: ${reopenMotivo.trim()}`,
+          tenant_id: tenantId
+        });
+
+      toast({
+        title: "Prazo reaberto",
+        description: "O prazo foi marcado como pendente novamente.",
+      });
+
+      setReopenDeadlineId(null);
+      setReopenMotivo("");
+      setIsDetailDialogOpen(false);
+      await fetchDeadlinesAsync();
+    } catch (error) {
+      console.error('Erro ao reabrir prazo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível reabrir o prazo.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const DeadlineRow = ({ deadline }: { deadline: Deadline }) => {
     const isOverdue = !deadline.completed && safeIsPast(deadline.date);
     const statusColor = deadline.completed 
@@ -1029,25 +1083,38 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               <CheckCircle2 className="h-4 w-4" />
             </Button>
           )}
-          {!deadline.completed && isAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar Prazo
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
-                  <CalendarClock className="h-4 w-4 mr-2" />
-                  Estender Prazo
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {deadline.completed ? (
+                <>
+                  <DropdownMenuItem onClick={() => setReopenDeadlineId(deadline.id)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Marcar como Pendente
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar Prazo
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => openEditDialog(deadline)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar Prazo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openExtendDialog(deadline)}>
+                    <CalendarClock className="h-4 w-4 mr-2" />
+                    Estender Prazo
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     );
@@ -1607,6 +1674,25 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                         Marcar como Concluído
                       </Button>
                     )}
+                    {selectedDeadline.completed && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => setReopenDeadlineId(selectedDeadline.id)}
+                        className="flex-1"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Marcar como Pendente
+                      </Button>
+                    )}
+                    {selectedDeadline.completed && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => openEditDialog(selectedDeadline)}
+                      >
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="icon">
@@ -1835,6 +1921,48 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           )}
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de reabertura de prazo */}
+      <AlertDialog 
+        open={!!reopenDeadlineId} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setReopenDeadlineId(null);
+            setReopenMotivo("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Reabrir Prazo
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Descreva o motivo para reabrir este prazo. O comentário será registrado no histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium">Motivo da reabertura *</label>
+            <Textarea
+              value={reopenMotivo}
+              onChange={(e) => setReopenMotivo(e.target.value)}
+              placeholder="Descreva o motivo para reabrir este prazo..."
+              rows={4}
+              className="mt-2"
+            />
+            {!reopenMotivo.trim() && (
+              <p className="text-xs text-muted-foreground mt-1">O motivo é obrigatório para reabrir o prazo.</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReopenDeadline} disabled={!reopenMotivo.trim()}>
+              Confirmar Reabertura
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog de Edição de Prazo */}
       <EditarPrazoDialog

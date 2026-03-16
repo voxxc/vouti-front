@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Trash2, MessageSquare, ExternalLink, Flag } from "lucide-react";
+import { CheckCircle2, Trash2, MessageSquare, ExternalLink, Flag, RotateCcw, Pencil } from "lucide-react";
+import EditarPrazoDialog from "./EditarPrazoDialog";
 import { DeadlineComentarios } from "./DeadlineComentarios";
 import { Deadline } from "@/types/agenda";
 import { format, isPast, isValid, parseISO } from "date-fns";
@@ -104,6 +105,9 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [reopenDeadlineId, setReopenDeadlineId] = useState<string | null>(null);
+  const [reopenMotivo, setReopenMotivo] = useState("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const safeParseDate = (dateString: string | null | undefined): Date => {
     if (!dateString) return new Date();
@@ -279,6 +283,46 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
     } catch { toast({ title: "Erro", description: "Erro inesperado ao concluir prazo.", variant: "destructive" }); }
   };
 
+  const handleReopenDeadline = async () => {
+    if (!reopenDeadlineId || !reopenMotivo.trim() || !user || !deadline) return;
+    try {
+      const { error } = await supabase
+        .from('deadlines')
+        .update({
+          completed: false,
+          concluido_por: null,
+          concluido_em: null,
+          comentario_conclusao: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reopenDeadlineId);
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      await supabase
+        .from('deadline_comentarios')
+        .insert({
+          deadline_id: reopenDeadlineId,
+          user_id: user.id,
+          comentario: `🔄 Prazo reaberto por ${profile?.full_name || 'Usuário'}\n\nMotivo: ${reopenMotivo.trim()}`,
+          tenant_id: tenantId
+        });
+
+      toast({ title: "Prazo reaberto", description: "O prazo foi marcado como pendente novamente." });
+      setReopenDeadlineId(null);
+      setReopenMotivo("");
+      setDeadline({ ...deadline, completed: false, completedByUserId: undefined, completedByName: undefined, completedByAvatar: undefined, comentarioConclusao: undefined, concluidoEm: undefined });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível reabrir o prazo.", variant: "destructive" });
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -395,6 +439,16 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
                       </Button>
                     )}
+                    {deadline.completed && (
+                      <Button variant="outline" onClick={() => setReopenDeadlineId(deadline.id)} className="flex-1">
+                        <RotateCcw className="h-4 w-4 mr-2" /> Marcar como Pendente
+                      </Button>
+                    )}
+                    {deadline.completed && (
+                      <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
@@ -485,6 +539,39 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* AlertDialog de reabertura */}
+      <AlertDialog open={!!reopenDeadlineId} onOpenChange={(open) => { if (!open) { setReopenDeadlineId(null); setReopenMotivo(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" /> Reabrir Prazo
+            </AlertDialogTitle>
+            <AlertDialogDescription>Descreva o motivo para reabrir este prazo. O comentário será registrado no histórico.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium">Motivo da reabertura *</label>
+            <Textarea value={reopenMotivo} onChange={(e) => setReopenMotivo(e.target.value)} placeholder="Descreva o motivo para reabrir este prazo..." rows={4} className="mt-2" />
+            {!reopenMotivo.trim() && <p className="text-xs text-muted-foreground mt-1">O motivo é obrigatório para reabrir o prazo.</p>}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReopenDeadline} disabled={!reopenMotivo.trim()}>Confirmar Reabertura</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de Edição */}
+      {deadline && (
+        <EditarPrazoDialog
+          deadline={deadline}
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          onSuccess={() => {
+            if (deadlineId) fetchDeadline(deadlineId);
+          }}
+          tenantId={tenantId || ''}
+        />
+      )}
     </>
   );
 }
