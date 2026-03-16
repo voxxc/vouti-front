@@ -37,7 +37,7 @@ export const ControladoriaIndicadores = () => {
 
       const map = new Map<string, number>();
       (processos || []).forEach((p) => {
-        const sigla = p.tribunal_sigla || "Desconhecido";
+        const sigla = p.tribunal_sigla || (p.numero_cnj ? extrairTribunalDoNumeroProcesso(p.numero_cnj) : "Desconhecido");
         map.set(sigla, (map.get(sigla) || 0) + 1);
       });
 
