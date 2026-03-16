@@ -129,25 +129,32 @@ const PlanCarouselMobile = ({ plans, scrollToDemo }: { plans: PlanType[]; scroll
 
   return (
     <div>
-      <Carousel setApi={setApi} opts={{ align: 'start', loop: false }} className="w-full">
-        <CarouselContent className="-ml-3">
-          {plans.map((plan, i) => (
-            <CarouselItem key={i} className="pl-3 basis-[82%]">
-              <PlanCard plan={plan} scrollToDemo={scrollToDemo} />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-      </Carousel>
-      <div className="flex justify-center gap-1.5 mt-4">
-        {plans.map((_, i) => (
-          <div
+      <div className="flex gap-2 justify-center mb-4 flex-wrap">
+        {plans.map((plan, i) => (
+          <button
             key={i}
+            onClick={() => api?.scrollTo(i)}
             className={cn(
-              "w-2 h-2 rounded-full transition-colors",
-              i === current ? "bg-foreground" : "bg-muted-foreground/30"
+              "px-3 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm",
+              i === current
+                ? "bg-foreground text-background shadow-md scale-105"
+                : "bg-muted text-muted-foreground"
             )}
-          />
+          >
+            {plan.name}
+          </button>
         ))}
+      </div>
+      <div className="overflow-x-clip">
+        <Carousel setApi={setApi} opts={{ align: 'start', loop: false }} className="w-full">
+          <CarouselContent className="-ml-3 overflow-visible pt-4">
+            {plans.map((plan, i) => (
+              <CarouselItem key={i} className="pl-3 basis-[82%]">
+                <PlanCard plan={plan} scrollToDemo={scrollToDemo} />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
       </div>
     </div>
   );
