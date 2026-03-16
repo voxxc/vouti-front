@@ -3,12 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { CentralPrazosConcluidos } from "./CentralPrazosConcluidos";
 import { CentralAndamentosNaoLidos } from "./CentralAndamentosNaoLidos";
 import { CentralSubtarefas } from "./CentralSubtarefas";
+import { ControladoriaIndicadores } from "./ControladoriaIndicadores";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
 
-type TabValue = 'andamentos' | 'prazos' | 'subtarefas';
+type TabValue = 'andamentos' | 'prazos' | 'subtarefas' | 'indicadores';
 
 export const CentralControladoria = () => {
   const { tenantId } = useTenantId();
@@ -151,6 +152,20 @@ export const CentralControladoria = () => {
             )}
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('indicadores')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeTab === 'indicadores'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Indicadores
+          {activeTab === 'indicadores' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
       </div>
 
       {activeTab === 'andamentos' && (
@@ -168,6 +183,12 @@ export const CentralControladoria = () => {
       {activeTab === 'subtarefas' && isSolvenza && (
         <div className="flex-1 min-h-0">
           <CentralSubtarefas />
+        </div>
+      )}
+
+      {activeTab === 'indicadores' && (
+        <div className="flex-1 min-h-0">
+          <ControladoriaIndicadores />
         </div>
       )}
     </div>
