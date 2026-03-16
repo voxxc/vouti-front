@@ -37,7 +37,7 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
   const getDeadlineStatusColor = (deadline: Deadline): string => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const deadlineDate = parseLocalDate(deadline.date as unknown as string);
+    const deadlineDate = new Date(deadline.date);
     deadlineDate.setHours(0, 0, 0, 0);
     if (deadline.completed) return 'bg-green-500';
     if (deadlineDate <= today) return 'bg-destructive';
