@@ -706,7 +706,7 @@ export function ProjectProtocoloContent({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-muted-foreground text-xs uppercase">Data</Label>
-                      <p className="mt-1 font-medium">{format(new Date(selectedDeadline.date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                      <p className="mt-1 font-medium">{format(parseLocalDate(selectedDeadline.date), "dd/MM/yyyy", { locale: ptBR })}</p>
                     </div>
                     <div>
                       <Label className="text-muted-foreground text-xs uppercase">Projeto</Label>
