@@ -152,6 +152,20 @@ export const CentralControladoria = () => {
             )}
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('indicadores')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeTab === 'indicadores'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Indicadores
+          {activeTab === 'indicadores' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
       </div>
 
       {activeTab === 'andamentos' && (
