@@ -26,7 +26,7 @@ export const ControladoriaIndicadores = () => {
       setLoading(true);
       const { data: processos, error } = await supabase
         .from("processos_oab")
-        .select("tribunal_sigla")
+        .select("tribunal_sigla, numero_cnj")
         .eq("tenant_id", tenantId);
 
       if (error) {
