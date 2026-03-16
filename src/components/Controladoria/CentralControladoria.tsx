@@ -9,7 +9,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
 
-type TabValue = 'andamentos' | 'prazos' | 'subtarefas';
+type TabValue = 'andamentos' | 'prazos' | 'subtarefas' | 'indicadores';
 
 export const CentralControladoria = () => {
   const { tenantId } = useTenantId();
