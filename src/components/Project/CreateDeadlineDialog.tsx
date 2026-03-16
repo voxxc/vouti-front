@@ -124,7 +124,7 @@ export function CreateDeadlineDialog({
           tenant_id: tenantId,
           protocolo_etapa_id: etapaId,
           deadline_category: category || null,
-          processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null,
+          processo_oab_id: protocolo.processo_oab_id || null,
           workspace_id: resolvedWorkspaceId
         })
         .select()
