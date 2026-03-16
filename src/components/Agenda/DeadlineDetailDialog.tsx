@@ -96,6 +96,7 @@ function OriginTabs({
 export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: DeadlineDetailDialogProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
+  const { tenantSlug } = useTenantNavigation();
   const { toast } = useToast();
   const [deadline, setDeadline] = useState<Deadline | null>(null);
   const [loading, setLoading] = useState(false);
