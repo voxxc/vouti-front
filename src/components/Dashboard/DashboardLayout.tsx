@@ -86,6 +86,16 @@ const DashboardLayout = ({
     } catch { /* ignore */ }
   }, []);
 
+  // Clear drawer state when opening from external link (e.g., "Ver Projeto")
+  useEffect(() => {
+    if (searchParams.get('clearDrawer') === 'true') {
+      sessionStorage.removeItem('vouti-active-drawer');
+      setActiveDrawerState(null);
+      searchParams.delete('clearDrawer');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const tenantPath = (path: string) => {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     if (tenantSlug) {
