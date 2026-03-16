@@ -313,7 +313,7 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
       loadTickets();
     },
     onMessageUpdate: (phone: string) => {
-      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+      if (selectedConversation && (!phone || normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber))) {
         console.log('📨 Sync signal: Updating messages for current conversation');
         loadMessages(selectedConversation.contactNumber);
       }

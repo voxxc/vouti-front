@@ -172,7 +172,7 @@ export const WhatsAppAllConversations = () => {
       loadConversations(false);
     },
     onMessageUpdate: (phone: string) => {
-      if (selectedConversation && normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber)) {
+      if (selectedConversation && (!phone || normalizePhone(phone) === normalizePhone(selectedConversation.contactNumber))) {
         console.log('📨 All Conversations: Updating messages for current conversation');
         loadMessages(selectedConversation.contactNumber);
       }

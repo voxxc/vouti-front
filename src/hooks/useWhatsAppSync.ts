@@ -111,6 +111,7 @@ export const useWhatsAppSync = ({
     const interval = setInterval(() => {
       console.log('🔄 WhatsApp Sync: Fallback polling tick');
       onConversationUpdateRef.current?.();
+      onMessageUpdateRef.current?.("");
     }, 30000);
 
     return () => clearInterval(interval);
