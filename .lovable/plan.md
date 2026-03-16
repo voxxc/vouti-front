@@ -1,36 +1,36 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: "Sincronizar Todos" reseta a página
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Causa raiz
 
-### Implementação
+O `refreshSession()` dentro da mutation de sync dispara o `onAuthStateChange` no `useSuperAdmin.ts`. Esse callback chama `loadData()`, que faz `setLoading(true)`. Como `SuperAdmin.tsx` (linha 111) renderiza um spinner quando `loading === true`, o componente `SuperAdminMonitoramento` é **desmontado**, matando a mutation em andamento.
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+Quando o loading volta a `false`, o componente remonta do zero — por isso o segundo request volta com `offset: 0`.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+## Solução
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+No `useSuperAdmin.ts`, na função `loadData()`, **não** setar `loading = true` se os dados já foram carregados (ou seja, se já temos `systemTypes` ou `tenants`). Isso faz o reload ser silencioso, sem desmontar a página.
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+**Arquivo:** `src/hooks/useSuperAdmin.ts` — linhas 109-112
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+```
+ANTES:
+const loadData = useCallback(async () => {
+  setLoading(true);
+  await Promise.all([fetchSystemTypes(), fetchTenants()]);
+  setLoading(false);
+}, ...);
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+DEPOIS:
+const loadData = useCallback(async () => {
+  // Só mostra loading na primeira carga — reloads silenciosos
+  const isFirstLoad = systemTypes.length === 0 && tenants.length === 0;
+  if (isFirstLoad) setLoading(true);
+  await Promise.all([fetchSystemTypes(), fetchTenants()]);
+  setLoading(false);
+}, ...);
+```
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
-
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Mudança de 2 linhas. Resolve tanto o bug do sync quanto qualquer futuro reload silencioso.
 
