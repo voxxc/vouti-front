@@ -129,16 +129,16 @@ const PlanCarouselMobile = ({ plans, scrollToDemo }: { plans: PlanType[]; scroll
 
   return (
     <div>
-      <div className="flex gap-2 justify-center mb-4 flex-wrap">
+      <div className="flex gap-2 justify-center mb-5 flex-wrap px-2">
         {plans.map((plan, i) => (
           <button
             key={i}
             onClick={() => api?.scrollTo(i)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm",
+              "px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 border",
               i === current
-                ? "bg-foreground text-background shadow-md scale-105"
-                : "bg-muted text-muted-foreground"
+                ? "bg-foreground text-background shadow-[0_2px_8px_rgba(0,0,0,0.18)] scale-[1.06] border-foreground"
+                : "bg-background text-muted-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)] border-border hover:shadow-[0_2px_6px_rgba(0,0,0,0.12)]"
             )}
           >
             {plan.name}
