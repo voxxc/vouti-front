@@ -1,34 +1,36 @@
 
 
-# Corrigir vinculação incorreta de Processo Judicial em prazos
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-Quando um prazo é criado a partir de um Protocolo/Etapa (via `CreateDeadlineDialog`), o código faz:
+### Implementação
 
-```typescript
-processo_oab_id: protocolo.processo_oab_id || (window as any).__currentProcessoOabId || null
-```
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-O `__currentProcessoOabId` é um estado global de janela definido quando o drawer de detalhes de um Caso (OAB) está aberto. Se o protocolo não tem processo vinculado, mas o usuário navegou anteriormente por um Caso, o prazo herda esse processo **incorretamente**.
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-No caso reportado, o prazo "BONI GLASS - REVISIONAL SANTANDER" foi criado pela etapa PERÍCIA de um protocolo que **não tem** processo vinculado, mas herdou o processo `5000425-55.2026.4.04.9999` via `__currentProcessoOabId`.
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-## Solução
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-### 1. Corrigir o dado no banco (fix imediato)
-- Remover o `processo_oab_id` do prazo `2d6520cc-06a8-431c-be31-45367aa186a3` que foi vinculado incorretamente.
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### 2. Corrigir `CreateDeadlineDialog.tsx` (prevenção)
-- Remover o fallback `(window as any).__currentProcessoOabId` da criação de prazos via protocolo. Se o protocolo não tem processo vinculado, o prazo não deve ter processo.
-- O `__currentProcessoOabId` só faz sentido quando a criação é feita **diretamente** dentro do drawer de um Caso (aba Prazos do Caso), não via protocolo.
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-### 3. Ajustar a lógica de exibição no detalhe
-- No `DeadlineDetailDialog.tsx` e `AgendaContent.tsx`, quando um prazo tem `protocolo_etapa_id` E `processo_oab_id`, mas o protocolo **não** tem esse processo vinculado, não exibir a seção "Processo Judicial" — pois o vínculo é espúrio.
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-### Arquivos
-- `src/components/Project/CreateDeadlineDialog.tsx` — remover fallback `__currentProcessoOabId`
-- `src/components/Agenda/DeadlineDetailDialog.tsx` — filtrar processos espúrios
-- `src/components/Agenda/AgendaContent.tsx` — mesma filtragem
-- Fix de dados via SQL: limpar o `processo_oab_id` do prazo afetado
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 
