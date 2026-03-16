@@ -1,0 +1,1 @@
+UPDATE public.planos_config SET limite_usuarios = 5 WHERE codigo = 'essencial';

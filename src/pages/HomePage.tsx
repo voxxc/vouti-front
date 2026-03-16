@@ -219,7 +219,7 @@ const HomePage = () => {
       price: 200, 
       originalPrice: 250,
       processes: 100, 
-      usersLabel: '3 usuários',
+      usersLabel: '5 usuários',
       oabLabel: 'Até 2 OABs cadastradas',
       popular: false,
       unlimitedProcesses: false,
