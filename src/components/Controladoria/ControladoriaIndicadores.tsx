@@ -107,7 +107,7 @@ export const ControladoriaIndicadores = () => {
             </div>
             <Progress
               value={(item.count / maxCount) * 100}
-              className="h-2"
+              className="h-1.5"
             />
           </div>
         ))}
