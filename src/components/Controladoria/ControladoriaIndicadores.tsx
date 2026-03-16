@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
+import { extrairTribunalDoNumeroProcesso } from "@/utils/processoHelpers";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,7 +26,7 @@ export const ControladoriaIndicadores = () => {
       setLoading(true);
       const { data: processos, error } = await supabase
         .from("processos_oab")
-        .select("tribunal_sigla")
+        .select("tribunal_sigla, numero_cnj")
         .eq("tenant_id", tenantId);
 
       if (error) {
@@ -36,7 +37,7 @@ export const ControladoriaIndicadores = () => {
 
       const map = new Map<string, number>();
       (processos || []).forEach((p) => {
-        const sigla = p.tribunal_sigla || "Desconhecido";
+        const sigla = p.tribunal_sigla || (p.numero_cnj ? extrairTribunalDoNumeroProcesso(p.numero_cnj) : "Desconhecido");
         map.set(sigla, (map.get(sigla) || 0) + 1);
       });
 
