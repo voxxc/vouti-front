@@ -516,7 +516,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                   )}
                   {tarefa.dataExecucao && (
                     <span className="text-xs text-muted-foreground/70">
-                      {format(new Date(tarefa.dataExecucao), "dd 'de' MMM", { locale: ptBR })}
+                      {format(parseLocalDate(tarefa.dataExecucao), "dd 'de' MMM", { locale: ptBR })}
                     </span>
                   )}
                 </div>

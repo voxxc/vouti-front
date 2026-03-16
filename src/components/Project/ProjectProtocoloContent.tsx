@@ -53,7 +53,7 @@ import {
   Scale,
   ExternalLink
 } from 'lucide-react';
-import { isPast, isToday } from 'date-fns';
+
 import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
