@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

@@ -11,6 +11,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { format, differenceInDays, isPast, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 interface PrazosAbertosPanelProps {
   userId: string;
