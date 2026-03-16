@@ -17,7 +17,7 @@ interface CreateTenantDialogProps {
 
 const PLANOS_INFO: Record<PlanoCodigo, { nome: string; oabs: string; usuarios: string; processos: string; monitorados: string }> = {
   solo: { nome: 'Solo', oabs: '1', usuarios: '1', processos: '30', monitorados: '30' },
-  essencial: { nome: 'Essencial', oabs: '3', usuarios: '3', processos: '100', monitorados: '100' },
+  essencial: { nome: 'Essencial', oabs: '3', usuarios: '5', processos: '100', monitorados: '100' },
   estrutura: { nome: 'Estrutura', oabs: '10', usuarios: '10', processos: 'Ilimitado', monitorados: '200' },
   expansao: { nome: 'Expansão', oabs: 'Personalizado', usuarios: 'Ilimitado', processos: 'Ilimitado', monitorados: '400' },
   enterprise: { nome: 'Enterprise', oabs: 'Personalizado', usuarios: 'Ilimitado', processos: 'Ilimitado', monitorados: '800' },
