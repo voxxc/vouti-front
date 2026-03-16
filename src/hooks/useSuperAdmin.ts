@@ -107,10 +107,11 @@ export function useSuperAdmin() {
   }, []);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    const isFirstLoad = systemTypes.length === 0 && tenants.length === 0;
+    if (isFirstLoad) setLoading(true);
     await Promise.all([fetchSystemTypes(), fetchTenants()]);
     setLoading(false);
-  }, [fetchSystemTypes, fetchTenants]);
+  }, [fetchSystemTypes, fetchTenants, systemTypes.length, tenants.length]);
 
   const createTenant = async (formData: TenantFormData) => {
     try {
