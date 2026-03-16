@@ -200,7 +200,7 @@ function OriginTabs({
 export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaContentProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
-  const { navigate } = useTenantNavigation();
+  const { navigate, tenantSlug } = useTenantNavigation();
   const { toast } = useToast();
 
   // ===== Estados principais =====
