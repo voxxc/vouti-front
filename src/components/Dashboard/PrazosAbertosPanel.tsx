@@ -422,7 +422,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
                     {prazo.clientName}
                   </p>
                   <span className="text-xs text-muted-foreground/70">
-                    {format(new Date(prazo.date), "dd 'de' MMM", { locale: ptBR })}
+                    {format(parseLocalDate(prazo.date), "dd 'de' MMM", { locale: ptBR })}
                   </span>
                 </div>
               </div>
