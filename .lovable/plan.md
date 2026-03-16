@@ -1,49 +1,36 @@
 
 
-# Remover polling desnecessário: useReunioes + Dashboard Metrics
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## 1. `useReunioes.ts` — Polling 4s → Supabase Realtime
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-**Problema:** `setInterval` de 4 segundos fazendo ~900 queries/hora por usuário.
+### Implementação
 
-**Solução:** Substituir o `setInterval` por uma subscription Realtime na tabela `reunioes`. Ao receber qualquer evento (INSERT, UPDATE, DELETE), chamar `fetchReunioes(true)` (silent refetch).
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-```text
-ANTES:
-useEffect → fetchReunioes() + setInterval(4s) → fetchReunioes(true)
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-DEPOIS:
-useEffect → fetchReunioes()
-useEffect → supabase.channel('reunioes-hook')
-              .on('postgres_changes', { event: '*', table: 'reunioes' })
-              → fetchReunioes(true)
-```
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-O canal será limpo no cleanup do `useEffect`. A subscription já existe como padrão no projeto (ex: `useReunioesDoMes.ts` usa exatamente esse pattern).
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-**Arquivo:** `src/hooks/useReunioes.ts` — linhas 173-179: remover `setInterval`, adicionar novo `useEffect` com subscription Realtime.
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
----
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-## 2. Dashboard Metrics — Remover `refetchInterval`
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-**Problema:** 4 componentes com `refetchInterval: 5 * 60 * 1000` geram queries desnecessárias mesmo quando o usuário não está interagindo.
-
-**Solução:** Remover a linha `refetchInterval` de cada um. O React Query já faz `refetchOnWindowFocus: true` por padrão, então os dados atualizam automaticamente quando o usuário volta à aba.
-
-**Arquivos e linhas a alterar:**
-- `src/components/Dashboard/Metrics/AdminMetrics.tsx` — linha 87: remover `refetchInterval`
-- `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` — linha 56: remover `refetchInterval`
-- `src/components/Dashboard/Metrics/ComercialMetrics.tsx` — linha 57: remover `refetchInterval`
-- `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx` — linha 171: remover `refetchInterval`
-
----
-
-## Impacto estimado
-
-| Hook/Componente | Antes | Depois |
-|---|---|---|
-| `useReunioes` | ~900 queries/hora | Apenas sob demanda (eventos Realtime) |
-| 4x Dashboard Metrics | ~48 queries/hora | 0 (só no focus da aba) |
-| **Total** | **~950 queries/hora/usuário** | **~0 em idle** |
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

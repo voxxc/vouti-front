@@ -172,10 +172,24 @@ export const useReunioes = (selectedDate?: Date) => {
 
   useEffect(() => {
     fetchReunioes();
-    const intervalId = setInterval(() => {
-      fetchReunioes(true);
-    }, 4000);
-    return () => clearInterval(intervalId);
+  }, [selectedDate]);
+
+  // Realtime subscription para atualizar quando reuniões mudam
+  useEffect(() => {
+    const channel = supabase
+      .channel('reunioes-hook')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reunioes' },
+        () => {
+          fetchReunioes(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedDate]);
 
   return {
