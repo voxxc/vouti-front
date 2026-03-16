@@ -470,7 +470,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           processoOabId: deadline.processo_oab_id || undefined,
           createdAt: safeParseTimestamp(deadline.created_at),
           updatedAt: safeParseTimestamp(deadline.updated_at),
-          processoOrigem: deadline.processo_oab ? {
+          // Only show processoOrigem if genuinely linked (not leaked from __currentProcessoOabId)
+          processoOrigem: deadline.processo_oab && (!deadline.protocolo_etapa_id || protocoloProcessoOabId === deadline.processo_oab_id) ? {
             id: deadline.processo_oab.id,
             numeroCnj: deadline.processo_oab.numero_cnj,
             parteAtiva: deadline.processo_oab.parte_ativa,
