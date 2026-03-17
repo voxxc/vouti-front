@@ -318,11 +318,25 @@ const DashboardLayout = ({
               )}
               
               {user && (
-                <NotificationCenter 
-                  userId={user.id} 
-                  onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
-                  onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria`))}
-                />
+                <>
+                  <NotificationCenter 
+                    userId={user.id} 
+                    onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
+                    onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria`))}
+                    onDeadlineNavigation={(deadlineId) => {
+                      setDeadlineDetailId(deadlineId);
+                      setDeadlineDetailOpen(true);
+                    }}
+                  />
+                  <DeadlineDetailDialog
+                    deadlineId={deadlineDetailId || null}
+                    open={deadlineDetailOpen}
+                    onOpenChange={(open) => {
+                      setDeadlineDetailOpen(open);
+                      if (!open) setDeadlineDetailId(undefined);
+                    }}
+                  />
+                </>
               )}
 
               <ThemeToggle />
