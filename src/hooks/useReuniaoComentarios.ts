@@ -78,6 +78,7 @@ export const useReuniaoComentarios = (reuniaoId: string) => {
           commentId: insertedComment.id,
           mentionedUserIds,
           contextTitle,
+          relatedEntityId: reuniaoId,
         });
       }
       
