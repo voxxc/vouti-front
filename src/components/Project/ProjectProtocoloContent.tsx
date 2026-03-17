@@ -145,6 +145,19 @@ export function ProjectProtocoloContent({
     protocolo?.processoOabId
   );
 
+  // Auto-open etapa from URL query param (deep navigation from notifications)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (!etapaParam || !protocolo?.etapas?.length) return;
+    const etapa = protocolo.etapas.find(e => e.id === etapaParam);
+    if (etapa) {
+      setSelectedEtapa(etapa);
+      searchParams.delete('etapa');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, protocolo?.etapas]);
+
   const fetchPrazosVinculados = useCallback(async () => {
     if (!protocolo?.etapas?.length) return;
     
