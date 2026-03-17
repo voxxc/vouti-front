@@ -79,6 +79,7 @@ const SpnSidebar = ({ activeView, onViewChange }: SpnSidebarProps) => {
 
   const navItems = [
     { key: 'dashboard' as SpnView, label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'books' as SpnView, label: 'Books', icon: BookOpen },
     { key: 'progress' as SpnView, label: 'My Progress', icon: TrendingUp },
     { key: 'leaderboard' as SpnView, label: 'Leaderboard', icon: Trophy },
     { key: 'achievements' as SpnView, label: 'Achievements', icon: Award },
