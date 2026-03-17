@@ -37,17 +37,55 @@ export interface EtapaHistoryEntry {
   createdAt: Date;
 }
 
+export interface EtapaContextInfo {
+  protocoloNome: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  workspaceId: string | null;
+  workspaceName: string | null;
+  etapaNome: string | null;
+}
+
 export function useEtapaData(etapaId: string | null) {
   const [comments, setComments] = useState<EtapaComment[]>([]);
   const [files, setFiles] = useState<EtapaFile[]>([]);
   const [history, setHistory] = useState<EtapaHistoryEntry[]>([]);
+  const [etapaContext, setEtapaContext] = useState<EtapaContextInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const fetchContext = useCallback(async (): Promise<EtapaContextInfo | null> => {
+    if (!etapaId) return null;
+    try {
+      const { data } = await supabase
+        .from('project_protocolo_etapas')
+        .select('nome, protocolo_id, project_protocolos!inner(id, nome, project_id, workspace_id, projects!inner(name), project_workspaces(nome))')
+        .eq('id', etapaId)
+        .single();
+
+      if (!data) return null;
+      const pp = (data as any).project_protocolos;
+      const ctx: EtapaContextInfo = {
+        etapaNome: data.nome,
+        protocoloNome: pp?.nome || null,
+        projectId: pp?.project_id || null,
+        projectName: pp?.projects?.name || null,
+        workspaceId: pp?.workspace_id || null,
+        workspaceName: pp?.project_workspaces?.nome || null,
+      };
+      setEtapaContext(ctx);
+      return ctx;
+    } catch (error) {
+      console.error('Error fetching etapa context:', error);
+      return null;
+    }
+  }, [etapaId]);
 
   const fetchData = useCallback(async () => {
     if (!etapaId) return;
 
     setLoading(true);
+    fetchContext();
     try {
       // Fetch comments (including parent_comment_id)
       const { data: commentsData, error: commentsError } = await supabase
@@ -147,7 +185,7 @@ export function useEtapaData(etapaId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [etapaId, toast]);
+  }, [etapaId, toast, fetchContext]);
 
   const addComment = async (text: string, parentCommentId?: string, mentionedUserIds?: string[]) => {
     if (!etapaId || !text.trim()) return;
@@ -241,16 +279,18 @@ export function useEtapaData(etapaId: string | null) {
 
         await supabase.from('project_etapa_comment_mentions').insert(mentionInserts);
 
-        // Fetch project context for notification navigation
-        let relatedProjectId: string | null = null;
-        if (etapaId) {
-          const { data: etapaContext } = await supabase
-            .from('project_protocolo_etapas')
-            .select('protocolo_id, project_protocolos!inner(project_id)')
-            .eq('id', etapaId)
-            .single();
-          relatedProjectId = (etapaContext as any)?.project_protocolos?.project_id || null;
-        }
+        // Fetch full etapa context for enriched notifications
+        const ctx = await fetchContext();
+        const relatedProjectId = ctx?.projectId || null;
+
+        // Build enriched notification content
+        const parts: string[] = [];
+        parts.push(`${profile?.full_name || 'Alguém'} mencionou você na etapa`);
+        if (ctx?.etapaNome) parts[0] += ` "${ctx.etapaNome}"`;
+        if (ctx?.protocoloNome) parts.push(`Protocolo: ${ctx.protocoloNome}`);
+        if (ctx?.projectName) parts.push(`Projeto: ${ctx.projectName}`);
+        if (ctx?.workspaceName) parts.push(`Workspace: ${ctx.workspaceName}`);
+        const enrichedContent = parts.join(' • ');
 
         // Send notifications to mentioned users
         for (const mentionedUserId of mentionedUserIds) {
@@ -260,7 +300,7 @@ export function useEtapaData(etapaId: string | null) {
               triggered_by_user_id: user.id,
               type: 'comment_mention',
               title: 'Mencionado em etapa',
-              content: `${profile?.full_name || 'Alguém'} mencionou você em um comentário de etapa.`,
+              content: enrichedContent,
               tenant_id: profile?.tenant_id,
               related_project_id: relatedProjectId,
               related_task_id: etapaId
@@ -546,6 +586,7 @@ export function useEtapaData(etapaId: string | null) {
     comments,
     files,
     history,
+    etapaContext,
     loading,
     fetchData,
     addComment,

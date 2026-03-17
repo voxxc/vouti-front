@@ -1,72 +1,36 @@
 
 
-# Enriquecer Notificações de Etapa + Aba "Informações" na Etapa
+## Gerenciar Carteiras TOTP por Usuário (via Usuários)
 
-## Problema Atual
+### Objetivo
+Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
 
-1. **Notificação genérica**: A notificação de menção em etapa diz apenas "mencionou você em um comentário de etapa" — sem dizer **qual etapa**, **qual protocolo**, **qual workspace** ou **qual projeto**.
-2. **Falta contexto na Etapa**: Ao abrir uma etapa, não há nenhuma seção mostrando a qual projeto, workspace e protocolo ela pertence.
-3. **Navegação incompleta**: Ao clicar na notificação, o sistema navega para o projeto com `?etapa=UUID`, mas se o workspace errado estiver ativo, a etapa não é encontrada.
+### Implementação
 
-## Solução
+**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
 
-### 1. Enriquecer o conteúdo da notificação de etapa
+1. Ao abrir o dialog de edição de um usuário, buscar:
+   - Todas as `totp_wallets` do tenant (para listar as opções)
+   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
 
-No `useEtapaData.ts`, ao criar a notificação, buscar o contexto completo (nome da etapa, protocolo, projeto, workspace) e incluir no `content`:
+2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
 
-```
-"João mencionou você na etapa 'Petição Inicial' do protocolo 'Recurso Ordinário' 
-(Projeto: Silva vs. Banco / Workspace: Trabalhista)"
-```
+3. Ao marcar/desmarcar um checkbox:
+   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
+   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
 
-Isso torna a notificação auto-explicativa mesmo sem abrir.
+4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
 
-### 2. Adicionar aba "Informações" no EtapaModal
+5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
 
-No `EtapaModal.tsx`, adicionar uma nova aba `informacoes` entre as tabs existentes. Essa aba exibirá:
-- **Projeto**: Nome do projeto (buscado via `project_protocolos → projects`)
-- **Workspace**: Nome do workspace (buscado via `project_protocolos → project_workspaces`)
-- **Protocolo**: Nome do protocolo (buscado via `project_protocolo_etapas → project_protocolos`)
-- **Responsável**: Se houver
-- **Data de criação**
+### Dados já existentes
+- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
+- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
+- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
+- Nenhuma migração de banco necessária
 
-A busca desses dados será feita no `useEtapaData.ts` com uma query join ao carregar a etapa.
-
-### 3. Melhorar a navegação por notificação
-
-Incluir o `workspace_id` na URL de navegação: `?etapa=UUID&workspace=UUID`. No `ProjectProtocolosList`, ao receber o param `workspace`, trocar automaticamente para o workspace correto antes de abrir a etapa.
-
-## Arquivos a Modificar
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEtapaData.ts` | Buscar contexto completo (projeto, workspace, protocolo) ao criar notificação; expor dados de contexto da etapa |
-| `src/components/Project/EtapaModal.tsx` | Adicionar aba "Informações" com projeto, workspace, protocolo |
-| `src/components/Communication/NotificationCenter.tsx` | Passar workspace na URL ao navegar para etapa |
-| `src/components/Project/ProjectProtocolosList.tsx` | Ler param `workspace` da URL e trocar workspace ativo |
-
-### Detalhes Técnicos
-
-**Query de contexto** (nova no `useEtapaData`):
-```sql
-SELECT e.*, 
-  pp.nome as protocolo_nome, pp.project_id, pp.workspace_id,
-  p.name as project_name,
-  pw.nome as workspace_name
-FROM project_protocolo_etapas e
-JOIN project_protocolos pp ON pp.id = e.protocolo_id
-JOIN projects p ON p.id = pp.project_id
-LEFT JOIN project_workspaces pw ON pw.id = pp.workspace_id
-WHERE e.id = :etapaId
-```
-
-**Notificação enriquecida** (no `useEtapaData.addComment`):
-```typescript
-content: `${authorName} mencionou você na etapa "${etapaContext.nome}" do protocolo "${etapaContext.protocolo_nome}" (${etapaContext.project_name}).`
-```
-
-**URL de navegação** (no `NotificationCenter`):
-```
-/${projectId}?etapa=${etapaId}&workspace=${workspaceId}
-```
+### Isolamento multi-tenant
+- Query de carteiras filtra por `tenant_id`
+- Query de viewers filtra por `tenant_id` e `user_id`
+- Insert inclui `tenant_id` do admin logado
 

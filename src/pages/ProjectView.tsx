@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,30 @@ const ProjectView = ({
       setIsAdmin(false);
     }
   }, [currentUser?.role]);
+
+  // Auto-switch workspace from notification deep-link (?etapa=UUID)
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (!etapaParam || workspacesLoading || !workspaces.length) return;
+
+    // Look up the etapa's workspace from the DB to auto-switch
+    const lookupWorkspace = async () => {
+      const { data } = await supabase
+        .from('project_protocolo_etapas')
+        .select('protocolo_id, project_protocolos!inner(workspace_id)')
+        .eq('id', etapaParam)
+        .single();
+
+      const wsId = (data as any)?.project_protocolos?.workspace_id;
+      if (wsId && wsId !== activeWorkspaceId) {
+        setActiveWorkspaceId(wsId);
+      }
+      // Ensure we're on the protocolos tab
+      setActiveTab('protocolos');
+    };
+    lookupWorkspace();
+  }, [searchParams, workspacesLoading, workspaces]);
 
   // Load columns from database when workspace changes
   useEffect(() => {
