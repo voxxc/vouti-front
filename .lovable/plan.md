@@ -1,36 +1,76 @@
 
 
-## Gerenciar Carteiras TOTP por Usuário (via Usuários)
+# Fix: Comment Mentions Notifications + Deep-Linking for All Sections
 
-### Objetivo
-Adicionar uma seção "Carteiras 2FA" no dialog de edição de usuário (`UserManagementDrawer`), onde o admin pode marcar/desmarcar checkboxes para liberar quais carteiras TOTP o usuário pode ver. Salva instantaneamente na tabela `totp_wallet_viewers`.
+## Problem
 
-### Implementação
+Mentions ARE being saved to `comment_mentions` and notifications ARE being created — but every `comment_mention` notification has `related_project_id: NULL` and `related_task_id: NULL`. This means clicking a notification does nothing. The `useCommentMentions` hook creates generic notifications without any reference to the source entity (deadline, processo, reunião, parcela, task).
 
-**Arquivo: `src/components/Admin/UserManagementDrawer.tsx`**
+Additionally, `NotificationCenter` only handles deep-linking for etapa mentions and deadline assignments — it has no logic to open a deadline detail, processo detail, etc. from a comment mention.
 
-1. Ao abrir o dialog de edição de um usuário, buscar:
-   - Todas as `totp_wallets` do tenant (para listar as opções)
-   - Os `totp_wallet_viewers` existentes para aquele `user_id` (para marcar os checkboxes)
+## Fix
 
-2. Adicionar uma seção "Carteiras 2FA" abaixo das Permissões Adicionais no form de edição, com checkboxes para cada carteira do tenant.
+### 1. Update `useCommentMentions` to accept and store entity context
 
-3. Ao marcar/desmarcar um checkbox:
-   - **Marcar**: `INSERT` em `totp_wallet_viewers` com `wallet_id`, `user_id`, `tenant_id`, `granted_by`
-   - **Desmarcar**: `DELETE` de `totp_wallet_viewers` onde `wallet_id` e `user_id` correspondem
+Add optional params `relatedEntityId` and `relatedProjectId` to `SaveMentionsParams`. The notification will store:
+- `related_task_id` = the entity ID (deadline_id, processo_id, reuniao_id, parcela_id, task_id, etapa_id)
+- `related_project_id` = project ID if available
+- Append `commentType` to the notification content so the click handler knows what to open
 
-4. A ação é instantânea (não depende do botão "Salvar Alterações") — toggle individual por carteira.
+### 2. Update all comment hooks to pass entity ID
 
-5. Não exibir esta seção se o usuário sendo editado for `admin` ou `controller` (eles já veem tudo).
+Each hook already has the entity ID in scope. Pass it through to `saveMentions`:
+- `useDeadlineComentarios` → `relatedEntityId: deadlineId`
+- `useProcessoComentarios` → `relatedEntityId: processoId`
+- `useReuniaoComentarios` → `relatedEntityId: reuniaoId`
+- `useTaskComentarios` → `relatedEntityId: taskId`
+- `useParcelaComentarios` → `relatedEntityId: parcelaId`
 
-### Dados já existentes
-- Tabela `totp_wallet_viewers` já existe com campos: `id`, `wallet_id`, `user_id`, `tenant_id`, `granted_by`, `granted_at`
-- Tabela `totp_wallets` já existe com `id`, `name`, `tenant_id`
-- Hook `useTOTPData` já filtra carteiras por viewers para usuários não-admin
-- Nenhuma migração de banco necessária
+### 3. Store comment type in notification metadata
 
-### Isolamento multi-tenant
-- Query de carteiras filtra por `tenant_id`
-- Query de viewers filtra por `tenant_id` e `user_id`
-- Insert inclui `tenant_id` do admin logado
+Use a convention in the notification: store the `commentType` as a JSON field or encode it in the content. Since the `notifications` table doesn't have a metadata column, we'll encode the type in `related_task_id` usage and differentiate by notification content pattern, OR better: we can use the notification `type` field more granularly.
+
+Actually, looking at the constraint, only `comment_mention` is allowed. So we'll encode the comment source type by adding a small `// deadline:UUID` marker in the notification content, or more cleanly: store `related_task_id = entityId` and add a prefix to the title like "Mencionado em prazo" / "Mencionado em processo" etc. The `NotificationCenter` can then match on title/content keywords to decide what to open.
+
+**Better approach**: Store `related_task_id = entityId` and differentiate by notification title:
+- "Mencionado em prazo" → open DeadlineDetailDialog
+- "Mencionado em processo" → navigate to controladoria with processo
+- "Mencionado em reunião" → open reunião
+- "Mencionado em tarefa" → navigate to project
+- "Mencionado em etapa" → navigate to project with etapa param
+
+### 4. Update `NotificationCenter.handleNotificationClick`
+
+For `comment_mention` notifications, check the content/title to determine the source type:
+- If title contains "prazo" → call `onDeadlineNavigation(related_task_id)`
+- If title contains "etapa" → navigate to project with `?etapa=related_task_id`
+- If title contains "processo" → call `onProcessoNavigation(related_task_id)`
+- Default: navigate to project if `related_project_id` exists
+
+### 5. Update `useCommentMentions` notification insert
+
+The core change — add `related_task_id` and use descriptive title per comment type:
+
+```typescript
+const typeTitles: Record<CommentType, string> = {
+  deadline: 'Mencionado em prazo',
+  reuniao: 'Mencionado em reunião', 
+  reuniao_cliente: 'Mencionado em reunião',
+  parcela: 'Mencionado em parcela',
+  task: 'Mencionado em tarefa',
+  processo: 'Mencionado em processo',
+};
+```
+
+## Files
+
+| File | Action |
+|------|--------|
+| `src/hooks/useCommentMentions.ts` | Add `relatedEntityId` param, store in notification `related_task_id`, use type-specific titles |
+| `src/hooks/useDeadlineComentarios.ts` | Pass `deadlineId` as `relatedEntityId` |
+| `src/hooks/useProcessoComentarios.ts` | Pass `processoId` as `relatedEntityId` |
+| `src/hooks/useReuniaoComentarios.ts` | Pass `reuniaoId` as `relatedEntityId` |
+| `src/hooks/useTaskComentarios.ts` | Pass `taskId` as `relatedEntityId` |
+| `src/hooks/useClienteParcelas.ts` | Pass `parcelaId` as `relatedEntityId` |
+| `src/components/Communication/NotificationCenter.tsx` | Route `comment_mention` clicks by title keyword to appropriate handler |
 
