@@ -67,6 +67,8 @@ const DashboardLayout = ({
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
+  const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
   
   // Estado central para o drawer ativo - persistido em sessionStorage
   const [activeDrawer, setActiveDrawerState] = useState<ActiveDrawer>(() => {
