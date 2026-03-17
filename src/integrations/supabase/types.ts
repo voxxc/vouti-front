@@ -6188,6 +6188,65 @@ export type Database = {
         }
         Relationships: []
       }
+      spn_book_units: {
+        Row: {
+          book_id: string
+          created_at: string | null
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          book_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          book_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_book_units_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "spn_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_books: {
+        Row: {
+          cover_color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          cover_color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          cover_color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       spn_comments: {
         Row: {
           content: string
@@ -6633,6 +6692,41 @@ export type Database = {
           },
         ]
       }
+      spn_straight_to_point: {
+        Row: {
+          content_html: string | null
+          created_at: string | null
+          id: string
+          sort_order: number | null
+          title: string
+          unit_id: string
+        }
+        Insert: {
+          content_html?: string | null
+          created_at?: string | null
+          id?: string
+          sort_order?: number | null
+          title: string
+          unit_id: string
+        }
+        Update: {
+          content_html?: string | null
+          created_at?: string | null
+          id?: string
+          sort_order?: number | null
+          title?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_straight_to_point_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_book_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spn_streaks: {
         Row: {
           current_streak: number | null
@@ -6808,6 +6902,76 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      spn_word_bank_items: {
+        Row: {
+          audio_url: string | null
+          created_at: string | null
+          id: string
+          phonetic: string | null
+          sort_order: number | null
+          unit_id: string
+          word: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string | null
+          id?: string
+          phonetic?: string | null
+          sort_order?: number | null
+          unit_id: string
+          word: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string | null
+          id?: string
+          phonetic?: string | null
+          sort_order?: number | null
+          unit_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_word_bank_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_book_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_word_translations: {
+        Row: {
+          created_at: string | null
+          id: string
+          translation: string
+          user_id: string
+          word_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          translation: string
+          user_id: string
+          word_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          translation?: string
+          user_id?: string
+          word_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_word_translations_word_id_fkey"
+            columns: ["word_id"]
+            isOneToOne: false
+            referencedRelation: "spn_word_bank_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       super_admins: {
         Row: {
