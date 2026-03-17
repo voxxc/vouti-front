@@ -37,10 +37,20 @@ export interface EtapaHistoryEntry {
   createdAt: Date;
 }
 
+export interface EtapaContextInfo {
+  protocoloNome: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  workspaceId: string | null;
+  workspaceName: string | null;
+  etapaNome: string | null;
+}
+
 export function useEtapaData(etapaId: string | null) {
   const [comments, setComments] = useState<EtapaComment[]>([]);
   const [files, setFiles] = useState<EtapaFile[]>([]);
   const [history, setHistory] = useState<EtapaHistoryEntry[]>([]);
+  const [etapaContext, setEtapaContext] = useState<EtapaContextInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
