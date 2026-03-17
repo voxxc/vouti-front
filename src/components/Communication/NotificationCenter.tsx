@@ -23,7 +23,8 @@ interface NotificationCenterProps {
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
   userId,
   onProjectNavigation,
-  onProcessoNavigation
+  onProcessoNavigation,
+  onDeadlineNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
   const [shouldPing, setShouldPing] = useState(false);
