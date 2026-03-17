@@ -118,11 +118,7 @@ export function MentionInput({
 
     // Extract all mentions and notify parent
     if (onMentionsChange) {
-      const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
-      const mentionedNames = [...newValue.matchAll(mentionRegex)].map(m => m[1].trim());
-      const mentionedUserIds = participants
-        .filter(p => mentionedNames.includes(p.fullName))
-        .map(p => p.userId);
+      const mentionedUserIds = extractMentionsByParticipants(newValue, participants);
       onMentionsChange(mentionedUserIds);
     }
 
@@ -192,11 +188,14 @@ export function MentionInput({
   );
 }
 
-// Helper function to extract mentioned user IDs from text
-export function extractMentions(text: string, participants: Participant[]): string[] {
-  const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
-  const mentionedNames = [...text.matchAll(mentionRegex)].map(m => m[1].trim());
+// Helper function to extract mentioned user IDs from text by matching participant names
+function extractMentionsByParticipants(text: string, participants: Participant[]): string[] {
   return participants
-    .filter(p => mentionedNames.includes(p.fullName))
+    .filter(p => text.includes(`@${p.fullName}`))
     .map(p => p.userId);
+}
+
+// Public helper (kept for backward compat)
+export function extractMentions(text: string, participants: Participant[]): string[] {
+  return extractMentionsByParticipants(text, participants);
 }

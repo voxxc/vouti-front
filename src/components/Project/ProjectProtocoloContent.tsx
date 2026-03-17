@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, isPast, isToday } from 'date-fns';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
@@ -143,6 +144,19 @@ export function ProjectProtocoloContent({
     protocolo?.id || null, 
     protocolo?.processoOabId
   );
+
+  // Auto-open etapa from URL query param (deep navigation from notifications)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (!etapaParam || !protocolo?.etapas?.length) return;
+    const etapa = protocolo.etapas.find(e => e.id === etapaParam);
+    if (etapa) {
+      setSelectedEtapa(etapa);
+      searchParams.delete('etapa');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, protocolo?.etapas]);
 
   const fetchPrazosVinculados = useCallback(async () => {
     if (!protocolo?.etapas?.length) return;
