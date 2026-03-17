@@ -10,7 +10,7 @@ import LogoSpn from './LogoSpn';
 export type SpnView =
   | 'dashboard' | 'progress' | 'modules' | 'leaderboard'
   | 'achievements' | 'settings' | 'admin-levels' | 'admin-users'
-  | 'teacher-students' | 'section';
+  | 'teacher-students' | 'section' | 'books' | 'book-unit' | 'admin-books';
 
 interface SpnSidebarProps {
   activeView: SpnView;
