@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.admin-update-user-credentials]
 verify_jwt = false
+
+[functions.spn-create-user]
+verify_jwt = false
