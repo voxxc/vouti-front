@@ -118,11 +118,7 @@ export function MentionInput({
 
     // Extract all mentions and notify parent
     if (onMentionsChange) {
-      const mentionRegex = /@([^@\s][^@]*?)(?=\s|$|@)/g;
-      const mentionedNames = [...newValue.matchAll(mentionRegex)].map(m => m[1].trim());
-      const mentionedUserIds = participants
-        .filter(p => mentionedNames.includes(p.fullName))
-        .map(p => p.userId);
+      const mentionedUserIds = extractMentionsByParticipants(newValue, participants);
       onMentionsChange(mentionedUserIds);
     }
 
