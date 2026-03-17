@@ -40,7 +40,8 @@ import {
   CheckCircle2,
   Clock,
   Reply,
-  Calendar
+  Calendar,
+  Info
 } from 'lucide-react';
 import { ProjectProtocoloEtapa } from '@/hooks/useProjectProtocolos';
 import { useEtapaData, EtapaComment } from '@/hooks/useEtapaData';
