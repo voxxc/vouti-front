@@ -458,6 +458,10 @@ export function EtapaModal({
                 <History className="w-4 h-4" />
                 Histórico
               </TabsTrigger>
+              <TabsTrigger value="informacoes" className="gap-1.5">
+                <Info className="w-4 h-4" />
+                Info
+              </TabsTrigger>
             </TabsList>
 
             <ScrollArea className="flex-1 min-h-0 mt-4">
