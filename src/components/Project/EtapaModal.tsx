@@ -101,6 +101,7 @@ export function EtapaModal({
     comments,
     files,
     history,
+    etapaContext,
     loading,
     fetchData,
     addComment,
