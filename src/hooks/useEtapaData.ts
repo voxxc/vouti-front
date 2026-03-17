@@ -54,10 +54,38 @@ export function useEtapaData(etapaId: string | null) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const fetchContext = useCallback(async (): Promise<EtapaContextInfo | null> => {
+    if (!etapaId) return null;
+    try {
+      const { data } = await supabase
+        .from('project_protocolo_etapas')
+        .select('nome, protocolo_id, project_protocolos!inner(id, nome, project_id, workspace_id, projects!inner(name), project_workspaces(nome))')
+        .eq('id', etapaId)
+        .single();
+
+      if (!data) return null;
+      const pp = (data as any).project_protocolos;
+      const ctx: EtapaContextInfo = {
+        etapaNome: data.nome,
+        protocoloNome: pp?.nome || null,
+        projectId: pp?.project_id || null,
+        projectName: pp?.projects?.name || null,
+        workspaceId: pp?.workspace_id || null,
+        workspaceName: pp?.project_workspaces?.nome || null,
+      };
+      setEtapaContext(ctx);
+      return ctx;
+    } catch (error) {
+      console.error('Error fetching etapa context:', error);
+      return null;
+    }
+  }, [etapaId]);
+
   const fetchData = useCallback(async () => {
     if (!etapaId) return;
 
     setLoading(true);
+    fetchContext();
     try {
       // Fetch comments (including parent_comment_id)
       const { data: commentsData, error: commentsError } = await supabase
