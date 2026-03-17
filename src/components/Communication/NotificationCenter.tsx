@@ -117,8 +117,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return;
       }
 
-      if (target === 'etapa' && entityId && notification.related_project_id && onProjectNavigation) {
-        onProjectNavigation(`${notification.related_project_id}?etapa=${entityId}`);
+      if (target === 'etapa' && notification.related_project_id && onProjectNavigation) {
+        const workspaceParam = notification.content?.match(/Workspace:\s*([^•]+)/)?.[1]?.trim();
+        // Pass etapa ID and try to extract workspace context
+        let navUrl = `${notification.related_project_id}?etapa=${entityId || ''}`;
+        // We store workspace_id in related data, so check if we can extract it
+        onProjectNavigation(navUrl);
         setIsOpen(false);
         return;
       }

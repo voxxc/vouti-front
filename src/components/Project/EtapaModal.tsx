@@ -711,6 +711,58 @@ export function EtapaModal({
                   </div>
                 )}
               </TabsContent>
+
+              {/* Informações Tab */}
+              <TabsContent value="informacoes" className="m-0 space-y-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3">
+                    {etapaContext?.projectName && (
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <p className="text-xs text-muted-foreground uppercase font-medium">Projeto</p>
+                        <p className="text-sm font-medium mt-1">{etapaContext.projectName}</p>
+                      </div>
+                    )}
+                    {etapaContext?.workspaceName && (
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <p className="text-xs text-muted-foreground uppercase font-medium">Workspace</p>
+                        <p className="text-sm font-medium mt-1">{etapaContext.workspaceName}</p>
+                      </div>
+                    )}
+                    {etapaContext?.protocoloNome && (
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <p className="text-xs text-muted-foreground uppercase font-medium">Protocolo / Processo</p>
+                        <p className="text-sm font-medium mt-1">{etapaContext.protocoloNome}</p>
+                      </div>
+                    )}
+                    <div className="p-3 rounded-lg border bg-muted/30">
+                      <p className="text-xs text-muted-foreground uppercase font-medium">Status</p>
+                      <Badge className={`mt-1 ${STATUS_COLORS[etapa.status]}`}>
+                        {STATUS_LABELS[etapa.status]}
+                      </Badge>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-muted/30">
+                      <p className="text-xs text-muted-foreground uppercase font-medium">Criado em</p>
+                      <p className="text-sm font-medium mt-1">
+                        {format(etapa.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                    {etapa.dataConclusao && (
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <p className="text-xs text-muted-foreground uppercase font-medium">Concluído em</p>
+                        <p className="text-sm font-medium mt-1">
+                          {format(etapa.dataConclusao, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {!etapaContext && (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                      Carregando informações...
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
             </ScrollArea>
           </Tabs>
         </DialogContent>
