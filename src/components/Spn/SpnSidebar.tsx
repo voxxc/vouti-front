@@ -10,7 +10,7 @@ import LogoSpn from './LogoSpn';
 export type SpnView =
   | 'dashboard' | 'progress' | 'modules' | 'leaderboard'
   | 'achievements' | 'settings' | 'admin-levels' | 'admin-users'
-  | 'teacher-students' | 'section';
+  | 'teacher-students' | 'section' | 'books' | 'book-unit' | 'admin-books';
 
 interface SpnSidebarProps {
   activeView: SpnView;
@@ -79,13 +79,15 @@ const SpnSidebar = ({ activeView, onViewChange }: SpnSidebarProps) => {
 
   const navItems = [
     { key: 'dashboard' as SpnView, label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'books' as SpnView, label: 'Books', icon: BookOpen },
     { key: 'progress' as SpnView, label: 'My Progress', icon: TrendingUp },
     { key: 'leaderboard' as SpnView, label: 'Leaderboard', icon: Trophy },
     { key: 'achievements' as SpnView, label: 'Achievements', icon: Award },
   ];
 
   const adminItems = [
-    { key: 'admin-levels' as SpnView, label: 'Manage Levels', icon: BookOpen },
+    { key: 'admin-books' as SpnView, label: 'Manage Books', icon: BookOpen },
+    { key: 'admin-levels' as SpnView, label: 'Manage Levels', icon: Flame },
     { key: 'admin-users' as SpnView, label: 'Manage Users', icon: Users },
   ];
 
