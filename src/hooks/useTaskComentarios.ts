@@ -116,6 +116,7 @@ export const useTaskComentarios = (taskId: string | null) => {
           commentType: 'task',
           commentId: (insertedComment as any).id,
           mentionedUserIds,
+          relatedEntityId: taskId,
         });
       }
 

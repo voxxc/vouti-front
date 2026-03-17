@@ -115,6 +115,7 @@ export const useProcessoComentarios = (processoId: string | null) => {
           commentType: 'processo',
           commentId: insertedComment.id,
           mentionedUserIds,
+          relatedEntityId: processoId,
         });
       }
 

@@ -82,20 +82,41 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       await markAsRead(notification.id);
     }
     
-    // Deadline notifications → open deadline detail
+    // Deadline notifications (assigned/tagged) → open deadline detail
     if ((notification.type === 'deadline_assigned' || notification.type === 'deadline_tagged') 
         && notification.related_task_id && onDeadlineNavigation) {
       onDeadlineNavigation(notification.related_task_id);
       setIsOpen(false);
       return;
     }
-    
-    if (notification.related_project_id && onProjectNavigation) {
-      if (notification.type === 'comment_mention' && notification.related_task_id) {
-        onProjectNavigation(`${notification.related_project_id}?etapa=${notification.related_task_id}`);
-      } else {
-        onProjectNavigation(notification.related_project_id);
+
+    // Comment mention notifications → route by title keyword
+    if (notification.type === 'comment_mention' && notification.related_task_id) {
+      const title = notification.title?.toLowerCase() || '';
+      
+      if (title.includes('prazo') && onDeadlineNavigation) {
+        onDeadlineNavigation(notification.related_task_id);
+        setIsOpen(false);
+        return;
       }
+      
+      if (title.includes('processo') && onProcessoNavigation) {
+        onProcessoNavigation(notification.related_task_id);
+        setIsOpen(false);
+        return;
+      }
+
+      // For etapa/task mentions with project context
+      if (notification.related_project_id && onProjectNavigation) {
+        onProjectNavigation(`${notification.related_project_id}?etapa=${notification.related_task_id}`);
+        setIsOpen(false);
+        return;
+      }
+    }
+    
+    // Default: navigate to project
+    if (notification.related_project_id && onProjectNavigation) {
+      onProjectNavigation(notification.related_project_id);
     }
     
     setIsOpen(false);

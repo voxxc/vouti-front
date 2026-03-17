@@ -98,6 +98,7 @@ export const useDeadlineComentarios = (deadlineId: string | null) => {
           commentId: insertedComment.id,
           mentionedUserIds,
           contextTitle,
+          relatedEntityId: deadlineId,
         });
       }
 

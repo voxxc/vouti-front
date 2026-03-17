@@ -8,7 +8,27 @@ interface SaveMentionsParams {
   commentId: string;
   mentionedUserIds: string[];
   contextTitle?: string;
+  relatedEntityId?: string;
+  relatedProjectId?: string;
 }
+
+const typeTitles: Record<CommentType, string> = {
+  deadline: 'Mencionado em prazo',
+  reuniao: 'Mencionado em reunião',
+  reuniao_cliente: 'Mencionado em reunião',
+  parcela: 'Mencionado em parcela',
+  task: 'Mencionado em tarefa',
+  processo: 'Mencionado em processo',
+};
+
+const typeLabels: Record<CommentType, string> = {
+  deadline: 'um prazo',
+  reuniao: 'uma reunião',
+  reuniao_cliente: 'um cliente de reunião',
+  parcela: 'uma parcela',
+  task: 'uma tarefa',
+  processo: 'um processo',
+};
 
 export const useCommentMentions = () => {
   const { tenantId } = useTenantId();
@@ -18,6 +38,8 @@ export const useCommentMentions = () => {
     commentId,
     mentionedUserIds,
     contextTitle,
+    relatedEntityId,
+    relatedProjectId,
   }: SaveMentionsParams): Promise<boolean> => {
     if (!mentionedUserIds.length || !tenantId) return true;
 
@@ -33,7 +55,7 @@ export const useCommentMentions = () => {
 
       const authorName = authorProfile?.full_name || 'Alguém';
 
-      // Inserir menções usando type casting
+      // Inserir menções
       const mentionInserts = mentionedUserIds.map(userId => ({
         comment_type: commentType,
         comment_id: commentId,
@@ -50,27 +72,20 @@ export const useCommentMentions = () => {
         console.error('Erro ao salvar menções:', mentionError);
       }
 
-      // Criar notificações
-      const typeLabels: Record<CommentType, string> = {
-        deadline: 'um prazo',
-        reuniao: 'uma reunião',
-        reuniao_cliente: 'um cliente de reunião',
-        parcela: 'uma parcela',
-        task: 'uma tarefa',
-        processo: 'um processo',
-      };
-
+      // Criar notificações com contexto
       const notificationInserts = mentionedUserIds
         .filter(userId => userId !== user.id)
         .map(userId => ({
           user_id: userId,
           triggered_by_user_id: user.id,
           type: 'comment_mention',
-          title: 'Você foi mencionado',
+          title: typeTitles[commentType],
           content: contextTitle
             ? `${authorName} mencionou você em um comentário sobre ${contextTitle}.`
             : `${authorName} mencionou você em um comentário de ${typeLabels[commentType]}.`,
           tenant_id: tenantId,
+          related_task_id: relatedEntityId || null,
+          related_project_id: relatedProjectId || null,
         }));
 
       if (notificationInserts.length > 0) {

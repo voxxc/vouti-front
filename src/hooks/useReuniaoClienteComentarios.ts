@@ -78,6 +78,7 @@ export const useReuniaoClienteComentarios = (clienteId: string) => {
           commentId: insertedComment.id,
           mentionedUserIds,
           contextTitle,
+          relatedEntityId: clienteId,
         });
       }
       
