@@ -259,7 +259,7 @@ export function useEtapaData(etapaId: string | null) {
               user_id: mentionedUserId,
               triggered_by_user_id: user.id,
               type: 'comment_mention',
-              title: 'Você foi mencionado',
+              title: 'Mencionado em etapa',
               content: `${profile?.full_name || 'Alguém'} mencionou você em um comentário de etapa.`,
               tenant_id: profile?.tenant_id,
               related_project_id: relatedProjectId,
