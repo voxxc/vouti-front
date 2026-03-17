@@ -17,12 +17,14 @@ interface NotificationCenterProps {
   userId: string;
   onProjectNavigation?: (projectId: string) => void;
   onProcessoNavigation?: (processoId: string) => void;
+  onDeadlineNavigation?: (deadlineId: string) => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
   userId,
   onProjectNavigation,
-  onProcessoNavigation
+  onProcessoNavigation,
+  onDeadlineNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
   const [shouldPing, setShouldPing] = useState(false);
@@ -80,8 +82,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       await markAsRead(notification.id);
     }
     
+    // Deadline notifications → open deadline detail
+    if ((notification.type === 'deadline_assigned' || notification.type === 'deadline_tagged') 
+        && notification.related_task_id && onDeadlineNavigation) {
+      onDeadlineNavigation(notification.related_task_id);
+      setIsOpen(false);
+      return;
+    }
+    
     if (notification.related_project_id && onProjectNavigation) {
-      // For comment_mention with etapa context, append query param for deep navigation
       if (notification.type === 'comment_mention' && notification.related_task_id) {
         onProjectNavigation(`${notification.related_project_id}?etapa=${notification.related_task_id}`);
       } else {

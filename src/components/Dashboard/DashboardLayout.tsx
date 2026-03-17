@@ -7,6 +7,7 @@ import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { LogOut, Settings, Loader2, Clock } from "lucide-react";
 
 import { TOTPSheet } from "./TOTPSheet";
@@ -66,6 +67,8 @@ const DashboardLayout = ({
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
+  const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
   
   // Estado central para o drawer ativo - persistido em sessionStorage
   const [activeDrawer, setActiveDrawerState] = useState<ActiveDrawer>(() => {
@@ -318,11 +321,25 @@ const DashboardLayout = ({
               )}
               
               {user && (
-                <NotificationCenter 
-                  userId={user.id} 
-                  onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
-                  onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria`))}
-                />
+                <>
+                  <NotificationCenter 
+                    userId={user.id} 
+                    onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
+                    onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria`))}
+                    onDeadlineNavigation={(deadlineId) => {
+                      setDeadlineDetailId(deadlineId);
+                      setDeadlineDetailOpen(true);
+                    }}
+                  />
+                  <DeadlineDetailDialog
+                    deadlineId={deadlineDetailId || null}
+                    open={deadlineDetailOpen}
+                    onOpenChange={(open) => {
+                      setDeadlineDetailOpen(open);
+                      if (!open) setDeadlineDetailId(undefined);
+                    }}
+                  />
+                </>
               )}
 
               <ThemeToggle />
