@@ -185,7 +185,7 @@ export function useEtapaData(etapaId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [etapaId, toast]);
+  }, [etapaId, toast, fetchContext]);
 
   const addComment = async (text: string, parentCommentId?: string, mentionedUserIds?: string[]) => {
     if (!etapaId || !text.trim()) return;
