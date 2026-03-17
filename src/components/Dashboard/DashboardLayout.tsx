@@ -325,7 +325,7 @@ const DashboardLayout = ({
                   <NotificationCenter 
                     userId={user.id} 
                     onProjectNavigation={(pid) => navigate(tenantPath(`/project/${pid}`))}
-                    onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria`))}
+                    onProcessoNavigation={(processoId) => navigate(tenantPath(`/controladoria?processo=${processoId}`))}
                     onDeadlineNavigation={(deadlineId) => {
                       setDeadlineDetailId(deadlineId);
                       setDeadlineDetailOpen(true);

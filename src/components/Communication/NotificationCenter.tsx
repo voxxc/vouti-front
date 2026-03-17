@@ -77,6 +77,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
+  const getCommentMentionTarget = (notification: Notification): string => {
+    const text = ((notification.title || '') + ' ' + (notification.content || '')).toLowerCase();
+    if (text.includes('prazo')) return 'deadline';
+    if (text.includes('etapa')) return 'etapa';
+    if (text.includes('processo')) return 'processo';
+    if (text.includes('tarefa')) return 'task';
+    if (text.includes('reunião') || text.includes('reuniao')) return 'reuniao';
+    return 'project';
+  };
+
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
       await markAsRead(notification.id);
@@ -90,25 +100,31 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       return;
     }
 
-    // Comment mention notifications → route by title keyword
-    if (notification.type === 'comment_mention' && notification.related_task_id) {
-      const title = notification.title?.toLowerCase() || '';
-      
-      if (title.includes('prazo') && onDeadlineNavigation) {
-        onDeadlineNavigation(notification.related_task_id);
-        setIsOpen(false);
-        return;
-      }
-      
-      if (title.includes('processo') && onProcessoNavigation) {
-        onProcessoNavigation(notification.related_task_id);
+    // Comment mention notifications → route by title + content keywords
+    if (notification.type === 'comment_mention') {
+      const target = getCommentMentionTarget(notification);
+      const entityId = notification.related_task_id;
+
+      if (target === 'deadline' && entityId && onDeadlineNavigation) {
+        onDeadlineNavigation(entityId);
         setIsOpen(false);
         return;
       }
 
-      // For etapa/task mentions with project context
-      if (notification.related_project_id && onProjectNavigation) {
-        onProjectNavigation(`${notification.related_project_id}?etapa=${notification.related_task_id}`);
+      if (target === 'processo' && entityId && onProcessoNavigation) {
+        onProcessoNavigation(entityId);
+        setIsOpen(false);
+        return;
+      }
+
+      if (target === 'etapa' && entityId && notification.related_project_id && onProjectNavigation) {
+        onProjectNavigation(`${notification.related_project_id}?etapa=${entityId}`);
+        setIsOpen(false);
+        return;
+      }
+
+      if (target === 'task' && notification.related_project_id && onProjectNavigation) {
+        onProjectNavigation(notification.related_project_id);
         setIsOpen(false);
         return;
       }
