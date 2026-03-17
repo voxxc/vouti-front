@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, isPast, isToday } from 'date-fns';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
