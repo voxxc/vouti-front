@@ -241,6 +241,17 @@ export function useEtapaData(etapaId: string | null) {
 
         await supabase.from('project_etapa_comment_mentions').insert(mentionInserts);
 
+        // Fetch project context for notification navigation
+        let relatedProjectId: string | null = null;
+        if (etapaId) {
+          const { data: etapaContext } = await supabase
+            .from('project_protocolo_etapas')
+            .select('protocolo_id, project_protocolos!inner(project_id)')
+            .eq('id', etapaId)
+            .single();
+          relatedProjectId = (etapaContext as any)?.project_protocolos?.project_id || null;
+        }
+
         // Send notifications to mentioned users
         for (const mentionedUserId of mentionedUserIds) {
           if (mentionedUserId !== user.id) {
@@ -249,8 +260,10 @@ export function useEtapaData(etapaId: string | null) {
               triggered_by_user_id: user.id,
               type: 'comment_mention',
               title: 'Você foi mencionado',
-              content: `${profile?.full_name || 'Alguém'} mencionou você em um comentário.`,
-              tenant_id: profile?.tenant_id
+              content: `${profile?.full_name || 'Alguém'} mencionou você em um comentário de etapa.`,
+              tenant_id: profile?.tenant_id,
+              related_project_id: relatedProjectId,
+              related_task_id: etapaId
             });
           }
         }

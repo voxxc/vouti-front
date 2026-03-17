@@ -81,8 +81,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
     
     if (notification.related_project_id && onProjectNavigation) {
-      onProjectNavigation(notification.related_project_id);
+      // For comment_mention with etapa context, append query param for deep navigation
+      if (notification.type === 'comment_mention' && notification.related_task_id) {
+        onProjectNavigation(`${notification.related_project_id}?etapa=${notification.related_task_id}`);
+      } else {
+        onProjectNavigation(notification.related_project_id);
+      }
     }
+    
+    setIsOpen(false);
   };
 
   if (loading) {
