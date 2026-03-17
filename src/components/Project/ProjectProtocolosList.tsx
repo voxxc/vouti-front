@@ -81,10 +81,29 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
 
   const { tenantId } = useTenantId();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const selectedProtocolo = selectedProtocoloId 
     ? protocolos.find(p => p.id === selectedProtocoloId) ?? null 
     : null;
+
+  // Auto-open etapa from URL query param (e.g., ?etapa=UUID from notification click)
+  useEffect(() => {
+    const etapaParam = searchParams.get('etapa');
+    if (!etapaParam || loading || !protocolos.length) return;
+
+    for (const proto of protocolos) {
+      const etapa = proto.etapas?.find(e => e.id === etapaParam);
+      if (etapa) {
+        setSelectedProtocoloId(proto.id);
+        setView('detalhes');
+        // Clean up query param
+        searchParams.delete('etapa');
+        setSearchParams(searchParams, { replace: true });
+        break;
+      }
+    }
+  }, [searchParams, loading, protocolos]);
 
   // Load carteiras
   const loadCarteiras = useCallback(async () => {
