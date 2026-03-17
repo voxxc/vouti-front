@@ -586,6 +586,7 @@ export function useEtapaData(etapaId: string | null) {
     comments,
     files,
     history,
+    etapaContext,
     loading,
     fetchData,
     addComment,
