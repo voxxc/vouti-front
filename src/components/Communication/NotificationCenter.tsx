@@ -17,6 +17,7 @@ interface NotificationCenterProps {
   userId: string;
   onProjectNavigation?: (projectId: string) => void;
   onProcessoNavigation?: (processoId: string) => void;
+  onDeadlineNavigation?: (deadlineId: string) => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
