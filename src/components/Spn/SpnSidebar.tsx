@@ -86,7 +86,8 @@ const SpnSidebar = ({ activeView, onViewChange }: SpnSidebarProps) => {
   ];
 
   const adminItems = [
-    { key: 'admin-levels' as SpnView, label: 'Manage Levels', icon: BookOpen },
+    { key: 'admin-books' as SpnView, label: 'Manage Books', icon: BookOpen },
+    { key: 'admin-levels' as SpnView, label: 'Manage Levels', icon: Flame },
     { key: 'admin-users' as SpnView, label: 'Manage Users', icon: Users },
   ];
 
