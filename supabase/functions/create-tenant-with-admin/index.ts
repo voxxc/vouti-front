@@ -187,9 +187,10 @@ Deno.serve(async (req) => {
       });
 
       if (userError || !newUser.user) {
+        console.error('Error creating admin user:', userError?.message);
         await supabaseAdmin.from('tenants').delete().eq('id', tenant.id);
         return new Response(
-          JSON.stringify({ error: 'Error creating admin user' }),
+          JSON.stringify({ error: userError?.message || 'Error creating admin user' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
