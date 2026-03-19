@@ -122,6 +122,18 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, loading, protocolos]);
 
+  // Auto-open protocolo from prop (e.g., from notification via ProjectDrawer)
+  useEffect(() => {
+    if (!initialProtocoloId || loading || !protocolos.length) return;
+
+    const found = protocolos.find(p => p.id === initialProtocoloId);
+    if (found) {
+      setSelectedProtocoloId(found.id);
+      setView('detalhes');
+    }
+    onProtocoloConsumed?.();
+  }, [initialProtocoloId, loading, protocolos]);
+
   // Load carteiras
   const loadCarteiras = useCallback(async () => {
     if (!workspaceId || !tenantId) return;
