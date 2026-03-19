@@ -72,6 +72,11 @@ const DashboardLayout = ({
   const [pendingProtocoloId, setPendingProtocoloId] = useState<string | null>(null);
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
+  const [etapaModalData, setEtapaModalData] = useState<{
+    etapa: ProjectProtocoloEtapa;
+    protocoloId: string;
+    projectId: string;
+  } | null>(null);
   
   // Estado central para o drawer ativo - persistido em sessionStorage
   const [activeDrawer, setActiveDrawerState] = useState<ActiveDrawer>(() => {
