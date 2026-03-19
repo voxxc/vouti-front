@@ -8,6 +8,8 @@ interface ProjectDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string | null;
+  protocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
 export function ProjectDrawer({ open, onOpenChange, projectId }: ProjectDrawerProps) {
