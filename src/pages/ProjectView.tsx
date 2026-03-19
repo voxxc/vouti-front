@@ -117,6 +117,26 @@ const ProjectView = ({
     lookupWorkspace();
   }, [searchParams, workspacesLoading, workspaces]);
 
+  // Auto-switch workspace from prop deep-link (initialProtocoloId from drawer)
+  useEffect(() => {
+    if (!initialProtocoloId || workspacesLoading || !workspaces.length) return;
+
+    const lookupProtocoloWorkspace = async () => {
+      const { data } = await supabase
+        .from('project_protocolos')
+        .select('workspace_id')
+        .eq('id', initialProtocoloId)
+        .single();
+
+      const wsId = data?.workspace_id;
+      if (wsId && wsId !== activeWorkspaceId) {
+        setActiveWorkspaceId(wsId);
+      }
+      setActiveTab('protocolos');
+    };
+    lookupProtocoloWorkspace();
+  }, [initialProtocoloId, workspacesLoading, workspaces]);
+
   // Load columns from database when workspace changes
   useEffect(() => {
     if (activeWorkspaceId) {
