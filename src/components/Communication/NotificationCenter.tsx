@@ -20,6 +20,7 @@ interface NotificationCenterProps {
   onProcessoNavigation?: (processoId: string) => void;
   onDeadlineNavigation?: (deadlineId: string) => void;
   onProtocoloNavigation?: (projectId: string, protocoloId: string) => void;
+  onEtapaNavigation?: (etapaId: string) => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
@@ -27,7 +28,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onProjectNavigation,
   onProcessoNavigation,
   onDeadlineNavigation,
-  onProtocoloNavigation
+  onProtocoloNavigation,
+  onEtapaNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
   const [shouldPing, setShouldPing] = useState(false);
@@ -151,14 +153,18 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return;
       }
 
-      if (target === 'etapa' && notification.related_project_id && onProjectNavigation) {
-        const workspaceParam = notification.content?.match(/Workspace:\s*([^•]+)/)?.[1]?.trim();
-        // Pass etapa ID and try to extract workspace context
-        let navUrl = `${notification.related_project_id}?etapa=${entityId || ''}`;
-        // We store workspace_id in related data, so check if we can extract it
-        onProjectNavigation(navUrl);
-        setIsOpen(false);
-        return;
+      if (target === 'etapa' && entityId) {
+        if (onEtapaNavigation) {
+          onEtapaNavigation(entityId);
+          setIsOpen(false);
+          return;
+        }
+        // Fallback: navigate to project with etapa param
+        if (notification.related_project_id && onProjectNavigation) {
+          onProjectNavigation(`${notification.related_project_id}?etapa=${entityId}`);
+          setIsOpen(false);
+          return;
+        }
       }
 
       if (target === 'task' && notification.related_project_id && onProjectNavigation) {
@@ -169,18 +175,34 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
 
     // Fallback: se related_project_id é null mas related_task_id existe,
-    // tentar resolver como protocolo (compatibilidade com notificações antigas)
-    if (!notification.related_project_id && notification.related_task_id && onProtocoloNavigation) {
+    // tentar resolver como protocolo ou etapa (compatibilidade com notificações antigas)
+    if (!notification.related_project_id && notification.related_task_id) {
       try {
-        const { data } = await supabase
-          .from('project_protocolos')
-          .select('project_id')
-          .eq('id', notification.related_task_id)
-          .maybeSingle();
-        if (data?.project_id) {
-          onProtocoloNavigation(data.project_id, notification.related_task_id);
-          setIsOpen(false);
-          return;
+        // Tentar como protocolo
+        if (onProtocoloNavigation) {
+          const { data: protData } = await supabase
+            .from('project_protocolos')
+            .select('project_id')
+            .eq('id', notification.related_task_id)
+            .maybeSingle();
+          if (protData?.project_id) {
+            onProtocoloNavigation(protData.project_id, notification.related_task_id);
+            setIsOpen(false);
+            return;
+          }
+        }
+        // Tentar como etapa
+        if (onEtapaNavigation) {
+          const { data: etapaData } = await supabase
+            .from('project_protocolo_etapas')
+            .select('id')
+            .eq('id', notification.related_task_id)
+            .maybeSingle();
+          if (etapaData?.id) {
+            onEtapaNavigation(etapaData.id);
+            setIsOpen(false);
+            return;
+          }
         }
       } catch { /* fall through to default */ }
     }

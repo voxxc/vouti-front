@@ -8,10 +8,12 @@ import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
+import { EtapaModal } from "@/components/Project/EtapaModal";
 import { LogOut, Settings, Loader2, Clock } from "lucide-react";
 
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProjectProtocoloEtapa } from "@/hooks/useProjectProtocolos";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -70,6 +72,11 @@ const DashboardLayout = ({
   const [pendingProtocoloId, setPendingProtocoloId] = useState<string | null>(null);
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
+  const [etapaModalData, setEtapaModalData] = useState<{
+    etapa: ProjectProtocoloEtapa;
+    protocoloId: string;
+    projectId: string;
+  } | null>(null);
   
   // Estado central para o drawer ativo - persistido em sessionStorage
   const [activeDrawer, setActiveDrawerState] = useState<ActiveDrawer>(() => {
@@ -268,6 +275,40 @@ const DashboardLayout = ({
     }
   }, [setActiveDrawer]);
 
+  // Handler para abrir EtapaModal a partir de notificação
+  const handleEtapaNavigation = useCallback(async (etapaId: string) => {
+    try {
+      const { data } = await supabase
+        .from('project_protocolo_etapas')
+        .select('*, project_protocolos!inner(project_id)')
+        .eq('id', etapaId)
+        .maybeSingle();
+      
+      if (data) {
+        const etapa: ProjectProtocoloEtapa = {
+          id: data.id,
+          protocoloId: data.protocolo_id,
+          nome: data.nome,
+          descricao: data.descricao,
+          status: data.status as ProjectProtocoloEtapa['status'],
+          ordem: data.ordem,
+          responsavelId: data.responsavel_id,
+          dataConclusao: data.data_conclusao ? new Date(data.data_conclusao) : undefined,
+          comentarioConclusao: data.comentario_conclusao || undefined,
+          createdAt: new Date(data.created_at),
+          updatedAt: new Date(data.updated_at),
+        };
+        setEtapaModalData({
+          etapa,
+          protocoloId: data.protocolo_id,
+          projectId: (data as any).project_protocolos?.project_id || '',
+        });
+      }
+    } catch (err) {
+      console.error('Error loading etapa for notification:', err);
+    }
+  }, []);
+
   // Memoized handler para fechar drawers
   const handleDrawerClose = useCallback((open: boolean) => {
     if (!open) setActiveDrawer(null);
@@ -336,6 +377,7 @@ const DashboardLayout = ({
                       setPendingProtocoloId(protocoloId);
                       setProjectDrawerOpen(true);
                     }}
+                    onEtapaNavigation={handleEtapaNavigation}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
@@ -402,6 +444,35 @@ const DashboardLayout = ({
         projectId={selectedProjectId}
         protocoloId={pendingProtocoloId}
         onProtocoloConsumed={() => setPendingProtocoloId(null)}
+      />
+
+      {/* Etapa Modal (from notification) */}
+      <EtapaModal
+        etapa={etapaModalData?.etapa || null}
+        open={!!etapaModalData}
+        onOpenChange={(open) => { if (!open) setEtapaModalData(null); }}
+        onUpdate={async (id, data) => {
+          const updatePayload: Record<string, any> = {};
+          if (data.nome !== undefined) updatePayload.nome = data.nome;
+          if (data.descricao !== undefined) updatePayload.descricao = data.descricao;
+          if (data.status !== undefined) updatePayload.status = data.status;
+          if (data.responsavelId !== undefined) updatePayload.responsavel_id = data.responsavelId;
+          if (data.dataConclusao !== undefined) updatePayload.data_conclusao = data.dataConclusao?.toISOString() || null;
+          if (data.comentarioConclusao !== undefined) updatePayload.comentario_conclusao = data.comentarioConclusao;
+          await supabase.from('project_protocolo_etapas').update(updatePayload).eq('id', id);
+          if (etapaModalData) {
+            setEtapaModalData(prev => prev ? {
+              ...prev,
+              etapa: { ...prev.etapa, ...data, id }
+            } : null);
+          }
+        }}
+        onDelete={async (id) => {
+          await supabase.from('project_protocolo_etapas').delete().eq('id', id);
+          setEtapaModalData(null);
+        }}
+        protocoloId={etapaModalData?.protocoloId}
+        projectId={etapaModalData?.projectId}
       />
 
       {/* Drawers de seções - agora gerenciados aqui no layout */}
