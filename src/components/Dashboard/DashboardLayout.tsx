@@ -331,6 +331,11 @@ const DashboardLayout = ({
                       setDeadlineDetailId(deadlineId);
                       setDeadlineDetailOpen(true);
                     }}
+                    onProtocoloNavigation={(projectId, protocoloId) => {
+                      setSelectedProjectId(projectId);
+                      setPendingProtocoloId(protocoloId);
+                      setProjectDrawerOpen(true);
+                    }}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
