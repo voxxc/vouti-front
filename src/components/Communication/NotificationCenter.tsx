@@ -167,6 +167,23 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return;
       }
     }
+
+    // Fallback: se related_project_id é null mas related_task_id existe,
+    // tentar resolver como protocolo (compatibilidade com notificações antigas)
+    if (!notification.related_project_id && notification.related_task_id && onProtocoloNavigation) {
+      try {
+        const { data } = await supabase
+          .from('project_protocolos')
+          .select('project_id')
+          .eq('id', notification.related_task_id)
+          .maybeSingle();
+        if (data?.project_id) {
+          onProtocoloNavigation(data.project_id, notification.related_task_id);
+          setIsOpen(false);
+          return;
+        }
+      } catch { /* fall through to default */ }
+    }
     
     // Default: navigate to project
     if (notification.related_project_id && onProjectNavigation) {
