@@ -446,7 +446,7 @@ export function ProjectProtocoloContent({
                   </div>
                 )}
                 <Separator />
-                <TaskComentarios taskId={protocolo.id} currentUserId={user?.id || ''} />
+                <TaskComentarios taskId={protocolo.id} currentUserId={user?.id || ''} commentType="protocolo" contextTitle={protocolo.nome} relatedProjectId={projectId} />
 
                 <div className="pt-4 border-t space-y-3">
                   <div>
