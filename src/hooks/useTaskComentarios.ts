@@ -143,7 +143,7 @@ export const useTaskComentarios = (taskId: string | null, options?: TaskComentar
 
   const deleteComentario = async (comentarioId: string): Promise<boolean> => {
     try {
-      await deleteMentions('task', comentarioId);
+      await deleteMentions(options?.commentType || 'task', comentarioId);
 
       const { error } = await supabase
         .from('task_comentarios' as any)
