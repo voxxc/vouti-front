@@ -29,6 +29,7 @@ const typeLabels: Record<CommentType, string> = {
   parcela: 'uma parcela',
   task: 'uma tarefa',
   processo: 'um processo',
+  protocolo: 'um protocolo',
 };
 
 export const useCommentMentions = () => {
