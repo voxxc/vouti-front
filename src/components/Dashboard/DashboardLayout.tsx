@@ -67,6 +67,7 @@ const DashboardLayout = ({
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [pendingProtocoloId, setPendingProtocoloId] = useState<string | null>(null);
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
   
