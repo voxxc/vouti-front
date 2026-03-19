@@ -377,6 +377,7 @@ const DashboardLayout = ({
                       setPendingProtocoloId(protocoloId);
                       setProjectDrawerOpen(true);
                     }}
+                    onEtapaNavigation={handleEtapaNavigation}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
