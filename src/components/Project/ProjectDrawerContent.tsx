@@ -14,6 +14,8 @@ interface ProjectDrawerContentProps {
   projectId: string;
   onClose: () => void;
   module?: string;
+  protocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
 export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDrawerContentProps) {
