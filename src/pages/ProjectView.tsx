@@ -1232,7 +1232,7 @@ const ProjectView = ({
           {/* Content Area - Full Width */}
           <div className="w-full">
             {activeTab === 'protocolos' ? (
-              <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} isLocked={isColumnsLocked} />
+              <ProjectProtocolosList projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} isLocked={isColumnsLocked} initialProtocoloId={initialProtocoloId} onProtocoloConsumed={onProtocoloConsumed} />
             ) : activeTab === 'processos' ? (
               <ProjectProcessos projectId={project.id} workspaceId={activeWorkspaceId} defaultWorkspaceId={defaultWorkspaceId} isLocked={isColumnsLocked} />
             ) : (
