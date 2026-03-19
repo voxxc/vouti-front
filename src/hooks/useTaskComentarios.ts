@@ -119,10 +119,12 @@ export const useTaskComentarios = (taskId: string | null, options?: TaskComentar
 
       if (mentionedUserIds?.length && insertedComment) {
         await saveMentions({
-          commentType: 'task',
+          commentType: options?.commentType || 'task',
           commentId: (insertedComment as any).id,
           mentionedUserIds,
+          contextTitle: options?.contextTitle,
           relatedEntityId: taskId,
+          relatedProjectId: options?.relatedProjectId,
         });
       }
 
