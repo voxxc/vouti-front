@@ -39,6 +39,8 @@ interface ProjectViewProps {
   onProjectNavigation?: (projectId: string) => void;
   embedded?: boolean;
   module?: string;
+  initialProtocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
 const ProjectView = ({ 
