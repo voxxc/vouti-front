@@ -13,6 +13,7 @@ import { LogOut, Settings, Loader2, Clock } from "lucide-react";
 
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProjectProtocoloEtapa } from "@/hooks/useProjectProtocolos";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserType } from "@/types/user";
 import { useTenantId } from "@/hooks/useTenantId";
