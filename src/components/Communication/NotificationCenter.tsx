@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Bell, CheckCheck, FolderPlus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +80,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const getCommentMentionTarget = (notification: Notification): string => {
     const text = ((notification.title || '') + ' ' + (notification.content || '')).toLowerCase();
+    if (text.includes('protocolo')) return 'protocolo';
     if (text.includes('prazo')) return 'deadline';
     if (text.includes('etapa')) return 'etapa';
     if (text.includes('processo')) return 'processo';
@@ -104,6 +106,30 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     if (notification.type === 'comment_mention') {
       const target = getCommentMentionTarget(notification);
       const entityId = notification.related_task_id;
+
+      if (target === 'protocolo') {
+        // Navigate to project with protocolo query param
+        if (notification.related_project_id && onProjectNavigation) {
+          onProjectNavigation(`${notification.related_project_id}?protocolo=${entityId || ''}`);
+          setIsOpen(false);
+          return;
+        }
+        // If no project_id saved, try to look it up
+        if (entityId && onProjectNavigation) {
+          try {
+            const { data } = await supabase
+              .from('project_protocolos')
+              .select('project_id')
+              .eq('id', entityId)
+              .single();
+            if (data?.project_id) {
+              onProjectNavigation(`${data.project_id}?protocolo=${entityId}`);
+              setIsOpen(false);
+              return;
+            }
+          } catch { /* fall through */ }
+        }
+      }
 
       if (target === 'deadline' && entityId && onDeadlineNavigation) {
         onDeadlineNavigation(entityId);

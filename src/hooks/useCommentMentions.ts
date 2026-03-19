@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantId } from '@/hooks/useTenantId';
 
-export type CommentType = 'deadline' | 'reuniao' | 'reuniao_cliente' | 'parcela' | 'task' | 'processo';
+export type CommentType = 'deadline' | 'reuniao' | 'reuniao_cliente' | 'parcela' | 'task' | 'processo' | 'protocolo';
 
 interface SaveMentionsParams {
   commentType: CommentType;
@@ -19,6 +19,7 @@ const typeTitles: Record<CommentType, string> = {
   parcela: 'Mencionado em parcela',
   task: 'Mencionado em tarefa',
   processo: 'Mencionado em processo',
+  protocolo: 'Mencionado em protocolo',
 };
 
 const typeLabels: Record<CommentType, string> = {
@@ -28,6 +29,7 @@ const typeLabels: Record<CommentType, string> = {
   parcela: 'uma parcela',
   task: 'uma tarefa',
   processo: 'um processo',
+  protocolo: 'um protocolo',
 };
 
 export const useCommentMentions = () => {

@@ -105,6 +105,21 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     }
   }, [searchParams, loading, protocolos]);
 
+  // Auto-open protocolo from URL query param (e.g., ?protocolo=UUID from notification click)
+  useEffect(() => {
+    const protocoloParam = searchParams.get('protocolo');
+    if (!protocoloParam || loading || !protocolos.length) return;
+
+    const found = protocolos.find(p => p.id === protocoloParam);
+    if (found) {
+      setSelectedProtocoloId(found.id);
+      setView('detalhes');
+    }
+    // Clean up query param
+    searchParams.delete('protocolo');
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, loading, protocolos]);
+
   // Load carteiras
   const loadCarteiras = useCallback(async () => {
     if (!workspaceId || !tenantId) return;

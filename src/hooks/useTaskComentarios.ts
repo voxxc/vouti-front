@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
-import { useCommentMentions } from '@/hooks/useCommentMentions';
+import { useCommentMentions, CommentType } from '@/hooks/useCommentMentions';
 
 interface TaskComentario {
   id: string;
@@ -24,7 +24,13 @@ interface TaskComentario {
   };
 }
 
-export const useTaskComentarios = (taskId: string | null) => {
+interface TaskComentariosOptions {
+  commentType?: CommentType;
+  contextTitle?: string;
+  relatedProjectId?: string;
+}
+
+export const useTaskComentarios = (taskId: string | null, options?: TaskComentariosOptions) => {
   const [comentarios, setComentarios] = useState<TaskComentario[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -113,10 +119,12 @@ export const useTaskComentarios = (taskId: string | null) => {
 
       if (mentionedUserIds?.length && insertedComment) {
         await saveMentions({
-          commentType: 'task',
+          commentType: options?.commentType || 'task',
           commentId: (insertedComment as any).id,
           mentionedUserIds,
+          contextTitle: options?.contextTitle,
           relatedEntityId: taskId,
+          relatedProjectId: options?.relatedProjectId,
         });
       }
 
@@ -135,7 +143,7 @@ export const useTaskComentarios = (taskId: string | null) => {
 
   const deleteComentario = async (comentarioId: string): Promise<boolean> => {
     try {
-      await deleteMentions('task', comentarioId);
+      await deleteMentions(options?.commentType || 'task', comentarioId);
 
       const { error } = await supabase
         .from('task_comentarios' as any)
