@@ -1,79 +1,37 @@
 
-
-# Fix: Notificação de menção em protocolo deve abrir o projeto com o protocolo
+# Fix: Notificação de protocolo deve abrir o ProjectDrawer (não navegar para página)
 
 ## Problema
 
-Quando alguém é mencionado em um comentário de **protocolo**, a notificação:
-1. Usa `commentType: 'task'` (genérico) — então o título diz "Mencionado em tarefa" em vez de "Mencionado em protocolo"
-2. Não salva `related_project_id` — então o NotificationCenter não sabe para qual projeto navegar
-3. O NotificationCenter não tem lógica para abrir o **Project Drawer** diretamente na aba de protocolos com o protocolo correto selecionado
+Quando o usuário clica na notificação de menção em protocolo, o `onProjectNavigation` faz `navigate(/project/${pid})` — navegando para uma **página inteira**. O esperado é abrir o **ProjectDrawer** no dashboard atual, já na aba de protocolos com o protocolo correto selecionado.
 
 ## Solução
 
-### 1. Enriquecer notificação de protocolo no `ProjectProtocoloContent.tsx`
+### 1. Adicionar callback `onProtocoloNavigation` no NotificationCenter
 
-Onde `TaskComentarios` é usado para o protocolo (linha 449), precisamos passar contexto extra para que o `useTaskComentarios` crie notificações com tipo e contexto corretos.
-
-**Abordagem**: Adicionar um novo tipo `'protocolo'` ao `useCommentMentions` e criar um novo wrapper ou prop em `TaskComentarios` para permitir sobrescrever o `commentType` e passar `relatedProjectId`.
-
-Alternativamente (mais simples): Modificar `TaskComentarios` para aceitar props opcionais `commentType`, `contextTitle`, e `relatedProjectId` que são repassados ao `saveMentions`.
-
-### 2. Atualizar `useCommentMentions.ts`
-
-Adicionar tipo `'protocolo'` ao `CommentType`:
-- `typeTitles`: `'Mencionado em protocolo'`
-- `typeLabels`: `'um protocolo'`
-
-### 3. Atualizar `TaskComentarios.tsx`
-
-Adicionar props opcionais:
-- `commentType?: CommentType` (default `'task'`)
-- `contextTitle?: string`
-- `relatedProjectId?: string`
-
-Repassar ao `useTaskComentarios` → `saveMentions`.
-
-### 4. Atualizar `useTaskComentarios.ts`
-
-Aceitar parâmetros opcionais de override para `saveMentions`:
-- `commentType`, `contextTitle`, `relatedProjectId`
-
-### 5. Atualizar `ProjectProtocoloContent.tsx`
-
-Na linha 449, passar:
-```tsx
-<TaskComentarios 
-  taskId={protocolo.id} 
-  currentUserId={user?.id || ''} 
-  commentType="protocolo"
-  contextTitle={protocolo.nome}
-  relatedProjectId={projectId}
-/>
+Em vez de reutilizar `onProjectNavigation` para protocolos, criar um callback dedicado:
+```
+onProtocoloNavigation?: (projectId: string, protocoloId: string) => void;
 ```
 
-### 6. Atualizar `NotificationCenter.tsx`
+No `handleNotificationClick`, para `target === 'protocolo'`, chamar `onProtocoloNavigation(projectId, entityId)` em vez de `onProjectNavigation`.
 
-- Adicionar keyword `'protocolo'` na detecção (antes de `'tarefa'`)
-- Para target `'protocolo'`: buscar `project_id` do protocolo via `project_protocolos`, e chamar `onProjectNavigation` com `projectId?protocolo=protocoloId`
+### 2. Implementar handler no DashboardLayout
 
-### 7. Atualizar `DashboardLayout.tsx`
+No `DashboardLayout`, passar `onProtocoloNavigation` ao `NotificationCenter`. O handler vai:
+1. Setar `selectedProjectId` com o `projectId`
+2. Abrir o `ProjectDrawer` (`setProjectDrawerOpen(true)`)
+3. Guardar o `protocoloId` em um novo state para deep-linking
 
-No `onProjectNavigation`, verificar se há query params (`?protocolo=`). Se sim, abrir o ProjectDrawer com o projeto correto e o protocolo pré-selecionado. Adicionar lógica para interpretar a URL e abrir o drawer.
+### 3. Propagar `protocoloId` para dentro do ProjectDrawer
 
-### 8. Atualizar `ProjectProtocolosList.tsx`
-
-Adicionar `useEffect` para ler `?protocolo=UUID` dos search params e auto-abrir o protocolo correto (similar ao que já existe para `?etapa=`).
+Passar o `protocoloId` como prop ao `ProjectDrawer` → `ProjectDrawerContent`. Dentro do conteúdo, quando esse prop estiver presente, auto-selecionar a aba "Protocolos" e abrir o protocolo específico (reaproveitando a lógica de `?protocolo=UUID` que já existe no `ProjectProtocolosList`).
 
 ## Arquivos a Modificar
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/useCommentMentions.ts` | Adicionar tipo `'protocolo'` |
-| `src/components/Project/TaskComentarios.tsx` | Props opcionais: `commentType`, `contextTitle`, `relatedProjectId` |
-| `src/hooks/useTaskComentarios.ts` | Repassar overrides ao `saveMentions` |
-| `src/components/Project/ProjectProtocoloContent.tsx` | Passar `commentType="protocolo"` e `relatedProjectId` |
-| `src/components/Communication/NotificationCenter.tsx` | Lookup assíncrono do `project_id` para notificações de protocolo |
-| `src/components/Dashboard/DashboardLayout.tsx` | Abrir ProjectDrawer ao navegar para protocolo |
-| `src/components/Project/ProjectProtocolosList.tsx` | Auto-abrir protocolo via `?protocolo=UUID` |
-
+| `NotificationCenter.tsx` | Nova prop `onProtocoloNavigation`; usar no target `'protocolo'` |
+| `DashboardLayout.tsx` | Novo state `pendingProtocoloId`; handler que abre ProjectDrawer com projeto+protocolo; passar ao NotificationCenter e ProjectDrawer |
+| `ProjectDrawer.tsx` | Aceitar prop `protocoloId` opcional e repassar ao `ProjectDrawerContent` |
+| `ProjectDrawerContent.tsx` | Receber `protocoloId` e auto-navegar para aba Protocolos + selecionar o protocolo |
