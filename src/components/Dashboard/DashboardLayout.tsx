@@ -275,6 +275,40 @@ const DashboardLayout = ({
     }
   }, [setActiveDrawer]);
 
+  // Handler para abrir EtapaModal a partir de notificação
+  const handleEtapaNavigation = useCallback(async (etapaId: string) => {
+    try {
+      const { data } = await supabase
+        .from('project_protocolo_etapas')
+        .select('*, project_protocolos!inner(project_id)')
+        .eq('id', etapaId)
+        .maybeSingle();
+      
+      if (data) {
+        const etapa: ProjectProtocoloEtapa = {
+          id: data.id,
+          protocoloId: data.protocolo_id,
+          nome: data.nome,
+          descricao: data.descricao,
+          status: data.status as ProjectProtocoloEtapa['status'],
+          ordem: data.ordem,
+          responsavelId: data.responsavel_id,
+          dataConclusao: data.data_conclusao ? new Date(data.data_conclusao) : undefined,
+          comentarioConclusao: data.comentario_conclusao || undefined,
+          createdAt: new Date(data.created_at),
+          updatedAt: new Date(data.updated_at),
+        };
+        setEtapaModalData({
+          etapa,
+          protocoloId: data.protocolo_id,
+          projectId: (data as any).project_protocolos?.project_id || '',
+        });
+      }
+    } catch (err) {
+      console.error('Error loading etapa for notification:', err);
+    }
+  }, []);
+
   // Memoized handler para fechar drawers
   const handleDrawerClose = useCallback((open: boolean) => {
     if (!open) setActiveDrawer(null);
