@@ -175,18 +175,34 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
 
     // Fallback: se related_project_id é null mas related_task_id existe,
-    // tentar resolver como protocolo (compatibilidade com notificações antigas)
-    if (!notification.related_project_id && notification.related_task_id && onProtocoloNavigation) {
+    // tentar resolver como protocolo ou etapa (compatibilidade com notificações antigas)
+    if (!notification.related_project_id && notification.related_task_id) {
       try {
-        const { data } = await supabase
-          .from('project_protocolos')
-          .select('project_id')
-          .eq('id', notification.related_task_id)
-          .maybeSingle();
-        if (data?.project_id) {
-          onProtocoloNavigation(data.project_id, notification.related_task_id);
-          setIsOpen(false);
-          return;
+        // Tentar como protocolo
+        if (onProtocoloNavigation) {
+          const { data: protData } = await supabase
+            .from('project_protocolos')
+            .select('project_id')
+            .eq('id', notification.related_task_id)
+            .maybeSingle();
+          if (protData?.project_id) {
+            onProtocoloNavigation(protData.project_id, notification.related_task_id);
+            setIsOpen(false);
+            return;
+          }
+        }
+        // Tentar como etapa
+        if (onEtapaNavigation) {
+          const { data: etapaData } = await supabase
+            .from('project_protocolo_etapas')
+            .select('id')
+            .eq('id', notification.related_task_id)
+            .maybeSingle();
+          if (etapaData?.id) {
+            onEtapaNavigation(etapaData.id);
+            setIsOpen(false);
+            return;
+          }
         }
       } catch { /* fall through to default */ }
     }
