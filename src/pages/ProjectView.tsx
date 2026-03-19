@@ -53,7 +53,9 @@ const ProjectView = ({
   users = [],
   onProjectNavigation,
   embedded = false,
-  module
+  module,
+  initialProtocoloId,
+  onProtocoloConsumed
 }: ProjectViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
