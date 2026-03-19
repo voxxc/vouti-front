@@ -25,10 +25,13 @@ import { CommentText } from '@/components/Common/CommentText';
 interface TaskComentariosProps {
   taskId: string | null;
   currentUserId: string;
+  commentType?: CommentType;
+  contextTitle?: string;
+  relatedProjectId?: string;
 }
 
-export const TaskComentarios = ({ taskId, currentUserId }: TaskComentariosProps) => {
-  const { comentarios, loading, addComentario, deleteComentario } = useTaskComentarios(taskId);
+export const TaskComentarios = ({ taskId, currentUserId, commentType, contextTitle, relatedProjectId }: TaskComentariosProps) => {
+  const { comentarios, loading, addComentario, deleteComentario } = useTaskComentarios(taskId, { commentType, contextTitle, relatedProjectId });
   const [novoComentario, setNovoComentario] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
