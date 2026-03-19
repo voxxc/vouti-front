@@ -14,9 +14,11 @@ interface ProjectDrawerContentProps {
   projectId: string;
   onClose: () => void;
   module?: string;
+  protocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
-export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDrawerContentProps) {
+export function ProjectDrawerContent({ projectId, onClose, module, protocoloId, onProtocoloConsumed }: ProjectDrawerContentProps) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   
@@ -270,6 +272,8 @@ export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDraw
           users={[]}
           embedded={true}
           module={module}
+          initialProtocoloId={protocoloId}
+          onProtocoloConsumed={onProtocoloConsumed}
         />
       </div>
     </div>

@@ -8,9 +8,11 @@ interface ProjectDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string | null;
+  protocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
-export function ProjectDrawer({ open, onOpenChange, projectId }: ProjectDrawerProps) {
+export function ProjectDrawer({ open, onOpenChange, projectId, protocoloId, onProtocoloConsumed }: ProjectDrawerProps) {
   const { navigate } = useTenantNavigation();
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -40,7 +42,9 @@ export function ProjectDrawer({ open, onOpenChange, projectId }: ProjectDrawerPr
         {projectId ? (
           <ProjectDrawerContent 
             projectId={projectId} 
-            onClose={() => onOpenChange(false)} 
+            onClose={() => onOpenChange(false)}
+            protocoloId={protocoloId}
+            onProtocoloConsumed={onProtocoloConsumed}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

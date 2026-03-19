@@ -67,6 +67,7 @@ const DashboardLayout = ({
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [pendingProtocoloId, setPendingProtocoloId] = useState<string | null>(null);
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
   
@@ -330,6 +331,11 @@ const DashboardLayout = ({
                       setDeadlineDetailId(deadlineId);
                       setDeadlineDetailOpen(true);
                     }}
+                    onProtocoloNavigation={(projectId, protocoloId) => {
+                      setSelectedProjectId(projectId);
+                      setPendingProtocoloId(protocoloId);
+                      setProjectDrawerOpen(true);
+                    }}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
@@ -389,8 +395,13 @@ const DashboardLayout = ({
       {/* Project Drawer (busca rápida) */}
       <ProjectDrawer
         open={projectDrawerOpen}
-        onOpenChange={setProjectDrawerOpen}
+        onOpenChange={(open) => {
+          setProjectDrawerOpen(open);
+          if (!open) setPendingProtocoloId(null);
+        }}
         projectId={selectedProjectId}
+        protocoloId={pendingProtocoloId}
+        onProtocoloConsumed={() => setPendingProtocoloId(null)}
       />
 
       {/* Drawers de seções - agora gerenciados aqui no layout */}

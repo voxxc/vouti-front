@@ -46,6 +46,8 @@ interface ProjectProtocolosListProps {
   workspaceId?: string | null;
   defaultWorkspaceId?: string | null;
   isLocked?: boolean;
+  initialProtocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -62,7 +64,7 @@ const STATUS_COLORS: Record<ProjectProtocolo['status'], string> = {
   cancelado: 'bg-muted text-muted-foreground border-muted'
 };
 
-export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true }: ProjectProtocolosListProps) {
+export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true, initialProtocoloId, onProtocoloConsumed }: ProjectProtocolosListProps) {
   const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa, reorderProtocolos } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -119,6 +121,18 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     searchParams.delete('protocolo');
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, loading, protocolos]);
+
+  // Auto-open protocolo from prop (e.g., from notification via ProjectDrawer)
+  useEffect(() => {
+    if (!initialProtocoloId || loading || !protocolos.length) return;
+
+    const found = protocolos.find(p => p.id === initialProtocoloId);
+    if (found) {
+      setSelectedProtocoloId(found.id);
+      setView('detalhes');
+    }
+    onProtocoloConsumed?.();
+  }, [initialProtocoloId, loading, protocolos]);
 
   // Load carteiras
   const loadCarteiras = useCallback(async () => {
