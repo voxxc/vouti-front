@@ -24,7 +24,13 @@ interface TaskComentario {
   };
 }
 
-export const useTaskComentarios = (taskId: string | null) => {
+interface TaskComentariosOptions {
+  commentType?: CommentType;
+  contextTitle?: string;
+  relatedProjectId?: string;
+}
+
+export const useTaskComentarios = (taskId: string | null, options?: TaskComentariosOptions) => {
   const [comentarios, setComentarios] = useState<TaskComentario[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
