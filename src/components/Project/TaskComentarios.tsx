@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTaskComentarios } from '@/hooks/useTaskComentarios';
+import { CommentType } from '@/hooks/useCommentMentions';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
