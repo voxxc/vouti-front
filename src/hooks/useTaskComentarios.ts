@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
-import { useCommentMentions } from '@/hooks/useCommentMentions';
+import { useCommentMentions, CommentType } from '@/hooks/useCommentMentions';
 
 interface TaskComentario {
   id: string;
