@@ -272,6 +272,8 @@ export function ProjectDrawerContent({ projectId, onClose, module, protocoloId, 
           users={[]}
           embedded={true}
           module={module}
+          initialProtocoloId={protocoloId}
+          onProtocoloConsumed={onProtocoloConsumed}
         />
       </div>
     </div>
