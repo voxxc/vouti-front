@@ -110,14 +110,21 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       const entityId = notification.related_task_id;
 
       if (target === 'protocolo') {
-        // Navigate to project with protocolo query param
-        if (notification.related_project_id && onProjectNavigation) {
-          onProjectNavigation(`${notification.related_project_id}?protocolo=${entityId || ''}`);
+        const resolveAndNavigate = async (projectId: string, protocoloId: string) => {
+          if (onProtocoloNavigation) {
+            onProtocoloNavigation(projectId, protocoloId);
+          } else if (onProjectNavigation) {
+            onProjectNavigation(`${projectId}?protocolo=${protocoloId}`);
+          }
           setIsOpen(false);
+        };
+
+        if (notification.related_project_id && entityId) {
+          await resolveAndNavigate(notification.related_project_id, entityId);
           return;
         }
         // If no project_id saved, try to look it up
-        if (entityId && onProjectNavigation) {
+        if (entityId) {
           try {
             const { data } = await supabase
               .from('project_protocolos')
@@ -125,8 +132,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
               .eq('id', entityId)
               .single();
             if (data?.project_id) {
-              onProjectNavigation(`${data.project_id}?protocolo=${entityId}`);
-              setIsOpen(false);
+              await resolveAndNavigate(data.project_id, entityId);
               return;
             }
           } catch { /* fall through */ }
