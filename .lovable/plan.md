@@ -1,37 +1,51 @@
 
-# Fix: Notificação de protocolo deve abrir o ProjectDrawer (não navegar para página)
 
-## Problema
+# Fix: Notificações antigas de protocolo não funcionam (dados incompletos)
 
-Quando o usuário clica na notificação de menção em protocolo, o `onProjectNavigation` faz `navigate(/project/${pid})` — navegando para uma **página inteira**. O esperado é abrir o **ProjectDrawer** no dashboard atual, já na aba de protocolos com o protocolo correto selecionado.
+## Diagnóstico
+
+A notificação que você clicou foi criada **antes** da correção. Ela tem:
+- `title: "Mencionado em tarefa"` (genérico, não "protocolo")
+- `related_project_id: null` (não foi salvo)
+
+O `getCommentMentionTarget` procura a palavra "protocolo" no título/conteúdo, mas encontra "tarefa" — então não entra na lógica de protocolo. E mesmo que entrasse, `related_project_id` é null, impedindo a navegação.
+
+**Novas notificações criadas após a correção já funcionam corretamente** (testei verificando o código: `commentType="protocolo"`, `relatedProjectId` é passado). O problema é só com dados antigos.
 
 ## Solução
 
-### 1. Adicionar callback `onProtocoloNavigation` no NotificationCenter
+Adicionar fallback inteligente no `NotificationCenter.tsx`: quando `related_project_id` é null e o clique não foi tratado por nenhuma rota específica, tentar buscar no `project_protocolos` usando `related_task_id` como possível protocolo ID. Se encontrar, abrir via `onProtocoloNavigation`.
 
-Em vez de reutilizar `onProjectNavigation` para protocolos, criar um callback dedicado:
+### Arquivo: `NotificationCenter.tsx`
+
+No final de `handleNotificationClick`, antes do fallback genérico (linha ~170), adicionar:
+
+```typescript
+// Fallback: se related_project_id é null mas related_task_id existe,
+// tentar resolver como protocolo (compatibilidade com notificações antigas)
+if (!notification.related_project_id && notification.related_task_id && onProtocoloNavigation) {
+  try {
+    const { data } = await supabase
+      .from('project_protocolos')
+      .select('project_id')
+      .eq('id', notification.related_task_id)
+      .maybeSingle();
+    if (data?.project_id) {
+      onProtocoloNavigation(data.project_id, notification.related_task_id);
+      setIsOpen(false);
+      return;
+    }
+  } catch { /* fall through to default */ }
+}
 ```
-onProtocoloNavigation?: (projectId: string, protocoloId: string) => void;
-```
 
-No `handleNotificationClick`, para `target === 'protocolo'`, chamar `onProtocoloNavigation(projectId, entityId)` em vez de `onProjectNavigation`.
+Isso resolve tanto notificações antigas quanto qualquer caso futuro onde `related_project_id` não tenha sido preenchido.
 
-### 2. Implementar handler no DashboardLayout
-
-No `DashboardLayout`, passar `onProtocoloNavigation` ao `NotificationCenter`. O handler vai:
-1. Setar `selectedProjectId` com o `projectId`
-2. Abrir o `ProjectDrawer` (`setProjectDrawerOpen(true)`)
-3. Guardar o `protocoloId` em um novo state para deep-linking
-
-### 3. Propagar `protocoloId` para dentro do ProjectDrawer
-
-Passar o `protocoloId` como prop ao `ProjectDrawer` → `ProjectDrawerContent`. Dentro do conteúdo, quando esse prop estiver presente, auto-selecionar a aba "Protocolos" e abrir o protocolo específico (reaproveitando a lógica de `?protocolo=UUID` que já existe no `ProjectProtocolosList`).
-
-## Arquivos a Modificar
+### Escopo
 
 | Arquivo | Mudança |
 |---------|---------|
-| `NotificationCenter.tsx` | Nova prop `onProtocoloNavigation`; usar no target `'protocolo'` |
-| `DashboardLayout.tsx` | Novo state `pendingProtocoloId`; handler que abre ProjectDrawer com projeto+protocolo; passar ao NotificationCenter e ProjectDrawer |
-| `ProjectDrawer.tsx` | Aceitar prop `protocoloId` opcional e repassar ao `ProjectDrawerContent` |
-| `ProjectDrawerContent.tsx` | Receber `protocoloId` e auto-navegar para aba Protocolos + selecionar o protocolo |
+| `NotificationCenter.tsx` | Adicionar fallback de lookup antes do handler default |
+
+Uma única alteração de ~15 linhas.
+
