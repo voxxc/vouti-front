@@ -79,6 +79,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const getCommentMentionTarget = (notification: Notification): string => {
     const text = ((notification.title || '') + ' ' + (notification.content || '')).toLowerCase();
+    if (text.includes('protocolo')) return 'protocolo';
     if (text.includes('prazo')) return 'deadline';
     if (text.includes('etapa')) return 'etapa';
     if (text.includes('processo')) return 'processo';
