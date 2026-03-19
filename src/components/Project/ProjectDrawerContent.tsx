@@ -18,7 +18,7 @@ interface ProjectDrawerContentProps {
   onProtocoloConsumed?: () => void;
 }
 
-export function ProjectDrawerContent({ projectId, onClose, module }: ProjectDrawerContentProps) {
+export function ProjectDrawerContent({ projectId, onClose, module, protocoloId, onProtocoloConsumed }: ProjectDrawerContentProps) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   
