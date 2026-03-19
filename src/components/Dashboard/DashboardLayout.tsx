@@ -395,8 +395,13 @@ const DashboardLayout = ({
       {/* Project Drawer (busca rápida) */}
       <ProjectDrawer
         open={projectDrawerOpen}
-        onOpenChange={setProjectDrawerOpen}
+        onOpenChange={(open) => {
+          setProjectDrawerOpen(open);
+          if (!open) setPendingProtocoloId(null);
+        }}
         projectId={selectedProjectId}
+        protocoloId={pendingProtocoloId}
+        onProtocoloConsumed={() => setPendingProtocoloId(null)}
       />
 
       {/* Drawers de seções - agora gerenciados aqui no layout */}
