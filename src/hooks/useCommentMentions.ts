@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantId } from '@/hooks/useTenantId';
 
-export type CommentType = 'deadline' | 'reuniao' | 'reuniao_cliente' | 'parcela' | 'task' | 'processo';
+export type CommentType = 'deadline' | 'reuniao' | 'reuniao_cliente' | 'parcela' | 'task' | 'processo' | 'protocolo';
 
 interface SaveMentionsParams {
   commentType: CommentType;
