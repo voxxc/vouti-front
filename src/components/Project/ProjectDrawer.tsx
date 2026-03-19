@@ -42,7 +42,9 @@ export function ProjectDrawer({ open, onOpenChange, projectId, protocoloId, onPr
         {projectId ? (
           <ProjectDrawerContent 
             projectId={projectId} 
-            onClose={() => onOpenChange(false)} 
+            onClose={() => onOpenChange(false)}
+            protocoloId={protocoloId}
+            onProtocoloConsumed={onProtocoloConsumed}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
