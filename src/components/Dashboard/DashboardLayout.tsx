@@ -446,6 +446,35 @@ const DashboardLayout = ({
         onProtocoloConsumed={() => setPendingProtocoloId(null)}
       />
 
+      {/* Etapa Modal (from notification) */}
+      <EtapaModal
+        etapa={etapaModalData?.etapa || null}
+        open={!!etapaModalData}
+        onOpenChange={(open) => { if (!open) setEtapaModalData(null); }}
+        onUpdate={async (id, data) => {
+          const updatePayload: Record<string, any> = {};
+          if (data.nome !== undefined) updatePayload.nome = data.nome;
+          if (data.descricao !== undefined) updatePayload.descricao = data.descricao;
+          if (data.status !== undefined) updatePayload.status = data.status;
+          if (data.responsavelId !== undefined) updatePayload.responsavel_id = data.responsavelId;
+          if (data.dataConclusao !== undefined) updatePayload.data_conclusao = data.dataConclusao?.toISOString() || null;
+          if (data.comentarioConclusao !== undefined) updatePayload.comentario_conclusao = data.comentarioConclusao;
+          await supabase.from('project_protocolo_etapas').update(updatePayload).eq('id', id);
+          if (etapaModalData) {
+            setEtapaModalData(prev => prev ? {
+              ...prev,
+              etapa: { ...prev.etapa, ...data, id }
+            } : null);
+          }
+        }}
+        onDelete={async (id) => {
+          await supabase.from('project_protocolo_etapas').delete().eq('id', id);
+          setEtapaModalData(null);
+        }}
+        protocoloId={etapaModalData?.protocoloId}
+        projectId={etapaModalData?.projectId}
+      />
+
       {/* Drawers de seções - agora gerenciados aqui no layout */}
       <ProjectsDrawer 
         open={activeDrawer === 'projetos'} 
