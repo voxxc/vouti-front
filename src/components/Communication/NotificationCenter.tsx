@@ -28,7 +28,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onProjectNavigation,
   onProcessoNavigation,
   onDeadlineNavigation,
-  onProtocoloNavigation
+  onProtocoloNavigation,
+  onEtapaNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
   const [shouldPing, setShouldPing] = useState(false);
