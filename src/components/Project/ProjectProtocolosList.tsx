@@ -46,6 +46,8 @@ interface ProjectProtocolosListProps {
   workspaceId?: string | null;
   defaultWorkspaceId?: string | null;
   isLocked?: boolean;
+  initialProtocoloId?: string | null;
+  onProtocoloConsumed?: () => void;
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
