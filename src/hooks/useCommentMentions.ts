@@ -19,6 +19,7 @@ const typeTitles: Record<CommentType, string> = {
   parcela: 'Mencionado em parcela',
   task: 'Mencionado em tarefa',
   processo: 'Mencionado em processo',
+  protocolo: 'Mencionado em protocolo',
 };
 
 const typeLabels: Record<CommentType, string> = {
