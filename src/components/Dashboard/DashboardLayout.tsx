@@ -8,6 +8,7 @@ import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
 import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
+import { EtapaModal } from "@/components/Project/EtapaModal";
 import { LogOut, Settings, Loader2, Clock } from "lucide-react";
 
 import { TOTPSheet } from "./TOTPSheet";
