@@ -62,7 +62,7 @@ const STATUS_COLORS: Record<ProjectProtocolo['status'], string> = {
   cancelado: 'bg-muted text-muted-foreground border-muted'
 };
 
-export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true }: ProjectProtocolosListProps) {
+export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true, initialProtocoloId, onProtocoloConsumed }: ProjectProtocolosListProps) {
   const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa, reorderProtocolos } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
