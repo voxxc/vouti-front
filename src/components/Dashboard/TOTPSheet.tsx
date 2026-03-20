@@ -3,7 +3,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, ShieldCheck, Wallet, Upload, Loader2 } from "lucide-react";
-import { generateTOTP, getSecondsRemaining } from "@/lib/totp";
+import { generateTOTP, getSecondsRemaining, getTimeStep } from "@/lib/totp";
+import { useServerTime } from "@/hooks/useServerTime";
 import { toast } from "sonner";
 import { TOTPWallet, TOTPToken, LegacyTOTPStorage, LegacyTOTPToken } from "@/types/totp";
 import { WalletCard } from "./TOTP/WalletCard";
