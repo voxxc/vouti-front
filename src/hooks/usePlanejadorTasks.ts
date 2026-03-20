@@ -113,7 +113,7 @@ export function usePlanejadorTasks() {
 
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('planejador_tasks').delete().eq('id', id);
+      const { error } = await (supabase as any).from('planejador_tasks').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] }),

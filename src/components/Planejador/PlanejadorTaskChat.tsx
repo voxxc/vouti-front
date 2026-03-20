@@ -37,7 +37,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       if (!user || !tenantId) throw new Error('Not authenticated');
-      const { error } = await supabase.from('planejador_task_messages').insert({
+      const { error } = await (supabase as any).from('planejador_task_messages').insert({
         task_id: taskId,
         user_id: user.id,
         content,
