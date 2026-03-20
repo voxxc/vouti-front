@@ -3051,6 +3051,143 @@ export type Database = {
           },
         ]
       }
+      planejador_subtasks: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          id: string
+          task_id: string
+          tenant_id: string | null
+          titulo: string
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          id?: string
+          task_id: string
+          tenant_id?: string | null
+          titulo: string
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          id?: string
+          task_id?: string
+          tenant_id?: string | null
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planejador_subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "planejador_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planejador_subtasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planejador_task_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          task_id: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          task_id: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planejador_task_messages_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "planejador_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planejador_task_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planejador_tasks: {
+        Row: {
+          created_at: string
+          created_by: string
+          descricao: string | null
+          id: string
+          prazo: string | null
+          prioridade: string
+          proprietario_id: string
+          responsavel_id: string | null
+          status: string
+          tenant_id: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          descricao?: string | null
+          id?: string
+          prazo?: string | null
+          prioridade?: string
+          proprietario_id: string
+          responsavel_id?: string | null
+          status?: string
+          tenant_id?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          descricao?: string | null
+          id?: string
+          prazo?: string | null
+          prioridade?: string
+          proprietario_id?: string
+          responsavel_id?: string | null
+          status?: string
+          tenant_id?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planejador_tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planos_config: {
         Row: {
           codigo: string
