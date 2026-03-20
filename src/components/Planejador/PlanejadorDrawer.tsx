@@ -137,7 +137,7 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
               <div className="flex-1 px-6 pb-4 min-h-0 overflow-hidden">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+                    <Loader2 className={`h-8 w-8 animate-spin ${theme === 'dark' ? 'text-white/50' : 'text-foreground/50'}`} />
                   </div>
                 ) : (
                   <PlanejadorKanban
