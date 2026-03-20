@@ -83,6 +83,7 @@ function getLocalStorageData(): LegacyTOTPStorage | null {
 
 export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
   const { tenantId } = useTenantId();
+  const { getSyncedNow, isSynced } = useServerTime(open);
   const { 
     wallets: dbWallets, 
     tokens: dbTokens, 
