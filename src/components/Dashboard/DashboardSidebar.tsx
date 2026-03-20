@@ -168,7 +168,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   };
 
   // IDs que abrem drawers
-  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
+  const drawerItems = ['projetos', 'planejador', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
 
   return (
     <>

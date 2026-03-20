@@ -518,6 +518,10 @@ const DashboardLayout = ({
         open={activeDrawer === 'publicacoes'} 
         onOpenChange={handleDrawerClose} 
       />
+      <PlanejadorDrawer 
+        open={activeDrawer === 'planejador'} 
+        onOpenChange={handleDrawerClose} 
+      />
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav
