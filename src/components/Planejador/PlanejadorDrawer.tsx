@@ -93,13 +93,13 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
           <div 
             className="h-full flex flex-col relative"
             style={{
-              backgroundImage: `url(${spaceBg})`,
+              backgroundImage: `url(${theme === 'dark' ? spaceBg : skyLightBg})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
           >
             {/* Overlay for readability */}
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+            <div className={`absolute inset-0 backdrop-blur-[2px] ${theme === 'dark' ? 'bg-black/40' : 'bg-white/30'}`} />
 
             {/* Expand/Collapse arrow */}
             <button
