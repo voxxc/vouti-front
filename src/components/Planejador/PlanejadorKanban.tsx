@@ -2,6 +2,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskCard } from "./PlanejadorTaskCard";
 import { ColumnConfig } from "./PlanejadorSettings";
+import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
 import { endOfWeek, addWeeks, setHours } from "date-fns";
 import { useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -13,6 +14,12 @@ interface PlanejadorKanbanProps {
   searchQuery: string;
   locked?: boolean;
   columnConfig?: ColumnConfig[];
+  // Filters
+  selectedUserId?: string | null;
+  selectedLabelIds?: string[];
+  labels?: PlanejadorLabel[];
+  allLabelAssignments?: PlanejadorLabelAssignment[];
+  participantTaskIds?: string[];
 }
 
 function getDeadlineForColumn(column: KanbanColumn): string | null {
@@ -29,7 +36,10 @@ function getDeadlineForColumn(column: KanbanColumn): string | null {
   }
 }
 
-export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searchQuery, locked = false, columnConfig }: PlanejadorKanbanProps) {
+export function PlanejadorKanban({
+  tasksByColumn, onTaskClick, onMoveTask, searchQuery, locked = false, columnConfig,
+  selectedUserId, selectedLabelIds = [], labels = [], allLabelAssignments = [], participantTaskIds,
+}: PlanejadorKanbanProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -40,37 +50,52 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
     return [...columnConfig]
       .sort((a, b) => a.order - b.order)
       .filter(c => c.visible)
-      .map(c => ({
-        id: c.id,
-        label: c.label,
-        color: c.color,
-      }));
+      .map(c => ({ id: c.id, label: c.label, color: c.color }));
   }, [columnConfig]);
 
   const handleDragEnd = (result: DropResult) => {
     if (locked || !result.destination) return;
     const destColumn = result.destination.droppableId as KanbanColumn;
     const taskId = result.draggableId;
-
     const updates: Partial<PlanejadorTask> = {};
     if (destColumn === 'concluido') {
       updates.status = 'completed';
     } else {
       updates.status = 'pending';
       const newDeadline = getDeadlineForColumn(destColumn);
-      if (destColumn === 'sem_prazo') {
-        updates.prazo = null;
-      } else if (newDeadline) {
-        updates.prazo = newDeadline;
-      }
+      if (destColumn === 'sem_prazo') updates.prazo = null;
+      else if (newDeadline) updates.prazo = newDeadline;
     }
     onMoveTask(taskId, updates);
   };
 
   const filterTasks = (tasks: PlanejadorTask[]) => {
-    if (!searchQuery) return tasks;
-    const q = searchQuery.toLowerCase();
-    return tasks.filter(t => t.titulo.toLowerCase().includes(q));
+    let filtered = tasks;
+
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => t.titulo.toLowerCase().includes(q));
+    }
+
+    // User filter
+    if (selectedUserId) {
+      filtered = filtered.filter(t =>
+        t.proprietario_id === selectedUserId ||
+        t.responsavel_id === selectedUserId ||
+        (participantTaskIds && participantTaskIds.includes(t.id))
+      );
+    }
+
+    // Label filter
+    if (selectedLabelIds.length > 0) {
+      const taskIdsWithLabels = allLabelAssignments
+        .filter(a => selectedLabelIds.includes(a.label_id))
+        .map(a => a.task_id);
+      filtered = filtered.filter(t => taskIdsWithLabels.includes(t.id));
+    }
+
+    return filtered;
   };
 
   const text = isDark ? 'text-white' : 'text-foreground';
@@ -86,14 +111,11 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
           const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
             <div key={col.id} className="flex-shrink-0 w-72 flex flex-col min-h-0">
-              {/* Column Header */}
               <div className="flex items-center gap-2 mb-3 px-1">
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
                 <span className={`text-sm font-semibold truncate ${text}`}>{col.label}</span>
                 <span className={`text-xs font-medium ${textMuted}`}>({tasks.length})</span>
               </div>
-
-              {/* Column Body */}
               <Droppable droppableId={col.id} isDropDisabled={locked}>
                 {(provided, snapshot) => (
                   <div
@@ -112,7 +134,12 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
                             {...provided.dragHandleProps}
                             className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
                           >
-                            <PlanejadorTaskCard task={task} onClick={() => onTaskClick(task)} />
+                            <PlanejadorTaskCard
+                              task={task}
+                              onClick={() => onTaskClick(task)}
+                              labels={labels}
+                              labelAssignments={allLabelAssignments}
+                            />
                           </div>
                         )}
                       </Draggable>

@@ -6,8 +6,11 @@ import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
 import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
+import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import spaceBg from "@/assets/space-bg.jpg";
 import skyLightBg from "@/assets/sky-light-bg.jpg";
@@ -51,12 +54,48 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [locked, setLocked] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+
   const { tenantId } = useTenantId();
   const { theme } = useTheme();
 
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
 
   const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
+  const { labels } = usePlanejadorLabels();
+  const { data: allLabelAssignments = [] } = useAllLabelAssignments();
+
+  // Fetch profiles for filters
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['tenant-profiles', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
+
+  // Fetch participant task IDs for user filtering
+  const { data: participantData = [] } = useQuery({
+    queryKey: ['planejador-all-participants', tenantId, selectedUserId],
+    queryFn: async () => {
+      if (!tenantId || !selectedUserId) return [];
+      const { data, error } = await (supabase as any)
+        .from('planejador_task_participants')
+        .select('task_id')
+        .eq('tenant_id', tenantId)
+        .eq('user_id', selectedUserId);
+      if (error) throw error;
+      return (data || []).map((d: any) => d.task_id as string);
+    },
+    enabled: !!tenantId && !!selectedUserId,
+  });
 
   const handleColumnConfigChange = useCallback((newConfig: ColumnConfig[]) => {
     setColumnConfig(newConfig);
@@ -99,10 +138,8 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
               backgroundPosition: 'center',
             }}
           >
-            {/* Overlay for readability */}
             <div className={`absolute inset-0 backdrop-blur-[2px] ${theme === 'dark' ? 'bg-black/40' : 'bg-white/30'}`} />
 
-            {/* Expand/Collapse arrow */}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={`absolute top-3 left-3 z-20 flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
@@ -117,9 +154,7 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
               )}
             </button>
 
-            {/* Content */}
             <div className="relative z-10 flex flex-col h-full">
-              {/* Top Bar */}
               <div className="px-6 pt-5 pb-2">
                 <PlanejadorTopBar
                   onCreateTask={() => setCreateOpen(true)}
@@ -131,10 +166,15 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
                   locked={locked}
                   onToggleLock={() => setLocked(!locked)}
                   onOpenSettings={() => setSettingsOpen(true)}
+                  profiles={profiles}
+                  selectedUserId={selectedUserId}
+                  onUserFilterChange={setSelectedUserId}
+                  labels={labels}
+                  selectedLabelIds={selectedLabelIds}
+                  onLabelFilterChange={setSelectedLabelIds}
                 />
               </div>
 
-              {/* Kanban Board */}
               <div className="flex-1 px-6 pb-4 min-h-0 overflow-hidden">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
@@ -148,6 +188,11 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
                     searchQuery={searchQuery}
                     locked={locked}
                     columnConfig={columnConfig}
+                    selectedUserId={selectedUserId}
+                    selectedLabelIds={selectedLabelIds}
+                    labels={labels}
+                    allLabelAssignments={allLabelAssignments}
+                    participantTaskIds={participantData}
                   />
                 )}
               </div>
@@ -156,7 +201,6 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
         </SheetContent>
       </Sheet>
 
-      {/* Settings Panel */}
       <PlanejadorSettings
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
@@ -164,7 +208,6 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
         onColumnConfigChange={handleColumnConfigChange}
       />
 
-      {/* Create Task Dialog */}
       <PlanejadorCreateTask
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -172,7 +215,6 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
         isLoading={createTask.isPending}
       />
 
-      {/* Task Detail View */}
       {selectedTask && (
         <PlanejadorTaskDetail
           task={selectedTask}
