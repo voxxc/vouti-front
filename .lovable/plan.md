@@ -1,107 +1,62 @@
 
 
-# Planejador — Gerenciador de Tarefas Premium (Bitrix24-inspired)
+# Planejador: Botão X, Configurações, Cadeado e Sidebar/Topbar Collapsível
 
-## Visão Geral
+## Contexto
 
-Criar um módulo "Planejador" integrado ao sistema existente como um novo drawer no sidebar, com Kanban board de prazos, fundo espacial, e view de detalhes da tarefa com chat integrado.
+O Planejador atualmente usa `side="right"` com fullscreen, cobrindo sidebar e topbar completamente. Todos os outros drawers usam `side="inset"` que respeita sidebar/topbar. Precisamos manter o visual espacial do Planejador mas permitir ver sidebar/topbar quando desejado.
 
-## Arquitetura
+## Mudanças
 
-O Planejador será implementado como um drawer (padrão existente do projeto) com componentes internos próprios. Dados persistidos no Supabase com tabelas dedicadas.
+### 1. Botão X para fechar (`PlanejadorTopBar.tsx`)
+- Adicionar prop `onClose` e renderizar um botão X minimalista no canto direito da top bar
 
-## Database (Migrations)
+### 2. Ícone de Configuração (engrenagem) (`PlanejadorTopBar.tsx` + novo `PlanejadorSettings.tsx`)
+- Ícone `Settings` ao lado esquerdo da barra de pesquisa
+- Ao clicar, abre um painel/sheet lateral dentro do drawer com:
+  - Lista de colunas com nome editável (usando `EditableColumnName` existente como referência)
+  - Drag & drop para reordenar colunas
+  - Toggle de visibilidade por coluna
+- State de configuração das colunas salvo em `localStorage` (por tenant) e passado ao Kanban
 
-### Tabela `planejador_tasks`
-```sql
-create table public.planejador_tasks (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid references public.tenants(id),
-  titulo text not null,
-  descricao text,
-  status text default 'pending', -- pending, in_progress, completed
-  prazo timestamptz,
-  proprietario_id uuid references auth.users(id),
-  responsavel_id uuid references auth.users(id),
-  prioridade text default 'normal',
-  created_by uuid references auth.users(id),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-```
+### 3. Ícone de Cadeado (`PlanejadorTopBar.tsx`)
+- Ícone `Lock`/`Unlock` ao lado da engrenagem
+- Quando travado: drag & drop entre colunas desabilitado (não pode mover tarefas)
+- Quando destravado: comportamento normal
+- Padrão: destravado
 
-### Tabela `planejador_task_messages` (chat por tarefa)
-```sql
-create table public.planejador_task_messages (
-  id uuid primary key default gen_random_uuid(),
-  task_id uuid references public.planejador_tasks(id) on delete cascade,
-  user_id uuid references auth.users(id),
-  content text not null,
-  created_at timestamptz default now()
-);
-```
+### 4. Sidebar/Topbar com seta collapsível (`PlanejadorDrawer.tsx`)
+- Mudar o Planejador de `side="right"` fullscreen para `side="inset"` (padrão do projeto)
+- Isso automaticamente mostra sidebar e topbar, já que `inset` respeita o layout
+- Adicionar uma seta minimalista (tipo `ChevronLeft`/`ChevronRight` em linha fina) no canto superior esquerdo do drawer
+- Ao clicar, o drawer muda temporariamente para fullscreen (CSS: `left: 0, top: 0`) cobrindo sidebar/topbar
+- Ao clicar novamente, volta ao `inset` mostrando sidebar/topbar
+- O fundo espacial se mantém em ambos os modos
 
-### Tabela `planejador_subtasks`
-```sql
-create table public.planejador_subtasks (
-  id uuid primary key default gen_random_uuid(),
-  task_id uuid references public.planejador_tasks(id) on delete cascade,
-  titulo text not null,
-  concluida boolean default false,
-  created_at timestamptz default now()
-);
-```
-
-RLS policies para todas as tabelas baseadas em `tenant_id`.
-
-## Arquivos a Criar
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/Planejador/PlanejadorDrawer.tsx` | Drawer principal com fundo espacial, top bar, abas e Kanban |
-| `src/components/Planejador/PlanejadorKanban.tsx` | Board Kanban com 7 colunas coloridas por prazo + drag & drop |
-| `src/components/Planejador/PlanejadorTaskCard.tsx` | Card minimalista: título, badge de prazo, avatares |
-| `src/components/Planejador/PlanejadorTaskDetail.tsx` | View dividida (detalhes + chat) que abre ao clicar num card |
-| `src/components/Planejador/PlanejadorTaskChat.tsx` | Painel de chat por tarefa com menções |
-| `src/components/Planejador/PlanejadorCreateTask.tsx` | Dialog de criação rápida de tarefa |
-| `src/components/Planejador/PlanejadorTopBar.tsx` | Top bar: logo, + Criar, filtros, pesquisa |
-| `src/hooks/usePlanejadorTasks.ts` | Hook para CRUD de tasks + categorização por prazo |
-
-## Arquivos a Modificar
+## Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `DashboardSidebar.tsx` | Adicionar item "Planejador" (icon: `LayoutGrid`) abaixo de "Projetos" no menuItems + role access |
-| `DashboardSidebar.tsx` | Adicionar 'planejador' ao `ActiveDrawer` type e `drawerItems` |
-| `DashboardLayout.tsx` | Importar e renderizar `PlanejadorDrawer` quando `activeDrawer === 'planejador'` |
+| `PlanejadorDrawer.tsx` | Usar `side="inset"`, state de fullscreen toggle, passar props novas ao TopBar e Kanban |
+| `PlanejadorTopBar.tsx` | Botão X (onClose), ícone Settings, ícone Lock/Unlock, seta expand/collapse |
+| `PlanejadorSettings.tsx` | **Novo** — Painel de configurações de colunas (renomear, reordenar, visibilidade) |
+| `PlanejadorKanban.tsx` | Receber `locked` prop para desabilitar drag & drop; receber `columnConfig` para ordem/nomes customizados |
+| `usePlanejadorTasks.ts` | Exportar `KANBAN_COLUMNS` com suporte a override de labels/ordem |
 
-## Design Visual
+### Detalhe técnico: Configuração de colunas
 
-- **Fundo**: Imagem da Terra vista do espaço (CSS background com overlay escuro para legibilidade)
-- **Colunas Kanban** com cores exatas do print:
-  - Vencido: `#ef4444` (vermelho)
-  - Vencimento hoje: `#a3e635` (verde limão)
-  - Vencimento esta semana: `#22d3ee` (ciano)
-  - Vencimento na próxima semana: `#60a5fa` (azul claro)
-  - Sem prazo: `#9ca3af` (cinza)
-  - Vencimento em duas semanas: `#3b82f6` (azul médio)
-  - Concluído: `#4b5563` (cinza escuro)
-- **Cards**: fundo branco com sombra sutil, tipografia limpa, badges discretos
-- **Top bar**: fundo semi-transparente escuro, blur backdrop
+```typescript
+interface ColumnConfig {
+  id: KanbanColumn;
+  label: string;     // nome customizado
+  visible: boolean;
+  order: number;
+}
+```
 
-## Fluxo de Navegação
+Salvo em `localStorage` key `planejador-column-config-{tenantId}`. Se não existir, usa `KANBAN_COLUMNS` padrão. O `PlanejadorSettings` permite editar in-place com drag para reordenar.
 
-1. Sidebar → clique "Planejador" → abre `PlanejadorDrawer` (Sheet fullscreen)
-2. Kanban com drag & drop entre colunas (categorização automática por data de prazo)
-3. Clique num card → abre `PlanejadorTaskDetail` (view dividida 45/55)
-4. Botão "+ Criar" → dialog de criação rápida
+### Detalhe técnico: Modo inset vs fullscreen
 
-## Escopo da Primeira Entrega
-
-Foco na tela principal funcional:
-1. Drawer com fundo espacial + top bar + Kanban colorido
-2. Cards com drag & drop
-3. Criação de tarefas
-4. View de detalhes com chat integrado
-5. Persistência no Supabase
+O drawer usará `side="inset"` por padrão. O state `isExpanded` controla uma classe CSS extra que faz `position: fixed; inset: 0;` sobrepondo sidebar/topbar. Uma seta minimalista (`ChevronRight` quando expandido, `ChevronLeft` quando colapsado) no canto permite alternar.
 
