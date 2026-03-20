@@ -67,7 +67,7 @@ export function usePlanejadorTasks() {
     queryKey: ['planejador-tasks', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('planejador_tasks')
         .select('*')
         .eq('tenant_id', tenantId)
