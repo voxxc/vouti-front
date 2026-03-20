@@ -34,6 +34,7 @@ import { DocumentosDrawer } from "@/components/Documentos/DocumentosDrawer";
 import { WhatsAppDrawer } from "@/components/WhatsApp/WhatsAppDrawer";
 import { ExtrasDrawer } from "@/components/Extras/ExtrasDrawer";
 import { PublicacoesDrawer } from "@/components/Publicacoes/PublicacoesDrawer";
+import { PlanejadorDrawer } from "@/components/Planejador/PlanejadorDrawer";
 
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
