@@ -214,6 +214,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
+      toast.error("Erro ao enviar arquivo");
       return;
     }
 
