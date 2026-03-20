@@ -103,9 +103,12 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
   const tokens = dbTokens.map(dbTokenToFrontend);
 
   const [codes, setCodes] = useState<Record<string, string>>({});
-  const [secondsRemaining, setSecondsRemaining] = useState(getSecondsRemaining());
+  const [secondsRemaining, setSecondsRemaining] = useState(30);
   const tokensRef = useRef(tokens);
   tokensRef.current = tokens;
+  const getSyncedNowRef = useRef(getSyncedNow);
+  getSyncedNowRef.current = getSyncedNow;
+  const lastTimeStepRef = useRef<number>(-1);
   const [localData, setLocalData] = useState<LegacyTOTPStorage | null>(null);
   
   // Dialog states
