@@ -18,7 +18,8 @@ import {
   Star,
   FileText,
   MessageSquare,
-  Newspaper
+  Newspaper,
+  LayoutGrid
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
@@ -26,7 +27,7 @@ import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 
-export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
+export type ActiveDrawer = 'projetos' | 'planejador' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -96,6 +97,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   // Mapeamento de seções para roles que têm acesso
   const sectionRoleMap: Record<string, string[]> = {
     'projetos': ['advogado', 'controller', 'estagiario', 'perito'],
+    'planejador': ['advogado', 'controller', 'estagiario', 'perito'],
     'agenda': ['advogado', 'controller', 'agenda', 'estagiario', 'perito'],
     'clientes': ['comercial'],
     'financeiro': ['financeiro'],
@@ -134,6 +136,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   const menuItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', route: '/dashboard' },
     { id: 'projetos', icon: FolderOpen, label: 'Projetos', route: '/projects' },
+    { id: 'planejador', icon: LayoutGrid, label: 'Planejador', route: '/planejador' },
     { id: 'agenda', icon: Calendar, label: 'Agenda', route: '/agenda' },
     { id: 'clientes', icon: Users, label: 'Clientes', route: '/clientes' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
@@ -165,7 +168,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   };
 
   // IDs que abrem drawers
-  const drawerItems = ['projetos', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
+  const drawerItems = ['projetos', 'planejador', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
 
   return (
     <>
