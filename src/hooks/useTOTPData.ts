@@ -84,17 +84,37 @@ export function useTOTPData(tenantId: string | null) {
 
   // Query para buscar tokens
   const { data: tokens = [], isLoading: tokensLoading } = useQuery({
-    queryKey: ['totp-tokens', tenantId],
+    queryKey: ['totp-tokens', tenantId, isAdminOrController, user?.id],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('totp_tokens')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: true });
       
-      if (error) throw error;
-      return (data || []) as TOTPTokenDB[];
+      if (isAdminOrController) {
+        const { data, error } = await supabase
+          .from('totp_tokens')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        return (data || []) as TOTPTokenDB[];
+      } else {
+        const { data: viewerRecords, error: viewerError } = await supabase
+          .from('totp_wallet_viewers')
+          .select('wallet_id')
+          .eq('user_id', user?.id || '');
+        
+        if (viewerError) throw viewerError;
+        const walletIds = (viewerRecords || []).map(v => v.wallet_id);
+        if (walletIds.length === 0) return [];
+
+        const { data, error } = await supabase
+          .from('totp_tokens')
+          .select('*')
+          .in('wallet_id', walletIds)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        return (data || []) as TOTPTokenDB[];
+      }
     },
     enabled: !!tenantId
   });
