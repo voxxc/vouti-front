@@ -1,36 +1,24 @@
 
 
-# Fix: Bate-papo da tarefa no Planejador
+# Fix: TaskDetail conflita com o Drawer do Planejador
 
-## Problema identificado
+## Problema
 
-O chat de texto funciona em teoria (tabela, RLS, código estão corretos), mas **faltam storage policies para upload** — o que faz fotos e áudios falharem silenciosamente. Além disso, o código usa `(supabase as any)` desnecessariamente, o que pode mascarar erros de tipo.
+O `PlanejadorTaskDetail` é renderizado como `fixed inset-0 z-[70]` fora do `Sheet` (que usa Radix Portal). Isso causa conflito de stacking context — o backdrop do TaskDetail compete com o portal do Sheet, resultando em bugs visuais e de interação (cliques não funcionam, elementos ficam por baixo).
 
-## Correções
+## Solução
 
-### 1. Migration — Adicionar policy de INSERT no storage
+Mover o `PlanejadorTaskDetail` para **dentro** de um **React Portal** próprio (`createPortal` para `document.body`), garantindo que ele fique no topo da árvore DOM, acima de qualquer outro portal (incluindo o do Sheet/Radix).
 
-O bucket `planejador-chat-files` tem policies de SELECT e DELETE, mas **não tem INSERT** (upload). Sem isso, qualquer tentativa de enviar foto ou áudio falha silenciosamente.
+### Mudanças
 
-```sql
-CREATE POLICY "Users upload planejador chat files"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'planejador-chat-files');
-```
+**`PlanejadorTaskDetail.tsx`**
+- Envolver o retorno em `createPortal(..., document.body)` para garantir que o overlay do task detail fique sempre acima do drawer
+- Aumentar z-index para `z-[80]` por segurança
+- Adicionar `pointer-events-auto` no container interno para garantir que cliques funcionem
 
-### 2. PlanejadorTaskChat.tsx — Remover `(supabase as any)` casts
+**`PlanejadorDrawer.tsx`**
+- Nenhuma mudança necessária — o TaskDetail já está fora do Sheet, mas agora com o portal ele será renderizado corretamente no body
 
-A tabela `planejador_task_messages` já existe no types.ts. Trocar todas as chamadas `(supabase as any).from('planejador_task_messages')` por `supabase.from('planejador_task_messages')` para ter type-safety e erros visíveis.
-
-### 3. Melhorar feedback de erro
-
-Adicionar toast de erro visível ao usuário quando o envio de mensagem, upload de arquivo ou gravação de áudio falhar, em vez de apenas `console.error`.
-
-## Arquivos modificados
-
-| Arquivo | Mudança |
-|---------|---------|
-| Migration SQL | Adicionar INSERT policy no storage para `planejador-chat-files` |
-| `PlanejadorTaskChat.tsx` | Remover `(supabase as any)`, adicionar toasts de erro |
+Resultado: o TaskDetail sempre sobrepõe o drawer do Planejador sem conflitos.
 
