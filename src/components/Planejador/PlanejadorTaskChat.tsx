@@ -297,6 +297,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
     if (uploadError) {
       console.error('Audio upload error:', uploadError);
+      toast.error("Erro ao enviar áudio");
       return;
     }
 
