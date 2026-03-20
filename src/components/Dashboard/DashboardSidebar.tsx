@@ -18,7 +18,8 @@ import {
   Star,
   FileText,
   MessageSquare,
-  Newspaper
+  Newspaper,
+  LayoutGrid
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
