@@ -104,7 +104,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       fileName?: string;
     }) => {
       if (!user || !tenantId) throw new Error('Not authenticated');
-      const { error } = await (supabase as any).from('planejador_task_messages').insert({
+      const { error } = await supabase.from('planejador_task_messages').insert({
         task_id: taskId,
         user_id: user.id,
         content: params.content,
@@ -120,6 +120,9 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
       setMessage("");
       setReplyingTo(null);
+    },
+    onError: () => {
+      toast.error("Erro ao enviar mensagem");
     },
   });
 
