@@ -3097,7 +3097,11 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          file_name: string | null
+          file_url: string | null
           id: string
+          message_type: string
+          reply_to_id: string | null
           task_id: string
           tenant_id: string | null
           user_id: string
@@ -3105,7 +3109,11 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
+          message_type?: string
+          reply_to_id?: string | null
           task_id: string
           tenant_id?: string | null
           user_id: string
@@ -3113,12 +3121,23 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
+          message_type?: string
+          reply_to_id?: string | null
           task_id?: string
           tenant_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "planejador_task_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "planejador_task_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "planejador_task_messages_task_id_fkey"
             columns: ["task_id"]
