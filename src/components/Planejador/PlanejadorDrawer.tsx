@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlanejadorTopBar } from "./PlanejadorTopBar";
 import { PlanejadorKanban } from "./PlanejadorKanban";
 import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
@@ -90,6 +90,7 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
             isExpanded ? '!fixed !inset-0 !top-0 !left-0 !bottom-0 !right-0 z-[60]' : ''
           }`}
         >
+          <SheetTitle className="sr-only">Planejador</SheetTitle>
           <div 
             className="h-full flex flex-col relative"
             style={{
