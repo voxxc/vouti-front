@@ -104,13 +104,15 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
             {/* Expand/Collapse arrow */}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="absolute top-3 left-3 z-20 flex items-center justify-center w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
+              className={`absolute top-3 left-3 z-20 flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
+                theme === 'dark' ? 'bg-white/10 hover:bg-white/20' : 'bg-black/5 hover:bg-black/10'
+              }`}
               title={isExpanded ? "Mostrar sidebar" : "Tela cheia"}
             >
               {isExpanded ? (
-                <ChevronRight className="h-4 w-4 text-white/70" strokeWidth={1.5} />
+                <ChevronRight className={`h-4 w-4 ${theme === 'dark' ? 'text-white/70' : 'text-foreground/70'}`} strokeWidth={1.5} />
               ) : (
-                <ChevronLeft className="h-4 w-4 text-white/70" strokeWidth={1.5} />
+                <ChevronLeft className={`h-4 w-4 ${theme === 'dark' ? 'text-white/70' : 'text-foreground/70'}`} strokeWidth={1.5} />
               )}
             </button>
 
