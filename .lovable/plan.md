@@ -1,54 +1,59 @@
 
-# Fix: sincronizar códigos TOTP entre todos os usuários
 
-## Entendimento do problema
+# 4 mudanças no Planejador, Chat e Topbar
 
-Hoje os códigos são gerados no frontend com `Date.now()` em `src/lib/totp.ts`. Isso faz cada navegador usar o próprio relógio local para calcular o TOTP. Se o relógio de um usuário estiver alguns segundos adiantado/atrasado, ele entra em outra janela de 30s e vê um código diferente do restante.
+## 1. Botão Configurações → Menu com opções (não só colunas)
 
-Ou seja: o problema não é mais a visibilidade dos tokens, e sim a base de tempo usada para gerar os códigos.
+Atualmente o botão engrenagem abre direto o painel de colunas. Mudar para abrir um dropdown/popover com opções, sendo "Configurar Colunas" a primeira opção.
 
-## O que precisa mudar
+**Arquivo:** `PlanejadorTopBar.tsx`
+- Trocar o `<button onClick={onOpenSettings}>` por um `DropdownMenu` com itens:
+  - "Configurar Colunas" (ícone Columns) → chama `onOpenSettings`
+  - (espaço para futuras opções)
 
-### 1. Parar de usar o relógio local como fonte principal
-- Ajustar `src/lib/totp.ts` para aceitar um timestamp de referência:
-  - `generateTOTP(secret, timestampMs?)`
-  - `getSecondsRemaining(timestampMs?)`
-- Assim o cálculo deixa de depender obrigatoriamente de `Date.now()`.
+## 2. Task Detail abrindo atrás do Drawer
 
-### 2. Criar sincronização de relógio do cliente com o servidor
-- Criar um hook/utilitário para obter um “offset” entre o relógio do navegador e o horário do servidor/Supabase.
-- Fluxo:
-  - buscar horário do servidor ao abrir o `TOTPSheet`
-  - calcular `serverOffsetMs = serverNow - clientNow`
-  - usar sempre `Date.now() + serverOffsetMs` para gerar código e contador
-  - recalibrar periodicamente e quando o drawer for reaberto
+O `PlanejadorTaskDetail` usa `z-50` mas o Sheet inset pode ter z-index maior. O componente é renderizado fora do Sheet (no JSX do `PlanejadorDrawer`, após `</Sheet>`).
 
-## 3. Aplicar isso no `TOTPSheet`
-- Trocar toda a lógica atual para gerar os códigos com o timestamp sincronizado:
-  - estado local de `serverOffsetMs`
-  - `secondsRemaining` calculado com o horário sincronizado
-  - `generateAllCodes()` usando o mesmo horário base para todos os tokens naquele ciclo
-- Melhorar a regeneração:
-  - em vez de depender de `secondsRemaining === 30`, regenerar quando o “time step” mudar
-  - isso evita perder a virada por atraso do `setInterval`
+**Arquivo:** `PlanejadorDrawer.tsx`
+- Mover o `{selectedTask && <PlanejadorTaskDetail .../>}` para **dentro** do `<SheetContent>`, dentro do div com `relative z-10`, após o Kanban
+- Alternativamente, aumentar o z-index do TaskDetail para `z-[70]`
 
-### 4. Garantir experiência consistente na UI
-- Enquanto sincroniza o relógio pela primeira vez, mostrar loading curto ou manter os códigos bloqueados por um instante
-- Se a sincronização falhar, pode cair em fallback local, mas com aviso discreto de que a hora pode estar dessincronizada
+**Arquivo:** `PlanejadorTaskDetail.tsx`
+- Mudar `z-50` para `z-[70]` para garantir que fique acima do drawer em qualquer caso
 
-## Arquivos principais
+## 3. Fundo WhatsApp no chat da tarefa
+
+Adicionar o mesmo padrão SVG sutil usado no CRM (`ChatPanel.tsx`) como fundo da área de mensagens do bate-papo.
+
+**Arquivo:** `PlanejadorTaskChat.tsx`
+- Na div `flex-1 overflow-y-auto p-4 space-y-3` (área de mensagens), adicionar:
+  - `style={{ backgroundImage: ... }}` com o mesmo padrão SVG do ChatPanel
+  - Classe `bg-green-50/30 dark:bg-transparent` para tom suave no light mode
+
+## 4. Botão Perfil com dropdown no lugar do "Sair"
+
+Substituir o botão "Sair" na topbar do `DashboardLayout` por um ícone de avatar/perfil que abre um dropdown inspirado na imagem de referência (estilo Bitrix24).
+
+**Arquivo:** `DashboardLayout.tsx`
+- Remover o `<Button>Sair</Button>` (linhas 403-406)
+- Adicionar um `DropdownMenu` com trigger sendo um avatar circular (usando `Avatar` + iniciais do usuário ou `UserCircle` icon)
+- Conteúdo do dropdown:
+  - Header: nome do usuário + role badge (ex: "Administrador")
+  - Separador
+  - "Tema visual" → chama ThemeToggle (mover o ThemeToggle para dentro do dropdown)
+  - Separador
+  - "Sair" com ícone LogOut → chama `handleLogout`
+- Apenas ícone, sem texto "Perfil" visível
+
+**Componentes usados:** `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuSeparator`, `DropdownMenuLabel`, `Avatar`, `AvatarFallback`
+
+### Arquivos modificados
 
 | Arquivo | Mudança |
-|---|---|
-| `src/lib/totp.ts` | Aceitar timestamp externo no cálculo |
-| `src/components/Dashboard/TOTPSheet.tsx` | Usar hora sincronizada do servidor em vez de `Date.now()` |
-| `src/hooks/` ou `src/lib/` | Novo hook/utilitário de sincronização de relógio |
+|---------|---------|
+| `PlanejadorTopBar.tsx` | Engrenagem → DropdownMenu com "Configurar Colunas" como item |
+| `PlanejadorTaskDetail.tsx` | z-index de `z-50` para `z-[70]` |
+| `PlanejadorTaskChat.tsx` | Fundo estilo WhatsApp na área de mensagens |
+| `DashboardLayout.tsx` | Botão Sair → Avatar dropdown com nome, role, tema, sair |
 
-## Resultado esperado
-
-- Todos os usuários com acesso à mesma carteira verão o mesmo código ao mesmo tempo
-- O contador de expiração ficará alinhado entre usuários
-- Reduz drasticamente o problema de “o código já está inválido quando o outro tenta usar”
-
-## Detalhe técnico
-A correção não exige mudar o secret nem o algoritmo TOTP. O algoritmo já está correto; o que precisa ser unificado é a referência de tempo. TOTP é determinístico: mesmo `secret` + mesma janela de tempo = mesmo código para todos.
