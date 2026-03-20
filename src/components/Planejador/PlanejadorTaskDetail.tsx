@@ -397,7 +397,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
 
       {/* Participants Dialog */}
       <Dialog open={participantsOpen} onOpenChange={setParticipantsOpen}>
-        <DialogContent className="max-w-md z-[80]">
+        <DialogContent className="max-w-md z-[90]">
           <DialogHeader>
             <DialogTitle>Participantes</DialogTitle>
           </DialogHeader>
