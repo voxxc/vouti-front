@@ -81,7 +81,7 @@ export function usePlanejadorTasks() {
   const createTask = useMutation({
     mutationFn: async (task: { titulo: string; descricao?: string; prazo?: string; responsavel_id?: string; prioridade?: string }) => {
       if (!tenantId || !user) throw new Error('Not authenticated');
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('planejador_tasks')
         .insert({
           ...task,
