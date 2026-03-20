@@ -1,62 +1,29 @@
 
 
-# Planejador: Botão X, Configurações, Cadeado e Sidebar/Topbar Collapsível
+# Planejador: Fundo adaptável ao tema (claro/escuro)
 
-## Contexto
+## Problema
 
-O Planejador atualmente usa `side="right"` com fullscreen, cobrindo sidebar e topbar completamente. Todos os outros drawers usam `side="inset"` que respeita sidebar/topbar. Precisamos manter o visual espacial do Planejador mas permitir ver sidebar/topbar quando desejado.
+O fundo espacial escuro do Planejador combina bem com o modo dark, mas no modo claro fica destoante do sidebar e topbar que são claros.
 
-## Mudanças
+## Solução
 
-### 1. Botão X para fechar (`PlanejadorTopBar.tsx`)
-- Adicionar prop `onClose` e renderizar um botão X minimalista no canto direito da top bar
+Gerar uma segunda imagem de fundo para o modo claro — algo suave, luminoso e clean (ex: céu claro com nuvens sutis, ou um gradiente azul-branco abstrato tipo atmosfera) — e alternar entre as duas imagens com base no tema atual.
 
-### 2. Ícone de Configuração (engrenagem) (`PlanejadorTopBar.tsx` + novo `PlanejadorSettings.tsx`)
-- Ícone `Settings` ao lado esquerdo da barra de pesquisa
-- Ao clicar, abre um painel/sheet lateral dentro do drawer com:
-  - Lista de colunas com nome editável (usando `EditableColumnName` existente como referência)
-  - Drag & drop para reordenar colunas
-  - Toggle de visibilidade por coluna
-- State de configuração das colunas salvo em `localStorage` (por tenant) e passado ao Kanban
+### Mudanças
 
-### 3. Ícone de Cadeado (`PlanejadorTopBar.tsx`)
-- Ícone `Lock`/`Unlock` ao lado da engrenagem
-- Quando travado: drag & drop entre colunas desabilitado (não pode mover tarefas)
-- Quando destravado: comportamento normal
-- Padrão: destravado
+**1. Gerar nova imagem** (`src/assets/sky-light-bg.jpg`)
+- Imagem de céu claro/atmosfera luminosa — tons de azul claro, branco e cinza suave que combinam com o sidebar claro
 
-### 4. Sidebar/Topbar com seta collapsível (`PlanejadorDrawer.tsx`)
-- Mudar o Planejador de `side="right"` fullscreen para `side="inset"` (padrão do projeto)
-- Isso automaticamente mostra sidebar e topbar, já que `inset` respeita o layout
-- Adicionar uma seta minimalista (tipo `ChevronLeft`/`ChevronRight` em linha fina) no canto superior esquerdo do drawer
-- Ao clicar, o drawer muda temporariamente para fullscreen (CSS: `left: 0, top: 0`) cobrindo sidebar/topbar
-- Ao clicar novamente, volta ao `inset` mostrando sidebar/topbar
-- O fundo espacial se mantém em ambos os modos
-
-## Arquivos
+**2. `PlanejadorDrawer.tsx`**
+- Importar `useTheme` do `ThemeContext`
+- Importar a nova imagem `skyLightBg`
+- Selecionar o fundo com base no tema: `theme === 'dark' ? spaceBg : skyLightBg`
+- Ajustar o overlay: no modo claro usar `bg-white/30 backdrop-blur-[2px]` em vez de `bg-black/40`
+- Ajustar cores dos textos/ícones da seta expand/collapse para funcionar em ambos os temas
 
 | Arquivo | Mudança |
 |---------|---------|
-| `PlanejadorDrawer.tsx` | Usar `side="inset"`, state de fullscreen toggle, passar props novas ao TopBar e Kanban |
-| `PlanejadorTopBar.tsx` | Botão X (onClose), ícone Settings, ícone Lock/Unlock, seta expand/collapse |
-| `PlanejadorSettings.tsx` | **Novo** — Painel de configurações de colunas (renomear, reordenar, visibilidade) |
-| `PlanejadorKanban.tsx` | Receber `locked` prop para desabilitar drag & drop; receber `columnConfig` para ordem/nomes customizados |
-| `usePlanejadorTasks.ts` | Exportar `KANBAN_COLUMNS` com suporte a override de labels/ordem |
-
-### Detalhe técnico: Configuração de colunas
-
-```typescript
-interface ColumnConfig {
-  id: KanbanColumn;
-  label: string;     // nome customizado
-  visible: boolean;
-  order: number;
-}
-```
-
-Salvo em `localStorage` key `planejador-column-config-{tenantId}`. Se não existir, usa `KANBAN_COLUMNS` padrão. O `PlanejadorSettings` permite editar in-place com drag para reordenar.
-
-### Detalhe técnico: Modo inset vs fullscreen
-
-O drawer usará `side="inset"` por padrão. O state `isExpanded` controla uma classe CSS extra que faz `position: fixed; inset: 0;` sobrepondo sidebar/topbar. Uma seta minimalista (`ChevronRight` quando expandido, `ChevronLeft` quando colapsado) no canto permite alternar.
+| `src/assets/sky-light-bg.jpg` | **Novo** — imagem de fundo clara gerada via AI |
+| `src/components/Planejador/PlanejadorDrawer.tsx` | Detectar tema, alternar fundo e overlay |
 
