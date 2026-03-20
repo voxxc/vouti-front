@@ -62,13 +62,22 @@ export function PlanejadorTopBar({
 
         <div className="flex items-center gap-2">
           {/* Settings */}
-          <button
-            onClick={onOpenSettings}
-            className={`flex items-center justify-center w-9 h-9 rounded-lg ${glassBg} ${glassBgHover} transition-colors`}
-            title="Configurações das colunas"
-          >
-            <Settings className={`h-4 w-4 ${textMuted}`} />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`flex items-center justify-center w-9 h-9 rounded-lg ${glassBg} ${glassBgHover} transition-colors`}
+                title="Configurações"
+              >
+                <Settings className={`h-4 w-4 ${textMuted}`} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={onOpenSettings} className="gap-2 cursor-pointer">
+                <Columns className="h-4 w-4" />
+                Configurar Colunas
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Lock */}
           <button

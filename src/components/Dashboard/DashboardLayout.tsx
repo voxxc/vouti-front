@@ -400,8 +400,6 @@ const DashboardLayout = ({
                 </>
               )}
 
-              <ThemeToggle />
-              
               {isAdmin && onCreateUser && (
                 <Button variant="outline" size="sm" onClick={onCreateUser} className="gap-2">
                   <Settings size={16} />
@@ -409,10 +407,11 @@ const DashboardLayout = ({
                 </Button>
               )}
               
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
-                <LogOut size={16} />
-                <span className="hidden sm:inline">Sair</span>
-              </Button>
+              <ProfileDropdown
+                userName={currentUser?.name || user?.email || 'Usuário'}
+                userRole={currentUser?.role || 'advogado'}
+                onLogout={handleLogout}
+              />
             </div>
           </div>
         </header>
