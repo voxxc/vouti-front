@@ -48,6 +48,56 @@ import { PlanejadorDrawer } from "@/components/Planejador/PlanejadorDrawer";
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  controller: 'Controller',
+  financeiro: 'Financeiro',
+  comercial: 'Comercial',
+  agenda: 'Agenda',
+  advogado: 'Advogado',
+  estagiario: 'Estagiário',
+  perito: 'Perito',
+};
+
+function ProfileDropdown({ userName, userRole, onLogout }: { userName: string; userRole: string; onLogout: () => void }) {
+  const { theme, toggleTheme } = useTheme();
+  const initials = userName
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full bg-primary/15 hover:bg-primary/25 transition-colors text-primary font-semibold text-xs"
+          title="Perfil"
+        >
+          {initials || <UserCircle className="h-5 w-5" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
+          <span className="font-semibold text-sm truncate">{userName}</span>
+          <span className="text-xs text-muted-foreground font-normal">{ROLE_LABELS[userRole] || userRole}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={toggleTheme} className="gap-2 cursor-pointer">
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === 'dark' ? 'Tema Claro' : 'Tema Escuro'}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+          <LogOut className="h-4 w-4" />
+          Sair
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 interface DashboardLayoutProps {
   children: ReactNode;
   currentPage?: 'dashboard' | 'projects' | 'agenda' | 'crm' | 'financial' | 'controladoria' | 'reunioes' | 'extras' | 'documentos';
