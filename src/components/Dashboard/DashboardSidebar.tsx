@@ -118,7 +118,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   // Verificar acesso ao item considerando feature flags
   const hasAccessToItem = (itemId: string) => {
     // Dashboard e Extras sempre visíveis
-    if (itemId === 'dashboard' || itemId === 'extras') return true;
+    if (itemId === 'dashboard' || itemId === 'extras' || itemId === 'planejador') return true;
     
     // Vouti.Bot - verificar feature flag + role admin
     if (itemId === 'whatsapp') {

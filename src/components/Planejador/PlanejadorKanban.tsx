@@ -1,13 +1,17 @@
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskCard } from "./PlanejadorTaskCard";
-import { addDays, startOfWeek, endOfWeek, addWeeks, setHours } from "date-fns";
+import { ColumnConfig } from "./PlanejadorSettings";
+import { endOfWeek, addWeeks, setHours } from "date-fns";
+import { useMemo } from "react";
 
 interface PlanejadorKanbanProps {
   tasksByColumn: Record<KanbanColumn, PlanejadorTask[]>;
   onTaskClick: (task: PlanejadorTask) => void;
   onMoveTask: (taskId: string, updates: Partial<PlanejadorTask>) => void;
   searchQuery: string;
+  locked?: boolean;
+  columnConfig?: ColumnConfig[];
 }
 
 function getDeadlineForColumn(column: KanbanColumn): string | null {
@@ -24,9 +28,23 @@ function getDeadlineForColumn(column: KanbanColumn): string | null {
   }
 }
 
-export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searchQuery }: PlanejadorKanbanProps) {
+export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searchQuery, locked = false, columnConfig }: PlanejadorKanbanProps) {
+  const columns = useMemo(() => {
+    if (!columnConfig || columnConfig.length === 0) {
+      return KANBAN_COLUMNS.map(col => ({ ...col, visible: true }));
+    }
+    return [...columnConfig]
+      .sort((a, b) => a.order - b.order)
+      .filter(c => c.visible)
+      .map(c => ({
+        id: c.id,
+        label: c.label,
+        color: c.color,
+      }));
+  }, [columnConfig]);
+
   const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+    if (locked || !result.destination) return;
     const destColumn = result.destination.droppableId as KanbanColumn;
     const taskId = result.draggableId;
 
@@ -54,8 +72,8 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="flex gap-4 overflow-x-auto pb-4 h-full min-h-0">
-        {KANBAN_COLUMNS.map((col) => {
-          const tasks = filterTasks(tasksByColumn[col.id]);
+        {columns.map((col) => {
+          const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
             <div key={col.id} className="flex-shrink-0 w-72 flex flex-col min-h-0">
               {/* Column Header */}
@@ -66,7 +84,7 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
               </div>
 
               {/* Column Body */}
-              <Droppable droppableId={col.id}>
+              <Droppable droppableId={col.id} isDropDisabled={locked}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
@@ -78,7 +96,7 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
                     }`}
                   >
                     {tasks.map((task, index) => (
-                      <Draggable key={task.id} draggableId={task.id} index={index}>
+                      <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={locked}>
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
