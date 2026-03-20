@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
  * para gerar códigos TOTP, independente do relógio local.
  */
 export function useServerTime(enabled: boolean) {
-  const [offsetMs, setOffsetMs] = useState<number>(0);
   const [isSynced, setIsSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const offsetRef = useRef(0);
@@ -19,28 +18,13 @@ export function useServerTime(enabled: boolean) {
     try {
       const clientBefore = Date.now();
       
-      // Usa uma query leve para pegar o horário do servidor
-      const { data, error } = await supabase
-        .rpc('get_server_time_ms');
+      // Usa RPC para pegar o horário do servidor (cast para bypass de tipos)
+      const { data, error } = await (supabase.rpc as any)('get_server_time_ms');
       
       const clientAfter = Date.now();
       
-      if (error || !data) {
-        // Fallback: usar query simples
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('tenants')
-          .select('id')
-          .limit(1);
-        
-        // Se mesmo o fallback falhar, usar relógio local (offset = 0)
-        if (fallbackError) {
-          console.warn('[useServerTime] Falha na sincronização, usando relógio local');
-          setIsSynced(true);
-          setIsSyncing(false);
-          return;
-        }
-        
-        // Sem RPC disponível, usar relógio local
+      if (error || data == null) {
+        console.warn('[useServerTime] Falha na sincronização, usando relógio local');
         setIsSynced(true);
         setIsSyncing(false);
         return;
@@ -53,7 +37,6 @@ export function useServerTime(enabled: boolean) {
       const newOffset = serverNowMs - estimatedClientAtServerTime;
       
       offsetRef.current = newOffset;
-      setOffsetMs(newOffset);
       setIsSynced(true);
     } catch (err) {
       console.warn('[useServerTime] Erro na sincronização:', err);
@@ -63,12 +46,9 @@ export function useServerTime(enabled: boolean) {
     }
   }, []);
 
-  // Sincronizar quando habilitado
   useEffect(() => {
     if (!enabled) return;
-    
     sync();
-    
     // Recalibrar a cada 5 minutos
     const interval = setInterval(sync, 5 * 60 * 1000);
     return () => clearInterval(interval);
@@ -78,5 +58,5 @@ export function useServerTime(enabled: boolean) {
     return Date.now() + offsetRef.current;
   }, []);
 
-  return { getSyncedNow, isSynced, isSyncing, offsetMs, resync: sync };
+  return { getSyncedNow, isSynced, isSyncing, resync: sync };
 }
