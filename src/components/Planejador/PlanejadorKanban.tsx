@@ -4,6 +4,7 @@ import { PlanejadorTaskCard } from "./PlanejadorTaskCard";
 import { ColumnConfig } from "./PlanejadorSettings";
 import { endOfWeek, addWeeks, setHours } from "date-fns";
 import { useMemo } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface PlanejadorKanbanProps {
   tasksByColumn: Record<KanbanColumn, PlanejadorTask[]>;
@@ -29,6 +30,9 @@ function getDeadlineForColumn(column: KanbanColumn): string | null {
 }
 
 export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searchQuery, locked = false, columnConfig }: PlanejadorKanbanProps) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const columns = useMemo(() => {
     if (!columnConfig || columnConfig.length === 0) {
       return KANBAN_COLUMNS.map(col => ({ ...col, visible: true }));
@@ -69,6 +73,12 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
     return tasks.filter(t => t.titulo.toLowerCase().includes(q));
   };
 
+  const text = isDark ? 'text-white' : 'text-foreground';
+  const textMuted = isDark ? 'text-white/40' : 'text-foreground/40';
+  const textEmpty = isDark ? 'text-white/20' : 'text-foreground/20';
+  const colBg = isDark ? 'bg-white/[0.03]' : 'bg-black/[0.03]';
+  const colDragOver = isDark ? 'bg-white/10 ring-1 ring-white/20' : 'bg-black/5 ring-1 ring-black/10';
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="flex gap-4 overflow-x-auto pb-4 h-full min-h-0">
@@ -79,8 +89,8 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
               {/* Column Header */}
               <div className="flex items-center gap-2 mb-3 px-1">
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
-                <span className="text-sm font-semibold text-white truncate">{col.label}</span>
-                <span className="text-xs text-white/40 font-medium">({tasks.length})</span>
+                <span className={`text-sm font-semibold truncate ${text}`}>{col.label}</span>
+                <span className={`text-xs font-medium ${textMuted}`}>({tasks.length})</span>
               </div>
 
               {/* Column Body */}
@@ -90,9 +100,7 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={`flex-1 min-h-[200px] rounded-xl p-2 space-y-2 transition-colors overflow-y-auto ${
-                      snapshot.isDraggingOver
-                        ? 'bg-white/10 ring-1 ring-white/20'
-                        : 'bg-white/[0.03]'
+                      snapshot.isDraggingOver ? colDragOver : colBg
                     }`}
                   >
                     {tasks.map((task, index) => (
@@ -111,7 +119,7 @@ export function PlanejadorKanban({ tasksByColumn, onTaskClick, onMoveTask, searc
                     ))}
                     {provided.placeholder}
                     {tasks.length === 0 && !snapshot.isDraggingOver && (
-                      <div className="flex items-center justify-center h-20 text-white/20 text-xs">
+                      <div className={`flex items-center justify-center h-20 text-xs ${textEmpty}`}>
                         Nenhuma tarefa
                       </div>
                     )}
