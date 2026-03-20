@@ -1,30 +1,22 @@
 
-# Fix: Planejador modo claro — textos e elementos invisíveis
+
+# Fix: Contagem de tokens inconsistente entre usuários
 
 ## Problema
 
-Todos os textos e ícones no TopBar e Kanban estão hardcoded com `text-white`, `text-white/50`, `bg-white/10`, etc. No modo claro com fundo luminoso, isso fica ilegível ou feio.
+Os **tokens** são buscados sem filtro de permissão (linha 90-94 — busca todos os tokens do tenant), enquanto as **carteiras** são filtradas por `totp_wallet_viewers` para usuários não-admin. Resultado: um usuário comum vê tokens de carteiras que ele nem tem acesso, gerando contagem diferente entre usuários.
 
 ## Solução
 
-Usar o `useTheme` para alternar as cores de texto e fundos em 3 arquivos:
+Filtrar os tokens no `useTOTPData.ts` para que usuários não-admin só vejam tokens das carteiras visíveis para eles.
 
-### 1. `PlanejadorTopBar.tsx`
-- Importar `useTheme`
-- Substituir todas as classes `text-white` por condicionais:
-  - Dark: `text-white`, `text-white/50`, `bg-white/10`, `border-white/10`
-  - Light: `text-foreground`, `text-foreground/50`, `bg-black/5`, `border-black/10`
-- Aplicar em: título, ícones, botões, input de pesquisa, tabs, bordas
+### Mudança em `src/hooks/useTOTPData.ts`
 
-### 2. `PlanejadorKanban.tsx`
-- Importar `useTheme`
-- Column headers: `text-white` → condicional `text-foreground` no light
-- Column body: `bg-white/[0.03]` → `bg-black/[0.03]` no light
-- Drag over: `bg-white/10 ring-white/20` → `bg-black/5 ring-black/10` no light
-- Empty state: `text-white/20` → `text-foreground/20` no light
-- Counter: `text-white/40` → `text-foreground/40` no light
+Na query de tokens (linha 86-100):
+- Adicionar dependência de `isAdminOrController` e `user?.id` na queryKey
+- Se admin/controller: manter busca atual (todos os tokens do tenant)
+- Se usuário comum: primeiro buscar `wallet_ids` do `totp_wallet_viewers`, depois filtrar tokens com `.in('wallet_id', walletIds)`
+- Se não tem carteiras visíveis, retornar array vazio
 
-### 3. `PlanejadorDrawer.tsx`
-- Loader spinner: `text-white/50` → condicional no light
+Lógica idêntica à já usada na query de wallets (linha 61-79), aplicada aos tokens.
 
-3 arquivos, apenas mudanças de classes CSS condicionais por tema.
