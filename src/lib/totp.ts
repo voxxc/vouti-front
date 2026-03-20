@@ -87,9 +87,19 @@ export async function generateTOTP(base32Secret: string, timestampMs?: number): 
 
 /**
  * Retorna quantos segundos restam até o próximo código
+ * @param timestampMs - Timestamp em milissegundos (default: Date.now())
  */
-export function getSecondsRemaining(): number {
-  return 30 - (Math.floor(Date.now() / 1000) % 30);
+export function getSecondsRemaining(timestampMs?: number): number {
+  const now = timestampMs ?? Date.now();
+  return 30 - (Math.floor(now / 1000) % 30);
+}
+
+/**
+ * Retorna o time step atual (muda a cada 30s)
+ */
+export function getTimeStep(timestampMs?: number): number {
+  const now = timestampMs ?? Date.now();
+  return Math.floor(now / 1000 / 30);
 }
 
 /**
