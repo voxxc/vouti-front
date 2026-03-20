@@ -99,7 +99,7 @@ export function usePlanejadorTasks() {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<PlanejadorTask> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('planejador_tasks')
         .update(updates)
         .eq('id', id)
