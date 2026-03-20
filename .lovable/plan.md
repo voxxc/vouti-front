@@ -1,24 +1,23 @@
 
 
-# Fix: TaskDetail conflita com o Drawer do Planejador
+# Fix: Double-click no fundo fecha a tarefa do Planejador
 
 ## Problema
-
-O `PlanejadorTaskDetail` é renderizado como `fixed inset-0 z-[70]` fora do `Sheet` (que usa Radix Portal). Isso causa conflito de stacking context — o backdrop do TaskDetail compete com o portal do Sheet, resultando em bugs visuais e de interação (cliques não funcionam, elementos ficam por baixo).
+No padrão do Vouti, double-click no overlay/fundo fecha o modal (vide `dialog.tsx` que despacha Escape no `onDoubleClick`). O `PlanejadorTaskDetail` usa um portal customizado sem esse comportamento.
 
 ## Solução
 
-Mover o `PlanejadorTaskDetail` para **dentro** de um **React Portal** próprio (`createPortal` para `document.body`), garantindo que ele fique no topo da árvore DOM, acima de qualquer outro portal (incluindo o do Sheet/Radix).
+**Arquivo:** `src/components/Planejador/PlanejadorTaskDetail.tsx`
 
-### Mudanças
+Adicionar `onDoubleClick={onClose}` no `div` externo (backdrop `fixed inset-0 z-[80]`), e garantir que o conteúdo interno tenha `e.stopPropagation()` no `onDoubleClick` para não fechar ao double-click dentro do painel.
 
-**`PlanejadorTaskDetail.tsx`**
-- Envolver o retorno em `createPortal(..., document.body)` para garantir que o overlay do task detail fique sempre acima do drawer
-- Aumentar z-index para `z-[80]` por segurança
-- Adicionar `pointer-events-auto` no container interno para garantir que cliques funcionem
+```tsx
+<div className="fixed inset-0 z-[80] ..." onDoubleClick={onClose}>
+  <div className="flex w-full ..." onDoubleClick={(e) => e.stopPropagation()}>
+    ...
+  </div>
+</div>
+```
 
-**`PlanejadorDrawer.tsx`**
-- Nenhuma mudança necessária — o TaskDetail já está fora do Sheet, mas agora com o portal ele será renderizado corretamente no body
-
-Resultado: o TaskDetail sempre sobrepõe o drawer do Planejador sem conflitos.
+Uma mudança de 2 linhas. Segue o mesmo padrão do `DialogOverlay` do projeto.
 
