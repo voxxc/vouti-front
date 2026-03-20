@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/Common/ThemeToggle"; // kept for ProfileDropdown
+
 import { AvisoBanner } from "@/components/Common/AvisoBanner";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
