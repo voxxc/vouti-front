@@ -26,7 +26,7 @@ import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { useTenantFeatures } from "@/hooks/useTenantFeatures";
 
-export type ActiveDrawer = 'projetos' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
+export type ActiveDrawer = 'projetos' | 'planejador' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
