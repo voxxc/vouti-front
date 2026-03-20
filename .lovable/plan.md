@@ -1,29 +1,30 @@
 
-
-# Planejador: Fundo adaptável ao tema (claro/escuro)
+# Fix: Planejador modo claro — textos e elementos invisíveis
 
 ## Problema
 
-O fundo espacial escuro do Planejador combina bem com o modo dark, mas no modo claro fica destoante do sidebar e topbar que são claros.
+Todos os textos e ícones no TopBar e Kanban estão hardcoded com `text-white`, `text-white/50`, `bg-white/10`, etc. No modo claro com fundo luminoso, isso fica ilegível ou feio.
 
 ## Solução
 
-Gerar uma segunda imagem de fundo para o modo claro — algo suave, luminoso e clean (ex: céu claro com nuvens sutis, ou um gradiente azul-branco abstrato tipo atmosfera) — e alternar entre as duas imagens com base no tema atual.
+Usar o `useTheme` para alternar as cores de texto e fundos em 3 arquivos:
 
-### Mudanças
+### 1. `PlanejadorTopBar.tsx`
+- Importar `useTheme`
+- Substituir todas as classes `text-white` por condicionais:
+  - Dark: `text-white`, `text-white/50`, `bg-white/10`, `border-white/10`
+  - Light: `text-foreground`, `text-foreground/50`, `bg-black/5`, `border-black/10`
+- Aplicar em: título, ícones, botões, input de pesquisa, tabs, bordas
 
-**1. Gerar nova imagem** (`src/assets/sky-light-bg.jpg`)
-- Imagem de céu claro/atmosfera luminosa — tons de azul claro, branco e cinza suave que combinam com o sidebar claro
+### 2. `PlanejadorKanban.tsx`
+- Importar `useTheme`
+- Column headers: `text-white` → condicional `text-foreground` no light
+- Column body: `bg-white/[0.03]` → `bg-black/[0.03]` no light
+- Drag over: `bg-white/10 ring-white/20` → `bg-black/5 ring-black/10` no light
+- Empty state: `text-white/20` → `text-foreground/20` no light
+- Counter: `text-white/40` → `text-foreground/40` no light
 
-**2. `PlanejadorDrawer.tsx`**
-- Importar `useTheme` do `ThemeContext`
-- Importar a nova imagem `skyLightBg`
-- Selecionar o fundo com base no tema: `theme === 'dark' ? spaceBg : skyLightBg`
-- Ajustar o overlay: no modo claro usar `bg-white/30 backdrop-blur-[2px]` em vez de `bg-black/40`
-- Ajustar cores dos textos/ícones da seta expand/collapse para funcionar em ambos os temas
+### 3. `PlanejadorDrawer.tsx`
+- Loader spinner: `text-white/50` → condicional no light
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/assets/sky-light-bg.jpg` | **Novo** — imagem de fundo clara gerada via AI |
-| `src/components/Planejador/PlanejadorDrawer.tsx` | Detectar tema, alternar fundo e overlay |
-
+3 arquivos, apenas mudanças de classes CSS condicionais por tema.
