@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/Common/ThemeToggle";
+
 import { AvisoBanner } from "@/components/Common/AvisoBanner";
 import { GlobalSearch } from "@/components/Search/GlobalSearch";
 import { ProjectQuickSearch } from "@/components/Search/ProjectQuickSearch";
@@ -9,7 +9,16 @@ import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { EtapaModal } from "@/components/Project/EtapaModal";
-import { LogOut, Settings, Loader2, Clock } from "lucide-react";
+import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/contexts/ThemeContext";
 
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +47,56 @@ import { PlanejadorDrawer } from "@/components/Planejador/PlanejadorDrawer";
 
 // ID do sistema "Gestão Jurídica" para avisos
 const GESTAO_JURIDICA_ID = 'e571a35b-1b38-4b8a-bea2-e7bdbe2cdf82';
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  controller: 'Controller',
+  financeiro: 'Financeiro',
+  comercial: 'Comercial',
+  agenda: 'Agenda',
+  advogado: 'Advogado',
+  estagiario: 'Estagiário',
+  perito: 'Perito',
+};
+
+function ProfileDropdown({ userName, userRole, onLogout }: { userName: string; userRole: string; onLogout: () => void }) {
+  const { theme, toggleTheme } = useTheme();
+  const initials = userName
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full bg-primary/15 hover:bg-primary/25 transition-colors text-primary font-semibold text-xs"
+          title="Perfil"
+        >
+          {initials || <UserCircle className="h-5 w-5" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
+          <span className="font-semibold text-sm truncate">{userName}</span>
+          <span className="text-xs text-muted-foreground font-normal">{ROLE_LABELS[userRole] || userRole}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={toggleTheme} className="gap-2 cursor-pointer">
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === 'dark' ? 'Tema Claro' : 'Tema Escuro'}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+          <LogOut className="h-4 w-4" />
+          Sair
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -391,8 +450,6 @@ const DashboardLayout = ({
                 </>
               )}
 
-              <ThemeToggle />
-              
               {isAdmin && onCreateUser && (
                 <Button variant="outline" size="sm" onClick={onCreateUser} className="gap-2">
                   <Settings size={16} />
@@ -400,10 +457,11 @@ const DashboardLayout = ({
                 </Button>
               )}
               
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
-                <LogOut size={16} />
-                <span className="hidden sm:inline">Sair</span>
-              </Button>
+              <ProfileDropdown
+                userName={currentUser?.name || user?.email || 'Usuário'}
+                userRole={currentUser?.role || 'advogado'}
+                onLogout={handleLogout}
+              />
             </div>
           </div>
         </header>

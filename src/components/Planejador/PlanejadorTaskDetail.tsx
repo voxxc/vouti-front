@@ -48,7 +48,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200">
       <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background">
         
         {/* Left Panel - Task Details (45%) */}
