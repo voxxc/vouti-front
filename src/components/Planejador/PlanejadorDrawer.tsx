@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlanejadorTopBar } from "./PlanejadorTopBar";
 import { PlanejadorKanban } from "./PlanejadorKanban";
 import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
