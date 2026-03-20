@@ -9,7 +9,16 @@ import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { EtapaModal } from "@/components/Project/EtapaModal";
-import { LogOut, Settings, Loader2, Clock } from "lucide-react";
+import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/contexts/ThemeContext";
 
 import { TOTPSheet } from "./TOTPSheet";
 import { useAuth } from "@/contexts/AuthContext";
