@@ -9,6 +9,7 @@ import { Send, User, MessageSquare, Paperclip, Mic, MicOff, X, Reply, Image as I
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface PlanejadorTaskChatProps {
   taskId: string;
@@ -71,7 +72,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   const { data: messages = [] } = useQuery({
     queryKey: ['planejador-messages', taskId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('planejador_task_messages')
         .select('*')
         .eq('task_id', taskId)
@@ -103,7 +104,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       fileName?: string;
     }) => {
       if (!user || !tenantId) throw new Error('Not authenticated');
-      const { error } = await (supabase as any).from('planejador_task_messages').insert({
+      const { error } = await supabase.from('planejador_task_messages').insert({
         task_id: taskId,
         user_id: user.id,
         content: params.content,
@@ -119,6 +120,9 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
       setMessage("");
       setReplyingTo(null);
+    },
+    onError: () => {
+      toast.error("Erro ao enviar mensagem");
     },
   });
 
@@ -210,6 +214,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
+      toast.error("Erro ao enviar arquivo");
       return;
     }
 
@@ -292,6 +297,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
     if (uploadError) {
       console.error('Audio upload error:', uploadError);
+      toast.error("Erro ao enviar áudio");
       return;
     }
 
