@@ -143,7 +143,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200 pointer-events-auto" onDoubleClick={onClose}>
+      <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200 pointer-events-auto" onDoubleClick={(e) => { e.stopPropagation(); onClose(); }}>
         <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background" onDoubleClick={(e) => e.stopPropagation()}>
 
           {/* Left Panel */}
