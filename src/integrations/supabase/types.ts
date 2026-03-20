@@ -9616,6 +9616,7 @@ export type Database = {
           name: string
         }[]
       }
+      get_server_time_ms: { Args: never; Returns: number }
       get_tenant_by_slug: {
         Args: { p_slug: string }
         Returns: {

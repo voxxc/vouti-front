@@ -48,11 +48,14 @@ function numberToBytes(num: number): Uint8Array {
 
 /**
  * Gera código TOTP de 6 dígitos
+ * @param base32Secret - Secret em Base32
+ * @param timestampMs - Timestamp em milissegundos (default: Date.now())
  */
-export async function generateTOTP(base32Secret: string): Promise<string> {
+export async function generateTOTP(base32Secret: string, timestampMs?: number): Promise<string> {
   try {
     const secret = base32Decode(base32Secret);
-    const timeCounter = Math.floor(Date.now() / 1000 / 30);
+    const now = timestampMs ?? Date.now();
+    const timeCounter = Math.floor(now / 1000 / 30);
     const timeBytes = numberToBytes(timeCounter);
     
     const key = await crypto.subtle.importKey(
@@ -84,9 +87,19 @@ export async function generateTOTP(base32Secret: string): Promise<string> {
 
 /**
  * Retorna quantos segundos restam até o próximo código
+ * @param timestampMs - Timestamp em milissegundos (default: Date.now())
  */
-export function getSecondsRemaining(): number {
-  return 30 - (Math.floor(Date.now() / 1000) % 30);
+export function getSecondsRemaining(timestampMs?: number): number {
+  const now = timestampMs ?? Date.now();
+  return 30 - (Math.floor(now / 1000) % 30);
+}
+
+/**
+ * Retorna o time step atual (muda a cada 30s)
+ */
+export function getTimeStep(timestampMs?: number): number {
+  const now = timestampMs ?? Date.now();
+  return Math.floor(now / 1000 / 30);
 }
 
 /**

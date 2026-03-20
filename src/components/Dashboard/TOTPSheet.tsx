@@ -3,7 +3,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, ShieldCheck, Wallet, Upload, Loader2 } from "lucide-react";
-import { generateTOTP, getSecondsRemaining } from "@/lib/totp";
+import { generateTOTP, getSecondsRemaining, getTimeStep } from "@/lib/totp";
+import { useServerTime } from "@/hooks/useServerTime";
 import { toast } from "sonner";
 import { TOTPWallet, TOTPToken, LegacyTOTPStorage, LegacyTOTPToken } from "@/types/totp";
 import { WalletCard } from "./TOTP/WalletCard";
@@ -82,6 +83,7 @@ function getLocalStorageData(): LegacyTOTPStorage | null {
 
 export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
   const { tenantId } = useTenantId();
+  const { getSyncedNow, isSynced } = useServerTime(open);
   const { 
     wallets: dbWallets, 
     tokens: dbTokens, 
@@ -101,9 +103,12 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
   const tokens = dbTokens.map(dbTokenToFrontend);
 
   const [codes, setCodes] = useState<Record<string, string>>({});
-  const [secondsRemaining, setSecondsRemaining] = useState(getSecondsRemaining());
+  const [secondsRemaining, setSecondsRemaining] = useState(30);
   const tokensRef = useRef(tokens);
   tokensRef.current = tokens;
+  const getSyncedNowRef = useRef(getSyncedNow);
+  getSyncedNowRef.current = getSyncedNow;
+  const lastTimeStepRef = useRef<number>(-1);
   const [localData, setLocalData] = useState<LegacyTOTPStorage | null>(null);
   
   // Dialog states
@@ -124,12 +129,13 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
     }
   }, [open]);
 
-  // Generate codes for all tokens
-  const generateAllCodes = useCallback(async () => {
+  // Generate codes for all tokens using synced time
+  const generateAllCodes = useCallback(async (nowMs?: number) => {
+    const ts = nowMs ?? getSyncedNowRef.current();
     const newCodes: Record<string, string> = {};
     for (const token of tokensRef.current) {
       try {
-        newCodes[token.id] = await generateTOTP(token.secret);
+        newCodes[token.id] = await generateTOTP(token.secret, ts);
       } catch {
         newCodes[token.id] = '------';
       }
@@ -137,31 +143,36 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
     setCodes(newCodes);
   }, []);
 
-  // Effect 1: Timer - atualiza a cada segundo
+  // Unified timer: updates countdown and regenerates codes on time step change
   useEffect(() => {
-    if (!open) return;
+    if (!open || !isSynced) return;
 
-    setSecondsRemaining(getSecondsRemaining());
+    const tick = () => {
+      const now = getSyncedNowRef.current();
+      setSecondsRemaining(getSecondsRemaining(now));
+      
+      const currentStep = getTimeStep(now);
+      if (currentStep !== lastTimeStepRef.current) {
+        lastTimeStepRef.current = currentStep;
+        if (tokensRef.current.length > 0) {
+          generateAllCodes(now);
+        }
+      }
+    };
 
-    const interval = setInterval(() => {
-      setSecondsRemaining(getSecondsRemaining());
-    }, 1000);
+    tick(); // immediate
 
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [open]);
+  }, [open, isSynced, generateAllCodes]);
 
-  // Effect 2: Gerar códigos quando tokens mudam
+  // Generate codes when tokens list changes
   useEffect(() => {
-    if (!open || tokens.length === 0) return;
-    generateAllCodes();
-  }, [open, tokens.length, generateAllCodes]);
-
-  // Effect 3: Regenerar códigos quando timer reseta
-  useEffect(() => {
-    if (secondsRemaining === 30 && tokensRef.current.length > 0) {
-      generateAllCodes();
-    }
-  }, [secondsRemaining, generateAllCodes]);
+    if (!open || !isSynced || tokens.length === 0) return;
+    const now = getSyncedNowRef.current();
+    lastTimeStepRef.current = getTimeStep(now);
+    generateAllCodes(now);
+  }, [open, isSynced, tokens.length, generateAllCodes]);
 
   // Handler para migrar dados locais
   const handleMigrateData = async () => {
@@ -266,9 +277,10 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
               </Button>
             </div>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
+            {(isLoading || !isSynced) ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                {!isSynced && <span className="text-xs text-muted-foreground">Sincronizando relógio...</span>}
               </div>
             ) : wallets.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
