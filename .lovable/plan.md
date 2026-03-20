@@ -1,23 +1,20 @@
 
 
-# Fix: Double-click no fundo fecha a tarefa do Planejador
+# Fix: Double-click na tarefa não deve fechar o drawer do Planejador
 
 ## Problema
-No padrão do Vouti, double-click no overlay/fundo fecha o modal (vide `dialog.tsx` que despacha Escape no `onDoubleClick`). O `PlanejadorTaskDetail` usa um portal customizado sem esse comportamento.
+
+O double-click no backdrop do TaskDetail fecha a tarefa (correto), mas o evento continua propagando pelo DOM e atinge o Sheet/Radix do Planejador, fechando o drawer também.
 
 ## Solução
 
-**Arquivo:** `src/components/Planejador/PlanejadorTaskDetail.tsx`
+**Arquivo:** `src/components/Planejador/PlanejadorTaskDetail.tsx` (linha 146)
 
-Adicionar `onDoubleClick={onClose}` no `div` externo (backdrop `fixed inset-0 z-[80]`), e garantir que o conteúdo interno tenha `e.stopPropagation()` no `onDoubleClick` para não fechar ao double-click dentro do painel.
+No handler `onDoubleClick` do backdrop externo, chamar `e.stopPropagation()` antes de `onClose()` para impedir que o evento chegue ao drawer:
 
 ```tsx
-<div className="fixed inset-0 z-[80] ..." onDoubleClick={onClose}>
-  <div className="flex w-full ..." onDoubleClick={(e) => e.stopPropagation()}>
-    ...
-  </div>
-</div>
+onDoubleClick={(e) => { e.stopPropagation(); onClose(); }}
 ```
 
-Uma mudança de 2 linhas. Segue o mesmo padrão do `DialogOverlay` do projeto.
+Uma mudança de 1 linha.
 
