@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskChat } from "./PlanejadorTaskChat";
 import { Button } from "@/components/ui/button";
