@@ -432,6 +432,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </>,
+    document.body
   );
 }
