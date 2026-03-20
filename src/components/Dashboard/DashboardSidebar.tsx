@@ -97,6 +97,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   // Mapeamento de seções para roles que têm acesso
   const sectionRoleMap: Record<string, string[]> = {
     'projetos': ['advogado', 'controller', 'estagiario', 'perito'],
+    'planejador': ['advogado', 'controller', 'estagiario', 'perito'],
     'agenda': ['advogado', 'controller', 'agenda', 'estagiario', 'perito'],
     'clientes': ['comercial'],
     'financeiro': ['financeiro'],
