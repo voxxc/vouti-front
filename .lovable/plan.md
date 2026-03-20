@@ -1,22 +1,54 @@
 
+# Fix: sincronizar códigos TOTP entre todos os usuários
 
-# Fix: Contagem de tokens inconsistente entre usuários
+## Entendimento do problema
 
-## Problema
+Hoje os códigos são gerados no frontend com `Date.now()` em `src/lib/totp.ts`. Isso faz cada navegador usar o próprio relógio local para calcular o TOTP. Se o relógio de um usuário estiver alguns segundos adiantado/atrasado, ele entra em outra janela de 30s e vê um código diferente do restante.
 
-Os **tokens** são buscados sem filtro de permissão (linha 90-94 — busca todos os tokens do tenant), enquanto as **carteiras** são filtradas por `totp_wallet_viewers` para usuários não-admin. Resultado: um usuário comum vê tokens de carteiras que ele nem tem acesso, gerando contagem diferente entre usuários.
+Ou seja: o problema não é mais a visibilidade dos tokens, e sim a base de tempo usada para gerar os códigos.
 
-## Solução
+## O que precisa mudar
 
-Filtrar os tokens no `useTOTPData.ts` para que usuários não-admin só vejam tokens das carteiras visíveis para eles.
+### 1. Parar de usar o relógio local como fonte principal
+- Ajustar `src/lib/totp.ts` para aceitar um timestamp de referência:
+  - `generateTOTP(secret, timestampMs?)`
+  - `getSecondsRemaining(timestampMs?)`
+- Assim o cálculo deixa de depender obrigatoriamente de `Date.now()`.
 
-### Mudança em `src/hooks/useTOTPData.ts`
+### 2. Criar sincronização de relógio do cliente com o servidor
+- Criar um hook/utilitário para obter um “offset” entre o relógio do navegador e o horário do servidor/Supabase.
+- Fluxo:
+  - buscar horário do servidor ao abrir o `TOTPSheet`
+  - calcular `serverOffsetMs = serverNow - clientNow`
+  - usar sempre `Date.now() + serverOffsetMs` para gerar código e contador
+  - recalibrar periodicamente e quando o drawer for reaberto
 
-Na query de tokens (linha 86-100):
-- Adicionar dependência de `isAdminOrController` e `user?.id` na queryKey
-- Se admin/controller: manter busca atual (todos os tokens do tenant)
-- Se usuário comum: primeiro buscar `wallet_ids` do `totp_wallet_viewers`, depois filtrar tokens com `.in('wallet_id', walletIds)`
-- Se não tem carteiras visíveis, retornar array vazio
+## 3. Aplicar isso no `TOTPSheet`
+- Trocar toda a lógica atual para gerar os códigos com o timestamp sincronizado:
+  - estado local de `serverOffsetMs`
+  - `secondsRemaining` calculado com o horário sincronizado
+  - `generateAllCodes()` usando o mesmo horário base para todos os tokens naquele ciclo
+- Melhorar a regeneração:
+  - em vez de depender de `secondsRemaining === 30`, regenerar quando o “time step” mudar
+  - isso evita perder a virada por atraso do `setInterval`
 
-Lógica idêntica à já usada na query de wallets (linha 61-79), aplicada aos tokens.
+### 4. Garantir experiência consistente na UI
+- Enquanto sincroniza o relógio pela primeira vez, mostrar loading curto ou manter os códigos bloqueados por um instante
+- Se a sincronização falhar, pode cair em fallback local, mas com aviso discreto de que a hora pode estar dessincronizada
 
+## Arquivos principais
+
+| Arquivo | Mudança |
+|---|---|
+| `src/lib/totp.ts` | Aceitar timestamp externo no cálculo |
+| `src/components/Dashboard/TOTPSheet.tsx` | Usar hora sincronizada do servidor em vez de `Date.now()` |
+| `src/hooks/` ou `src/lib/` | Novo hook/utilitário de sincronização de relógio |
+
+## Resultado esperado
+
+- Todos os usuários com acesso à mesma carteira verão o mesmo código ao mesmo tempo
+- O contador de expiração ficará alinhado entre usuários
+- Reduz drasticamente o problema de “o código já está inválido quando o outro tenta usar”
+
+## Detalhe técnico
+A correção não exige mudar o secret nem o algoritmo TOTP. O algoritmo já está correto; o que precisa ser unificado é a referência de tempo. TOTP é determinístico: mesmo `secret` + mesma janela de tempo = mesmo código para todos.
