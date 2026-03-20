@@ -7,8 +7,10 @@ import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import spaceBg from "@/assets/space-bg.jpg";
+import skyLightBg from "@/assets/sky-light-bg.jpg";
 
 interface PlanejadorDrawerProps {
   open: boolean;
