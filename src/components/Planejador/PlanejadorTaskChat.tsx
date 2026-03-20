@@ -23,7 +23,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   const { data: messages = [] } = useQuery({
     queryKey: ['planejador-messages', taskId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('planejador_task_messages')
         .select('*')
         .eq('task_id', taskId)
