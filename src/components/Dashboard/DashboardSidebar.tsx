@@ -135,6 +135,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
   const menuItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard', route: '/dashboard' },
     { id: 'projetos', icon: FolderOpen, label: 'Projetos', route: '/projects' },
+    { id: 'planejador', icon: LayoutGrid, label: 'Planejador', route: '/planejador' },
     { id: 'agenda', icon: Calendar, label: 'Agenda', route: '/agenda' },
     { id: 'clientes', icon: Users, label: 'Clientes', route: '/clientes' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
