@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskChat } from "./PlanejadorTaskChat";
 import { Button } from "@/components/ui/button";
@@ -140,9 +141,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     { key: 'marcadores', icon: Tag, label: 'Marcadores', count: `${assignedLabelIds.length}` },
   ];
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200 pointer-events-auto">
         <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background">
 
           {/* Left Panel */}
@@ -396,7 +397,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
 
       {/* Participants Dialog */}
       <Dialog open={participantsOpen} onOpenChange={setParticipantsOpen}>
-        <DialogContent className="max-w-md z-[80]">
+        <DialogContent className="max-w-md z-[90]">
           <DialogHeader>
             <DialogTitle>Participantes</DialogTitle>
           </DialogHeader>
@@ -431,6 +432,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </>,
+    document.body
   );
 }
