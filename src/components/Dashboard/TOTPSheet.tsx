@@ -129,12 +129,13 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
     }
   }, [open]);
 
-  // Generate codes for all tokens
-  const generateAllCodes = useCallback(async () => {
+  // Generate codes for all tokens using synced time
+  const generateAllCodes = useCallback(async (nowMs?: number) => {
+    const ts = nowMs ?? getSyncedNowRef.current();
     const newCodes: Record<string, string> = {};
     for (const token of tokensRef.current) {
       try {
-        newCodes[token.id] = await generateTOTP(token.secret);
+        newCodes[token.id] = await generateTOTP(token.secret, ts);
       } catch {
         newCodes[token.id] = '------';
       }
@@ -142,31 +143,36 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
     setCodes(newCodes);
   }, []);
 
-  // Effect 1: Timer - atualiza a cada segundo
+  // Unified timer: updates countdown and regenerates codes on time step change
   useEffect(() => {
-    if (!open) return;
+    if (!open || !isSynced) return;
 
-    setSecondsRemaining(getSecondsRemaining());
+    const tick = () => {
+      const now = getSyncedNowRef.current();
+      setSecondsRemaining(getSecondsRemaining(now));
+      
+      const currentStep = getTimeStep(now);
+      if (currentStep !== lastTimeStepRef.current) {
+        lastTimeStepRef.current = currentStep;
+        if (tokensRef.current.length > 0) {
+          generateAllCodes(now);
+        }
+      }
+    };
 
-    const interval = setInterval(() => {
-      setSecondsRemaining(getSecondsRemaining());
-    }, 1000);
+    tick(); // immediate
 
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [open]);
+  }, [open, isSynced, generateAllCodes]);
 
-  // Effect 2: Gerar códigos quando tokens mudam
+  // Generate codes when tokens list changes
   useEffect(() => {
-    if (!open || tokens.length === 0) return;
-    generateAllCodes();
-  }, [open, tokens.length, generateAllCodes]);
-
-  // Effect 3: Regenerar códigos quando timer reseta
-  useEffect(() => {
-    if (secondsRemaining === 30 && tokensRef.current.length > 0) {
-      generateAllCodes();
-    }
-  }, [secondsRemaining, generateAllCodes]);
+    if (!open || !isSynced || tokens.length === 0) return;
+    const now = getSyncedNowRef.current();
+    lastTimeStepRef.current = getTimeStep(now);
+    generateAllCodes(now);
+  }, [open, isSynced, tokens.length, generateAllCodes]);
 
   // Handler para migrar dados locais
   const handleMigrateData = async () => {
