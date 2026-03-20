@@ -1,7 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock } from "lucide-react";
+import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PlanejadorTopBarProps {
   onCreateTask: () => void;
