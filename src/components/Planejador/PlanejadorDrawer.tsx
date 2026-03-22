@@ -58,6 +58,8 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
 
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
   const { tenantId } = useTenantId();
   const { theme } = useTheme();
 
