@@ -175,6 +175,7 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
                   labels={labels}
                   selectedLabelIds={selectedLabelIds}
                   onLabelFilterChange={setSelectedLabelIds}
+                  currentUserId={currentUserId}
                 />
               </div>
 

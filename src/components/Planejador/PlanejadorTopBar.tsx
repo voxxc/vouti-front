@@ -32,6 +32,7 @@ interface PlanejadorTopBarProps {
   labels?: PlanejadorLabel[];
   selectedLabelIds: string[];
   onLabelFilterChange: (labelIds: string[]) => void;
+  currentUserId: string | null;
 }
 
 const TABS = [
