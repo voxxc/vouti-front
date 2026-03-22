@@ -46,6 +46,7 @@ export function PlanejadorTopBar({
   onClose, locked, onToggleLock, onOpenSettings,
   profiles = [], selectedUserId, onUserFilterChange,
   labels = [], selectedLabelIds, onLabelFilterChange,
+  currentUserId,
 }: PlanejadorTopBarProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
