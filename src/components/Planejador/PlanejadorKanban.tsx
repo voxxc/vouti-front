@@ -116,7 +116,7 @@ export function PlanejadorKanban({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4 h-full min-h-0">
+      <div className="flex gap-4 pb-4 h-full min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         {columns.map((col) => {
           const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
@@ -131,35 +131,37 @@ export function PlanejadorKanban({
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-1 min-h-[200px] rounded-xl p-2 space-y-2 transition-colors overflow-y-auto ${
+                    className={`flex-1 min-h-[200px] rounded-xl p-2 transition-colors ${
                       snapshot.isDraggingOver ? colDragOver : colBg
                     }`}
                   >
-                    {tasks.map((task, index) => (
-                      <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={locked}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
-                          >
-                            <PlanejadorTaskCard
-                              task={task}
-                              onClick={() => onTaskClick(task)}
-                              labels={labels}
-                              labelAssignments={allLabelAssignments}
-                            />
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                    {tasks.length === 0 && !snapshot.isDraggingOver && (
-                      <div className={`flex items-center justify-center h-20 text-xs ${textEmpty}`}>
-                        Nenhuma tarefa
-                      </div>
-                    )}
+                    <div className="space-y-2 overflow-y-auto h-full">
+                      {tasks.map((task, index) => (
+                        <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={locked}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
+                            >
+                              <PlanejadorTaskCard
+                                task={task}
+                                onClick={() => onTaskClick(task)}
+                                labels={labels}
+                                labelAssignments={allLabelAssignments}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {tasks.length === 0 && !snapshot.isDraggingOver && (
+                        <div className={`flex items-center justify-center h-20 text-xs ${textEmpty}`}>
+                          Nenhuma tarefa
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </Droppable>
