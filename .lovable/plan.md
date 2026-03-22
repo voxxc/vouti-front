@@ -1,43 +1,36 @@
 
 
-# Corrigir bug de tema claro/escuro
+# Corrigir drag-and-drop entre colunas do Kanban
 
-## Problema raiz
+## Problema
 
-Existem dois sistemas de tema independentes que conflitam:
+Dois bugs distintos:
 
-1. **Auth pages** usam `useLocalTheme('auth-theme')` → localStorage key `auth-theme`
-2. **App (após login)** usa `ThemeProvider` → Supabase `theme_preference` + localStorage key `theme`
+1. **Coluna "Vencido" não aceita drop corretamente**: `getDeadlineForColumn('vencido')` retorna `null`, e como não é `sem_prazo` nem `concluido`, a condição `else if (newDeadline)` falha — nenhum `prazo` é atualizado. O card volta para a posição original após o refetch.
 
-Quando o usuário troca tema no dashboard, salva em `theme` e Supabase. Quando volta ao login, lê de `auth-theme` (valor antigo). Além disso, o `ThemeProvider` inicia com `useState('dark')` hardcoded antes de carregar do Supabase, causando flash/inversão.
+2. **Nested scroll containers**: O container pai tem `overflow-x-auto` e cada coluna Droppable tem `overflow-y-auto`, criando scroll aninhado que o `@hello-pangea/dnd` não suporta. Isso pode causar falhas no cálculo de posição durante o drag.
 
-## Solução: Unificar em uma única fonte de verdade
+## Solução
 
-### 1. `ThemeProvider` — inicializar do localStorage (ThemeContext.tsx)
+### 1. Corrigir lógica de `handleDragEnd` (`PlanejadorKanban.tsx`)
 
-- Linha 27: trocar `useState<Theme>('dark')` por ler `localStorage.getItem('theme')` como valor inicial
-- Isso elimina o flash de tema errado durante o carregamento assíncrono do Supabase
+Reescrever para que **todas** as colunas apliquem o prazo corretamente:
 
-### 2. Auth pages — usar a mesma key `theme` (Auth.tsx, CrmLogin.tsx, CrmLanding.tsx)
+- `vencido`: definir prazo para ontem (manter na coluna vencido)
+- `hoje`: hoje às 18h
+- `esta_semana` / `proxima_semana` / `duas_semanas`: fim da semana respectiva
+- `sem_prazo`: prazo = null
+- `concluido`: status = completed (manter prazo existente)
 
-- Trocar `useLocalTheme('auth-theme')` por `useLocalTheme('theme')`
-- Assim auth e app compartilham o mesmo valor de tema
+Simplificar a lógica removendo o `getDeadlineForColumn` e usando a deadline diretamente no `handleDragEnd`.
 
-### 3. AuthThemeToggle — usar key `theme` (AuthThemeToggle.tsx)
+### 2. Eliminar nested scroll (`PlanejadorKanban.tsx`)
 
-- Trocar `useLocalTheme('auth-theme')` por `useLocalTheme('theme')`
+Remover `overflow-y-auto` das colunas Droppable (ou remover `overflow-x-auto` do pai e usar uma abordagem diferente para scroll horizontal). A solução mais simples: mover o `overflow-y-auto` para um wrapper **dentro** do Droppable mas **fora** da ref do Droppable, ou usar `overflow-y: visible` no Droppable.
 
-### 4. Garantir sync Supabase → localStorage (ThemeContext.tsx)
-
-- Quando o tema é carregado do Supabase (linha 50), também salvar em `localStorage.setItem('theme', ...)` para que o próximo login já inicie correto
-
-## Arquivos modificados
+## Arquivo modificado
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/contexts/ThemeContext.tsx` | Inicializar state do localStorage; sync Supabase→localStorage |
-| `src/pages/Auth.tsx` | `useLocalTheme('theme')` |
-| `src/pages/CrmLogin.tsx` | `useLocalTheme('theme')` |
-| `src/pages/CrmLanding.tsx` | `useLocalTheme('theme')` |
-| `src/components/Auth/AuthThemeToggle.tsx` | `useLocalTheme('theme')` |
+| `src/components/Planejador/PlanejadorKanban.tsx` | Corrigir lógica de prazo para coluna "vencido"; resolver nested scroll |
 
