@@ -168,6 +168,16 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
           >
             <div className={`absolute inset-0 backdrop-blur-[2px] ${theme === 'dark' ? 'bg-black/40' : 'bg-white/30'}`} />
 
+            {/* Task detail rendered inside Sheet context for proper focus/interaction */}
+            {selectedTask && (
+              <PlanejadorTaskDetail
+                task={selectedTask}
+                onClose={() => setSelectedTask(null)}
+                onUpdate={handleUpdateTask}
+                onDelete={handleDeleteTask}
+              />
+            )}
+
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={`absolute top-3 left-3 z-20 flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
