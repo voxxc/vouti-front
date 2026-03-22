@@ -55,7 +55,7 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [locked, setLocked] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(currentUserId);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
 
   const { user } = useAuth();
