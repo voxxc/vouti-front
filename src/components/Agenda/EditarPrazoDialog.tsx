@@ -331,7 +331,19 @@ export const EditarPrazoDialog = ({
         });
       }
 
-      // 4. Detailed comment for responsible change
+      // 3b. Detailed comment for date change
+      if (dateChanged && originalDate && date) {
+        const editorRes = await supabase.from('profiles').select('full_name').eq('user_id', user.id).single();
+        const nomeEditor = editorRes.data?.full_name || 'Usuário';
+        const comentarioData = `📅 Data do prazo alterada\nDe: ${format(originalDate, 'dd/MM/yyyy')}\nPara: ${format(date, 'dd/MM/yyyy')}\nMotivo: ${motivoData.trim()}\nAlterado por: ${nomeEditor}`;
+        await supabase.from('deadline_comentarios').insert({
+          deadline_id: deadline.id,
+          user_id: user.id,
+          comentario: comentarioData,
+          tenant_id: tenantId
+        });
+      }
+
       if (responsavelChanged && advogadoId) {
         const [editorRes, antigoRes, novoRes] = await Promise.all([
           supabase.from('profiles').select('full_name').eq('user_id', user.id).single(),
