@@ -22,20 +22,6 @@ interface PlanejadorKanbanProps {
   participantTaskIds?: string[];
 }
 
-function getDeadlineForColumn(column: KanbanColumn): string | null {
-  const now = new Date();
-  switch (column) {
-    case 'hoje': return setHours(now, 18).toISOString();
-    case 'esta_semana': return endOfWeek(now, { weekStartsOn: 1 }).toISOString();
-    case 'proxima_semana': return endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 }).toISOString();
-    case 'duas_semanas': return endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 }).toISOString();
-    case 'sem_prazo': return null;
-    case 'concluido': return null;
-    case 'vencido': return null;
-    default: return null;
-  }
-}
-
 export function PlanejadorKanban({
   tasksByColumn, onTaskClick, onMoveTask, searchQuery, locked = false, columnConfig,
   selectedUserId, selectedLabelIds = [], labels = [], allLabelAssignments = [], participantTaskIds,
@@ -57,15 +43,39 @@ export function PlanejadorKanban({
     if (locked || !result.destination) return;
     const destColumn = result.destination.droppableId as KanbanColumn;
     const taskId = result.draggableId;
+    const now = new Date();
     const updates: Partial<PlanejadorTask> = {};
-    if (destColumn === 'concluido') {
-      updates.status = 'completed';
-    } else {
-      updates.status = 'pending';
-      const newDeadline = getDeadlineForColumn(destColumn);
-      if (destColumn === 'sem_prazo') updates.prazo = null;
-      else if (newDeadline) updates.prazo = newDeadline;
+
+    switch (destColumn) {
+      case 'concluido':
+        updates.status = 'completed';
+        break;
+      case 'vencido':
+        updates.status = 'pending';
+        updates.prazo = subDays(startOfDay(now), 1).toISOString();
+        break;
+      case 'hoje':
+        updates.status = 'pending';
+        updates.prazo = setHours(startOfDay(now), 18).toISOString();
+        break;
+      case 'esta_semana':
+        updates.status = 'pending';
+        updates.prazo = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
+        break;
+      case 'proxima_semana':
+        updates.status = 'pending';
+        updates.prazo = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 }).toISOString();
+        break;
+      case 'duas_semanas':
+        updates.status = 'pending';
+        updates.prazo = endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 }).toISOString();
+        break;
+      case 'sem_prazo':
+        updates.status = 'pending';
+        updates.prazo = null;
+        break;
     }
+
     onMoveTask(taskId, updates);
   };
 
