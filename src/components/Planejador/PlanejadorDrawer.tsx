@@ -49,7 +49,7 @@ function saveColumnConfig(tenantId: string | null, config: ColumnConfig[]) {
   localStorage.setItem(STORAGE_KEY_PREFIX + tenantId, JSON.stringify(config));
 }
 
-export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) {
+export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialTaskConsumed }: PlanejadorDrawerProps) {
   const { user } = useAuth();
   const currentUserId = user?.id || null;
   const { tenantId } = useTenantId();
