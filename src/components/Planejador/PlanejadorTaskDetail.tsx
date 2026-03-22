@@ -13,7 +13,7 @@ import {
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
   Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
-  Milestone, Info, Activity, Pencil,
+  Milestone, Info, Activity, Pencil, Flag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
