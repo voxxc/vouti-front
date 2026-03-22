@@ -28,7 +28,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAuth } from "@/contexts/AuthContext";
 import { EditarPrazoDialog } from "@/components/Agenda/EditarPrazoDialog";
+import { ClienteDetails } from "@/components/CRM/ClienteDetails";
 import { Deadline } from "@/types/agenda";
+import { Cliente } from "@/types/cliente";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -56,8 +58,8 @@ const ACTION_LABELS: Record<string, string> = {
   etapa_deleted: 'Etapa removida',
   cliente_linked: 'Cliente vinculado',
   cliente_unlinked: 'Cliente desvinculado',
-  processo_linked: 'Processo vinculado',
-  processo_unlinked: 'Processo desvinculado',
+  processo_linked: 'Caso vinculado',
+  processo_unlinked: 'Caso desvinculado',
   participant_added: 'Participante adicionado',
   participant_removed: 'Participante removido',
 };
@@ -78,6 +80,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [activeTab, setActiveTab] = useState<'detalhes' | 'info'>('detalhes');
   const [editingPrazoDeadline, setEditingPrazoDeadline] = useState<Deadline | null>(null);
   const [editPrazoOpen, setEditPrazoOpen] = useState(false);
+  const [clienteInfoOpen, setClienteInfoOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -87,7 +90,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
       if (e.key === 'Escape') {
         e.stopPropagation();
         e.preventDefault();
-        if (participantsOpen) {
+        if (clienteInfoOpen) {
+          setClienteInfoOpen(false);
+        } else if (participantsOpen) {
           setParticipantsOpen(false);
         } else if (editPrazoOpen) {
           setEditPrazoOpen(false);
@@ -143,7 +148,22 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     enabled: !!task.cliente_id,
   });
 
-  // Busca clientes
+  // Cliente completo para dialog de info
+  const { data: clienteCompleto } = useQuery({
+    queryKey: ['planejador-cliente-completo', task.cliente_id, clienteInfoOpen],
+    queryFn: async () => {
+      if (!task.cliente_id) return null;
+      const { data } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', task.cliente_id)
+        .single();
+      return data as unknown as Cliente;
+    },
+    enabled: !!task.cliente_id && clienteInfoOpen,
+  });
+
+
   const { data: clientesSearch = [] } = useQuery({
     queryKey: ['planejador-clientes-search', tenantId, clienteSearch],
     queryFn: async () => {
@@ -363,7 +383,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     { key: 'participantes', icon: Users, label: 'Participantes', count: `${participants.participants.length}` },
     { key: 'marcadores', icon: Tag, label: 'Marcadores', count: `${assignedLabelIds.length}` },
     { key: 'cliente', icon: UserCircle, label: 'Cliente', count: clienteNome ? '1' : '0' },
-    { key: 'processo', icon: Scale, label: 'Processo', count: processoVinculado ? '1' : '0' },
+    { key: 'processo', icon: Scale, label: 'Caso / Processo Judicial', count: processoVinculado ? '1' : '0' },
     { key: 'prazos', icon: CalendarClock, label: 'Prazos Relacionados', count: `${prazosRelacionados.length}` },
   ];
 
@@ -557,6 +577,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <p className="text-sm font-medium truncate">{clienteNome}</p>
                       <p className="text-xs text-muted-foreground">{clienteVinculado.cpf || clienteVinculado.cnpj || ''}</p>
                     </div>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary" onClick={() => setClienteInfoOpen(true)} title="Ver dados cadastrais">
+                      <Info className="h-3.5 w-3.5" />
+                    </Button>
                     <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={handleUnlinkCliente}>
                       <Unlink className="h-3.5 w-3.5" />
                     </Button>
@@ -567,13 +590,15 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input value={clienteSearch} onChange={(e) => setClienteSearch(e.target.value)} placeholder="Buscar cliente por nome ou documento..." className="h-8 text-sm pl-8" />
                     </div>
-                    {clientesSearch.map((c: any) => (
-                      <button key={c.id} onClick={() => handleLinkCliente(c.id, c.nome_pessoa_fisica || c.nome_pessoa_juridica)} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
-                        <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="flex-1 text-left truncate">{c.nome_pessoa_fisica || c.nome_pessoa_juridica}</span>
-                        <span className="text-xs text-muted-foreground">{c.cpf || c.cnpj || ''}</span>
-                      </button>
-                    ))}
+                    <div className="max-h-[240px] overflow-y-auto space-y-1">
+                      {clientesSearch.map((c: any) => (
+                        <button key={c.id} onClick={() => handleLinkCliente(c.id, c.nome_pessoa_fisica || c.nome_pessoa_juridica)} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
+                          <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-left truncate">{c.nome_pessoa_fisica || c.nome_pessoa_juridica}</span>
+                          <span className="text-xs text-muted-foreground">{c.cpf || c.cnpj || ''}</span>
+                        </button>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
@@ -599,15 +624,17 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input value={processoSearch} onChange={(e) => setProcessoSearch(e.target.value)} placeholder="Buscar por CNJ, partes..." className="h-8 text-sm pl-8" />
                     </div>
-                    {processosSearch.map((p: any) => (
-                      <button key={p.id} onClick={() => handleLinkProcesso(p.id, p.numero_cnj || '')} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
-                        <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="truncate">{p.numero_cnj || 'Sem CNJ'}</p>
-                          <p className="text-xs text-muted-foreground truncate">{[p.parte_ativa, p.parte_passiva].filter(Boolean).join(' x ')}</p>
-                        </div>
-                      </button>
-                    ))}
+                    <div className="max-h-[240px] overflow-y-auto space-y-1">
+                      {processosSearch.map((p: any) => (
+                        <button key={p.id} onClick={() => handleLinkProcesso(p.id, p.numero_cnj || '')} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
+                          <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="truncate">{p.numero_cnj || 'Sem CNJ'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{[p.parte_ativa, p.parte_passiva].filter(Boolean).join(' x ')}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
@@ -925,6 +952,20 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           tenantId={tenantId}
         />
       )}
+
+      {/* Client Info Dialog */}
+      <Dialog open={clienteInfoOpen} onOpenChange={setClienteInfoOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Dados Cadastrais do Cliente</DialogTitle>
+          </DialogHeader>
+          {clienteCompleto ? (
+            <ClienteDetails cliente={clienteCompleto} onEdit={() => {}} readOnly />
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">Carregando dados...</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
