@@ -363,7 +363,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     { key: 'participantes', icon: Users, label: 'Participantes', count: `${participants.participants.length}` },
     { key: 'marcadores', icon: Tag, label: 'Marcadores', count: `${assignedLabelIds.length}` },
     { key: 'cliente', icon: UserCircle, label: 'Cliente', count: clienteNome ? '1' : '0' },
-    { key: 'processo', icon: Scale, label: 'Processo', count: processoVinculado ? '1' : '0' },
+    { key: 'processo', icon: Scale, label: 'Caso / Processo Judicial', count: processoVinculado ? '1' : '0' },
     { key: 'prazos', icon: CalendarClock, label: 'Prazos Relacionados', count: `${prazosRelacionados.length}` },
   ];
 
