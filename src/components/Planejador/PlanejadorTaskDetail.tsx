@@ -601,15 +601,17 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input value={processoSearch} onChange={(e) => setProcessoSearch(e.target.value)} placeholder="Buscar por CNJ, partes..." className="h-8 text-sm pl-8" />
                     </div>
-                    {processosSearch.map((p: any) => (
-                      <button key={p.id} onClick={() => handleLinkProcesso(p.id, p.numero_cnj || '')} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
-                        <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="truncate">{p.numero_cnj || 'Sem CNJ'}</p>
-                          <p className="text-xs text-muted-foreground truncate">{[p.parte_ativa, p.parte_passiva].filter(Boolean).join(' x ')}</p>
-                        </div>
-                      </button>
-                    ))}
+                    <div className="max-h-[240px] overflow-y-auto space-y-1">
+                      {processosSearch.map((p: any) => (
+                        <button key={p.id} onClick={() => handleLinkProcesso(p.id, p.numero_cnj || '')} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
+                          <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="truncate">{p.numero_cnj || 'Sem CNJ'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{[p.parte_ativa, p.parte_passiva].filter(Boolean).join(' x ')}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
