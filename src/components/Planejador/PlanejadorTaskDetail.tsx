@@ -49,6 +49,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [newSubtaskPrazo, setNewSubtaskPrazo] = useState("");
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
+  const [participantSearch, setParticipantSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
