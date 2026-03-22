@@ -77,6 +77,23 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [activeTab, setActiveTab] = useState<'detalhes' | 'info'>('detalhes');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ESC closes task detail first, not the drawer behind
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        if (participantsOpen) {
+          setParticipantsOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEsc, true);
+    return () => window.removeEventListener('keydown', handleEsc, true);
+  }, [onClose, participantsOpen]);
+
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const status = STATUS_MAP[task.status] || STATUS_MAP.pending;
