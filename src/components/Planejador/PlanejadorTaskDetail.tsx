@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskChat } from "./PlanejadorTaskChat";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
-  Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search,
+  Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -50,6 +50,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
   const [participantSearch, setParticipantSearch] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [processoSearch, setProcessoSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
@@ -76,6 +78,86 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
       return data || [];
     },
     enabled: !!tenantId,
+  });
+
+  // Cliente vinculado
+  const { data: clienteVinculado } = useQuery({
+    queryKey: ['planejador-cliente', task.cliente_id],
+    queryFn: async () => {
+      if (!task.cliente_id) return null;
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nome_pessoa_fisica, nome_pessoa_juridica, cpf, cnpj')
+        .eq('id', task.cliente_id)
+        .single();
+      return data;
+    },
+    enabled: !!task.cliente_id,
+  });
+
+  // Busca clientes
+  const { data: clientesSearch = [] } = useQuery({
+    queryKey: ['planejador-clientes-search', tenantId, clienteSearch],
+    queryFn: async () => {
+      if (!tenantId || !clienteSearch.trim()) return [];
+      const term = `%${clienteSearch.trim()}%`;
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nome_pessoa_fisica, nome_pessoa_juridica, cpf, cnpj')
+        .eq('tenant_id', tenantId)
+        .or(`nome_pessoa_fisica.ilike.${term},nome_pessoa_juridica.ilike.${term},cpf.ilike.${term},cnpj.ilike.${term}`)
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!tenantId && clienteSearch.trim().length >= 2,
+  });
+
+  // Processo vinculado
+  const { data: processoVinculado } = useQuery({
+    queryKey: ['planejador-processo', task.processo_oab_id],
+    queryFn: async () => {
+      if (!task.processo_oab_id) return null;
+      const { data } = await (supabase as any)
+        .from('processos_oab')
+        .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+        .eq('id', task.processo_oab_id)
+        .single();
+      return data;
+    },
+    enabled: !!task.processo_oab_id,
+  });
+
+  // Busca processos
+  const { data: processosSearch = [] } = useQuery({
+    queryKey: ['planejador-processos-search', tenantId, processoSearch],
+    queryFn: async () => {
+      if (!tenantId || !processoSearch.trim()) return [];
+      const term = `%${processoSearch.trim()}%`;
+      const { data } = await (supabase as any)
+        .from('processos_oab')
+        .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+        .eq('tenant_id', tenantId)
+        .or(`numero_cnj.ilike.${term},parte_ativa.ilike.${term},parte_passiva.ilike.${term}`)
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!tenantId && processoSearch.trim().length >= 2,
+  });
+
+  // Prazos relacionados ao processo
+  const { data: prazosRelacionados = [] } = useQuery({
+    queryKey: ['planejador-prazos', task.processo_oab_id, tenantId],
+    queryFn: async () => {
+      if (!task.processo_oab_id || !tenantId) return [];
+      const { data } = await supabase
+        .from('deadlines')
+        .select('id, title, date, completed')
+        .eq('processo_oab_id', task.processo_oab_id)
+        .eq('tenant_id', tenantId)
+        .order('date', { ascending: true });
+      return data || [];
+    },
+    enabled: !!task.processo_oab_id && !!tenantId,
   });
 
   const handleTitleBlur = () => {
@@ -130,6 +212,10 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     return `${(bytes / 1048576).toFixed(1)} MB`;
   };
 
+  const clienteNome = clienteVinculado
+    ? (clienteVinculado.nome_pessoa_fisica || clienteVinculado.nome_pessoa_juridica || 'Cliente')
+    : null;
+
   const sidebarItems = [
     {
       key: 'subtarefas',
@@ -140,6 +226,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     { key: 'arquivos', icon: FileText, label: 'Arquivos', count: `${files.files.length}` },
     { key: 'participantes', icon: Users, label: 'Participantes', count: `${participants.participants.length}` },
     { key: 'marcadores', icon: Tag, label: 'Marcadores', count: `${assignedLabelIds.length}` },
+    { key: 'cliente', icon: UserCircle, label: 'Cliente', count: clienteNome ? '1' : '0' },
+    { key: 'processo', icon: Scale, label: 'Processo', count: processoVinculado ? '1' : '0' },
+    { key: 'prazos', icon: CalendarClock, label: 'Prazos Relacionados', count: `${prazosRelacionados.length}` },
   ];
 
   return createPortal(
@@ -362,6 +451,130 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                             </button>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {/* CLIENTE */}
+                    {key === 'cliente' && expandedSection === 'cliente' && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {clienteVinculado ? (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/50 border border-border">
+                            <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{clienteNome}</p>
+                              <p className="text-xs text-muted-foreground">{clienteVinculado.cpf || clienteVinculado.cnpj || ''}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => onUpdate(task.id, { cliente_id: null } as any)}
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                value={clienteSearch}
+                                onChange={(e) => setClienteSearch(e.target.value)}
+                                placeholder="Buscar cliente por nome ou documento..."
+                                className="h-8 text-sm pl-8"
+                              />
+                            </div>
+                            {clientesSearch.map((c: any) => (
+                              <button
+                                key={c.id}
+                                onClick={() => { onUpdate(task.id, { cliente_id: c.id } as any); setClienteSearch(""); }}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors"
+                              >
+                                <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="flex-1 text-left truncate">{c.nome_pessoa_fisica || c.nome_pessoa_juridica}</span>
+                                <span className="text-xs text-muted-foreground">{c.cpf || c.cnpj || ''}</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* PROCESSO */}
+                    {key === 'processo' && expandedSection === 'processo' && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {processoVinculado ? (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/50 border border-border">
+                            <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{processoVinculado.numero_cnj || 'Processo'}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {[processoVinculado.parte_ativa, processoVinculado.parte_passiva].filter(Boolean).join(' x ')}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => onUpdate(task.id, { processo_oab_id: null } as any)}
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                value={processoSearch}
+                                onChange={(e) => setProcessoSearch(e.target.value)}
+                                placeholder="Buscar por CNJ, partes..."
+                                className="h-8 text-sm pl-8"
+                              />
+                            </div>
+                            {processosSearch.map((p: any) => (
+                              <button
+                                key={p.id}
+                                onClick={() => { onUpdate(task.id, { processo_oab_id: p.id } as any); setProcessoSearch(""); }}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors"
+                              >
+                                <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <div className="flex-1 text-left min-w-0">
+                                  <p className="truncate">{p.numero_cnj || 'Sem CNJ'}</p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {[p.parte_ativa, p.parte_passiva].filter(Boolean).join(' x ')}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* PRAZOS RELACIONADOS */}
+                    {key === 'prazos' && expandedSection === 'prazos' && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {!task.processo_oab_id ? (
+                          <p className="text-xs text-muted-foreground py-2">Vincule um processo para ver os prazos relacionados.</p>
+                        ) : prazosRelacionados.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">Nenhum prazo encontrado para este processo.</p>
+                        ) : (
+                          prazosRelacionados.map((prazo: any) => (
+                            <div key={prazo.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-accent/30">
+                              <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{prazo.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(prazo.date), 'dd/MM/yyyy', { locale: ptBR })}
+                                </p>
+                              </div>
+                              <Badge className={`text-xs border-0 ${prazo.completed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                {prazo.completed ? 'Concluído' : 'Pendente'}
+                              </Badge>
+                            </div>
+                          ))
+                        )}
                       </div>
                     )}
                   </div>

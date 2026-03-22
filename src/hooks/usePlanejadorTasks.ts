@@ -17,6 +17,8 @@ export interface PlanejadorTask {
   created_by: string;
   created_at: string;
   updated_at: string;
+  cliente_id: string | null;
+  processo_oab_id: string | null;
 }
 
 export type KanbanColumn = 
