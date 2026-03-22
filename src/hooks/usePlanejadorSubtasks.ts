@@ -59,7 +59,10 @@ export function usePlanejadorSubtasks(taskId: string) {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+    },
   });
 
   const remove = useMutation({
