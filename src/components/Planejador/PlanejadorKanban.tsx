@@ -3,7 +3,7 @@ import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS } from "@/hooks/usePlaneja
 import { PlanejadorTaskCard } from "./PlanejadorTaskCard";
 import { ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
-import { endOfWeek, addWeeks, setHours } from "date-fns";
+import { endOfWeek, addWeeks, setHours, subDays, startOfDay } from "date-fns";
 import { useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
