@@ -19,6 +19,10 @@ export interface PlanejadorTask {
   updated_at: string;
   cliente_id: string | null;
   processo_oab_id: string | null;
+  // Subtask-as-card fields
+  is_subtask?: boolean;
+  parent_task_id?: string;
+  parent_task_titulo?: string;
 }
 
 export type KanbanColumn = 
