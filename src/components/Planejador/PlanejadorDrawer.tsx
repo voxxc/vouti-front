@@ -244,14 +244,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
         isLoading={createTask.isPending}
       />
 
-      {selectedTask && (
-        <PlanejadorTaskDetail
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdate={handleUpdateTask}
-          onDelete={handleDeleteTask}
-        />
-      )}
+      {/* Task detail is now rendered INSIDE the Sheet to inherit focus context */}
     </>
   );
 }
