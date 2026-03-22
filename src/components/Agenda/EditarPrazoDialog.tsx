@@ -76,10 +76,12 @@ export const EditarPrazoDialog = ({
     setTitle(deadline.title || '');
     setDescription(deadline.description || '');
     setDate(deadline.date);
+    setOriginalDate(deadline.date);
     const initialAdvogado = deadline.advogadoResponsavel?.userId || null;
     setAdvogadoId(initialAdvogado);
     setOriginalAdvogadoId(initialAdvogado);
     setMotivoTroca('');
+    setMotivoData('');
     const initialTagged = deadline.taggedUsers?.map(u => u.userId) || [];
     setTaggedUsers(initialTagged);
     setOriginalTaggedUsers(initialTagged);
