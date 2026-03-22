@@ -14,7 +14,19 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    // Fallback for HMR or when used outside provider
+    const stored = (typeof window !== 'undefined' ? localStorage.getItem('theme') : null) as Theme || 'dark';
+    return {
+      theme: stored,
+      toggleTheme: () => {
+        const newTheme = stored === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', newTheme);
+        const root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(newTheme);
+        window.location.reload();
+      }
+    };
   }
   return context;
 };
